@@ -114,24 +114,24 @@ public class TableFunctionMatcher
                 }
                 TableArgumentValue expectedTableArgument = (TableArgumentValue) expected;
                 TableArgumentProperties argumentProperties = tableFunctionNode.getTableArgumentProperties().get(expectedTableArgument.sourceIndex());
-                if (!name.equals(argumentProperties.getArgumentName())) {
+                if (!name.equals(argumentProperties.argumentName())) {
                     return NO_MATCH;
                 }
-                if (expectedTableArgument.rowSemantics() != argumentProperties.isRowSemantics() ||
-                        expectedTableArgument.pruneWhenEmpty() != argumentProperties.isPruneWhenEmpty() ||
-                        expectedTableArgument.passThroughColumns() != argumentProperties.getPassThroughSpecification().declaredAsPassThrough()) {
+                if (expectedTableArgument.rowSemantics() != argumentProperties.rowSemantics() ||
+                        expectedTableArgument.pruneWhenEmpty() != argumentProperties.pruneWhenEmpty() ||
+                        expectedTableArgument.passThroughColumns() != argumentProperties.passThroughSpecification().declaredAsPassThrough()) {
                     return NO_MATCH;
                 }
                 boolean specificationMatches = expectedTableArgument.specification()
                         .map(specification -> specification.getExpectedValue(symbolAliases))
-                        .equals(argumentProperties.getSpecification());
+                        .equals(argumentProperties.specification());
                 if (!specificationMatches) {
                     return NO_MATCH;
                 }
                 Set<Reference> expectedPassThrough = expectedTableArgument.passThroughSymbols().stream()
                         .map(symbolAliases::get)
                         .collect(toImmutableSet());
-                Set<Reference> actualPassThrough = argumentProperties.getPassThroughSpecification().columns().stream()
+                Set<Reference> actualPassThrough = argumentProperties.passThroughSpecification().columns().stream()
                         .map(PassThroughColumn::symbol)
                         .map(Symbol::toSymbolReference)
                         .collect(toImmutableSet());

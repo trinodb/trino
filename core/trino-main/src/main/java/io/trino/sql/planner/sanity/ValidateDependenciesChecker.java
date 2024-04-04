@@ -235,17 +235,17 @@ public final class ValidateDependenciesChecker
 
                 checkDependencies(
                         inputs,
-                        argumentProperties.getRequiredColumns(),
+                        argumentProperties.requiredColumns(),
                         "Invalid node. Required input symbols from source %s (%s) not in source plan output (%s)",
-                        argumentProperties.getArgumentName(),
-                        argumentProperties.getRequiredColumns(),
+                        argumentProperties.argumentName(),
+                        argumentProperties.requiredColumns(),
                         source.getOutputSymbols());
-                argumentProperties.getSpecification().ifPresent(specification -> {
+                argumentProperties.specification().ifPresent(specification -> {
                     checkDependencies(
                             inputs,
                             specification.getPartitionBy(),
                             "Invalid node. Partition by symbols for source %s (%s) not in source plan output (%s)",
-                            argumentProperties.getArgumentName(),
+                            argumentProperties.argumentName(),
                             specification.getPartitionBy(),
                             source.getOutputSymbols());
                     specification.getOrderingScheme().ifPresent(orderingScheme -> {
@@ -253,19 +253,19 @@ public final class ValidateDependenciesChecker
                                 inputs,
                                 orderingScheme.getOrderBy(),
                                 "Invalid node. Order by symbols for source %s (%s) not in source plan output (%s)",
-                                argumentProperties.getArgumentName(),
+                                argumentProperties.argumentName(),
                                 orderingScheme.getOrderBy(),
                                 source.getOutputSymbols());
                     });
                 });
-                Set<Symbol> passThroughSymbols = argumentProperties.getPassThroughSpecification().columns().stream()
+                Set<Symbol> passThroughSymbols = argumentProperties.passThroughSpecification().columns().stream()
                         .map(PassThroughColumn::symbol)
                         .collect(toImmutableSet());
                 checkDependencies(
                         inputs,
                         passThroughSymbols,
                         "Invalid node. Pass-through symbols for source %s (%s) not in source plan output (%s)",
-                        argumentProperties.getArgumentName(),
+                        argumentProperties.argumentName(),
                         passThroughSymbols,
                         source.getOutputSymbols());
             }
