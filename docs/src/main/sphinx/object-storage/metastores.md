@@ -496,8 +496,9 @@ The REST catalog does not support [view management](sql-view-management) or
 ### JDBC catalog
 
 The Iceberg JDBC catalog is supported for the Iceberg connector.  At a minimum,
-`iceberg.jdbc-catalog.driver-class`, `iceberg.jdbc-catalog.connection-url`
-and `iceberg.jdbc-catalog.catalog-name` must be configured. When using any
+`iceberg.jdbc-catalog.driver-class`, `iceberg.jdbc-catalog.connection-url`,
+`iceberg.jdbc-catalog.default-warehouse-dir`, and
+`iceberg.jdbc-catalog.catalog-name` must be configured. When using any
 database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
 directory.
 
@@ -511,12 +512,8 @@ Refer to [Iceberg repository](https://github.com/apache/iceberg/blob/main/core/s
 for creating those tables.
 :::
 
-At a minimum, `iceberg.jdbc-catalog.driver-class`,
-`iceberg.jdbc-catalog.connection-url`, and
-`iceberg.jdbc-catalog.catalog-name` must be configured. When using any
-database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
-directory. The following example shows a minimal catalog configuration using an
-Iceberg REST metadata catalog:
+The following example shows a minimal catalog configuration using an
+Iceberg JDBC metadata catalog:
 
 ```text
 connector.name=iceberg
