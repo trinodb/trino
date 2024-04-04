@@ -16,9 +16,12 @@ package io.trino.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.common.collect.ComparisonChain;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
+
+import java.util.Comparator;
 
 import static java.util.Objects.requireNonNull;
 
@@ -93,6 +96,9 @@ public class Symbol
     @Override
     public int compareTo(Symbol o)
     {
-        return name.compareTo(o.name);
+        return ComparisonChain.start()
+                .compare(name, o.name)
+                .compare(type, o.type, Comparator.comparing(Type::getDisplayName))
+                .result();
     }
 }
