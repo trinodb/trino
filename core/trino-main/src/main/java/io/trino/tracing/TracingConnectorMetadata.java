@@ -808,6 +808,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    {
+        Span span = startSpan("createView", viewName);
+        try (var ignored = scopedSpan(span)) {
+            delegate.createView(session, viewName, definition, viewProperties, replace);
+        }
+    }
+
+    @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         Span span = startSpan("createView", viewName);
@@ -867,6 +876,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("getView", viewName);
         try (var ignored = scopedSpan(span)) {
             return delegate.getView(session, viewName);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
+    {
+        Span span = startSpan("getViewProperties", viewName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getViewProperties(session, viewName);
         }
     }
 
