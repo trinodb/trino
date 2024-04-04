@@ -144,6 +144,6 @@ public class TestCreateViewTask
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of());
-        return new CreateViewTask(metadata, new AllowAllAccessControl(), parser, analyzerFactory).execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new CreateViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory).execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }
