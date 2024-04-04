@@ -85,8 +85,8 @@ public class PushDownDereferencesThroughTopNRanking
         dereferences = dereferences.stream()
                 .filter(expression -> {
                     Symbol symbol = getBase(expression);
-                    return !specification.getPartitionBy().contains(symbol)
-                            && !specification.getOrderingScheme().map(OrderingScheme::getOrderBy).orElse(ImmutableList.of()).contains(symbol);
+                    return !specification.partitionBy().contains(symbol)
+                            && !specification.orderingScheme().map(OrderingScheme::getOrderBy).orElse(ImmutableList.of()).contains(symbol);
                 })
                 .collect(toImmutableSet());
 

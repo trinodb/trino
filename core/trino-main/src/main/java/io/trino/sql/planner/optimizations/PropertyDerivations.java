@@ -360,7 +360,7 @@ public final class PropertyDerivations
             }
 
             List<Symbol> partitionBy = node.getSpecification()
-                    .map(DataOrganizationSpecification::getPartitionBy)
+                    .map(DataOrganizationSpecification::partitionBy)
                     .orElse(ImmutableList.of());
             if (!partitionBy.isEmpty()) {
                 localProperties.add(new GroupingProperty<>(partitionBy));

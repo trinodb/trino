@@ -267,7 +267,7 @@ public final class CanonicalSubplanExtractor
         {
             PlanNode source = node.getSource();
 
-            if (!node.isPartial() || node.getHashSymbol().isPresent() || node.getSpecification().getOrderingScheme().isEmpty()) {
+            if (!node.isPartial() || node.getHashSymbol().isPresent() || node.getSpecification().orderingScheme().isEmpty()) {
                 canonicalizeRecursively(source);
                 return Optional.empty();
             }

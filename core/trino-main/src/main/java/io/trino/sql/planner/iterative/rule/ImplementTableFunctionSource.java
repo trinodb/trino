@@ -324,7 +324,7 @@ public class ImplementTableFunctionSource
                 ImmutableSet.of(),
                 0);
 
-        return new NodeWithSymbols(window, rowNumber, partitionSize, specification.getPartitionBy(), argumentProperties.pruneWhenEmpty(), rowNumberSymbolMapping);
+        return new NodeWithSymbols(window, rowNumber, partitionSize, specification.partitionBy(), argumentProperties.pruneWhenEmpty(), rowNumberSymbolMapping);
     }
 
     private static NodeWithSymbols copartition(
