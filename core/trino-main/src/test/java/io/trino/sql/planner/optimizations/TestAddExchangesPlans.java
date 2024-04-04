@@ -274,9 +274,9 @@ public class TestAddExchangesPlans
                                 anyTree(
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1", "partition2"),
                                                 values(
-                                                        ImmutableList.of("field", "partition2", "partition1"),
+                                                        ImmutableList.of("partition1", "partition2", "field"),
                                                         ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L), new Constant(INTEGER, 1L))))),
-                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3", "partition4"),
                                                 values(
                                                         ImmutableList.of("partition3", "partition4", "field_0"),
                                                         ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L), new Constant(INTEGER, 1L)))))))));
@@ -292,7 +292,7 @@ public class TestAddExchangesPlans
                                 anyTree(
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1"),
                                                 values(
-                                                        ImmutableList.of("field", "partition2", "partition1"),
+                                                        ImmutableList.of("partition1", "partition2", "field"),
                                                         ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L), new Constant(INTEGER, 1L))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
                                                 values(
