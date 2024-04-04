@@ -69,7 +69,7 @@ Trino supports the following Snowflake data types:
 | `binary(n)`    | `varbinary`    |
 | `varbinary`    | `varbinary`    |
 | `date`         | `date`         |
-| `time`         | `time`         |
+| `time(n)`      | `time(n)`      |
 | `timestampntz` | `timestamp`    |
 
 Complete list of [Snowflake data types](https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html).

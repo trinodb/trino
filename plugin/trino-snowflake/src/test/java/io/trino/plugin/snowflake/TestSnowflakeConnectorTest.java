@@ -115,9 +115,7 @@ public class TestSnowflakeConnectorTest
             return Optional.empty();
         }
         // Error: Failed to insert data: SQL compilation error: error line 1 at position 130
-        if (typeName.equals("time")
-                || typeName.equals("time(6)")
-                || typeName.equals("timestamp(6)")) {
+        if (typeName.equals("timestamp(6)")) {
             return Optional.empty();
         }
         // Error: not equal

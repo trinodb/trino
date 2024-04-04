@@ -74,7 +74,6 @@ import io.trino.spi.type.VarcharType;
 
 import java.math.RoundingMode;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -246,7 +245,7 @@ public class SnowflakeClient
         }
 
         final Map<String, WriteMappingFunction> snowflakeWriteMappings = ImmutableMap.<String, WriteMappingFunction>builder()
-                .put("TimeType", writeType -> WriteMapping.longMapping("time", timeWriteFunction(((TimeType) writeType).getPrecision())))
+                .put("TimeType", writeType -> WriteMapping.longMapping(format("time(%s)", ((TimeType) writeType).getPrecision()), timeWriteFunction(((TimeType) writeType).getPrecision())))
                 .put("ShortTimestampType", SnowflakeClient::snowFlakeTimestampWriter)
                 .put("ShortTimestampWithTimeZoneType", SnowflakeClient::snowFlakeTimestampWithTZWriter)
                 .put("LongTimestampType", SnowflakeClient::snowFlakeTimestampWithTZWriter)
@@ -469,26 +468,13 @@ public class SnowflakeClient
     private static LongWriteFunction timeWriteFunction(int precision)
     {
         checkArgument(precision <= MAX_SUPPORTED_TEMPORAL_PRECISION, "Unsupported precision: %s", precision);
-        return new LongWriteFunction()
-        {
-            @Override
-            public String getBindExpression()
-            {
-                return format("CAST(? AS time(%s))", precision);
+        return (statement, index, picosOfDay) -> {
+            picosOfDay = Timestamps.round(picosOfDay, 12 - precision);
+            if (picosOfDay == Timestamps.PICOSECONDS_PER_DAY) {
+                picosOfDay = 0;
             }
-
-            @Override
-            public void set(PreparedStatement statement, int index, long picosOfDay)
-                    throws SQLException
-            {
-                picosOfDay = Timestamps.round(picosOfDay, 12 - precision);
-                if (picosOfDay == Timestamps.PICOSECONDS_PER_DAY) {
-                    picosOfDay = 0;
-                }
-                LocalTime localTime = LocalTime.ofNanoOfDay(picosOfDay / PICOSECONDS_PER_NANOSECOND);
-                // statement.setObject(.., localTime) would yield incorrect end result for 23:59:59.999000
-                statement.setString(index, SNOWFLAKE_TIME_FORMATTER.format(localTime));
-            }
+            LocalTime localTime = LocalTime.ofNanoOfDay(picosOfDay / PICOSECONDS_PER_NANOSECOND);
+            statement.setString(index, SNOWFLAKE_TIME_FORMATTER.format(localTime));
         };
     }
 
