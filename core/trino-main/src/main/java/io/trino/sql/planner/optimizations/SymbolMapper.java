@@ -280,12 +280,12 @@ public class SymbolMapper
 
     private SpecificationWithPreSortedPrefix mapAndDistinct(DataOrganizationSpecification specification, int preSorted)
     {
-        Optional<OrderingSchemeWithPreSortedPrefix> newOrderingScheme = specification.getOrderingScheme()
+        Optional<OrderingSchemeWithPreSortedPrefix> newOrderingScheme = specification.orderingScheme()
                 .map(orderingScheme -> map(orderingScheme, preSorted));
 
         return new SpecificationWithPreSortedPrefix(
                 new DataOrganizationSpecification(
-                        mapAndDistinct(specification.getPartitionBy()),
+                        mapAndDistinct(specification.partitionBy()),
                         newOrderingScheme.map(OrderingSchemeWithPreSortedPrefix::orderingScheme)),
                 newOrderingScheme.map(OrderingSchemeWithPreSortedPrefix::preSorted).orElse(preSorted));
     }
@@ -293,8 +293,8 @@ public class SymbolMapper
     public DataOrganizationSpecification mapAndDistinct(DataOrganizationSpecification specification)
     {
         return new DataOrganizationSpecification(
-                mapAndDistinct(specification.getPartitionBy()),
-                specification.getOrderingScheme().map(this::map));
+                mapAndDistinct(specification.partitionBy()),
+                specification.orderingScheme().map(this::map));
     }
 
     public PatternRecognitionNode map(PatternRecognitionNode node, PlanNode source)

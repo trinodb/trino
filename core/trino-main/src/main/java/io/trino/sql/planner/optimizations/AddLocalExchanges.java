@@ -499,7 +499,7 @@ public class AddLocalExchanges
                 return rebaseAndDeriveProperties(node, ImmutableList.of(child));
             }
 
-            List<Symbol> partitionBy = node.getSpecification().orElseThrow().getPartitionBy();
+            List<Symbol> partitionBy = node.getSpecification().orElseThrow().partitionBy();
             StreamPreferredProperties childRequirements;
             if (!node.isPruneWhenEmpty()) {
                 childRequirements = singleStream();
@@ -517,7 +517,7 @@ public class AddLocalExchanges
             if (!partitionBy.isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(partitionBy));
             }
-            node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
+            node.getSpecification().flatMap(DataOrganizationSpecification::orderingScheme).ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
 
             Set<Symbol> prePartitionedInputs = ImmutableSet.of();

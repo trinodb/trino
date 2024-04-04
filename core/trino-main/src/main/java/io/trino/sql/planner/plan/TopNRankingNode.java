@@ -62,7 +62,7 @@ public final class TopNRankingNode
 
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
-        checkArgument(specification.getOrderingScheme().isPresent(), "specification orderingScheme is absent");
+        checkArgument(specification.orderingScheme().isPresent(), "specification orderingScheme is absent");
         requireNonNull(rankingType, "rankingType is null");
         requireNonNull(rankingSymbol, "rankingSymbol is null");
         checkArgument(maxRankingPerPartition > 0, "maxRankingPerPartition must be > 0");
@@ -106,12 +106,12 @@ public final class TopNRankingNode
 
     public List<Symbol> getPartitionBy()
     {
-        return specification.getPartitionBy();
+        return specification.partitionBy();
     }
 
     public OrderingScheme getOrderingScheme()
     {
-        return specification.getOrderingScheme().get();
+        return specification.orderingScheme().get();
     }
 
     @JsonProperty

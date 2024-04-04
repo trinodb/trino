@@ -1659,14 +1659,14 @@ public class LocalExecutionPlanner
             }
 
             List<Integer> partitionChannels = node.getSpecification()
-                    .map(DataOrganizationSpecification::getPartitionBy)
+                    .map(DataOrganizationSpecification::partitionBy)
                     .map(list -> getChannelsForSymbols(list, source.getLayout()))
                     .orElse(ImmutableList.of());
 
             List<Integer> sortChannels = ImmutableList.of();
             List<SortOrder> sortOrders = ImmutableList.of();
-            if (node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).isPresent()) {
-                OrderingScheme orderingScheme = node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).orElseThrow();
+            if (node.getSpecification().flatMap(DataOrganizationSpecification::orderingScheme).isPresent()) {
+                OrderingScheme orderingScheme = node.getSpecification().flatMap(DataOrganizationSpecification::orderingScheme).orElseThrow();
                 sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), source.getLayout());
                 sortOrders = orderingScheme.getOrderingList();
             }
