@@ -600,6 +600,7 @@ public class TimeSharingTaskExecutor
                                 log.error(t, "Error processing %s", split.getInfo());
                             }
                         }
+                        split.markFailed(t);
                         splitFinished(split);
                     }
                     finally {
