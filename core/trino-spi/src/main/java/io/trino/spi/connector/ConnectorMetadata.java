@@ -972,6 +972,22 @@ public interface ConnectorMetadata
      * Create the specified view. The view definition is intended to
      * be serialized by the connector for permanent storage.
      */
+    default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    {
+        if (viewProperties.isEmpty()) {
+            createView(session, viewName, definition, replace);
+            return;
+        }
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating views");
+    }
+
+    /**
+     * Create the specified view. The view definition is intended to
+     * be serialized by the connector for permanent storage.
+     *
+     * @deprecated use {@link #createView(ConnectorSession, SchemaTableName, ConnectorViewDefinition, Map, boolean)}
+     */
+    @Deprecated
     default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating views");
@@ -1036,6 +1052,15 @@ public interface ConnectorMetadata
     default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Gets the view properties for the specified view.
+     */
+    @Experimental(eta = "2024-06-01")
+    default Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Map.of();
     }
 
     /**

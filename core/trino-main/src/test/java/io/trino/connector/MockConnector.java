@@ -146,6 +146,7 @@ public class MockConnector
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns;
     private final Optional<MockConnectorFactory.StreamRelationColumns> streamRelationColumns;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
+    private final Supplier<List<PropertyMetadata<?>>> getViewProperties;
     private final Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
     private final BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector;
@@ -199,6 +200,7 @@ public class MockConnector
             Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns,
             Optional<MockConnectorFactory.StreamRelationColumns> streamRelationColumns,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
+            Supplier<List<PropertyMetadata<?>>> getViewProperties,
             Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
             BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector,
@@ -250,6 +252,7 @@ public class MockConnector
         this.streamTableColumns = requireNonNull(streamTableColumns, "streamTableColumns is null");
         this.streamRelationColumns = requireNonNull(streamRelationColumns, "streamRelationColumns is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
+        this.getViewProperties = requireNonNull(getViewProperties, "getViewProperties is null");
         this.getMaterializedViewProperties = requireNonNull(getMaterializedViewProperties, "getMaterializedViewProperties is null");
         this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
         this.delegateMaterializedViewRefreshToConnector = requireNonNull(delegateMaterializedViewRefreshToConnector, "delegateMaterializedViewRefreshToConnector is null");
@@ -408,6 +411,12 @@ public class MockConnector
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties.get();
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getViewProperties()
+    {
+        return getViewProperties.get();
     }
 
     @Override
@@ -766,6 +775,13 @@ public class MockConnector
         public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
         {
             return Optional.ofNullable(getViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName));
+        }
+
+        @Override
+        public Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
+        {
+            return getViewProperties.get().stream()
+                    .collect(toImmutableMap(PropertyMetadata::getName, PropertyMetadata::getDefaultValue));
         }
 
         @Override

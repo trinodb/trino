@@ -29,6 +29,7 @@ import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TablePropertyManager;
+import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorIndexProvider;
@@ -132,6 +133,13 @@ public class CatalogServiceProviderModule
     public static TablePropertyManager createTablePropertyManager(ConnectorServicesProvider connectorServicesProvider)
     {
         return new TablePropertyManager(new ConnectorCatalogServiceProvider<>("table properties", connectorServicesProvider, ConnectorServices::getTableProperties));
+    }
+
+    @Provides
+    @Singleton
+    public static ViewPropertyManager createViewPropertyManager(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ViewPropertyManager(new ConnectorCatalogServiceProvider<>("view properties", connectorServicesProvider, ConnectorServices::getViewProperties));
     }
 
     @Provides

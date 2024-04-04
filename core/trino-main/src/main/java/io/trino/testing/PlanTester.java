@@ -105,6 +105,7 @@ import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TypeRegistry;
+import io.trino.metadata.ViewPropertyManager;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
@@ -228,6 +229,7 @@ import static io.trino.connector.CatalogServiceProviderModule.createTableFunctio
 import static io.trino.connector.CatalogServiceProviderModule.createTableProceduresPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createTableProceduresProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createTablePropertyManager;
+import static io.trino.connector.CatalogServiceProviderModule.createViewPropertyManager;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
@@ -276,6 +278,7 @@ public class PlanTester
     private final SchemaPropertyManager schemaPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
     private final TablePropertyManager tablePropertyManager;
+    private final ViewPropertyManager viewPropertyManager;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
 
@@ -384,6 +387,7 @@ public class PlanTester
         this.schemaPropertyManager = createSchemaPropertyManager(catalogManager);
         this.columnPropertyManager = createColumnPropertyManager(catalogManager);
         this.tablePropertyManager = createTablePropertyManager(catalogManager);
+        this.viewPropertyManager = createViewPropertyManager(catalogManager);
         this.materializedViewPropertyManager = createMaterializedViewPropertyManager(catalogManager);
         this.analyzePropertyManager = createAnalyzePropertyManager(catalogManager);
         TableProceduresPropertyManager tableProceduresPropertyManager = createTableProceduresPropertyManager(catalogManager);
@@ -929,6 +933,7 @@ public class PlanTester
                                 schemaPropertyManager,
                                 columnPropertyManager,
                                 tablePropertyManager,
+                                viewPropertyManager,
                                 materializedViewPropertyManager),
                         new ShowStatsRewrite(plannerContext.getMetadata(), queryExplainerFactory, statsCalculator),
                         new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))),
