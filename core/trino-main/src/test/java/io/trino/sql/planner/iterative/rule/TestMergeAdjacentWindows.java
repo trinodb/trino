@@ -117,11 +117,11 @@ public class TestMergeAdjacentWindows
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
-                                ImmutableMap.of(p.symbol("avg_1"), newWindowNodeFunction(AVG, "avg_2")),
+                                ImmutableMap.of(p.symbol("avg_1", DOUBLE), newWindowNodeFunction(AVG, "avg_2")),
                                 p.window(
                                         newWindowNodeSpecification(p, "a"),
-                                        ImmutableMap.of(p.symbol("avg_2"), newWindowNodeFunction(AVG, "a")),
-                                        p.values(p.symbol("a")))))
+                                        ImmutableMap.of(p.symbol("avg_2", DOUBLE), newWindowNodeFunction(AVG, "a")),
+                                        p.values(p.symbol("a", BIGINT)))))
                 .doesNotFire();
     }
 

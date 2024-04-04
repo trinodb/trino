@@ -41,12 +41,11 @@ import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSortExpressionExtractor
 {
-    private static final Set<Symbol> BUILD_SYMBOLS = ImmutableSet.of(new Symbol(UNKNOWN, "b1"), new Symbol(UNKNOWN, "b2"));
+    private static final Set<Symbol> BUILD_SYMBOLS = ImmutableSet.of(new Symbol(BIGINT, "b1"), new Symbol(BIGINT, "b2"));
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes(BIGINT));
