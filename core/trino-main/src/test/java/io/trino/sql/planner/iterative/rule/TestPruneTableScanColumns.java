@@ -71,8 +71,8 @@ public class TestPruneTableScanColumns
                                     tester().getCurrentCatalogTableHandle(TINY_SCHEMA_NAME, "orders"),
                                     ImmutableList.of(orderdate, totalprice),
                                     ImmutableMap.of(
-                                            orderdate, new TpchColumnHandle(orderdate.getName(), DATE),
-                                            totalprice, new TpchColumnHandle(totalprice.getName(), DOUBLE))));
+                                            orderdate, new TpchColumnHandle(orderdate.name(), DATE),
+                                            totalprice, new TpchColumnHandle(totalprice.name(), DOUBLE))));
                 })
                 .matches(
                         strictProject(
@@ -87,8 +87,8 @@ public class TestPruneTableScanColumns
                 .on(p -> {
                     Symbol orderdate = p.symbol("orderdate", DATE);
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
-                    TpchColumnHandle orderdateHandle = new TpchColumnHandle(orderdate.getName(), DATE);
-                    TpchColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.getName(), DOUBLE);
+                    TpchColumnHandle orderdateHandle = new TpchColumnHandle(orderdate.name(), DATE);
+                    TpchColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.name(), DOUBLE);
                     return p.project(
                             Assignments.of(p.symbol("x", DOUBLE), totalprice.toSymbolReference()),
                             p.tableScan(

@@ -97,7 +97,7 @@ public class ReplaceRedundantJoinWithProject
         Assignments.Builder assignments = Assignments.builder()
                 .putIdentities(sourceOutputs);
         nullSymbols
-                .forEach(symbol -> assignments.put(symbol, new Constant(symbol.getType(), null)));
+                .forEach(symbol -> assignments.put(symbol, new Constant(symbol.type(), null)));
 
         return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
     }

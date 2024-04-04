@@ -250,8 +250,8 @@ public final class SqlRoutineHash
 
             hasher.putInt(lambda.getArguments().size());
             lambda.getArguments().forEach(symbol -> {
-                hashString(symbol.getName());
-                hashType(symbol.getType());
+                hashString(symbol.name());
+                hashType(symbol.type());
             });
 
             visitRowExpression(lambda.getBody());

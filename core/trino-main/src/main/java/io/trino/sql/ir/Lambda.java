@@ -38,7 +38,7 @@ public record Lambda(List<Symbol> arguments, Expression body)
     public Type type()
     {
         return new FunctionType(
-                arguments.stream().map(Symbol::getType).collect(Collectors.toList()),
+                arguments.stream().map(Symbol::type).collect(Collectors.toList()),
                 body.type());
     }
 

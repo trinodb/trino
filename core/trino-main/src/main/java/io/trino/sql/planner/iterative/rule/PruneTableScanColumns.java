@@ -72,7 +72,7 @@ public class PruneTableScanColumns
         }
 
         List<ConnectorExpression> projections = newOutputs.stream()
-                .map(symbol -> new Variable(symbol.getName(), symbol.getType()))
+                .map(symbol -> new Variable(symbol.name(), symbol.type()))
                 .collect(toImmutableList());
 
         TableHandle handle = node.getTable();
@@ -81,7 +81,7 @@ public class PruneTableScanColumns
                 handle,
                 projections,
                 newOutputs.stream()
-                        .collect(toImmutableMap(Symbol::getName, node.getAssignments()::get)));
+                        .collect(toImmutableMap(Symbol::name, node.getAssignments()::get)));
 
         Map<Symbol, ColumnHandle> newAssignments;
         // Attempt to push down the constrained list of columns into the connector.

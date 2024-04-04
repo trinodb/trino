@@ -114,7 +114,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
 
             Symbol outputColumn = getOnlyElement(subqueryPlan.getOutputSymbols());
-            Type outputColumnType = outputColumn.getType();
+            Type outputColumnType = outputColumn.type();
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
             Symbol minValue = symbolAllocator.newSymbol("min", outputColumnType);

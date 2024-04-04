@@ -58,7 +58,7 @@ public final class LambdaDefinitionExpression
     {
         return new FunctionType(
                 arguments.stream()
-                        .map(Symbol::getType)
+                        .map(Symbol::type)
                         .toList(),
                 body.getType());
     }
@@ -68,7 +68,7 @@ public final class LambdaDefinitionExpression
     {
         return "(" +
                 arguments.stream()
-                        .map(Symbol::getName)
+                        .map(Symbol::name)
                         .collect(Collectors.joining(", ")) +
                 ") -> " + body;
     }

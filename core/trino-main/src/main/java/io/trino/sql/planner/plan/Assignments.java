@@ -131,7 +131,7 @@ public class Assignments
     {
         Expression expression = assignments.get(output);
 
-        return expression instanceof Reference && ((Reference) expression).name().equals(output.getName());
+        return expression instanceof Reference && ((Reference) expression).name().equals(output.name());
     }
 
     public boolean isIdentity()
@@ -139,7 +139,7 @@ public class Assignments
         for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
             Expression expression = entry.getValue();
             Symbol symbol = entry.getKey();
-            if (!(expression instanceof Reference && ((Reference) expression).name().equals(symbol.getName()))) {
+            if (!(expression instanceof Reference && ((Reference) expression).name().equals(symbol.name()))) {
                 return false;
             }
         }
@@ -255,14 +255,14 @@ public class Assignments
 
         public Builder put(Symbol symbol, Expression expression)
         {
-            checkArgument(symbol.getType().equals(expression.type()), "Types don't match: %s vs %s, for %s and %s", symbol.getType(), expression.type(), symbol, expression);
+            checkArgument(symbol.type().equals(expression.type()), "Types don't match: %s vs %s, for %s and %s", symbol.type(), expression.type(), symbol, expression);
 
             if (assignments.containsKey(symbol)) {
                 Expression assignment = assignments.get(symbol);
                 checkState(
                         assignment.equals(expression),
                         "Symbol %s already has assignment %s, while adding %s",
-                        symbol.getName(),
+                        symbol.name(),
                         assignment,
                         expression);
             }

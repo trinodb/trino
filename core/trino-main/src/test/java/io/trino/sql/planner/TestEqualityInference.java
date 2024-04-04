@@ -415,7 +415,7 @@ public class TestEqualityInference
     {
         return symbol -> {
             for (String prefix : prefixes) {
-                if (symbol.getName().startsWith(prefix)) {
+                if (symbol.name().startsWith(prefix)) {
                     return true;
                 }
             }

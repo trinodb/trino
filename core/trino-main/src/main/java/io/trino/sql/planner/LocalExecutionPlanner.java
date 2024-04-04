@@ -571,7 +571,7 @@ public class LocalExecutionPlanner
                         if (argument.isConstant()) {
                             return argument.getConstant().getType();
                         }
-                        return argument.getColumn().getType();
+                        return argument.getColumn().type();
                     })
                     .collect(toImmutableList());
         }
@@ -638,7 +638,7 @@ public class LocalExecutionPlanner
         Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
         List<Type> outputTypes = outputLayout.stream()
-                .map(Symbol::getType)
+                .map(Symbol::type)
                 .collect(toImmutableList());
 
         context.addDriverFactory(
@@ -1455,7 +1455,7 @@ public class LocalExecutionPlanner
                             case AggregationValuePointer pointer -> pointer.getFunction().getSignature().getReturnType();
                             case ClassifierValuePointer pointer -> VARCHAR;
                             case MatchNumberValuePointer pointer -> BIGINT;
-                            case ScalarValuePointer pointer -> pointer.getInputSymbol().getType();
+                            case ScalarValuePointer pointer -> pointer.getInputSymbol().type();
                         });
             }
 
@@ -1497,7 +1497,7 @@ public class LocalExecutionPlanner
                     case ScalarValuePointer pointer -> {
                         valueAccessors.add(new PhysicalValuePointer(
                                 getOnlyElement(getChannelsForSymbols(ImmutableList.of(pointer.getInputSymbol()), sourceLayout)),
-                                pointer.getInputSymbol().getType(),
+                                pointer.getInputSymbol().type(),
                                 pointer.getLogicalIndexPointer().toLogicalIndexNavigation(mapping)));
                     }
                     case AggregationValuePointer pointer -> {
@@ -2135,7 +2135,7 @@ public class LocalExecutionPlanner
 
             ImmutableList.Builder<Type> replicateTypes = ImmutableList.builder();
             for (Symbol symbol : node.getReplicateSymbols()) {
-                replicateTypes.add(symbol.getType());
+                replicateTypes.add(symbol.type());
             }
 
             List<Symbol> unnestSymbols = node.getMappings().stream()
@@ -2144,10 +2144,10 @@ public class LocalExecutionPlanner
 
             ImmutableList.Builder<Type> unnestTypes = ImmutableList.builder();
             for (Symbol symbol : unnestSymbols) {
-                unnestTypes.add(symbol.getType());
+                unnestTypes.add(symbol.type());
             }
             Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
-            Optional<Type> ordinalityType = ordinalitySymbol.map(Symbol::getType);
+            Optional<Type> ordinalityType = ordinalitySymbol.map(Symbol::type);
             ordinalityType.ifPresent(type -> checkState(type.equals(BIGINT), "Type of ordinalitySymbol must always be BIGINT."));
 
             List<Integer> replicateChannels = getChannelsForSymbols(node.getReplicateSymbols(), source.getLayout());
@@ -3698,7 +3698,7 @@ public class LocalExecutionPlanner
         private List<Type> getSymbolTypes(List<Symbol> symbols)
         {
             return symbols.stream()
-                    .map(Symbol::getType)
+                    .map(Symbol::type)
                     .collect(toImmutableList());
         }
 
@@ -4212,7 +4212,7 @@ public class LocalExecutionPlanner
 
             return range(0, channelCount)
                     .mapToObj(channelLayout::get)
-                    .map(symbol -> symbol.getType())
+                    .map(symbol -> symbol.type())
                     .collect(toImmutableList());
         }
 
