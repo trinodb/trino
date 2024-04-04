@@ -17,10 +17,13 @@ import alluxio.metrics.MetricsConfig;
 import alluxio.metrics.MetricsSystem;
 import com.google.inject.Binder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.InvalidConfigurationException;
+import io.trino.filesystem.cache.AllowFilesystemCacheOnCoordinator;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.filesystem.cache.ConsistentHashingHostAddressProvider;
 import io.trino.filesystem.cache.ConsistentHashingHostAddressProviderConfiguration;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
+import jakarta.annotation.PostConstruct;
 
 import java.util.Properties;
 
@@ -33,31 +36,49 @@ public class AlluxioFileSystemCacheModule
         extends AbstractConfigurationAwareModule
 {
     private final boolean isCoordinator;
+    private final boolean coordinatorOnly;
 
-    public AlluxioFileSystemCacheModule(boolean isCoordinator)
+    public AlluxioFileSystemCacheModule(boolean isCoordinator, boolean coordinatorOnly)
     {
         this.isCoordinator = isCoordinator;
+        this.coordinatorOnly = coordinatorOnly;
     }
 
     @Override
     protected void setup(Binder binder)
     {
+        install(new AlluxioJmxStatsModule());
         configBinder(binder).bindConfig(AlluxioFileSystemCacheConfig.class);
         configBinder(binder).bindConfig(ConsistentHashingHostAddressProviderConfiguration.class);
-        binder.bind(AlluxioCacheStats.class).in(SINGLETON);
-        newExporter(binder).export(AlluxioCacheStats.class).as(generator -> generator.generatedNameOf(AlluxioCacheStats.class));
+        binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);
 
         if (isCoordinator) {
-            binder.bind(TrinoFileSystemCache.class).to(AlluxioCoordinatorFileSystemCache.class).in(SINGLETON);
             newOptionalBinder(binder, CachingHostAddressProvider.class).setBinding().to(ConsistentHashingHostAddressProvider.class).in(SINGLETON);
-        }
-        else {
-            binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);
         }
 
         Properties metricProps = new Properties();
         metricProps.put("sink.jmx.class", "alluxio.metrics.sink.JmxSink");
         metricProps.put("sink.jmx.domain", "org.alluxio");
         MetricsSystem.startSinksFromConfig(new MetricsConfig(metricProps));
+    }
+
+    @PostConstruct
+    public void validateCachingConfiguration(@AllowFilesystemCacheOnCoordinator boolean allowOnCoordinator)
+            throws InvalidConfigurationException
+    {
+        if (isCoordinator && coordinatorOnly && !allowOnCoordinator) {
+            throw new InvalidConfigurationException("Caching was requested on coordinator only but caching is not supported by connector");
+        }
+    }
+
+    public static class AlluxioJmxStatsModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            binder.bind(AlluxioCacheStats.class).in(SINGLETON);
+            newExporter(binder).export(AlluxioCacheStats.class).as(generator -> generator.generatedNameOf(AlluxioCacheStats.class));
+        }
     }
 }

@@ -14,14 +14,18 @@
 package io.trino.filesystem.manager;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.DefunctConfig;
 
+import static io.trino.filesystem.manager.FileSystemConfig.FileSystemCacheMode.DISABLED;
+
+@DefunctConfig("fs.cache.enabled")
 public class FileSystemConfig
 {
     private boolean hadoopEnabled = true;
     private boolean nativeAzureEnabled;
     private boolean nativeS3Enabled;
     private boolean nativeGcsEnabled;
-    private boolean cacheEnabled;
+    private FileSystemCacheMode cacheMode = DISABLED;
 
     public boolean isHadoopEnabled()
     {
@@ -71,15 +75,23 @@ public class FileSystemConfig
         return this;
     }
 
-    public boolean isCacheEnabled()
+    public FileSystemCacheMode getCacheMode()
     {
-        return cacheEnabled;
+        return cacheMode;
     }
 
-    @Config("fs.cache.enabled")
-    public FileSystemConfig setCacheEnabled(boolean enabled)
+    @Config("fs.cache.mode")
+    public FileSystemConfig setCacheMode(FileSystemCacheMode enabled)
     {
-        this.cacheEnabled = enabled;
+        this.cacheMode = enabled;
         return this;
+    }
+
+    public enum FileSystemCacheMode
+    {
+        ENABLED, /** all nodes **/
+        COORDINATOR_ONLY,
+        WORKERS_ONLY,
+        DISABLED;
     }
 }

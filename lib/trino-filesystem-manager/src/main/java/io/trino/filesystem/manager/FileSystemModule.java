@@ -15,6 +15,7 @@ package io.trino.filesystem.manager;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -108,9 +109,30 @@ public class FileSystemModule
 
         newOptionalBinder(binder, TrinoFileSystemCache.class);
 
-        if (config.isCacheEnabled()) {
-            install(new AlluxioFileSystemCacheModule(nodeManager.getCurrentNode().isCoordinator()));
-        }
+        FileSystemConfig.FileSystemCacheMode cacheMode = config.getCacheMode();
+        boolean isCoordinator = nodeManager.getCurrentNode().isCoordinator();
+        install(switch (cacheMode) {
+            case DISABLED -> (Module) ignored -> {};
+            case ENABLED -> new AlluxioFileSystemCacheModule(isCoordinator, false);
+            case COORDINATOR_ONLY -> {
+                if (isCoordinator) {
+                    yield new AlluxioFileSystemCacheModule(true, true);
+                }
+                else {
+                    // Register alluxio metrics so that JMX queries can still succeed
+                    yield new AlluxioFileSystemCacheModule.AlluxioJmxStatsModule();
+                }
+            }
+            case WORKERS_ONLY -> {
+                if (!isCoordinator) {
+                    yield new AlluxioFileSystemCacheModule(false, false);
+                }
+                else {
+                    // Register alluxio metrics so that JMX queries can still succeed
+                    yield new AlluxioFileSystemCacheModule.AlluxioJmxStatsModule();
+                }
+            }
+        });
     }
 
     @Provides

@@ -52,7 +52,7 @@ public class TestIcebergMinioParquetCachingConnectorSmokeTest
     public ImmutableMap<String, String> getAdditionalIcebergProperties()
     {
         return ImmutableMap.<String, String>builder()
-                .put("fs.cache.enabled", "true")
+                .put("fs.cache.mode", "enabled")
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
                 .buildOrThrow();

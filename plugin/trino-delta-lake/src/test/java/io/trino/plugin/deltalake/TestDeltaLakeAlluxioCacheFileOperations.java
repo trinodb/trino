@@ -65,7 +65,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 .build();
 
         Map<String, String> deltaLakeProperties = ImmutableMap.<String, String>builder()
-                .put("fs.cache.enabled", "true")
+                .put("fs.cache.mode", "enabled")
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
                 .put("hive.metastore", "file")

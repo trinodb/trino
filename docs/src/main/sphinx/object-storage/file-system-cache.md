@@ -99,8 +99,9 @@ enable and configure caching for the specific catalogs.
 
 * - Property
   - Description
-* - `fs.cache.enabled`
-  - Enable object storage caching. Defaults to no caching with the value `false`.
+* - `fs.cache.mode`
+  - Object storage caching mode. Defaults to no caching with the value `DISABLED`.
+    Allowed modes are: `DISABLED`, `COORDINATOR_ONLY`, `WORKERS_ONLY`, `ALL_NODES`.
 * - `fs.cache.directories`
   - Required, comma-separated list of absolute paths to directories to use for
     caching. All directories must exist on the coordinator and all workers.
