@@ -236,7 +236,8 @@ public class TestAggregationMaskCompiler
         Arrays.fill(ignoredColumnNulls, true);
         return new Page(
                 new ShortArrayBlock(positionCount, Optional.of(ignoredColumnNulls), new short[positionCount]),
-                new IntArrayBlock(positionCount, Optional.empty(), new int[positionCount]));
+                // provide a null array to ensure the generated code for null checks does not fail
+                new IntArrayBlock(positionCount, Optional.of(new boolean[positionCount]), new int[positionCount]));
     }
 
     private static Page buildSingleColumnPage(boolean[] nulls)
