@@ -190,8 +190,8 @@ section {ref}`configuring-hadoop-impersonation`. Kerberos is not used.
 
 ```text
 hive.hdfs.authentication.type=KERBEROS
-hive.hdfs.trino.principal=hdfs@EXAMPLE.COM
-hive.hdfs.trino.keytab=/etc/trino/hdfs.keytab
+hive.hdfs.trino.principal=trino@EXAMPLE.COM
+hive.hdfs.trino.keytab=/etc/trino/trino.keytab
 ```
 
 When the authentication type is `KERBEROS`, Trino accesses HDFS as the
