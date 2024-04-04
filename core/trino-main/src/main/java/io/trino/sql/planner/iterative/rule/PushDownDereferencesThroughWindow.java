@@ -95,7 +95,7 @@ public class PushDownDereferencesThroughWindow
                     Symbol symbol = getBase(expression);
                     // Exclude partitionBy, orderBy and synthesized symbols
                     return !specification.partitionBy().contains(symbol) &&
-                            !specification.orderingScheme().map(OrderingScheme::getOrderBy).orElse(ImmutableList.of()).contains(symbol) &&
+                            !specification.orderingScheme().map(OrderingScheme::orderBy).orElse(ImmutableList.of()).contains(symbol) &&
                             !windowNode.getCreatedSymbols().contains(symbol);
                 })
                 .collect(toImmutableSet());

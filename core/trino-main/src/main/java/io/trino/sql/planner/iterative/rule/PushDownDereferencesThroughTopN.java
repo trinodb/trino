@@ -79,7 +79,7 @@ public class PushDownDereferencesThroughTopN
 
         // Exclude dereferences on symbols being used in orderBy
         dereferences = dereferences.stream()
-                .filter(expression -> !topNNode.getOrderingScheme().getOrderBy().contains(getBase(expression)))
+                .filter(expression -> !topNNode.getOrderingScheme().orderBy().contains(getBase(expression)))
                 .collect(toImmutableSet());
 
         if (dereferences.isEmpty()) {

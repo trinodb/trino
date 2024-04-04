@@ -99,7 +99,7 @@ public final class SymbolsExtractor
             builder.addAll(extractAll(argument));
         }
         aggregation.getFilter().ifPresent(builder::add);
-        aggregation.getOrderingScheme().ifPresent(orderBy -> builder.addAll(orderBy.getOrderBy()));
+        aggregation.getOrderingScheme().ifPresent(orderBy -> builder.addAll(orderBy.orderBy()));
         aggregation.getMask().ifPresent(builder::add);
         return builder.build();
     }
