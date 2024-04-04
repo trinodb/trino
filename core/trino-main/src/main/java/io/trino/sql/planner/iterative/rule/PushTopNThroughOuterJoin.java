@@ -80,7 +80,7 @@ public class PushTopNThroughOuterJoin
     {
         JoinNode joinNode = captures.get(JOIN_CHILD);
 
-        List<Symbol> orderBySymbols = parent.getOrderingScheme().getOrderBy();
+        List<Symbol> orderBySymbols = parent.getOrderingScheme().orderBy();
 
         PlanNode left = joinNode.getLeft();
         PlanNode right = joinNode.getRight();

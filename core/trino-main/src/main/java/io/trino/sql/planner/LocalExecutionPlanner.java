@@ -895,8 +895,8 @@ public class LocalExecutionPlanner
 
             OrderingScheme orderingScheme = node.getOrderingScheme().get();
             ImmutableMap<Symbol, Integer> layout = makeLayout(node);
-            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), layout);
-            List<SortOrder> sortOrder = orderingScheme.getOrderingList();
+            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), layout);
+            List<SortOrder> sortOrder = orderingScheme.orderingList();
 
             List<Type> types = getSourceOperatorTypes(node);
             ImmutableList<Integer> outputChannels = IntStream.range(0, types.size())
@@ -1008,10 +1008,10 @@ public class LocalExecutionPlanner
                     .map(channel -> source.getTypes().get(channel))
                     .collect(toImmutableList());
 
-            List<Symbol> orderBySymbols = node.getOrderingScheme().getOrderBy();
+            List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
             List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
             List<SortOrder> sortOrder = orderBySymbols.stream()
-                    .map(symbol -> node.getOrderingScheme().getOrdering(symbol))
+                    .map(symbol -> node.getOrderingScheme().ordering(symbol))
                     .collect(toImmutableList());
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
@@ -1069,8 +1069,8 @@ public class LocalExecutionPlanner
 
             if (node.getOrderingScheme().isPresent()) {
                 OrderingScheme orderingScheme = node.getOrderingScheme().get();
-                sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), source.getLayout());
-                sortOrder = orderingScheme.getOrderingList();
+                sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), source.getLayout());
+                sortOrder = orderingScheme.orderingList();
             }
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
@@ -1208,8 +1208,8 @@ public class LocalExecutionPlanner
 
             if (node.getOrderingScheme().isPresent()) {
                 OrderingScheme orderingScheme = node.getOrderingScheme().get();
-                sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), source.getLayout());
-                sortOrder = orderingScheme.getOrderingList();
+                sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), source.getLayout());
+                sortOrder = orderingScheme.orderingList();
             }
 
             // The output order for pattern recognition operation is defined as follows:
@@ -1667,8 +1667,8 @@ public class LocalExecutionPlanner
             List<SortOrder> sortOrders = ImmutableList.of();
             if (node.getSpecification().flatMap(DataOrganizationSpecification::orderingScheme).isPresent()) {
                 OrderingScheme orderingScheme = node.getSpecification().flatMap(DataOrganizationSpecification::orderingScheme).orElseThrow();
-                sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), source.getLayout());
-                sortOrders = orderingScheme.getOrderingList();
+                sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), source.getLayout());
+                sortOrders = orderingScheme.orderingList();
             }
 
             OperatorFactory operator = new TableFunctionOperatorFactory(
@@ -1714,13 +1714,13 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> orderBySymbols = node.getOrderingScheme().getOrderBy();
+            List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
 
             List<Integer> sortChannels = new ArrayList<>();
             List<SortOrder> sortOrders = new ArrayList<>();
             for (Symbol symbol : orderBySymbols) {
                 sortChannels.add(source.getLayout().get(symbol));
-                sortOrders.add(node.getOrderingScheme().getOrdering(symbol));
+                sortOrders.add(node.getOrderingScheme().ordering(symbol));
             }
 
             OperatorFactory operator = TopNOperator.createOperatorFactory(
@@ -1740,13 +1740,13 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> orderBySymbols = node.getOrderingScheme().getOrderBy();
+            List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
 
             List<Integer> orderByChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
 
             ImmutableList.Builder<SortOrder> sortOrder = ImmutableList.builder();
             for (Symbol symbol : orderBySymbols) {
-                sortOrder.add(node.getOrderingScheme().getOrdering(symbol));
+                sortOrder.add(node.getOrderingScheme().ordering(symbol));
             }
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
@@ -3589,8 +3589,8 @@ public class LocalExecutionPlanner
 
             OrderingScheme orderingScheme = node.getOrderingScheme().get();
             ImmutableMap<Symbol, Integer> layout = makeLayout(node);
-            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), layout);
-            List<SortOrder> orderings = orderingScheme.getOrderingList();
+            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), layout);
+            List<SortOrder> orderings = orderingScheme.orderingList();
             OperatorFactory operatorFactory = new LocalMergeSourceOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -3742,10 +3742,10 @@ public class LocalExecutionPlanner
                         .collect(toImmutableList());
 
                 OrderingScheme orderingScheme = aggregation.getOrderingScheme().get();
-                List<Symbol> sortKeys = orderingScheme.getOrderBy();
+                List<Symbol> sortKeys = orderingScheme.orderBy();
 
                 List<SortOrder> sortOrders = sortKeys.stream()
-                        .map(orderingScheme::getOrdering)
+                        .map(orderingScheme::ordering)
                         .collect(toImmutableList());
 
                 List<Integer> inputOrderByChannels = new ArrayList<>();

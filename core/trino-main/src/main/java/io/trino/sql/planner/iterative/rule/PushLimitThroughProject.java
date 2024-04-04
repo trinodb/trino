@@ -78,7 +78,7 @@ public class PushLimitThroughProject
         SymbolMapper.Builder symbolMapper = SymbolMapper.builder();
         Set<Symbol> symbolsForRewrite = ImmutableSet.<Symbol>builder()
                 .addAll(parent.getPreSortedInputs())
-                .addAll(parent.getTiesResolvingScheme().map(OrderingScheme::getOrderBy).orElse(ImmutableList.of()))
+                .addAll(parent.getTiesResolvingScheme().map(OrderingScheme::orderBy).orElse(ImmutableList.of()))
                 .build();
         for (Symbol symbol : symbolsForRewrite) {
             Expression expression = projectNode.getAssignments().get(symbol);

@@ -256,7 +256,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitSort(SortNode node, Void context)
         {
-            printNode(node, format("Sort[%s]", Joiner.on(", ").join(node.getOrderingScheme().getOrderBy())), NODE_COLORS.get(NodeType.SORT));
+            printNode(node, format("Sort[%s]", Joiner.on(", ").join(node.getOrderingScheme().orderBy())), NODE_COLORS.get(NodeType.SORT));
             return node.getSource().accept(this, context);
         }
 
@@ -273,7 +273,7 @@ public final class GraphvizPrinter
             printNode(node, "Window", format("partition by = %s|order by = %s",
                     Joiner.on(", ").join(node.getPartitionBy()),
                     node.getOrderingScheme()
-                            .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.getOrderBy()))
+                            .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.orderBy()))
                             .orElse("")),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
@@ -285,7 +285,7 @@ public final class GraphvizPrinter
             printNode(node, "PatternRecognition", format("partition by = %s|order by = %s",
                     Joiner.on(", ").join(node.getPartitionBy()),
                     node.getOrderingScheme()
-                            .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.getOrderBy()))
+                            .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.orderBy()))
                             .orElse("")),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
@@ -309,7 +309,7 @@ public final class GraphvizPrinter
                     format("type=%s|partition by = %s|order by = %s|n = %s",
                             node.getRankingType(),
                             Joiner.on(", ").join(node.getPartitionBy()),
-                            Joiner.on(", ").join(node.getOrderingScheme().getOrderBy()),
+                            Joiner.on(", ").join(node.getOrderingScheme().orderBy()),
                             node.getMaxRankingPerPartition()),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
@@ -428,8 +428,8 @@ public final class GraphvizPrinter
         public Void visitTopN(TopNNode node, Void context)
         {
             String keys = node.getOrderingScheme()
-                    .getOrderBy().stream()
-                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
+                    .orderBy().stream()
+                    .map(input -> input + " " + node.getOrderingScheme().ordering(input))
                     .collect(Collectors.joining(", "));
 
             printNode(node, format("TopN[%s]", node.getCount()), keys, NODE_COLORS.get(NodeType.TOPN));

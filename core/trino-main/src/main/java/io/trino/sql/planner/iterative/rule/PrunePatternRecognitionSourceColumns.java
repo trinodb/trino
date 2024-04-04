@@ -64,7 +64,7 @@ public class PrunePatternRecognitionSourceColumns
         ImmutableSet.Builder<Symbol> referencedInputs = ImmutableSet.builder();
 
         referencedInputs.addAll(node.getPartitionBy());
-        node.getOrderingScheme().ifPresent(orderingScheme -> referencedInputs.addAll(orderingScheme.getOrderBy()));
+        node.getOrderingScheme().ifPresent(orderingScheme -> referencedInputs.addAll(orderingScheme.orderBy()));
         node.getHashSymbol().ifPresent(referencedInputs::add);
         node.getMeasures().values().stream()
                 .map(PatternRecognitionNode.Measure::getExpressionAndValuePointers)
