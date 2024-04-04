@@ -243,12 +243,12 @@ public final class ValidateDependenciesChecker
                 argumentProperties.specification().ifPresent(specification -> {
                     checkDependencies(
                             inputs,
-                            specification.getPartitionBy(),
+                            specification.partitionBy(),
                             "Invalid node. Partition by symbols for source %s (%s) not in source plan output (%s)",
                             argumentProperties.argumentName(),
-                            specification.getPartitionBy(),
+                            specification.partitionBy(),
                             source.getOutputSymbols());
-                    specification.getOrderingScheme().ifPresent(orderingScheme -> {
+                    specification.orderingScheme().ifPresent(orderingScheme -> {
                         checkDependencies(
                                 inputs,
                                 orderingScheme.getOrderBy(),
@@ -325,11 +325,11 @@ public final class ValidateDependenciesChecker
             node.getSpecification().ifPresent(specification -> {
                 checkDependencies(
                         inputs,
-                        specification.getPartitionBy(),
+                        specification.partitionBy(),
                         "Invalid node. Partition by symbols (%s) not in source plan output (%s)",
-                        specification.getPartitionBy(),
+                        specification.partitionBy(),
                         source.getOutputSymbols());
-                specification.getOrderingScheme().ifPresent(orderingScheme -> {
+                specification.orderingScheme().ifPresent(orderingScheme -> {
                     checkDependencies(
                             inputs,
                             orderingScheme.getOrderBy(),
