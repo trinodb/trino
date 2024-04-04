@@ -541,7 +541,7 @@ public class PlanNodeDecorrelator
             }
             Symbol sourceSymbol = Symbol.from(cast.expression());
 
-            Type sourceType = sourceSymbol.getType();
+            Type sourceType = sourceSymbol.type();
             Type targetType = ((Cast) expression).type();
 
             return typeCoercion.isInjectiveCoercion(sourceType, targetType);

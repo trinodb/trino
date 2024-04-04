@@ -1315,7 +1315,7 @@ public class AddExchanges
                     // NOTE: new symbols for ExchangeNode output are required in order to keep plan logically correct with new local union below
 
                     List<Symbol> exchangeOutputLayout = node.getOutputSymbols().stream()
-                            .map(outputSymbol -> symbolAllocator.newSymbol(outputSymbol.getName(), outputSymbol.getType()))
+                            .map(outputSymbol -> symbolAllocator.newSymbol(outputSymbol.name(), outputSymbol.type()))
                             .collect(toImmutableList());
 
                     result = new ExchangeNode(

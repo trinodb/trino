@@ -169,7 +169,7 @@ public class PushPredicateIntoTableScan
                 decomposedPredicate.getRemainingExpression());
         Map<String, ColumnHandle> connectorExpressionAssignments = node.getAssignments()
                 .entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
@@ -257,7 +257,7 @@ public class PushPredicateIntoTableScan
         }
         else {
             Map<String, Symbol> variableMappings = assignments.values().stream()
-                    .collect(toImmutableMap(Symbol::getName, Function.identity()));
+                    .collect(toImmutableMap(Symbol::name, Function.identity()));
             Expression translatedExpression = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings);
             // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
             // by ensuring expression is optimized.

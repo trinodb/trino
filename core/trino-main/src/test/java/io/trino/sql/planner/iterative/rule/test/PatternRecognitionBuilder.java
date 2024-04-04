@@ -84,10 +84,10 @@ public class PatternRecognitionBuilder
     public PatternRecognitionBuilder addMeasure(Symbol symbol, Expression expression, Map<String, ValuePointer> pointers)
     {
         List<ExpressionAndValuePointers.Assignment> assignments = pointers.entrySet().stream()
-                .map(entry -> new ExpressionAndValuePointers.Assignment(new Symbol(symbol.getType(), entry.getKey()), entry.getValue()))
+                .map(entry -> new ExpressionAndValuePointers.Assignment(new Symbol(symbol.type(), entry.getKey()), entry.getValue()))
                 .toList();
 
-        this.measures.put(symbol, new Measure(new ExpressionAndValuePointers(expression, assignments), symbol.getType()));
+        this.measures.put(symbol, new Measure(new ExpressionAndValuePointers(expression, assignments), symbol.type()));
         return this;
     }
 

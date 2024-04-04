@@ -151,7 +151,7 @@ public class TestPruneCountAggregationOverScalar
                                                             new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
                                                             TpchTransactionHandle.INSTANCE),
                                                     ImmutableList.of(totalPrice),
-                                                    ImmutableMap.of(totalPrice, new TpchColumnHandle(totalPrice.getName(), DOUBLE))))));
+                                                    ImmutableMap.of(totalPrice, new TpchColumnHandle(totalPrice.name(), DOUBLE))))));
 
                     return p.aggregation((a) -> a
                             .addAggregation(

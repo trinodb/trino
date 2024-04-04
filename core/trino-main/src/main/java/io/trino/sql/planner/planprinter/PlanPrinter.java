@@ -1393,7 +1393,7 @@ public class PlanPrinter
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 Symbol symbol = node.getOutputSymbols().get(i);
-                if (!name.equals(symbol.getName())) {
+                if (!name.equals(symbol.name())) {
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymizeColumn(name), anonymizer.anonymize(symbol));
                 }
             }
@@ -1920,7 +1920,7 @@ public class PlanPrinter
         private void printAssignments(NodeRepresentation nodeOutput, Assignments assignments)
         {
             for (Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
-                if (entry.getValue() instanceof Reference && ((Reference) entry.getValue()).name().equals(entry.getKey().getName())) {
+                if (entry.getValue() instanceof Reference && ((Reference) entry.getValue()).name().equals(entry.getKey().name())) {
                     // skip identity assignments
                     continue;
                 }
@@ -2076,7 +2076,7 @@ public class PlanPrinter
         private String formatOutputs(Iterable<Symbol> outputs)
         {
             return Streams.stream(outputs)
-                    .map(input -> anonymizer.anonymize(input) + ":" + input.getType().getDisplayName())
+                    .map(input -> anonymizer.anonymize(input) + ":" + input.type().getDisplayName())
                     .collect(joining(", ", "[", "]"));
         }
 
@@ -2128,7 +2128,7 @@ public class PlanPrinter
                     rootNode.getClass().getSimpleName(),
                     descriptor,
                     rootNode.getOutputSymbols().stream()
-                            .map(s -> new Symbol(s.getType(), anonymizer.anonymize(s)))
+                            .map(s -> new Symbol(s.type(), anonymizer.anonymize(s)))
                             .collect(toImmutableList()),
                     stats.map(s -> s.get(rootNode.getId())),
                     estimatedStats,

@@ -81,7 +81,7 @@ public class PushTopNIntoTableScan
 
         Map<String, ColumnHandle> assignments = tableScan.getAssignments()
                 .entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
 
         return metadata.applyTopN(context.getSession(), tableScan.getTable(), topNCount, sortItems, assignments)
                 .map(result -> {

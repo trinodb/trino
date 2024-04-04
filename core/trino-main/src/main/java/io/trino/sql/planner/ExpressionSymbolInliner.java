@@ -72,12 +72,12 @@ public final class ExpressionSymbolInliner
         public Expression rewriteLambda(Lambda node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             excludedNames.addAll(node.arguments().stream()
-                    .map(Symbol::getName)
+                    .map(Symbol::name)
                     .toList());
 
             Expression result = treeRewriter.defaultRewrite(node, context);
             for (Symbol argument : node.arguments()) {
-                verify(excludedNames.remove(argument.getName()));
+                verify(excludedNames.remove(argument.name()));
             }
             return result;
         }

@@ -77,7 +77,7 @@ public class TestExpressionInterpreter
             new Symbol(INTEGER, "unbound_value"));
 
     private static final SymbolResolver INPUTS = symbol -> {
-        if (symbol.getName().toLowerCase(ENGLISH).equals("bound_value")) {
+        if (symbol.name().toLowerCase(ENGLISH).equals("bound_value")) {
             return Optional.of(new Constant(INTEGER, 1234L));
         }
 
@@ -900,7 +900,7 @@ public class TestExpressionInterpreter
         SymbolAliases.Builder aliases = SymbolAliases.builder();
 
         for (Symbol symbol : SYMBOLS) {
-            aliases.put(symbol.getName(), symbol.toSymbolReference());
+            aliases.put(symbol.name(), symbol.toSymbolReference());
         }
 
         assertExpressionEquals(actualOptimized, expected, aliases.build());

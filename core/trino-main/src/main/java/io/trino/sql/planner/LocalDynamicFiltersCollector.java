@@ -113,7 +113,7 @@ public class LocalDynamicFiltersCollector
                                                     },
                                                     descriptor -> {
                                                         Symbol symbol = Symbol.from(descriptor.getInput());
-                                                        Type targetType = symbol.getType();
+                                                        Type targetType = symbol.type();
                                                         Domain updatedDomain = descriptor.applyComparison(domain);
                                                         if (!updatedDomain.getType().equals(targetType)) {
                                                             return applySaturatedCasts(

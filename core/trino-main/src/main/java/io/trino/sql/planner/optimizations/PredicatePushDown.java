@@ -633,7 +633,7 @@ public class PredicatePushDown
                         Expression probeExpression = comparison.left();
                         Symbol buildSymbol = Symbol.from(comparison.right());
                         // we can take type of buildSymbol instead probeExpression as comparison expression must have the same type on both sides
-                        Type type = buildSymbol.getType();
+                        Type type = buildSymbol.type();
                         DynamicFilterId id = requireNonNull(buildSymbolToDynamicFilter.get(buildSymbol), () -> "missing dynamic filter for symbol " + buildSymbol);
                         return createDynamicFilterExpression(metadata, id, type, probeExpression, comparison.operator(), clause.isNullAllowed());
                     })
@@ -1179,7 +1179,7 @@ public class PredicatePushDown
         private Expression nullInputEvaluator(Collection<Symbol> nullSymbols, Expression expression)
         {
             return new IrExpressionInterpreter(expression, plannerContext, session)
-                    .optimize(symbol -> nullSymbols.contains(symbol) ? Optional.of(new Constant(symbol.getType(), null)) : Optional.empty());
+                    .optimize(symbol -> nullSymbols.contains(symbol) ? Optional.of(new Constant(symbol.type(), null)) : Optional.empty());
         }
 
         private boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
@@ -1367,7 +1367,7 @@ public class PredicatePushDown
                 sourceConjuncts.add(createDynamicFilterExpression(
                         metadata,
                         dynamicFilterId.get(),
-                        sourceSymbol.getType(),
+                        sourceSymbol.type(),
                         sourceSymbol.toSymbolReference(),
                         EQUAL));
             }
