@@ -67,10 +67,6 @@ public class TestSnowflakeConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
                     SUPPORTS_ARRAY,
                     SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
