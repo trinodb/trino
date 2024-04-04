@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
@@ -106,7 +107,7 @@ public class TestRenameColumnTask
     public void testRenameColumnOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameColumn(asQualifiedName(viewName), QualifiedName.of("a"), identifier("a_renamed"), false, false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -200,7 +201,7 @@ public class TestRenameColumnTask
     public void testRenameFieldOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameColumn(asQualifiedName(viewName), QualifiedName.of("test"), identifier("x"), false, false)))
                 .hasErrorCode(TABLE_NOT_FOUND)

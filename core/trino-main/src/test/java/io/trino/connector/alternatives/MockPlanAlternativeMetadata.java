@@ -558,9 +558,9 @@ public class MockPlanAlternativeMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
-        delegate.createView(session, viewName, definition, replace);
+        delegate.createView(session, viewName, definition, viewProperties, replace);
     }
 
     @Override
@@ -597,6 +597,12 @@ public class MockPlanAlternativeMetadata
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return delegate.getView(session, viewName);
+    }
+
+    @Override
+    public Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
+    {
+        return delegate.getViewProperties(session, viewName);
     }
 
     @Override

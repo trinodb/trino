@@ -136,6 +136,12 @@ public class MockPlanAlternativeConnector
     }
 
     @Override
+    public List<PropertyMetadata<?>> getViewProperties()
+    {
+        return delegate.getViewProperties();
+    }
+
+    @Override
     public Set<ConnectorTableFunction> getTableFunctions()
     {
         return delegate.getTableFunctions();

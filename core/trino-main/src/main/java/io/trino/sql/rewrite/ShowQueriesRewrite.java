@@ -39,6 +39,7 @@ import io.trino.metadata.SessionPropertyManager.SessionPropertyValue;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.ViewDefinition;
+import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
@@ -130,6 +131,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
+import static io.trino.spi.StandardErrorCode.INVALID_VIEW_PROPERTY;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
@@ -180,6 +182,7 @@ public final class ShowQueriesRewrite
     private final SchemaPropertyManager schemaPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
     private final TablePropertyManager tablePropertyManager;
+    private final ViewPropertyManager viewPropertyManager;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
     @Inject
@@ -191,6 +194,7 @@ public final class ShowQueriesRewrite
             SchemaPropertyManager schemaPropertyManager,
             ColumnPropertyManager columnPropertyManager,
             TablePropertyManager tablePropertyManager,
+            ViewPropertyManager viewPropertyManager,
             MaterializedViewPropertyManager materializedViewPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -200,6 +204,7 @@ public final class ShowQueriesRewrite
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
+        this.viewPropertyManager = requireNonNull(viewPropertyManager, "viewPropertyManager is null");
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
     }
 
@@ -221,6 +226,7 @@ public final class ShowQueriesRewrite
                 schemaPropertyManager,
                 columnPropertyManager,
                 tablePropertyManager,
+                viewPropertyManager,
                 materializedViewPropertyManager);
         return (Statement) visitor.process(node, null);
     }
@@ -236,6 +242,7 @@ public final class ShowQueriesRewrite
         private final SchemaPropertyManager schemaPropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
         private final TablePropertyManager tablePropertyManager;
+        private final ViewPropertyManager viewPropertyManager;
         private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
         public Visitor(
@@ -247,6 +254,7 @@ public final class ShowQueriesRewrite
                 SchemaPropertyManager schemaPropertyManager,
                 ColumnPropertyManager columnPropertyManager,
                 TablePropertyManager tablePropertyManager,
+                ViewPropertyManager viewPropertyManager,
                 MaterializedViewPropertyManager materializedViewPropertyManager)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -257,6 +265,7 @@ public final class ShowQueriesRewrite
             this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
+            this.viewPropertyManager = requireNonNull(viewPropertyManager, "viewPropertyManager is null");
             this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
         }
 
@@ -646,6 +655,10 @@ public final class ShowQueriesRewrite
 
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
 
+                Map<String, Object> properties = metadata.getViewProperties(session, objectName);
+                CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName.getValue());
+                Collection<PropertyMetadata<?>> allViewProperties = viewPropertyManager.getAllProperties(catalogHandle);
+                List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_VIEW_PROPERTY, properties, allViewProperties);
                 CreateView.Security security = viewDefinition.get().isRunAsInvoker() ? INVOKER : DEFINER;
                 String sql = formatSql(new CreateView(
                         QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
@@ -653,7 +666,7 @@ public final class ShowQueriesRewrite
                         false,
                         viewDefinition.get().getComment(),
                         Optional.of(security),
-                        ImmutableList.of()))
+                        propertyNodes))
                         .trim();
                 return singleValueQuery("Create View", sql);
             }

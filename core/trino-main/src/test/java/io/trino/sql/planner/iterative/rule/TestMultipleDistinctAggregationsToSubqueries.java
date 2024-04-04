@@ -1673,6 +1673,12 @@ public class TestMultipleDistinctAggregationsToSubqueries
         }
 
         @Override
+        public Map<String, Object> getViewProperties(Session session, QualifiedObjectName viewName)
+        {
+            return metadata.getViewProperties(session, viewName);
+        }
+
+        @Override
         public Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName)
         {
             return metadata.getSchemaProperties(session, schemaName);
@@ -1685,9 +1691,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
         }
 
         @Override
-        public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, boolean replace)
+        public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, boolean replace)
         {
-            metadata.createView(session, viewName, definition, replace);
+            metadata.createView(session, viewName, definition, properties, replace);
         }
 
         @Override

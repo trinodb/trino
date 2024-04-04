@@ -104,6 +104,7 @@ public class MockConnectorFactory
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns;
     private final Optional<MockConnectorFactory.StreamRelationColumns> streamRelationColumns;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
+    private final Supplier<List<PropertyMetadata<?>>> getViewProperties;
     private final Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
     private final BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector;
@@ -163,6 +164,7 @@ public class MockConnectorFactory
             Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns,
             Optional<MockConnectorFactory.StreamRelationColumns> streamRelationColumns,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
+            Supplier<List<PropertyMetadata<?>>> getViewProperties,
             Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
             BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector,
@@ -218,6 +220,7 @@ public class MockConnectorFactory
         this.streamTableColumns = requireNonNull(streamTableColumns, "streamTableColumns is null");
         this.streamRelationColumns = requireNonNull(streamRelationColumns, "streamRelationColumns is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
+        this.getViewProperties = requireNonNull(getViewProperties, "getViewProperties is null");
         this.getMaterializedViewProperties = requireNonNull(getMaterializedViewProperties, "getMaterializedViewProperties is null");
         this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
         this.delegateMaterializedViewRefreshToConnector = requireNonNull(delegateMaterializedViewRefreshToConnector, "delegateMaterializedViewRefreshToConnector is null");
@@ -283,6 +286,7 @@ public class MockConnectorFactory
                 streamTableColumns,
                 streamRelationColumns,
                 getViews,
+                getViewProperties,
                 getMaterializedViewProperties,
                 getMaterializedViews,
                 delegateMaterializedViewRefreshToConnector,
@@ -434,6 +438,7 @@ public class MockConnectorFactory
         private Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns = Optional.empty();
         private Optional<MockConnectorFactory.StreamRelationColumns> streamRelationColumns = Optional.empty();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = defaultGetViews();
+        private Supplier<List<PropertyMetadata<?>>> getViewProperties = defaultGetViewProperties();
         private Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties = defaultGetMaterializedViewProperties();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews = defaultGetMaterializedViews();
         private BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector = (session, viewName) -> false;
@@ -542,6 +547,12 @@ public class MockConnectorFactory
         public Builder withGetViews(BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews)
         {
             this.getViews = requireNonNull(getViews, "getViews is null");
+            return this;
+        }
+
+        public Builder withGetViewProperties(Supplier<List<PropertyMetadata<?>>> getViewProperties)
+        {
+            this.getViewProperties = requireNonNull(getViewProperties, "getViewProperties is null");
             return this;
         }
 
@@ -872,6 +883,7 @@ public class MockConnectorFactory
                     streamTableColumns,
                     streamRelationColumns,
                     getViews,
+                    getViewProperties,
                     getMaterializedViewProperties,
                     getMaterializedViews,
                     delegateMaterializedViewRefreshToConnector,
@@ -938,6 +950,11 @@ public class MockConnectorFactory
         public static BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> defaultGetViews()
         {
             return (session, schemaTablePrefix) -> ImmutableMap.of();
+        }
+
+        public static Supplier<List<PropertyMetadata<?>>> defaultGetViewProperties()
+        {
+            return ImmutableList::of;
         }
 
         public static Supplier<List<PropertyMetadata<?>>> defaultGetMaterializedViewProperties()

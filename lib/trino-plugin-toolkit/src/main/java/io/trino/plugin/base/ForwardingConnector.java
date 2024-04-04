@@ -160,6 +160,12 @@ public abstract class ForwardingConnector
     }
 
     @Override
+    public List<PropertyMetadata<?>> getViewProperties()
+    {
+        return delegate().getViewProperties();
+    }
+
+    @Override
     public List<PropertyMetadata<?>> getMaterializedViewProperties()
     {
         return delegate().getMaterializedViewProperties();

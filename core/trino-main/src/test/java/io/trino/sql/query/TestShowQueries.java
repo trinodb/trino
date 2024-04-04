@@ -17,13 +17,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.connector.MockConnectorTableHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+
+import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -60,6 +66,23 @@ public class TestShowQueries
                                 .build()))
                 .withListSchemaNames(session -> ImmutableList.of("mockschema"))
                 .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
+                .withGetTableHandle((session, schemaTableName) -> {
+                    if (schemaTableName.getTableName().equals("mockview")) {
+                        return null;
+                    }
+                    return new MockConnectorTableHandle(schemaTableName);
+                })
+                .withGetViews((session, schemaTablePrefix) -> ImmutableMap.of(
+                        new SchemaTableName("mockschema", "mockview"), new ConnectorViewDefinition(
+                                "SELECT cola_ AS test_column FROM mock_table",
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
+                                Optional.empty(),
+                                Optional.empty(),
+                                true,
+                                ImmutableList.of())))
+                .withGetViewProperties(() -> ImmutableList.of(PropertyMetadata.booleanProperty("boolean_property", "sample_property", true, false)))
                 .build()));
         queryRunner.createCatalog("mock", "mock", ImmutableMap.of());
         queryRunner.createCatalog("testing_catalog", "mock", ImmutableMap.of());
@@ -181,5 +204,19 @@ public class TestShowQueries
                 .failure().hasMessage("Escape string must be a single character");
         assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable LIKE 'cola$_' ESCAPE '$'"))
                 .matches("VALUES (VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
+    }
+
+    @Test
+    public void testShowCreateViewWithProperties()
+    {
+        assertThat(assertions.getQueryRunner().execute("SHOW CREATE VIEW mock.mockschema.mockview").getOnlyValue())
+                .isEqualTo("""
+                        CREATE VIEW mock.mockschema.mockview SECURITY INVOKER
+                        WITH (
+                           boolean_property = true
+                        ) AS
+                        SELECT cola_ test_column
+                        FROM
+                          mock_table""");
     }
 }

@@ -22,7 +22,9 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
+import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.security.Identity;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -30,15 +32,18 @@ import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -52,14 +57,21 @@ public class CreateViewTask
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
     private final AnalyzerFactory analyzerFactory;
+    private final ViewPropertyManager viewPropertyManager;
 
     @Inject
-    public CreateViewTask(PlannerContext plannerContext, AccessControl accessControl, SqlParser sqlParser, AnalyzerFactory analyzerFactory)
+    public CreateViewTask(
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            SqlParser sqlParser,
+            AnalyzerFactory analyzerFactory,
+            ViewPropertyManager viewPropertyManager)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
+        this.viewPropertyManager = requireNonNull(viewPropertyManager, "viewPropertyManager is null");
     }
 
     @Override
@@ -76,9 +88,8 @@ public class CreateViewTask
             WarningCollector warningCollector)
     {
         Metadata metadata = plannerContext.getMetadata();
-        if (!statement.getProperties().isEmpty()) {
-            throw semanticException(NOT_SUPPORTED, statement, "Creating views with properties is not supported");
-        }
+        Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
+
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
@@ -98,7 +109,7 @@ public class CreateViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, bindParameters(statement, parameters), stateMachine.getWarningCollector(), stateMachine.getPlanOptimizersStatsCollector())
+        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, stateMachine.getWarningCollector(), stateMachine.getPlanOptimizersStatsCollector())
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
@@ -112,6 +123,19 @@ public class CreateViewTask
             owner = Optional.empty();
         }
 
+        String catalogName = name.getCatalogName();
+        CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, statement, catalogName);
+
+        Map<String, Object> properties = viewPropertyManager.getProperties(
+                name.getCatalogName(),
+                catalogHandle,
+                statement.getProperties(),
+                session,
+                plannerContext,
+                accessControl,
+                parameterLookup,
+                true);
+
         ViewDefinition definition = new ViewDefinition(
                 sql,
                 session.getCatalog(),
@@ -124,7 +148,7 @@ public class CreateViewTask
                         .filter(element -> !element.getCatalogName().equals(GlobalSystemConnector.NAME))
                         .collect(toImmutableList()));
 
-        metadata.createView(session, name, definition, statement.isReplace());
+        metadata.createView(session, name, definition, properties, statement.isReplace());
 
         stateMachine.setOutput(analysis.getTarget());
         stateMachine.setReferencedTables(analysis.getReferencedTables());
