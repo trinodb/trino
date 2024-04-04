@@ -71,8 +71,8 @@ public class TopNStatsRule
             return Optional.of(resultStats);
         }
         // augment null fraction estimation for first ORDER BY symbol
-        Symbol firstOrderSymbol = node.getOrderingScheme().getOrderBy().get(0); // Assuming not empty list
-        SortOrder sortOrder = node.getOrderingScheme().getOrdering(firstOrderSymbol);
+        Symbol firstOrderSymbol = node.getOrderingScheme().orderBy().get(0); // Assuming not empty list
+        SortOrder sortOrder = node.getOrderingScheme().ordering(firstOrderSymbol);
 
         resultStats = resultStats.mapSymbolColumnStatistics(firstOrderSymbol, symbolStats -> {
             SymbolStatsEstimate.Builder newStats = SymbolStatsEstimate.buildFrom(symbolStats);

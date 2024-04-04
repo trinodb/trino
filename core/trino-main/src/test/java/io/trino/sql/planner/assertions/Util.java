@@ -62,17 +62,17 @@ final class Util
 
     static boolean orderingSchemeMatches(List<Ordering> expectedOrderBy, OrderingScheme orderingScheme, SymbolAliases symbolAliases)
     {
-        if (expectedOrderBy.size() != orderingScheme.getOrderBy().size()) {
+        if (expectedOrderBy.size() != orderingScheme.orderBy().size()) {
             return false;
         }
 
         for (int i = 0; i < expectedOrderBy.size(); ++i) {
             Ordering ordering = expectedOrderBy.get(i);
             Symbol symbol = Symbol.from(symbolAliases.get(ordering.getField()));
-            if (!symbol.equals(orderingScheme.getOrderBy().get(i))) {
+            if (!symbol.equals(orderingScheme.orderBy().get(i))) {
                 return false;
             }
-            if (ordering.getSortOrder() != orderingScheme.getOrdering(symbol)) {
+            if (ordering.getSortOrder() != orderingScheme.ordering(symbol)) {
                 return false;
             }
         }

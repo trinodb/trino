@@ -80,7 +80,7 @@ public class PushDownDereferencesThroughLimit
         // Exclude dereferences on symbols being used in tiesResolvingScheme and requiresPreSortedInputs
         Set<Symbol> excludedSymbols = ImmutableSet.<Symbol>builder()
                 .addAll(limitNode.getTiesResolvingScheme()
-                        .map(OrderingScheme::getOrderBy)
+                        .map(OrderingScheme::orderBy)
                         .orElse(ImmutableList.of()))
                 .addAll(limitNode.getPreSortedInputs())
                 .build();

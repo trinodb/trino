@@ -374,10 +374,10 @@ public class PlanNodeDecorrelator
             // remove local and remote constant sort symbols from the OrderingScheme
             ImmutableList.Builder<Symbol> nonConstantOrderBy = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, SortOrder> nonConstantOrderings = ImmutableMap.builder();
-            for (Symbol symbol : orderingScheme.getOrderBy()) {
+            for (Symbol symbol : orderingScheme.orderBy()) {
                 if (!constantSymbols.contains(symbol) && !correlation.contains(symbol)) {
                     nonConstantOrderBy.add(symbol);
-                    nonConstantOrderings.put(symbol, orderingScheme.getOrdering(symbol));
+                    nonConstantOrderings.put(symbol, orderingScheme.ordering(symbol));
                 }
             }
             if (nonConstantOrderBy.build().isEmpty()) {

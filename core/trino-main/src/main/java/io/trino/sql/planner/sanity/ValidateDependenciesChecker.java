@@ -190,9 +190,9 @@ public final class ValidateDependenciesChecker
             if (node.getOrderingScheme().isPresent()) {
                 checkDependencies(
                         inputs,
-                        node.getOrderingScheme().get().getOrderBy(),
+                        node.getOrderingScheme().get().orderBy(),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                        node.getOrderingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+                        node.getOrderingScheme().get().orderBy(), node.getSource().getOutputSymbols());
             }
 
             node.getCommonBaseFrame()
@@ -251,10 +251,10 @@ public final class ValidateDependenciesChecker
                     specification.orderingScheme().ifPresent(orderingScheme -> {
                         checkDependencies(
                                 inputs,
-                                orderingScheme.getOrderBy(),
+                                orderingScheme.orderBy(),
                                 "Invalid node. Order by symbols for source %s (%s) not in source plan output (%s)",
                                 argumentProperties.argumentName(),
-                                orderingScheme.getOrderBy(),
+                                orderingScheme.orderBy(),
                                 source.getOutputSymbols());
                     });
                 });
@@ -332,9 +332,9 @@ public final class ValidateDependenciesChecker
                 specification.orderingScheme().ifPresent(orderingScheme -> {
                     checkDependencies(
                             inputs,
-                            orderingScheme.getOrderBy(),
+                            orderingScheme.orderBy(),
                             "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                            orderingScheme.getOrderBy(),
+                            orderingScheme.orderBy(),
                             source.getOutputSymbols());
                 });
             });
@@ -354,9 +354,9 @@ public final class ValidateDependenciesChecker
             if (node.getOrderingScheme().isPresent()) {
                 checkDependencies(
                         inputs,
-                        node.getOrderingScheme().get().getOrderBy(),
+                        node.getOrderingScheme().get().orderBy(),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                        node.getOrderingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+                        node.getOrderingScheme().get().orderBy(), node.getSource().getOutputSymbols());
             }
 
             ImmutableList.Builder<Symbol> bounds = ImmutableList.builder();
@@ -399,9 +399,9 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
             checkDependencies(
                     inputs,
-                    node.getOrderingScheme().getOrderBy(),
+                    node.getOrderingScheme().orderBy(),
                     "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                    node.getOrderingScheme().getOrderBy(), node.getSource().getOutputSymbols());
+                    node.getOrderingScheme().orderBy(), node.getSource().getOutputSymbols());
 
             return null;
         }
@@ -466,9 +466,9 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
             checkDependencies(
                     inputs,
-                    node.getOrderingScheme().getOrderBy(),
+                    node.getOrderingScheme().orderBy(),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
-                    node.getOrderingScheme().getOrderBy(),
+                    node.getOrderingScheme().orderBy(),
                     node.getSource().getOutputSymbols());
 
             return null;
@@ -484,9 +484,9 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
             checkDependencies(
                     inputs,
-                    node.getOrderingScheme().getOrderBy(),
+                    node.getOrderingScheme().orderBy(),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
-                    node.getOrderingScheme().getOrderBy(), node.getSource().getOutputSymbols());
+                    node.getOrderingScheme().orderBy(), node.getSource().getOutputSymbols());
 
             return null;
         }
@@ -520,9 +520,9 @@ public final class ValidateDependenciesChecker
             if (node.getTiesResolvingScheme().isPresent()) {
                 checkDependencies(
                         createInputs(source, boundSymbols),
-                        node.getTiesResolvingScheme().get().getOrderBy(),
+                        node.getTiesResolvingScheme().get().orderBy(),
                         "Invalid node. Ties resolving dependencies (%s) not in source plan output (%s)",
-                        node.getTiesResolvingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+                        node.getTiesResolvingScheme().get().orderBy(), node.getSource().getOutputSymbols());
             }
 
             checkDependencies(

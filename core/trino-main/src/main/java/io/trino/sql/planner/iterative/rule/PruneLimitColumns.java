@@ -40,7 +40,7 @@ public class PruneLimitColumns
         Set<Symbol> prunedLimitInputs = ImmutableSet.<Symbol>builder()
                 .addAll(referencedOutputs)
                 .addAll(limitNode.getTiesResolvingScheme()
-                        .map(OrderingScheme::getOrderBy)
+                        .map(OrderingScheme::orderBy)
                         .orElse(ImmutableList.of()))
                 .addAll(limitNode.getPreSortedInputs())
                 .build();

@@ -2029,19 +2029,19 @@ public class PlanPrinter
         private String formatOrderingScheme(OrderingScheme orderingScheme, int preSortedOrderPrefix)
         {
             List<String> orderBy = Stream.concat(
-                            orderingScheme.getOrderBy().stream()
+                            orderingScheme.orderBy().stream()
                                     .limit(preSortedOrderPrefix)
-                                    .map(symbol -> "<" + anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol) + ">"),
-                            orderingScheme.getOrderBy().stream()
+                                    .map(symbol -> "<" + anonymizer.anonymize(symbol) + " " + orderingScheme.ordering(symbol) + ">"),
+                            orderingScheme.orderBy().stream()
                                     .skip(preSortedOrderPrefix)
-                                    .map(symbol -> anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol)))
+                                    .map(symbol -> anonymizer.anonymize(symbol) + " " + orderingScheme.ordering(symbol)))
                     .collect(toImmutableList());
             return formatCollection(orderBy, Objects::toString);
         }
 
         private String formatOrderingScheme(OrderingScheme orderingScheme)
         {
-            return formatCollection(orderingScheme.getOrderBy(), input -> anonymizer.anonymize(input) + " " + orderingScheme.getOrdering(input));
+            return formatCollection(orderingScheme.orderBy(), input -> anonymizer.anonymize(input) + " " + orderingScheme.ordering(input));
         }
 
         @SafeVarargs
@@ -2171,8 +2171,8 @@ public class PlanPrinter
         builder.append(formatFunctionName(aggregation.getResolvedFunction()))
                 .append('(').append(arguments);
 
-        aggregation.getOrderingScheme().ifPresent(orderingScheme -> builder.append(' ').append(orderingScheme.getOrderBy().stream()
-                .map(input -> anonymizer.anonymize(input) + " " + orderingScheme.getOrdering(input))
+        aggregation.getOrderingScheme().ifPresent(orderingScheme -> builder.append(' ').append(orderingScheme.orderBy().stream()
+                .map(input -> anonymizer.anonymize(input) + " " + orderingScheme.ordering(input))
                 .collect(joining(", "))));
 
         builder.append(')');
