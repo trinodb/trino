@@ -68,7 +68,9 @@ public class StargateAuthenticationModule
                 setSslProperties(properties, sslConfig);
             }
 
-            return new DriverConnectionFactory(new TrinoDriver(), config.getConnectionUrl(), properties, credentialProvider);
+            return DriverConnectionFactory.builder(new TrinoDriver(), config.getConnectionUrl(), credentialProvider)
+                    .setConnectionProperties(properties)
+                    .build();
         }
     }
 

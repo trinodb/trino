@@ -118,7 +118,7 @@ public class StarburstSqlServerClientModule
     public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, CredentialProvider credentialProvider)
     {
         return new SqlServerConnectionFactory(
-                new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider),
+                DriverConnectionFactory.builder(new SQLServerDriver(), config.getConnectionUrl(), credentialProvider).build(),
                 sqlServerConfig.isSnapshotIsolationDisabled());
     }
 

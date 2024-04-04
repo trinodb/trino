@@ -64,11 +64,9 @@ public class UserPasswordModule
                     oracleConfig);
         }
 
-        return new DriverConnectionFactory(
-                new OracleDriver(),
-                config.getConnectionUrl(),
-                getConnectionProperties(oracleConfig),
-                credentialProvider);
+        return DriverConnectionFactory.builder(new OracleDriver(), config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(getConnectionProperties(oracleConfig))
+                .build();
     }
 
     public static Properties getConnectionProperties(OracleConfig oracleConfig)
