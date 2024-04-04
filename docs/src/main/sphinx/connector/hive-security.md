@@ -211,7 +211,7 @@ Keytab files must be distributed to every node in the cluster that runs Trino.
 hive.hdfs.authentication.type=KERBEROS
 hive.hdfs.impersonation.enabled=true
 hive.hdfs.trino.principal=trino@EXAMPLE.COM
-hive.hdfs.trino.keytab=/etc/trino/hdfs.keytab
+hive.hdfs.trino.keytab=/etc/trino/trino.keytab
 ```
 
 When using `KERBEROS` authentication with impersonation, Trino impersonates
