@@ -1775,7 +1775,7 @@ public class PlanPrinter
                 nodeOutput.appendDetails("Arguments:");
 
                 Map<String, TableArgumentProperties> tableArguments = node.getTableArgumentProperties().stream()
-                        .collect(toImmutableMap(TableArgumentProperties::getArgumentName, identity()));
+                        .collect(toImmutableMap(TableArgumentProperties::argumentName, identity()));
 
                 node.getArguments().entrySet()
                         .forEach(entry -> nodeOutput.appendDetails("%s", formatArgument(entry.getKey(), entry.getValue(), tableArguments)));
@@ -1788,7 +1788,7 @@ public class PlanPrinter
             }
 
             for (int i = 0; i < node.getSources().size(); i++) {
-                node.getSources().get(i).accept(this, new Context(node.getTableArgumentProperties().get(i).getArgumentName(), context.isInitialPlan()));
+                node.getSources().get(i).accept(this, new Context(node.getTableArgumentProperties().get(i).argumentName(), context.isInitialPlan()));
             }
 
             return null;
@@ -1836,10 +1836,10 @@ public class PlanPrinter
         private String formatTableArgument(String argumentName, TableArgumentProperties argumentProperties)
         {
             StringBuilder properties = new StringBuilder();
-            if (argumentProperties.isRowSemantics()) {
+            if (argumentProperties.rowSemantics()) {
                 properties.append("row semantics");
             }
-            argumentProperties.getSpecification().ifPresent(specification -> {
+            argumentProperties.specification().ifPresent(specification -> {
                 properties
                         .append("partition by: [")
                         .append(Joiner.on(", ").join(anonymize(specification.getPartitionBy())))
@@ -1851,12 +1851,12 @@ public class PlanPrinter
                 });
             });
             properties.append("required columns: [")
-                    .append(Joiner.on(", ").join(anonymize(argumentProperties.getRequiredColumns())))
+                    .append(Joiner.on(", ").join(anonymize(argumentProperties.requiredColumns())))
                     .append("]");
-            if (argumentProperties.isPruneWhenEmpty()) {
+            if (argumentProperties.pruneWhenEmpty()) {
                 properties.append(", prune when empty");
             }
-            if (argumentProperties.getPassThroughSpecification().declaredAsPassThrough()) {
+            if (argumentProperties.passThroughSpecification().declaredAsPassThrough()) {
                 properties.append(", pass through columns");
             }
             return format("%s => TableArgument{%s}", argumentName, properties);
