@@ -96,6 +96,12 @@ public class TestLikeMatcher
 
         assertFalse(match("%abaaa%", "ababaa"));
 
+        assertTrue(match("%paya%", "papaya"));
+        assertTrue(match("%paya%", "papapaya"));
+        assertTrue(match("%paya%", "papapapaya"));
+        assertTrue(match("%paya%", "papapapapaya"));
+        assertTrue(match("%paya%", "papapapapapaya"));
+
         // utf-8
         LikeMatcher singleOptimized = LikePattern.compile("_", Optional.empty(), true).getMatcher();
         LikeMatcher multipleOptimized = LikePattern.compile("_a%b_", Optional.empty(), true).getMatcher(); // prefix and suffix with _a and b_ to avoid optimizations

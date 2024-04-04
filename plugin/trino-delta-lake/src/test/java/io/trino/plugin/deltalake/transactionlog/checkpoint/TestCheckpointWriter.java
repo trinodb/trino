@@ -36,6 +36,7 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
@@ -49,6 +50,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -67,7 +69,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestCheckpointWriter
 {
@@ -88,7 +89,8 @@ public class TestCheckpointWriter
                                 "formatOptionX", "blah",
                                 "fomatOptionY", "plah")),
                 "{\"type\":\"struct\",\"fields\":" +
-                        "[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
+                        "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"str\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_short\",\"type\":\"decimal(5,1)\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_long\",\"type\":\"decimal(25,3)\",\"nullable\":true,\"metadata\":{}}," +
@@ -193,13 +195,11 @@ public class TestCheckpointWriter
         writer.write(entries, createOutputFile(targetPath));
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
-        assertEquals(readEntries.getTransactionEntries(), entries.getTransactionEntries());
-        assertEquals(readEntries.getRemoveFileEntries(), entries.getRemoveFileEntries());
-        assertEquals(readEntries.getMetadataEntry(), entries.getMetadataEntry());
-        assertEquals(readEntries.getProtocolEntry(), entries.getProtocolEntry());
-        assertEquals(
-                readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()),
-                entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+        assertThat(readEntries.getTransactionEntries()).isEqualTo(entries.getTransactionEntries());
+        assertThat(readEntries.getRemoveFileEntries()).isEqualTo(entries.getRemoveFileEntries());
+        assertThat(readEntries.getMetadataEntry()).isEqualTo(entries.getMetadataEntry());
+        assertThat(readEntries.getProtocolEntry()).isEqualTo(entries.getProtocolEntry());
+        assertThat(readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
     }
 
     @Test
@@ -216,7 +216,8 @@ public class TestCheckpointWriter
                                 "formatOptionX", "blah",
                                 "fomatOptionY", "plah")),
                 "{\"type\":\"struct\",\"fields\":" +
-                        "[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
+                        "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"str\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_short\",\"type\":\"decimal(5,1)\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_long\",\"type\":\"decimal(25,3)\",\"nullable\":true,\"metadata\":{}}," +
@@ -330,13 +331,11 @@ public class TestCheckpointWriter
         writer.write(entries, createOutputFile(targetPath));
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
-        assertEquals(readEntries.getTransactionEntries(), entries.getTransactionEntries());
-        assertEquals(readEntries.getRemoveFileEntries(), entries.getRemoveFileEntries());
-        assertEquals(readEntries.getMetadataEntry(), entries.getMetadataEntry());
-        assertEquals(readEntries.getProtocolEntry(), entries.getProtocolEntry());
-        assertEquals(
-                readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()),
-                entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+        assertThat(readEntries.getTransactionEntries()).isEqualTo(entries.getTransactionEntries());
+        assertThat(readEntries.getRemoveFileEntries()).isEqualTo(entries.getRemoveFileEntries());
+        assertThat(readEntries.getMetadataEntry()).isEqualTo(entries.getMetadataEntry());
+        assertThat(readEntries.getProtocolEntry()).isEqualTo(entries.getProtocolEntry());
+        assertThat(readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
     }
 
     @Test
@@ -353,9 +352,10 @@ public class TestCheckpointWriter
                                 "formatOptionX", "blah",
                                 "fomatOptionY", "plah")),
                 "{\"type\":\"struct\",\"fields\":" +
-                        "[{\"name\":\"row\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"s1\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
+                        "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"row\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"s1\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"s2\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]},\"nullable\":true,\"metadata\":{}}]}",
-                ImmutableList.of(),
+                ImmutableList.of("part_key"),
                 ImmutableMap.of(),
                 1000);
         ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
@@ -448,8 +448,10 @@ public class TestCheckpointWriter
         for (String key : stats.keySet()) {
             Object statsValue = stats.get(key);
             if (statsValue instanceof SqlRow sqlRow) {
-                ImmutableList<Long> logicalSizes = sqlRow.getRawFieldBlocks().stream()
-                        .map(Block::getLogicalSizeInBytes)
+                // todo: this validation is just broken. The only way to compare values is to use types.
+                // see https://github.com/trinodb/trino/issues/19557
+                ImmutableList<String> logicalSizes = sqlRow.getRawFieldBlocks().stream()
+                        .map(block -> block.getUnderlyingValueBlock().getClass().getName())
                         .collect(toImmutableList());
                 comparableStats.put(key, logicalSizes);
             }
@@ -482,7 +484,9 @@ public class TestCheckpointWriter
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 rowStatisticsEnabled,
-                new DeltaLakeConfig().getDomainCompactionThreshold());
+                new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all(),
+                Optional.of(alwaysTrue()));
 
         CheckpointBuilder checkpointBuilder = new CheckpointBuilder();
         while (checkpointEntryIterator.hasNext()) {

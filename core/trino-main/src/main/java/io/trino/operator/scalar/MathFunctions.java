@@ -1150,7 +1150,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.REAL)
     public static long signFloat(@SqlType(StandardTypes.REAL) long num)
     {
-        return floatToRawIntBits((Math.signum(intBitsToFloat((int) num))));
+        return floatToRawIntBits(Math.signum(intBitsToFloat((int) num)));
     }
 
     @Description("Sine")

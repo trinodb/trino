@@ -15,23 +15,42 @@ package io.trino.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.BoundedExecutor;
 import io.trino.split.SplitSource.SplitBatch;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
-import java.util.concurrent.Future;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.split.MockSplitSource.Action.FAIL;
 import static io.trino.split.MockSplitSource.Action.FINISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Execution(ExecutionMode.CONCURRENT)
 public class TestBufferingSplitSource
 {
+    private final ExecutorService executorService = newCachedThreadPool(daemonThreadsNamed(TestBufferingSplitSource.class.getSimpleName() + "-%s"));
+    private final Executor executor = new BoundedExecutor(executorService, 10);
+
+    @AfterAll
+    public void cleanup()
+    {
+        executorService.shutdown();
+    }
+
     @Test
     public void testSlowSource()
     {
@@ -39,14 +58,14 @@ public class TestBufferingSplitSource
                 .setBatchSize(1)
                 .increaseAvailableSplits(25)
                 .atSplitCompletion(FINISH);
-        try (SplitSource source = new BufferingSplitSource(mockSource, 10)) {
-            requireFutureValue(getNextBatch(source, 20))
+        try (SplitSource source = new BufferingSplitSource(mockSource, executor, 10)) {
+            getFutureValue(getNextBatch(source, 20))
                     .assertSize(10)
                     .assertNoMoreSplits(false);
-            requireFutureValue(getNextBatch(source, 6))
+            getFutureValue(getNextBatch(source, 6))
                     .assertSize(6)
                     .assertNoMoreSplits(false);
-            requireFutureValue(getNextBatch(source, 20))
+            getFutureValue(getNextBatch(source, 20))
                     .assertSize(9)
                     .assertNoMoreSplits(true);
             assertTrue(source.isFinished());
@@ -61,15 +80,30 @@ public class TestBufferingSplitSource
                 .setBatchSize(11)
                 .increaseAvailableSplits(22)
                 .atSplitCompletion(FINISH);
-        try (SplitSource source = new BufferingSplitSource(mockSource, 10)) {
-            requireFutureValue(getNextBatch(source, 200))
+        try (SplitSource source = new BufferingSplitSource(mockSource, executor, 10)) {
+            getFutureValue(getNextBatch(source, 200))
                     .assertSize(11)
                     .assertNoMoreSplits(false);
-            requireFutureValue(getNextBatch(source, 200))
+            getFutureValue(getNextBatch(source, 200))
                     .assertSize(11)
                     .assertNoMoreSplits(true);
             assertTrue(source.isFinished());
             assertEquals(mockSource.getNextBatchInvocationCount(), 2);
+        }
+    }
+
+    @Test
+    public void testNoStackOverFlow()
+    {
+        MockSplitSource mockSource = new MockSplitSource()
+                .setBatchSize(1)
+                .increaseAvailableSplits(10000)
+                .atSplitCompletion(FINISH);
+        try (SplitSource source = new BufferingSplitSource(mockSource, executor, Integer.MAX_VALUE)) {
+            while (!source.isFinished()) {
+                getFutureValue(getNextBatch(source, 1000))
+                        .assertSize(1000);
+            }
         }
     }
 
@@ -79,8 +113,8 @@ public class TestBufferingSplitSource
         MockSplitSource mockSource = new MockSplitSource()
                 .setBatchSize(1)
                 .atSplitCompletion(FINISH);
-        try (SplitSource source = new BufferingSplitSource(mockSource, 100)) {
-            requireFutureValue(getNextBatch(source, 200))
+        try (SplitSource source = new BufferingSplitSource(mockSource, executor, 100)) {
+            getFutureValue(getNextBatch(source, 200))
                     .assertSize(0)
                     .assertNoMoreSplits(true);
             assertTrue(source.isFinished());
@@ -93,14 +127,14 @@ public class TestBufferingSplitSource
     {
         MockSplitSource mockSource = new MockSplitSource()
                 .setBatchSize(1);
-        try (SplitSource source = new BufferingSplitSource(mockSource, 10)) {
+        try (SplitSource source = new BufferingSplitSource(mockSource, executor, 10)) {
             // Source has 0 out of 10 needed.
             ListenableFuture<NextBatchResult> nextBatchFuture = getNextBatch(source, 10);
             assertFalse(nextBatchFuture.isDone());
             mockSource.increaseAvailableSplits(9);
             assertFalse(nextBatchFuture.isDone());
             mockSource.increaseAvailableSplits(1);
-            requireFutureValue(nextBatchFuture)
+            getFutureValue(nextBatchFuture)
                     .assertSize(10)
                     .assertNoMoreSplits(false);
 
@@ -108,7 +142,7 @@ public class TestBufferingSplitSource
             nextBatchFuture = getNextBatch(source, 10);
             assertFalse(nextBatchFuture.isDone());
             mockSource.atSplitCompletion(FINISH);
-            requireFutureValue(nextBatchFuture)
+            getFutureValue(nextBatchFuture)
                     .assertSize(0)
                     .assertNoMoreSplits(true);
             assertTrue(source.isFinished());
@@ -116,13 +150,13 @@ public class TestBufferingSplitSource
 
         mockSource = new MockSplitSource()
                 .setBatchSize(1);
-        try (SplitSource source = new BufferingSplitSource(mockSource, 10)) {
+        try (SplitSource source = new BufferingSplitSource(mockSource, executor, 10)) {
             // Source has 1 out of 10 needed.
             mockSource.increaseAvailableSplits(1);
             ListenableFuture<NextBatchResult> nextBatchFuture = getNextBatch(source, 10);
             assertFalse(nextBatchFuture.isDone());
             mockSource.increaseAvailableSplits(9);
-            requireFutureValue(nextBatchFuture)
+            getFutureValue(nextBatchFuture)
                     .assertSize(10)
                     .assertNoMoreSplits(false);
 
@@ -131,7 +165,7 @@ public class TestBufferingSplitSource
             mockSource.increaseAvailableSplits(5);
             assertFalse(nextBatchFuture.isDone());
             mockSource.atSplitCompletion(FINISH);
-            requireFutureValue(nextBatchFuture)
+            getFutureValue(nextBatchFuture)
                     .assertSize(5)
                     .assertNoMoreSplits(true);
             assertTrue(source.isFinished());
@@ -139,13 +173,13 @@ public class TestBufferingSplitSource
 
         mockSource = new MockSplitSource()
                 .setBatchSize(1);
-        try (SplitSource source = new BufferingSplitSource(mockSource, 10)) {
+        try (SplitSource source = new BufferingSplitSource(mockSource, executor, 10)) {
             // Source has 9 out of 10 needed.
             mockSource.increaseAvailableSplits(9);
             ListenableFuture<NextBatchResult> nextBatchFuture = getNextBatch(source, 10);
             assertFalse(nextBatchFuture.isDone());
             mockSource.increaseAvailableSplits(1);
-            requireFutureValue(nextBatchFuture)
+            getFutureValue(nextBatchFuture)
                     .assertSize(10)
                     .assertNoMoreSplits(false);
 
@@ -161,12 +195,12 @@ public class TestBufferingSplitSource
         // Fast source: source produce 8 before, and 8 after invocation. BufferedSource should return all 16 at once.
         mockSource = new MockSplitSource()
                 .setBatchSize(8);
-        try (SplitSource source = new BufferingSplitSource(mockSource, 10)) {
+        try (SplitSource source = new BufferingSplitSource(mockSource, executor, 10)) {
             mockSource.increaseAvailableSplits(8);
             ListenableFuture<NextBatchResult> nextBatchFuture = getNextBatch(source, 20);
             assertFalse(nextBatchFuture.isDone());
             mockSource.increaseAvailableSplits(8);
-            requireFutureValue(nextBatchFuture)
+            getFutureValue(nextBatchFuture)
                     .assertSize(16)
                     .assertNoMoreSplits(false);
         }
@@ -178,8 +212,8 @@ public class TestBufferingSplitSource
         MockSplitSource mockSource = new MockSplitSource()
                 .setBatchSize(1)
                 .increaseAvailableSplits(1);
-        try (SplitSource source = new BufferingSplitSource(mockSource, 100)) {
-            requireFutureValue(getNextBatch(source, 1))
+        try (SplitSource source = new BufferingSplitSource(mockSource, executor, 100)) {
+            getFutureValue(getNextBatch(source, 1))
                     .assertSize(1)
                     .assertNoMoreSplits(false);
             assertFalse(source.isFinished());
@@ -189,7 +223,7 @@ public class TestBufferingSplitSource
             // In this case, the preceding getNextBatch() indicates the noMoreSplits is false,
             // but the next isFinished call will return true.
             mockSource.atSplitCompletion(FINISH);
-            requireFutureValue(getNextBatch(source, 1))
+            getFutureValue(getNextBatch(source, 1))
                     .assertSize(0)
                     .assertNoMoreSplits(true);
             assertTrue(source.isFinished());
@@ -203,7 +237,7 @@ public class TestBufferingSplitSource
         MockSplitSource mockSource = new MockSplitSource()
                 .setBatchSize(1)
                 .atSplitCompletion(FAIL);
-        try (SplitSource source = new BufferingSplitSource(mockSource, 100)) {
+        try (SplitSource source = new BufferingSplitSource(mockSource, executor, 100)) {
             assertFutureFailsWithMockFailure(getNextBatch(source, 200));
             assertEquals(mockSource.getNextBatchInvocationCount(), 1);
         }
@@ -216,7 +250,7 @@ public class TestBufferingSplitSource
                 .setBatchSize(1)
                 .increaseAvailableSplits(1)
                 .atSplitCompletion(FAIL);
-        try (SplitSource source = new BufferingSplitSource(mockSource, 100)) {
+        try (SplitSource source = new BufferingSplitSource(mockSource, executor, 100)) {
             assertFutureFailsWithMockFailure(getNextBatch(source, 2));
             assertEquals(mockSource.getNextBatchInvocationCount(), 2);
         }
@@ -224,14 +258,8 @@ public class TestBufferingSplitSource
 
     private static void assertFutureFailsWithMockFailure(ListenableFuture<?> future)
     {
-        assertTrue(future.isDone());
         assertThatThrownBy(future::get)
                 .hasMessageContaining("Mock failure");
-    }
-
-    private static <T> T requireFutureValue(Future<T> future)
-    {
-        return tryGetFutureValue(future).orElseThrow(AssertionError::new);
     }
 
     private static ListenableFuture<NextBatchResult> getNextBatch(SplitSource splitSource, int maxSize)

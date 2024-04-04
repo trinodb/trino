@@ -18,9 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.server.testing.TestingTrinoServer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -41,13 +44,17 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJdbcStatement
 {
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
     private TestingTrinoServer server;
 
-    @BeforeClass
+    @BeforeAll
     public void setupServer()
             throws Exception
     {
@@ -68,7 +75,7 @@ public class TestJdbcStatement
         }
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
@@ -78,7 +85,8 @@ public class TestJdbcStatement
         server = null;
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testCancellationOnStatementClose()
             throws Exception
     {
@@ -114,7 +122,8 @@ public class TestJdbcStatement
     /**
      * @see TestJdbcConnection#testConcurrentCancellationOnConnectionClose
      */
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testConcurrentCancellationOnStatementClose()
             throws Exception
     {

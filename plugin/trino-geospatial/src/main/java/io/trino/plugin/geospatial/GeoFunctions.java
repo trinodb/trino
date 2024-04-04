@@ -700,7 +700,7 @@ public final class GeoFunctions
             return Collections.singletonList(path.getPoint(0));
         }
         if (fractionStep == 1) {
-            return Collections.singletonList((path.getPoint(path.getPointCount() - 1)));
+            return Collections.singletonList(path.getPoint(path.getPointCount() - 1));
         }
 
         int pointCount = repeated ? (int) Math.floor(1 / fractionStep) : 1;

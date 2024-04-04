@@ -434,7 +434,7 @@ public class AvroPageDataReader
             List<String> symbolsList = requireNonNull(action, "action is null").reader.getEnumSymbols();
             symbols = symbolsList.stream().map(Slices::utf8Slice).toArray(Slice[]::new);
             if (!action.noAdjustmentsNeeded) {
-                Slice[] adjustedSymbols = new Slice[(action.writer.getEnumSymbols().size())];
+                Slice[] adjustedSymbols = new Slice[action.writer.getEnumSymbols().size()];
                 for (int i = 0; i < action.adjustments.length; i++) {
                     if (action.adjustments[i] < 0) {
                         throw new AvroTypeException("No reader Enum value for writer Enum value " + action.writer.getEnumSymbols().get(i));

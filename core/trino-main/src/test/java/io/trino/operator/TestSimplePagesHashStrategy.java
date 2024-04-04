@@ -29,10 +29,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestSimplePagesHashStrategy
 {
@@ -44,7 +42,7 @@ public class TestSimplePagesHashStrategy
         Page page = new Page(block);
 
         // This works because IntegerType is comparable.
-        assertEquals(strategy.hashRow(0, page), -4467490526933615037L);
+        assertThat(strategy.hashRow(0, page)).isEqualTo(-4467490526933615037L);
     }
 
     @Test
@@ -61,7 +59,7 @@ public class TestSimplePagesHashStrategy
         Page page = new Page(block);
 
         // This works because MapType is comparable.
-        assertEquals(strategy.hashRow(0, page), 451258269207618863L);
+        assertThat(strategy.hashRow(0, page)).isEqualTo(451258269207618863L);
     }
 
     @Test
@@ -74,8 +72,8 @@ public class TestSimplePagesHashStrategy
         Page rightPage2 = new Page(new IntArrayBlock(1, Optional.empty(), new int[]{5678}));
 
         // This works because IntegerType is comparable.
-        assertTrue(strategy.rowEqualsRow(0, leftPage, 0, rightPage1));
-        assertFalse(strategy.rowEqualsRow(0, leftPage, 0, rightPage2));
+        assertThat(strategy.rowEqualsRow(0, leftPage, 0, rightPage1)).isTrue();
+        assertThat(strategy.rowEqualsRow(0, leftPage, 0, rightPage2)).isFalse();
     }
 
     @Test
@@ -103,8 +101,8 @@ public class TestSimplePagesHashStrategy
                 new IntArrayBlock(1, Optional.empty(), new int[]{1234})));
 
         // This works because MapType is comparable.
-        assertTrue(strategy.rowEqualsRow(0, leftPage, 0, rightPage1));
-        assertFalse(strategy.rowEqualsRow(0, leftPage, 0, rightPage2));
+        assertThat(strategy.rowEqualsRow(0, leftPage, 0, rightPage1)).isTrue();
+        assertThat(strategy.rowEqualsRow(0, leftPage, 0, rightPage2)).isFalse();
     }
 
     @Test
@@ -114,9 +112,9 @@ public class TestSimplePagesHashStrategy
         SimplePagesHashStrategy strategy = createSimplePagesHashStrategy(INTEGER, ImmutableList.of(block));
 
         // This works because IntegerType is orderable.
-        assertEquals(strategy.compareSortChannelPositions(0, 0, 0, 1), -1);
-        assertEquals(strategy.compareSortChannelPositions(0, 1, 0, 0), 1);
-        assertEquals(strategy.compareSortChannelPositions(0, 0, 0, 2), 0);
+        assertThat(strategy.compareSortChannelPositions(0, 0, 0, 1)).isEqualTo(-1);
+        assertThat(strategy.compareSortChannelPositions(0, 1, 0, 0)).isEqualTo(1);
+        assertThat(strategy.compareSortChannelPositions(0, 0, 0, 2)).isEqualTo(0);
     }
 
     @Test

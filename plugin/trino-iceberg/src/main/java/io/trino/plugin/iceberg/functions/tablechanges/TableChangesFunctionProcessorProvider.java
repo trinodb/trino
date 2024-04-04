@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.inject.Inject;
+import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionSplitProcessor;
 import io.trino.plugin.iceberg.IcebergPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -40,10 +41,11 @@ public class TableChangesFunctionProcessorProvider
             ConnectorTableFunctionHandle handle,
             ConnectorSplit split)
     {
-        return new TableChangesFunctionProcessor(
+        return new ClassLoaderSafeTableFunctionSplitProcessor(new TableChangesFunctionProcessor(
                 session,
                 (TableChangesFunctionHandle) handle,
                 (TableChangesSplit) split,
-                icebergPageSourceProvider);
+                icebergPageSourceProvider),
+                getClass().getClassLoader());
     }
 }

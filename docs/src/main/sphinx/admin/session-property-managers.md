@@ -72,7 +72,6 @@ These requirements can be expressed with the following rules:
     "clientTags": ["etl"],
     "sessionProperties": {
       "scale_writers": "true",
-      "writer_min_size": "1GB",
       "hive.insert_existing_partitions_behavior": "overwrite"
     }
   }

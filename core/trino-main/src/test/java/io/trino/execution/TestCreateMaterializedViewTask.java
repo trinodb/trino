@@ -98,7 +98,6 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_METHOD)
 public class TestCreateMaterializedViewTask
@@ -187,7 +186,7 @@ public class TestCreateMaterializedViewTask
 
         getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP));
-        assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
+        assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(1);
     }
 
     @Test
@@ -208,7 +207,7 @@ public class TestCreateMaterializedViewTask
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("Materialized view already exists");
 
-        assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
+        assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(1);
     }
 
     @Test
@@ -227,9 +226,9 @@ public class TestCreateMaterializedViewTask
         assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .hasErrorCode(INVALID_MATERIALIZED_VIEW_PROPERTY)
-                .hasMessage("Catalog 'test-catalog' materialized view property 'baz' does not exist");
+                .hasMessage("Catalog 'test_catalog' materialized view property 'baz' does not exist");
 
-        assertEquals(metadata.getCreateMaterializedViewCallCount(), 0);
+        assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(0);
     }
 
     @Test
@@ -253,7 +252,7 @@ public class TestCreateMaterializedViewTask
         Optional<MaterializedViewDefinition> definitionOptional =
                 metadata.getMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()));
         assertThat(definitionOptional).isPresent();
-        Map<String, Object> properties = definitionOptional.get().getProperties();
+        Map<String, Object> properties = metadata.getMaterializedViewProperties(testSession, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "mv"), definitionOptional.get());
         assertThat(properties.get("foo")).isEqualTo(DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE);
         assertThat(properties.get("bar")).isEqualTo(DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE);
     }
@@ -283,7 +282,7 @@ public class TestCreateMaterializedViewTask
         assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, accessControl, parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("Cannot create materialized view test-catalog.schema.test_mv");
+                .hasMessageContaining("Cannot create materialized view test_catalog.schema.test_mv");
     }
 
     private QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl)
@@ -311,11 +310,19 @@ public class TestCreateMaterializedViewTask
             extends AbstractMockMetadata
     {
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
+        private final Map<SchemaTableName, Map<String, Object>> materializedViewProperties = new ConcurrentHashMap<>();
 
         @Override
-        public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+        public void createMaterializedView(
+                Session session,
+                QualifiedObjectName viewName,
+                MaterializedViewDefinition definition,
+                Map<String, Object> properties,
+                boolean replace,
+                boolean ignoreExisting)
         {
             materializedViews.put(viewName.asSchemaTableName(), definition);
+            materializedViewProperties.put(viewName.asSchemaTableName(), properties);
             if (!ignoreExisting) {
                 throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists");
             }
@@ -374,6 +381,12 @@ public class TestCreateMaterializedViewTask
         public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
         {
             return Optional.ofNullable(materializedViews.get(viewName.asSchemaTableName()));
+        }
+
+        @Override
+        public Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName viewName, MaterializedViewDefinition materializedViewDefinition)
+        {
+            return materializedViewProperties.get(viewName.asSchemaTableName());
         }
 
         @Override

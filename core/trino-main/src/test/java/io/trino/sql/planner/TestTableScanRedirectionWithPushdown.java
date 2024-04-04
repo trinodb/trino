@@ -442,6 +442,7 @@ public class TestTableScanRedirectionWithPushdown
                             new MockConnectorTableHandle(handle.getTableName(), newDomain, Optional.empty()),
                             constraint.getSummary()
                                     .filter((columnHandle, domain) -> !pushdownColumns.contains(columnHandle)),
+                            constraint.getExpression(),
                             false));
         };
     }

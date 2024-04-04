@@ -35,6 +35,7 @@ import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 /**
@@ -61,13 +62,13 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
+        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("shared_data");
         this.metastore = createTestMetastore(dataDirectory);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog(DELTA_CATALOG_NAME, "delta_lake");
 
-        queryRunner.installPlugin(new TestingHivePlugin(metastore));
+        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory, metastore));
 
         ImmutableMap<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                 .put("hive.allow-drop-table", "true")
@@ -154,6 +155,23 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", hiveTable));
             assertUpdate(format("DROP VIEW IF EXISTS %s", trinoViewOnHive));
+        }
+    }
+
+    @Test
+    public void testNonDeltaTablesCannotBeAccessed()
+    {
+        String schemaName = "test_schema" + randomNameSuffix();
+        String tableName = "hive_table";
+
+        assertUpdate("CREATE SCHEMA %s.%s".formatted(HIVE_CATALOG_NAME, schemaName));
+        try {
+            assertUpdate("CREATE TABLE %s.%s.%s(id BIGINT)".formatted(HIVE_CATALOG_NAME, schemaName, tableName));
+            assertThat(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, tableName))).isEqualTo(tableName);
+            assertQueryFails("DESCRIBE " + schemaName + "." + tableName, ".* is not a Delta Lake table");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA %s.%s CASCADE".formatted(HIVE_CATALOG_NAME, schemaName));
         }
     }
 

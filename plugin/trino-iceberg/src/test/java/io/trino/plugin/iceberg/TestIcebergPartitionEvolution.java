@@ -26,7 +26,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestIcebergPartitionEvolution
         extends AbstractTestQueryFramework
@@ -59,10 +58,10 @@ public class TestIcebergPartitionEvolution
 
         int expectedFileCount = computeActual("SELECT DISTINCT regionkey, substring(name, 1, 1) FROM nation WHERE nationkey < 10").getRowCount();
         assertThat(partitionedFiles).hasSize(expectedFileCount);
-        assertEquals(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum(), 10L);
+        assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(10L);
 
         assertThat(unpartitionedFiles).hasSize(1);
-        assertEquals((long) unpartitionedFiles.get(0).getField(1), 15);
+        assertThat((long) unpartitionedFiles.get(0).getField(1)).isEqualTo(15);
 
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
         // Most partitions have one record each. regionkey=2, trunc_name=I has two records, and 15 records are unpartitioned
@@ -90,11 +89,11 @@ public class TestIcebergPartitionEvolution
 
         int expectedInitialFiles = toIntExact((long) computeActual("SELECT count(distinct regionkey) FROM nation WHERE nationkey < 10").getOnlyValue());
         assertThat(initialFiles).hasSize(expectedInitialFiles);
-        assertEquals(initialFiles.stream().mapToLong(row -> (long) row.getField(1)).sum(), 10L);
+        assertThat(initialFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(10L);
 
         int expectedFinalFileCount = computeActual("SELECT DISTINCT regionkey, substring(name, 1, 1) FROM nation WHERE nationkey >= 10").getRowCount();
         assertThat(partitionedFiles).hasSize(expectedFinalFileCount);
-        assertEquals(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum(), 15L);
+        assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(15L);
 
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
         assertUpdate("DROP TABLE " + tableName);
@@ -115,11 +114,11 @@ public class TestIcebergPartitionEvolution
 
         expectedInitialFiles = computeActual("SELECT DISTINCT substring(name, 1, 1) FROM nation WHERE nationkey < 10").getRowCount();
         assertThat(initialFiles).hasSize(expectedInitialFiles);
-        assertEquals(initialFiles.stream().mapToLong(row -> (long) row.getField(1)).sum(), 10L);
+        assertThat(initialFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(10L);
 
         expectedFinalFileCount = computeActual("SELECT DISTINCT regionkey, substring(name, 1, 1) FROM nation WHERE nationkey >= 10").getRowCount();
         assertThat(partitionedFiles).hasSize(expectedFinalFileCount);
-        assertEquals(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum(), 15L);
+        assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(15L);
 
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
         assertUpdate("DROP TABLE " + tableName);

@@ -13,22 +13,21 @@ For fields, the `type` and `mapping` attributes must be defined:
 The `dataFormat` and `formatHint` attributes are not supported and must be
 omitted.
 
-```{eval-rst}
-.. list-table::
-  :widths: 40, 60
-  :header-rows: 1
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
 
-  * - Trino data type
-    - Decoding rules
-  * - ``BIGINT``, ``INTEGER``, ``SMALLINT``, ``TINYINT``
-    - Decoded using Java ``Long.parseLong()``
-  * - ``DOUBLE``
-    - Decoded using Java ``Double.parseDouble()``
-  * - ``BOOLEAN``
-    - "true" character sequence maps to ``true``. Other character sequences map
-      to ``false``
-  * - ``VARCHAR`` / ``VARCHAR(x)``
-    - Used as is
-```
+* - Trino data type
+  - Decoding rules
+* - `BIGINT`, `INTEGER`, `SMALLINT`, `TINYINT`
+  - Decoded using Java `Long.parseLong()`
+* - `DOUBLE`
+  - Decoded using Java `Double.parseDouble()`
+* - `BOOLEAN`
+  - "true" character sequence maps to `true`. Other character sequences map
+    to `false`
+* - `VARCHAR` / `VARCHAR(x)`
+  - Used as is
+:::
 
 No other types are supported.

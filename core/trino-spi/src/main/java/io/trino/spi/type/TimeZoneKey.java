@@ -35,7 +35,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class TimeZoneKey
@@ -157,7 +156,9 @@ public final class TimeZoneKey
     @JsonCreator
     public static TimeZoneKey getTimeZoneKey(short timeZoneKey)
     {
-        checkArgument(timeZoneKey < TIME_ZONE_KEYS.length && TIME_ZONE_KEYS[timeZoneKey] != null, "Invalid time zone key %s", timeZoneKey);
+        if ((timeZoneKey >= TIME_ZONE_KEYS.length) || (TIME_ZONE_KEYS[timeZoneKey] == null)) {
+            throw new IllegalArgumentException("Invalid time zone key: " + timeZoneKey);
+        }
         return TIME_ZONE_KEYS[timeZoneKey];
     }
 
@@ -167,7 +168,9 @@ public final class TimeZoneKey
     public static TimeZoneKey getTimeZoneKey(String zoneId)
     {
         requireNonNull(zoneId, "zoneId is null");
-        checkArgument(!zoneId.isEmpty(), "Zone id is an empty string");
+        if (zoneId.isEmpty()) {
+            throw new IllegalArgumentException("Zone id is an empty string");
+        }
 
         TimeZoneKey zoneKey = ZONE_ID_TO_KEY.get(zoneId);
         if (zoneKey == null) {
@@ -346,12 +349,5 @@ public final class TimeZoneKey
     private static String zoneIdForOffset(long offsetMinutes)
     {
         return formatZoneOffset(offsetMinutes >= 0, toIntExact(abs(offsetMinutes / 60)), (int) abs(offsetMinutes % 60));
-    }
-
-    private static void checkArgument(boolean check, String message, Object... args)
-    {
-        if (!check) {
-            throw new IllegalArgumentException(format(message, args));
-        }
     }
 }

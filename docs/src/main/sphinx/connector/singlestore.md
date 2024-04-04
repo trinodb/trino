@@ -140,93 +140,92 @@ each direction.
 The connector maps Singlestore types to the corresponding Trino types following
 this table:
 
-```{eval-rst}
-.. list-table:: Singlestore to Trino type mapping
-  :widths: 30, 20, 50
-  :header-rows: 1
+:::{list-table} Singlestore to Trino type mapping
+:widths: 30, 30, 40
+:header-rows: 1
 
-  * - Singlestore type
-    - Trino type
-    - Notes
-  * - ``BIT``
-    - ``BOOLEAN``
-    -
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``TINYINT``
-    - ``TINYINT``
-    -
-  * - ``TINYINT UNSIGNED``
-    - ``SMALLINT``
-    -
-  * - ``SMALLINT``
-    - ``SMALLINT``
-    -
-  * - ``SMALLINT UNSIGNED``
-    - ``INTEGER``
-    -
-  * - ``INTEGER``
-    - ``INTEGER``
-    -
-  * - ``INTEGER UNSIGNED``
-    - ``BIGINT``
-    -
-  * - ``BIGINT``
-    - ``BIGINT``
-    -
-  * - ``BIGINT UNSIGNED``
-    - ``DECIMAL(20, 0)``
-    -
-  * - ``DOUBLE``
-    - ``DOUBLE``
-    -
-  * - ``REAL``
-    - ``DOUBLE``
-    -
-  * - ``DECIMAL(p, s)``
-    - ``DECIMAL(p, s)``
-    - See :ref:`Singlestore DECIMAL type handling <singlestore-decimal-handling>`
-  * - ``CHAR(n)``
-    - ``CHAR(n)``
-    -
-  * - ``TINYTEXT``
-    - ``VARCHAR(255)``
-    -
-  * - ``TEXT``
-    - ``VARCHAR(65535)``
-    -
-  * - ``MEDIUMTEXT``
-    - ``VARCHAR(16777215)``
-    -
-  * - ``LONGTEXT``
-    - ``VARCHAR``
-    -
-  * - ``VARCHAR(n)``
-    - ``VARCHAR(n)``
-    -
-  * - ``LONGBLOB``
-    - ``VARBINARY``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``TIME``
-    - ``TIME(0)``
-    -
-  * - ``TIME(6)``
-    - ``TIME(6)``
-    -
-  * - ``DATETIME``
-    - ``TIMESTAMP(0)``
-    -
-  * - ``DATETIME(6)``
-    - ``TIMESTAMP(6)``
-    -
-  * - ``JSON``
-    - ``JSON``
-    -
-```
+* - Singlestore type
+  - Trino type
+  - Notes
+* - `BIT`
+  - `BOOLEAN`
+  -
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `TINYINT`
+  - `TINYINT`
+  -
+* - `TINYINT UNSIGNED`
+  - `SMALLINT`
+  -
+* - `SMALLINT`
+  - `SMALLINT`
+  -
+* - `SMALLINT UNSIGNED`
+  - `INTEGER`
+  -
+* - `INTEGER`
+  - `INTEGER`
+  -
+* - `INTEGER UNSIGNED`
+  - `BIGINT`
+  -
+* - `BIGINT`
+  - `BIGINT`
+  -
+* - `BIGINT UNSIGNED`
+  - `DECIMAL(20, 0)`
+  -
+* - `DOUBLE`
+  - `DOUBLE`
+  -
+* - `REAL`
+  - `DOUBLE`
+  -
+* - `DECIMAL(p, s)`
+  - `DECIMAL(p, s)`
+  - See [Singlestore DECIMAL type handling](singlestore-decimal-handling)
+* - `CHAR(n)`
+  - `CHAR(n)`
+  -
+* - `TINYTEXT`
+  - `VARCHAR(255)`
+  -
+* - `TEXT`
+  - `VARCHAR(65535)`
+  -
+* - `MEDIUMTEXT`
+  - `VARCHAR(16777215)`
+  -
+* - `LONGTEXT`
+  - `VARCHAR`
+  -
+* - `VARCHAR(n)`
+  - `VARCHAR(n)`
+  -
+* - `LONGBLOB`
+  - `VARBINARY`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `TIME`
+  - `TIME(0)`
+  -
+* - `TIME(6)`
+  - `TIME(6)`
+  -
+* - `DATETIME`
+  - `TIMESTAMP(0)`
+  -
+* - `DATETIME(6)`
+  - `TIMESTAMP(6)`
+  -
+* - `JSON`
+  - `JSON`
+  -
+:::
 
 No other types are supported.
 
@@ -235,75 +234,74 @@ No other types are supported.
 The connector maps Trino types to the corresponding Singlestore types following
 this table:
 
-```{eval-rst}
-.. list-table:: Trino to Singlestore type mapping
-  :widths: 30, 20, 50
-  :header-rows: 1
+:::{list-table} Trino to Singlestore type mapping
+:widths: 30, 30, 40
+:header-rows: 1
 
-  * - Trino type
-    - Singlestore type
-    - Notes
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``TINYINT``
-    - ``TINYINT``
-    -
-  * - ``SMALLINT``
-    - ``SMALLINT``
-    -
-  * - ``INTEGER``
-    - ``INTEGER``
-    -
-  * - ``BIGINT``
-    - ``BIGINT``
-    -
-  * - ``DOUBLE``
-    - ``DOUBLE``
-    -
-  * - ``REAL``
-    - ``FLOAT``
-    -
-  * - ``DECIMAL(p, s)``
-    - ``DECIMAL(p, s)``
-    - See :ref:`Singlestore DECIMAL type handling <singlestore-decimal-handling>`
-  * - ``CHAR(n)``
-    - ``CHAR(n)``
-    -
-  * - ``VARCHAR(65535)``
-    - ``TEXT``
-    -
-  * - ``VARCHAR(16777215)``
-    - ``MEDIUMTEXT``
-    -
-  * - ``VARCHAR``
-    - ``LONGTEXT``
-    -
-  * - ``VARCHAR(n)``
-    - ``VARCHAR(n)``
-    -
-  * - ``VARBINARY``
-    - ``LONGBLOB``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``TIME(0)``
-    - ``TIME``
-    -
-  * - ``TIME(6)``
-    - ``TIME(6)``
-    -
-  * - ``TIMESTAMP(0)``
-    - ``DATETIME``
-    -
-  * - ``TIMESTAMP(6)``
-    - ``DATETIME(6)``
-    -
-  * - ``JSON``
-    - ``JSON``
-    -
-```
+* - Trino type
+  - Singlestore type
+  - Notes
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `TINYINT`
+  - `TINYINT`
+  -
+* - `SMALLINT`
+  - `SMALLINT`
+  -
+* - `INTEGER`
+  - `INTEGER`
+  -
+* - `BIGINT`
+  - `BIGINT`
+  -
+* - `DOUBLE`
+  - `DOUBLE`
+  -
+* - `REAL`
+  - `FLOAT`
+  -
+* - `DECIMAL(p, s)`
+  - `DECIMAL(p, s)`
+  - See [Singlestore DECIMAL type handling](singlestore-decimal-handling)
+* - `CHAR(n)`
+  - `CHAR(n)`
+  -
+* - `VARCHAR(65535)`
+  - `TEXT`
+  -
+* - `VARCHAR(16777215)`
+  - `MEDIUMTEXT`
+  -
+* - `VARCHAR`
+  - `LONGTEXT`
+  -
+* - `VARCHAR(n)`
+  - `VARCHAR(n)`
+  -
+* - `VARBINARY`
+  - `LONGBLOB`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `TIME(0)`
+  - `TIME`
+  -
+* - `TIME(6)`
+  - `TIME(6)`
+  -
+* - `TIMESTAMP(0)`
+  - `DATETIME`
+  -
+* - `TIMESTAMP(6)`
+  - `DATETIME(6)`
+  -
+* - `JSON`
+  - `JSON`
+  -
+:::
 
 No other types are supported.
 

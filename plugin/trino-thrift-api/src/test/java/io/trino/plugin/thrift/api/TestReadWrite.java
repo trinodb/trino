@@ -24,7 +24,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.RepeatedTest;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -51,8 +51,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestReadWrite
 {
@@ -109,26 +108,26 @@ public class TestReadWrite
         MAX_GENERATED_DATE = toIntExact(MILLISECONDS.toDays(MAX_GENERATED_TIMESTAMP));
     }
 
-    @Test(invocationCount = 20)
+    @RepeatedTest(20)
     public void testSingleRowPageReadWrite()
     {
         testPageReadWrite(new Random(singleRowPageSeedGenerator.incrementAndGet()), 1);
     }
 
-    @Test(invocationCount = 20)
+    @RepeatedTest(20)
     public void testSingleRowRecordSetReadWrite()
     {
         testRecordSetReadWrite(new Random(singleRowRecordSetSeedGenerator.incrementAndGet()), 1);
     }
 
-    @Test(invocationCount = 20)
+    @RepeatedTest(20)
     public void testMultiRowPageReadWrite()
     {
         Random random = new Random(multiRowPageSeedGenerator.incrementAndGet());
         testPageReadWrite(random, random.nextInt(10000) + 10000);
     }
 
-    @Test(invocationCount = 20)
+    @RepeatedTest(20)
     public void testMultiRowRecordSetReadWrite()
     {
         Random random = new Random(multiRowRecordSetSeedGenerator.incrementAndGet());
@@ -170,8 +169,8 @@ public class TestReadWrite
         Page page = batch.toPage(columns.stream().map(ColumnDefinition::getType).collect(toImmutableList()));
 
         // compare the result with original input
-        assertNotNull(page);
-        assertEquals(page.getChannelCount(), columns.size());
+        assertThat(page).isNotNull();
+        assertThat(page.getChannelCount()).isEqualTo(columns.size());
         for (int i = 0; i < columns.size(); i++) {
             Block actual = page.getBlock(i);
             Block expected = inputBlocks.get(i);
@@ -195,12 +194,12 @@ public class TestReadWrite
 
     private static void assertBlock(Block actual, Block expected, ColumnDefinition columnDefinition)
     {
-        assertEquals(actual.getPositionCount(), expected.getPositionCount());
+        assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
         int positions = actual.getPositionCount();
         for (int i = 0; i < positions; i++) {
             Object actualValue = columnDefinition.extractValue(actual, i);
             Object expectedValue = columnDefinition.extractValue(expected, i);
-            assertEquals(actualValue, expectedValue);
+            assertThat(actualValue).isEqualTo(expectedValue);
         }
     }
 

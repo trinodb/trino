@@ -31,7 +31,6 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -73,7 +72,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWri
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -199,16 +198,18 @@ public class DeltaLakeMergeSink
 
     private void processDeletion(Page deletions, String cdfOperation)
     {
-        ColumnarRow rowIdRow = toColumnarRow(deletions.getBlock(deletions.getChannelCount() - 1));
-
-        for (int position = 0; position < rowIdRow.getPositionCount(); position++) {
-            Slice filePath = VARCHAR.getSlice(rowIdRow.getField(0), position);
-            long rowPosition = BIGINT.getLong(rowIdRow.getField(1), position);
-            Slice partitions = VARCHAR.getSlice(rowIdRow.getField(2), position);
+        List<Block> fields = getRowFieldsFromBlock(deletions.getBlock(deletions.getChannelCount() - 1));
+        Block filePathBlock = fields.get(0);
+        Block rowPositionBlock = fields.get(1);
+        Block partitionsBlock = fields.get(2);
+        for (int position = 0; position < filePathBlock.getPositionCount(); position++) {
+            Slice filePath = VARCHAR.getSlice(filePathBlock, position);
+            long rowPosition = BIGINT.getLong(rowPositionBlock, position);
+            Slice partitions = VARCHAR.getSlice(partitionsBlock, position);
 
             List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.toStringUtf8());
 
-            FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, x -> new FileDeletion(partitionValues));
+            FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, ignored -> new FileDeletion(partitionValues));
 
             if (cdfOperation.equals(UPDATE_PREIMAGE_CDF_LABEL)) {
                 deletion.rowsDeletedByUpdate().addLong(rowPosition);

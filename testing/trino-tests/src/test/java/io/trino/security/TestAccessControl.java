@@ -170,7 +170,7 @@ public class TestAccessControl
                     }
                     return new MockConnectorTableHandle(schemaTableName);
                 })
-                .withListSchemaNames((connectorSession -> ImmutableList.of(DEFAULT_SCHEMA)))
+                .withListSchemaNames(connectorSession -> ImmutableList.of(DEFAULT_SCHEMA))
                 .withListTables((connectorSession, schemaName) -> {
                     if (schemaName.equals(DEFAULT_SCHEMA)) {
                         return ImmutableList.of(REDIRECTED_SOURCE);
@@ -210,12 +210,11 @@ public class TestAccessControl
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test", BIGINT.getTypeId())),
+                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test", BIGINT.getTypeId(), Optional.empty())),
                                 Optional.of(Duration.ZERO),
                                 Optional.of("comment"),
                                 Optional.of("owner"),
-                                ImmutableList.of(),
-                                ImmutableMap.of());
+                                ImmutableList.of());
                         return ImmutableMap.of(
                                 new SchemaTableName("default", "test_materialized_view"), materializedViewDefinition);
                     }
@@ -236,19 +235,19 @@ public class TestAccessControl
                 .withColumnProperties(() -> ImmutableList.of(
                         integerProperty("another_property", "description", 0, false),
                         stringProperty("string_column_property", "description", "", false)))
-                .withRedirectTable(((connectorSession, schemaTableName) -> {
+                .withRedirectTable((connectorSession, schemaTableName) -> {
                     if (schemaTableName.equals(SchemaTableName.schemaTableName(DEFAULT_SCHEMA, REDIRECTED_SOURCE))) {
                         return Optional.of(
                                 new CatalogSchemaTableName("mock", SchemaTableName.schemaTableName(DEFAULT_SCHEMA, REDIRECTED_TARGET)));
                     }
                     return Optional.empty();
-                }))
-                .withGetComment((schemaTableName -> {
+                })
+                .withGetComment(schemaTableName -> {
                     if (schemaTableName.getTableName().equals(REDIRECTED_TARGET)) {
                         return Optional.of("this is a redirected table");
                     }
                     return Optional.empty();
-                }))
+                })
                 .withFunctions(ImmutableList.<FunctionMetadata>builder()
                         .add(FunctionMetadata.scalarBuilder("my_function")
                                 .signature(Signature.builder().argumentType(BIGINT).returnType(BIGINT).build())

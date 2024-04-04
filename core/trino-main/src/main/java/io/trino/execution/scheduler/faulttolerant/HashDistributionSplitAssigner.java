@@ -42,6 +42,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -353,6 +354,16 @@ class HashDistributionSplitAssigner
         {
             return splitBy;
         }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("subPartitions", subPartitions)
+                    .add("splitBy", splitBy)
+                    .add("nextSubPartition", nextSubPartition)
+                    .toString();
+        }
     }
 
     @VisibleForTesting
@@ -375,6 +386,12 @@ class HashDistributionSplitAssigner
         {
             checkState(id.isPresent(), "id is expected to be assigned");
             return id.getAsInt();
+        }
+
+        @Override
+        public String toString()
+        {
+            return id.toString();
         }
     }
 
@@ -401,5 +418,21 @@ class HashDistributionSplitAssigner
         };
 
         return fragment.getRoot().accept(visitor, null);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("catalogRequirement", catalogRequirement)
+                .add("replicatedSources", replicatedSources)
+                .add("allSources", allSources)
+                .add("sourcePartitioningScheme", sourcePartitioningScheme)
+                .add("sourcePartitionToTaskPartition", sourcePartitionToTaskPartition)
+                .add("createdTaskPartitions", createdTaskPartitions)
+                .add("completedSources", completedSources)
+                .add("replicatedSplits.size()", replicatedSplits.size())
+                .add("allTaskPartitionsCreated", allTaskPartitionsCreated)
+                .toString();
     }
 }

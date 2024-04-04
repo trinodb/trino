@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -28,7 +28,12 @@ public class TestPhoenixPlugin
     {
         Plugin plugin = new PhoenixPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("phoenix.connection-url", "jdbc:phoenix:test"), new TestingConnectorContext())
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "phoenix.connection-url", "jdbc:phoenix:test",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 }

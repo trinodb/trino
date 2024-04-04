@@ -29,9 +29,8 @@ import java.util.Optional;
 
 import static io.trino.cli.Trino.createCommandLine;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestClientOptions
 {
@@ -40,11 +39,11 @@ public class TestClientOptions
     {
         Console console = createConsole();
         ClientOptions options = console.clientOptions;
-        assertEquals(options.krb5ServicePrincipalPattern, Optional.of("${SERVICE}@${HOST}"));
+        assertThat(options.krb5ServicePrincipalPattern).isEqualTo(Optional.of("${SERVICE}@${HOST}"));
         ClientSession session = options.toClientSession(options.getTrinoUri());
-        assertEquals(session.getServer().toString(), "http://localhost:8080");
-        assertEquals(session.getSource(), "trino-cli");
-        assertEquals(session.getTimeZone(), ZoneId.systemDefault());
+        assertThat(session.getServer().toString()).isEqualTo("http://localhost:8080");
+        assertThat(session.getSource()).isEqualTo("trino-cli");
+        assertThat(session.getTimeZone()).isEqualTo(ZoneId.systemDefault());
     }
 
     @Test
@@ -52,7 +51,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--source=test");
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertEquals(session.getSource(), "test");
+        assertThat(session.getSource()).isEqualTo("test");
     }
 
     @Test
@@ -60,7 +59,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--trace-token", "test token");
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertEquals(session.getTraceToken(), Optional.of("test token"));
+        assertThat(session.getTraceToken()).isEqualTo(Optional.of("test token"));
     }
 
     @Test
@@ -68,7 +67,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--server=test");
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertEquals(session.getServer().toString(), "http://test:80");
+        assertThat(session.getServer().toString()).isEqualTo("http://test:80");
     }
 
     @Test
@@ -76,7 +75,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--server=test:8888");
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertEquals(session.getServer().toString(), "http://test:8888");
+        assertThat(session.getServer().toString()).isEqualTo("http://test:8888");
     }
 
     @Test
@@ -84,8 +83,8 @@ public class TestClientOptions
     {
         Console console = createConsole("--server=http://test/foo");
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertEquals(session.getServer().toString(), "http://test:80");
-        assertEquals(session.getCatalog(), Optional.of("foo"));
+        assertThat(session.getServer().toString()).isEqualTo("http://test:80");
+        assertThat(session.getCatalog()).isEqualTo(Optional.of("foo"));
     }
 
     @Test
@@ -93,8 +92,8 @@ public class TestClientOptions
     {
         Console console = createConsole("--server=trino://test/foo");
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertEquals(session.getServer().toString(), "http://test:80");
-        assertEquals(session.getCatalog(), Optional.of("foo"));
+        assertThat(session.getServer().toString()).isEqualTo("http://test:80");
+        assertThat(session.getCatalog()).isEqualTo(Optional.of("foo"));
     }
 
     @Test
@@ -102,8 +101,8 @@ public class TestClientOptions
     {
         Console console = createConsole("--server=https://test/foo");
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertEquals(session.getServer().toString(), "https://test:443");
-        assertEquals(session.getCatalog(), Optional.of("foo"));
+        assertThat(session.getServer().toString()).isEqualTo("https://test:443");
+        assertThat(session.getCatalog()).isEqualTo(Optional.of("foo"));
     }
 
     @Test
@@ -111,7 +110,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--server=test:443");
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertEquals(session.getServer().toString(), "https://test:443");
+        assertThat(session.getServer().toString()).isEqualTo("https://test:443");
     }
 
     @Test
@@ -119,7 +118,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--server=https://test:443");
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertEquals(session.getServer().toString(), "https://test:443");
+        assertThat(session.getServer().toString()).isEqualTo("https://test:443");
     }
 
     @Test
@@ -127,7 +126,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--server=http://test:443");
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertEquals(session.getServer().toString(), "http://test:443");
+        assertThat(session.getServer().toString()).isEqualTo("http://test:443");
     }
 
     @Test
@@ -157,7 +156,7 @@ public class TestClientOptions
     {
         Console console = createConsole("test");
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertEquals(session.getServer().toString(), "http://test:80");
+        assertThat(session.getServer().toString()).isEqualTo("http://test:80");
     }
 
     @Test
@@ -167,10 +166,10 @@ public class TestClientOptions
         Console console = createConsole("trino://server.example:8080/my-catalog/my-schema?source=my-client");
         TrinoUri uri = console.clientOptions.getTrinoUri();
         ClientSession session = console.clientOptions.toClientSession(uri);
-        assertEquals(session.getServer().toString(), "http://server.example:8080");
-        assertEquals(session.getCatalog(), Optional.of("my-catalog"));
-        assertEquals(session.getSchema(), Optional.of("my-schema"));
-        assertEquals(uri.getSource(), Optional.of("my-client"));
+        assertThat(session.getServer().toString()).isEqualTo("http://server.example:8080");
+        assertThat(session.getCatalog()).isEqualTo(Optional.of("my-catalog"));
+        assertThat(session.getSchema()).isEqualTo(Optional.of("my-schema"));
+        assertThat(uri.getSource()).isEqualTo(Optional.of("my-client"));
     }
 
     @Test
@@ -189,7 +188,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--output-format=JSON");
         ClientOptions options = console.clientOptions;
-        assertEquals(options.outputFormat, OutputFormat.JSON);
+        assertThat(options.outputFormat).isEqualTo(OutputFormat.JSON);
     }
 
     @Test
@@ -197,7 +196,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--socks-proxy=abc:123");
         ClientOptions options = console.clientOptions;
-        assertEquals(options.socksProxy, Optional.of(HostAndPort.fromParts("abc", 123)));
+        assertThat(options.socksProxy).isEqualTo(Optional.of(HostAndPort.fromParts("abc", 123)));
     }
 
     @Test
@@ -205,7 +204,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--client-request-timeout=7s");
         ClientOptions options = console.clientOptions;
-        assertEquals(options.clientRequestTimeout, new Duration(7, SECONDS));
+        assertThat(options.clientRequestTimeout).isEqualTo(new Duration(7, SECONDS));
     }
 
     @Test
@@ -213,7 +212,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--resource-estimate", "resource1=1B", "--resource-estimate", "resource2=2.2h");
         ClientOptions options = console.clientOptions;
-        assertEquals(options.resourceEstimates, ImmutableList.of(
+        assertThat(options.resourceEstimates).isEqualTo(ImmutableList.of(
                 new ClientResourceEstimate("resource1", "1B"),
                 new ClientResourceEstimate("resource2", "2.2h")));
     }
@@ -223,7 +222,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.bar=bar");
         ClientOptions options = console.clientOptions;
-        assertEquals(options.extraCredentials, ImmutableList.of(
+        assertThat(options.extraCredentials).isEqualTo(ImmutableList.of(
                 new ClientOptions.ClientExtraCredential("test.token.foo", "foo"),
                 new ClientOptions.ClientExtraCredential("test.token.bar", "bar")));
     }
@@ -234,15 +233,15 @@ public class TestClientOptions
         Console console = createConsole("--session", "system=system-value", "--session", "catalog.name=catalog-property");
 
         ClientOptions options = console.clientOptions;
-        assertEquals(options.sessionProperties, ImmutableList.of(
+        assertThat(options.sessionProperties).isEqualTo(ImmutableList.of(
                 new ClientSessionProperty(Optional.empty(), "system", "system-value"),
                 new ClientSessionProperty(Optional.of("catalog"), "name", "catalog-property")));
 
         // special characters are allowed in the value
-        assertEquals(new ClientSessionProperty("foo=bar:=baz"), new ClientSessionProperty(Optional.empty(), "foo", "bar:=baz"));
+        assertThat(new ClientSessionProperty("foo=bar:=baz")).isEqualTo(new ClientSessionProperty(Optional.empty(), "foo", "bar:=baz"));
 
         // empty values are allowed
-        assertEquals(new ClientSessionProperty("foo="), new ClientSessionProperty(Optional.empty(), "foo", ""));
+        assertThat(new ClientSessionProperty("foo=")).isEqualTo(new ClientSessionProperty(Optional.empty(), "foo", ""));
     }
 
     @Test
@@ -251,10 +250,10 @@ public class TestClientOptions
         Console console = createConsole("--timezone=Europe/Vilnius");
 
         ClientOptions options = console.clientOptions;
-        assertEquals(options.timeZone, ZoneId.of("Europe/Vilnius"));
+        assertThat(options.timeZone).isEqualTo(ZoneId.of("Europe/Vilnius"));
 
         ClientSession session = options.toClientSession(options.getTrinoUri());
-        assertEquals(session.getTimeZone(), ZoneId.of("Europe/Vilnius"));
+        assertThat(session.getTimeZone()).isEqualTo(ZoneId.of("Europe/Vilnius"));
     }
 
     @Test
@@ -263,10 +262,10 @@ public class TestClientOptions
         Console console = createConsole("--disable-compression");
 
         ClientOptions options = console.clientOptions;
-        assertTrue(options.disableCompression);
+        assertThat(options.disableCompression).isTrue();
 
         ClientSession session = options.toClientSession(options.getTrinoUri());
-        assertTrue(session.isCompressionDisabled());
+        assertThat(session.isCompressionDisabled()).isTrue();
     }
 
     @Test

@@ -15,21 +15,26 @@ package io.trino.plugin.hudi.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.testing.QueryRunner;
+import io.trino.plugin.hudi.HudiConnector;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.testing.DistributedQueryRunner;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -56,27 +61,23 @@ import static io.trino.plugin.hive.util.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 public class ResourceHudiTablesInitializer
         implements HudiTablesInitializer
 {
-    public ResourceHudiTablesInitializer() {}
-
     @Override
-    public void initializeTables(
-            QueryRunner queryRunner,
-            HiveMetastore metastore,
-            String schemaName,
-            String dataDir,
-            HdfsEnvironment environment)
+    public void initializeTables(DistributedQueryRunner queryRunner, Location externalLocation, String schemaName)
             throws Exception
     {
-        Path basePath = Path.of(dataDir);
-        copyDir(new File(getResource("hudi-testing-data").toURI()).toPath(), basePath);
-        Logger.get(getClass()).info("Prepared table data in %s", basePath);
+        TrinoFileSystem fileSystem = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
+                .getInstance(TrinoFileSystemFactory.class)
+                .create(ConnectorIdentity.ofUser("test"));
+        Location baseLocation = externalLocation.appendSuffix(schemaName);
+        copyDir(new File(getResource("hudi-testing-data").toURI()).toPath(), fileSystem, baseLocation);
 
         for (TestingTable table : TestingTable.values()) {
             String tableName = table.getTableName();
+            Location tablePath = baseLocation.appendPath(tableName);
             createTable(
-                    metastore,
+                    queryRunner,
                     schemaName,
-                    basePath.resolve(tableName),
+                    tablePath,
                     tableName,
                     table.getDataColumns(),
                     table.getPartitionColumns(),
@@ -85,9 +86,9 @@ public class ResourceHudiTablesInitializer
     }
 
     private void createTable(
-            HiveMetastore metastore,
+            DistributedQueryRunner queryRunner,
             String schemaName,
-            Path tablePath,
+            Location tablePath,
             String tableName,
             List<Column> dataColumns,
             List<Column> partitionColumns,
@@ -108,8 +109,11 @@ public class ResourceHudiTablesInitializer
                 .setParameters(ImmutableMap.of("serialization.format", "1", "EXTERNAL", "TRUE"))
                 .withStorage(storageBuilder -> storageBuilder
                         .setStorageFormat(storageFormat)
-                        .setLocation("file://" + tablePath))
+                        .setLocation(tablePath.toString()))
                 .build();
+        HiveMetastore metastore = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
+                        .getInstance(HiveMetastoreFactory.class)
+                        .createMetastore(Optional.empty());
         metastore.createTable(table, PrincipalPrivileges.NO_PRIVILEGES);
 
         List<PartitionWithStatistics> partitionsToAdd = new ArrayList<>();
@@ -120,7 +124,7 @@ public class ResourceHudiTablesInitializer
                     .setValues(extractPartitionValues(partitionName))
                     .withStorage(storageBuilder -> storageBuilder
                             .setStorageFormat(storageFormat)
-                            .setLocation("file://" + tablePath.resolve(partitionPath)))
+                            .setLocation(tablePath.appendPath(partitionPath).toString()))
                     .setColumns(dataColumns)
                     .build();
             partitionsToAdd.add(new PartitionWithStatistics(partition, partitionName, PartitionStatistics.empty()));
@@ -130,23 +134,28 @@ public class ResourceHudiTablesInitializer
 
     private static Column column(String name, HiveType type)
     {
-        return new Column(name, type, Optional.empty());
+        return new Column(name, type, Optional.empty(), Map.of());
     }
 
-    private static void copyDir(Path srcDir, Path dstDir)
+    public static void copyDir(Path sourceDirectory, TrinoFileSystem fileSystem, Location destinationDirectory)
             throws IOException
     {
-        try (Stream<Path> paths = Files.walk(srcDir)) {
+        try (Stream<Path> paths = Files.walk(sourceDirectory)) {
             for (Iterator<Path> iterator = paths.iterator(); iterator.hasNext(); ) {
                 Path path = iterator.next();
-                Path relativePath = srcDir.relativize(path);
                 if (path.toFile().isDirectory()) {
-                    Files.createDirectories(dstDir.resolve(relativePath));
+                    continue;
                 }
-                else {
-                    Path dstFile = dstDir.resolve(relativePath);
-                    Files.createDirectories(dstFile.getParent());
-                    Files.copy(path, dstFile);
+
+                // hudi blows up if crc files are present
+                if (path.toString().endsWith(".crc")) {
+                    continue;
+                }
+
+                Location location = destinationDirectory.appendPath(sourceDirectory.relativize(path).toString());
+                fileSystem.createDirectory(location.parentDirectory());
+                try (OutputStream out = fileSystem.newOutputFile(location).create()) {
+                    Files.copy(path, out);
                 }
             }
         }
@@ -161,11 +170,11 @@ public class ResourceHudiTablesInitializer
         /**/;
 
         private static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
-                new Column("_hoodie_commit_time", HIVE_STRING, Optional.empty()),
-                new Column("_hoodie_commit_seqno", HIVE_STRING, Optional.empty()),
-                new Column("_hoodie_record_key", HIVE_STRING, Optional.empty()),
-                new Column("_hoodie_partition_path", HIVE_STRING, Optional.empty()),
-                new Column("_hoodie_file_name", HIVE_STRING, Optional.empty()));
+                new Column("_hoodie_commit_time", HIVE_STRING, Optional.empty(), Map.of()),
+                new Column("_hoodie_commit_seqno", HIVE_STRING, Optional.empty(), Map.of()),
+                new Column("_hoodie_record_key", HIVE_STRING, Optional.empty(), Map.of()),
+                new Column("_hoodie_partition_path", HIVE_STRING, Optional.empty(), Map.of()),
+                new Column("_hoodie_file_name", HIVE_STRING, Optional.empty(), Map.of()));
 
         private final List<Column> regularColumns;
         private final List<Column> partitionColumns;

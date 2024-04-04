@@ -1306,7 +1306,7 @@ public final class Int128Math
 
     private static int highInt(long val)
     {
-        return (int) (high(val));
+        return (int) high(val);
     }
 
     private static int lowInt(long val)

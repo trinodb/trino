@@ -42,39 +42,39 @@ import java.util.function.Function;
 
 import static io.trino.sql.planner.optimizations.LocalProperties.extractLeadingConstants;
 import static io.trino.sql.planner.optimizations.LocalProperties.stripLeadingConstants;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLocalProperties
 {
     @Test
     public void testConstantProcessing()
     {
-        assertEquals(stripLeadingConstants(ImmutableList.of()), ImmutableList.of());
-        assertEquals(extractLeadingConstants(ImmutableList.of()), ImmutableSet.of());
+        assertThat(stripLeadingConstants(ImmutableList.of())).isEqualTo(ImmutableList.of());
+        assertThat(extractLeadingConstants(ImmutableList.of())).isEqualTo(ImmutableSet.of());
 
         List<LocalProperty<String>> input = ImmutableList.of(grouped("a"));
-        assertEquals(stripLeadingConstants(input), ImmutableList.of(grouped("a")));
-        assertEquals(extractLeadingConstants(input), ImmutableSet.of());
+        assertThat(stripLeadingConstants(input)).isEqualTo(ImmutableList.of(grouped("a")));
+        assertThat(extractLeadingConstants(input)).isEqualTo(ImmutableSet.of());
 
         input = ImmutableList.of(constant("b"), grouped("a"));
-        assertEquals(stripLeadingConstants(input), ImmutableList.of(grouped("a")));
-        assertEquals(extractLeadingConstants(input), ImmutableSet.of("b"));
+        assertThat(stripLeadingConstants(input)).isEqualTo(ImmutableList.of(grouped("a")));
+        assertThat(extractLeadingConstants(input)).isEqualTo(ImmutableSet.of("b"));
 
         input = ImmutableList.of(constant("a"), grouped("a"));
-        assertEquals(stripLeadingConstants(input), ImmutableList.of(grouped("a")));
-        assertEquals(extractLeadingConstants(input), ImmutableSet.of("a"));
+        assertThat(stripLeadingConstants(input)).isEqualTo(ImmutableList.of(grouped("a")));
+        assertThat(extractLeadingConstants(input)).isEqualTo(ImmutableSet.of("a"));
 
         input = ImmutableList.of(grouped("a"), constant("b"));
-        assertEquals(stripLeadingConstants(input), input);
-        assertEquals(extractLeadingConstants(input), ImmutableSet.of());
+        assertThat(stripLeadingConstants(input)).isEqualTo(input);
+        assertThat(extractLeadingConstants(input)).isEqualTo(ImmutableSet.of());
 
         input = ImmutableList.of(constant("a"));
-        assertEquals(stripLeadingConstants(input), ImmutableList.of());
-        assertEquals(extractLeadingConstants(input), ImmutableSet.of("a"));
+        assertThat(stripLeadingConstants(input)).isEqualTo(ImmutableList.of());
+        assertThat(extractLeadingConstants(input)).isEqualTo(ImmutableSet.of("a"));
 
         input = ImmutableList.of(constant("a"), constant("b"));
-        assertEquals(stripLeadingConstants(input), ImmutableList.of());
-        assertEquals(extractLeadingConstants(input), ImmutableSet.of("a", "b"));
+        assertThat(stripLeadingConstants(input)).isEqualTo(ImmutableList.of());
+        assertThat(extractLeadingConstants(input)).isEqualTo(ImmutableSet.of("a", "b"));
     }
 
     @Test
@@ -82,59 +82,59 @@ public class TestLocalProperties
     {
         Map<String, String> map = ImmutableMap.of();
         List<LocalProperty<String>> input = ImmutableList.of();
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of());
 
         map = ImmutableMap.of();
         input = ImmutableList.of(grouped("a"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of());
 
         map = ImmutableMap.of("a", "a1");
         input = ImmutableList.of(grouped("a"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1")));
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of(grouped("a1")));
 
         map = ImmutableMap.of();
         input = ImmutableList.of(constant("a"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of());
 
         map = ImmutableMap.of();
         input = ImmutableList.of(constant("a"), grouped("b"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of());
 
         map = ImmutableMap.of("b", "b1");
         input = ImmutableList.of(constant("a"), grouped("b"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("b1")));
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of(grouped("b1")));
 
         map = ImmutableMap.of("a", "a1", "b", "b1");
         input = ImmutableList.of(constant("a"), grouped("b"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(constant("a1"), grouped("b1")));
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of(constant("a1"), grouped("b1")));
 
         map = ImmutableMap.of("a", "a1", "b", "b1");
         input = ImmutableList.of(grouped("a", "b"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1", "b1")));
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of(grouped("a1", "b1")));
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(constant("a"), grouped("b"), grouped("c"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(constant("a1")));
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of(constant("a1")));
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(grouped("a", "b"), grouped("c"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of());
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(grouped("a"), grouped("b"), grouped("c"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1")));
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of(grouped("a1")));
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(constant("b"), grouped("a", "b"), grouped("c")); // Because b is constant, we can rewrite (a, b)
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1"), grouped("c1")));
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of(grouped("a1"), grouped("c1")));
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(grouped("a"), constant("b"), grouped("c")); // Don't fail c translation due to a failed constant translation
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1"), grouped("c1")));
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of(grouped("a1"), grouped("c1")));
 
         map = ImmutableMap.of("a", "a1", "b", "b1", "c", "c1");
         input = ImmutableList.of(grouped("a"), constant("b"), grouped("c"));
-        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1"), constant("b1"), grouped("c1")));
+        assertThat(LocalProperties.translate(input, translateWithMap(map))).isEqualTo(ImmutableList.of(grouped("a1"), constant("b1"), grouped("c1")));
     }
 
     private static <X, Y> Function<X, Optional<Y>> translateWithMap(Map<X, Y> translateMap)
@@ -712,31 +712,31 @@ public class TestLocalProperties
         TestingColumnHandle columnHandle = new TestingColumnHandle("a");
 
         LocalProperty<ColumnHandle> property1 = new ConstantProperty<>(columnHandle);
-        assertEquals(property1, mapper.readValue(mapper.writeValueAsString(property1), new TypeReference<LocalProperty<ColumnHandle>>() {}));
+        assertThat(property1).isEqualTo(mapper.readValue(mapper.writeValueAsString(property1), new TypeReference<LocalProperty<ColumnHandle>>() { }));
 
         LocalProperty<ColumnHandle> property2 = new SortingProperty<>(columnHandle, SortOrder.ASC_NULLS_FIRST);
-        assertEquals(property2, mapper.readValue(mapper.writeValueAsString(property2), new TypeReference<LocalProperty<ColumnHandle>>() {}));
+        assertThat(property2).isEqualTo(mapper.readValue(mapper.writeValueAsString(property2), new TypeReference<LocalProperty<ColumnHandle>>() { }));
 
         LocalProperty<ColumnHandle> property3 = new GroupingProperty<>(ImmutableList.of(columnHandle));
-        assertEquals(property3, mapper.readValue(mapper.writeValueAsString(property3), new TypeReference<LocalProperty<ColumnHandle>>() {}));
+        assertThat(property3).isEqualTo(mapper.readValue(mapper.writeValueAsString(property3), new TypeReference<LocalProperty<ColumnHandle>>() { }));
     }
 
     @SafeVarargs
     private static <T> void assertMatch(List<LocalProperty<T>> actual, List<LocalProperty<T>> wanted, Optional<LocalProperty<T>>... match)
     {
-        assertEquals(LocalProperties.match(actual, wanted), Arrays.asList(match));
+        assertThat(LocalProperties.match(actual, wanted)).isEqualTo(Arrays.asList(match));
     }
 
     @SafeVarargs
     private static <T> void assertNormalize(List<LocalProperty<T>> localProperties, Optional<LocalProperty<T>>... normalized)
     {
-        assertEquals(LocalProperties.normalize(localProperties), Arrays.asList(normalized));
+        assertThat(LocalProperties.normalize(localProperties)).isEqualTo(Arrays.asList(normalized));
     }
 
     @SafeVarargs
     private static <T> void assertNormalizeAndFlatten(List<LocalProperty<T>> localProperties, LocalProperty<T>... normalized)
     {
-        assertEquals(LocalProperties.normalizeAndPrune(localProperties), Arrays.asList(normalized));
+        assertThat(LocalProperties.normalizeAndPrune(localProperties)).isEqualTo(Arrays.asList(normalized));
     }
 
     private static ConstantProperty<String> constant(String column)

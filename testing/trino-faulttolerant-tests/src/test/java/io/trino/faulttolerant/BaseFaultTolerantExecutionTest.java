@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public abstract class BaseFaultTolerantExecutionTest
         extends AbstractTestQueryFramework
@@ -47,7 +46,7 @@ public abstract class BaseFaultTolerantExecutionTest
 
         // force single writer task to verify there is exactly one writer per task
         assertUpdate(withUnlimitedTargetTaskInputSize(session), createTableSql, 1000000);
-        assertEquals(computeActual(selectFileInfo).getRowCount(), 1);
+        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(1);
         assertUpdate("DROP TABLE test_table_writer_skew_mitigation");
 
         assertUpdate(withDisabledPreferredWritePartitioning(session), createTableSql, 1000000);
@@ -58,7 +57,7 @@ public abstract class BaseFaultTolerantExecutionTest
         assertUpdate(withEnabledPreferredWritePartitioning(session), createTableSql, 1000000);
         int actualNumberOfFiles = computeActual(selectFileInfo).getRowCount();
         assertUpdate("DROP TABLE test_table_writer_skew_mitigation");
-        assertEquals(actualNumberOfFiles, expectedNumberOfFiles);
+        assertThat(actualNumberOfFiles).isEqualTo(expectedNumberOfFiles);
     }
 
     @Test
@@ -79,7 +78,7 @@ public abstract class BaseFaultTolerantExecutionTest
 
         // force single writer task to verify there is exactly one writer per task
         assertUpdate(withUnlimitedTargetTaskInputSize(session), executeSql);
-        assertEquals(computeActual(selectFileInfo).getRowCount(), 1);
+        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(1);
 
         assertUpdate(withDisabledPreferredWritePartitioning(session), executeSql);
         int expectedNumberOfFiles = computeActual(selectFileInfo).getRowCount();
@@ -89,7 +88,7 @@ public abstract class BaseFaultTolerantExecutionTest
 
         assertUpdate(withEnabledPreferredWritePartitioning(session), executeSql);
         int actualNumberOfFiles = computeActual(selectFileInfo).getRowCount();
-        assertEquals(actualNumberOfFiles, expectedNumberOfFiles);
+        assertThat(actualNumberOfFiles).isEqualTo(expectedNumberOfFiles);
 
         // verify no data is lost in process
         assertQuery("SELECT count(*) FROM test_execute_skew_mitigation", "SELECT 1000000");

@@ -47,7 +47,7 @@ import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public class RuleAssert
 {

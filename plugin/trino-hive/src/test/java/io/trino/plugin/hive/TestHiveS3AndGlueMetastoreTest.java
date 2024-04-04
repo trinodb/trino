@@ -15,11 +15,12 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -30,7 +31,7 @@ import java.util.regex.Pattern;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.DOUBLE_SLASH;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TRIPLE_SLASH;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TWO_TRAILING_SLASHES;
-import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -120,8 +121,7 @@ public class TestHiveS3AndGlueMetastoreTest
     }
 
     @Override // Row-level modifications are not supported for Hive tables
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testBasicOperationsWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
+    protected void testBasicOperationsWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_basic_operations_" + randomNameSuffix();
         String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
@@ -149,8 +149,16 @@ public class TestHiveS3AndGlueMetastoreTest
         }
     }
 
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testBasicOperationsWithProvidedTableLocationNonCTAS(boolean partitioned, LocationPattern locationPattern)
+    @Test
+    public void testBasicOperationsWithProvidedTableLocationNonCTAS()
+    {
+        for (LocationPattern locationPattern : LocationPattern.values()) {
+            testBasicOperationsWithProvidedTableLocationNonCTAS(false, locationPattern);
+            testBasicOperationsWithProvidedTableLocationNonCTAS(true, locationPattern);
+        }
+    }
+
+    private void testBasicOperationsWithProvidedTableLocationNonCTAS(boolean partitioned, LocationPattern locationPattern)
     {
         // this test needed, because execution path for CTAS and simple create is different
         String tableName = "test_basic_operations_" + randomNameSuffix();
@@ -176,8 +184,7 @@ public class TestHiveS3AndGlueMetastoreTest
     }
 
     @Override // Row-level modifications are not supported for Hive tables
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testBasicOperationsWithProvidedSchemaLocation(boolean partitioned, LocationPattern locationPattern)
+    protected void testBasicOperationsWithProvidedSchemaLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String schemaName = "test_basic_operations_schema_" + randomNameSuffix();
         String schemaLocation = locationPattern.locationForSchema(bucketName, schemaName);
@@ -192,12 +199,10 @@ public class TestHiveS3AndGlueMetastoreTest
 
             assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)" + partitionQueryPart);
             try (UncheckedCloseable ignoredDropTable = onClose("DROP TABLE " + qualifiedTableName)) {
-                String expectedTableLocation = Pattern.quote((schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName)
-                        // Hive normalizes repeated slashes
-                        .replaceAll("(?<!(s3:))/+", "/");
+                String expectedTableLocation = (schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName;
 
                 actualTableLocation = metastore.getTable(schemaName, tableName).orElseThrow().getStorage().getLocation();
-                assertThat(actualTableLocation).matches(expectedTableLocation);
+                assertThat(actualTableLocation).isEqualTo(expectedTableLocation);
 
                 assertUpdate("INSERT INTO " + qualifiedTableName + "  VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
                 assertQuery("SELECT * FROM " + qualifiedTableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
@@ -211,14 +216,13 @@ public class TestHiveS3AndGlueMetastoreTest
     }
 
     @Override
-    @Test(dataProvider = "locationPatternsDataProvider")
     public void testMergeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         // Row-level modifications are not supported for Hive tables
     }
 
     @Override
-    public void testOptimizeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
+    protected void testOptimizeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
             assertThatThrownBy(() -> super.testOptimizeWithProvidedTableLocation(partitioned, locationPattern))
@@ -229,8 +233,16 @@ public class TestHiveS3AndGlueMetastoreTest
         super.testOptimizeWithProvidedTableLocation(partitioned, locationPattern);
     }
 
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testAnalyzeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
+    @Test
+    public void testAnalyzeWithProvidedTableLocation()
+    {
+        for (LocationPattern locationPattern : LocationPattern.values()) {
+            testAnalyzeWithProvidedTableLocation(false, locationPattern);
+            testAnalyzeWithProvidedTableLocation(true, locationPattern);
+        }
+    }
+
+    private void testAnalyzeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_analyze_" + randomNameSuffix();
         String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
@@ -293,7 +305,9 @@ public class TestHiveS3AndGlueMetastoreTest
 
         assertUpdate("CREATE SCHEMA \"%2$s\" WITH (location = 's3://%1$s/%2$s')".formatted(bucketName, schemaName));
         try (UncheckedCloseable ignored = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
-            assertQueryFails("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1", "Failed checking path: .*");
+            assertThatThrownBy(() -> computeActual("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1"))
+                    .hasMessage("Error committing write to Hive")
+                    .hasStackTraceContaining("Invalid URI (Service: Amazon S3; Status Code: 400");
         }
     }
 

@@ -15,7 +15,7 @@ package io.trino.orc.metadata.statistics;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,8 +25,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.NONE;
 import static io.trino.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
 import static io.trino.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBinaryStatisticsBuilder
         extends AbstractStatisticsBuilderTest<BinaryStatisticsBuilder, Slice>
@@ -101,12 +100,12 @@ public class TestBinaryStatisticsBuilder
     private void assertBinaryStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, long expectedSum)
     {
         if (expectedNumberOfValues > 0) {
-            assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
-            assertEquals(columnStatistics.getBinaryStatistics().getSum(), expectedSum);
+            assertThat(columnStatistics.getNumberOfValues()).isEqualTo(expectedNumberOfValues);
+            assertThat(columnStatistics.getBinaryStatistics().getSum()).isEqualTo(expectedSum);
         }
         else {
-            assertNull(columnStatistics.getBinaryStatistics());
-            assertEquals(columnStatistics.getNumberOfValues(), 0);
+            assertThat(columnStatistics.getBinaryStatistics()).isNull();
+            assertThat(columnStatistics.getNumberOfValues()).isEqualTo(0);
         }
     }
 }

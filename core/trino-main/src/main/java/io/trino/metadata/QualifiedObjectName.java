@@ -15,8 +15,6 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -26,6 +24,8 @@ import io.trino.spi.function.SchemaFunctionName;
 
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.MetadataUtil.checkObjectName;
@@ -34,15 +34,17 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class QualifiedObjectName
 {
+    private static final Pattern UNQUOTED_COMPONENT = Pattern.compile("[a-zA-Z0-9_]+");
+    private static final String COMPONENT = UNQUOTED_COMPONENT.pattern() + "|\"([^\"]|\"\")*\"";
+    private static final Pattern PATTERN = Pattern.compile("(?<catalog>" + COMPONENT + ")\\.(?<schema>" + COMPONENT + ")\\.(?<table>" + COMPONENT + ")");
+
     @JsonCreator
     public static QualifiedObjectName valueOf(String name)
     {
         requireNonNull(name, "name is null");
-
-        ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(name));
-        checkArgument(ids.size() == 3, "Invalid name %s", name);
-
-        return new QualifiedObjectName(ids.get(0), ids.get(1), ids.get(2));
+        Matcher matcher = PATTERN.matcher(name);
+        checkArgument(matcher.matches(), "Invalid name %s", name);
+        return new QualifiedObjectName(unquoteIfNeeded(matcher.group("catalog")), unquoteIfNeeded(matcher.group("schema")), unquoteIfNeeded(matcher.group("table")));
     }
 
     private final String catalogName;
@@ -127,11 +129,28 @@ public class QualifiedObjectName
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaName + '.' + objectName;
+        return quoteIfNeeded(catalogName) + '.' + quoteIfNeeded(schemaName) + '.' + quoteIfNeeded(objectName);
     }
 
     public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(String catalogName)
     {
         return input -> new QualifiedObjectName(catalogName, input.getSchemaName(), input.getTableName());
+    }
+
+    private static String unquoteIfNeeded(String name)
+    {
+        if (name.isEmpty() || name.charAt(0) != '"') {
+            return name;
+        }
+        checkArgument(name.charAt(name.length() - 1) == '"', "Invalid name: [%s]", name);
+        return name.substring(1, name.length() - 1).replace("\"\"", "\"");
+    }
+
+    private static String quoteIfNeeded(String name)
+    {
+        if (UNQUOTED_COMPONENT.matcher(name).matches()) {
+            return name;
+        }
+        return "\"" + name.replace("\"", "\"\"") + "\"";
     }
 }

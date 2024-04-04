@@ -160,8 +160,7 @@ public class CreateMaterializedViewTask
                         // system path elements are not stored
                         .filter(element -> !element.getCatalogName().equals(GlobalSystemConnector.NAME))
                         .collect(toImmutableList()),
-                Optional.empty(),
-                properties);
+                Optional.empty());
 
         Set<String> specifiedPropertyKeys = statement.getProperties().stream()
                 // property names are case-insensitive and normalized to lower case
@@ -172,7 +171,7 @@ public class CreateMaterializedViewTask
                 .filter(specifiedPropertyKeys::contains)
                 .collect(toImmutableMap(Function.identity(), properties::get));
         accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, explicitlySetProperties);
-        plannerContext.getMetadata().createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
+        plannerContext.getMetadata().createMaterializedView(session, name, definition, properties, statement.isReplace(), statement.isNotExists());
 
         stateMachine.setOutput(analysis.getTarget());
         stateMachine.setReferencedTables(analysis.getReferencedTables());

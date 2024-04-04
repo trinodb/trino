@@ -52,7 +52,7 @@ public class TestAddExchangesScaledWriters
     private MockConnectorFactory createConnectorFactory(String name, boolean writerScalingEnabledAcrossTasks)
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle(((session, schemaTableName) -> null))
+                .withGetTableHandle((session, schemaTableName) -> null)
                 .withName(name)
                 .withWriterScalingOptions(new WriterScalingOptions(writerScalingEnabledAcrossTasks, true))
                 .build();

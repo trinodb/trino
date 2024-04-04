@@ -13,14 +13,9 @@
  */
 package io.trino.operator.output;
 
-import io.trino.spi.block.ByteArrayBlock;
-import io.trino.spi.block.Fixed12Block;
-import io.trino.spi.block.Int128ArrayBlock;
-import io.trino.spi.block.IntArrayBlock;
-import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
-import io.trino.spi.block.ShortArrayBlock;
 import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
@@ -28,11 +23,14 @@ import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
 import java.util.Optional;
 
+import static io.trino.operator.output.PositionsAppenderUtil.MAX_ARRAY_SIZE;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class PositionsAppenderFactory
 {
     private final BlockTypeOperators blockTypeOperators;
+    private static final int EXPECTED_VARIABLE_WIDTH_BYTES_PER_ENTRY = 32;
 
     public PositionsAppenderFactory(BlockTypeOperators blockTypeOperators)
     {
@@ -50,29 +48,14 @@ public class PositionsAppenderFactory
 
     private PositionsAppender createPrimitiveAppender(Type type, int expectedPositions, long maxPageSizeInBytes)
     {
-        if (type.getValueBlockType() == ByteArrayBlock.class) {
-            return new BytePositionsAppender(expectedPositions);
-        }
-        if (type.getValueBlockType() == ShortArrayBlock.class) {
-            return new ShortPositionsAppender(expectedPositions);
-        }
-        if (type.getValueBlockType() == IntArrayBlock.class) {
-            return new IntPositionsAppender(expectedPositions);
-        }
-        if (type.getValueBlockType() == LongArrayBlock.class) {
-            return new LongPositionsAppender(expectedPositions);
-        }
-        if (type.getValueBlockType() == Fixed12Block.class) {
-            return new Fixed12PositionsAppender(expectedPositions);
-        }
-        if (type.getValueBlockType() == Int128ArrayBlock.class) {
-            return new Int128PositionsAppender(expectedPositions);
-        }
-        if (type.getValueBlockType() == VariableWidthBlock.class) {
-            return new SlicePositionsAppender(expectedPositions, maxPageSizeInBytes);
-        }
         if (type.getValueBlockType() == RowBlock.class) {
             return RowPositionsAppender.createRowAppender(this, (RowType) type, expectedPositions, maxPageSizeInBytes);
+        }
+        if (type.getValueBlockType() == VariableWidthBlock.class) {
+            // it is guaranteed Math.min will not overflow; safe to cast
+            int expectedBytes = (int) min((long) expectedPositions * EXPECTED_VARIABLE_WIDTH_BYTES_PER_ENTRY, maxPageSizeInBytes);
+            expectedBytes = min(expectedBytes, MAX_ARRAY_SIZE);
+            return new TypedPositionsAppender(new VariableWidthBlockBuilder(null, expectedPositions, expectedBytes));
         }
         return new TypedPositionsAppender(type, expectedPositions);
     }

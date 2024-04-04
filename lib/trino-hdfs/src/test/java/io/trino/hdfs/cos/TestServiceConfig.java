@@ -24,9 +24,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestServiceConfig
 {
@@ -49,9 +48,9 @@ public class TestServiceConfig
             String secretValue,
             Optional<String> endpointValue)
     {
-        assertEquals(serviceConfig.getAccessKey(), accessValue);
-        assertEquals(serviceConfig.getSecretKey(), secretValue);
-        assertEquals(serviceConfig.getEndpoint(), endpointValue);
+        assertThat(serviceConfig.getAccessKey()).isEqualTo(accessValue);
+        assertThat(serviceConfig.getSecretKey()).isEqualTo(secretValue);
+        assertThat(serviceConfig.getEndpoint()).isEqualTo(endpointValue);
     }
 
     @Test
@@ -59,7 +58,7 @@ public class TestServiceConfig
             throws IOException
     {
         try (TempFile tempFile = new TempFile()) {
-            assertTrue(ServiceConfig.loadServiceConfigs(tempFile.file()).isEmpty());
+            assertThat(ServiceConfig.loadServiceConfigs(tempFile.file()).isEmpty()).isTrue();
 
             writeProperties(tempFile, ImmutableMap.<String, String>builder()
                     .put("a.access-key", "a-accessValue")
@@ -75,7 +74,7 @@ public class TestServiceConfig
                     .buildOrThrow());
 
             Map<String, ServiceConfig> bucketConfigs = ServiceConfig.loadServiceConfigs(tempFile.file());
-            assertEquals(bucketConfigs.keySet(), ImmutableSet.of("a", "b", "c"));
+            assertThat(bucketConfigs.keySet()).isEqualTo(ImmutableSet.of("a", "b", "c"));
 
             assertConfig(bucketConfigs.get("a"), "a-accessValue", "a-secretValue", Optional.of("a-endpointValue"));
             assertConfig(bucketConfigs.get("b"), "b-accessValue", "b-secretValue", Optional.empty());

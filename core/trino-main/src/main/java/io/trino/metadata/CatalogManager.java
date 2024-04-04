@@ -45,6 +45,12 @@ public interface CatalogManager
         }
 
         @Override
+        public Set<CatalogHandle> getActiveCatalogs()
+        {
+            return ImmutableSet.of();
+        }
+
+        @Override
         public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
         {
             throw new UnsupportedOperationException();
@@ -62,6 +68,8 @@ public interface CatalogManager
     Optional<Catalog> getCatalog(String catalogName);
 
     Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle);
+
+    Set<CatalogHandle> getActiveCatalogs();
 
     void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists);
 

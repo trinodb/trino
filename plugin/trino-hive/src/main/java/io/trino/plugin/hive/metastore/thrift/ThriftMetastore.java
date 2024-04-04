@@ -46,7 +46,8 @@ import java.util.function.Function;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
-public interface ThriftMetastore
+public sealed interface ThriftMetastore
+        permits ThriftHiveMetastore
 {
     void createDatabase(Database database);
 
@@ -109,8 +110,6 @@ public interface ThriftMetastore
     void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
 
     void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
-
-    Set<RoleGrant> listGrantedPrincipals(String role);
 
     Set<RoleGrant> listRoleGrants(HivePrincipal principal);
 
@@ -212,11 +211,6 @@ public interface ThriftMetastore
     }
 
     default void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    default void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
     {
         throw new UnsupportedOperationException();
     }

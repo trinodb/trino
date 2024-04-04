@@ -98,8 +98,7 @@ public class TestDeltaLakeColumnMapping
         String tableLocation = getTableLocation(tableName);
         MetadataEntry metadata = loadMetadataEntry(0, Path.of(tableLocation));
 
-        assertThat(metadata.getConfiguration().get("delta.columnMapping.maxColumnId"))
-                .isEqualTo("3"); // 3 comes from a_int + a_row + a_row.x
+        assertThat(metadata.getConfiguration()).containsEntry("delta.columnMapping.maxColumnId", "3"); // 3 comes from a_int + a_row + a_row.x
 
         JsonNode schema = OBJECT_MAPPER.readTree(metadata.getSchemaString());
         List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());

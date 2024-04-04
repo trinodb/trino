@@ -17,7 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.orc.OrcDataSourceId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -28,7 +28,7 @@ import java.util.Optional;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.stream.LongDecode.readVInt;
 import static io.trino.orc.stream.LongDecode.writeVLong;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongDecode
 {
@@ -82,22 +82,22 @@ public class TestLongDecode
         writeVLong(output, value, signed);
         Slice trinoBytes = output.slice().copy();
         if (!trinoBytes.equals(hiveBytes)) {
-            assertEquals(trinoBytes, hiveBytes);
+            assertThat(trinoBytes).isEqualTo(hiveBytes);
         }
 
         // read using Hive's code
         if (signed) {
             long readValueOld = readVslong(hiveBytes.getInput());
-            assertEquals(readValueOld, value);
+            assertThat(readValueOld).isEqualTo(value);
         }
         else {
             long readValueOld = readVulong(hiveBytes.getInput());
-            assertEquals(readValueOld, value);
+            assertThat(readValueOld).isEqualTo(value);
         }
 
         // read using Trino's code
         long readValueNew = readVInt(signed, new OrcInputStream(OrcChunkLoader.create(new OrcDataSourceId("test"), hiveBytes, Optional.empty(), newSimpleAggregatedMemoryContext())));
-        assertEquals(readValueNew, value);
+        assertThat(readValueNew).isEqualTo(value);
     }
 
     //

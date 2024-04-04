@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
@@ -43,7 +44,7 @@ public class FaultTolerantPartitioningSchemeFactory
     private final Session session;
     private final int maxPartitionCount;
 
-    private final Map<PartitioningHandle, FaultTolerantPartitioningScheme> cache = new HashMap<>();
+    private final Map<CacheKey, FaultTolerantPartitioningScheme> cache = new HashMap<>();
 
     public FaultTolerantPartitioningSchemeFactory(NodePartitioningManager nodePartitioningManager, Session session, int maxPartitionCount)
     {
@@ -54,18 +55,20 @@ public class FaultTolerantPartitioningSchemeFactory
 
     public FaultTolerantPartitioningScheme get(PartitioningHandle handle, Optional<Integer> partitionCount)
     {
-        FaultTolerantPartitioningScheme result = cache.get(handle);
+        CacheKey cacheKey = new CacheKey(handle, partitionCount);
+        FaultTolerantPartitioningScheme result = cache.get(cacheKey);
         if (result == null) {
             // Avoid using computeIfAbsent as the "get" method is called recursively from the "create" method
             result = create(handle, partitionCount);
-            cache.put(handle, result);
+            if (partitionCount.isPresent()) {
+                verify(
+                        result.getPartitionCount() == partitionCount.get(),
+                        "expected partitionCount to be %s but got %s",
+                        partitionCount.get(),
+                        result.getPartitionCount());
+            }
+            cache.put(cacheKey, result);
         }
-        else if (partitionCount.isPresent()) {
-            // With runtime adaptive partitioning, it's no longer guaranteed that the same handle will always map to
-            // the same partition count. Therefore, use the supplied `partitionCount` as the source of truth.
-            result = result.withPartitionCount(partitionCount.get());
-        }
-
         return result;
     }
 
@@ -142,5 +145,14 @@ public class FaultTolerantPartitioningSchemeFactory
                 Optional.of(bucketToPartition),
                 Optional.of(splitToBucket),
                 Optional.empty());
+    }
+
+    private record CacheKey(PartitioningHandle handle, Optional<Integer> partitionCount)
+    {
+        private CacheKey
+        {
+            requireNonNull(handle, "handle is null");
+            requireNonNull(partitionCount, "partitionCount is null");
+        }
     }
 }

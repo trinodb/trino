@@ -23,6 +23,7 @@ import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import redis.clients.jedis.Jedis;
 
 import java.util.Map;
@@ -33,8 +34,10 @@ import static io.trino.plugin.redis.util.RedisTestUtils.installRedisPlugin;
 import static io.trino.plugin.redis.util.RedisTestUtils.loadSimpleTableDescription;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public abstract class AbstractTestMinimalFunctionality
 {
     protected static final Session SESSION = testSessionBuilder()

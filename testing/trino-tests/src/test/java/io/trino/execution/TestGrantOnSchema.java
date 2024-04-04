@@ -23,12 +23,12 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.EnumSet;
 
@@ -38,7 +38,11 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestGrantOnSchema
 {
     private final Session admin = sessionOf("admin");
@@ -46,7 +50,7 @@ public class TestGrantOnSchema
     private DistributedQueryRunner queryRunner;
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void initClass()
             throws Exception
     {
@@ -63,7 +67,7 @@ public class TestGrantOnSchema
         schemaGrants.grant(new TrinoPrincipal(USER, admin.getUser()), "default", EnumSet.allOf(Privilege.class), true);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
@@ -71,8 +75,14 @@ public class TestGrantOnSchema
         queryRunner = null; // closed by assertions.close
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testExistingGrants(boolean grantOption)
+    @Test
+    public void testExistingGrants()
+    {
+        testExistingGrants(true);
+        testExistingGrants(false);
+    }
+
+    private void testExistingGrants(boolean grantOption)
     {
         String username = randomUsername();
         Session user = sessionOf(username);
@@ -84,8 +94,15 @@ public class TestGrantOnSchema
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
     }
 
-    @Test(dataProvider = "privileges")
-    public void testValidGrant(String privilege)
+    @Test
+    public void testValidGrant()
+    {
+        testValidGrant("SELECT");
+        testValidGrant("CREATE");
+        testValidGrant("ALL PRIVILEGES");
+    }
+
+    private void testValidGrant(String privilege)
     {
         String username = randomUsername();
         Session user = sessionOf(username);
@@ -97,8 +114,15 @@ public class TestGrantOnSchema
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
     }
 
-    @Test(dataProvider = "privileges")
-    public void testValidGrantWithGrantOption(String privilege)
+    @Test
+    public void testValidGrantWithGrantOption()
+    {
+        testValidGrantWithGrantOption("SELECT");
+        testValidGrantWithGrantOption("CREATE");
+        testValidGrantWithGrantOption("ALL PRIVILEGES");
+    }
+
+    private void testValidGrantWithGrantOption(String privilege)
     {
         String username = randomUsername();
         Session user = sessionOf(username);
@@ -110,37 +134,37 @@ public class TestGrantOnSchema
         assertions.query(user, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, randomUsername()));
     }
 
-    @Test(dataProvider = "privileges")
-    public void testGrantOnNonExistingCatalog(String privilege)
+    @Test
+    public void testGrantOnNonExistingCatalog()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT %s ON SCHEMA missing_catalog.missing_schema TO %s", privilege, randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT SELECT ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+                .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT CREATE ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+                .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT ALL PRIVILEGES ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
                 .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
     }
 
-    @Test(dataProvider = "privileges")
-    public void testGrantOnNonExistingSchema(String privilege)
+    @Test
+    public void testGrantOnNonExistingSchema()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT %s ON SCHEMA missing_schema TO %s", privilege, randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT SELECT ON SCHEMA missing_schema TO %s", randomUsername())))
+                .hasMessageContaining("Schema 'local.missing_schema' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT CREATE ON SCHEMA missing_schema TO %s", randomUsername())))
+                .hasMessageContaining("Schema 'local.missing_schema' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT ALL PRIVILEGES ON SCHEMA missing_schema TO %s", randomUsername())))
                 .hasMessageContaining("Schema 'local.missing_schema' does not exist");
     }
 
-    @Test(dataProvider = "privileges")
-    public void testAccessDenied(String privilege)
+    @Test
+    public void testAccessDenied()
     {
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT %s ON SCHEMA default TO %s", privilege, randomUsername())))
-                .hasMessageContaining(
-                        "Access Denied: Cannot grant privilege %s on schema default",
-                        privilege.equals("ALL PRIVILEGES") ? "CREATE" : privilege);
-    }
-
-    @DataProvider(name = "privileges")
-    public static Object[][] privileges()
-    {
-        return new Object[][] {
-                {"SELECT"},
-                {"CREATE"},
-                {"ALL PRIVILEGES"}
-        };
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT SELECT ON SCHEMA default TO %s", randomUsername())))
+                .hasMessageContaining("Access Denied: Cannot grant privilege SELECT on schema default");
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT CREATE ON SCHEMA default TO %s", randomUsername())))
+                .hasMessageContaining("Access Denied: Cannot grant privilege CREATE on schema default");
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT ALL PRIVILEGES ON SCHEMA default TO %s", randomUsername())))
+                .hasMessageContaining("Access Denied: Cannot grant privilege CREATE on schema default");
     }
 
     private static Session sessionOf(String username)

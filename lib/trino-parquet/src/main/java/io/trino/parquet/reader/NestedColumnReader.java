@@ -507,8 +507,8 @@ public class NestedColumnReader<BufferType>
         int maxDefinitionLevel = field.getDefinitionLevel();
         int maxRepetitionLevel = field.getRepetitionLevel();
 
-        checkArgument(maxDefinitionLevel == 0 || definitionEncoding == RLE, "Invalid definition level encoding: " + definitionEncoding);
-        checkArgument(maxRepetitionLevel == 0 || repetitionEncoding == RLE, "Invalid repetition level encoding: " + definitionEncoding);
+        checkArgument(maxDefinitionLevel == 0 || definitionEncoding == RLE, "Invalid definition level encoding: %s", definitionEncoding);
+        checkArgument(maxRepetitionLevel == 0 || repetitionEncoding == RLE, "Invalid repetition level encoding: %s", repetitionEncoding);
 
         repetitionLevelDecoder = levelsDecoderProvider.create(maxRepetitionLevel);
         if (maxRepetitionLevel > 0) {

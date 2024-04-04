@@ -15,11 +15,14 @@ package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import io.trino.spi.connector.ConnectorSession;
 
-interface BigQueryOptionsConfigurer
+public interface BigQueryOptionsConfigurer
 {
     BigQueryOptions.Builder configure(BigQueryOptions.Builder builder, ConnectorSession session);
 
     BigQueryReadSettings.Builder configure(BigQueryReadSettings.Builder builder, ConnectorSession session);
+
+    BigQueryWriteSettings.Builder configure(BigQueryWriteSettings.Builder builder, ConnectorSession session);
 }

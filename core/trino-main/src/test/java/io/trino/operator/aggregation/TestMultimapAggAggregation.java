@@ -45,7 +45,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.util.StructuralTestUtil.mapType;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMultimapAggAggregation
 {
@@ -174,7 +174,7 @@ public class TestMultimapAggAggregation
         GroupedAggregator groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, Ints.asList(), OptionalInt.empty()).createGroupedAggregator();
         BlockBuilder blockBuilder = aggregationFunction.getFinalType().createBlockBuilder(null, 1);
         groupedAggregator.evaluate(0, blockBuilder);
-        assertTrue(blockBuilder.build().isNull(0));
+        assertThat(blockBuilder.build().isNull(0)).isTrue();
     }
 
     private static TestingAggregationFunction getAggregationFunction(Type keyType, Type valueType)

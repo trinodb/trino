@@ -29,7 +29,7 @@ import static io.trino.plugin.iceberg.PartitionTransforms.epochMonth;
 import static io.trino.plugin.iceberg.PartitionTransforms.epochYear;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPartitionTransforms
 {
@@ -39,13 +39,13 @@ public class TestPartitionTransforms
     @Test
     public void testToStringMatchesSpecification()
     {
-        assertEquals(Transforms.identity().toString(), "identity");
-        assertEquals(Transforms.bucket(13).bind(StringType.get()).toString(), "bucket[13]");
-        assertEquals(Transforms.truncate(19).bind(StringType.get()).toString(), "truncate[19]");
-        assertEquals(Transforms.year().toString(), "year");
-        assertEquals(Transforms.month().toString(), "month");
-        assertEquals(Transforms.day().toString(), "day");
-        assertEquals(Transforms.hour().toString(), "hour");
+        assertThat(Transforms.identity().toString()).isEqualTo("identity");
+        assertThat(Transforms.bucket(13).bind(StringType.get()).toString()).isEqualTo("bucket[13]");
+        assertThat(Transforms.truncate(19).bind(StringType.get()).toString()).isEqualTo("truncate[19]");
+        assertThat(Transforms.year().toString()).isEqualTo("year");
+        assertThat(Transforms.month().toString()).isEqualTo("month");
+        assertThat(Transforms.day().toString()).isEqualTo("day");
+        assertThat(Transforms.hour().toString()).isEqualTo("hour");
     }
 
     @Test
@@ -65,16 +65,30 @@ public class TestPartitionTransforms
 
             if (time.toLocalTime().equals(LocalTime.MIDNIGHT)) {
                 int epochDay = toIntExact(time.toLocalDate().toEpochDay());
-                assertEquals(actualYear, (int) Transforms.year().bind(ICEBERG_DATE).apply(epochDay), time.toString());
-                assertEquals(actualMonth, (int) Transforms.month().bind(ICEBERG_DATE).apply(epochDay), time.toString());
-                assertEquals(actualDay, (int) Transforms.day().bind(ICEBERG_DATE).apply(epochDay), time.toString());
+                assertThat(actualYear)
+                        .describedAs(time.toString())
+                        .isEqualTo((int) Transforms.year().bind(ICEBERG_DATE).apply(epochDay));
+                assertThat(actualMonth)
+                        .describedAs(time.toString())
+                        .isEqualTo((int) Transforms.month().bind(ICEBERG_DATE).apply(epochDay));
+                assertThat(actualDay)
+                        .describedAs(time.toString())
+                        .isEqualTo((int) Transforms.day().bind(ICEBERG_DATE).apply(epochDay));
             }
 
             long epochMicro = SECONDS.toMicros(epochSecond);
-            assertEquals(actualYear, (int) Transforms.year().bind(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
-            assertEquals(actualMonth, (int) Transforms.month().bind(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
-            assertEquals(actualDay, (int) Transforms.day().bind(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
-            assertEquals(actualHour, (int) Transforms.hour().bind(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
+            assertThat(actualYear)
+                    .describedAs(time.toString())
+                    .isEqualTo((int) Transforms.year().bind(ICEBERG_TIMESTAMP).apply(epochMicro));
+            assertThat(actualMonth)
+                    .describedAs(time.toString())
+                    .isEqualTo((int) Transforms.month().bind(ICEBERG_TIMESTAMP).apply(epochMicro));
+            assertThat(actualDay)
+                    .describedAs(time.toString())
+                    .isEqualTo((int) Transforms.day().bind(ICEBERG_TIMESTAMP).apply(epochMicro));
+            assertThat(actualHour)
+                    .describedAs(time.toString())
+                    .isEqualTo((int) Transforms.hour().bind(ICEBERG_TIMESTAMP).apply(epochMicro));
         }
     }
 }

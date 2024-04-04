@@ -1,12 +1,15 @@
 # Release notes
 
 (releases-2023)=
-
 ## 2023
 
 ```{toctree}
 :maxdepth: 1
 
+release/release-435
+release/release-434
+release/release-433
+release/release-432
 release/release-431
 release/release-430
 release/release-429
@@ -36,7 +39,6 @@ release/release-406
 ```
 
 (releases-2022)=
-
 ## 2022
 
 ```{toctree}
@@ -83,7 +85,6 @@ release/release-368
 ```
 
 (releases-2021)=
-
 ## 2021
 
 ```{toctree}
@@ -109,7 +110,6 @@ release/release-351
 ```
 
 (releases-2020)=
-
 ## 2020
 
 ```{toctree}
@@ -141,7 +141,6 @@ release/release-328
 ```
 
 (releases-2019)=
-
 ## 2019
 
 ```{toctree}
@@ -356,3 +355,20 @@ release/release-0.56
 release/release-0.55
 release/release-0.54
 ```
+
+## Breaking changes
+
+Starting with Trino 432, release notes include a ⚠️ symbol to highlight any
+changes as potentially breaking changes. The following changes are considered
+and may require adjustments:
+
+* Removal or renaming of configuration properties that may prevent startup or
+  require configuration changes
+* Changes to default values for configuration properties that may significantly
+  change the behavior of a system
+* Updates to the requirements for external systems or software used with Trino,
+  such as removal of support for an old version of a data source in a connector
+* Non-backwards compatible changes to the SPI which may require plugins to be
+  updated
+* Otherwise significant changes that requires specific attention from teams
+  managing a Trino deployment

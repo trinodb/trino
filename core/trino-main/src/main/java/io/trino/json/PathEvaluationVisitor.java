@@ -52,6 +52,7 @@ import io.trino.json.ir.IrPredicateCurrentItemVariable;
 import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrTypeMethod;
 import io.trino.json.ir.SqlJsonLiteralConverter;
+import io.trino.json.ir.SqlJsonLiteralConverter.JsonLiteralConversionException;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
@@ -83,8 +84,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.CachingResolver.ResolvedOperatorAndCoercions.RESOLUTION_ERROR;
 import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
-import static io.trino.json.PathEvaluationError.itemTypeError;
-import static io.trino.json.PathEvaluationError.structuralError;
+import static io.trino.json.PathEvaluationException.itemTypeError;
+import static io.trino.json.PathEvaluationException.structuralError;
 import static io.trino.json.PathEvaluationUtil.unwrapArrays;
 import static io.trino.json.ir.IrArithmeticUnary.Sign.PLUS;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getTextTypedValue;
@@ -182,7 +183,7 @@ class PathEvaluationVisitor
                 absValue = abs(value);
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
             return new TypedValue(type, absValue);
         }
@@ -196,7 +197,7 @@ class PathEvaluationVisitor
                 absValue = absInteger(value);
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
             return new TypedValue(type, absValue);
         }
@@ -210,7 +211,7 @@ class PathEvaluationVisitor
                 absValue = absSmallint(value);
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
             return new TypedValue(type, absValue);
         }
@@ -224,7 +225,7 @@ class PathEvaluationVisitor
                 absValue = absTinyint(value);
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
             return new TypedValue(type, absValue);
         }
@@ -257,7 +258,7 @@ class PathEvaluationVisitor
                     result = DecimalOperators.Negation.negate((Int128) typedValue.getObjectValue());
                 }
                 catch (Exception e) {
-                    throw new PathEvaluationError(e);
+                    throw new PathEvaluationException(e);
                 }
                 return new TypedValue(type, result);
             }
@@ -279,7 +280,7 @@ class PathEvaluationVisitor
         }
 
         if (leftSequence.size() != 1 || rightSequence.size() != 1) {
-            throw new PathEvaluationError("arithmetic binary expression requires singleton operands");
+            throw new PathEvaluationException("arithmetic binary expression requires singleton operands");
         }
 
         TypedValue left;
@@ -304,7 +305,7 @@ class PathEvaluationVisitor
 
         ResolvedOperatorAndCoercions operators = resolver.getOperators(node, OperatorType.valueOf(node.operator().name()), left.getType(), right.getType());
         if (operators == RESOLUTION_ERROR) {
-            throw new PathEvaluationError(format("invalid operand types to %s operator (%s, %s)", node.operator().name(), left.getType(), right.getType()));
+            throw new PathEvaluationException(format("invalid operand types to %s operator (%s, %s)", node.operator().name(), left.getType(), right.getType()));
         }
 
         Object leftInput = left.getValueAsObject();
@@ -313,7 +314,7 @@ class PathEvaluationVisitor
                 leftInput = invoker.invoke(operators.getLeftCoercion().get(), ImmutableList.of(leftInput));
             }
             catch (RuntimeException e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
         }
 
@@ -323,7 +324,7 @@ class PathEvaluationVisitor
                 rightInput = invoker.invoke(operators.getRightCoercion().get(), ImmutableList.of(rightInput));
             }
             catch (RuntimeException e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
         }
 
@@ -332,7 +333,7 @@ class PathEvaluationVisitor
             result = invoker.invoke(operators.getOperator(), ImmutableList.of(leftInput, rightInput));
         }
         catch (RuntimeException e) {
-            throw new PathEvaluationError(e);
+            throw new PathEvaluationException(e);
         }
 
         return ImmutableList.of(TypedValue.fromValueAsObject(operators.getOperator().getSignature().getReturnType(), result));
@@ -382,7 +383,7 @@ class PathEvaluationVisitor
                 negatedValue = BigintOperators.negate(typedValue.getLongValue());
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
             return new TypedValue(type, negatedValue);
         }
@@ -392,7 +393,7 @@ class PathEvaluationVisitor
                 negatedValue = IntegerOperators.negate(typedValue.getLongValue());
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
             return new TypedValue(type, negatedValue);
         }
@@ -402,7 +403,7 @@ class PathEvaluationVisitor
                 negatedValue = SmallintOperators.negate(typedValue.getLongValue());
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
             return new TypedValue(type, negatedValue);
         }
@@ -412,7 +413,7 @@ class PathEvaluationVisitor
                 negatedValue = TinyintOperators.negate(typedValue.getLongValue());
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
             return new TypedValue(type, negatedValue);
         }
@@ -431,7 +432,7 @@ class PathEvaluationVisitor
                 negatedValue = DecimalOperators.Negation.negate((Int128) typedValue.getObjectValue());
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
             return new TypedValue(type, negatedValue);
         }
@@ -452,14 +453,14 @@ class PathEvaluationVisitor
                     elements = ImmutableList.copyOf(((JsonNode) object).elements());
                 }
                 else if (lax) {
-                    elements = ImmutableList.of((object));
+                    elements = ImmutableList.of(object);
                 }
                 else {
                     throw itemTypeError("ARRAY", ((JsonNode) object).getNodeType().name());
                 }
             }
             else if (lax) {
-                elements = ImmutableList.of((object));
+                elements = ImmutableList.of(object);
             }
             else {
                 throw itemTypeError("ARRAY", ((TypedValue) object).getType().getDisplayName());
@@ -484,10 +485,10 @@ class PathEvaluationVisitor
                 List<Object> from = process(subscript.from(), arrayContext);
                 Optional<List<Object>> to = subscript.to().map(path -> process(path, arrayContext));
                 if (from.size() != 1) {
-                    throw new PathEvaluationError("array subscript 'from' value must be singleton numeric");
+                    throw new PathEvaluationException("array subscript 'from' value must be singleton numeric");
                 }
                 if (to.isPresent() && to.get().size() != 1) {
-                    throw new PathEvaluationError("array subscript 'to' value must be singleton numeric");
+                    throw new PathEvaluationException("array subscript 'to' value must be singleton numeric");
                 }
                 long fromIndex = asArrayIndex(getOnlyElement(from));
                 long toIndex = to
@@ -521,10 +522,10 @@ class PathEvaluationVisitor
     {
         if (object instanceof JsonNode jsonNode) {
             if (jsonNode.getNodeType() != JsonNodeType.NUMBER) {
-                throw itemTypeError("NUMBER", (jsonNode.getNodeType().name()));
+                throw itemTypeError("NUMBER", jsonNode.getNodeType().name());
             }
             if (!jsonNode.canConvertToLong()) {
-                throw new PathEvaluationError(format("cannot convert value %s to long", jsonNode));
+                throw new PathEvaluationException(format("cannot convert value %s to long", jsonNode));
             }
             return jsonNode.longValue();
         }
@@ -538,7 +539,7 @@ class PathEvaluationVisitor
                 return DoubleOperators.castToLong(value.getDoubleValue());
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
         }
         if (type.equals(REAL)) {
@@ -546,7 +547,7 @@ class PathEvaluationVisitor
                 return RealOperators.castToLong(value.getLongValue());
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
         }
         if (type instanceof DecimalType decimalType) {
@@ -561,7 +562,7 @@ class PathEvaluationVisitor
                 return DecimalCasts.longDecimalToBigint((Int128) value.getObjectValue(), precision, scale, tenToScale);
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
         }
 
@@ -617,14 +618,14 @@ class PathEvaluationVisitor
                     return new TypedValue(resultType, ceilingLongShort(scale, (Int128) typedValue.getObjectValue()));
                 }
                 catch (Exception e) {
-                    throw new PathEvaluationError(e);
+                    throw new PathEvaluationException(e);
                 }
             }
             try {
                 return new TypedValue(resultType, ceilingLong(scale, (Int128) typedValue.getObjectValue()));
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
         }
 
@@ -734,7 +735,7 @@ class PathEvaluationVisitor
                 return new TypedValue(DOUBLE, VarcharOperators.castToDouble((Slice) typedValue.getObjectValue()));
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
         }
 
@@ -811,14 +812,14 @@ class PathEvaluationVisitor
                     return new TypedValue(resultType, floorLongShort(scale, (Int128) typedValue.getObjectValue()));
                 }
                 catch (Exception e) {
-                    throw new PathEvaluationError(e);
+                    throw new PathEvaluationException(e);
                 }
             }
             try {
                 return new TypedValue(resultType, floorLong(scale, (Int128) typedValue.getObjectValue()));
             }
             catch (Exception e) {
-                throw new PathEvaluationError(e);
+                throw new PathEvaluationException(e);
             }
         }
 
@@ -1055,8 +1056,8 @@ class PathEvaluationVisitor
         try {
             return SqlJsonLiteralConverter.getNumericTypedValue(jsonNode);
         }
-        catch (SqlJsonLiteralConverter.JsonLiteralConversionError e) {
-            throw new PathEvaluationError(e);
+        catch (JsonLiteralConversionException e) {
+            throw new PathEvaluationException(e);
         }
     }
 }

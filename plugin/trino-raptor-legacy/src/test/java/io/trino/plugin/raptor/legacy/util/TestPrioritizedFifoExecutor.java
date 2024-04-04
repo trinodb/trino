@@ -13,9 +13,11 @@
  */
 package io.trino.plugin.raptor.legacy.util;
 
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -29,24 +31,25 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestPrioritizedFifoExecutor
 {
     private static final Comparator<Runnable> DUMMY_COMPARATOR = (o1, o2) -> 0;
 
     private ExecutorService executor;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         executor = newCachedThreadPool();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         executor.shutdownNow();
@@ -71,8 +74,8 @@ public class TestPrioritizedFifoExecutor
                 try {
                     // wait for the go signal
 
-                    assertTrue(awaitUninterruptibly(startLatch, 1, TimeUnit.MINUTES));
-                    assertFalse(futures.get(taskNumber).isDone());
+                    assertThat(awaitUninterruptibly(startLatch, 1, TimeUnit.MINUTES)).isTrue();
+                    assertThat(futures.get(taskNumber).isDone()).isFalse();
 
                     // intentional distinct read and write calls
                     int initialCount = counter.get();
@@ -85,19 +88,19 @@ public class TestPrioritizedFifoExecutor
         }
 
         for (Future<?> future : futures) {
-            assertFalse(future.isDone());
+            assertThat(future.isDone()).isFalse();
         }
 
         // signal go and wait for tasks to complete
         startLatch.countDown();
-        assertTrue(awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES));
+        assertThat(awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES)).isTrue();
 
-        assertEquals(counter.get(), totalTasks);
+        assertThat(counter.get()).isEqualTo(totalTasks);
         // since this is a fifo executor with one thread and completeLatch is decremented inside the future,
         // the last future may not be done yet, but all the rest must be
         futures.get(futures.size() - 1).get(1, TimeUnit.MINUTES);
         for (Future<?> future : futures) {
-            assertTrue(future.isDone());
+            assertThat(future.isDone()).isTrue();
         }
     }
 
@@ -142,8 +145,8 @@ public class TestPrioritizedFifoExecutor
 
         // signal go and wait for tasks to complete
         startLatch.countDown();
-        assertTrue(awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES));
+        assertThat(awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES)).isTrue();
 
-        assertFalse(failed.get());
+        assertThat(failed.get()).isFalse();
     }
 }

@@ -19,7 +19,7 @@ import io.trino.filesystem.Location;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.OutputStream;
@@ -105,6 +105,13 @@ public class TestIcebergMinioOrcConnectorTest
         return checkOrcFileSorting(fileSystem, Location.of(path), sortColumnName);
     }
 
+    @Override
+    protected boolean supportsPhysicalPushdown()
+    {
+        // TODO https://github.com/trinodb/trino/issues/17156
+        return false;
+    }
+
     @Test
     public void testTinyintType()
             throws Exception
@@ -156,6 +163,7 @@ public class TestIcebergMinioOrcConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testDropAmbiguousRowFieldCaseSensitivity()
     {

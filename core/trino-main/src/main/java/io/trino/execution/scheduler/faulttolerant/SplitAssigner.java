@@ -75,6 +75,11 @@ interface SplitAssigner
             partitionUpdates = ImmutableList.copyOf(requireNonNull(partitionUpdates, "partitionUpdates is null"));
         }
 
+        boolean isEmpty()
+        {
+            return partitionsAdded.isEmpty() && !noMorePartitions && partitionUpdates.isEmpty() && sealedPartitions.isEmpty();
+        }
+
         public static AssignmentResult.Builder builder()
         {
             return new AssignmentResult.Builder();

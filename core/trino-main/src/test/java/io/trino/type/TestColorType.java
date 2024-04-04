@@ -23,7 +23,6 @@ import static io.trino.type.ColorType.COLOR;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestColorType
         extends AbstractTestType
@@ -49,9 +48,7 @@ public class TestColorType
         Block block = builder.build();
         for (int position = 0; position < block.getPositionCount(); position++) {
             int value = block.getInt(position, 0);
-            assertEquals(
-                    COLOR.getObjectValue(null, block, position),
-                    format("#%02x%02x%02x", (value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF));
+            assertThat(COLOR.getObjectValue(null, block, position)).isEqualTo(format("#%02x%02x%02x", (value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF));
         }
     }
 

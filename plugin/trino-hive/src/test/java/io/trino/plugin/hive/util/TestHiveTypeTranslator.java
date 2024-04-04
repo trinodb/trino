@@ -44,8 +44,8 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 
 public class TestHiveTypeTranslator
 {
@@ -79,7 +79,7 @@ public class TestHiveTypeTranslator
 
     private static void assertTypeTranslation(Type type, HiveType hiveType)
     {
-        assertEquals(toHiveType(type), hiveType);
+        assertThat(toHiveType(type)).isEqualTo(hiveType);
     }
 
     private static void assertInvalidTypeTranslation(Type type, ErrorCode errorCode, String message)
@@ -90,7 +90,7 @@ public class TestHiveTypeTranslator
         }
         catch (TrinoException e) {
             try {
-                assertEquals(e.getErrorCode(), errorCode);
+                assertThat(e.getErrorCode()).isEqualTo(errorCode);
                 assertContains(e.getMessage(), message);
             }
             catch (Throwable failure) {

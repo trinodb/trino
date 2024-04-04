@@ -13,22 +13,26 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.ceil;
+import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestVariableWidthBlockBuilder
+        extends AbstractTestBlockBuilder<String>
 {
     private static final int BLOCK_BUILDER_INSTANCE_SIZE = instanceSize(VariableWidthBlockBuilder.class);
-    private static final int SLICE_INSTANCE_SIZE = instanceSize(DynamicSliceOutput.class) + instanceSize(Slice.class);
     private static final int VARCHAR_VALUE_SIZE = 7;
     private static final int VARCHAR_ENTRY_SIZE = SIZE_OF_INT + VARCHAR_VALUE_SIZE;
     private static final int EXPECTED_ENTRY_COUNT = 3;
@@ -52,9 +56,9 @@ public class TestVariableWidthBlockBuilder
         // force to initialize capacity
         blockBuilder.writeEntry(Slices.wrappedBuffer((byte) 1));
 
-        long actualArrayBytes = sizeOf(new int[(int) ceil(resetSkew * (entries + 1))]) + sizeOf(new boolean[(int) ceil(resetSkew * entries)]);
-        long actualSliceBytes = SLICE_INSTANCE_SIZE + sizeOf(new byte[(int) ceil(resetSkew * entries)]);
-        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(BLOCK_BUILDER_INSTANCE_SIZE + actualSliceBytes + actualArrayBytes);
+        long actualArraySize = sizeOf(new int[(int) ceil(resetSkew * (entries + 1))]) + sizeOf(new boolean[(int) ceil(resetSkew * entries)]);
+        long actualBytesSize = sizeOf(new byte[(int) ceil(resetSkew * entries)]);
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(BLOCK_BUILDER_INSTANCE_SIZE + actualBytesSize + actualArraySize);
     }
 
     private void testIsFull(PageBuilderStatus pageBuilderStatus)
@@ -81,6 +85,116 @@ public class TestVariableWidthBlockBuilder
         assertIsAllNulls(blockBuilder().appendNull().appendNull().build(), 2);
     }
 
+    @Test
+    public void testAppendRepeatedEmpty()
+    {
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 100);
+        ValueBlock value = VARCHAR.createBlockBuilder(null, 1)
+                .writeEntry(utf8Slice("ignored"))
+                .writeEntry(Slices.EMPTY_SLICE)
+                .writeEntry(utf8Slice("ignored"))
+                .buildValueBlock();
+        blockBuilder.appendRepeated(value, 1, 10);
+
+        List<String> strings = toStrings(blockBuilder.buildValueBlock());
+        assertThat(strings).isEqualTo(nCopies(10, ""));
+    }
+
+    @Test
+    public void testAppendRepeatedSingle()
+    {
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 100);
+        VariableWidthBlock value = VARCHAR.createBlockBuilder(null, 1)
+                .writeEntry(utf8Slice("ignored"))
+                .writeEntry(utf8Slice("ab"))
+                .writeEntry(utf8Slice("ignored"))
+                .buildValueBlock();
+        blockBuilder.appendRepeated(value, 1, 1);
+
+        List<String> strings = toStrings(blockBuilder.buildValueBlock());
+        assertThat(strings).isEqualTo(ImmutableList.of("ab"));
+    }
+
+    @Test
+    public void testAppendRepeated1Byte()
+    {
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 100);
+        VariableWidthBlock value = VARCHAR.createBlockBuilder(null, 1)
+                .writeEntry(utf8Slice("ignored"))
+                .writeEntry(utf8Slice("X"))
+                .writeEntry(utf8Slice("ignored"))
+                .writeEntry(utf8Slice("Y"))
+                .writeEntry(utf8Slice("ignored"))
+                .buildValueBlock();
+        blockBuilder.appendRepeated(value, 1, 3);
+        blockBuilder.appendRepeated(value, 3, 2);
+
+        List<String> strings = toStrings(blockBuilder.buildValueBlock());
+        assertThat(strings).isEqualTo(ImmutableList.of("X", "X", "X", "Y", "Y"));
+    }
+
+    @Test
+    public void testAppendRepeated2Bytes()
+    {
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 100);
+        VariableWidthBlock value = VARCHAR.createBlockBuilder(null, 1)
+                .writeEntry(utf8Slice("ignored"))
+                .writeEntry(utf8Slice("ab"))
+                .writeEntry(utf8Slice("ignored"))
+                .writeEntry(utf8Slice("Y"))
+                .writeEntry(utf8Slice("ignored"))
+                .buildValueBlock();
+        blockBuilder.appendRepeated(value, 1, 3);
+
+        List<String> strings = toStrings(blockBuilder.buildValueBlock());
+        assertThat(strings).isEqualTo(ImmutableList.of("ab", "ab", "ab"));
+    }
+
+    @Test
+    public void testAppendRepeatedMultipleBytesOddNumberOfTimes()
+    {
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 100);
+        VariableWidthBlock value = VARCHAR.createBlockBuilder(null, 1)
+                .writeEntry(utf8Slice("ignored"))
+                .writeEntry(utf8Slice("abc"))
+                .writeEntry(utf8Slice("ignored"))
+                .buildValueBlock();
+        blockBuilder.appendRepeated(value, 1, 5);
+
+        List<String> strings = toStrings(blockBuilder.buildValueBlock());
+        assertThat(strings).isEqualTo(nCopies(5, "abc"));
+    }
+
+    @Test
+    public void testAppendRepeatedMultipleBytesEvenNumberOfTimes()
+    {
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 100);
+        VariableWidthBlock value = VARCHAR.createBlockBuilder(null, 1)
+                .writeEntry(utf8Slice("ignored"))
+                .writeEntry(utf8Slice("abc"))
+                .writeEntry(utf8Slice("ignored"))
+                .buildValueBlock();
+        blockBuilder.appendRepeated(value, 1, 6);
+
+        List<String> strings = toStrings(blockBuilder.buildValueBlock());
+        assertThat(strings).isEqualTo(nCopies(6, "abc"));
+    }
+
+    @Test
+    public void testAppendRepeatedMultipleBytesPowerOf2NumberOfTimes()
+    {
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 100);
+        VariableWidthBlock value = VARCHAR.createBlockBuilder(null, 1)
+                .writeEntry(utf8Slice("ignored"))
+                .writeEntry(utf8Slice("abc"))
+                .writeEntry(utf8Slice("ignored"))
+                .buildValueBlock();
+        blockBuilder.appendRepeated(value, 1, 8);
+
+        List<String> strings = toStrings(blockBuilder.buildValueBlock());
+        assertThat(strings).isEqualTo(nCopies(8, "abc"));
+    }
+
     private static BlockBuilder blockBuilder()
     {
         return new VariableWidthBlockBuilder(null, 10, 0);
@@ -99,5 +213,63 @@ public class TestVariableWidthBlockBuilder
         if (expectedPositionCount > 0) {
             assertThat(block.isNull(0)).isTrue();
         }
+    }
+
+    private static List<String> toStrings(VariableWidthBlock block)
+    {
+        ImmutableList.Builder<String> list = ImmutableList.builder();
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            list.add(VARCHAR.getSlice(block, i).toStringUtf8());
+        }
+        return list.build();
+    }
+
+    @Override
+    protected BlockBuilder createBlockBuilder()
+    {
+        return new VariableWidthBlockBuilder(null, 1, 100);
+    }
+
+    @Override
+    protected List<String> getTestValues()
+    {
+        return List.of("a", "bb", "cCc", "dddd", "eeEee");
+    }
+
+    @Override
+    protected String getUnusedTestValue()
+    {
+        return "unused";
+    }
+
+    @Override
+    protected ValueBlock blockFromValues(Iterable<String> values)
+    {
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 100);
+        for (String value : values) {
+            if (value == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                blockBuilder.writeEntry(utf8Slice(value));
+            }
+        }
+        return blockBuilder.buildValueBlock();
+    }
+
+    @Override
+    protected List<String> blockToValues(ValueBlock valueBlock)
+    {
+        VariableWidthBlock block = (VariableWidthBlock) valueBlock;
+        List<String> actualValues = new ArrayList<>(block.getPositionCount());
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (block.isNull(i)) {
+                actualValues.add(null);
+            }
+            else {
+                actualValues.add(block.getSlice(i).toStringUtf8());
+            }
+        }
+        return actualValues;
     }
 }

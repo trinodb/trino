@@ -26,7 +26,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.bigquery.BigQueryType.convertToString;
+import static io.trino.plugin.bigquery.BigQueryTypeManager.convertToString;
 import static io.trino.plugin.bigquery.BigQueryUtil.quote;
 import static io.trino.plugin.bigquery.BigQueryUtil.toBigQueryColumnName;
 import static java.util.stream.Collectors.joining;
@@ -96,27 +96,18 @@ public class BigQueryFilterQueryBuilder
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
-                Optional<String> value = convertToString(column.getTrinoType(), column.getBigqueryType(), range.getSingleValue());
-                if (value.isEmpty()) {
-                    return Optional.empty();
-                }
-                singleValues.add(value.get());
+                String value = convertToString(column.getTrinoType(), column.getBigqueryType(), range.getSingleValue());
+                singleValues.add(value);
             }
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.isLowUnbounded()) {
-                    Optional<String> predicate = toPredicate(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), column);
-                    if (predicate.isEmpty()) {
-                        return Optional.empty();
-                    }
-                    rangeConjuncts.add(predicate.get());
+                    String predicate = toPredicate(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), column);
+                    rangeConjuncts.add(predicate);
                 }
                 if (!range.isHighUnbounded()) {
-                    Optional<String> predicate = toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), column);
-                    if (predicate.isEmpty()) {
-                        return Optional.empty();
-                    }
-                    rangeConjuncts.add(predicate.get());
+                    String predicate = toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), column);
+                    rangeConjuncts.add(predicate);
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                 checkState(!rangeConjuncts.isEmpty());
@@ -143,12 +134,9 @@ public class BigQueryFilterQueryBuilder
         return Optional.of("(" + String.join(" OR ", disjuncts) + ")");
     }
 
-    private Optional<String> toPredicate(String columnName, String operator, Object value, BigQueryColumnHandle column)
+    private String toPredicate(String columnName, String operator, Object value, BigQueryColumnHandle column)
     {
-        Optional<String> valueAsString = convertToString(column.getTrinoType(), column.getBigqueryType(), value);
-        if (valueAsString.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(quote(columnName) + " " + operator + " " + valueAsString.get());
+        String valueAsString = convertToString(column.getTrinoType(), column.getBigqueryType(), value);
+        return quote(columnName) + " " + operator + " " + valueAsString;
     }
 }

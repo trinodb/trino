@@ -585,7 +585,7 @@ public class PipelinedQueryScheduler
         private static PipelinedOutputBufferManager createSingleStreamOutputBuffer(SqlStage stage)
         {
             PartitioningHandle partitioningHandle = stage.getFragment().getOutputPartitioningScheme().getPartitioning().getHandle();
-            checkArgument(partitioningHandle.isSingleNode(), "partitioning is expected to be single node: " + partitioningHandle);
+            checkArgument(partitioningHandle.isSingleNode(), "partitioning is expected to be single node: %s", partitioningHandle);
             return new PartitionedPipelinedOutputBufferManager(partitioningHandle, 1);
         }
 

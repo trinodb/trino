@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.inject.Inject;
+import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionProcessorProvider;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesProcessorProvider;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesTableFunctionHandle;
 import io.trino.spi.function.FunctionProvider;
@@ -37,7 +38,7 @@ public class DeltaLakeFunctionProvider
     public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
     {
         if (functionHandle instanceof TableChangesTableFunctionHandle) {
-            return tableChangesProcessorProvider;
+            return new ClassLoaderSafeTableFunctionProcessorProvider(tableChangesProcessorProvider, getClass().getClassLoader());
         }
         throw new UnsupportedOperationException("Unsupported function: " + functionHandle);
     }

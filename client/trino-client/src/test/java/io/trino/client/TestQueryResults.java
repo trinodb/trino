@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.client.JsonCodec.jsonCodec;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestQueryResults
 {
@@ -64,7 +64,7 @@ public class TestQueryResults
             throws JsonProcessingException
     {
         QueryResults results = QUERY_RESULTS_CODEC.fromJson(format(GOLDEN_VALUE, "\"123\""));
-        assertEquals(results.getId(), "20160128_214710_00012_rk68b");
+        assertThat(results.getId()).isEqualTo("20160128_214710_00012_rk68b");
     }
 
     @Test
@@ -73,6 +73,6 @@ public class TestQueryResults
     {
         String longString = Strings.repeat("a", StreamReadConstraints.DEFAULT_MAX_STRING_LEN + 1);
         QueryResults results = QUERY_RESULTS_CODEC.fromJson(format(GOLDEN_VALUE, '"' + longString + '"'));
-        assertEquals(results.getId(), "20160128_214710_00012_rk68b");
+        assertThat(results.getId()).isEqualTo("20160128_214710_00012_rk68b");
     }
 }

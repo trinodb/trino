@@ -53,12 +53,12 @@ public final class ParquetTypeUtils
 
     public static List<PrimitiveColumnIO> getColumns(MessageType fileSchema, MessageType requestedSchema)
     {
-        return ImmutableList.copyOf((new ColumnIOFactory()).getColumnIO(requestedSchema, fileSchema, true).getLeaves());
+        return ImmutableList.copyOf(new ColumnIOFactory().getColumnIO(requestedSchema, fileSchema, true).getLeaves());
     }
 
     public static MessageColumnIO getColumnIO(MessageType fileSchema, MessageType requestedSchema)
     {
-        return (new ColumnIOFactory()).getColumnIO(requestedSchema, fileSchema, true);
+        return new ColumnIOFactory().getColumnIO(requestedSchema, fileSchema, true);
     }
 
     public static GroupColumnIO getMapKeyValueColumn(GroupColumnIO groupColumnIO)

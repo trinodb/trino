@@ -270,12 +270,12 @@ public class TestSpatialJoinOperator
 
         // force a yield for every match
         AtomicInteger filterFunctionCalls = new AtomicInteger();
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) -> {
                     filterFunctionCalls.incrementAndGet();
                     driverContext.getYieldSignal().forceYieldForTesting();
                     return true;
-                }));
+                });
 
         RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(POLYGON_A, "A")

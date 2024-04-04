@@ -23,8 +23,9 @@ The window can be specified in two ways (see {ref}`window-clause`):
 ## Aggregate functions
 
 All {doc}`aggregate` can be used as window functions by adding the `OVER`
-clause. The aggregate function is computed for each row over the rows within
-the current row's window frame.
+clause. The aggregate function is computed for each row over the rows within the
+current row's window frame. Note that [ordering during
+aggregation](aggregate-function-ordering-during-aggregation) is not supported.
 
 For example, the following query produces a rolling sum of order prices
 by day for each clerk:

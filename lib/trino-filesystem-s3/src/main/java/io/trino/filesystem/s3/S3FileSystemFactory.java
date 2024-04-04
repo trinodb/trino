@@ -14,12 +14,15 @@
 package io.trino.filesystem.s3;
 
 import com.google.inject.Inject;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.regions.Region;
@@ -41,14 +44,19 @@ public final class S3FileSystemFactory
     private final S3Context context;
 
     @Inject
-    public S3FileSystemFactory(S3FileSystemConfig config)
+    public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config)
     {
         S3ClientBuilder s3 = S3Client.builder();
 
-        if ((config.getAwsAccessKey() != null) && (config.getAwsSecretKey() != null)) {
-            s3.credentialsProvider(StaticCredentialsProvider.create(
-                    AwsBasicCredentials.create(config.getAwsAccessKey(), config.getAwsSecretKey())));
-        }
+        s3.overrideConfiguration(ClientOverrideConfiguration.builder()
+                .addExecutionInterceptor(AwsSdkTelemetry.builder(openTelemetry)
+                        .setCaptureExperimentalSpanAttributes(true)
+                        .setRecordIndividualHttpError(true)
+                        .build().newExecutionInterceptor())
+                .build());
+
+        Optional<StaticCredentialsProvider> staticCredentialsProvider = getStaticCredentialsProvider(config);
+        staticCredentialsProvider.ifPresent(s3::credentialsProvider);
 
         Optional.ofNullable(config.getRegion()).map(Region::of).ifPresent(s3::region);
         Optional.ofNullable(config.getEndpoint()).map(URI::create).ifPresent(s3::endpointOverride);
@@ -60,6 +68,7 @@ public final class S3FileSystemFactory
             Optional.ofNullable(config.getStsRegion())
                     .or(() -> Optional.ofNullable(config.getRegion()))
                     .map(Region::of).ifPresent(sts::region);
+            staticCredentialsProvider.ifPresent(sts::credentialsProvider);
 
             s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
@@ -104,5 +113,14 @@ public final class S3FileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         return new S3FileSystem(client, context);
+    }
+
+    private static Optional<StaticCredentialsProvider> getStaticCredentialsProvider(S3FileSystemConfig config)
+    {
+        if ((config.getAwsAccessKey() != null) || (config.getAwsSecretKey() != null)) {
+            return Optional.of(StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(config.getAwsAccessKey(), config.getAwsSecretKey())));
+        }
+        return Optional.empty();
     }
 }

@@ -30,7 +30,7 @@ characters:
 DECLARE first_name, last_name, middle_name varchar(25);
 ```
 
-A declaration of a fixed-precision decimal number with a default value:
+A declaration of an exact decimal number with a default value:
 
 ```sql
 DECLARE uptime_requirement decimal DEFAULT 99.999;

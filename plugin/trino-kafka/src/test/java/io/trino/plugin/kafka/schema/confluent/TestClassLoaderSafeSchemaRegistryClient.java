@@ -14,7 +14,7 @@
 package io.trino.plugin.kafka.schema.confluent;
 
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 

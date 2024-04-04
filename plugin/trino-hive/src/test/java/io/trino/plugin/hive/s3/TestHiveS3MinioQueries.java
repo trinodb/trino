@@ -15,23 +15,15 @@ package io.trino.plugin.hive.s3;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
@@ -51,18 +43,8 @@ public class TestHiveS3MinioQueries
         minio.start();
 
         return HiveQueryRunner.builder()
-                .setMetastore(queryRunner -> {
-                    File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-                    return new FileHiveMetastore(
-                            new NodeVersion("testversion"),
-                            HDFS_FILE_SYSTEM_FACTORY,
-                            new HiveMetastoreConfig().isHideDeltaLakeTables(),
-                            new FileHiveMetastoreConfig()
-                                    .setCatalogDirectory(baseDir.toURI().toString())
-                                    .setDisableLocationChecks(true) // matches Glue behavior
-                                    .setMetastoreUser("test"));
-                })
                 .setHiveProperties(ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.disable-location-checks", "true")
                         .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
                         .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
                         .put("hive.s3.endpoint", minio.getMinioAddress())
@@ -72,26 +54,28 @@ public class TestHiveS3MinioQueries
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
-    public void cleanUp()
-    {
-        minio = null; // closed by closeAfterClass
-    }
-
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testTableLocationTopOfTheBucket(boolean locationWithTrailingSlash)
+    @Test
+    public void testTableLocationTopOfTheBucket()
     {
         String bucketName = "test-bucket-" + randomNameSuffix();
         minio.createBucket(bucketName);
         minio.writeFile("We are\nawesome at\nmultiple slashes.".getBytes(UTF_8), bucketName, "a_file");
 
-        String location = "s3://%s%s".formatted(bucketName, locationWithTrailingSlash ? "/" : "");
-        String tableName = "test_table_top_of_bucket_%s_%s".formatted(locationWithTrailingSlash, randomNameSuffix());
+        // without trailing slash
+        assertQueryFails(
+                """
+                CREATE TABLE %s (a varchar) WITH (
+                    format='TEXTFILE',
+                    external_location='%s'
+                )
+                """.formatted("test_table_top_of_bucket_" + randomNameSuffix(), "s3://" + bucketName),
+                "External location is not a valid file system URI: s3://" + bucketName);
+
+        // with trailing slash
+        String location = "s3://%s/".formatted(bucketName);
+        String tableName = "test_table_top_of_bucket_%s".formatted(randomNameSuffix());
         String create = "CREATE TABLE %s (a varchar) WITH (format='TEXTFILE', external_location='%s')".formatted(tableName, location);
-        if (!locationWithTrailingSlash) {
-            assertQueryFails(create, "External location is not a valid file system URI: " + location);
-            return;
-        }
+
         assertUpdate(create);
 
         // Verify location was not normalized along the way. Glue would not do that.

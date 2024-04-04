@@ -64,6 +64,6 @@ public class TpchBucketFunction
     private static long rowNumberFromOrderKey(long orderKey)
     {
         // remove bits 3 and 4
-        return (((orderKey & ~(0b11_111)) >>> 2) | orderKey & 0b111) - 1;
+        return (((orderKey & ~0b11_111) >>> 2) | orderKey & 0b111) - 1;
     }
 }

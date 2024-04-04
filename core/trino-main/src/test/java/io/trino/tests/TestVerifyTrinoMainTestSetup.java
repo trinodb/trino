@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.ZoneId;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestVerifyTrinoMainTestSetup
 {
@@ -25,6 +25,6 @@ public class TestVerifyTrinoMainTestSetup
     public void testJvmZone()
     {
         // Ensure that the zone defined in the POM is correctly set in the test JVM
-        assertEquals(ZoneId.systemDefault().getId(), "America/Bahia_Banderas");
+        assertThat(ZoneId.systemDefault().getId()).isEqualTo("America/Bahia_Banderas");
     }
 }

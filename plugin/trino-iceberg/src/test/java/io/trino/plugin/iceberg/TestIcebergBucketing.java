@@ -70,8 +70,8 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.apache.iceberg.types.Type.TypeID.DECIMAL;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestIcebergBucketing
 {
@@ -238,10 +238,9 @@ public class TestIcebergBucketing
         Integer icebergBucket = computeIcebergBucket(icebergType, icebergValue, bucketCount);
         Integer trinoBucket = computeTrinoBucket(icebergType, icebergValue, bucketCount);
 
-        assertEquals(
-                trinoBucket,
-                icebergBucket,
-                format("icebergType=%s, bucketCount=%s, icebergBucket=%d, trinoBucket=%d;", icebergType, bucketCount, icebergBucket, trinoBucket));
+        assertThat(trinoBucket)
+                .describedAs(format("icebergType=%s, bucketCount=%s, icebergBucket=%d, trinoBucket=%d;", icebergType, bucketCount, icebergBucket, trinoBucket))
+                .isEqualTo(icebergBucket);
     }
 
     private void assertHashEquals(Type icebergType, Object icebergValue, Integer expectedHash)
@@ -253,16 +252,14 @@ public class TestIcebergBucketing
         Integer trinoBucketHash = computeTrinoBucket(icebergType, icebergValue, Integer.MAX_VALUE);
 
         // Ensure hash is stable and does not change
-        assertEquals(
-                icebergBucketHash,
-                expectedHash,
-                format("expected Iceberg %s(%s) bucket with %sd buckets to be %d, got %d", icebergType, icebergValue, Integer.MAX_VALUE, expectedHash, icebergBucketHash));
+        assertThat(icebergBucketHash)
+                .describedAs(format("expected Iceberg %s(%s) bucket with %sd buckets to be %d, got %d", icebergType, icebergValue, Integer.MAX_VALUE, expectedHash, icebergBucketHash))
+                .isEqualTo(expectedHash);
 
         // Ensure hash is stable and does not change
-        assertEquals(
-                trinoBucketHash,
-                expectedHash,
-                format("expected Trino %s(%s) bucket with %sd buckets to be %d, got %d", icebergType, icebergValue, Integer.MAX_VALUE, expectedHash, trinoBucketHash));
+        assertThat(trinoBucketHash)
+                .describedAs(format("expected Trino %s(%s) bucket with %sd buckets to be %d, got %d", icebergType, icebergValue, Integer.MAX_VALUE, expectedHash, trinoBucketHash))
+                .isEqualTo(expectedHash);
     }
 
     private Integer computeIcebergBucket(Type type, Object icebergValue, int bucketCount)
@@ -290,7 +287,7 @@ public class TestIcebergBucketing
 
         Long trinoBucketWithValue = (Long) transform.getValueTransform().apply(block, 0);
         Integer trinoBucketWithValueAsInteger = trinoBucketWithValue == null ? null : toIntExact(trinoBucketWithValue);
-        assertEquals(trinoBucketWithValueAsInteger, trinoBucketWithBlock);
+        assertThat(trinoBucketWithValueAsInteger).isEqualTo(trinoBucketWithBlock);
 
         return trinoBucketWithBlock;
     }

@@ -33,12 +33,8 @@ import java.util.Map;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 
 public final class AvroDecoderTestUtil
 {
@@ -47,32 +43,32 @@ public final class AvroDecoderTestUtil
     private static void checkPrimitiveValue(Object actual, Object expected)
     {
         if (actual == null || expected == null) {
-            assertNull(expected);
-            assertNull(actual);
+            assertThat(expected).isNull();
+            assertThat(actual).isNull();
         }
         else if (actual instanceof CharSequence) {
-            assertTrue(expected instanceof CharSequence || expected instanceof GenericEnumSymbol);
-            assertEquals(actual.toString(), expected.toString());
+            assertThat(expected instanceof CharSequence || expected instanceof GenericEnumSymbol).isTrue();
+            assertThat(actual.toString()).isEqualTo(expected.toString());
         }
         else if (actual instanceof SqlVarbinary) {
             if (expected instanceof GenericFixed) {
-                assertEquals(((SqlVarbinary) actual).getBytes(), ((GenericFixed) expected).bytes());
+                assertThat(((SqlVarbinary) actual).getBytes()).isEqualTo(((GenericFixed) expected).bytes());
             }
             else if (expected instanceof ByteBuffer) {
-                assertEquals(((SqlVarbinary) actual).getBytes(), ((ByteBuffer) expected).array());
+                assertThat(((SqlVarbinary) actual).getBytes()).isEqualTo(((ByteBuffer) expected).array());
             }
             else {
                 fail(format("Unexpected value type %s", actual.getClass()));
             }
         }
         else if (isIntegralType(actual) && isIntegralType(expected)) {
-            assertEquals(((Number) actual).longValue(), ((Number) expected).longValue());
+            assertThat(((Number) actual).longValue()).isEqualTo(((Number) expected).longValue());
         }
         else if (isRealType(actual) && isRealType(expected)) {
-            assertEquals(((Number) actual).doubleValue(), ((Number) expected).doubleValue());
+            assertThat(((Number) actual).doubleValue()).isEqualTo(((Number) expected).doubleValue());
         }
         else {
-            assertEquals(actual, expected);
+            assertThat(actual).isEqualTo(expected);
         }
     }
 
@@ -91,18 +87,26 @@ public final class AvroDecoderTestUtil
 
     public static void checkArrayValues(Block block, Type type, Object value)
     {
-        assertNotNull(type, "Type is null");
-        assertTrue(type instanceof ArrayType, "Unexpected type");
-        assertNotNull(block, "Block is null");
-        assertNotNull(value, "Value is null");
+        assertThat(type)
+                .describedAs("Type is null")
+                .isNotNull();
+        assertThat(type instanceof ArrayType)
+                .describedAs("Unexpected type")
+                .isTrue();
+        assertThat(block)
+                .describedAs("Block is null")
+                .isNotNull();
+        assertThat(value)
+                .describedAs("Value is null")
+                .isNotNull();
 
         List<?> list = (List<?>) value;
 
-        assertEquals(block.getPositionCount(), list.size());
+        assertThat(block.getPositionCount()).isEqualTo(list.size());
         Type elementType = ((ArrayType) type).getElementType();
         for (int index = 0; index < block.getPositionCount(); index++) {
             if (block.isNull(index)) {
-                assertNull(list.get(index));
+                assertThat(list.get(index)).isNull();
                 continue;
             }
             if (elementType instanceof ArrayType arrayType) {
@@ -122,11 +126,21 @@ public final class AvroDecoderTestUtil
 
     public static void checkMapValues(SqlMap sqlMap, Type type, Object value)
     {
-        assertNotNull(type, "Type is null");
-        assertTrue(type instanceof MapType, "Unexpected type");
-        assertTrue(((MapType) type).getKeyType() instanceof VarcharType, "Unexpected key type");
-        assertNotNull(sqlMap, "sqlMap is null");
-        assertNotNull(value, "Value is null");
+        assertThat(type)
+                .describedAs("Type is null")
+                .isNotNull();
+        assertThat(type instanceof MapType)
+                .describedAs("Unexpected type")
+                .isTrue();
+        assertThat(((MapType) type).getKeyType() instanceof VarcharType)
+                .describedAs("Unexpected key type")
+                .isTrue();
+        assertThat(sqlMap)
+                .describedAs("sqlMap is null")
+                .isNotNull();
+        assertThat(value)
+                .describedAs("Value is null")
+                .isNotNull();
 
         Map<?, ?> expected = (Map<?, ?>) value;
 
@@ -134,13 +148,15 @@ public final class AvroDecoderTestUtil
         Block rawKeyBlock = sqlMap.getRawKeyBlock();
         Block rawValueBlock = sqlMap.getRawValueBlock();
 
-        assertEquals(sqlMap.getSize(), expected.size());
+        assertThat(sqlMap.getSize()).isEqualTo(expected.size());
         Type valueType = ((MapType) type).getValueType();
         for (int index = 0; index < sqlMap.getSize(); index++) {
             String actualKey = VARCHAR.getSlice(rawKeyBlock, rawOffset + index).toStringUtf8();
-            assertTrue(expected.containsKey(actualKey), "Key not found: %s".formatted(actualKey));
+            assertThat(expected.containsKey(actualKey))
+                    .describedAs("Key not found: %s".formatted(actualKey))
+                    .isTrue();
             if (rawValueBlock.isNull(rawOffset + index)) {
-                assertNull(expected.get(actualKey));
+                assertThat(expected.get(actualKey)).isNull();
                 continue;
             }
             if (valueType instanceof ArrayType arrayType) {
@@ -160,22 +176,34 @@ public final class AvroDecoderTestUtil
 
     public static void checkRowValues(SqlRow sqlRow, Type type, Object value)
     {
-        assertNotNull(type, "Type is null");
-        assertTrue(type instanceof RowType, "Unexpected type");
-        assertNotNull(sqlRow, "sqlRow is null");
-        assertNotNull(value, "Value is null");
+        assertThat(type)
+                .describedAs("Type is null")
+                .isNotNull();
+        assertThat(type instanceof RowType)
+                .describedAs("Unexpected type")
+                .isTrue();
+        assertThat(sqlRow)
+                .describedAs("sqlRow is null")
+                .isNotNull();
+        assertThat(value)
+                .describedAs("Value is null")
+                .isNotNull();
 
         GenericRecord record = (GenericRecord) value;
         RowType rowType = (RowType) type;
-        assertEquals(record.getSchema().getFields().size(), rowType.getFields().size(), "Avro field size mismatch");
-        assertEquals(sqlRow.getFieldCount(), rowType.getFields().size(), "Trino type field size mismatch");
+        assertThat(record.getSchema().getFields().size())
+                .describedAs("Avro field size mismatch")
+                .isEqualTo(rowType.getFields().size());
+        assertThat(sqlRow.getFieldCount())
+                .describedAs("Trino type field size mismatch")
+                .isEqualTo(rowType.getFields().size());
         int rawIndex = sqlRow.getRawIndex();
         for (int fieldIndex = 0; fieldIndex < rowType.getFields().size(); fieldIndex++) {
             RowType.Field rowField = rowType.getFields().get(fieldIndex);
             Object expectedValue = record.get(rowField.getName().orElseThrow());
             Block fieldBlock = sqlRow.getRawFieldBlock(fieldIndex);
             if (fieldBlock.isNull(rawIndex)) {
-                assertNull(expectedValue);
+                assertThat(expectedValue).isNull();
                 continue;
             }
             checkField(fieldBlock, rowField.getType(), rawIndex, expectedValue);
@@ -184,10 +212,16 @@ public final class AvroDecoderTestUtil
 
     private static void checkField(Block actualBlock, Type type, int position, Object expectedValue)
     {
-        assertNotNull(type, "Type is null");
-        assertNotNull(actualBlock, "actualBlock is null");
-        assertFalse(actualBlock.isNull(position));
-        assertNotNull(expectedValue, "expectedValue is null");
+        assertThat(type)
+                .describedAs("Type is null")
+                .isNotNull();
+        assertThat(actualBlock)
+                .describedAs("actualBlock is null")
+                .isNotNull();
+        assertThat(actualBlock.isNull(position)).isFalse();
+        assertThat(expectedValue)
+                .describedAs("expectedValue is null")
+                .isNotNull();
 
         if (type instanceof ArrayType arrayType) {
             checkArrayValues(arrayType.getObject(actualBlock, position), type, expectedValue);

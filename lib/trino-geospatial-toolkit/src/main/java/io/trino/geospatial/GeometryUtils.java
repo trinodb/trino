@@ -55,7 +55,7 @@ public final class GeometryUtils
      */
     public static double translateToAVNaN(double n)
     {
-        return (Double.isNaN(n)) ? -Double.MAX_VALUE : n;
+        return Double.isNaN(n) ? -Double.MAX_VALUE : n;
     }
 
     public static boolean isEsriNaN(double d)

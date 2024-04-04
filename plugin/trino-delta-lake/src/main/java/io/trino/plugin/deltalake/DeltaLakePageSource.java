@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -163,6 +164,12 @@ public class DeltaLakePageSource
     }
 
     @Override
+    public CompletableFuture<?> isBlocked()
+    {
+        return delegate.isBlocked();
+    }
+
+    @Override
     public Page getNextPage()
     {
         try {
@@ -208,7 +215,7 @@ public class DeltaLakePageSource
                 rowIndexBlock,
                 RunLengthEncodedBlock.create(partitionsBlock, positions),
         };
-        return RowBlock.fromFieldBlocks(positions, Optional.empty(), fields);
+        return RowBlock.fromFieldBlocks(positions, fields);
     }
 
     @Override

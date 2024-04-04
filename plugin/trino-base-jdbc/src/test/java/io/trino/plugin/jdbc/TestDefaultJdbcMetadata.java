@@ -41,10 +41,12 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.jdbc.DefaultJdbcMetadata.createSyntheticColumn;
+import static io.trino.plugin.jdbc.DefaultJdbcMetadata.createSyntheticAggregationColumn;
+import static io.trino.plugin.jdbc.DefaultJdbcMetadata.createSyntheticJoinProjectionColumn;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -402,20 +404,47 @@ public class TestDefaultJdbcMetadata
     @Test
     public void testColumnAliasTruncation()
     {
-        assertThat(createSyntheticColumn(column("column_0"), 999).getColumnName())
-                .isEqualTo("column_0_999");
-        assertThat(createSyntheticColumn(column("column_with_over_twenty_characters"), 100).getColumnName())
-                .isEqualTo("column_with_over_twenty_ch_100");
-        assertThat(createSyntheticColumn(column("column_with_over_twenty_characters"), Integer.MAX_VALUE).getColumnName())
-                .isEqualTo("column_with_over_tw_2147483647");
+        OptionalInt maxLength = OptionalInt.of(30);
+        assertThat(createSyntheticJoinProjectionColumn(column("no_truncation"), 123, maxLength).getColumnName())
+                .isEqualTo("no_truncation_123");
+        assertThat(createSyntheticJoinProjectionColumn(column("long_column_name_gets_truncated"), 123, maxLength).getColumnName())
+                .isEqualTo("long_column_name_gets_trun_123");
+        assertThat(createSyntheticJoinProjectionColumn(column("long_id_causes_truncation"), Integer.MAX_VALUE, maxLength).getColumnName())
+                .isEqualTo("long_id_causes_trun_2147483647");
+
+        assertThat(createSyntheticJoinProjectionColumn(column("id_equals_max_length"), 1234, OptionalInt.of(4)).getColumnName())
+                .isEqualTo("1234");
+        assertThat(createSyntheticJoinProjectionColumn(column("id_and_separator_equals_max_length"), 1234, OptionalInt.of(5)).getColumnName())
+                .isEqualTo("_1234");
+    }
+
+    @Test
+    public void testSyntheticIdExceedsLength()
+    {
+        assertThatThrownBy(() -> createSyntheticJoinProjectionColumn(column("id_exceeds_max_length"), 1234, OptionalInt.of(3)))
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("Maximum allowed column name length is 3 but next synthetic id has length 4");
     }
 
     @Test
     public void testNegativeSyntheticId()
     {
-        JdbcColumnHandle column = column("column_0");
+        //noinspection NumericOverflow
+        assertThatThrownBy(() -> createSyntheticJoinProjectionColumn(column("negative_id"), Integer.MAX_VALUE + 1, OptionalInt.of(30)))
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("nextSyntheticColumnId rolled over and is not monotonically increasing any more");
+    }
 
-        assertThatThrownBy(() -> createSyntheticColumn(column, -2147483648)).isInstanceOf(VerifyException.class);
+    @Test
+    public void testAggregationColumnAliasMaxLength()
+    {
+        // this test is to ensure that the generated names for aggregation pushdown are short enough to be supported by all databases.
+        // Oracle has the smallest limit at 30 so any value smaller than that is acceptable.
+        assertThat(createSyntheticAggregationColumn(
+                new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty()),
+                JDBC_BIGINT,
+                Integer.MAX_VALUE).getColumnName().length())
+                .isEqualTo(19);
     }
 
     private static JdbcColumnHandle column(String columnName)

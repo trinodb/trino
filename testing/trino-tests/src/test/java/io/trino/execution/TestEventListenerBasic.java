@@ -20,6 +20,8 @@ import io.airlift.json.JsonCodec;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.cost.PlanNodeStatsAndCostSummary;
+import io.trino.cost.StatsAndCosts;
 import io.trino.execution.EventsAwaitingQueries.MaterializedResultWithEvents;
 import io.trino.execution.EventsCollector.QueryEvents;
 import io.trino.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
@@ -50,8 +52,10 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.net.URISyntaxException;
@@ -69,28 +73,32 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.execution.TestQueues.createResourceGroupId;
 import static io.trino.spi.metrics.Metrics.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol.typedSymbol;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.Double.NaN;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestEventListenerBasic
         extends AbstractTestQueryFramework
 {
     private static final JsonCodec<Map<String, JsonRenderedNode>> ANONYMIZED_PLAN_JSON_CODEC = mapJsonCodec(String.class, JsonRenderedNode.class);
+    private static final JsonCodec<StatsAndCosts> STATS_AND_COSTS_JSON_CODEC = jsonCodec(StatsAndCosts.class);
     private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
     private static final String VARCHAR_TYPE = "varchar(15)";
     private static final String BIGINT_TYPE = BIGINT.getDisplayName();
@@ -168,12 +176,11 @@ public class TestEventListenerBasic
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty(),
-                                    ImmutableList.of(new Column("test_column", BIGINT.getTypeId())),
+                                    ImmutableList.of(new Column("test_column", BIGINT.getTypeId(), Optional.empty())),
                                     Optional.of(Duration.ZERO),
                                     Optional.empty(),
                                     Optional.of("alice"),
-                                    ImmutableList.of(),
-                                    ImmutableMap.of());
+                                    ImmutableList.of());
                             SchemaTableName materializedViewName = new SchemaTableName("default", "test_materialized_view");
                             return ImmutableMap.of(materializedViewName, definition);
                         })
@@ -272,7 +279,8 @@ public class TestEventListenerBasic
         assertFailedQuery(mySession, "SELECT * FROM tpch.sf1.nation", "Insufficient active worker nodes. Waited 10.00ms for at least 17 workers, but only 1 workers are active");
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testKilledWhileWaitingForResources()
             throws Exception
     {
@@ -338,11 +346,11 @@ public class TestEventListenerBasic
         QueryEvents queryEvents = queries.runQueryAndWaitForEvents(sql, session, Optional.of(expectedFailure)).getQueryEvents();
 
         QueryCompletedEvent queryCompletedEvent = queryEvents.getQueryCompletedEvent();
-        assertEquals(queryCompletedEvent.getMetadata().getQuery(), sql);
+        assertThat(queryCompletedEvent.getMetadata().getQuery()).isEqualTo(sql);
 
         QueryFailureInfo failureInfo = queryCompletedEvent.getFailureInfo()
                 .orElseThrow(() -> new AssertionError("Expected query event to be failed"));
-        assertEquals(expectedFailure, failureInfo.getFailureMessage().orElse(null));
+        assertThat(expectedFailure).isEqualTo(failureInfo.getFailureMessage().orElse(null));
     }
 
     @Test
@@ -354,26 +362,26 @@ public class TestEventListenerBasic
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
 
         List<TableInfo> tables = event.getMetadata().getTables();
-        assertEquals(tables.size(), 1);
+        assertThat(tables.size()).isEqualTo(1);
 
         TableInfo table = tables.get(0);
-        assertEquals(table.getCatalog(), "tpch");
-        assertEquals(table.getSchema(), "tiny");
-        assertEquals(table.getTable(), "lineitem");
-        assertEquals(table.getAuthorization(), "user");
-        assertTrue(table.getFilters().isEmpty());
-        assertEquals(table.getColumns().size(), 1);
+        assertThat(table.getCatalog()).isEqualTo("tpch");
+        assertThat(table.getSchema()).isEqualTo("tiny");
+        assertThat(table.getTable()).isEqualTo("lineitem");
+        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.getFilters().isEmpty()).isTrue();
+        assertThat(table.getColumns().size()).isEqualTo(1);
 
         ColumnInfo column = table.getColumns().get(0);
-        assertEquals(column.getColumn(), "linenumber");
-        assertTrue(column.getMask().isEmpty());
+        assertThat(column.getColumn()).isEqualTo("linenumber");
+        assertThat(column.getMask().isEmpty()).isTrue();
 
         List<RoutineInfo> routines = event.getMetadata().getRoutines();
-        assertEquals(tables.size(), 1);
+        assertThat(tables.size()).isEqualTo(1);
 
         RoutineInfo routine = routines.get(0);
-        assertEquals(routine.getRoutine(), "sum");
-        assertEquals(routine.getAuthorization(), "user");
+        assertThat(routine.getRoutine()).isEqualTo("sum");
+        assertThat(routine.getAuthorization()).isEqualTo("user");
     }
 
     @Test
@@ -612,33 +620,27 @@ public class TestEventListenerBasic
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
         TableInfo table = getOnlyElement(event.getMetadata().getTables());
 
-        assertEquals(
-                table.getColumns().stream()
-                        .map(ColumnInfo::getColumn)
-                        .collect(toImmutableSet()),
-                ImmutableSet.of("name", "nationkey"));
+        assertThat(table.getColumns().stream()
+                .map(ColumnInfo::getColumn)
+                .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("name", "nationkey"));
 
         // assert that ColumnInfos for referenced columns are present when the table was aliased
         queryEvents = runQueryAndWaitForEvents("SELECT name, nationkey FROM nation n").getQueryEvents();
         event = queryEvents.getQueryCompletedEvent();
         table = getOnlyElement(event.getMetadata().getTables());
 
-        assertEquals(
-                table.getColumns().stream()
-                        .map(ColumnInfo::getColumn)
-                        .collect(toImmutableSet()),
-                ImmutableSet.of("name", "nationkey"));
+        assertThat(table.getColumns().stream()
+                .map(ColumnInfo::getColumn)
+                .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("name", "nationkey"));
 
         // assert that ColumnInfos for referenced columns are present when the table was aliased and its columns were aliased
         queryEvents = runQueryAndWaitForEvents("SELECT a, b FROM nation n(a, b, c, d)").getQueryEvents();
         event = queryEvents.getQueryCompletedEvent();
         table = getOnlyElement(event.getMetadata().getTables());
 
-        assertEquals(
-                table.getColumns().stream()
-                        .map(ColumnInfo::getColumn)
-                        .collect(toImmutableSet()),
-                ImmutableSet.of("name", "nationkey"));
+        assertThat(table.getColumns().stream()
+                .map(ColumnInfo::getColumn)
+                .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("name", "nationkey"));
     }
 
     @Test
@@ -652,22 +654,22 @@ public class TestEventListenerBasic
         QueryEvents queryEvents = runQueryAndWaitForEvents(prepareQuery).getQueryEvents();
 
         QueryCreatedEvent queryCreatedEvent = queryEvents.getQueryCreatedEvent();
-        assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
-        assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
-        assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
-        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(queryCreatedEvent.getMetadata().getQuery(), prepareQuery);
-        assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
+        assertThat(queryCreatedEvent.getContext().getServerVersion()).isEqualTo("testversion");
+        assertThat(queryCreatedEvent.getContext().getServerAddress()).isEqualTo("127.0.0.1");
+        assertThat(queryCreatedEvent.getContext().getEnvironment()).isEqualTo("testing");
+        assertThat(queryCreatedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
+        assertThat(queryCreatedEvent.getMetadata().getQuery()).isEqualTo(prepareQuery);
+        assertThat(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent()).isFalse();
 
         QueryCompletedEvent queryCompletedEvent = queryEvents.getQueryCompletedEvent();
-        assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
-        assertEquals(queryCompletedEvent.getIoMetadata().getOutput(), Optional.empty());
-        assertEquals(queryCompletedEvent.getIoMetadata().getInputs().size(), 0);  // Prepare has no inputs
-        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), 0); // Prepare has no splits
+        assertThat(queryCompletedEvent.getContext().getResourceGroupId().isPresent()).isTrue();
+        assertThat(queryCompletedEvent.getContext().getResourceGroupId().get()).isEqualTo(createResourceGroupId("global", "user-user"));
+        assertThat(queryCompletedEvent.getIoMetadata().getOutput()).isEqualTo(Optional.empty());
+        assertThat(queryCompletedEvent.getIoMetadata().getInputs().size()).isEqualTo(0);  // Prepare has no inputs
+        assertThat(queryCompletedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
+        assertThat(queryCreatedEvent.getMetadata().getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());
+        assertThat(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent()).isFalse();
+        assertThat(queryCompletedEvent.getStatistics().getCompletedSplits()).isEqualTo(0); // Prepare has no splits
 
         // Add prepared statement to a new session to eliminate any impact on other tests in this suite.
         Session sessionWithPrepare = Session.builder(getSession()).addPreparedStatement("stmt", selectQuery).build();
@@ -675,24 +677,24 @@ public class TestEventListenerBasic
         queryEvents = queries.runQueryAndWaitForEvents("EXECUTE stmt USING 'SHIP'", sessionWithPrepare).getQueryEvents();
 
         queryCreatedEvent = queryEvents.getQueryCreatedEvent();
-        assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
-        assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
-        assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
-        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(queryCreatedEvent.getMetadata().getQuery(), "EXECUTE stmt USING 'SHIP'");
-        assertTrue(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryCreatedEvent.getMetadata().getPreparedQuery().get(), selectQuery);
+        assertThat(queryCreatedEvent.getContext().getServerVersion()).isEqualTo("testversion");
+        assertThat(queryCreatedEvent.getContext().getServerAddress()).isEqualTo("127.0.0.1");
+        assertThat(queryCreatedEvent.getContext().getEnvironment()).isEqualTo("testing");
+        assertThat(queryCreatedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
+        assertThat(queryCreatedEvent.getMetadata().getQuery()).isEqualTo("EXECUTE stmt USING 'SHIP'");
+        assertThat(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent()).isTrue();
+        assertThat(queryCreatedEvent.getMetadata().getPreparedQuery().get()).isEqualTo(selectQuery);
 
         queryCompletedEvent = queryEvents.getQueryCompletedEvent();
-        assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
-        assertEquals(queryCompletedEvent.getIoMetadata().getOutput(), Optional.empty());
-        assertEquals(queryCompletedEvent.getIoMetadata().getInputs().size(), 1);
-        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName(), "tpch");
-        assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertTrue(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryCompletedEvent.getMetadata().getPreparedQuery().get(), selectQuery);
+        assertThat(queryCompletedEvent.getContext().getResourceGroupId().isPresent()).isTrue();
+        assertThat(queryCompletedEvent.getContext().getResourceGroupId().get()).isEqualTo(createResourceGroupId("global", "user-user"));
+        assertThat(queryCompletedEvent.getIoMetadata().getOutput()).isEqualTo(Optional.empty());
+        assertThat(queryCompletedEvent.getIoMetadata().getInputs().size()).isEqualTo(1);
+        assertThat(queryCompletedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
+        assertThat(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName()).isEqualTo("tpch");
+        assertThat(queryCreatedEvent.getMetadata().getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());
+        assertThat(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent()).isTrue();
+        assertThat(queryCompletedEvent.getMetadata().getPreparedQuery().get()).isEqualTo(selectQuery);
     }
 
     @Test
@@ -704,48 +706,48 @@ public class TestEventListenerBasic
         QueryCompletedEvent queryCompletedEvent = result.getQueryEvents().getQueryCompletedEvent();
         QueryStats queryStats = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
 
-        assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
-        assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
-        assertEquals(result.getMaterializedResult().getRowCount(), queryStats.getOutputPositions());
-        assertEquals(result.getMaterializedResult().getRowCount(), queryCompletedEvent.getStatistics().getOutputRows());
+        assertThat(queryStats.getOutputDataSize().toBytes() > 0L).isTrue();
+        assertThat(queryCompletedEvent.getStatistics().getOutputBytes() > 0L).isTrue();
+        assertThat(result.getMaterializedResult().getRowCount()).isEqualTo(queryStats.getOutputPositions());
+        assertThat(result.getMaterializedResult().getRowCount()).isEqualTo(queryCompletedEvent.getStatistics().getOutputRows());
 
         result = runQueryAndWaitForEvents("SELECT COUNT(1) FROM lineitem");
         queryCreatedEvent = result.getQueryEvents().getQueryCreatedEvent();
         queryCompletedEvent = result.getQueryEvents().getQueryCompletedEvent();
         queryStats = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
 
-        assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
-        assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
-        assertEquals(1L, queryStats.getOutputPositions());
-        assertEquals(1L, queryCompletedEvent.getStatistics().getOutputRows());
+        assertThat(queryStats.getOutputDataSize().toBytes() > 0L).isTrue();
+        assertThat(queryCompletedEvent.getStatistics().getOutputBytes() > 0L).isTrue();
+        assertThat(1L).isEqualTo(queryStats.getOutputPositions());
+        assertThat(1L).isEqualTo(queryCompletedEvent.getStatistics().getOutputRows());
 
         // Ensure the proper conversion in QueryMonitor#createQueryStatistics
         QueryStatistics statistics = queryCompletedEvent.getStatistics();
-        assertEquals(statistics.getCpuTime().toMillis(), queryStats.getTotalCpuTime().toMillis());
-        assertEquals(statistics.getWallTime().toMillis(), queryStats.getElapsedTime().toMillis());
-        assertEquals(statistics.getQueuedTime().toMillis(), queryStats.getQueuedTime().toMillis());
-        assertEquals(statistics.getScheduledTime().get().toMillis(), queryStats.getTotalScheduledTime().toMillis());
-        assertEquals(statistics.getResourceWaitingTime().get().toMillis(), queryStats.getResourceWaitingTime().toMillis());
-        assertEquals(statistics.getAnalysisTime().get().toMillis(), queryStats.getAnalysisTime().toMillis());
-        assertEquals(statistics.getPlanningTime().get().toMillis(), queryStats.getPlanningTime().toMillis());
-        assertEquals(statistics.getExecutionTime().get().toMillis(), queryStats.getExecutionTime().toMillis());
-        assertEquals(statistics.getPeakUserMemoryBytes(), queryStats.getPeakUserMemoryReservation().toBytes());
-        assertEquals(statistics.getPeakTaskUserMemory(), queryStats.getPeakTaskUserMemory().toBytes());
-        assertEquals(statistics.getPeakTaskTotalMemory(), queryStats.getPeakTaskTotalMemory().toBytes());
-        assertEquals(statistics.getPhysicalInputBytes(), queryStats.getPhysicalInputDataSize().toBytes());
-        assertEquals(statistics.getPhysicalInputRows(), queryStats.getPhysicalInputPositions());
-        assertEquals(statistics.getInternalNetworkBytes(), queryStats.getInternalNetworkInputDataSize().toBytes());
-        assertEquals(statistics.getInternalNetworkRows(), queryStats.getInternalNetworkInputPositions());
-        assertEquals(statistics.getTotalBytes(), queryStats.getRawInputDataSize().toBytes());
-        assertEquals(statistics.getTotalRows(), queryStats.getRawInputPositions());
-        assertEquals(statistics.getOutputBytes(), queryStats.getOutputDataSize().toBytes());
-        assertEquals(statistics.getOutputRows(), queryStats.getOutputPositions());
-        assertEquals(statistics.getWrittenBytes(), queryStats.getLogicalWrittenDataSize().toBytes());
-        assertEquals(statistics.getWrittenRows(), queryStats.getWrittenPositions());
-        assertEquals(statistics.getSpilledBytes(), queryStats.getSpilledDataSize().toBytes());
-        assertEquals(statistics.getCumulativeMemory(), queryStats.getCumulativeUserMemory());
-        assertEquals(statistics.getStageGcStatistics(), queryStats.getStageGcStatistics());
-        assertEquals(statistics.getCompletedSplits(), queryStats.getCompletedDrivers());
+        assertThat(statistics.getCpuTime().toMillis()).isEqualTo(queryStats.getTotalCpuTime().toMillis());
+        assertThat(statistics.getWallTime().toMillis()).isEqualTo(queryStats.getElapsedTime().toMillis());
+        assertThat(statistics.getQueuedTime().toMillis()).isEqualTo(queryStats.getQueuedTime().toMillis());
+        assertThat(statistics.getScheduledTime().get().toMillis()).isEqualTo(queryStats.getTotalScheduledTime().toMillis());
+        assertThat(statistics.getResourceWaitingTime().get().toMillis()).isEqualTo(queryStats.getResourceWaitingTime().toMillis());
+        assertThat(statistics.getAnalysisTime().get().toMillis()).isEqualTo(queryStats.getAnalysisTime().toMillis());
+        assertThat(statistics.getPlanningTime().get().toMillis()).isEqualTo(queryStats.getPlanningTime().toMillis());
+        assertThat(statistics.getExecutionTime().get().toMillis()).isEqualTo(queryStats.getExecutionTime().toMillis());
+        assertThat(statistics.getPeakUserMemoryBytes()).isEqualTo(queryStats.getPeakUserMemoryReservation().toBytes());
+        assertThat(statistics.getPeakTaskUserMemory()).isEqualTo(queryStats.getPeakTaskUserMemory().toBytes());
+        assertThat(statistics.getPeakTaskTotalMemory()).isEqualTo(queryStats.getPeakTaskTotalMemory().toBytes());
+        assertThat(statistics.getPhysicalInputBytes()).isEqualTo(queryStats.getPhysicalInputDataSize().toBytes());
+        assertThat(statistics.getPhysicalInputRows()).isEqualTo(queryStats.getPhysicalInputPositions());
+        assertThat(statistics.getInternalNetworkBytes()).isEqualTo(queryStats.getInternalNetworkInputDataSize().toBytes());
+        assertThat(statistics.getInternalNetworkRows()).isEqualTo(queryStats.getInternalNetworkInputPositions());
+        assertThat(statistics.getTotalBytes()).isEqualTo(queryStats.getRawInputDataSize().toBytes());
+        assertThat(statistics.getTotalRows()).isEqualTo(queryStats.getRawInputPositions());
+        assertThat(statistics.getOutputBytes()).isEqualTo(queryStats.getOutputDataSize().toBytes());
+        assertThat(statistics.getOutputRows()).isEqualTo(queryStats.getOutputPositions());
+        assertThat(statistics.getWrittenBytes()).isEqualTo(queryStats.getLogicalWrittenDataSize().toBytes());
+        assertThat(statistics.getWrittenRows()).isEqualTo(queryStats.getWrittenPositions());
+        assertThat(statistics.getSpilledBytes()).isEqualTo(queryStats.getSpilledDataSize().toBytes());
+        assertThat(statistics.getCumulativeMemory()).isEqualTo(queryStats.getCumulativeUserMemory());
+        assertThat(statistics.getStageGcStatistics()).isEqualTo(queryStats.getStageGcStatistics());
+        assertThat(statistics.getCompletedSplits()).isEqualTo(queryStats.getCompletedDrivers());
     }
 
     @Test
@@ -1190,8 +1192,19 @@ public class TestEventListenerBasic
         assertThat(connectorMetrics).containsExactly(TEST_METRICS);
     }
 
-    @Test(dataProvider = "setOperator")
-    public void testOutputColumnsForSetOperations(String setOperator)
+    @Test
+    public void testOutputColumnsForSetOperations()
+            throws Exception
+    {
+        testOutputColumnsForSetOperations("UNION");
+        testOutputColumnsForSetOperations("UNION ALL");
+        testOutputColumnsForSetOperations("INTERSECT");
+        testOutputColumnsForSetOperations("INTERSECT ALL");
+        testOutputColumnsForSetOperations("EXCEPT");
+        testOutputColumnsForSetOperations("EXCEPT ALL");
+    }
+
+    private void testOutputColumnsForSetOperations(String setOperator)
             throws Exception
     {
         assertLineage(
@@ -1211,16 +1224,15 @@ public class TestEventListenerBasic
                                 new ColumnDetail("tpch", "sf1", "orders", "custkey"))));
     }
 
-    @DataProvider
-    public Object[][] setOperator()
+    @Test
+    public void testTableStats()
+            throws Exception
     {
-        return new Object[][]{
-                {"UNION"},
-                {"UNION ALL"},
-                {"INTERSECT"},
-                {"INTERSECT ALL"},
-                {"EXCEPT"},
-                {"EXCEPT ALL"}};
+        QueryEvents queryEvents = queries.runQueryAndWaitForEvents("SELECT l.name FROM nation l, nation r WHERE l.nationkey = r.nationkey", getSession(), true).getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+        assertThat(event.getStatistics().getPlanNodeStatsAndCosts()).isPresent();
+        StatsAndCosts statsAndCosts = STATS_AND_COSTS_JSON_CODEC.fromJson(event.getStatistics().getPlanNodeStatsAndCosts().get());
+        assertThat(statsAndCosts.getStats().values()).allMatch(stats -> stats.getOutputRowCount() == 25.0);
     }
 
     @Test
@@ -1234,53 +1246,53 @@ public class TestEventListenerBasic
                         "6",
                         "Output",
                         ImmutableMap.of("columnNames", "[column_1]"),
-                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                        ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                         ImmutableList.of(),
-                        ImmutableList.of(),
+                        ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 0., 0., 0.)),
                         ImmutableList.of(new JsonRenderedNode(
-                                "98",
+                                "100",
                                 "Limit",
                                 ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
-                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                                 ImmutableList.of(),
-                                ImmutableList.of(),
+                                ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 90., 0., 0.)),
                                 ImmutableList.of(new JsonRenderedNode(
-                                        "171",
+                                        "173",
                                         "LocalExchange",
                                         ImmutableMap.of(
                                                 "partitioning", "[connectorHandleType = SystemPartitioningHandle, partitioning = SINGLE, function = SINGLE]",
                                                 "isReplicateNullsAndAny", "",
                                                 "hashColumn", "[]",
                                                 "arguments", "[]"),
-                                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                        ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                                         ImmutableList.of(),
-                                        ImmutableList.of(),
+                                        ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 0., 0., 0.)),
                                         ImmutableList.of(new JsonRenderedNode(
-                                                "138",
+                                                "140",
                                                 "RemoteSource",
                                                 ImmutableMap.of("sourceFragmentIds", "[1]"),
-                                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                                ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                                                 ImmutableList.of(),
                                                 ImmutableList.of(),
                                                 ImmutableList.of()))))))),
                 "1", new JsonRenderedNode(
-                        "137",
+                        "139",
                         "LimitPartial",
                         ImmutableMap.of(
                                 "count", "10",
                                 "withTies", "",
                                 "inputPreSortedBy", "[]"),
-                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                        ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                         ImmutableList.of(),
-                        ImmutableList.of(),
+                        ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 90., 0., 0.)),
                         ImmutableList.of(new JsonRenderedNode(
                                 "0",
                                 "TableScan",
                                 ImmutableMap.of(
                                         "table", "[table = catalog_1.schema_1.table_1, connector = tpch]"),
-                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                                 ImmutableList.of("symbol_1 := column_2"),
-                                ImmutableList.of(),
+                                ImmutableList.of(new PlanNodeStatsAndCostSummary(NaN, NaN, NaN, 0., 0.)),
                                 ImmutableList.of()))));
         assertThat(event.getMetadata().getJsonPlan())
                 .isEqualTo(Optional.of(ANONYMIZED_PLAN_JSON_CODEC.toJson(anonymizedPlan)));

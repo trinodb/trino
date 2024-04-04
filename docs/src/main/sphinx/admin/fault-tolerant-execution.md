@@ -182,7 +182,7 @@ queries/tasks are no longer retried in the event of repeated failures:
   - `10s`
   - `QUERY` and `TASK`
 * - `retry-max-delay`
-  - Maximum :ref:`time <prop-type-duration>` that a failed query or task must
+  - Maximum [time](prop-type-duration) that a failed query or task must
     wait before it is retried. Wait time is increased on each subsequent
     failure. May be overridden with the ``retry_max_delay`` [session
     property](session-properties-definition).

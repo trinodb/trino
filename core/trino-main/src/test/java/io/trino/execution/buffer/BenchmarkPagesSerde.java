@@ -170,7 +170,6 @@ public class BenchmarkPagesSerde
             }
         }
 
-        // copied & modifed from TestRowBlock
         private List<Object>[] generateTestRows(Random random, List<Type> fieldTypes, int numRows)
         {
             @SuppressWarnings("unchecked")

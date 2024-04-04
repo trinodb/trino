@@ -242,4 +242,19 @@ public final class ByteArrayBlock
     {
         return Slices.wrappedBuffer(values, arrayOffset, positionCount);
     }
+
+    int getRawValuesOffset()
+    {
+        return arrayOffset;
+    }
+
+    boolean[] getRawValueIsNull()
+    {
+        return valueIsNull;
+    }
+
+    byte[] getRawValues()
+    {
+        return values;
+    }
 }

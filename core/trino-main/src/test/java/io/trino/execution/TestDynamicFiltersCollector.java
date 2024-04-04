@@ -24,7 +24,7 @@ import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDynamicFiltersCollector
 {
@@ -37,34 +37,34 @@ public class TestDynamicFiltersCollector
         VersionedDynamicFilterDomains domains = collector.acknowledgeAndGetNewDomains(INITIAL_DYNAMIC_FILTERS_VERSION);
 
         // there should be no domains initially
-        assertEquals(domains.getVersion(), INITIAL_DYNAMIC_FILTERS_VERSION);
-        assertEquals(domains.getDynamicFilterDomains(), ImmutableMap.of());
+        assertThat(domains.getVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION);
+        assertThat(domains.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of());
 
         Domain initialDomain = multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L));
         collector.updateDomains(ImmutableMap.of(filter, initialDomain));
 
         domains = collector.acknowledgeAndGetNewDomains(INITIAL_DYNAMIC_FILTERS_VERSION);
-        assertEquals(domains.getVersion(), 1L);
-        assertEquals(domains.getDynamicFilterDomains(), ImmutableMap.of(filter, initialDomain));
+        assertThat(domains.getVersion()).isEqualTo(1L);
+        assertThat(domains.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of(filter, initialDomain));
 
         // make sure domains are still available when requested again with old version
         domains = collector.acknowledgeAndGetNewDomains(INITIAL_DYNAMIC_FILTERS_VERSION);
-        assertEquals(domains.getVersion(), 1L);
-        assertEquals(domains.getDynamicFilterDomains(), ImmutableMap.of(filter, initialDomain));
+        assertThat(domains.getVersion()).isEqualTo(1L);
+        assertThat(domains.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of(filter, initialDomain));
 
         // make sure domains are intersected
         collector.updateDomains(ImmutableMap.of(filter, multipleValues(BIGINT, ImmutableList.of(2L))));
         collector.updateDomains(ImmutableMap.of(filter, multipleValues(BIGINT, ImmutableList.of(3L, 4L))));
 
         domains = collector.acknowledgeAndGetNewDomains(1L);
-        assertEquals(domains.getVersion(), 3L);
-        assertEquals(domains.getDynamicFilterDomains(), ImmutableMap.of(filter, Domain.none(BIGINT)));
+        assertThat(domains.getVersion()).isEqualTo(3L);
+        assertThat(domains.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of(filter, Domain.none(BIGINT)));
 
         // make sure old domains are removed
         DynamicFilterId filter2 = new DynamicFilterId("filter2");
         collector.updateDomains(ImmutableMap.of(filter2, singleValue(BIGINT, 1L)));
         domains = collector.acknowledgeAndGetNewDomains(3L);
-        assertEquals(domains.getVersion(), 4L);
-        assertEquals(domains.getDynamicFilterDomains(), ImmutableMap.of(filter2, singleValue(BIGINT, 1L)));
+        assertThat(domains.getVersion()).isEqualTo(4L);
+        assertThat(domains.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of(filter2, singleValue(BIGINT, 1L)));
     }
 }

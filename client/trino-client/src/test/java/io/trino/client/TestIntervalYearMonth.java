@@ -18,8 +18,8 @@ import org.junit.jupiter.api.Test;
 import static io.trino.client.IntervalYearMonth.formatMonths;
 import static io.trino.client.IntervalYearMonth.parseMonths;
 import static io.trino.client.IntervalYearMonth.toMonths;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestIntervalYearMonth
 {
@@ -47,15 +47,15 @@ public class TestIntervalYearMonth
 
     private static void assertMonths(int months, String formatted)
     {
-        assertEquals(formatMonths(months), formatted);
-        assertEquals(parseMonths(formatted), months);
+        assertThat(formatMonths(months)).isEqualTo(formatted);
+        assertThat(parseMonths(formatted)).isEqualTo(months);
     }
 
     @Test
     public void testMaxYears()
     {
         int years = Integer.MAX_VALUE / 12;
-        assertEquals(toMonths(years, 0), years * 12);
+        assertThat(toMonths(years, 0)).isEqualTo(years * 12);
     }
 
     @Test

@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static io.airlift.tracing.Tracing.noopTracer;
-import static io.trino.version.EmbedVersion.testingVersionEmbedder;
+import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 

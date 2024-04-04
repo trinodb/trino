@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.functions.tablechanges;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.PartitionData;
@@ -152,7 +151,6 @@ public class TableChangesSplitSource
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
-                ImmutableList.of(),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 SplitWeight.standard());
@@ -171,7 +169,6 @@ public class TableChangesSplitSource
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
-                ImmutableList.of(),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 SplitWeight.standard());

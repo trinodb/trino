@@ -15,6 +15,7 @@ package io.trino.json.ir;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
@@ -35,8 +36,8 @@ public record IrLiteral(Optional<Type> type, Object value)
         requireNonNull(value, "value is null"); // (boxed) native representation. No null values allowed.
     }
 
-    @Deprecated // For JSON deserialization only
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
     public static IrLiteral fromJson(@JsonProperty("type") Type type, @JsonProperty("valueAsBlock") Block value)
     {
         checkArgument(value.getPositionCount() == 1);

@@ -21,25 +21,38 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
-import org.testng.annotations.Test;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.ConnectorExpressionTranslator;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.IsNotNullPredicate;
+import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.SymbolReference;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestIgniteClient
 {
@@ -55,6 +68,13 @@ public class TestIgniteClient
                     .setColumnName("c_double")
                     .setColumnType(DOUBLE)
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                    .build();
+
+    private static final JdbcColumnHandle VARCHAR_COLUMN =
+            JdbcColumnHandle.builder()
+                    .setColumnName("c_varchar")
+                    .setColumnType(createVarcharType(10))
+                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.VARCHAR, Optional.of("varchar"), Optional.of(10), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
     public static final JdbcClient JDBC_CLIENT = new IgniteClient(
@@ -146,6 +166,64 @@ public class TestIgniteClient
                 Optional.empty()); // filter not supported
     }
 
+    @Test
+    public void testConvertIsNull()
+    {
+        // c_varchar IS NULL
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+                        translateToConnectorExpression(
+                                new IsNullPredicate(
+                                        new SymbolReference("c_varchar_symbol")),
+                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NULL");
+        assertThat(converted.parameters()).isEmpty();
+    }
+
+    @Test
+    public void testConvertIsNotNull()
+    {
+        // c_varchar IS NOT NULL
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+                        translateToConnectorExpression(
+                                new IsNotNullPredicate(
+                                        new SymbolReference("c_varchar_symbol")),
+                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NOT NULL");
+        assertThat(converted.parameters()).isEmpty();
+    }
+
+    @Test
+    public void testConvertNotExpression()
+    {
+        // NOT(expression)
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+                        translateToConnectorExpression(
+                                new NotExpression(
+                                        new IsNotNullPredicate(
+                                                new SymbolReference("c_varchar_symbol"))),
+                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("NOT ((`c_varchar`) IS NOT NULL)");
+        assertThat(converted.parameters()).isEmpty();
+    }
+
+    private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
+    {
+        return ConnectorExpressionTranslator.translate(
+                        TEST_SESSION,
+                        expression,
+                        TypeProvider.viewOf(symbolTypes.entrySet().stream()
+                                .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))),
+                        PLANNER_CONTEXT,
+                        createTestingTypeAnalyzer(PLANNER_CONTEXT))
+                .orElseThrow();
+    }
+
     private static void testImplementAggregation(AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments, Optional<String> expectedExpression)
     {
         Optional<JdbcExpression> result = JDBC_CLIENT.implementAggregation(SESSION, aggregateFunction, assignments);
@@ -154,10 +232,12 @@ public class TestIgniteClient
         }
         else {
             assertThat(result).isPresent();
-            assertEquals(result.get().getExpression(), expectedExpression.get());
+            assertThat(result.get().getExpression()).isEqualTo(expectedExpression.get());
             Optional<ColumnMapping> columnMapping = JDBC_CLIENT.toColumnMapping(SESSION, null, result.get().getJdbcTypeHandle());
-            assertTrue(columnMapping.isPresent(), "No mapping for: " + result.get().getJdbcTypeHandle());
-            assertEquals(columnMapping.get().getType(), aggregateFunction.getOutputType());
+            assertThat(columnMapping.isPresent())
+                    .describedAs("No mapping for: " + result.get().getJdbcTypeHandle())
+                    .isTrue();
+            assertThat(columnMapping.get().getType()).isEqualTo(aggregateFunction.getOutputType());
         }
     }
 }

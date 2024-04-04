@@ -59,6 +59,7 @@ public final class DeltaLakeSessionProperties
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    private static final String IDLE_WRITER_MIN_FILE_SIZE = "idle_writer_min_file_size";
     private static final String COMPRESSION_CODEC = "compression_codec";
     // This property is not supported by Delta Lake and exists solely for technical reasons.
     @Deprecated
@@ -67,9 +68,9 @@ public final class DeltaLakeSessionProperties
     private static final String TABLE_STATISTICS_ENABLED = "statistics_enabled";
     public static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
     public static final String EXTENDED_STATISTICS_COLLECT_ON_WRITE = "extended_statistics_collect_on_write";
-    public static final String LEGACY_CREATE_TABLE_WITH_EXISTING_LOCATION_ENABLED = "legacy_create_table_with_existing_location_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    private static final String CHECKPOINT_FILTERING_ENABLED = "checkpoint_filtering_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -150,6 +151,11 @@ public final class DeltaLakeSessionProperties
                         "Target maximum size of written files; the actual size may be larger",
                         deltaLakeConfig.getTargetMaxFileSize(),
                         false),
+                dataSizeProperty(
+                        IDLE_WRITER_MIN_FILE_SIZE,
+                        "Minimum data written by a single partition writer before it can be consider as 'idle' and could be closed by the engine",
+                        deltaLakeConfig.getIdleWriterMinFileSize(),
+                        false),
                 enumProperty(
                         TIMESTAMP_PRECISION,
                         "Internal Delta Lake connector property",
@@ -171,11 +177,6 @@ public final class DeltaLakeSessionProperties
                         EXTENDED_STATISTICS_ENABLED,
                         "Enable collection (ANALYZE) and use of extended statistics.",
                         deltaLakeConfig.isExtendedStatisticsEnabled(),
-                        false),
-                booleanProperty(
-                        LEGACY_CREATE_TABLE_WITH_EXISTING_LOCATION_ENABLED,
-                        "Enable using the CREATE TABLE statement to register an existing table",
-                        deltaLakeConfig.isLegacyCreateTableWithExistingLocationEnabled(),
                         false),
                 booleanProperty(
                         EXTENDED_STATISTICS_COLLECT_ON_WRITE,
@@ -202,6 +203,11 @@ public final class DeltaLakeSessionProperties
                         QUERY_PARTITION_FILTER_REQUIRED,
                         "Require filter on partition column",
                         deltaLakeConfig.isQueryPartitionFilterRequired(),
+                        false),
+                booleanProperty(
+                        CHECKPOINT_FILTERING_ENABLED,
+                        "Use filter in checkpoint reader",
+                        deltaLakeConfig.isCheckpointFilteringEnabled(),
                         false));
     }
 
@@ -266,6 +272,11 @@ public final class DeltaLakeSessionProperties
         return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class).toBytes();
     }
 
+    public static long getIdleWriterMinFileSize(ConnectorSession session)
+    {
+        return session.getProperty(IDLE_WRITER_MIN_FILE_SIZE, DataSize.class).toBytes();
+    }
+
     public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
     {
         return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
@@ -279,12 +290,6 @@ public final class DeltaLakeSessionProperties
     public static boolean isExtendedStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(EXTENDED_STATISTICS_ENABLED, Boolean.class);
-    }
-
-    @Deprecated
-    public static boolean isLegacyCreateTableWithExistingLocationEnabled(ConnectorSession session)
-    {
-        return session.getProperty(LEGACY_CREATE_TABLE_WITH_EXISTING_LOCATION_ENABLED, Boolean.class);
     }
 
     public static boolean isCollectExtendedStatisticsColumnStatisticsOnWrite(ConnectorSession session)
@@ -305,5 +310,10 @@ public final class DeltaLakeSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    public static boolean isCheckpointFilteringEnabled(ConnectorSession session)
+    {
+        return session.getProperty(CHECKPOINT_FILTERING_ENABLED, Boolean.class);
     }
 }

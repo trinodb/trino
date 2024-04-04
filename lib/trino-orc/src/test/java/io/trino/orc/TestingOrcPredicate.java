@@ -64,9 +64,8 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 
 public final class TestingOrcPredicate
 {
@@ -167,7 +166,7 @@ public final class TestingOrcPredicate
         public boolean matches(long numberOfRows, ColumnMetadata<ColumnStatistics> allColumnStatistics)
         {
             ColumnStatistics columnStatistics = allColumnStatistics.get(new OrcColumnId(1));
-            assertTrue(columnStatistics.hasNumberOfValues());
+            assertThat(columnStatistics.hasNumberOfValues()).isTrue();
 
             if (numberOfRows == expectedValues.size()) {
                 // whole file
@@ -206,7 +205,7 @@ public final class TestingOrcPredicate
 
         private void assertChunkStats(List<T> chunk, ColumnStatistics columnStatistics)
         {
-            assertTrue(chunkMatchesStats(chunk, columnStatistics));
+            assertThat(chunkMatchesStats(chunk, columnStatistics)).isTrue();
         }
 
         protected boolean chunkMatchesStats(List<T> chunk, ColumnStatistics columnStatistics)
@@ -227,10 +226,10 @@ public final class TestingOrcPredicate
         @Override
         protected boolean chunkMatchesStats(List<Boolean> chunk, ColumnStatistics columnStatistics)
         {
-            assertNull(columnStatistics.getIntegerStatistics());
-            assertNull(columnStatistics.getDoubleStatistics());
-            assertNull(columnStatistics.getStringStatistics());
-            assertNull(columnStatistics.getDateStatistics());
+            assertThat(columnStatistics.getIntegerStatistics()).isNull();
+            assertThat(columnStatistics.getDoubleStatistics()).isNull();
+            assertThat(columnStatistics.getStringStatistics()).isNull();
+            assertThat(columnStatistics.getDateStatistics()).isNull();
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {
@@ -258,10 +257,10 @@ public final class TestingOrcPredicate
         @Override
         protected boolean chunkMatchesStats(List<Double> chunk, ColumnStatistics columnStatistics)
         {
-            assertNull(columnStatistics.getBooleanStatistics());
-            assertNull(columnStatistics.getIntegerStatistics());
-            assertNull(columnStatistics.getStringStatistics());
-            assertNull(columnStatistics.getDateStatistics());
+            assertThat(columnStatistics.getBooleanStatistics()).isNull();
+            assertThat(columnStatistics.getIntegerStatistics()).isNull();
+            assertThat(columnStatistics.getStringStatistics()).isNull();
+            assertThat(columnStatistics.getDateStatistics()).isNull();
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {
@@ -323,10 +322,10 @@ public final class TestingOrcPredicate
         @Override
         protected boolean chunkMatchesStats(List<Long> chunk, ColumnStatistics columnStatistics)
         {
-            assertNull(columnStatistics.getBooleanStatistics());
-            assertNull(columnStatistics.getDoubleStatistics());
-            assertNull(columnStatistics.getStringStatistics());
-            assertNull(columnStatistics.getDateStatistics());
+            assertThat(columnStatistics.getBooleanStatistics()).isNull();
+            assertThat(columnStatistics.getDoubleStatistics()).isNull();
+            assertThat(columnStatistics.getStringStatistics()).isNull();
+            assertThat(columnStatistics.getDateStatistics()).isNull();
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {
@@ -384,10 +383,10 @@ public final class TestingOrcPredicate
         @Override
         protected boolean chunkMatchesStats(List<String> chunk, ColumnStatistics columnStatistics)
         {
-            assertNull(columnStatistics.getBooleanStatistics());
-            assertNull(columnStatistics.getIntegerStatistics());
-            assertNull(columnStatistics.getDoubleStatistics());
-            assertNull(columnStatistics.getDateStatistics());
+            assertThat(columnStatistics.getBooleanStatistics()).isNull();
+            assertThat(columnStatistics.getIntegerStatistics()).isNull();
+            assertThat(columnStatistics.getDoubleStatistics()).isNull();
+            assertThat(columnStatistics.getDateStatistics()).isNull();
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {
@@ -449,14 +448,14 @@ public final class TestingOrcPredicate
         @Override
         protected boolean chunkMatchesStats(List<String> chunk, ColumnStatistics columnStatistics)
         {
-            assertNull(columnStatistics.getBooleanStatistics());
-            assertNull(columnStatistics.getIntegerStatistics());
-            assertNull(columnStatistics.getDoubleStatistics());
-            assertNull(columnStatistics.getDateStatistics());
+            assertThat(columnStatistics.getBooleanStatistics()).isNull();
+            assertThat(columnStatistics.getIntegerStatistics()).isNull();
+            assertThat(columnStatistics.getDoubleStatistics()).isNull();
+            assertThat(columnStatistics.getDateStatistics()).isNull();
 
             // bloom filter for char type in ORC require padded values (padded according to the type in the footer)
             // this is difficult to support so we skip for now
-            assertNull(columnStatistics.getBloomFilter());
+            assertThat(columnStatistics.getBloomFilter()).isNull();
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {
@@ -505,10 +504,10 @@ public final class TestingOrcPredicate
         @Override
         protected boolean chunkMatchesStats(List<Long> chunk, ColumnStatistics columnStatistics)
         {
-            assertNull(columnStatistics.getBooleanStatistics());
-            assertNull(columnStatistics.getIntegerStatistics());
-            assertNull(columnStatistics.getDoubleStatistics());
-            assertNull(columnStatistics.getStringStatistics());
+            assertThat(columnStatistics.getBooleanStatistics()).isNull();
+            assertThat(columnStatistics.getIntegerStatistics()).isNull();
+            assertThat(columnStatistics.getDoubleStatistics()).isNull();
+            assertThat(columnStatistics.getStringStatistics()).isNull();
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {

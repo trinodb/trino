@@ -2028,16 +2028,16 @@ public abstract class GridUnsafe
     private static int getIntByByte(Object obj, long addr, boolean bigEndian)
     {
         if (bigEndian) {
-            return (((int) UNSAFE.getByte(obj, addr)) << 24) |
+            return ((int) UNSAFE.getByte(obj, addr) << 24) |
                     (((int) UNSAFE.getByte(obj, addr + 1) & 0xff) << 16) |
                     (((int) UNSAFE.getByte(obj, addr + 2) & 0xff) << 8) |
-                    (((int) UNSAFE.getByte(obj, addr + 3) & 0xff));
+                    ((int) UNSAFE.getByte(obj, addr + 3) & 0xff);
         }
         else {
-            return (((int) UNSAFE.getByte(obj, addr + 3)) << 24) |
+            return ((int) UNSAFE.getByte(obj, addr + 3) << 24) |
                     (((int) UNSAFE.getByte(obj, addr + 2) & 0xff) << 16) |
                     (((int) UNSAFE.getByte(obj, addr + 1) & 0xff) << 8) |
-                    (((int) UNSAFE.getByte(obj, addr) & 0xff));
+                    ((int) UNSAFE.getByte(obj, addr) & 0xff);
         }
     }
 
@@ -2053,13 +2053,13 @@ public abstract class GridUnsafe
             UNSAFE.putByte(obj, addr, (byte) (val >> 24));
             UNSAFE.putByte(obj, addr + 1, (byte) (val >> 16));
             UNSAFE.putByte(obj, addr + 2, (byte) (val >> 8));
-            UNSAFE.putByte(obj, addr + 3, (byte) (val));
+            UNSAFE.putByte(obj, addr + 3, (byte) val);
         }
         else {
             UNSAFE.putByte(obj, addr + 3, (byte) (val >> 24));
             UNSAFE.putByte(obj, addr + 2, (byte) (val >> 16));
             UNSAFE.putByte(obj, addr + 1, (byte) (val >> 8));
-            UNSAFE.putByte(obj, addr, (byte) (val));
+            UNSAFE.putByte(obj, addr, (byte) val);
         }
     }
 
@@ -2071,24 +2071,24 @@ public abstract class GridUnsafe
     private static long getLongByByte(Object obj, long addr, boolean bigEndian)
     {
         if (bigEndian) {
-            return (((long) UNSAFE.getByte(obj, addr)) << 56) |
+            return ((long) UNSAFE.getByte(obj, addr) << 56) |
                     (((long) UNSAFE.getByte(obj, addr + 1) & 0xff) << 48) |
                     (((long) UNSAFE.getByte(obj, addr + 2) & 0xff) << 40) |
                     (((long) UNSAFE.getByte(obj, addr + 3) & 0xff) << 32) |
                     (((long) UNSAFE.getByte(obj, addr + 4) & 0xff) << 24) |
                     (((long) UNSAFE.getByte(obj, addr + 5) & 0xff) << 16) |
                     (((long) UNSAFE.getByte(obj, addr + 6) & 0xff) << 8) |
-                    (((long) UNSAFE.getByte(obj, addr + 7) & 0xff));
+                    ((long) UNSAFE.getByte(obj, addr + 7) & 0xff);
         }
         else {
-            return (((long) UNSAFE.getByte(obj, addr + 7)) << 56) |
+            return ((long) UNSAFE.getByte(obj, addr + 7) << 56) |
                     (((long) UNSAFE.getByte(obj, addr + 6) & 0xff) << 48) |
                     (((long) UNSAFE.getByte(obj, addr + 5) & 0xff) << 40) |
                     (((long) UNSAFE.getByte(obj, addr + 4) & 0xff) << 32) |
                     (((long) UNSAFE.getByte(obj, addr + 3) & 0xff) << 24) |
                     (((long) UNSAFE.getByte(obj, addr + 2) & 0xff) << 16) |
                     (((long) UNSAFE.getByte(obj, addr + 1) & 0xff) << 8) |
-                    (((long) UNSAFE.getByte(obj, addr) & 0xff));
+                    ((long) UNSAFE.getByte(obj, addr) & 0xff);
         }
     }
 
@@ -2108,7 +2108,7 @@ public abstract class GridUnsafe
             UNSAFE.putByte(obj, addr + 4, (byte) (val >> 24));
             UNSAFE.putByte(obj, addr + 5, (byte) (val >> 16));
             UNSAFE.putByte(obj, addr + 6, (byte) (val >> 8));
-            UNSAFE.putByte(obj, addr + 7, (byte) (val));
+            UNSAFE.putByte(obj, addr + 7, (byte) val);
         }
         else {
             UNSAFE.putByte(obj, addr + 7, (byte) (val >> 56));
@@ -2118,7 +2118,7 @@ public abstract class GridUnsafe
             UNSAFE.putByte(obj, addr + 3, (byte) (val >> 24));
             UNSAFE.putByte(obj, addr + 2, (byte) (val >> 16));
             UNSAFE.putByte(obj, addr + 1, (byte) (val >> 8));
-            UNSAFE.putByte(obj, addr, (byte) (val));
+            UNSAFE.putByte(obj, addr, (byte) val);
         }
     }
 
@@ -2191,16 +2191,16 @@ public abstract class GridUnsafe
     private static int getIntByByte(long addr, boolean bigEndian)
     {
         if (bigEndian) {
-            return (((int) UNSAFE.getByte(addr)) << 24) |
+            return ((int) UNSAFE.getByte(addr) << 24) |
                     (((int) UNSAFE.getByte(addr + 1) & 0xff) << 16) |
                     (((int) UNSAFE.getByte(addr + 2) & 0xff) << 8) |
-                    (((int) UNSAFE.getByte(addr + 3) & 0xff));
+                    ((int) UNSAFE.getByte(addr + 3) & 0xff);
         }
         else {
-            return (((int) UNSAFE.getByte(addr + 3)) << 24) |
+            return ((int) UNSAFE.getByte(addr + 3) << 24) |
                     (((int) UNSAFE.getByte(addr + 2) & 0xff) << 16) |
                     (((int) UNSAFE.getByte(addr + 1) & 0xff) << 8) |
-                    (((int) UNSAFE.getByte(addr) & 0xff));
+                    ((int) UNSAFE.getByte(addr) & 0xff);
         }
     }
 
@@ -2215,13 +2215,13 @@ public abstract class GridUnsafe
             UNSAFE.putByte(addr, (byte) (val >> 24));
             UNSAFE.putByte(addr + 1, (byte) (val >> 16));
             UNSAFE.putByte(addr + 2, (byte) (val >> 8));
-            UNSAFE.putByte(addr + 3, (byte) (val));
+            UNSAFE.putByte(addr + 3, (byte) val);
         }
         else {
             UNSAFE.putByte(addr + 3, (byte) (val >> 24));
             UNSAFE.putByte(addr + 2, (byte) (val >> 16));
             UNSAFE.putByte(addr + 1, (byte) (val >> 8));
-            UNSAFE.putByte(addr, (byte) (val));
+            UNSAFE.putByte(addr, (byte) val);
         }
     }
 
@@ -2232,24 +2232,24 @@ public abstract class GridUnsafe
     private static long getLongByByte(long addr, boolean bigEndian)
     {
         if (bigEndian) {
-            return (((long) UNSAFE.getByte(addr)) << 56) |
+            return ((long) UNSAFE.getByte(addr) << 56) |
                     (((long) UNSAFE.getByte(addr + 1) & 0xff) << 48) |
                     (((long) UNSAFE.getByte(addr + 2) & 0xff) << 40) |
                     (((long) UNSAFE.getByte(addr + 3) & 0xff) << 32) |
                     (((long) UNSAFE.getByte(addr + 4) & 0xff) << 24) |
                     (((long) UNSAFE.getByte(addr + 5) & 0xff) << 16) |
                     (((long) UNSAFE.getByte(addr + 6) & 0xff) << 8) |
-                    (((long) UNSAFE.getByte(addr + 7) & 0xff));
+                    ((long) UNSAFE.getByte(addr + 7) & 0xff);
         }
         else {
-            return (((long) UNSAFE.getByte(addr + 7)) << 56) |
+            return ((long) UNSAFE.getByte(addr + 7) << 56) |
                     (((long) UNSAFE.getByte(addr + 6) & 0xff) << 48) |
                     (((long) UNSAFE.getByte(addr + 5) & 0xff) << 40) |
                     (((long) UNSAFE.getByte(addr + 4) & 0xff) << 32) |
                     (((long) UNSAFE.getByte(addr + 3) & 0xff) << 24) |
                     (((long) UNSAFE.getByte(addr + 2) & 0xff) << 16) |
                     (((long) UNSAFE.getByte(addr + 1) & 0xff) << 8) |
-                    (((long) UNSAFE.getByte(addr) & 0xff));
+                    ((long) UNSAFE.getByte(addr) & 0xff);
         }
     }
 
@@ -2268,7 +2268,7 @@ public abstract class GridUnsafe
             UNSAFE.putByte(addr + 4, (byte) (val >> 24));
             UNSAFE.putByte(addr + 5, (byte) (val >> 16));
             UNSAFE.putByte(addr + 6, (byte) (val >> 8));
-            UNSAFE.putByte(addr + 7, (byte) (val));
+            UNSAFE.putByte(addr + 7, (byte) val);
         }
         else {
             UNSAFE.putByte(addr + 7, (byte) (val >> 56));
@@ -2278,7 +2278,7 @@ public abstract class GridUnsafe
             UNSAFE.putByte(addr + 3, (byte) (val >> 24));
             UNSAFE.putByte(addr + 2, (byte) (val >> 16));
             UNSAFE.putByte(addr + 1, (byte) (val >> 8));
-            UNSAFE.putByte(addr, (byte) (val));
+            UNSAFE.putByte(addr, (byte) val);
         }
     }
 }

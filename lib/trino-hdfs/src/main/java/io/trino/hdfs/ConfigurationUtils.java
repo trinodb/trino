@@ -13,6 +13,7 @@
  */
 package io.trino.hdfs;
 
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
@@ -21,8 +22,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.hadoop.ConfigurationInstantiator.newConfigurationWithDefaultResources;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 
 public final class ConfigurationUtils
 {
@@ -35,7 +34,7 @@ public final class ConfigurationUtils
         // must not be transitively reloaded during the future loading of various Hadoop modules
         // all the required default resources must be declared above
         INITIAL_CONFIGURATION = newEmptyConfiguration();
-        Configuration defaultConfiguration = newConfigurationWithDefaultResources();
+        Configuration defaultConfiguration = newConfiguration(true);
         copy(defaultConfiguration, INITIAL_CONFIGURATION);
     }
 
@@ -75,5 +74,17 @@ public final class ConfigurationUtils
         }
 
         return result;
+    }
+
+    public static Configuration newEmptyConfiguration()
+    {
+        return newConfiguration(false);
+    }
+
+    private static Configuration newConfiguration(boolean loadDefaults)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(ConfigurationUtils.class.getClassLoader())) {
+            return new Configuration(loadDefaults);
+        }
     }
 }

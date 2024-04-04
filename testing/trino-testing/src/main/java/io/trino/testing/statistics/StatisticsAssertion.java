@@ -32,7 +32,7 @@ import static io.trino.testing.statistics.Metrics.highValue;
 import static io.trino.testing.statistics.Metrics.lowValue;
 import static io.trino.testing.statistics.Metrics.nullsFraction;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertSame;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class StatisticsAssertion
         implements AutoCloseable
@@ -129,7 +129,9 @@ public class StatisticsAssertion
             for (int i = 0; i < checks.size(); i++) {
                 MetricsCheck check = checks.get(i);
                 MetricComparison metricComparison = metricComparisons.get(i);
-                assertSame(metricComparison.result(check.strategy), check.expectedComparisonResult, "Metric doesn't match: " + metricComparison);
+                assertThat(metricComparison.result(check.strategy))
+                        .describedAs("Metric doesn't match: " + metricComparison)
+                        .isEqualTo(check.expectedComparisonResult);
             }
         }
     }

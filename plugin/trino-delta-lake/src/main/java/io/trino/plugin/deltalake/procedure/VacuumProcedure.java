@@ -25,6 +25,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
@@ -168,127 +169,130 @@ public class VacuumProcedure
         Instant threshold = Instant.now().minusMillis(retentionDuration.toMillis());
 
         DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
-        SchemaTableName tableName = new SchemaTableName(schema, table);
-        ConnectorTableHandle connectorTableHandle = metadata.getTableHandle(session, tableName);
-        checkProcedureArgument(connectorTableHandle != null, "Table '%s' does not exist", tableName);
-        DeltaLakeTableHandle handle = checkValidTableHandle(connectorTableHandle);
+        metadata.beginQuery(session);
+        try (UncheckedCloseable ignore = () -> metadata.cleanupQuery(session)) {
+            SchemaTableName tableName = new SchemaTableName(schema, table);
+            ConnectorTableHandle connectorTableHandle = metadata.getTableHandle(session, tableName);
+            checkProcedureArgument(connectorTableHandle != null, "Table '%s' does not exist", tableName);
+            DeltaLakeTableHandle handle = checkValidTableHandle(connectorTableHandle);
 
-        accessControl.checkCanInsertIntoTable(null, tableName);
-        accessControl.checkCanDeleteFromTable(null, tableName);
+            accessControl.checkCanInsertIntoTable(null, tableName);
+            accessControl.checkCanDeleteFromTable(null, tableName);
 
-        TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), handle.getReadVersion());
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
-        if (protocolEntry.getMinWriterVersion() > MAX_WRITER_VERSION) {
-            throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %d writer version".formatted(protocolEntry.getMinWriterVersion()));
-        }
-        Set<String> unsupportedWriterFeatures = unsupportedWriterFeatures(protocolEntry.getWriterFeatures().orElse(ImmutableSet.of()));
-        if (!unsupportedWriterFeatures.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(unsupportedWriterFeatures));
-        }
-
-        String tableLocation = tableSnapshot.getTableLocation();
-        String transactionLogDir = getTransactionLogDir(tableLocation);
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        String commonPathPrefix = tableLocation.endsWith("/") ? tableLocation : tableLocation + "/";
-        String queryId = session.getQueryId();
-
-        // Retain all active files and every file removed by a "recent" transaction (except for the oldest "recent").
-        // Any remaining file are not live, and not needed to read any "recent" snapshot.
-        List<Long> recentVersions = transactionLogAccess.getPastTableVersions(fileSystem, transactionLogDir, threshold, tableSnapshot.getVersion());
-        Set<String> retainedPaths = Stream.concat(
-                        transactionLogAccess.getActiveFiles(tableSnapshot, handle.getMetadataEntry(), handle.getProtocolEntry(), session).stream()
-                                .map(AddFileEntry::getPath),
-                        transactionLogAccess.getJsonEntries(
-                                        fileSystem,
-                                        transactionLogDir,
-                                        // discard oldest "recent" snapshot, since we take RemoveFileEntry only, to identify files that are no longer
-                                        // active files, but still needed to read a "recent" snapshot
-                                        recentVersions.stream().sorted(naturalOrder())
-                                                .skip(1)
-                                                .collect(toImmutableList()))
-                                .map(DeltaLakeTransactionLogEntry::getRemove)
-                                .filter(Objects::nonNull)
-                                .map(RemoveFileEntry::getPath))
-                .peek(path -> checkState(!path.startsWith(tableLocation), "Unexpected absolute path in transaction log: %s", path))
-                .collect(toImmutableSet());
-
-        log.debug(
-                "[%s] attempting to vacuum table %s [%s] with %s retention (expiry threshold %s). %s data file paths marked for retention",
-                queryId,
-                tableName,
-                tableLocation,
-                retention,
-                threshold,
-                retainedPaths.size());
-
-        long allPathsChecked = 0;
-        long transactionLogFiles = 0;
-        long retainedKnownFiles = 0;
-        long retainedUnknownFiles = 0;
-        long removedFiles = 0;
-
-        List<Location> filesToDelete = new ArrayList<>();
-        FileIterator listing = fileSystem.listFiles(Location.of(tableLocation));
-        while (listing.hasNext()) {
-            FileEntry entry = listing.next();
-            String location = entry.location().toString();
-            checkState(
-                    location.startsWith(commonPathPrefix),
-                    "Unexpected path [%s] returned when listing files under [%s]",
-                    location,
-                    tableLocation);
-            String relativePath = location.substring(commonPathPrefix.length());
-            if (relativePath.isEmpty()) {
-                // A file returned for "tableLocation/", might be possible on S3.
-                continue;
+            TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), handle.getReadVersion());
+            ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
+            if (protocolEntry.getMinWriterVersion() > MAX_WRITER_VERSION) {
+                throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %d writer version".formatted(protocolEntry.getMinWriterVersion()));
             }
-            allPathsChecked++;
-
-            // ignore tableLocation/_delta_log/**
-            if (relativePath.equals(TRANSACTION_LOG_DIRECTORY) || relativePath.startsWith(TRANSACTION_LOG_DIRECTORY + "/")) {
-                log.debug("[%s] skipping a file inside transaction log dir: %s", queryId, location);
-                transactionLogFiles++;
-                continue;
+            Set<String> unsupportedWriterFeatures = unsupportedWriterFeatures(protocolEntry.getWriterFeatures().orElse(ImmutableSet.of()));
+            if (!unsupportedWriterFeatures.isEmpty()) {
+                throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(unsupportedWriterFeatures));
             }
 
-            // skip retained files
-            if (retainedPaths.contains(relativePath)) {
-                log.debug("[%s] retaining a known file: %s", queryId, location);
-                retainedKnownFiles++;
-                continue;
+            String tableLocation = tableSnapshot.getTableLocation();
+            String transactionLogDir = getTransactionLogDir(tableLocation);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            String commonPathPrefix = tableLocation.endsWith("/") ? tableLocation : tableLocation + "/";
+            String queryId = session.getQueryId();
+
+            // Retain all active files and every file removed by a "recent" transaction (except for the oldest "recent").
+            // Any remaining file are not live, and not needed to read any "recent" snapshot.
+            List<Long> recentVersions = transactionLogAccess.getPastTableVersions(fileSystem, transactionLogDir, threshold, tableSnapshot.getVersion());
+            Set<String> retainedPaths = Stream.concat(
+                            transactionLogAccess.getActiveFiles(tableSnapshot, handle.getMetadataEntry(), handle.getProtocolEntry(), session).stream()
+                                    .map(AddFileEntry::getPath),
+                            transactionLogAccess.getJsonEntries(
+                                            fileSystem,
+                                            transactionLogDir,
+                                            // discard oldest "recent" snapshot, since we take RemoveFileEntry only, to identify files that are no longer
+                                            // active files, but still needed to read a "recent" snapshot
+                                            recentVersions.stream().sorted(naturalOrder())
+                                                    .skip(1)
+                                                    .collect(toImmutableList()))
+                                    .map(DeltaLakeTransactionLogEntry::getRemove)
+                                    .filter(Objects::nonNull)
+                                    .map(RemoveFileEntry::getPath))
+                    .peek(path -> checkState(!path.startsWith(tableLocation), "Unexpected absolute path in transaction log: %s", path))
+                    .collect(toImmutableSet());
+
+            log.debug(
+                    "[%s] attempting to vacuum table %s [%s] with %s retention (expiry threshold %s). %s data file paths marked for retention",
+                    queryId,
+                    tableName,
+                    tableLocation,
+                    retention,
+                    threshold,
+                    retainedPaths.size());
+
+            long allPathsChecked = 0;
+            long transactionLogFiles = 0;
+            long retainedKnownFiles = 0;
+            long retainedUnknownFiles = 0;
+            long removedFiles = 0;
+
+            List<Location> filesToDelete = new ArrayList<>();
+            FileIterator listing = fileSystem.listFiles(Location.of(tableLocation));
+            while (listing.hasNext()) {
+                FileEntry entry = listing.next();
+                String location = entry.location().toString();
+                checkState(
+                        location.startsWith(commonPathPrefix),
+                        "Unexpected path [%s] returned when listing files under [%s]",
+                        location,
+                        tableLocation);
+                String relativePath = location.substring(commonPathPrefix.length());
+                if (relativePath.isEmpty()) {
+                    // A file returned for "tableLocation/", might be possible on S3.
+                    continue;
+                }
+                allPathsChecked++;
+
+                // ignore tableLocation/_delta_log/**
+                if (relativePath.equals(TRANSACTION_LOG_DIRECTORY) || relativePath.startsWith(TRANSACTION_LOG_DIRECTORY + "/")) {
+                    log.debug("[%s] skipping a file inside transaction log dir: %s", queryId, location);
+                    transactionLogFiles++;
+                    continue;
+                }
+
+                // skip retained files
+                if (retainedPaths.contains(relativePath)) {
+                    log.debug("[%s] retaining a known file: %s", queryId, location);
+                    retainedKnownFiles++;
+                    continue;
+                }
+
+                // ignore recently created files
+                Instant modificationTime = entry.lastModified();
+                if (!modificationTime.isBefore(threshold)) {
+                    log.debug("[%s] retaining an unknown file %s with modification time %s", queryId, location, modificationTime);
+                    retainedUnknownFiles++;
+                    continue;
+                }
+
+                log.debug("[%s] deleting file [%s] with modification time %s", queryId, location, modificationTime);
+                filesToDelete.add(entry.location());
+                if (filesToDelete.size() == DELETE_BATCH_SIZE) {
+                    fileSystem.deleteFiles(filesToDelete);
+                    removedFiles += filesToDelete.size();
+                    filesToDelete.clear();
+                }
             }
 
-            // ignore recently created files
-            Instant modificationTime = entry.lastModified();
-            if (!modificationTime.isBefore(threshold)) {
-                log.debug("[%s] retaining an unknown file %s with modification time %s", queryId, location, modificationTime);
-                retainedUnknownFiles++;
-                continue;
-            }
-
-            log.debug("[%s] deleting file [%s] with modification time %s", queryId, location, modificationTime);
-            filesToDelete.add(entry.location());
-            if (filesToDelete.size() == DELETE_BATCH_SIZE) {
+            if (!filesToDelete.isEmpty()) {
                 fileSystem.deleteFiles(filesToDelete);
                 removedFiles += filesToDelete.size();
-                filesToDelete.clear();
             }
-        }
 
-        if (!filesToDelete.isEmpty()) {
-            fileSystem.deleteFiles(filesToDelete);
-            removedFiles += filesToDelete.size();
+            log.info(
+                    "[%s] finished vacuuming table %s [%s]: files checked: %s; metadata files: %s; retained known files: %s; retained unknown files: %s; removed files: %s",
+                    queryId,
+                    tableName,
+                    tableLocation,
+                    allPathsChecked,
+                    transactionLogFiles,
+                    retainedKnownFiles,
+                    retainedUnknownFiles,
+                    removedFiles);
         }
-
-        log.info(
-                "[%s] finished vacuuming table %s [%s]: files checked: %s; metadata files: %s; retained known files: %s; retained unknown files: %s; removed files: %s",
-                queryId,
-                tableName,
-                tableLocation,
-                allPathsChecked,
-                transactionLogFiles,
-                retainedKnownFiles,
-                retainedUnknownFiles,
-                removedFiles);
     }
 }

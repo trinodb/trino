@@ -15,9 +15,11 @@ package io.trino.plugin.raptor.legacy.metadata;
 
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -25,17 +27,18 @@ import java.util.OptionalLong;
 
 import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestMetadataDao
 {
     private MetadataDao dao;
     private Handle dummyHandle;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
     {
         Jdbi dbi = createTestingJdbi();
@@ -44,7 +47,7 @@ public class TestMetadataDao
         createTablesWithRetry(dbi);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         dummyHandle.close();
@@ -58,16 +61,16 @@ public class TestMetadataDao
         long tableId = dao.insertTable("schema1", "table1", true, false, null, 0);
         dao.insertColumn(tableId, columnId, "col1", 1, "bigint", null, null);
         Long temporalColumnId = dao.getTemporalColumnId(tableId);
-        assertNull(temporalColumnId);
+        assertThat(temporalColumnId).isNull();
 
         dao.updateTemporalColumnId(tableId, columnId);
         temporalColumnId = dao.getTemporalColumnId(tableId);
-        assertNotNull(temporalColumnId);
-        assertEquals(temporalColumnId, columnId);
+        assertThat(temporalColumnId).isNotNull();
+        assertThat(temporalColumnId).isEqualTo(columnId);
 
         long tableId2 = dao.insertTable("schema1", "table2", true, false, null, 0);
         Long columnId2 = dao.getTemporalColumnId(tableId2);
-        assertNull(columnId2);
+        assertThat(columnId2).isNull();
     }
 
     @Test
@@ -86,10 +89,10 @@ public class TestMetadataDao
 
     private static void assertTable(Table info, long tableId)
     {
-        assertEquals(info.getTableId(), tableId);
-        assertEquals(info.getDistributionId(), Optional.empty());
-        assertEquals(info.getDistributionName(), Optional.empty());
-        assertEquals(info.getBucketCount(), OptionalInt.empty());
-        assertEquals(info.getTemporalColumnId(), OptionalLong.empty());
+        assertThat(info.getTableId()).isEqualTo(tableId);
+        assertThat(info.getDistributionId()).isEqualTo(Optional.empty());
+        assertThat(info.getDistributionName()).isEqualTo(Optional.empty());
+        assertThat(info.getBucketCount()).isEqualTo(OptionalInt.empty());
+        assertThat(info.getTemporalColumnId()).isEqualTo(OptionalLong.empty());
     }
 }

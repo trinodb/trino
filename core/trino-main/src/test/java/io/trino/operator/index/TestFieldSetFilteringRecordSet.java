@@ -26,7 +26,7 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFieldSetFilteringRecordSet
 {
@@ -50,6 +50,6 @@ public class TestFieldSetFilteringRecordSet
                                         arrayBlockOf(BIGINT, 12, 34, 56)))),
                 ImmutableList.of(ImmutableSet.of(0, 1), ImmutableSet.of(2, 3), ImmutableSet.of(4, 5)));
         RecordCursor recordCursor = fieldSetFilteringRecordSet.cursor();
-        assertTrue(recordCursor.advanceNextPosition());
+        assertThat(recordCursor.advanceNextPosition()).isTrue();
     }
 }

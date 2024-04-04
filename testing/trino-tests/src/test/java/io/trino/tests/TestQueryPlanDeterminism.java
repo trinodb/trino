@@ -25,15 +25,16 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.testng.SkipException;
 
 import java.util.List;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -267,10 +268,20 @@ public class TestQueryPlanDeterminism
                 "    )\n");
     }
 
+    @Test
     @Override
     public void testLargeIn()
     {
         // testLargeIn is expensive
-        throw new SkipException("Skipping testLargeIn");
+        Assumptions.abort("Skipping testLargeIn");
+    }
+
+    @Test
+    @Override
+    public void testUnionAllAboveBroadcastJoin()
+    {
+        // TODO: https://github.com/trinodb/trino/issues/20043
+        assertThatThrownBy(super::testUnionAllAboveBroadcastJoin)
+                .hasMessageContaining("bytes is negative");
     }
 }

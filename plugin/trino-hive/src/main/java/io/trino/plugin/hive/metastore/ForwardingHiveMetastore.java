@@ -21,6 +21,7 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -94,12 +95,12 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(
+    public void updatePartitionsStatistics(
             Table table,
             String partitionName,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
-        delegate.updatePartitionStatistics(table, partitionName, update);
+        delegate.updatePartitionsStatistics(table, partitionName, update);
     }
 
     @Override
@@ -111,9 +112,9 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getTables(String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getTables(databaseName);
     }
 
     @Override
@@ -123,15 +124,27 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
+    public Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        return delegate.getRelationTypes(databaseName);
+    }
+
+    @Override
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
+    {
+        return delegate.getAllRelationTypes();
+    }
+
+    @Override
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
         return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getViews(databaseName);
     }
 
     @Override
@@ -316,12 +329,6 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        return delegate.listGrantedPrincipals(role);
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         return delegate.listRoleGrants(principal);
@@ -437,16 +444,6 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public void alterPartitions(
-            String dbName,
-            String tableName,
-            List<Partition> partitions,
-            long writeId)
-    {
-        delegate.alterPartitions(dbName, tableName, partitions, writeId);
-    }
-
-    @Override
     public void addDynamicPartitions(
             String dbName,
             String tableName,
@@ -475,9 +472,9 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public Collection<LanguageFunction> getFunctions(String databaseName)
+    public Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
-        return delegate.getFunctions(databaseName);
+        return delegate.getAllFunctions(databaseName);
     }
 
     @Override

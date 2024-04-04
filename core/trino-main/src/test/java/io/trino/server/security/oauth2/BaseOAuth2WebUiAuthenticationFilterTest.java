@@ -41,6 +41,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.net.CookieManager;
@@ -72,9 +73,10 @@ import static jakarta.ws.rs.core.Response.Status.SEE_OTHER;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class BaseOAuth2WebUiAuthenticationFilterTest
 {
     protected static final Duration TTL_ACCESS_TOKEN_IN_SECONDS = Duration.ofSeconds(5);
@@ -117,7 +119,6 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                 .setProperties(getOAuth2Config(idpUrl))
                 .build();
         server.getInstance(Key.get(OAuth2Client.class)).load();
-        server.waitForNodeRefresh(Duration.ofSeconds(10));
         serverUri = server.getHttpsBaseUrl();
         uiUri = serverUri.resolve("/ui/");
 
@@ -275,8 +276,8 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                         .get()
                         .build())
                 .execute()) {
-            assertEquals(response.code(), SC_OK);
-            assertEquals(response.request().url().toString(), uiUri.toString());
+            assertThat(response.code()).isEqualTo(SC_OK);
+            assertThat(response.request().url().toString()).isEqualTo(uiUri.toString());
         }
         Optional<HttpCookie> oauth2Cookie = cookieStore.get(uiUri)
                 .stream()
@@ -299,8 +300,8 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                                 .get()
                                 .build())
                 .execute()) {
-            assertEquals(response.code(), SC_OK);
-            assertEquals(response.request().url().toString(), uiUri.resolve("logout/logout.html").toString());
+            assertThat(response.code()).isEqualTo(SC_OK);
+            assertThat(response.request().url().toString()).isEqualTo(uiUri.resolve("logout/logout.html").toString());
         }
         assertThat(cookieStore.get(uiUri)).isEmpty();
     }

@@ -30,10 +30,8 @@ import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestBlockBuilder
 {
@@ -47,10 +45,10 @@ public class TestBlockBuilder
         BIGINT.writeLong(blockBuilder, 42);
         Block block = blockBuilder.build();
 
-        assertTrue(block.isNull(0));
-        assertEquals(BIGINT.getLong(block, 1), 42L);
-        assertTrue(block.isNull(2));
-        assertEquals(BIGINT.getLong(block, 3), 42L);
+        assertThat(block.isNull(0)).isTrue();
+        assertThat(BIGINT.getLong(block, 1)).isEqualTo(42L);
+        assertThat(block.isNull(2)).isTrue();
+        assertThat(BIGINT.getLong(block, 3)).isEqualTo(42L);
     }
 
     @Test
@@ -76,11 +74,12 @@ public class TestBlockBuilder
 
         PageBuilder newPageBuilder = pageBuilder.newPageBuilderLike();
         for (int i = 0; i < channels.size(); i++) {
-            assertEquals(newPageBuilder.getType(i), pageBuilder.getType(i));
+            assertThat(newPageBuilder.getType(i)).isEqualTo(pageBuilder.getType(i));
             // we should get new block builder instances
-            assertNotEquals(pageBuilder.getBlockBuilder(i), newPageBuilder.getBlockBuilder(i));
-            assertEquals(newPageBuilder.getBlockBuilder(i).getPositionCount(), 0);
-            assertTrue(newPageBuilder.getBlockBuilder(i).getRetainedSizeInBytes() < pageBuilder.getBlockBuilder(i).getRetainedSizeInBytes());
+            assertThat(pageBuilder.getBlockBuilder(i))
+                    .isNotEqualTo(newPageBuilder.getBlockBuilder(i));
+            assertThat(newPageBuilder.getBlockBuilder(i).getPositionCount()).isEqualTo(0);
+            assertThat(newPageBuilder.getBlockBuilder(i).getRetainedSizeInBytes() < pageBuilder.getBlockBuilder(i).getRetainedSizeInBytes()).isTrue();
         }
     }
 
@@ -117,7 +116,7 @@ public class TestBlockBuilder
                 isIdentical.set(true);
             }
         });
-        assertTrue(isIdentical.get());
+        assertThat(isIdentical.get()).isTrue();
     }
 
     private static Block buildBigintBlock(Integer... values)

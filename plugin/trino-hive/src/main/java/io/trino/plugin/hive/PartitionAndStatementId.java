@@ -14,12 +14,8 @@
 package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -27,8 +23,6 @@ import static java.util.Objects.requireNonNull;
 
 public class PartitionAndStatementId
 {
-    public static final JsonCodec<PartitionAndStatementId> CODEC = JsonCodec.jsonCodec(PartitionAndStatementId.class);
-
     private final String partitionName;
     private final int statementId;
     private final long rowCount;
@@ -78,15 +72,6 @@ public class PartitionAndStatementId
     public Optional<String> getDeltaDirectory()
     {
         return deltaDirectory;
-    }
-
-    @JsonIgnore
-    public List<String> getAllDirectories()
-    {
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
-        deltaDirectory.ifPresent(builder::add);
-        deleteDeltaDirectory.ifPresent(builder::add);
-        return builder.build();
     }
 
     @Override

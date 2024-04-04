@@ -15,14 +15,13 @@ package io.trino.operator;
 
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RunLengthEncodedBlock;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
@@ -64,24 +63,21 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
         int inputChannelCount = inputPage.getChannelCount();
         checkArgument(inputChannelCount >= 2 + writeRedistributionColumnCount, "inputPage channelCount (%s) should be >= 2 + %s", inputChannelCount, writeRedistributionColumnCount);
         int positionCount = inputPage.getPositionCount();
-        // TODO: Check with Karol to see if we can get empty pages
         checkArgument(positionCount > 0, "positionCount should be > 0, but is %s", positionCount);
 
-        ColumnarRow mergeRow = toColumnarRow(inputPage.getBlock(mergeRowChannel));
+        Block mergeRow = inputPage.getBlock(mergeRowChannel).getLoadedBlock();
         if (mergeRow.mayHaveNull()) {
             for (int position = 0; position < positionCount; position++) {
                 checkArgument(!mergeRow.isNull(position), "The mergeRow may not have null rows");
             }
         }
 
-        // We've verified that the mergeRow block has no null rows, so it's okay to get the field blocks
-
+        List<Block> fields = getRowFieldsFromBlock(mergeRow);
         List<Block> builder = new ArrayList<>(dataColumnChannels.size() + 3);
-
         for (int channel : dataColumnChannels) {
-            builder.add(mergeRow.getField(channel));
+            builder.add(fields.get(channel));
         }
-        Block operationChannelBlock = mergeRow.getField(mergeRow.getFieldCount() - 2);
+        Block operationChannelBlock = fields.get(fields.size() - 2);
         builder.add(operationChannelBlock);
         builder.add(inputPage.getBlock(rowIdChannel));
         builder.add(RunLengthEncodedBlock.create(INSERT_FROM_UPDATE_BLOCK, positionCount));

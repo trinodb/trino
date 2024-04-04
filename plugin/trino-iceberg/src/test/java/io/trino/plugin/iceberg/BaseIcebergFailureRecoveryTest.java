@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorType;
 import io.trino.testing.BaseFailureRecoveryTest;
-import org.testng.annotations.DataProvider;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -41,17 +41,7 @@ public abstract class BaseIcebergFailureRecoveryTest
         return true;
     }
 
-    @Override
-    @DataProvider(name = "parallelTests", parallel = true)
-    public Object[][] parallelTests()
-    {
-        return moreParallelTests(super.parallelTests(),
-                parallelTest("testCreatePartitionedTable", this::testCreatePartitionedTable),
-                parallelTest("testInsertIntoNewPartition", this::testInsertIntoNewPartition),
-                parallelTest("testInsertIntoExistingPartition", this::testInsertIntoExistingPartition),
-                parallelTest("testMergePartitionedTable", this::testMergePartitionedTable));
-    }
-
+    @Test
     protected void testCreatePartitionedTable()
     {
         testTableModification(
@@ -61,6 +51,7 @@ public abstract class BaseIcebergFailureRecoveryTest
     }
 
     // Copied from BaseDeltaFailureRecoveryTest
+    @Test
     @Override
     protected void testDelete()
     {
@@ -138,6 +129,7 @@ public abstract class BaseIcebergFailureRecoveryTest
     }
 
     // Copied from BaseDeltaFailureRecoveryTest
+    @Test
     @Override
     protected void testUpdate()
     {
@@ -213,6 +205,7 @@ public abstract class BaseIcebergFailureRecoveryTest
         }
     }
 
+    @Test
     protected void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -221,6 +214,7 @@ public abstract class BaseIcebergFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testInsertIntoExistingPartition()
     {
         testTableModification(
@@ -229,6 +223,7 @@ public abstract class BaseIcebergFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testMergePartitionedTable()
     {
         testTableModification(

@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.hive;
 
-import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -31,10 +30,6 @@ public class TestHiveTransactionalTableInsert
     @Test(dataProvider = "transactionalTableType", groups = HIVE_TRANSACTIONAL)
     public void testInsertIntoTransactionalTable(TransactionalTableType type)
     {
-        if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
-        }
-
         String tableName = "test_insert_into_transactional_table_" + type.name().toLowerCase(ENGLISH);
         onHive().executeQuery("" +
                 "CREATE TABLE " + tableName + "(a bigint)" +

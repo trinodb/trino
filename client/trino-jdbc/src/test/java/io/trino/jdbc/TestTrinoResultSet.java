@@ -19,7 +19,8 @@ import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 import io.trino.client.StatementStats;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.time.ZoneId;
 import java.util.Iterator;
@@ -33,7 +34,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * A unit test for {@link TrinoResultSet}.
@@ -42,7 +43,8 @@ import static org.testng.Assert.assertTrue;
  */
 public class TestTrinoResultSet
 {
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testIteratorCancelWhenQueueNotFull()
             throws Exception
     {
@@ -67,7 +69,7 @@ public class TestTrinoResultSet
                         catch (InterruptedException e) {
                             interruptedButSwallowedLatch.countDown();
                         }
-                        return ImmutableList.of((ImmutableList.of(new Object())));
+                        return ImmutableList.of(ImmutableList.of(new Object()));
                     }
                 },
                 new ArrayBlockingQueue<>(100));
@@ -80,10 +82,11 @@ public class TestTrinoResultSet
             TimeUnit.MILLISECONDS.sleep(10);
         }
         boolean interruptedButSwallowed = interruptedButSwallowedLatch.await(5000, TimeUnit.MILLISECONDS);
-        assertTrue(interruptedButSwallowed);
+        assertThat(interruptedButSwallowed).isTrue();
     }
 
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testIteratorCancelWhenQueueIsFull()
             throws Exception
     {
@@ -104,7 +107,7 @@ public class TestTrinoResultSet
                     public Iterable<List<Object>> next()
                     {
                         thread.compareAndSet(null, Thread.currentThread());
-                        return ImmutableList.of((ImmutableList.of(new Object())));
+                        return ImmutableList.of(ImmutableList.of(new Object()));
                     }
                 },
                 queue);

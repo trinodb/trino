@@ -43,7 +43,7 @@ public class TestTestingMetadata
         SchemaTableName newName = schemaTableName("schema", target);
         TestingMetadata metadata = new TestingMetadata();
         ConnectorMaterializedViewDefinition viewDefinition = someMaterializedView();
-        metadata.createMaterializedView(SESSION, initialName, viewDefinition, false, false);
+        metadata.createMaterializedView(SESSION, initialName, viewDefinition, ImmutableMap.of(), false, false);
 
         metadata.renameMaterializedView(SESSION, initialName, newName);
 
@@ -58,11 +58,10 @@ public class TestTestingMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new Column("test", BIGINT.getTypeId())),
+                ImmutableList.of(new Column("test", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of("owner"),
-                ImmutableList.of(),
-                ImmutableMap.of());
+                ImmutableList.of());
     }
 }

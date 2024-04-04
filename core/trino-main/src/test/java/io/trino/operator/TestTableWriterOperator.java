@@ -44,6 +44,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -71,12 +72,10 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTableWriterOperator
 {
     private static final TestingAggregationFunction LONG_MAX = new TestingFunctionResolution().getAggregateFunction("max", fromTypes(BIGINT));
@@ -104,38 +103,38 @@ public class TestTableWriterOperator
         Operator operator = createTableWriterOperator(blockingPageSink);
 
         // initial state validation
-        assertTrue(operator.isBlocked().isDone());
-        assertFalse(operator.isFinished());
-        assertTrue(operator.needsInput());
+        assertThat(operator.isBlocked().isDone()).isTrue();
+        assertThat(operator.isFinished()).isFalse();
+        assertThat(operator.needsInput()).isTrue();
 
         // blockingPageSink that will return blocked future
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
 
-        assertFalse(operator.isBlocked().isDone());
-        assertFalse(operator.isFinished());
-        assertFalse(operator.needsInput());
-        assertNull(operator.getOutput());
+        assertThat(operator.isBlocked().isDone()).isFalse();
+        assertThat(operator.isFinished()).isFalse();
+        assertThat(operator.needsInput()).isFalse();
+        assertThat(operator.getOutput()).isNull();
 
         // complete previously blocked future
         blockingPageSink.complete();
 
-        assertTrue(operator.isBlocked().isDone());
-        assertFalse(operator.isFinished());
-        assertTrue(operator.needsInput());
+        assertThat(operator.isBlocked().isDone()).isTrue();
+        assertThat(operator.isFinished()).isFalse();
+        assertThat(operator.needsInput()).isTrue();
 
         // add second page
         operator.addInput(rowPagesBuilder(BIGINT).row(44).build().get(0));
 
-        assertFalse(operator.isBlocked().isDone());
-        assertFalse(operator.isFinished());
-        assertFalse(operator.needsInput());
+        assertThat(operator.isBlocked().isDone()).isFalse();
+        assertThat(operator.isFinished()).isFalse();
+        assertThat(operator.needsInput()).isFalse();
 
         // finish operator, state hasn't changed
         operator.finish();
 
-        assertFalse(operator.isBlocked().isDone());
-        assertFalse(operator.isFinished());
-        assertFalse(operator.needsInput());
+        assertThat(operator.isBlocked().isDone()).isFalse();
+        assertThat(operator.isFinished()).isFalse();
+        assertThat(operator.needsInput()).isFalse();
 
         // complete previously blocked future
         blockingPageSink.complete();
@@ -145,9 +144,9 @@ public class TestTableWriterOperator
                 operator.getOutput(),
                 rowPagesBuilder(expectedTypes).row(2, null).build().get(0));
 
-        assertTrue(operator.isBlocked().isDone());
-        assertTrue(operator.isFinished());
-        assertFalse(operator.needsInput());
+        assertThat(operator.isBlocked().isDone()).isTrue();
+        assertThat(operator.isFinished()).isTrue();
+        assertThat(operator.needsInput()).isFalse();
     }
 
     @Test
@@ -157,8 +156,8 @@ public class TestTableWriterOperator
 
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
 
-        assertFalse(operator.isBlocked().isDone());
-        assertFalse(operator.needsInput());
+        assertThat(operator.isBlocked().isDone()).isFalse();
+        assertThat(operator.needsInput()).isFalse();
 
         assertThatThrownBy(() -> operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0)))
                 .isInstanceOf(IllegalStateException.class)
@@ -188,8 +187,8 @@ public class TestTableWriterOperator
             validationCpuNanos += page.getPositionCount();
             tableWriterOperator.addInput(page);
             TableWriterInfo info = tableWriterOperator.getInfo();
-            assertEquals(info.getPageSinkPeakMemoryUsage(), peakMemoryUsage);
-            assertEquals((long) (info.getValidationCpuTime().getValue(NANOSECONDS)), validationCpuNanos);
+            assertThat(info.getPageSinkPeakMemoryUsage()).isEqualTo(peakMemoryUsage);
+            assertThat((long) info.getValidationCpuTime().getValue(NANOSECONDS)).isEqualTo(validationCpuNanos);
         }
     }
 
@@ -218,13 +217,13 @@ public class TestTableWriterOperator
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
         operator.addInput(rowPagesBuilder(BIGINT).row(43).build().get(0));
 
-        assertTrue(operator.isBlocked().isDone());
-        assertTrue(operator.needsInput());
+        assertThat(operator.isBlocked().isDone()).isTrue();
+        assertThat(operator.needsInput()).isTrue();
 
         assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
 
         operator.finish();
-        assertFalse(operator.isFinished());
+        assertThat(operator.isFinished()).isFalse();
 
         assertPageEquals(outputTypes, operator.getOutput(),
                 rowPagesBuilder(outputTypes)
@@ -234,9 +233,9 @@ public class TestTableWriterOperator
                 rowPagesBuilder(outputTypes)
                         .row(2, null, null).build().get(0));
 
-        assertTrue(operator.isBlocked().isDone());
-        assertFalse(operator.needsInput());
-        assertTrue(operator.isFinished());
+        assertThat(operator.isBlocked().isDone()).isTrue();
+        assertThat(operator.needsInput()).isFalse();
+        assertThat(operator.isFinished()).isTrue();
 
         operator.close();
         assertMemoryIsReleased(operator);
@@ -250,16 +249,16 @@ public class TestTableWriterOperator
     {
         OperatorContext tableWriterOperatorOperatorContext = tableWriterOperator.getOperatorContext();
         MemoryTrackingContext tableWriterMemoryContext = tableWriterOperatorOperatorContext.getOperatorMemoryContext();
-        assertEquals(tableWriterMemoryContext.getUserMemory(), 0);
-        assertEquals(tableWriterMemoryContext.getRevocableMemory(), 0);
+        assertThat(tableWriterMemoryContext.getUserMemory()).isEqualTo(0);
+        assertThat(tableWriterMemoryContext.getRevocableMemory()).isEqualTo(0);
 
         Operator statisticAggregationOperator = tableWriterOperator.getStatisticAggregationOperator();
-        assertTrue(statisticAggregationOperator instanceof AggregationOperator);
+        assertThat(statisticAggregationOperator instanceof AggregationOperator).isTrue();
         AggregationOperator aggregationOperator = (AggregationOperator) statisticAggregationOperator;
         OperatorContext aggregationOperatorOperatorContext = aggregationOperator.getOperatorContext();
         MemoryTrackingContext aggregationOperatorMemoryContext = aggregationOperatorOperatorContext.getOperatorMemoryContext();
-        assertEquals(aggregationOperatorMemoryContext.getUserMemory(), 0);
-        assertEquals(aggregationOperatorMemoryContext.getRevocableMemory(), 0);
+        assertThat(aggregationOperatorMemoryContext.getUserMemory()).isEqualTo(0);
+        assertThat(aggregationOperatorMemoryContext.getRevocableMemory()).isEqualTo(0);
     }
 
     private Operator createTableWriterOperator(BlockingPageSink blockingPageSink)

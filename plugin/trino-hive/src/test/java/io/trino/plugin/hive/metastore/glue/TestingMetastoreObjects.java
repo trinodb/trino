@@ -22,17 +22,19 @@ import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.TableType;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.security.PrincipalType;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static java.lang.String.format;
@@ -61,7 +63,7 @@ public final class TestingMetastoreObjects
                 .withParameters(ImmutableMap.of())
                 .withPartitionKeys(ImmutableList.of(getGlueTestColumn()))
                 .withStorageDescriptor(getGlueTestStorageDescriptor())
-                .withTableType(TableType.EXTERNAL_TABLE.name())
+                .withTableType(EXTERNAL_TABLE.name())
                 .withViewOriginalText("originalText")
                 .withViewExpandedText("expandedText");
     }
@@ -125,7 +127,7 @@ public final class TestingMetastoreObjects
 
     // --------------- Trino Objects ---------------
 
-    public static io.trino.plugin.hive.metastore.Database getPrestoTestDatabase()
+    public static io.trino.plugin.hive.metastore.Database getTrinoTestDatabase()
     {
         return io.trino.plugin.hive.metastore.Database.builder()
                 .setDatabaseName("test-db" + generateRandom())
@@ -137,7 +139,7 @@ public final class TestingMetastoreObjects
                 .build();
     }
 
-    public static io.trino.plugin.hive.metastore.Table getPrestoTestTable(String dbName)
+    public static io.trino.plugin.hive.metastore.Table getTrinoTestTable(String dbName)
     {
         return io.trino.plugin.hive.metastore.Table.builder()
                 .setDatabaseName(dbName)
@@ -145,27 +147,27 @@ public final class TestingMetastoreObjects
                 .setOwner(Optional.of("owner"))
                 .setParameters(ImmutableMap.of())
                 .setTableType(TableType.EXTERNAL_TABLE.name())
-                .setDataColumns(ImmutableList.of(getPrestoTestColumn()))
-                .setPartitionColumns(ImmutableList.of(getPrestoTestColumn()))
+                .setDataColumns(ImmutableList.of(getTrinoTestColumn()))
+                .setPartitionColumns(ImmutableList.of(getTrinoTestColumn()))
                 .setViewOriginalText(Optional.of("originalText"))
                 .setViewExpandedText(Optional.of("expandedText"))
                 .withStorage(STORAGE_CONSUMER).build();
     }
 
-    public static io.trino.plugin.hive.metastore.Partition getPrestoTestPartition(String dbName, String tblName, List<String> values)
+    public static io.trino.plugin.hive.metastore.Partition getTrinoTestPartition(String dbName, String tblName, List<String> values)
     {
         return io.trino.plugin.hive.metastore.Partition.builder()
                 .setDatabaseName(dbName)
                 .setTableName(tblName)
                 .setValues(values)
-                .setColumns(ImmutableList.of(getPrestoTestColumn()))
+                .setColumns(ImmutableList.of(getTrinoTestColumn()))
                 .setParameters(ImmutableMap.of())
                 .withStorage(STORAGE_CONSUMER).build();
     }
 
-    public static io.trino.plugin.hive.metastore.Column getPrestoTestColumn()
+    public static io.trino.plugin.hive.metastore.Column getTrinoTestColumn()
     {
-        return new io.trino.plugin.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"));
+        return new io.trino.plugin.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"), Map.of());
     }
 
     private static final Consumer<Storage.Builder> STORAGE_CONSUMER = storage ->

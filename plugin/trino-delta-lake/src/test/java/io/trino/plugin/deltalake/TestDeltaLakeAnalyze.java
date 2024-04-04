@@ -1006,8 +1006,8 @@ public class TestDeltaLakeAnalyze
         assertThat(transactionLogAfterUpdate).hasSize(2);
         AddFileEntry updateAddFileEntry = transactionLogAfterUpdate.get(1).getAdd();
         DeltaLakeFileStatistics updateStats = updateAddFileEntry.getStats().orElseThrow();
-        assertThat(updateStats.getMinValues().orElseThrow().get("c_Int")).isEqualTo(2);
-        assertThat(updateStats.getMaxValues().orElseThrow().get("c_Int")).isEqualTo(11);
+        assertThat(updateStats.getMinValues().orElseThrow()).containsEntry("c_Int", 2);
+        assertThat(updateStats.getMaxValues().orElseThrow()).containsEntry("c_Int", 11);
         assertThat(updateStats.getNullCount("c_Int").orElseThrow()).isEqualTo(1);
         assertThat(updateStats.getNullCount("c_Str").orElseThrow()).isEqualTo(1);
 

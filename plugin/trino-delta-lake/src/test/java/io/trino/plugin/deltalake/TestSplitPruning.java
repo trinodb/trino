@@ -22,10 +22,11 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -35,8 +36,9 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestSplitPruning
         extends AbstractTestQueryFramework
 {
@@ -62,7 +64,7 @@ public class TestSplitPruning
         return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.register-table-procedure.enabled", "true"));
     }
 
-    @BeforeClass
+    @BeforeAll
     public void registerTables()
     {
         for (String table : TABLES) {
@@ -72,74 +74,72 @@ public class TestSplitPruning
         }
     }
 
-    @DataProvider
-    public Object[][] types()
+    @Test
+    public void testStatsPruningInfinity()
     {
-        return new Object[][] {{"float"}, {"double"}};
+        for (String type : Arrays.asList("float", "double")) {
+            String tableName = type + "_inf";
+            // Data generated using:
+            // INSERT INTO pruning_inf_test VALUES
+            //   (1.0, 'a1', CAST('-Infinity' as DOUBLE)),
+            //   (1.0, 'b1', 100.0),
+            //   (2.0, 'a2', 200.0),
+            //   (2.0, 'b2', CAST('+Infinity' as DOUBLE)),
+            //   (3.0, 'a3', CAST('-Infinity' as DOUBLE)),
+            //   (3.0, 'b3', 150.0),
+            //   (3.0, 'c3', null),
+            //   (3.0, 'd3', CAST('+Infinity' as DOUBLE)),
+            //   (4.0, 'a4', null)
+
+            // a1, b1, a3, b3, c3 and d3 were processed, across 2 splits
+            assertResultAndSplitCount(
+                    format("SELECT name FROM %s WHERE val < 200", tableName),
+                    Set.of("a1", "b1", "a3", "b3"),
+                    2);
+
+            // a1, b1, a3, b3, c3 and d3 were processed, across 2 splits
+            assertResultAndSplitCount(
+                    format("SELECT name FROM %s WHERE val > 100", tableName),
+                    Set.of("a2", "b2", "b3", "d3"),
+                    2);
+
+            // 2 out of 4 splits
+            assertResultAndSplitCount(
+                    format("SELECT name FROM %s WHERE val IS NULL", tableName),
+                    Set.of("c3", "a4"),
+                    2);
+        }
     }
 
-    @Test(dataProvider = "types")
-    public void testStatsPruningInfinity(String type)
+    @Test
+    public void testStatsPruningNaN()
     {
-        String tableName = type + "_inf";
-        // Data generated using:
-        // INSERT INTO pruning_inf_test VALUES
-        //   (1.0, 'a1', CAST('-Infinity' as DOUBLE)),
-        //   (1.0, 'b1', 100.0),
-        //   (2.0, 'a2', 200.0),
-        //   (2.0, 'b2', CAST('+Infinity' as DOUBLE)),
-        //   (3.0, 'a3', CAST('-Infinity' as DOUBLE)),
-        //   (3.0, 'b3', 150.0),
-        //   (3.0, 'c3', null),
-        //   (3.0, 'd3', CAST('+Infinity' as DOUBLE)),
-        //   (4.0, 'a4', null)
+        for (String type : Arrays.asList("float", "double")) {
+            String tableName = type + "_nan";
+            // Data generated using:
+            // INSERT INTO pruning_nan_test VALUES
+            //   (5.0, 'a5', CAST('NaN' as DOUBLE)),
+            //   (5.0, 'b5', 100),
+            //   (6.0, 'a6', CAST('NaN' as DOUBLE)),
+            //   (6.0, 'b6', CAST('+Infinity' as DOUBLE))
 
-        // a1, b1, a3, b3, c3 and d3 were processed, across 2 splits
-        assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE val < 200", tableName),
-                Set.of("a1", "b1", "a3", "b3"),
-                2);
+            // no pruning, because the domain contains NaN
+            assertResultAndSplitCount(
+                    format("SELECT name FROM %s WHERE val < 100", tableName),
+                    Set.of(),
+                    2);
 
-        // a1, b1, a3, b3, c3 and d3 were processed, across 2 splits
-        assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE val > 100", tableName),
-                Set.of("a2", "b2", "b3", "d3"),
-                2);
+            // pruning works with the IS NULL predicate
+            assertResultAndSplitCount(
+                    format("SELECT name FROM %s WHERE val IS NULL", tableName),
+                    Set.of(),
+                    0);
 
-        // 2 out of 4 splits
-        assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE val IS NULL", tableName),
-                Set.of("c3", "a4"),
-                2);
-    }
-
-    @Test(dataProvider = "types")
-    public void testStatsPruningNaN(String type)
-    {
-        String tableName = type + "_nan";
-        // Data generated using:
-        // INSERT INTO pruning_nan_test VALUES
-        //   (5.0, 'a5', CAST('NaN' as DOUBLE)),
-        //   (5.0, 'b5', 100),
-        //   (6.0, 'a6', CAST('NaN' as DOUBLE)),
-        //   (6.0, 'b6', CAST('+Infinity' as DOUBLE))
-
-        // no pruning, because the domain contains NaN
-        assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE val < 100", tableName),
-                Set.of(),
-                2);
-
-        // pruning works with the IS NULL predicate
-        assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE val IS NULL", tableName),
-                Set.of(),
-                0);
-
-        MaterializedResult result = getDistributedQueryRunner().execute(
-                getSession(),
-                format("SELECT name FROM %s WHERE val IS NOT NULL", tableName));
-        assertEquals(result.getOnlyColumnAsSet(), Set.of("a5", "b5", "a6", "b6"));
+            MaterializedResult result = getDistributedQueryRunner().execute(
+                    getSession(),
+                    format("SELECT name FROM %s WHERE val IS NOT NULL", tableName));
+            assertThat(result.getOnlyColumnAsSet()).isEqualTo(Set.of("a5", "b5", "a6", "b6"));
+        }
     }
 
     @Test
@@ -402,7 +402,7 @@ public class TestSplitPruning
     }
 
     /**
-     * Test that a {@code SELECT count(*)} query returns the expected result an splits.
+     * Test that a {@code SELECT count(*)} query returns the expected result splits.
      */
     private void testCountQuery(@Language("SQL") String sql, long expectedRowCount, long expectedSplitCount)
     {

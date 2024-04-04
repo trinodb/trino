@@ -49,9 +49,11 @@ import org.jdbi.v3.core.Jdbi;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.chrono.ISOChronology;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -95,18 +97,13 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
-import static org.testng.FileAssert.assertDirectory;
-import static org.testng.FileAssert.assertFile;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestRaptorStorageManager
 {
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
@@ -134,7 +131,7 @@ public class TestRaptorStorageManager
     private Optional<BackupStore> backupStore;
     private InMemoryShardRecorder shardRecorder;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -159,7 +156,7 @@ public class TestRaptorStorageManager
         shardRecorder = new InMemoryShardRecorder();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {
@@ -187,40 +184,44 @@ public class TestRaptorStorageManager
         sink.appendPages(pages);
 
         // shard is not recorded until flush
-        assertEquals(shardRecorder.getShards().size(), 0);
+        assertThat(shardRecorder.getShards().size()).isEqualTo(0);
 
         sink.flush();
 
         // shard is recorded after flush
         List<RecordedShard> recordedShards = shardRecorder.getShards();
-        assertEquals(recordedShards.size(), 1);
+        assertThat(recordedShards.size()).isEqualTo(1);
 
         List<ShardInfo> shards = getFutureValue(sink.commit());
 
-        assertEquals(shards.size(), 1);
+        assertThat(shards.size()).isEqualTo(1);
         ShardInfo shardInfo = Iterables.getOnlyElement(shards);
 
         UUID shardUuid = shardInfo.getShardUuid();
         File file = storageService.getStorageFile(shardUuid);
         File backupFile = fileBackupStore.getBackupFile(shardUuid);
 
-        assertEquals(recordedShards.get(0).getTransactionId(), TRANSACTION_ID);
-        assertEquals(recordedShards.get(0).getShardUuid(), shardUuid);
+        assertThat(recordedShards.get(0).getTransactionId()).isEqualTo(TRANSACTION_ID);
+        assertThat(recordedShards.get(0).getShardUuid()).isEqualTo(shardUuid);
 
-        assertEquals(shardInfo.getRowCount(), 2);
-        assertEquals(shardInfo.getCompressedSize(), file.length());
-        assertEquals(shardInfo.getXxhash64(), xxhash64(file));
+        assertThat(shardInfo.getRowCount()).isEqualTo(2);
+        assertThat(shardInfo.getCompressedSize()).isEqualTo(file.length());
+        assertThat(shardInfo.getXxhash64()).isEqualTo(xxhash64(file));
 
         // verify primary and backup shard exist
-        assertFile(file, "primary shard");
-        assertFile(backupFile, "backup shard");
+        assertThat(file)
+                .describedAs("primary shard")
+                .exists();
+        assertThat(backupFile)
+                .describedAs("backup shard")
+                .exists();
 
         assertFileEquals(file, backupFile);
 
         // remove primary shard to force recovery from backup
-        assertTrue(file.delete());
-        assertTrue(file.getParentFile().delete());
-        assertFalse(file.exists());
+        assertThat(file.delete()).isTrue();
+        assertThat(file.getParentFile().delete()).isTrue();
+        assertThat(file.exists()).isFalse();
 
         recoveryManager.restoreFromBackup(shardUuid, shardInfo.getCompressedSize(), OptionalLong.of(shardInfo.getXxhash64()));
 
@@ -228,19 +229,19 @@ public class TestRaptorStorageManager
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
             Page page = reader.nextPage();
-            assertEquals(page.getPositionCount(), 2);
+            assertThat(page.getPositionCount()).isEqualTo(2);
 
             Block column0 = page.getBlock(0);
-            assertEquals(column0.isNull(0), false);
-            assertEquals(column0.isNull(1), false);
-            assertEquals(BIGINT.getLong(column0, 0), 123L);
-            assertEquals(BIGINT.getLong(column0, 1), 456L);
+            assertThat(column0.isNull(0)).isEqualTo(false);
+            assertThat(column0.isNull(1)).isEqualTo(false);
+            assertThat(BIGINT.getLong(column0, 0)).isEqualTo(123L);
+            assertThat(BIGINT.getLong(column0, 1)).isEqualTo(456L);
 
             Block column1 = page.getBlock(1);
-            assertEquals(createVarcharType(10).getSlice(column1, 0), utf8Slice("hello"));
-            assertEquals(createVarcharType(10).getSlice(column1, 1), utf8Slice("bye"));
+            assertThat(createVarcharType(10).getSlice(column1, 0)).isEqualTo(utf8Slice("hello"));
+            assertThat(createVarcharType(10).getSlice(column1, 1)).isEqualTo(utf8Slice("bye"));
 
-            assertNull(reader.nextPage());
+            assertThat(reader.nextPage()).isNull();
         }
     }
 
@@ -278,7 +279,7 @@ public class TestRaptorStorageManager
         sink.appendPages(pages);
         List<ShardInfo> shards = getFutureValue(sink.commit());
 
-        assertEquals(shards.size(), 1);
+        assertThat(shards.size()).isEqualTo(1);
         UUID uuid = Iterables.getOnlyElement(shards).getShardUuid();
 
         MaterializedResult expected = resultBuilder(SESSION, columnTypes)
@@ -293,7 +294,7 @@ public class TestRaptorStorageManager
 
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
-            assertEquals(result.getRowCount(), expected.getRowCount());
+            assertThat(result.getRowCount()).isEqualTo(expected.getRowCount());
             assertThat(result).containsExactlyElementsOf(expected);
         }
 
@@ -302,7 +303,7 @@ public class TestRaptorStorageManager
 
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
-            assertEquals(result.getRowCount(), expected.getRowCount());
+            assertThat(result.getRowCount()).isEqualTo(expected.getRowCount());
         }
 
         // tuple domain outside the column range
@@ -310,7 +311,7 @@ public class TestRaptorStorageManager
 
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
-            assertEquals(result.getRowCount(), 0);
+            assertThat(result.getRowCount()).isEqualTo(0);
         }
     }
 
@@ -333,7 +334,7 @@ public class TestRaptorStorageManager
         sink.appendPages(pages);
         List<ShardInfo> shards = getFutureValue(sink.commit());
 
-        assertEquals(shardRecorder.getShards().size(), 1);
+        assertThat(shardRecorder.getShards().size()).isEqualTo(1);
 
         // delete one row
         BitSet rowsToDelete = new BitSet();
@@ -345,7 +346,7 @@ public class TestRaptorStorageManager
         ShardInfo shardInfo = Iterables.getOnlyElement(shardDeltas.getNewShards());
 
         // check that output file has one row
-        assertEquals(shardInfo.getRowCount(), 1);
+        assertThat(shardInfo.getRowCount()).isEqualTo(1);
 
         // check that storage file is same as backup file
         File storageFile = storageService.getStorageFile(shardInfo.getShardUuid());
@@ -354,9 +355,9 @@ public class TestRaptorStorageManager
 
         // verify recorded shard
         List<RecordedShard> recordedShards = shardRecorder.getShards();
-        assertEquals(recordedShards.size(), 2);
-        assertEquals(recordedShards.get(1).getTransactionId(), TRANSACTION_ID);
-        assertEquals(recordedShards.get(1).getShardUuid(), shardInfo.getShardUuid());
+        assertThat(recordedShards.size()).isEqualTo(2);
+        assertThat(recordedShards.get(1).getTransactionId()).isEqualTo(TRANSACTION_ID);
+        assertThat(recordedShards.get(1).getShardUuid()).isEqualTo(shardInfo.getShardUuid());
     }
 
     @Test
@@ -364,8 +365,8 @@ public class TestRaptorStorageManager
     {
         // verify staging directory is empty
         File staging = temporary.resolve("data").resolve("staging").toFile();
-        assertDirectory(staging);
-        assertEquals(staging.list(), new String[] {});
+        assertThat(staging).isDirectory();
+        assertThat(staging.list()).isEqualTo(new String[] {});
 
         // create a shard in staging
         RaptorStorageManager manager = createRaptorStorageManager();
@@ -384,7 +385,7 @@ public class TestRaptorStorageManager
 
         // verify shard exists in staging
         String[] files = staging.list();
-        assertNotNull(files);
+        assertThat(files).isNotNull();
         String stagingFile = Arrays.stream(files)
                 .filter(file -> file.endsWith(".orc"))
                 .findFirst()
@@ -394,8 +395,8 @@ public class TestRaptorStorageManager
         sink.rollback();
 
         files = staging.list();
-        assertNotNull(files);
-        assertTrue(Arrays.stream(files).noneMatch(stagingFile::equals));
+        assertThat(files).isNotNull();
+        assertThat(Arrays.stream(files).noneMatch(stagingFile::equals)).isTrue();
     }
 
     @Test
@@ -516,7 +517,7 @@ public class TestRaptorStorageManager
                 .row(456L, "bye")
                 .build();
         sink.appendPages(pages);
-        assertTrue(sink.isFull());
+        assertThat(sink.isFull()).isTrue();
     }
 
     @Test
@@ -534,7 +535,7 @@ public class TestRaptorStorageManager
         RaptorStorageManager manager = createRaptorStorageManager(20, DataSize.ofBytes(1));
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         sink.appendPages(pages);
-        assertTrue(sink.isFull());
+        assertThat(sink.isFull()).isTrue();
     }
 
     private static ConnectorPageSource getPageSource(
@@ -630,8 +631,8 @@ public class TestRaptorStorageManager
     {
         for (ColumnStats stats : list) {
             if (stats.getColumnId() == columnId) {
-                assertEquals(stats.getMin(), min);
-                assertEquals(stats.getMax(), max);
+                assertThat(stats.getMin()).isEqualTo(min);
+                assertThat(stats.getMax()).isEqualTo(max);
                 return;
             }
         }
@@ -641,7 +642,8 @@ public class TestRaptorStorageManager
     private static void assertNoColumnStats(List<ColumnStats> list, long columnId)
     {
         for (ColumnStats stats : list) {
-            assertNotEquals(stats.getColumnId(), columnId);
+            assertThat(stats.getColumnId())
+                    .isNotEqualTo(columnId);
         }
     }
 
@@ -668,7 +670,7 @@ public class TestRaptorStorageManager
         sink.appendPages(rowPagesBuilder(columnTypes).rows(rows).build());
         List<ShardInfo> shards = getFutureValue(sink.commit());
 
-        assertEquals(shards.size(), 1);
+        assertThat(shards.size()).isEqualTo(1);
         return Iterables.getOnlyElement(shards).getColumnStats();
     }
 

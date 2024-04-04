@@ -244,4 +244,9 @@ public final class ShortArrayBlock
     {
         return values;
     }
+
+    boolean[] getRawValueIsNull()
+    {
+        return valueIsNull;
+    }
 }

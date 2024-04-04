@@ -36,6 +36,12 @@ if ! check_if_correct_java_version "$JAVA_HOME"; then
     for candidate in \
         /usr/lib/jvm/java-17-* \
         /usr/lib/jvm/zulu-17 \
+        /usr/lib/jvm/temurin-17 \
+        /usr/lib/jvm/temurin-17-* \
+        /usr/lib/jvm/java-21-* \
+        /usr/lib/jvm/zulu-21 \
+        /usr/lib/jvm/temurin-21 \
+        /usr/lib/jvm/temurin-21-* \
         /usr/lib/jvm/default-java \
         /usr/java/default \
         / \
@@ -53,15 +59,14 @@ fi
 if [ "$java_found" = false ]; then
     cat 1>&2 <<EOF
 +======================================================================+
-|      Error: Required Java version could not be found                 |
+|            Error: Required Java version could not be found           |
 +----------------------------------------------------------------------+
-| Please install JDK 17. On RHEL/CentOS, use java-17-openjdk-devel.    |
+|                       JDK 17 was not detected.                       |
+|           Recommended JDK distribution is Eclipse Temurin.           |
+|     Installation guide: https://adoptium.net/installation/linux/     |
 |                                                                      |
-| You can also download an OpenJDK 17 build, such as Zulu Community:   |
-|       >>> https://www.azul.com/downloads/zulu-community/ <<<         |
-|                                                                      |
-| NOTE: This script will attempt to find Java whether you install      |
-|       using the binary or the RPM based installer.                   |
+|    NOTE: This script will attempt to find Java whether you install   |
+|             using the binary or the RPM based installer.             |
 +======================================================================+
 EOF
     exit 1

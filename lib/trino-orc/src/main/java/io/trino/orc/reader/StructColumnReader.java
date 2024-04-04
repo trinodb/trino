@@ -29,6 +29,8 @@ import io.trino.orc.stream.BooleanInputStream;
 import io.trino.orc.stream.InputStreamSource;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LazyBlock;
+import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.RowType;
@@ -49,6 +51,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ColumnReaders.createColumnReader;
+import static io.trino.orc.reader.ReaderUtils.toNotNullSupressedBlock;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.util.Locale.ENGLISH;
@@ -151,19 +154,19 @@ public class StructColumnReader
         Block[] blocks;
 
         if (presentStream == null) {
-            blocks = getBlocksForType(nextBatchSize);
+            blocks = getBlocks(nextBatchSize, nextBatchSize, null);
         }
         else {
             nullVector = new boolean[nextBatchSize];
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
-                blocks = getBlocksForType(nextBatchSize - nullValues);
+                blocks = getBlocks(nextBatchSize, nextBatchSize - nullValues, nullVector);
             }
             else {
                 List<Type> typeParameters = type.getTypeParameters();
                 blocks = new Block[typeParameters.size()];
                 for (int i = 0; i < typeParameters.size(); i++) {
-                    blocks[i] = typeParameters.get(i).createBlockBuilder(null, 0).build();
+                    blocks[i] = RunLengthEncodedBlock.create(typeParameters.get(i).createBlockBuilder(null, 0).appendNull().build(), nextBatchSize);
                 }
             }
         }
@@ -174,7 +177,7 @@ public class StructColumnReader
                 .count() == 1);
 
         // Struct is represented as a row block
-        Block rowBlock = RowBlock.fromFieldBlocks(nextBatchSize, Optional.ofNullable(nullVector), blocks);
+        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(nextBatchSize, Optional.ofNullable(nullVector), blocks);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -234,7 +237,7 @@ public class StructColumnReader
                 .toString();
     }
 
-    private Block[] getBlocksForType(int positionCount)
+    private Block[] getBlocks(int positionCount, int nonNullCount, boolean[] nullVector)
     {
         Block[] blocks = new Block[fieldNames.size()];
 
@@ -243,8 +246,15 @@ public class StructColumnReader
 
             ColumnReader columnReader = structFields.get(fieldName);
             if (columnReader != null) {
-                columnReader.prepareNextRead(positionCount);
-                blocks[i] = blockFactory.createBlock(positionCount, columnReader::readBlock, true);
+                columnReader.prepareNextRead(nonNullCount);
+
+                LazyBlockLoader lazyBlockLoader = blockFactory.createLazyBlockLoader(columnReader::readBlock, true);
+                if (nullVector == null) {
+                    blocks[i] = new LazyBlock(positionCount, lazyBlockLoader);
+                }
+                else {
+                    blocks[i] = new LazyBlock(positionCount, () -> toNotNullSupressedBlock(positionCount, nullVector, lazyBlockLoader.load()));
+                }
             }
             else {
                 blocks[i] = RunLengthEncodedBlock.create(type.getFields().get(i).getType(), null, positionCount);

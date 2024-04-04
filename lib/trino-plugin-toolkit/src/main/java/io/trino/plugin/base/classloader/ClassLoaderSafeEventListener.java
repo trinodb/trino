@@ -66,4 +66,12 @@ public class ClassLoaderSafeEventListener
             return delegate.requiresAnonymizedPlan();
         }
     }
+
+    @Override
+    public void shutdown()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.shutdown();
+        }
+    }
 }

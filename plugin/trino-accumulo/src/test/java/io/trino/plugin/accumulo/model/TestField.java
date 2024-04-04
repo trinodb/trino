@@ -46,8 +46,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToIntBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestField
 {
@@ -65,9 +65,9 @@ public class TestField
         Type type = new ArrayType(VARCHAR);
         Block expected = AccumuloRowSerializer.getBlockFromArray(VARCHAR, ImmutableList.of("a", "b", "c"));
         Field f1 = new Field(expected, type);
-        assertEquals(f1.getArray(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getArray()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -75,14 +75,14 @@ public class TestField
     {
         Type type = BOOLEAN;
         Field f1 = new Field(true, type);
-        assertEquals(f1.getBoolean().booleanValue(), true);
-        assertEquals(f1.getObject(), true);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getBoolean().booleanValue()).isEqualTo(true);
+        assertThat(f1.getObject()).isEqualTo(true);
+        assertThat(f1.getType()).isEqualTo(type);
 
         f1 = new Field(false, type);
-        assertEquals(f1.getBoolean().booleanValue(), false);
-        assertEquals(f1.getObject(), false);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getBoolean().booleanValue()).isEqualTo(false);
+        assertThat(f1.getObject()).isEqualTo(false);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -91,9 +91,9 @@ public class TestField
         Type type = DATE;
         long expected = LocalDate.parse("1999-01-01").toEpochDay();
         Field f1 = new Field(10592L, type);
-        assertEquals(f1.getDate(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getDate()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -102,9 +102,9 @@ public class TestField
         Type type = DOUBLE;
         Double expected = 123.45678;
         Field f1 = new Field(expected, type);
-        assertEquals(f1.getDouble(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getDouble()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -113,9 +113,9 @@ public class TestField
         Type type = REAL;
         Float expected = 123.45678f;
         Field f1 = new Field((long) floatToIntBits(expected), type);
-        assertEquals(f1.getFloat(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getFloat()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -124,9 +124,9 @@ public class TestField
         Type type = INTEGER;
         Integer expected = 12345678;
         Field f1 = new Field((long) expected, type);
-        assertEquals(f1.getInt(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getInt()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -135,9 +135,9 @@ public class TestField
         Type type = BIGINT;
         Long expected = 12345678L;
         Field f1 = new Field(expected, type);
-        assertEquals(f1.getLong(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getLong()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -148,9 +148,9 @@ public class TestField
                 TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
         SqlMap expected = AccumuloRowSerializer.getSqlMapFromMap(type, ImmutableMap.of("a", 1L, "b", 2L, "c", 3L));
         Field f1 = new Field(expected, type);
-        assertEquals(f1.getMap(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getMap()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -159,9 +159,9 @@ public class TestField
         Type type = SMALLINT;
         Short expected = 12345;
         Field f1 = new Field((long) expected, type);
-        assertEquals(f1.getShort(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getShort()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -170,9 +170,9 @@ public class TestField
         Type type = TIME_MILLIS;
         Time expected = new Time(new GregorianCalendar(1970, 0, 1, 12, 30, 0).getTime().getTime());
         Field f1 = new Field(70200000L, type);
-        assertEquals(f1.getTime(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getTime()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -181,9 +181,9 @@ public class TestField
         Type type = TIMESTAMP_MILLIS;
         Timestamp expected = new Timestamp(new GregorianCalendar(1999, 0, 1, 12, 30, 0).getTime().getTime());
         Field f1 = new Field(915_219_000_000_000L, type);
-        assertEquals(f1.getTimestamp(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getTimestamp()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -192,9 +192,9 @@ public class TestField
         Type type = TINYINT;
         Byte expected = 123;
         Field f1 = new Field((long) expected, type);
-        assertEquals(f1.getByte(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getByte()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -203,9 +203,9 @@ public class TestField
         Type type = VARBINARY;
         byte[] expected = "O'Leary".getBytes(UTF_8);
         Field f1 = new Field(Slices.wrappedBuffer(expected.clone()), type);
-        assertEquals(f1.getVarbinary(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getVarbinary()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 
     @Test
@@ -214,8 +214,8 @@ public class TestField
         Type type = VARCHAR;
         String expected = "O'Leary";
         Field f1 = new Field(utf8Slice(expected), type);
-        assertEquals(f1.getVarchar(), expected);
-        assertEquals(f1.getObject(), expected);
-        assertEquals(f1.getType(), type);
+        assertThat(f1.getVarchar()).isEqualTo(expected);
+        assertThat(f1.getObject()).isEqualTo(expected);
+        assertThat(f1.getType()).isEqualTo(type);
     }
 }

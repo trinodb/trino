@@ -23,14 +23,14 @@ import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.RowType;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.OpenCSVSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,7 +42,6 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hive.formats.FormatTestUtils.createLineBuffer;
 import static io.trino.hive.formats.FormatTestUtils.getJavaObjectInspector;
 import static io.trino.hive.formats.FormatTestUtils.toSingleRowPage;
@@ -277,7 +276,7 @@ public class TestCsvFormat
     private static OpenCSVSerde createHiveSerDe(int columnCount, Optional<Character> separatorChar, Optional<Character> quoteChar, Optional<Character> escapeChar)
             throws SerDeException
     {
-        JobConf configuration = new JobConf(newEmptyConfiguration());
+        Configuration configuration = new Configuration(false);
 
         Properties schema = new Properties();
         schema.setProperty(META_TABLE_COLUMNS, IntStream.range(0, columnCount).mapToObj(i -> "value_" + i).collect(joining(",")));

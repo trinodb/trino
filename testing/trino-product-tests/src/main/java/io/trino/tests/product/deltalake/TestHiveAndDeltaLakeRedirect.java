@@ -135,8 +135,8 @@ public class TestHiveAndDeltaLakeRedirect
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName)))
-                    .hasMessageMatching(".*Table 'hive.default.test_delta_lake_unpartitioned_table_.*\\$partitions' redirected to 'delta.default.test_delta_lake_unpartitioned_table_.*\\$partitions', " +
-                            "but the target table 'delta.default.test_delta_lake_unpartitioned_table_.*\\$partitions' does not exist");
+                    .hasMessageMatching(".*Table 'hive.default.\"test_delta_lake_unpartitioned_table_.*\\$partitions\"' redirected to 'delta.default.\"test_delta_lake_unpartitioned_table_.*\\$partitions\"', " +
+                            "but the target table 'delta.default.\"test_delta_lake_unpartitioned_table_.*\\$partitions\"' does not exist");
         }
         finally {
             dropDeltaTableWithRetry(tableName);
@@ -152,8 +152,8 @@ public class TestHiveAndDeltaLakeRedirect
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName)))
-                    .hasMessageMatching(".*Table 'hive.default.test_delta_lake_partitioned_table_.*\\$partitions' redirected to 'delta.default.test_delta_lake_partitioned_table_.*\\$partitions', " +
-                            "but the target table 'delta.default.test_delta_lake_partitioned_table_.*\\$partitions' does not exist");
+                    .hasMessageMatching(".*Table 'hive.default.\"test_delta_lake_partitioned_table_.*\\$partitions\"' redirected to 'delta.default.\"test_delta_lake_partitioned_table_.*\\$partitions\"', " +
+                            "but the target table 'delta.default.\"test_delta_lake_partitioned_table_.*\\$partitions\"' does not exist");
         }
         finally {
             dropDeltaTableWithRetry(tableName);
@@ -291,7 +291,7 @@ public class TestHiveAndDeltaLakeRedirect
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s$partitions\"", tableName)))
-                    .hasMessageMatching(".*Table 'delta.default.test_hive_unpartitioned_table.*partitions' does not exist");
+                    .hasMessageMatching(".*Table 'delta.default.\"test_hive_unpartitioned_table.*partitions\"' does not exist");
         }
         finally {
             onTrino().executeQuery("DROP TABLE hive.default." + tableName);

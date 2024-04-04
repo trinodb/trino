@@ -77,7 +77,14 @@ SELECT array_histogram(ARRAY[NULL, NULL]);
 ```
 :::
 
+:::{function} array_join(x, delimiter) -> varchar
+Concatenates the elements of the given array using the delimiter.
+Null elements are omitted in the result.
+:::
+
 :::{function} array_join(x, delimiter, null_replacement) -> varchar
+:noindex: true
+
 Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
 :::
 

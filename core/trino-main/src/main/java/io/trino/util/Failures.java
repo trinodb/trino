@@ -14,6 +14,7 @@
 package io.trino.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.client.ErrorLocation;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.Failure;
@@ -57,6 +58,7 @@ public final class Failures
         return toFailure(failure, newIdentityHashSet());
     }
 
+    @FormatMethod
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
     {
         if (!condition) {

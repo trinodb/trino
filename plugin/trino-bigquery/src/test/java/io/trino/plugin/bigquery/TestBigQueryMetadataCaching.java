@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBigQueryMetadataCaching
         extends AbstractTestQueryFramework
@@ -45,14 +45,14 @@ public class TestBigQueryMetadataCaching
         String schema = "test_metadata_caching_" + randomNameSuffix();
         try {
             getQueryRunner().execute("CREATE SCHEMA " + schema);
-            assertEquals(getQueryRunner().execute("SHOW SCHEMAS IN bigquery LIKE '" + schema + "'").getOnlyValue(), schema);
+            assertThat(getQueryRunner().execute("SHOW SCHEMAS IN bigquery LIKE '" + schema + "'").getOnlyValue()).isEqualTo(schema);
 
             String schemaTableName = schema + ".test_metadata_caching";
             getQueryRunner().execute("CREATE TABLE " + schemaTableName + " AS SELECT * FROM tpch.tiny.region");
-            assertEquals(getQueryRunner().execute("SELECT * FROM " + schemaTableName).getRowCount(), 5);
+            assertThat(getQueryRunner().execute("SELECT * FROM " + schemaTableName).getRowCount()).isEqualTo(5);
 
             bigQuerySqlExecutor.execute("DROP SCHEMA " + schema + " CASCADE");
-            assertEquals(getQueryRunner().execute("SHOW SCHEMAS IN bigquery LIKE '" + schema + "'").getOnlyValue(), schema);
+            assertThat(getQueryRunner().execute("SHOW SCHEMAS IN bigquery LIKE '" + schema + "'").getOnlyValue()).isEqualTo(schema);
 
             assertQueryFails("SELECT * FROM " + schemaTableName, ".*Schema '.+' does not exist.*");
         }

@@ -36,7 +36,7 @@ public class StatsContext
 
     public Symbol getSymbolForColumn(String columnName)
     {
-        checkArgument(columnSymbols.containsKey(columnName), "no symbol found for column '" + columnName + "'");
+        checkArgument(columnSymbols.containsKey(columnName), "no symbol found for column '%s'", columnName);
         return columnSymbols.get(columnName);
     }
 

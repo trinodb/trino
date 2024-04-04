@@ -158,6 +158,6 @@ public class ProgressLoggingListener
 
     private static BigDecimal durationInSeconds(long millis)
     {
-        return (new BigDecimal(millis)).divide(new BigDecimal(1000), 1, RoundingMode.HALF_UP);
+        return new BigDecimal(millis).divide(new BigDecimal(1000), 1, RoundingMode.HALF_UP);
     }
 }

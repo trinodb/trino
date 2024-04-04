@@ -15,13 +15,19 @@ package io.trino.spi.block;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Long.BYTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestArrayBlockBuilder
+        extends AbstractTestBlockBuilder<List<String>>
 {
     // ArrayBlockBuilder: isNull, offset, 3 * value (FixedWidthBlockBuilder: isNull, value)
     private static final int THREE_INTS_ENTRY_SIZE = Byte.BYTES + Integer.BYTES + 3 * (Byte.BYTES + Long.BYTES);
@@ -106,5 +112,78 @@ public class TestArrayBlockBuilder
         if (expectedPositionCount > 0) {
             assertThat(block.isNull(0)).isTrue();
         }
+    }
+
+    @Override
+    protected BlockBuilder createBlockBuilder()
+    {
+        return new ArrayBlockBuilder(new VariableWidthBlockBuilder(null, 1, 100), null, 1);
+    }
+
+    @Override
+    protected List<List<String>> getTestValues()
+    {
+        return List.of(
+                List.of("a", "apple", "ape"),
+                Arrays.asList("b", null, "bear", "break"),
+                List.of("c", "cherry"),
+                Arrays.asList("d", "date", "dinosaur", null, "dirt"),
+                List.of("e", "eggplant", "empty", ""));
+    }
+
+    @Override
+    protected List<String> getUnusedTestValue()
+    {
+        return List.of("unused", "ignore me");
+    }
+
+    @Override
+    protected ValueBlock blockFromValues(Iterable<List<String>> values)
+    {
+        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(new VariableWidthBlockBuilder(null, 1, 100), null, 1);
+        for (List<String> array : values) {
+            if (array == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                blockBuilder.buildEntry(elementBuilder -> {
+                    for (String entry : array) {
+                        if (entry == null) {
+                            elementBuilder.appendNull();
+                        }
+                        else {
+                            VARCHAR.writeString(elementBuilder, entry);
+                        }
+                    }
+                });
+            }
+        }
+        return blockBuilder.buildValueBlock();
+    }
+
+    @Override
+    protected List<List<String>> blockToValues(ValueBlock valueBlock)
+    {
+        ArrayBlock block = (ArrayBlock) valueBlock;
+        List<List<String>> actualValues = new ArrayList<>(block.getPositionCount());
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (block.isNull(i)) {
+                actualValues.add(null);
+            }
+            else {
+                Block array = block.getArray(i);
+                ArrayList<String> arrayBuilder = new ArrayList<>();
+                for (int j = 0; j < array.getPositionCount(); j++) {
+                    if (array.isNull(j)) {
+                        arrayBuilder.add(null);
+                    }
+                    else {
+                        arrayBuilder.add(VARCHAR.getSlice(array, j).toStringUtf8());
+                    }
+                }
+                actualValues.add(arrayBuilder);
+            }
+        }
+        return actualValues;
     }
 }

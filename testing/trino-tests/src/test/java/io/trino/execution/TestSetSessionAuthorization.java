@@ -38,7 +38,7 @@ import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSetSessionAuthorization
         extends AbstractTestQueryFramework
@@ -60,12 +60,9 @@ public class TestSetSessionAuthorization
                 .principal(Optional.of("user"))
                 .user(Optional.of("user"))
                 .build();
-        assertEquals(submitQuery("SET SESSION AUTHORIZATION user", clientSession).getSetAuthorizationUser().get(),
-                "user");
-        assertEquals(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get(),
-                "alice");
-        assertEquals(submitQuery("SET SESSION AUTHORIZATION user", clientSession).getSetAuthorizationUser().get(),
-                "user");
+        assertThat(submitQuery("SET SESSION AUTHORIZATION user", clientSession).getSetAuthorizationUser().get()).isEqualTo("user");
+        assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
+        assertThat(submitQuery("SET SESSION AUTHORIZATION user", clientSession).getSetAuthorizationUser().get()).isEqualTo("user");
     }
 
     @Test
@@ -75,15 +72,13 @@ public class TestSetSessionAuthorization
                 .principal(Optional.of("user"))
                 .user(Optional.of("user"))
                 .build();
-        assertEquals(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get(),
-                "alice");
+        assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
 
         clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user2"))
                 .user(Optional.of("user2"))
                 .build();
-        assertEquals(submitQuery("SET SESSION AUTHORIZATION bob", clientSession).getSetAuthorizationUser().get(),
-                "bob");
+        assertThat(submitQuery("SET SESSION AUTHORIZATION bob", clientSession).getSetAuthorizationUser().get()).isEqualTo("bob");
     }
 
     @Test
@@ -97,7 +92,7 @@ public class TestSetSessionAuthorization
                 PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user user2");
         assertError(submitQuery("SET SESSION AUTHORIZATION bob", clientSession),
                 PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user bob");
-        assertEquals(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get(), "alice");
+        assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
         assertError(submitQuery("SET SESSION AUTHORIZATION charlie", clientSession),
                 PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user charlie");
         StatementClient client = submitQuery("START TRANSACTION", clientSession);
@@ -115,19 +110,19 @@ public class TestSetSessionAuthorization
                 .principal(Optional.of("user"))
                 .user(Optional.of("user"))
                 .build();
-        assertEquals(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get(), "alice");
+        assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
 
         clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("alice"))
                 .user(Optional.of("alice"))
                 .build();
-        assertEquals(submitQuery("SET SESSION AUTHORIZATION charlie", clientSession).getSetAuthorizationUser().get(), "charlie");
+        assertThat(submitQuery("SET SESSION AUTHORIZATION charlie", clientSession).getSetAuthorizationUser().get()).isEqualTo("charlie");
 
         clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
                 .user(Optional.of("user"))
                 .build();
-        assertEquals(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get(), "alice");
+        assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
         assertError(submitQuery("SET SESSION AUTHORIZATION charlie", clientSession),
                 PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user charlie");
     }
@@ -140,20 +135,20 @@ public class TestSetSessionAuthorization
                 .user(Optional.of("user"))
                 .authorizationUser(Optional.of("alice"))
                 .build();
-        assertEquals(submitQuery("SELECT 1+1", clientSession).currentStatusInfo().getError(), null);
+        assertThat(submitQuery("SELECT 1+1", clientSession).currentStatusInfo().getError()).isEqualTo(null);
 
         clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
                 .user(Optional.of("user"))
                 .authorizationUser(Optional.of("user"))
                 .build();
-        assertEquals(submitQuery("SELECT 1+1", clientSession).currentStatusInfo().getError(), null);
+        assertThat(submitQuery("SELECT 1+1", clientSession).currentStatusInfo().getError()).isEqualTo(null);
 
         clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
                 .authorizationUser(Optional.of("alice"))
                 .build();
-        assertEquals(submitQuery("SELECT 1+1", clientSession).currentStatusInfo().getError(), null);
+        assertThat(submitQuery("SELECT 1+1", clientSession).currentStatusInfo().getError()).isEqualTo(null);
     }
 
     @Test
@@ -196,7 +191,7 @@ public class TestSetSessionAuthorization
         ImmutableList.Builder<List<Object>> data = ImmutableList.builder();
         submitQuery("SELECT CURRENT_USER", clientSession, data);
         List<List<Object>> rows = data.build();
-        assertEquals((String) rows.get(0).get(0), "alice");
+        assertThat((String) rows.get(0).get(0)).isEqualTo("alice");
     }
 
     @Test
@@ -207,7 +202,7 @@ public class TestSetSessionAuthorization
                 .user(Optional.of("user"))
                 .build();
         assertResetAuthorizationUser(submitQuery("RESET SESSION AUTHORIZATION", clientSession));
-        assertEquals(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get(), "alice");
+        assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
         assertResetAuthorizationUser(submitQuery("RESET SESSION AUTHORIZATION", clientSession));
         StatementClient client = submitQuery("START TRANSACTION", clientSession);
         clientSession = ClientSession.builder(clientSession).transactionId(client.getStartedTransactionId()).build();
@@ -217,15 +212,15 @@ public class TestSetSessionAuthorization
 
     private void assertError(StatementClient client, ErrorCode errorCode, String errorMessage)
     {
-        assertEquals(client.getSetAuthorizationUser(), Optional.empty());
-        assertEquals(client.currentStatusInfo().getError().getErrorName(), errorCode.getName());
-        assertEquals(client.currentStatusInfo().getError().getMessage(), errorMessage);
+        assertThat(client.getSetAuthorizationUser()).isEqualTo(Optional.empty());
+        assertThat(client.currentStatusInfo().getError().getErrorName()).isEqualTo(errorCode.getName());
+        assertThat(client.currentStatusInfo().getError().getMessage()).isEqualTo(errorMessage);
     }
 
     private void assertResetAuthorizationUser(StatementClient client)
     {
-        assertEquals(client.isResetAuthorizationUser(), true);
-        assertEquals(client.getSetAuthorizationUser().isEmpty(), true);
+        assertThat(client.isResetAuthorizationUser()).isEqualTo(true);
+        assertThat(client.getSetAuthorizationUser().isEmpty()).isEqualTo(true);
     }
 
     private ClientSession.Builder defaultClientSessionBuilder()

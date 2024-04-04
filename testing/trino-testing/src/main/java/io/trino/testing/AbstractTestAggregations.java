@@ -24,8 +24,7 @@ import java.util.List;
 import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestAggregations
         extends AbstractTestQueryFramework
@@ -892,14 +891,14 @@ public abstract class AbstractTestAggregations
     public void testDistinctNan()
     {
         MaterializedResult actual = computeActual("SELECT DISTINCT a/a FROM (VALUES (0.0e0), (0.0e0)) x (a)");
-        assertTrue(Double.isNaN((Double) actual.getOnlyValue()));
+        assertThat(Double.isNaN((Double) actual.getOnlyValue())).isTrue();
     }
 
     @Test
     public void testGroupByNan()
     {
         MaterializedResult actual = computeActual("SELECT * FROM (VALUES nan(), nan(), nan()) GROUP BY 1");
-        assertTrue(Double.isNaN((Double) actual.getOnlyValue()));
+        assertThat(Double.isNaN((Double) actual.getOnlyValue())).isTrue();
     }
 
     @Test
@@ -907,10 +906,10 @@ public abstract class AbstractTestAggregations
     {
         MaterializedResult actual = computeActual("SELECT a, b, c FROM (VALUES ROW(nan(), 1, 2), ROW(nan(), 1, 2)) t(a, b, c) GROUP BY 1, 2, 3");
         List<MaterializedRow> actualRows = actual.getMaterializedRows();
-        assertEquals(actualRows.size(), 1);
-        assertTrue(Double.isNaN((Double) actualRows.get(0).getField(0)));
-        assertEquals(actualRows.get(0).getField(1), 1);
-        assertEquals(actualRows.get(0).getField(2), 2);
+        assertThat(actualRows.size()).isEqualTo(1);
+        assertThat(Double.isNaN((Double) actualRows.get(0).getField(0))).isTrue();
+        assertThat(actualRows.get(0).getField(1)).isEqualTo(1);
+        assertThat(actualRows.get(0).getField(2)).isEqualTo(2);
     }
 
     @Test
@@ -918,19 +917,19 @@ public abstract class AbstractTestAggregations
     {
         MaterializedResult actual = computeActual("SELECT a FROM (VALUES (ARRAY[nan(), 2e0, 3e0]), (ARRAY[nan(), 2e0, 3e0])) t(a) GROUP BY a");
         List<MaterializedRow> actualRows = actual.getMaterializedRows();
-        assertEquals(actualRows.size(), 1);
+        assertThat(actualRows.size()).isEqualTo(1);
         @SuppressWarnings("unchecked")
         List<Double> value = (List<Double>) actualRows.get(0).getField(0);
-        assertTrue(Double.isNaN(value.get(0)));
-        assertEquals(value.get(1), 2.0);
-        assertEquals(value.get(2), 3.0);
+        assertThat(Double.isNaN(value.get(0))).isTrue();
+        assertThat(value.get(1)).isEqualTo(2.0);
+        assertThat(value.get(2)).isEqualTo(3.0);
     }
 
     @Test
     public void testGroupByNanMap()
     {
         MaterializedResult actual = computeActual("SELECT MAP_KEYS(x)[1] FROM (VALUES MAP(ARRAY[nan()], ARRAY[ARRAY[1]]), MAP(ARRAY[nan()], ARRAY[ARRAY[2]])) t(x) GROUP BY 1");
-        assertTrue(Double.isNaN((Double) actual.getOnlyValue()));
+        assertThat(Double.isNaN((Double) actual.getOnlyValue())).isTrue();
     }
 
     @Test
@@ -1363,50 +1362,50 @@ public abstract class AbstractTestAggregations
     public void testApproxMostFrequentWithLong()
     {
         MaterializedResult actual1 = computeActual("SELECT approx_most_frequent(3, cast(x as bigint), 15) FROM (values 1, 2, 1, 3, 1, 2, 3, 4, 5) t(x)");
-        assertEquals(actual1.getRowCount(), 1);
-        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 3L, 2L, 2L, 3L, 2L));
+        assertThat(actual1.getRowCount()).isEqualTo(1);
+        assertThat(actual1.getMaterializedRows().get(0).getFields().get(0)).isEqualTo(ImmutableMap.of(1L, 3L, 2L, 2L, 3L, 2L));
 
         MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, cast(x as bigint), 15) FROM (values 1, 2, 1, 3, 1, 2, 3, 4, 5) t(x)");
-        assertEquals(actual2.getRowCount(), 1);
-        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 3L, 2L, 2L));
+        assertThat(actual2.getRowCount()).isEqualTo(1);
+        assertThat(actual2.getMaterializedRows().get(0).getFields().get(0)).isEqualTo(ImmutableMap.of(1L, 3L, 2L, 2L));
     }
 
     @Test
     public void testApproxMostFrequentWithVarchar()
     {
         MaterializedResult actual1 = computeActual("SELECT approx_most_frequent(3, x, 15) FROM (values 'A', 'B', 'A', 'C', 'A', 'B', 'C', 'D', 'E') t(x)");
-        assertEquals(actual1.getRowCount(), 1);
-        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of("A", 3L, "B", 2L, "C", 2L));
+        assertThat(actual1.getRowCount()).isEqualTo(1);
+        assertThat(actual1.getMaterializedRows().get(0).getFields().get(0)).isEqualTo(ImmutableMap.of("A", 3L, "B", 2L, "C", 2L));
 
         MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, x, 15) FROM (values 'A', 'B', 'A', 'C', 'A', 'B', 'C', 'D', 'E') t(x)");
-        assertEquals(actual2.getRowCount(), 1);
-        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of("A", 3L, "B", 2L));
+        assertThat(actual2.getRowCount()).isEqualTo(1);
+        assertThat(actual2.getMaterializedRows().get(0).getFields().get(0)).isEqualTo(ImmutableMap.of("A", 3L, "B", 2L));
     }
 
     @Test
     public void testApproxMostFrequentWithLongGroupBy()
     {
         MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, cast(v as bigint), 15) FROM (values ('a', 1), ('b', 2), ('a', 1), ('c', 3), ('a', 1), ('b', 2), ('c', 3), ('a', 4), ('b', 5)) t(k, v) GROUP BY 1 ORDER BY 1");
-        assertEquals(actual1.getRowCount(), 3);
-        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), "a");
-        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), ImmutableMap.of(1L, 3L, 4L, 1L));
-        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), "b");
-        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of(2L, 2L, 5L, 1L));
-        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(0), "c");
-        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(1), ImmutableMap.of(3L, 2L));
+        assertThat(actual1.getRowCount()).isEqualTo(3);
+        assertThat(actual1.getMaterializedRows().get(0).getFields().get(0)).isEqualTo("a");
+        assertThat(actual1.getMaterializedRows().get(0).getFields().get(1)).isEqualTo(ImmutableMap.of(1L, 3L, 4L, 1L));
+        assertThat(actual1.getMaterializedRows().get(1).getFields().get(0)).isEqualTo("b");
+        assertThat(actual1.getMaterializedRows().get(1).getFields().get(1)).isEqualTo(ImmutableMap.of(2L, 2L, 5L, 1L));
+        assertThat(actual1.getMaterializedRows().get(2).getFields().get(0)).isEqualTo("c");
+        assertThat(actual1.getMaterializedRows().get(2).getFields().get(1)).isEqualTo(ImmutableMap.of(3L, 2L));
     }
 
     @Test
     public void testApproxMostFrequentWithStringGroupBy()
     {
         MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, v, 15) FROM (values ('a', 'A'), ('b', 'B'), ('a', 'A'), ('c', 'C'), ('a', 'A'), ('b', 'B'), ('c', 'C'), ('a', 'D'), ('b', 'E')) t(k, v) GROUP BY 1 ORDER BY 1");
-        assertEquals(actual1.getRowCount(), 3);
-        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), "a");
-        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), ImmutableMap.of("A", 3L, "D", 1L));
-        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), "b");
-        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of("B", 2L, "E", 1L));
-        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(0), "c");
-        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(1), ImmutableMap.of("C", 2L));
+        assertThat(actual1.getRowCount()).isEqualTo(3);
+        assertThat(actual1.getMaterializedRows().get(0).getFields().get(0)).isEqualTo("a");
+        assertThat(actual1.getMaterializedRows().get(0).getFields().get(1)).isEqualTo(ImmutableMap.of("A", 3L, "D", 1L));
+        assertThat(actual1.getMaterializedRows().get(1).getFields().get(0)).isEqualTo("b");
+        assertThat(actual1.getMaterializedRows().get(1).getFields().get(1)).isEqualTo(ImmutableMap.of("B", 2L, "E", 1L));
+        assertThat(actual1.getMaterializedRows().get(2).getFields().get(0)).isEqualTo("c");
+        assertThat(actual1.getMaterializedRows().get(2).getFields().get(1)).isEqualTo(ImmutableMap.of("C", 2L));
     }
 
     @Test

@@ -68,7 +68,7 @@ public class DescriptorField
         }
         DescriptorField field = (DescriptorField) o;
         return Objects.equals(name, field.name) &&
-                Objects.equals(type, (field.type));
+                Objects.equals(type, field.type);
     }
 
     @Override

@@ -33,7 +33,7 @@ public class KerberizedKuduClient
     {
         requireNonNull(kuduClientBuilder, "kuduClientBuilder is null");
         this.cachingKerberosAuthentication = requireNonNull(cachingKerberosAuthentication, "cachingKerberosAuthentication is null");
-        kuduClient = Subject.doAs(cachingKerberosAuthentication.getSubject(), (PrivilegedAction<KuduClient>) (kuduClientBuilder::build));
+        kuduClient = Subject.doAs(cachingKerberosAuthentication.getSubject(), (PrivilegedAction<KuduClient>) kuduClientBuilder::build);
     }
 
     @Override

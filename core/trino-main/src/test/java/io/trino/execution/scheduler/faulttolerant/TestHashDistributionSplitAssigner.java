@@ -55,8 +55,7 @@ import static io.trino.execution.scheduler.faulttolerant.TestingConnectorSplit.g
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public class TestHashDistributionSplitAssigner
 {
@@ -753,7 +752,7 @@ public class TestHashDistributionSplitAssigner
             for (TaskDescriptor taskDescriptor : taskDescriptors.values()) {
                 int partitionId = taskDescriptor.getPartitionId();
                 NodeRequirements nodeRequirements = taskDescriptor.getNodeRequirements();
-                assertEquals(nodeRequirements.getCatalogHandle(), Optional.of(TEST_CATALOG_HANDLE));
+                assertThat(nodeRequirements.getCatalogHandle()).isEqualTo(Optional.of(TEST_CATALOG_HANDLE));
                 partitionToNodeMap.ifPresent(partitionToNode -> {
                     if (!taskDescriptor.getSplits().getSplitsFlat().isEmpty()) {
                         InternalNode node = partitionToNode.get(partitionId);
@@ -883,7 +882,7 @@ public class TestHashDistributionSplitAssigner
                     splittableSources::contains,
                     mergeAllowed);
             Set<PartitionMapping> actualGroups = extractMappings(actual);
-            assertEquals(actualGroups, expectedMappings);
+            assertThat(actualGroups).isEqualTo(expectedMappings);
         }
 
         private static Set<PartitionMapping> extractMappings(Map<Integer, TaskPartition> sourcePartitionToTaskPartition)

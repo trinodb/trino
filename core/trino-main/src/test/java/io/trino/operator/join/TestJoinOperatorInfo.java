@@ -19,7 +19,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJoinOperatorInfo
 {
@@ -42,11 +42,11 @@ public class TestJoinOperatorInfo
                 7);
 
         JoinOperatorInfo merged = base.mergeWith(other);
-        assertEquals(makeHistogramArray(21, 41, 61, 81, 101, 121, 141, 161), merged.getLogHistogramProbes());
-        assertEquals(makeHistogramArray(27, 47, 67, 87, 107, 127, 147, 167), merged.getLogHistogramOutput());
-        assertEquals(merged.getLookupSourcePositions(), Optional.of(3L));
-        assertEquals(merged.getRleProbes(), 6);
-        assertEquals(merged.getTotalProbes(), 10);
+        assertThat(makeHistogramArray(21, 41, 61, 81, 101, 121, 141, 161)).isEqualTo(merged.getLogHistogramProbes());
+        assertThat(makeHistogramArray(27, 47, 67, 87, 107, 127, 147, 167)).isEqualTo(merged.getLogHistogramOutput());
+        assertThat(merged.getLookupSourcePositions()).isEqualTo(Optional.of(3L));
+        assertThat(merged.getRleProbes()).isEqualTo(6);
+        assertThat(merged.getTotalProbes()).isEqualTo(10);
     }
 
     private long[] makeHistogramArray(long... longArray)

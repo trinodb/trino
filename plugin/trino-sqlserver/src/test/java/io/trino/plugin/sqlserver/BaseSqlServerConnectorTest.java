@@ -24,10 +24,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
-import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,8 +40,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public abstract class BaseSqlServerConnectorTest
         extends BaseJdbcConnectorTest
@@ -105,12 +100,6 @@ public abstract class BaseSqlServerConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("date")) {
-            // SQL Server plus 10 days when the date is the range of 1582 Oct 5 and 14
-            if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'") || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-14'")) {
-                return Optional.empty();
-            }
-        }
         if (typeName.equals("timestamp(3) with time zone") ||
                 typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
@@ -123,38 +112,9 @@ public abstract class BaseSqlServerConnectorTest
     public void testReadFromView()
     {
         onRemoteDatabase().execute("CREATE VIEW test_view AS SELECT * FROM orders");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_view")).isTrue();
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS test_view");
-    }
-
-    // TODO (https://github.com/trinodb/trino/issues/10846): Test is expected to be flaky because tests execute in parallel
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/10846", match = "was deadlocked on lock resources with another process and has been chosen as the deadlock victim")
-    @Test
-    @Override
-    public void testSelectInformationSchemaColumns()
-    {
-        super.testSelectInformationSchemaColumns();
-    }
-
-    @Test
-    @Override
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        try {
-            super.testReadMetadataWithRelationsConcurrentModifications();
-        }
-        catch (Exception expected) {
-            // The test failure is not guaranteed
-            assertThat(expected)
-                    .hasMessageMatching("(?s).*(" +
-                            "No task completed before timeout|" +
-                            "was deadlocked on lock resources with another process and has been chosen as the deadlock victim|" +
-                            "Lock request time out period exceeded|" +
-                            // E.g. system.metadata.table_comments can return empty results, when underlying metadata list tables call fails
-                            "Expecting actual not to be empty).*");
-            throw new SkipException("to be fixed");
-        }
     }
 
     @Override
@@ -468,8 +428,15 @@ public abstract class BaseSqlServerConnectorTest
                         ")");
     }
 
-    @Test(dataProvider = "dataCompression")
-    public void testCreateWithDataCompression(DataCompression dataCompression)
+    @Test
+    public void testCreateWithDataCompression()
+    {
+        testCreateWithDataCompression(NONE);
+        testCreateWithDataCompression(ROW);
+        testCreateWithDataCompression(PAGE);
+    }
+
+    private void testCreateWithDataCompression(DataCompression dataCompression)
     {
         String tableName = "test_create_with_compression_" + randomNameSuffix();
         String createQuery = format("CREATE TABLE sqlserver.dbo.%s (\n" +
@@ -483,19 +450,10 @@ public abstract class BaseSqlServerConnectorTest
                 dataCompression);
         assertUpdate(createQuery);
 
-        assertEquals(getQueryRunner().execute("SHOW CREATE TABLE " + tableName).getOnlyValue(), createQuery);
+        assertThat(getQueryRunner().execute("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                .isEqualTo(createQuery);
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @DataProvider
-    public Object[][] dataCompression()
-    {
-        return new Object[][] {
-                {NONE},
-                {ROW},
-                {PAGE}
-        };
     }
 
     @Test
@@ -587,6 +545,7 @@ public abstract class BaseSqlServerConnectorTest
                 ".*\\QConversion failed when converting date and/or time from character string.\\E");
     }
 
+    @Test
     @Override
     public void testNativeQuerySimple()
     {

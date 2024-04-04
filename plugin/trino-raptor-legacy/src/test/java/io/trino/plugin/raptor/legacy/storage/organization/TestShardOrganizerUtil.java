@@ -30,9 +30,11 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -58,9 +60,12 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestShardOrganizerUtil
 {
     private static final List<ColumnInfo> COLUMNS = ImmutableList.of(
@@ -75,7 +80,7 @@ public class TestShardOrganizerUtil
     private MetadataDao metadataDao;
     private ConnectorMetadata metadata;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws Exception
     {
@@ -90,7 +95,7 @@ public class TestShardOrganizerUtil
         shardManager = createShardManager(dbi);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
             throws Exception
     {
@@ -170,13 +175,13 @@ public class TestShardOrganizerUtil
         Set<ShardIndexInfo> actual = ImmutableSet.copyOf(getOrganizationEligibleShards(dbi, metadataDao, tableInfo, shardMetadatas, false));
         List<ShardIndexInfo> expected = getShardIndexInfo(tableInfo, shards, temporalColumn, Optional.empty());
 
-        assertEquals(actual, expected);
+        assertThat(actual).containsExactlyElementsOf(expected);
 
         List<TableColumn> sortColumns = metadataDao.listSortColumns(tableInfo.getTableId());
         Set<ShardIndexInfo> actualSortRange = ImmutableSet.copyOf(getOrganizationEligibleShards(dbi, metadataDao, tableInfo, shardMetadatas, true));
         List<ShardIndexInfo> expectedSortRange = getShardIndexInfo(tableInfo, shards, temporalColumn, Optional.of(sortColumns));
 
-        assertEquals(actualSortRange, expectedSortRange);
+        assertThat(actualSortRange).containsExactlyElementsOf(expectedSortRange);
     }
 
     private static List<ShardIndexInfo> getShardIndexInfo(Table tableInfo, List<ShardInfo> shards, TableColumn temporalColumn, Optional<List<TableColumn>> sortColumns)

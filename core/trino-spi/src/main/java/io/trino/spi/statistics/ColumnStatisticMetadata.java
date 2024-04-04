@@ -16,6 +16,7 @@ package io.trino.spi.statistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.Experimental;
 import io.trino.spi.expression.FunctionName;
 
@@ -71,8 +72,8 @@ public class ColumnStatisticMetadata
         }
     }
 
-    @Deprecated // For JSON deserialization only
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
     public static ColumnStatisticMetadata fromJson(
             @JsonProperty("columnName") String columnName,
             @JsonProperty("connectorAggregationId") String connectorAggregationId,

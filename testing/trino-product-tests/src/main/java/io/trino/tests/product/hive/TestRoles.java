@@ -22,7 +22,6 @@ import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -108,35 +107,6 @@ public class TestRoles
         QueryResult expected = onHive().executeQuery("SHOW ROLES");
         QueryResult actual = onTrino().executeQuery("SELECT * FROM hive.information_schema.roles");
         assertThat(actual.rows()).containsOnly(expected.rows().toArray(new List[] {}));
-    }
-
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
-    public void testListGrants()
-    {
-        if (getHiveVersionMajor() >= 3) {
-            throw new SkipException(""); // TODO (https://github.com/trinodb/trino/issues/1218) this currently fails on HDP 3
-        }
-
-        onTrino().executeQuery("SHOW GRANTS"); // must not fail
-        onTrino().executeQuery("SELECT * FROM information_schema.table_privileges"); // must not fail
-
-        onTrino().executeQuery("CREATE TABLE test_list_grants(c int)");
-
-        assertThat(onTrino().executeQuery("SHOW GRANTS"))
-                .contains(
-                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "SELECT", "YES", null),
-                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "INSERT", "YES", null),
-                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "UPDATE", "YES", null),
-                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "DELETE", "YES", null));
-
-        assertThat(onTrino().executeQuery("SELECT * FROM information_schema.table_privileges"))
-                .contains(
-                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "SELECT", "YES", null),
-                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "INSERT", "YES", null),
-                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "UPDATE", "YES", null),
-                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "DELETE", "YES", null));
-
-        onTrino().executeQuery("DROP TABLE test_list_grants");
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})

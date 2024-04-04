@@ -40,7 +40,7 @@ public class Int128ArrayBlockEncoding
         encodeNullsAsBits(sliceOutput, int128ArrayBlock);
 
         if (!int128ArrayBlock.mayHaveNull()) {
-            sliceOutput.writeLongs(int128ArrayBlock.getRawValues(), int128ArrayBlock.getPositionOffset() * 2, int128ArrayBlock.getPositionCount() * 2);
+            sliceOutput.writeLongs(int128ArrayBlock.getRawValues(), int128ArrayBlock.getRawOffset() * 2, int128ArrayBlock.getPositionCount() * 2);
         }
         else {
             long[] valuesWithoutNull = new long[positionCount * 2];

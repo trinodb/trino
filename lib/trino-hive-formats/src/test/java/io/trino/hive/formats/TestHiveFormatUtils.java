@@ -13,7 +13,7 @@
  */
 package io.trino.hive.formats;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 

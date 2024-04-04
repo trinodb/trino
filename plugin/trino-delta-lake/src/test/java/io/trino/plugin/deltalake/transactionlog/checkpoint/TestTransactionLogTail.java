@@ -25,8 +25,7 @@ import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTransactionLogTail
 {
@@ -42,8 +41,8 @@ public class TestTransactionLogTail
             throws Exception
     {
         String tableLocation = getClass().getClassLoader().getResource(format("%s/person", dataSource)).toURI().toString();
-        assertEquals(readJsonTransactionLogTails(tableLocation).size(), 7);
-        assertEquals(updateJsonTransactionLogTails(tableLocation).size(), 7);
+        assertThat(readJsonTransactionLogTails(tableLocation).size()).isEqualTo(7);
+        assertThat(updateJsonTransactionLogTails(tableLocation).size()).isEqualTo(7);
     }
 
     private List<DeltaLakeTransactionLogEntry> updateJsonTransactionLogTails(String tableLocation)
@@ -52,7 +51,7 @@ public class TestTransactionLogTail
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
         TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, Optional.of(10L), Optional.of(12L));
         Optional<TransactionLogTail> updatedLogTail = transactionLogTail.getUpdatedTail(fileSystem, tableLocation, Optional.empty());
-        assertTrue(updatedLogTail.isPresent());
+        assertThat(updatedLogTail.isPresent()).isTrue();
         return updatedLogTail.get().getFileEntries();
     }
 

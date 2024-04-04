@@ -37,10 +37,9 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.testing.TestingSession.testSession;
 import static java.util.Collections.emptyList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 public class TestDropCatalogTask
@@ -69,12 +68,12 @@ public class TestDropCatalogTask
     public void testDuplicatedCreateCatalog()
     {
         queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
-        assertTrue(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG));
+        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
         DropCatalogTask task = getCreateCatalogTask();
         DropCatalog statement = new DropCatalog(new Identifier(TEST_CATALOG), false, false);
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
-        assertFalse(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG));
+        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP)))
                 .withMessage("Catalog '%s' does not exist", TEST_CATALOG);
@@ -84,14 +83,14 @@ public class TestDropCatalogTask
     public void testDuplicatedCreateCatalogIfNotExists()
     {
         queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
-        assertTrue(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG));
+        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
         DropCatalogTask task = getCreateCatalogTask();
         DropCatalog statement = new DropCatalog(new Identifier(TEST_CATALOG), true, false);
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
-        assertFalse(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG));
+        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
-        assertFalse(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG));
+        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
     }
 
     private DropCatalogTask getCreateCatalogTask()

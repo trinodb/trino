@@ -16,7 +16,7 @@ package io.trino.plugin.kudu.schema;
 import io.trino.spi.connector.SchemaTableName;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSchemaEmulation
 {
@@ -64,11 +64,11 @@ public class TestSchemaEmulation
             SchemaEmulation emulation = input.tableNamePrefix != null
                     ? new SchemaEmulationByTableNameConvention(input.tableNamePrefix) : new NoSchemaEmulation();
             SchemaTableName schemaTableName = emulation.fromRawName(input.kuduTableName);
-            assertEquals(input.valid, schemaTableName != null);
+            assertThat(input.valid).isEqualTo(schemaTableName != null);
             if (input.valid) {
-                assertEquals(schemaTableName, new SchemaTableName(input.prestoSchema, input.prestoTable));
+                assertThat(schemaTableName).isEqualTo(new SchemaTableName(input.prestoSchema, input.prestoTable));
                 String raw = emulation.toRawName(schemaTableName);
-                assertEquals(raw, input.kuduTableName);
+                assertThat(raw).isEqualTo(input.kuduTableName);
             }
         }
     }

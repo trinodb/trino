@@ -60,13 +60,6 @@ public class InternalNode
         return internalUri.getHost();
     }
 
-    @Override
-    @Deprecated
-    public URI getHttpUri()
-    {
-        return getInternalUri();
-    }
-
     public URI getInternalUri()
     {
         return internalUri;

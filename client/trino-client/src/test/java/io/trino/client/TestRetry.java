@@ -44,7 +44,6 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 public class TestRetry
@@ -93,7 +92,7 @@ public class TestRetry
             while (client.advance()) {
                 // consume all client data
             }
-            assertTrue(client.isFinished());
+            assertThat(client.isFinished()).isTrue();
         }
         assertThat(server.getRequestCount()).isEqualTo(3);
     }

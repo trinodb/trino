@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import io.airlift.units.DataSize;
+import io.opentelemetry.api.OpenTelemetry;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -56,7 +57,7 @@ public class TestS3FileSystemAwsS3
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        return new S3FileSystemFactory(new S3FileSystemConfig()
+        return new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
                 .setAwsAccessKey(accessKey)
                 .setAwsSecretKey(secretKey)
                 .setRegion(region)

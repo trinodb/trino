@@ -22,9 +22,7 @@ import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStatementStats
 {
@@ -38,21 +36,21 @@ public class TestStatementStats
                 .build()) {
             MaterializedResult result = queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").build(), "SELECT COUNT(*) from lineitem LIMIT 10");
 
-            assertTrue(result.getStatementStats().isPresent());
+            assertThat(result.getStatementStats().isPresent()).isTrue();
 
             StatementStats stats = result.getStatementStats().get();
             // two unique nodes across all stages
-            assertEquals(stats.getNodes(), 2);
+            assertThat(stats.getNodes()).isEqualTo(2);
 
             StageStats rootStage = stats.getRootStage();
-            assertNotNull(rootStage);
+            assertThat(rootStage).isNotNull();
             // root stage should be a single node gather
-            assertEquals(rootStage.getNodes(), 1);
+            assertThat(rootStage.getNodes()).isEqualTo(1);
 
             // one child stage
-            assertEquals(rootStage.getSubStages().size(), 1);
+            assertThat(rootStage.getSubStages().size()).isEqualTo(1);
             // child stage has two unique nodes
-            assertEquals(rootStage.getSubStages().get(0).getNodes(), 2);
+            assertThat(rootStage.getSubStages().get(0).getNodes()).isEqualTo(2);
         }
     }
 }

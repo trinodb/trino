@@ -78,7 +78,7 @@ import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class BlockAssertions
 {
@@ -90,7 +90,9 @@ public final class BlockAssertions
 
     public static Object getOnlyValue(Type type, Block block)
     {
-        assertEquals(block.getPositionCount(), 1, "Block positions");
+        assertThat(block.getPositionCount())
+                .describedAs("Block positions")
+                .isEqualTo(1);
         return type.getObjectValue(SESSION, block, 0);
     }
 
@@ -116,9 +118,11 @@ public final class BlockAssertions
 
     public static void assertBlockEquals(Type type, Block actual, Block expected)
     {
-        assertEquals(actual.getPositionCount(), expected.getPositionCount());
+        assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position), "position " + position);
+            assertThat(type.getObjectValue(SESSION, actual, position))
+                    .describedAs("position " + position)
+                    .isEqualTo(type.getObjectValue(SESSION, expected, position));
         }
     }
 
@@ -135,7 +139,7 @@ public final class BlockAssertions
 
     public static RunLengthEncodedBlock createRandomRleBlock(Block block, int positionCount)
     {
-        checkArgument(block.getPositionCount() >= 2, format("block positions %d is less 2", block.getPositionCount()));
+        checkArgument(block.getPositionCount() >= 2, "block positions %s is less than 2", block.getPositionCount());
         return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(block.getSingleValueBlock(random().nextInt(block.getPositionCount())), positionCount);
     }
 
@@ -240,7 +244,7 @@ public final class BlockAssertions
                 fieldBlocks[i] = createRandomBlockForType(fieldTypes.get(i), positionCount, nullRate);
             }
 
-            return RowBlock.fromFieldBlocks(positionCount, Optional.ofNullable(isNull), fieldBlocks);
+            return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, Optional.ofNullable(isNull), fieldBlocks);
         }
 
         throw new IllegalArgumentException(format("type %s is not supported.", type));

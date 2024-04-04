@@ -26,19 +26,18 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.InMemoryRecordSet.Builder;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Optional;
-import java.util.Set;
 
 import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
+import static io.trino.metadata.MetadataListing.getRelationTypes;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
-import static io.trino.metadata.MetadataListing.listTables;
-import static io.trino.metadata.MetadataListing.listViews;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -104,13 +103,12 @@ public class TableJdbcTable
         for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
-            Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
-            for (SchemaTableName name : listTables(session, metadata, accessControl, prefix)) {
-                boolean isView = views.contains(name);
+            getRelationTypes(session, metadata, accessControl, prefix).forEach((name, type) -> {
+                boolean isView = type == RelationType.VIEW;
                 if ((includeTables && !isView) || (includeViews && isView)) {
                     table.addRow(tableRow(catalog, name, isView ? "VIEW" : "TABLE"));
                 }
-            }
+            });
         }
         return table.build().cursor();
     }

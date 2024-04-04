@@ -13,9 +13,10 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.filesystem.Location;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -24,8 +25,8 @@ import java.util.stream.IntStream;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestIcebergParquetConnectorTest
         extends BaseIcebergConnectorTest
@@ -51,12 +52,6 @@ public class TestIcebergParquetConnectorTest
                 typeName.equalsIgnoreCase("timestamp(6) with time zone"));
     }
 
-    @Override
-    protected boolean supportsPhysicalPushdown()
-    {
-        return true;
-    }
-
     @Test
     public void testRowGroupResetDictionary()
     {
@@ -71,7 +66,7 @@ public class TestIcebergParquetConnectorTest
             assertUpdate(withSmallRowGroups(getSession()), "INSERT INTO " + tableName + " VALUES " + values, 100);
 
             MaterializedResult result = getDistributedQueryRunner().execute(String.format("SELECT * FROM %s", tableName));
-            assertEquals(result.getRowCount(), 100);
+            assertThat(result.getRowCount()).isEqualTo(100);
         }
     }
 
@@ -86,6 +81,7 @@ public class TestIcebergParquetConnectorTest
         return super.filterSetColumnTypesDataProvider(setup);
     }
 
+    @Test
     @Override
     public void testDropAmbiguousRowFieldCaseSensitivity()
     {
@@ -98,6 +94,6 @@ public class TestIcebergParquetConnectorTest
     @Override
     protected boolean isFileSorted(String path, String sortColumnName)
     {
-        return checkParquetFileSorting(path, sortColumnName);
+        return checkParquetFileSorting(fileSystem.newInputFile(Location.of(path)), sortColumnName);
     }
 }

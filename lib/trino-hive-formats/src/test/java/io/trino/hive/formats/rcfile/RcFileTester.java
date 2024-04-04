@@ -86,7 +86,6 @@ import static com.google.common.collect.Iterators.advance;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hive.formats.FormatTestUtils.COMPRESSION;
 import static io.trino.hive.formats.FormatTestUtils.assertColumnValueEquals;
 import static io.trino.hive.formats.FormatTestUtils.decodeRecordReaderValue;
@@ -95,8 +94,8 @@ import static io.trino.hive.formats.FormatTestUtils.toHiveWriteValue;
 import static io.trino.hive.formats.FormatTestUtils.writeTrinoValue;
 import static io.trino.hive.formats.ReadWriteUtils.findFirstSyncPosition;
 import static io.trino.hive.formats.compression.CompressionKind.LZOP;
-import static io.trino.hive.formats.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION;
-import static io.trino.hive.formats.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY;
+import static io.trino.hive.formats.rcfile.RcFileWriter.TRINO_RCFILE_WRITER_VERSION;
+import static io.trino.hive.formats.rcfile.RcFileWriter.TRINO_RCFILE_WRITER_VERSION_METADATA_KEY;
 import static io.trino.spi.type.StandardTypes.MAP;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -110,10 +109,8 @@ import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_ID
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.mapred.Reporter.NULL;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @SuppressWarnings("StaticPseudoFunctionalStyleMethod")
 public class RcFileTester
@@ -343,7 +340,7 @@ public class RcFileTester
 
                     Map<String, String> expectedMetadata = ImmutableMap.<String, String>builder()
                             .putAll(metadata)
-                            .put(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY, PRESTO_RCFILE_WRITER_VERSION)
+                            .put(TRINO_RCFILE_WRITER_VERSION_METADATA_KEY, TRINO_RCFILE_WRITER_VERSION)
                             .buildOrThrow();
 
                     assertFileContentsNew(type, tempFile, format, finalValues, false, expectedMetadata);
@@ -367,7 +364,7 @@ public class RcFileTester
     {
         try (RcFileReader recordReader = createRcFileReader(tempFile, type, format.getVectorEncoding())) {
             assertIndexOf(recordReader, tempFile.file());
-            assertEquals(recordReader.getMetadata(), ImmutableMap.builder()
+            assertThat(recordReader.getMetadata()).isEqualTo(ImmutableMap.builder()
                     .putAll(metadata)
                     .put("hive.io.rcfile.column.number", "1")
                     .buildOrThrow());
@@ -377,7 +374,7 @@ public class RcFileTester
             for (int batchSize = recordReader.advance(); batchSize >= 0; batchSize = recordReader.advance()) {
                 totalCount += batchSize;
                 if (readLastBatchOnly && totalCount == expectedValues.size()) {
-                    assertEquals(advance(iterator, batchSize), batchSize);
+                    assertThat(advance(iterator, batchSize)).isEqualTo(batchSize);
                 }
                 else {
                     Block block = recordReader.readBlock(0);
@@ -388,7 +385,7 @@ public class RcFileTester
                     }
 
                     for (int i = 0; i < batchSize; i++) {
-                        assertTrue(iterator.hasNext());
+                        assertThat(iterator.hasNext()).isTrue();
                         Object expected = iterator.next();
 
                         Object actual = data.get(i);
@@ -396,8 +393,8 @@ public class RcFileTester
                     }
                 }
             }
-            assertFalse(iterator.hasNext());
-            assertEquals(recordReader.getRowsRead(), totalCount);
+            assertThat(iterator.hasNext()).isFalse();
+            assertThat(recordReader.getRowsRead()).isEqualTo(totalCount);
         }
     }
 
@@ -407,7 +404,7 @@ public class RcFileTester
         List<Long> syncPositionsBruteForce = getSyncPositionsBruteForce(recordReader, file);
         List<Long> syncPositionsSimple = getSyncPositionsSimple(recordReader, file);
 
-        assertEquals(syncPositionsBruteForce, syncPositionsSimple);
+        assertThat(syncPositionsBruteForce).isEqualTo(syncPositionsSimple);
     }
 
     private static List<Long> getSyncPositionsBruteForce(RcFileReader recordReader, File file)
@@ -448,13 +445,13 @@ public class RcFileTester
         while (syncPosition >= 0) {
             syncPosition = findFirstSyncPosition(inputFile, syncPosition, file.length() - syncPosition, syncFirst, syncSecond);
             if (syncPosition > 0) {
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition, 1, syncFirst, syncSecond), syncPosition);
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition, 2, syncFirst, syncSecond), syncPosition);
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition, 10, syncFirst, syncSecond), syncPosition);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition, 1, syncFirst, syncSecond)).isEqualTo(syncPosition);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition, 2, syncFirst, syncSecond)).isEqualTo(syncPosition);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition, 10, syncFirst, syncSecond)).isEqualTo(syncPosition);
 
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition - 1, 1, syncFirst, syncSecond), -1);
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition - 2, 2, syncFirst, syncSecond), -1);
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition + 1, 1, syncFirst, syncSecond), -1);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition - 1, 1, syncFirst, syncSecond)).isEqualTo(-1);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition - 2, 2, syncFirst, syncSecond)).isEqualTo(-1);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition + 1, 1, syncFirst, syncSecond)).isEqualTo(-1);
 
                 syncPositions.add(syncPosition);
                 syncPosition++;
@@ -474,7 +471,7 @@ public class RcFileTester
                 0,
                 tempFile.file().length());
 
-        assertEquals(rcFileReader.getColumnCount(), 1);
+        assertThat(rcFileReader.getColumnCount()).isEqualTo(1);
 
         return rcFileReader;
     }
@@ -510,7 +507,7 @@ public class RcFileTester
             Iterable<?> expectedValues)
             throws Exception
     {
-        JobConf configuration = new JobConf(newEmptyConfiguration());
+        JobConf configuration = new JobConf(false);
         configuration.set(READ_COLUMN_IDS_CONF_STR, "0");
         configuration.setBoolean(READ_ALL_COLUMNS, false);
 
@@ -549,7 +546,7 @@ public class RcFileTester
             actualValue = decodeRecordReaderValue(type, actualValue, format == Format.BINARY ? Optional.of(HIVE_STORAGE_TIME_ZONE) : Optional.empty());
             assertColumnValueEquals(type, actualValue, expectedValue);
         }
-        assertFalse(iterator.hasNext());
+        assertThat(iterator.hasNext()).isFalse();
     }
 
     private static void writeRcFileColumnOld(File outputFile, Format format, Optional<CompressionKind> compression, Type type, Iterator<?> values)

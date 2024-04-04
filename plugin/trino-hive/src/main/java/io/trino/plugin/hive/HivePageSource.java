@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -128,11 +129,6 @@ public class HivePageSource
         this.coercers = coercers.build();
     }
 
-    public ConnectorPageSource getDelegate()
-    {
-        return delegate;
-    }
-
     @Override
     public long getCompletedBytes()
     {
@@ -155,6 +151,12 @@ public class HivePageSource
     public boolean isFinished()
     {
         return delegate.isFinished();
+    }
+
+    @Override
+    public CompletableFuture<?> isBlocked()
+    {
+        return delegate.isBlocked();
     }
 
     @Override

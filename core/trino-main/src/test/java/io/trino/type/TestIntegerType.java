@@ -22,7 +22,6 @@ import java.util.Optional;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestIntegerType
         extends AbstractTestType
@@ -59,8 +58,8 @@ public class TestIntegerType
     public void testRange()
     {
         Range range = type.getRange().orElseThrow();
-        assertEquals(range.getMin(), (long) Integer.MIN_VALUE);
-        assertEquals(range.getMax(), (long) Integer.MAX_VALUE);
+        assertThat(range.getMin()).isEqualTo((long) Integer.MIN_VALUE);
+        assertThat(range.getMax()).isEqualTo((long) Integer.MAX_VALUE);
     }
 
     @Test

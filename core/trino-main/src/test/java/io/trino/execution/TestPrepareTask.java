@@ -35,6 +35,7 @@ import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.List;
@@ -58,10 +59,12 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPrepareTask
 {
     private final Metadata metadata = createTestMetadataManager();
@@ -80,7 +83,7 @@ public class TestPrepareTask
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo")));
         String sqlString = "PREPARE my_query FROM SELECT * FROM foo";
         Map<String, String> statements = executePrepare("my_query", query, sqlString, TEST_SESSION);
-        assertEquals(statements, ImmutableMap.of("my_query", "SELECT *\nFROM\n  foo\n"));
+        assertThat(statements).isEqualTo(ImmutableMap.of("my_query", "SELECT *\nFROM\n  foo\n"));
     }
 
     @Test
@@ -93,7 +96,7 @@ public class TestPrepareTask
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo")));
         String sqlString = "PREPARE my_query FROM SELECT * FROM foo";
         Map<String, String> statements = executePrepare("my_query", query, sqlString, session);
-        assertEquals(statements, ImmutableMap.of("my_query", "SELECT *\nFROM\n  foo\n"));
+        assertThat(statements).isEqualTo(ImmutableMap.of("my_query", "SELECT *\nFROM\n  foo\n"));
     }
 
     @Test
@@ -109,7 +112,13 @@ public class TestPrepareTask
     private Map<String, String> executePrepare(String statementName, Statement statement, String sqlString, Session session)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControl = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
+        AccessControlManager accessControl = new AccessControlManager(
+                NodeVersion.UNKNOWN,
+                transactionManager,
+                emptyEventListenerManager(),
+                new AccessControlConfig(),
+                OpenTelemetry.noop(),
+                DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 Optional.empty(),

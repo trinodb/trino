@@ -23,9 +23,9 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -40,10 +40,10 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestSingleStoreConnectorTest
         extends BaseJdbcConnectorTest
 {
@@ -57,7 +57,7 @@ public class TestSingleStoreConnectorTest
         return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
     {
         singleStoreServer.close();
@@ -144,20 +144,23 @@ public class TestSingleStoreConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Test
     @Override
     public void testInsertUnicode()
     {
         // SingleStore's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
-        throw new SkipException("SingleStore doesn't support utf8mb4");
+        abort("SingleStore doesn't support utf8mb4");
     }
 
+    @Test
     @Override
     public void testInsertHighestUnicodeCharacter()
     {
         // SingleStore's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
-        throw new SkipException("SingleStore doesn't support utf8mb4");
+        abort("SingleStore doesn't support utf8mb4");
     }
 
+    @Test
     @Override
     public void testDeleteWithLike()
     {
@@ -176,15 +179,15 @@ public class TestSingleStoreConnectorTest
     @Test
     public void testNameEscaping()
     {
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_table"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_table")).isFalse();
 
         assertUpdate(getSession(), "CREATE TABLE test_table AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_table"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_table")).isTrue();
 
         assertQuery(getSession(), "SELECT * FROM test_table", "SELECT 123");
 
         assertUpdate(getSession(), "DROP TABLE test_table");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_table"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_table")).isFalse();
     }
 
     @Test
@@ -199,16 +202,20 @@ public class TestSingleStoreConnectorTest
 
         onRemoteDatabase().execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
         MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
-        assertEquals(materializedRows.getRowCount(), 1);
+        assertThat(materializedRows.getRowCount())
+                .isEqualTo(1);
         MaterializedRow row = getOnlyElement(materializedRows);
 
-        assertEquals(row.getFields().size(), 1);
-        assertEquals(row.getField(0), (byte) 127);
+        assertThat(row.getFields().size())
+                .isEqualTo(1);
+        assertThat(row.getField(0))
+                .isEqualTo((byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
     }
 
     // Overridden because the method from BaseConnectorTest fails on one of the assertions, see TODO below
+    @Test
     @Override
     public void testInsertIntoNotNullColumn()
     {
@@ -253,6 +260,7 @@ public class TestSingleStoreConnectorTest
         assertUpdate("DROP TABLE test_column_comment");
     }
 
+    @Test
     @Override
     public void testAddNotNullColumn()
     {
@@ -316,6 +324,7 @@ public class TestSingleStoreConnectorTest
                 .isNotFullyPushedDown(AggregationNode.class);
     }
 
+    @Test
     @Override
     public void testCreateTableAsSelectNegativeDate()
     {
@@ -333,6 +342,7 @@ public class TestSingleStoreConnectorTest
                 .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
     }
 
+    @Test
     @Override
     public void testNativeQueryCreateStatement()
     {
@@ -340,12 +350,13 @@ public class TestSingleStoreConnectorTest
         // This is unusual, because other connectors don't produce a ResultSet metadata for CREATE TABLE at all.
         // The query fails because there are no columns, but even if columns were not required, the query would fail
         // to execute in SingleStore because the connector wraps it in additional syntax, which causes syntax error.
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
                 .hasMessageContaining("descriptor has no fields");
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableExists()
     {

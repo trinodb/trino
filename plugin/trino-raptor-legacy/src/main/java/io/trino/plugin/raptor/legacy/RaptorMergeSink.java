@@ -23,7 +23,6 @@ import io.trino.plugin.raptor.legacy.storage.ShardRewriter;
 import io.trino.plugin.raptor.legacy.storage.StorageManager;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.MergePage;
@@ -43,7 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -81,12 +80,12 @@ public class RaptorMergeSink
         mergePage.getInsertionsPage().ifPresent(pageSink::appendPage);
 
         mergePage.getDeletionsPage().ifPresent(deletions -> {
-            ColumnarRow rowIdRow = toColumnarRow(deletions.getBlock(deletions.getChannelCount() - 1));
-            Block shardBucketBlock = rowIdRow.getField(0);
-            Block shardUuidBlock = rowIdRow.getField(1);
-            Block shardRowIdBlock = rowIdRow.getField(2);
+            List<Block> fields = getRowFieldsFromBlock(deletions.getBlock(deletions.getChannelCount() - 1));
+            Block shardBucketBlock = fields.get(0);
+            Block shardUuidBlock = fields.get(1);
+            Block shardRowIdBlock = fields.get(2);
 
-            for (int position = 0; position < rowIdRow.getPositionCount(); position++) {
+            for (int position = 0; position < shardRowIdBlock.getPositionCount(); position++) {
                 OptionalInt bucketNumber = shardBucketBlock.isNull(position)
                         ? OptionalInt.empty()
                         : OptionalInt.of(INTEGER.getInt(shardBucketBlock, position));

@@ -13,12 +13,15 @@
  */
 package io.trino.spi.connector;
 
+import com.google.errorprone.annotations.FormatMethod;
+
 import static java.lang.String.format;
 
 final class Preconditions
 {
     private Preconditions() {}
 
+    @FormatMethod
     static void checkArgument(boolean test, String message, Object... args)
     {
         if (!test) {
@@ -26,6 +29,7 @@ final class Preconditions
         }
     }
 
+    @FormatMethod
     static void checkState(boolean test, String message, Object... args)
     {
         if (!test) {

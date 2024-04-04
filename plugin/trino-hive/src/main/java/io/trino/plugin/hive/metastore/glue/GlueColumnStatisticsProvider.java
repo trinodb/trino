@@ -35,11 +35,6 @@ public interface GlueColumnStatisticsProvider
 
     Map<Partition, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(Collection<Partition> partitions);
 
-    default Map<String, HiveColumnStatistics> getPartitionColumnStatistics(Partition partition)
-    {
-        return getPartitionColumnStatistics(ImmutableSet.of(partition)).get(partition);
-    }
-
     void updateTableColumnStatistics(Table table, Map<String, HiveColumnStatistics> columnStatistics);
 
     default void updatePartitionStatistics(Partition partition, Map<String, HiveColumnStatistics> columnStatistics)

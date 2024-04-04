@@ -95,7 +95,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
             boolean writerScalingEnabledWithinTask)
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle(((session, tableName) -> {
+                .withGetTableHandle((session, tableName) -> {
                     if (tableName.getTableName().equals("source_table")
                             || tableName.getTableName().equals("system_partitioned_table")
                             || tableName.getTableName().equals("connector_partitioned_table")
@@ -103,7 +103,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         return new MockConnectorTableHandle(tableName);
                     }
                     return null;
-                }))
+                })
                 .withWriterScalingOptions(new WriterScalingOptions(true, writerScalingEnabledWithinTask))
                 .withGetTableStatistics(tableName -> {
                     if (tableName.getTableName().equals("source_table")) {

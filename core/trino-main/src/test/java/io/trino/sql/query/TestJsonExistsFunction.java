@@ -13,13 +13,13 @@
  */
 package io.trino.sql.query;
 
-import io.trino.json.PathEvaluationError;
-import io.trino.operator.scalar.json.JsonInputConversionError;
+import io.trino.json.PathEvaluationException;
+import io.trino.operator.scalar.json.JsonInputConversionException;
 import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.charset.Charset;
 
@@ -29,25 +29,20 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJsonExistsFunction
 {
     private static final String INPUT = "[\"a\", \"b\", \"c\"]";
     private static final String INCORRECT_INPUT = "[...";
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -87,7 +82,7 @@ public class TestJsonExistsFunction
 
         assertThatThrownBy(() -> assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'strict $[100]' ERROR ON ERROR)"))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [100, 100] for array of size 3");
     }
 
@@ -170,7 +165,7 @@ public class TestJsonExistsFunction
 
         assertThatThrownBy(() -> assertions.query(
                 "SELECT json_exists('" + INCORRECT_INPUT + "', 'strict $[1]' ERROR ON ERROR)"))
-                .isInstanceOf(JsonInputConversionError.class)
+                .isInstanceOf(JsonInputConversionException.class)
                 .hasMessage("conversion to JSON failed: ");
     }
 
@@ -198,7 +193,7 @@ public class TestJsonExistsFunction
 
         assertThatThrownBy(() -> assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\" ERROR ON ERROR)"))
-                .isInstanceOf(JsonInputConversionError.class)
+                .isInstanceOf(JsonInputConversionException.class)
                 .hasMessage("conversion to JSON failed: ");
 
         // array index out of bounds

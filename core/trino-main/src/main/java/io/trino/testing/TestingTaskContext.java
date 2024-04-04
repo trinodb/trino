@@ -39,21 +39,21 @@ public final class TestingTaskContext
 
     private TestingTaskContext() {}
 
-    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
+    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService scheduledExecutor, Session session)
     {
-        return builder(notificationExecutor, yieldExecutor, session).build();
+        return builder(notificationExecutor, scheduledExecutor, session).build();
     }
 
-    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session, DataSize maxMemory)
+    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService scheduledExecutor, Session session, DataSize maxMemory)
     {
-        return builder(notificationExecutor, yieldExecutor, session)
+        return builder(notificationExecutor, scheduledExecutor, session)
                 .setQueryMaxMemory(maxMemory)
                 .build();
     }
 
-    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session, TaskStateMachine taskStateMachine)
+    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService scheduledExecutor, Session session, TaskStateMachine taskStateMachine)
     {
-        return builder(notificationExecutor, yieldExecutor, session)
+        return builder(notificationExecutor, scheduledExecutor, session)
                 .setTaskStateMachine(taskStateMachine)
                 .build();
     }
@@ -73,15 +73,15 @@ public final class TestingTaskContext
                 true);
     }
 
-    public static Builder builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
+    public static Builder builder(Executor notificationExecutor, ScheduledExecutorService scheduledExecutor, Session session)
     {
-        return new Builder(notificationExecutor, yieldExecutor, session);
+        return new Builder(notificationExecutor, scheduledExecutor, session);
     }
 
     public static class Builder
     {
         private final Executor notificationExecutor;
-        private final ScheduledExecutorService yieldExecutor;
+        private final ScheduledExecutorService scheduledExecutor;
         private final Session session;
         private QueryId queryId = new QueryId("test_query");
         private TaskStateMachine taskStateMachine;
@@ -90,10 +90,10 @@ public final class TestingTaskContext
         private DataSize maxSpillSize = DataSize.of(1, GIGABYTE);
         private DataSize queryMaxSpillSize = DataSize.of(1, GIGABYTE);
 
-        private Builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
+        private Builder(Executor notificationExecutor, ScheduledExecutorService scheduledExecutor, Session session)
         {
             this.notificationExecutor = notificationExecutor;
-            this.yieldExecutor = yieldExecutor;
+            this.scheduledExecutor = scheduledExecutor;
             this.session = session;
         }
 
@@ -148,7 +148,8 @@ public final class TestingTaskContext
                     0L,
                     GC_MONITOR,
                     notificationExecutor,
-                    yieldExecutor,
+                    scheduledExecutor,
+                    scheduledExecutor,
                     queryMaxSpillSize,
                     spillSpaceTracker);
 

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
@@ -37,7 +38,7 @@ public class TestSetPropertiesTask
     public void testSetMaterializedViewProperties()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("test_materialized_view");
-        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         // set all properties to non-DEFAULT values and check the results
         executeSetProperties(
@@ -47,7 +48,8 @@ public class TestSetPropertiesTask
                         ImmutableList.of(
                                 new Property(new Identifier(MATERIALIZED_VIEW_PROPERTY_1_NAME), new LongLiteral("111")),
                                 new Property(new Identifier(MATERIALIZED_VIEW_PROPERTY_2_NAME), new StringLiteral("abc")))));
-        assertThat(metadata.getMaterializedView(testSession, materializedViewName).get().getProperties()).isEqualTo(
+        MaterializedViewDefinition materializedViewDefinition = metadata.getMaterializedView(testSession, materializedViewName).orElseThrow();
+        assertThat(metadata.getMaterializedViewProperties(testSession, materializedViewName, materializedViewDefinition)).isEqualTo(
                 ImmutableMap.of(
                         MATERIALIZED_VIEW_PROPERTY_1_NAME, 111L,
                         MATERIALIZED_VIEW_PROPERTY_2_NAME, "abc"));
@@ -62,7 +64,7 @@ public class TestSetPropertiesTask
                                 new Property(new Identifier(MATERIALIZED_VIEW_PROPERTY_2_NAME)))));
         // since the default value of property 1 is null, property 1 should not appear in the result, whereas property 2 should appear in
         // the result with its (non-null) default value
-        assertThat(metadata.getMaterializedView(testSession, materializedViewName).get().getProperties()).isEqualTo(
+        assertThat(metadata.getMaterializedViewProperties(testSession, materializedViewName, materializedViewDefinition)).isEqualTo(
                 ImmutableMap.of(MATERIALIZED_VIEW_PROPERTY_2_NAME, MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE));
     }
 

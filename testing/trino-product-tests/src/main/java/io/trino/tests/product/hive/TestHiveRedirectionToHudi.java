@@ -241,11 +241,11 @@ public class TestHiveRedirectionToHudi
         createHudiCowTable(sourceSchemaTableName, false);
         createHudiMorTable(targetSchemaTableName, false);
 
-        assertQueryFailure(() -> (onTrino().executeQuery("" +
+        assertQueryFailure(() -> onTrino().executeQuery("" +
                 "MERGE INTO " + hiveTargetTableName + " t USING " + hiveSourceTableName + " s ON t.id = s.id " +
                 "WHEN NOT MATCHED " +
                 "    THEN INSERT (id, name, price, ts) " +
-                "            VALUES (s.id, s.name, s.price, s.ts)")))
+                "            VALUES (s.id, s.name, s.price, s.ts)"))
                 .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): This connector does not support modifying table rows");
 
         onHudi().executeQuery("DROP TABLE " + sourceSchemaTableName);

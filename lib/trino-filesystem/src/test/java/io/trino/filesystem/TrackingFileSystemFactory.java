@@ -194,6 +194,13 @@ public class TrackingFileSystemFactory
         {
             return delegate.listDirectories(location);
         }
+
+        @Override
+        public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+                throws IOException
+        {
+            return delegate.createTemporaryDirectory(targetPath, temporaryPrefix, relativePrefix);
+        }
     }
 
     private static class TrackingInputFile

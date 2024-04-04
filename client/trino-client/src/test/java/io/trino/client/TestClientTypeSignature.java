@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestClientTypeSignature
 {
@@ -56,23 +56,23 @@ public class TestClientTypeSignature
     public void testStringSerialization()
     {
         ClientTypeSignature bigint = new ClientTypeSignature(StandardTypes.BIGINT);
-        assertEquals(bigint.toString(), "bigint");
         ClientTypeSignature varchar = new ClientTypeSignature(StandardTypes.VARCHAR, ImmutableList.of(ClientTypeSignatureParameter.ofLong(50)));
-        assertEquals(varchar.toString(), "varchar(50)");
+        assertThat(bigint.toString()).isEqualTo("bigint");
+        assertThat(varchar.toString()).isEqualTo("varchar(50)");
         ClientTypeSignature array = new ClientTypeSignature(StandardTypes.ARRAY, ImmutableList.of(ClientTypeSignatureParameter.ofType(new ClientTypeSignature(StandardTypes.BIGINT))));
-        assertEquals(array.toString(), "array(bigint)");
+        assertThat(array.toString()).isEqualTo("array(bigint)");
         ClientTypeSignature row = new ClientTypeSignature(
                 StandardTypes.ROW,
                 ImmutableList.of(
                         ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(Optional.of(new RowFieldName("foo")), bigint)),
                         ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(Optional.of(new RowFieldName("bar")), bigint))));
-        assertEquals(row.toString(), "row(foo bigint,bar bigint)");
+        assertThat(row.toString()).isEqualTo("row(foo bigint,bar bigint)");
     }
 
     private static void assertJsonRoundTrip(ClientTypeSignature signature)
     {
         String json = CLIENT_TYPE_SIGNATURE_CODEC.toJson(signature);
         ClientTypeSignature copy = CLIENT_TYPE_SIGNATURE_CODEC.fromJson(json);
-        assertEquals(copy, signature);
+        assertThat(copy).isEqualTo(signature);
     }
 }

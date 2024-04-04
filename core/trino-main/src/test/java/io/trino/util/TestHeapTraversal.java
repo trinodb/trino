@@ -15,9 +15,7 @@ package io.trino.util;
 
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHeapTraversal
 {
@@ -36,37 +34,37 @@ public class TestHeapTraversal
          */
 
         heapTraversal.resetWithPathTo(1);
-        assertTrue(heapTraversal.isTarget());
+        assertThat(heapTraversal.isTarget()).isTrue();
 
         heapTraversal.resetWithPathTo(2);
-        assertFalse(heapTraversal.isTarget());
-        assertEquals(heapTraversal.nextChild(), HeapTraversal.Child.LEFT);
-        assertTrue(heapTraversal.isTarget());
+        assertThat(heapTraversal.isTarget()).isFalse();
+        assertThat(heapTraversal.nextChild()).isEqualTo(HeapTraversal.Child.LEFT);
+        assertThat(heapTraversal.isTarget()).isTrue();
 
         heapTraversal.resetWithPathTo(3);
-        assertFalse(heapTraversal.isTarget());
-        assertEquals(heapTraversal.nextChild(), HeapTraversal.Child.RIGHT);
-        assertTrue(heapTraversal.isTarget());
+        assertThat(heapTraversal.isTarget()).isFalse();
+        assertThat(heapTraversal.nextChild()).isEqualTo(HeapTraversal.Child.RIGHT);
+        assertThat(heapTraversal.isTarget()).isTrue();
 
         heapTraversal.resetWithPathTo(4);
-        assertFalse(heapTraversal.isTarget());
-        assertEquals(heapTraversal.nextChild(), HeapTraversal.Child.LEFT);
-        assertFalse(heapTraversal.isTarget());
-        assertEquals(heapTraversal.nextChild(), HeapTraversal.Child.LEFT);
-        assertTrue(heapTraversal.isTarget());
+        assertThat(heapTraversal.isTarget()).isFalse();
+        assertThat(heapTraversal.nextChild()).isEqualTo(HeapTraversal.Child.LEFT);
+        assertThat(heapTraversal.isTarget()).isFalse();
+        assertThat(heapTraversal.nextChild()).isEqualTo(HeapTraversal.Child.LEFT);
+        assertThat(heapTraversal.isTarget()).isTrue();
 
         heapTraversal.resetWithPathTo(5);
-        assertFalse(heapTraversal.isTarget());
-        assertEquals(heapTraversal.nextChild(), HeapTraversal.Child.LEFT);
-        assertFalse(heapTraversal.isTarget());
-        assertEquals(heapTraversal.nextChild(), HeapTraversal.Child.RIGHT);
-        assertTrue(heapTraversal.isTarget());
+        assertThat(heapTraversal.isTarget()).isFalse();
+        assertThat(heapTraversal.nextChild()).isEqualTo(HeapTraversal.Child.LEFT);
+        assertThat(heapTraversal.isTarget()).isFalse();
+        assertThat(heapTraversal.nextChild()).isEqualTo(HeapTraversal.Child.RIGHT);
+        assertThat(heapTraversal.isTarget()).isTrue();
 
         heapTraversal.resetWithPathTo(6);
-        assertFalse(heapTraversal.isTarget());
-        assertEquals(heapTraversal.nextChild(), HeapTraversal.Child.RIGHT);
-        assertFalse(heapTraversal.isTarget());
-        assertEquals(heapTraversal.nextChild(), HeapTraversal.Child.LEFT);
-        assertTrue(heapTraversal.isTarget());
+        assertThat(heapTraversal.isTarget()).isFalse();
+        assertThat(heapTraversal.nextChild()).isEqualTo(HeapTraversal.Child.RIGHT);
+        assertThat(heapTraversal.isTarget()).isFalse();
+        assertThat(heapTraversal.nextChild()).isEqualTo(HeapTraversal.Child.LEFT);
+        assertThat(heapTraversal.isTarget()).isTrue();
     }
 }

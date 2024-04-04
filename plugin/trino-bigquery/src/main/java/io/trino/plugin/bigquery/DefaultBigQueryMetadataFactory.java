@@ -24,17 +24,19 @@ public class DefaultBigQueryMetadataFactory
 {
     private final BigQueryClientFactory bigQueryClient;
     private final ListeningExecutorService executorService;
+    private final BigQueryTypeManager typeManager;
 
     @Inject
-    public DefaultBigQueryMetadataFactory(BigQueryClientFactory bigQueryClient, @ForBigQuery ListeningExecutorService executorService)
+    public DefaultBigQueryMetadataFactory(BigQueryClientFactory bigQueryClient, BigQueryTypeManager typeManager, @ForBigQuery ListeningExecutorService executorService)
     {
         this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
     }
 
     @Override
     public BigQueryMetadata create(BigQueryTransactionHandle transaction)
     {
-        return new BigQueryMetadata(bigQueryClient, executorService);
+        return new BigQueryMetadata(bigQueryClient, typeManager, executorService);
     }
 }

@@ -287,7 +287,7 @@ public class JmxMetadata
 
         JmxTableHandle newTableHandle = new JmxTableHandle(tableHandle.getTableName(), tableHandle.getObjectNames(), tableHandle.getColumnHandles(), tableHandle.isLiveData(), newDomain);
 
-        return Optional.of(new ConstraintApplicationResult<>(newTableHandle, TupleDomain.withColumnDomains(otherDomains), false));
+        return Optional.of(new ConstraintApplicationResult<>(newTableHandle, TupleDomain.withColumnDomains(otherDomains), constraint.getExpression(), false));
     }
 
     private static Type getColumnType(MBeanAttributeInfo attribute)

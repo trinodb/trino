@@ -28,9 +28,10 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -65,10 +66,14 @@ import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 /**
  * @see <a href="https://mariadb.com/kb/en/data-types/">MariaDB data types</a>
  */
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestMariaDbTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -80,7 +85,7 @@ public class TestMariaDbTypeMapping
     // minutes offset change since 1970-01-01, no DST
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
@@ -350,8 +355,14 @@ public class TestMariaDbTypeMapping
         }
     }
 
-    @Test(dataProvider = "testDecimalExceedingPrecisionMaxProvider")
-    public void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
+    @Test
+    public void testDecimalExceedingPrecisionMaxWithSupportedValues()
+    {
+        testDecimalExceedingPrecisionMaxWithSupportedValues(40, 8);
+        testDecimalExceedingPrecisionMaxWithSupportedValues(50, 10);
+    }
+
+    private void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
     {
         try (TestTable testTable = new TestTable(
                 server::execute,
@@ -399,15 +410,6 @@ public class TestMariaDbTypeMapping
                     "SELECT d_col FROM " + testTable.getName(),
                     "VALUES (12.01), (-12.01), (123), (-123), (1.12345678), (-1.12345678)");
         }
-    }
-
-    @DataProvider
-    public Object[][] testDecimalExceedingPrecisionMaxProvider()
-    {
-        return new Object[][] {
-                {40, 8},
-                {50, 10},
-        };
     }
 
     private Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
@@ -588,8 +590,17 @@ public class TestMariaDbTypeMapping
                 .execute(getQueryRunner(), mariaDbCreateAndInsert("tpch.test_binary"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
+    {
+        testDate(UTC);
+        testDate(jvmZone);
+        testDate(vilnius);
+        testDate(kathmandu);
+        testDate(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -736,8 +747,17 @@ public class TestMariaDbTypeMapping
     /**
      * Read {@code TIMESTAMP}s inserted by MariaDb as Trino {@code TIMESTAMP}s
      */
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestamp(ZoneId sessionZone)
+    @Test
+    public void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(jvmZone);
+        testTimestamp(vilnius);
+        testTimestamp(kathmandu);
+        testTimestamp(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -854,18 +874,6 @@ public class TestMariaDbTypeMapping
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp_coercion"))
                 // INSERT with Trino, where the coercion is done by the engine
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_coercion"));
-    }
-
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                {vilnius},
-                {kathmandu},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
     }
 
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)

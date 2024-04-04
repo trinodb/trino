@@ -23,7 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.type.Type;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;

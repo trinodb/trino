@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.kafka.schema.confluent;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 

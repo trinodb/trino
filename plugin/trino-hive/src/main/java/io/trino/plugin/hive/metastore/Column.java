@@ -34,15 +34,6 @@ public class Column
     private final Optional<String> comment;
     private final Map<String, String> properties;
 
-    @Deprecated
-    public Column(
-            String name,
-            HiveType type,
-            Optional<String> comment)
-    {
-        this(name, type, comment, ImmutableMap.of());
-    }
-
     @JsonCreator
     public Column(
             @JsonProperty("name") String name,

@@ -29,8 +29,8 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static java.util.Collections.emptyList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.testng.Assert.assertTrue;
 
 public class TestCreateSchemaTask
         extends BaseDataDefinitionTaskTest
@@ -43,10 +43,10 @@ public class TestCreateSchemaTask
         CreateSchemaTask task = getCreateSchemaTask();
         CreateSchema statement = new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of());
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertTrue(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
+        assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isTrue();
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP)))
-                .withMessage("Schema 'test-catalog.test_db' already exists");
+                .withMessage("Schema 'test_catalog.test_db' already exists");
     }
 
     @Test
@@ -55,9 +55,9 @@ public class TestCreateSchemaTask
         CreateSchemaTask task = getCreateSchemaTask();
         CreateSchema statement = new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), true, ImmutableList.of());
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertTrue(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
+        assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isTrue();
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertTrue(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
+        assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isTrue();
     }
 
     @Test
@@ -71,14 +71,14 @@ public class TestCreateSchemaTask
                         queryStateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))
-                .withMessage("TEST create schema fail: test-catalog.test_db");
+                .withMessage("TEST create schema fail: test_catalog.test_db");
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(
                         new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), true, ImmutableList.of()),
                         queryStateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))
-                .withMessage("TEST create schema fail: test-catalog.test_db");
+                .withMessage("TEST create schema fail: test_catalog.test_db");
     }
 
     private CreateSchemaTask getCreateSchemaTask()

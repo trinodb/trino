@@ -56,10 +56,12 @@ import java.util.function.Function;
 import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
+import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -221,6 +223,23 @@ class EventDrivenTaskSource
         }
     }
 
+    public String getDebugInfo()
+    {
+        return toStringHelper(this)
+                .add("sourceExchanges", transformValues(sourceExchanges, Exchange::getId))
+                .add("remoteSources", remoteSources)
+                .add("assigner", assigner)
+                .add("splitBatchSize", splitBatchSize)
+                .add("targetExchangeSplitSizeInBytes", targetExchangeSplitSizeInBytes)
+                .add("sourcePartitioningScheme", sourcePartitioningScheme)
+                .add("initialized", initialized)
+                .add("splitSources", splitSources)
+                .add("completedFragments", completedFragments)
+                .add("future", future)
+                .add("closed", closed)
+                .toString();
+    }
+
     private static class IdempotentSplitSource
             implements Closeable
     {
@@ -294,6 +313,19 @@ class EventDrivenTaskSource
         {
             finished = lastBatch;
             future = Optional.empty();
+        }
+
+        @Override
+        public synchronized String toString()
+        {
+            return toStringHelper(this)
+                    .add("planNodeId", planNodeId)
+                    .add("sourceFragmentId", sourceFragmentId)
+                    .add("splitSource", splitSource)
+                    .add("splitBatchSize", splitBatchSize)
+                    .add("closed", closed)
+                    .add("finished", finished)
+                    .toString();
         }
 
         public class SplitBatchReference
@@ -403,6 +435,15 @@ class EventDrivenTaskSource
         public Optional<List<Object>> getTableExecuteSplitsInfo()
         {
             return Optional.empty();
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("handleSource", handleSource)
+                    .add("targetSplitSizeInBytes", targetSplitSizeInBytes)
+                    .toString();
         }
     }
 

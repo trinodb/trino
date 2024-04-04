@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.client.NodeVersion;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
@@ -38,6 +39,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -146,7 +148,7 @@ public class TestingAccessControlManager
             AccessControlConfig accessControlConfig,
             OpenTelemetry openTelemetry)
     {
-        super(transactionManager, eventListenerManager, accessControlConfig, openTelemetry, DefaultSystemAccessControl.NAME);
+        super(NodeVersion.UNKNOWN, transactionManager, eventListenerManager, accessControlConfig, openTelemetry, DefaultSystemAccessControl.NAME);
     }
 
     public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager)
@@ -640,18 +642,11 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName table, Set<String> columns)
-    {
-        Set<String> visibleColumns = localFilterColumns(context, table.getSchemaTableName(), columns);
-        return super.filterColumns(context, table, visibleColumns);
-    }
-
-    @Override
     public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
         tableColumns = tableColumns.entrySet().stream()
                 .collect(toImmutableMap(
-                        Map.Entry::getKey,
+                        Entry::getKey,
                         e -> localFilterColumns(context, e.getKey(), e.getValue())));
         return super.filterColumns(context, catalogName, tableColumns);
     }

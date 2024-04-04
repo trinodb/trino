@@ -17,13 +17,12 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheLoader.InvalidCacheLoadException;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.Immutable;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
@@ -50,9 +49,8 @@ import io.trino.plugin.hive.metastore.PartitionFilter;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.TablesWithParameterCacheKey;
-import io.trino.plugin.hive.metastore.UserTableKey;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -61,6 +59,7 @@ import io.trino.spi.type.Type;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -104,7 +103,7 @@ import static java.util.function.UnaryOperator.identity;
  * Hive Metastore Cache
  */
 @ThreadSafe
-public class CachingHiveMetastore
+public final class CachingHiveMetastore
         implements HiveMetastore
 {
     public enum StatsRecording
@@ -113,13 +112,15 @@ public class CachingHiveMetastore
         DISABLED
     }
 
-    protected final HiveMetastore delegate;
+    private final HiveMetastore delegate;
     private final boolean cacheMissing;
     private final LoadingCache<String, Optional<Database>> databaseCache;
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
     private final LoadingCache<String, List<String>> tableNamesCache;
     private final LoadingCache<SingletonCacheKey, Optional<List<SchemaTableName>>> allTableNamesCache;
+    private final LoadingCache<String, Map<String, RelationType>> relationTypesCache;
+    private final LoadingCache<SingletonCacheKey, Optional<Map<SchemaTableName, RelationType>>> allRelationTypesCache;
     private final LoadingCache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
     private final Cache<HiveTableName, AtomicReference<PartitionStatistics>> tableStatisticsCache;
     private final Cache<HivePartitionName, AtomicReference<PartitionStatistics>> partitionStatisticsCache;
@@ -130,248 +131,92 @@ public class CachingHiveMetastore
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final LoadingCache<String, Set<String>> rolesCache;
     private final LoadingCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
-    private final LoadingCache<String, Set<RoleGrant>> grantedPrincipalsCache;
     private final LoadingCache<String, Optional<String>> configValuesCache;
 
-    public static CachingHiveMetastoreBuilder builder()
+    public static CachingHiveMetastore createPerTransactionCache(HiveMetastore delegate, long maximumSize)
     {
-        return new CachingHiveMetastoreBuilder();
+        return new CachingHiveMetastore(
+                delegate,
+                true,
+                new CacheFactory(maximumSize),
+                new CacheFactory(maximumSize),
+                new CacheFactory(maximumSize),
+                new CacheFactory(maximumSize));
     }
 
-    public static CachingHiveMetastoreBuilder builder(CachingHiveMetastoreBuilder other)
-    {
-        return new CachingHiveMetastoreBuilder(
-                other.delegate,
-                other.executor,
-                other.metadataCacheEnabled,
-                other.statsCacheEnabled,
-                other.expiresAfterWriteMillis,
-                other.statsExpiresAfterWriteMillis,
-                other.refreshMills,
-                other.maximumSize,
-                other.statsRecording,
-                other.cacheMissing,
-                other.partitionCacheEnabled);
-    }
-
-    public static CachingHiveMetastore memoizeMetastore(HiveMetastore delegate, long maximumSize)
-    {
-        return builder()
-                .delegate(delegate)
-                .metadataCacheEnabled(true)
-                .statsCacheEnabled(true)
-                .maximumSize(maximumSize)
-                .statsRecording(StatsRecording.DISABLED)
-                .cacheMissing(true)
-                .partitionCacheEnabled(true)
-                .build();
-    }
-
-    @Immutable
-    public static class CachingHiveMetastoreBuilder
-    {
-        private HiveMetastore delegate;
-        private Optional<Executor> executor = Optional.empty();
-        private Boolean metadataCacheEnabled;
-        private Boolean statsCacheEnabled;
-        private OptionalLong expiresAfterWriteMillis = OptionalLong.empty();
-        private OptionalLong statsExpiresAfterWriteMillis = OptionalLong.empty();
-        private OptionalLong refreshMills = OptionalLong.empty();
-        private Long maximumSize;
-        private StatsRecording statsRecording = StatsRecording.ENABLED;
-        private Boolean cacheMissing;
-        private Boolean partitionCacheEnabled;
-
-        public CachingHiveMetastoreBuilder() {}
-
-        private CachingHiveMetastoreBuilder(
-                HiveMetastore delegate,
-                Optional<Executor> executor,
-                boolean metadataCacheEnabled,
-                boolean statsCacheEnabled,
-                OptionalLong expiresAfterWriteMillis,
-                OptionalLong statsExpiresAfterWriteMillis,
-                OptionalLong refreshMills,
-                Long maximumSize,
-                StatsRecording statsRecording,
-                Boolean cacheMissing,
-                Boolean partitionCacheEnabled)
-        {
-            this.delegate = delegate;
-            this.executor = executor;
-            this.metadataCacheEnabled = metadataCacheEnabled;
-            this.statsCacheEnabled = statsCacheEnabled;
-            this.expiresAfterWriteMillis = expiresAfterWriteMillis;
-            this.statsExpiresAfterWriteMillis = statsExpiresAfterWriteMillis;
-            this.refreshMills = refreshMills;
-            this.maximumSize = maximumSize;
-            this.statsRecording = statsRecording;
-            this.cacheMissing = cacheMissing;
-            this.partitionCacheEnabled = partitionCacheEnabled;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder delegate(HiveMetastore delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder executor(Executor executor)
-        {
-            this.executor = Optional.of(requireNonNull(executor, "executor is null"));
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder metadataCacheEnabled(boolean metadataCacheEnabled)
-        {
-            this.metadataCacheEnabled = metadataCacheEnabled;
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder statsCacheEnabled(boolean statsCacheEnabled)
-        {
-            this.statsCacheEnabled = statsCacheEnabled;
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder cacheTtl(Duration cacheTtl)
-        {
-            expiresAfterWriteMillis = OptionalLong.of(requireNonNull(cacheTtl, "cacheTtl is null").toMillis());
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder statsCacheTtl(Duration statsCacheTtl)
-        {
-            statsExpiresAfterWriteMillis = OptionalLong.of(requireNonNull(statsCacheTtl, "statsCacheTtl is null").toMillis());
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder refreshInterval(Duration refreshInterval)
-        {
-            return refreshInterval(Optional.of(refreshInterval));
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder refreshInterval(Optional<Duration> refreshInterval)
-        {
-            refreshMills = requireNonNull(refreshInterval, "refreshInterval is null")
-                    .map(Duration::toMillis)
-                    .map(OptionalLong::of)
-                    .orElse(OptionalLong.empty());
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder maximumSize(long maximumSize)
-        {
-            this.maximumSize = maximumSize;
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder statsRecording(StatsRecording statsRecording)
-        {
-            this.statsRecording = requireNonNull(statsRecording, "statsRecording is null");
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder cacheMissing(boolean cacheMissing)
-        {
-            this.cacheMissing = cacheMissing;
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder partitionCacheEnabled(boolean partitionCacheEnabled)
-        {
-            this.partitionCacheEnabled = partitionCacheEnabled;
-            return this;
-        }
-
-        public CachingHiveMetastore build()
-        {
-            requireNonNull(metadataCacheEnabled, "metadataCacheEnabled not set");
-            requireNonNull(statsCacheEnabled, "statsCacheEnabled is null");
-            requireNonNull(delegate, "delegate not set");
-            requireNonNull(maximumSize, "maximumSize not set");
-            requireNonNull(cacheMissing, "cacheMissing not set");
-            requireNonNull(partitionCacheEnabled, "partitionCacheEnabled not set");
-            return new CachingHiveMetastore(
-                    delegate,
-                    metadataCacheEnabled,
-                    statsCacheEnabled,
-                    expiresAfterWriteMillis,
-                    statsExpiresAfterWriteMillis,
-                    refreshMills,
-                    executor,
-                    maximumSize,
-                    statsRecording,
-                    cacheMissing,
-                    partitionCacheEnabled);
-        }
-    }
-
-    protected CachingHiveMetastore(
+    public static CachingHiveMetastore createCachingHiveMetastore(
             HiveMetastore delegate,
-            boolean metadataCacheEnabled,
-            boolean statsCacheEnabled,
-            OptionalLong expiresAfterWriteMillis,
-            OptionalLong statsExpiresAfterWriteMillis,
-            OptionalLong refreshMills,
-            Optional<Executor> executor,
+            Duration metadataCacheTtl,
+            Duration statsCacheTtl,
+            Optional<Duration> refreshInterval,
+            Executor refreshExecutor,
             long maximumSize,
             StatsRecording statsRecording,
             boolean cacheMissing,
             boolean partitionCacheEnabled)
     {
-        checkArgument(metadataCacheEnabled || statsCacheEnabled, "Cache not enabled");
+        // refresh executor is only required when the refresh interval is set, but the executor is
+        // always set, so it is simpler to just enforce that
+        requireNonNull(refreshExecutor, "refreshExecutor is null");
+
+        long metadataCacheMillis = metadataCacheTtl.toMillis();
+        long statsCacheMillis = statsCacheTtl.toMillis();
+        checkArgument(metadataCacheMillis > 0 || statsCacheMillis > 0, "Cache not enabled");
+
+        OptionalLong refreshMillis = refreshInterval.stream().mapToLong(Duration::toMillis).findAny();
+
+        CacheFactory cacheFactory = CacheFactory.NEVER_CACHE;
+        CacheFactory partitionCacheFactory = CacheFactory.NEVER_CACHE;
+        if (metadataCacheMillis > 0) {
+            cacheFactory = new CacheFactory(OptionalLong.of(metadataCacheMillis), refreshMillis, Optional.of(refreshExecutor), maximumSize, statsRecording);
+            if (partitionCacheEnabled) {
+                partitionCacheFactory = cacheFactory;
+            }
+        }
+
+        CacheFactory statsCacheFactory = CacheFactory.NEVER_CACHE;
+        CacheFactory partitionStatsCacheFactory = CacheFactory.NEVER_CACHE;
+        if (statsCacheMillis > 0) {
+            statsCacheFactory = new CacheFactory(OptionalLong.of(statsCacheMillis), refreshMillis, Optional.of(refreshExecutor), maximumSize, statsRecording);
+            if (partitionCacheEnabled) {
+                partitionStatsCacheFactory = statsCacheFactory;
+            }
+        }
+
+        return new CachingHiveMetastore(
+                delegate,
+                cacheMissing,
+                cacheFactory,
+                partitionCacheFactory,
+                statsCacheFactory,
+                partitionStatsCacheFactory);
+    }
+
+    private CachingHiveMetastore(
+            HiveMetastore delegate,
+            boolean cacheMissing,
+            CacheFactory cacheFactory,
+            CacheFactory partitionCacheFactory,
+            CacheFactory statsCacheFactory,
+            CacheFactory partitionStatsCacheFactory)
+    {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cacheMissing = cacheMissing;
-        requireNonNull(executor, "executor is null");
-
-        CacheFactory cacheFactory;
-        CacheFactory partitionCacheFactory;
-        if (metadataCacheEnabled) {
-            cacheFactory = cacheFactory(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording);
-            partitionCacheFactory = partitionCacheEnabled ? cacheFactory : neverCacheFactory();
-        }
-        else {
-            cacheFactory = neverCacheFactory();
-            partitionCacheFactory = neverCacheFactory();
-        }
-
-        CacheFactory statsCacheFactory;
-        CacheFactory partitionStatsCacheFactory;
-        if (statsCacheEnabled) {
-            statsCacheFactory = cacheFactory(statsExpiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording);
-            partitionStatsCacheFactory = partitionCacheEnabled ? statsCacheFactory : neverCacheFactory();
-        }
-        else {
-            statsCacheFactory = neverCacheFactory();
-            partitionStatsCacheFactory = neverCacheFactory();
-        }
 
         databaseNamesCache = cacheFactory.buildCache(ignored -> loadAllDatabases());
         databaseCache = cacheFactory.buildCache(this::loadDatabase);
         tableNamesCache = cacheFactory.buildCache(this::loadAllTables);
         allTableNamesCache = cacheFactory.buildCache(ignore -> loadAllTables());
+        relationTypesCache = cacheFactory.buildCache(this::loadRelationTypes);
+        allRelationTypesCache = cacheFactory.buildCache(ignore -> loadRelationTypes());
         tablesWithParameterCache = cacheFactory.buildCache(this::loadTablesMatchingParameter);
         tableStatisticsCache = statsCacheFactory.buildCache(this::refreshTableStatistics);
         tableCache = cacheFactory.buildCache(this::loadTable);
         viewNamesCache = cacheFactory.buildCache(this::loadAllViews);
         allViewNamesCache = cacheFactory.buildCache(ignore -> loadAllViews());
-        tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.getDatabase(), key.getTable(), key.getOwner(), key.getPrincipal()));
+        tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.database(), key.table(), key.owner(), key.principal()));
         rolesCache = cacheFactory.buildCache(ignored -> loadRoles());
         roleGrantsCache = cacheFactory.buildCache(this::loadRoleGrants);
-        grantedPrincipalsCache = cacheFactory.buildCache(this::loadPrincipals);
         configValuesCache = cacheFactory.buildCache(this::loadConfigValue);
 
         partitionStatisticsCache = partitionStatsCacheFactory.buildBulkCache();
@@ -385,6 +230,8 @@ public class CachingHiveMetastore
         databaseNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();
         allTableNamesCache.invalidateAll();
+        relationTypesCache.invalidateAll();
+        allRelationTypesCache.invalidateAll();
         viewNamesCache.invalidateAll();
         allViewNamesCache.invalidateAll();
         databaseCache.invalidateAll();
@@ -543,7 +390,7 @@ public class CachingHiveMetastore
 
         keys.forEach(key -> {
             // make sure the value holder is retrieved before the new values are loaded
-            // so that in case of invalidation we will not set the stale value
+            // so that in case of invalidation, we will not set the stale value
             AtomicReference<V> currentValueHolder = uncheckedCacheGet(cache, key, AtomicReference::new);
             V currentValue = currentValueHolder.get();
             if (currentValue != null && isSufficient.test(currentValue)) {
@@ -627,7 +474,9 @@ public class CachingHiveMetastore
                     Table tableWithOnlyMissingColumns = table.withSelectedDataColumnsOnly(missingColumns);
                     return delegate.getTableStatistics(tableWithOnlyMissingColumns);
                 },
-                CachingHiveMetastore::mergePartitionColumnStatistics);
+                (currentStats, newStats) -> mergePartitionColumnStatistics(currentStats, newStats, dataColumns))
+                // HiveColumnStatistics.empty() are removed to make output consistent with non-cached metastore which simplifies testing
+                .withEmptyColumnStatisticsRemoved();
     }
 
     /**
@@ -648,23 +497,31 @@ public class CachingHiveMetastore
                 partitionsByName.keySet(),
                 missingPartitions -> loadPartitionsColumnStatistics(table, partitionsByName, missingPartitions),
                 currentStats -> currentStats.getColumnStatistics().keySet().containsAll(dataColumns),
-                CachingHiveMetastore::mergePartitionColumnStatistics);
+                (currentStats, newStats) -> mergePartitionColumnStatistics(currentStats, newStats, dataColumns));
         return statistics.entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getPartitionName().orElseThrow(), Entry::getValue));
+                .collect(toImmutableMap(
+                        entry -> entry.getKey().getPartitionName().orElseThrow(),
+                        // HiveColumnStatistics.empty() are removed to make output consistent with non-cached metastore which simplifies testing
+                        entry -> entry.getValue().withEmptyColumnStatisticsRemoved()));
     }
 
-    private static PartitionStatistics mergePartitionColumnStatistics(PartitionStatistics currentStats, PartitionStatistics newStats)
+    private PartitionStatistics mergePartitionColumnStatistics(PartitionStatistics currentStats, PartitionStatistics newStats, Set<String> dataColumns)
     {
         requireNonNull(newStats, "newStats is null");
-        if (currentStats == null) {
-            return newStats;
+        ImmutableMap.Builder<String, HiveColumnStatistics> columnStatisticsBuilder = ImmutableMap.builder();
+        // Populate empty statistics for all requested columns to cache absence of column statistics for future requests.
+        if (cacheMissing) {
+            columnStatisticsBuilder.putAll(Iterables.transform(
+                    dataColumns,
+                    column -> new AbstractMap.SimpleEntry<>(column, HiveColumnStatistics.empty())));
         }
+        if (currentStats != null) {
+            columnStatisticsBuilder.putAll(currentStats.getColumnStatistics());
+        }
+        columnStatisticsBuilder.putAll(newStats.getColumnStatistics());
         return new PartitionStatistics(
                 newStats.getBasicStatistics(),
-                ImmutableMap.<String, HiveColumnStatistics>builder()
-                        .putAll(currentStats.getColumnStatistics())
-                        .putAll(newStats.getColumnStatistics())
-                        .buildKeepingLast());
+                columnStatisticsBuilder.buildKeepingLast());
     }
 
     private Map<HivePartitionName, PartitionStatistics> loadPartitionsColumnStatistics(Table table, Map<HivePartitionName, Partition> partitionsByName, Collection<HivePartitionName> partitionNamesToLoad)
@@ -702,10 +559,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionsStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         try {
-            delegate.updatePartitionStatistics(table, partitionName, update);
+            delegate.updatePartitionsStatistics(table, partitionName, update);
         }
         finally {
             HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);
@@ -732,25 +589,55 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getTables(String databaseName)
     {
+        Map<String, RelationType> relationTypes = relationTypesCache.getIfPresent(databaseName);
+        if (relationTypes != null) {
+            return ImmutableList.copyOf(relationTypes.keySet());
+        }
         return get(tableNamesCache, databaseName);
     }
 
     private List<String> loadAllTables(String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getTables(databaseName);
     }
 
     @Override
     public Optional<List<SchemaTableName>> getAllTables()
     {
+        Optional<Map<SchemaTableName, RelationType>> relationTypes = allRelationTypesCache.getIfPresent(SingletonCacheKey.INSTANCE);
+        if (relationTypes != null && relationTypes.isPresent()) {
+            return Optional.of(ImmutableList.copyOf(relationTypes.get().keySet()));
+        }
         return getOptional(allTableNamesCache, SingletonCacheKey.INSTANCE);
     }
 
     private Optional<List<SchemaTableName>> loadAllTables()
     {
         return delegate.getAllTables();
+    }
+
+    @Override
+    public Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        return get(relationTypesCache, databaseName);
+    }
+
+    private Map<String, RelationType> loadRelationTypes(String databaseName)
+    {
+        return delegate.getRelationTypes(databaseName);
+    }
+
+    @Override
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
+    {
+        return getOptional(allRelationTypesCache, SingletonCacheKey.INSTANCE);
+    }
+
+    private Optional<Map<SchemaTableName, RelationType>> loadRelationTypes()
+    {
+        return delegate.getAllRelationTypes();
     }
 
     @Override
@@ -762,18 +649,18 @@ public class CachingHiveMetastore
 
     private List<String> loadTablesMatchingParameter(TablesWithParameterCacheKey key)
     {
-        return delegate.getTablesWithParameter(key.getDatabaseName(), key.getParameterKey(), key.getParameterValue());
+        return delegate.getTablesWithParameter(key.databaseName(), key.parameterKey(), key.parameterValue());
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
         return get(viewNamesCache, databaseName);
     }
 
     private List<String> loadAllViews(String databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getViews(databaseName);
     }
 
     @Override
@@ -832,7 +719,7 @@ public class CachingHiveMetastore
         }
     }
 
-    protected void invalidateDatabase(String databaseName)
+    private void invalidateDatabase(String databaseName)
     {
         databaseCache.invalidate(databaseName);
         databaseNamesCache.invalidateAll();
@@ -956,6 +843,8 @@ public class CachingHiveMetastore
         tableCache.invalidate(hiveTableName);
         tableNamesCache.invalidate(databaseName);
         allTableNamesCache.invalidateAll();
+        relationTypesCache.invalidate(databaseName);
+        allRelationTypesCache.invalidateAll();
         viewNamesCache.invalidate(databaseName);
         allViewNamesCache.invalidateAll();
         invalidateAllIf(tablePrivilegesCache, userTableKey -> userTableKey.matches(databaseName, tableName));
@@ -967,7 +856,7 @@ public class CachingHiveMetastore
     private void invalidateTablesWithParameterCache(String databaseName, String tableName)
     {
         tablesWithParameterCache.asMap().keySet().stream()
-                .filter(cacheKey -> cacheKey.getDatabaseName().equals(databaseName))
+                .filter(cacheKey -> cacheKey.databaseName().equals(databaseName))
                 .filter(cacheKey -> {
                     List<String> cacheValue = tablesWithParameterCache.getIfPresent(cacheKey);
                     return cacheValue != null && cacheValue.contains(tableName);
@@ -1131,12 +1020,6 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        return get(grantedPrincipalsCache, role);
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         return get(roleGrantsCache, principal);
@@ -1145,11 +1028,6 @@ public class CachingHiveMetastore
     private Set<RoleGrant> loadRoleGrants(HivePrincipal principal)
     {
         return delegate.listRoleGrants(principal);
-    }
-
-    private Set<RoleGrant> loadPrincipals(String role)
-    {
-        return delegate.listGrantedPrincipals(role);
     }
 
     private void invalidatePartitionCache(String databaseName, String tableName)
@@ -1298,17 +1176,6 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
-    {
-        try {
-            delegate.alterPartitions(dbName, tableName, partitions, writeId);
-        }
-        finally {
-            invalidatePartitionCache(dbName, tableName);
-        }
-    }
-
-    @Override
     public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
         try {
@@ -1337,9 +1204,9 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Collection<LanguageFunction> getFunctions(String databaseName)
+    public Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
-        return delegate.getFunctions(databaseName);
+        return delegate.getAllFunctions(databaseName);
     }
 
     @Override
@@ -1364,26 +1231,6 @@ public class CachingHiveMetastore
     public void dropFunction(String databaseName, String functionName, String signatureToken)
     {
         delegate.dropFunction(databaseName, functionName, signatureToken);
-    }
-
-    private static CacheFactory cacheFactory(
-            OptionalLong expiresAfterWriteMillis,
-            OptionalLong refreshMillis,
-            Optional<Executor> refreshExecutor,
-            long maximumSize,
-            StatsRecording statsRecording)
-    {
-        return new CacheFactory(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording);
-    }
-
-    private static CacheFactory neverCacheFactory()
-    {
-        return cacheFactory(
-                OptionalLong.of(0),
-                OptionalLong.empty(),
-                Optional.empty(),
-                0,
-                StatsRecording.DISABLED);
     }
 
     private static <K, V> LoadingCache<K, V> buildCache(
@@ -1437,6 +1284,24 @@ public class CachingHiveMetastore
         INSTANCE
     }
 
+    record TablesWithParameterCacheKey(String databaseName, String parameterKey, String parameterValue) {}
+
+    record UserTableKey(Optional<HivePrincipal> principal, String database, String table, Optional<String> owner)
+    {
+        UserTableKey
+        {
+            requireNonNull(principal, "principal is null");
+            requireNonNull(database, "database is null");
+            requireNonNull(table, "table is null");
+            requireNonNull(owner, "owner is null");
+        }
+
+        public boolean matches(String databaseName, String tableName)
+        {
+            return this.database.equals(databaseName) && this.table.equals(tableName);
+        }
+    }
+
     //
     // Stats used for non-impersonation shared caching
     //
@@ -1474,6 +1339,20 @@ public class CachingHiveMetastore
     public CacheStatsMBean getAllTableNamesStats()
     {
         return new CacheStatsMBean(allTableNamesCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getRelationTypesStats()
+    {
+        return new CacheStatsMBean(relationTypesCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getAllRelationTypesStats()
+    {
+        return new CacheStatsMBean(allRelationTypesCache);
     }
 
     @Managed
@@ -1548,13 +1427,6 @@ public class CachingHiveMetastore
 
     @Managed
     @Nested
-    public CacheStatsMBean getGrantedPrincipalsStats()
-    {
-        return new CacheStatsMBean(grantedPrincipalsCache);
-    }
-
-    @Managed
-    @Nested
     public CacheStatsMBean getConfigValuesStats()
     {
         return new CacheStatsMBean(configValuesCache);
@@ -1586,6 +1458,16 @@ public class CachingHiveMetastore
     LoadingCache<SingletonCacheKey, Optional<List<SchemaTableName>>> getAllTableNamesCache()
     {
         return allTableNamesCache;
+    }
+
+    LoadingCache<String, Map<String, RelationType>> getRelationTypesCache()
+    {
+        return relationTypesCache;
+    }
+
+    LoadingCache<SingletonCacheKey, Optional<Map<SchemaTableName, RelationType>>> getAllRelationTypesCache()
+    {
+        return allRelationTypesCache;
     }
 
     LoadingCache<TablesWithParameterCacheKey, List<String>> getTablesWithParameterCache()
@@ -1638,41 +1520,43 @@ public class CachingHiveMetastore
         return roleGrantsCache;
     }
 
-    LoadingCache<String, Set<RoleGrant>> getGrantedPrincipalsCache()
-    {
-        return grantedPrincipalsCache;
-    }
-
     LoadingCache<String, Optional<String>> getConfigValuesCache()
     {
         return configValuesCache;
     }
 
-    private static class CacheFactory
+    private record CacheFactory(
+            OptionalLong expiresAfterWriteMillis,
+            OptionalLong refreshMillis,
+            Optional<Executor> refreshExecutor,
+            long maximumSize,
+            StatsRecording statsRecording)
     {
-        private final OptionalLong expiresAfterWriteMillis;
-        private final OptionalLong refreshMillis;
-        private final Optional<Executor> refreshExecutor;
-        private final long maximumSize;
-        private final StatsRecording statsRecording;
+        private static final CacheFactory NEVER_CACHE = new CacheFactory(OptionalLong.empty(), OptionalLong.empty(), Optional.empty(), 0, StatsRecording.DISABLED);
 
-        public CacheFactory(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, Optional<Executor> refreshExecutor, long maximumSize, StatsRecording statsRecording)
+        private CacheFactory(long maximumSize)
         {
-            this.expiresAfterWriteMillis = requireNonNull(expiresAfterWriteMillis, "expiresAfterWriteMillis is null");
-            this.refreshMillis = requireNonNull(refreshMillis, "refreshMillis is null");
-            this.refreshExecutor = requireNonNull(refreshExecutor, "refreshExecutor is null");
-            this.maximumSize = maximumSize;
-            this.statsRecording = requireNonNull(statsRecording, "statsRecording is null");
+            this(OptionalLong.empty(), OptionalLong.empty(), Optional.empty(), maximumSize, StatsRecording.DISABLED);
         }
 
-        public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader)
+        private CacheFactory
         {
-            return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, CacheLoader.from(loader));
+            requireNonNull(expiresAfterWriteMillis, "expiresAfterWriteMillis is null");
+            checkArgument(expiresAfterWriteMillis.isEmpty() || expiresAfterWriteMillis.getAsLong() > 0, "expiresAfterWriteMillis must be empty or at least 1 millisecond");
+            requireNonNull(refreshMillis, "refreshMillis is null");
+            checkArgument(refreshMillis.isEmpty() || refreshMillis.getAsLong() > 0, "refreshMillis must be empty or at least 1 millisecond");
+            requireNonNull(refreshExecutor, "refreshExecutor is null");
+            requireNonNull(statsRecording, "statsRecording is null");
         }
 
-        public <K, V> Cache<K, V> buildCache(BiFunction<K, V, V> reloader)
+        public <K, V> LoadingCache<K, V> buildCache(Function<K, V> loader)
         {
-            CacheLoader<K, V> onlyReloader = new CacheLoader<>()
+            return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, CacheLoader.from(loader::apply));
+        }
+
+        public <K, V> Cache<K, V> buildCache(BiFunction<K, V, V> loader)
+        {
+            CacheLoader<K, V> cacheLoader = new CacheLoader<>()
             {
                 @Override
                 public V load(K key)
@@ -1686,10 +1570,10 @@ public class CachingHiveMetastore
                     requireNonNull(key);
                     requireNonNull(oldValue);
                     // async reloading is configured in CachingHiveMetastore.buildCache if refreshMillis is present
-                    return immediateFuture(reloader.apply(key, oldValue));
+                    return immediateFuture(loader.apply(key, oldValue));
                 }
             };
-            return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, onlyReloader);
+            return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, cacheLoader);
         }
 
         public <K, V> Cache<K, AtomicReference<V>> buildBulkCache()

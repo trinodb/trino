@@ -20,51 +20,56 @@ import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static java.util.Objects.requireNonNull;
 
 class TypedPositionsAppender
         implements PositionsAppender
 {
     private static final int INSTANCE_SIZE = instanceSize(TypedPositionsAppender.class);
 
-    private final Type type;
     private BlockBuilder blockBuilder;
 
     TypedPositionsAppender(Type type, int expectedPositions)
     {
-        this.type = requireNonNull(type, "type is null");
         this.blockBuilder = type.createBlockBuilder(null, expectedPositions);
     }
 
-    @Override
-    public void append(IntArrayList positions, ValueBlock source)
+    public TypedPositionsAppender(BlockBuilder blockBuilder)
     {
-        int[] positionArray = positions.elements();
-        for (int i = 0; i < positions.size(); i++) {
-            type.appendTo(source, positionArray[i], blockBuilder);
-        }
+        this.blockBuilder = blockBuilder;
     }
 
     @Override
-    public void appendRle(ValueBlock block, int rlePositionCount)
+    public void append(IntArrayList positions, ValueBlock block)
     {
-        for (int i = 0; i < rlePositionCount; i++) {
-            type.appendTo(block, 0, blockBuilder);
-        }
+        blockBuilder.appendPositions(block, positions.elements(), 0, positions.size());
     }
 
     @Override
-    public void append(int position, ValueBlock source)
+    public void appendRle(ValueBlock block, int count)
     {
-        type.appendTo(source, position, blockBuilder);
+        blockBuilder.appendRepeated(block, 0, count);
+    }
+
+    @Override
+    public void append(int position, ValueBlock block)
+    {
+        blockBuilder.append(block, position);
     }
 
     @Override
     public Block build()
     {
         Block result = blockBuilder.build();
-        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        reset();
         return result;
+    }
+
+    @Override
+    public void reset()
+    {
+        if (blockBuilder.getPositionCount() > 0) {
+            blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        }
     }
 
     @Override

@@ -15,8 +15,8 @@ package io.trino.plugin.hive.util;
 
 import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestAcidBucketCodec
 {
@@ -24,19 +24,19 @@ public class TestAcidBucketCodec
     public void testGetBucketCodecVersion0()
     {
         AcidBucketCodec codec = AcidBucketCodec.forBucket(0);
-        assertEquals(codec, AcidBucketCodec.V0);
-        assertEquals(codec.decodeWriterId(7), 7);
-        assertEquals(codec.decodeStatementId(100), 0);
-        assertEquals(codec.decodeStatementId(-10), 0);
+        assertThat(codec).isEqualTo(AcidBucketCodec.V0);
+        assertThat(codec.decodeWriterId(7)).isEqualTo(7);
+        assertThat(codec.decodeStatementId(100)).isEqualTo(0);
+        assertThat(codec.decodeStatementId(-10)).isEqualTo(0);
     }
 
     @Test
     public void testGetBucketCodecVersion1()
     {
         AcidBucketCodec codec = AcidBucketCodec.forBucket(1 << 29);
-        assertEquals(codec, AcidBucketCodec.V1);
-        assertEquals(codec.decodeWriterId(0x0ABC0000), 2748);
-        assertEquals(codec.decodeStatementId(0x00000ABC), 2748);
+        assertThat(codec).isEqualTo(AcidBucketCodec.V1);
+        assertThat(codec.decodeWriterId(0x0ABC0000)).isEqualTo(2748);
+        assertThat(codec.decodeStatementId(0x00000ABC)).isEqualTo(2748);
     }
 
     @Test

@@ -20,7 +20,8 @@ import java.math.BigInteger;
 
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.offset;
 
 public class TestMurmur3PartitionerTokenRing
 {
@@ -29,24 +30,24 @@ public class TestMurmur3PartitionerTokenRing
     @Test
     public void testGetTokenCountInRange()
     {
-        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(0), new Murmur3Token(1)), ONE);
-        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(-1), new Murmur3Token(1)), new BigInteger("2"));
-        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(-100), new Murmur3Token(100)), new BigInteger("200"));
-        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(0), new Murmur3Token(10)), new BigInteger("10"));
-        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(1), new Murmur3Token(11)), new BigInteger("10"));
-        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(0), new Murmur3Token(0)), ZERO);
-        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(1), new Murmur3Token(1)), ZERO);
-        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(Long.MIN_VALUE), new Murmur3Token(Long.MIN_VALUE)), BigInteger.valueOf(2).pow(64).subtract(ONE));
-        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(1), new Murmur3Token(0)), BigInteger.valueOf(2).pow(64).subtract(BigInteger.valueOf(2)));
+        assertThat(tokenRing.getTokenCountInRange(new Murmur3Token(0), new Murmur3Token(1))).isEqualTo(ONE);
+        assertThat(tokenRing.getTokenCountInRange(new Murmur3Token(-1), new Murmur3Token(1))).isEqualTo(new BigInteger("2"));
+        assertThat(tokenRing.getTokenCountInRange(new Murmur3Token(-100), new Murmur3Token(100))).isEqualTo(new BigInteger("200"));
+        assertThat(tokenRing.getTokenCountInRange(new Murmur3Token(0), new Murmur3Token(10))).isEqualTo(new BigInteger("10"));
+        assertThat(tokenRing.getTokenCountInRange(new Murmur3Token(1), new Murmur3Token(11))).isEqualTo(new BigInteger("10"));
+        assertThat(tokenRing.getTokenCountInRange(new Murmur3Token(0), new Murmur3Token(0))).isEqualTo(ZERO);
+        assertThat(tokenRing.getTokenCountInRange(new Murmur3Token(1), new Murmur3Token(1))).isEqualTo(ZERO);
+        assertThat(tokenRing.getTokenCountInRange(new Murmur3Token(Long.MIN_VALUE), new Murmur3Token(Long.MIN_VALUE))).isEqualTo(BigInteger.valueOf(2).pow(64).subtract(ONE));
+        assertThat(tokenRing.getTokenCountInRange(new Murmur3Token(1), new Murmur3Token(0))).isEqualTo(BigInteger.valueOf(2).pow(64).subtract(BigInteger.valueOf(2)));
     }
 
     @Test
     public void testGetRingFraction()
     {
-        assertEquals(tokenRing.getRingFraction(new Murmur3Token(1), new Murmur3Token(1)), 0.0, 0.001);
-        assertEquals(tokenRing.getRingFraction(new Murmur3Token(1), new Murmur3Token(0)), 1.0, 0.001);
-        assertEquals(tokenRing.getRingFraction(new Murmur3Token(0), new Murmur3Token(Long.MAX_VALUE)), 0.5, 0.001);
-        assertEquals(tokenRing.getRingFraction(new Murmur3Token(Long.MIN_VALUE), new Murmur3Token(Long.MAX_VALUE)), 1.0, 0.001);
-        assertEquals(tokenRing.getRingFraction(new Murmur3Token(Long.MIN_VALUE), new Murmur3Token(Long.MIN_VALUE)), 1.0, 0.001);
+        assertThat(tokenRing.getRingFraction(new Murmur3Token(1), new Murmur3Token(1))).isCloseTo(0.0, offset(0.001));
+        assertThat(tokenRing.getRingFraction(new Murmur3Token(1), new Murmur3Token(0))).isCloseTo(1.0, offset(0.001));
+        assertThat(tokenRing.getRingFraction(new Murmur3Token(0), new Murmur3Token(Long.MAX_VALUE))).isCloseTo(0.5, offset(0.001));
+        assertThat(tokenRing.getRingFraction(new Murmur3Token(Long.MIN_VALUE), new Murmur3Token(Long.MAX_VALUE))).isCloseTo(1.0, offset(0.001));
+        assertThat(tokenRing.getRingFraction(new Murmur3Token(Long.MIN_VALUE), new Murmur3Token(Long.MIN_VALUE))).isCloseTo(1.0, offset(0.001));
     }
 }

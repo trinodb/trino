@@ -31,7 +31,7 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -61,9 +61,6 @@ import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_C
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestSequenceFileReaderWriter
         extends AbstractTestLineReaderWriter
@@ -132,23 +129,23 @@ public class TestSequenceFileReaderWriter
     {
         LineBuffer lineBuffer = createLineBuffer(values);
         try (SequenceFileReader reader = createSequenceFileReader(inputFile)) {
-            assertEquals(reader.getFileLocation().toString(), inputFile.toURI().toString());
+            assertThat(reader.getFileLocation().toString()).isEqualTo(inputFile.toURI().toString());
 
             assertSyncPoint(reader, inputFile);
-            assertEquals(reader.getKeyClassName(), BytesWritable.class.getName());
-            assertEquals(reader.getValueClassName(), Text.class.getName());
-            assertEquals(reader.getMetadata(), metadata);
+            assertThat(reader.getKeyClassName()).isEqualTo(BytesWritable.class.getName());
+            assertThat(reader.getValueClassName()).isEqualTo(Text.class.getName());
+            assertThat(reader.getMetadata()).isEqualTo(metadata);
 
             for (String expected : values) {
-                assertTrue(reader.readLine(lineBuffer));
+                assertThat(reader.readLine(lineBuffer)).isTrue();
                 String actual = new String(lineBuffer.getBuffer(), 0, lineBuffer.getLength(), UTF_8);
-                assertEquals(actual, expected);
+                assertThat(actual).isEqualTo(expected);
             }
-            assertFalse(reader.readLine(lineBuffer));
-            assertEquals(reader.getRowsRead(), values.size());
+            assertThat(reader.readLine(lineBuffer)).isFalse();
+            assertThat(reader.getRowsRead()).isEqualTo(values.size());
 
             assertThat(reader.getReadTimeNanos()).isGreaterThan(0);
-            assertEquals(inputFile.length(), reader.getBytesRead());
+            assertThat(inputFile.length()).isEqualTo(reader.getBytesRead());
         }
     }
 
@@ -158,7 +155,7 @@ public class TestSequenceFileReaderWriter
         List<Long> syncPositionsBruteForce = getSyncPositionsBruteForce(reader, file);
         List<Long> syncPositionsSimple = getSyncPositionsSimple(reader, file);
 
-        assertEquals(syncPositionsBruteForce, syncPositionsSimple);
+        assertThat(syncPositionsBruteForce).isEqualTo(syncPositionsSimple);
     }
 
     private static List<Long> getSyncPositionsBruteForce(SequenceFileReader reader, File file)
@@ -199,13 +196,13 @@ public class TestSequenceFileReaderWriter
         while (syncPosition >= 0) {
             syncPosition = findFirstSyncPosition(inputFile, syncPosition, file.length() - syncPosition, syncFirst, syncSecond);
             if (syncPosition > 0) {
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition, 1, syncFirst, syncSecond), syncPosition);
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition, 2, syncFirst, syncSecond), syncPosition);
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition, 10, syncFirst, syncSecond), syncPosition);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition, 1, syncFirst, syncSecond)).isEqualTo(syncPosition);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition, 2, syncFirst, syncSecond)).isEqualTo(syncPosition);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition, 10, syncFirst, syncSecond)).isEqualTo(syncPosition);
 
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition - 1, 1, syncFirst, syncSecond), -1);
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition - 2, 2, syncFirst, syncSecond), -1);
-                assertEquals(findFirstSyncPosition(inputFile, syncPosition + 1, 1, syncFirst, syncSecond), -1);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition - 1, 1, syncFirst, syncSecond)).isEqualTo(-1);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition - 2, 2, syncFirst, syncSecond)).isEqualTo(-1);
+                assertThat(findFirstSyncPosition(inputFile, syncPosition + 1, 1, syncFirst, syncSecond)).isEqualTo(-1);
 
                 syncPositions.add(syncPosition);
                 syncPosition++;
@@ -245,33 +242,33 @@ public class TestSequenceFileReaderWriter
         configureCompressionCodecs(jobConf);
         Path path = new Path(inputFile.toURI());
         try (SequenceFile.Reader reader = new SequenceFile.Reader(jobConf, SequenceFile.Reader.file(path))) {
-            assertEquals(reader.getKeyClassName(), BytesWritable.class.getName());
-            assertEquals(reader.getValueClassName(), Text.class.getName());
+            assertThat(reader.getKeyClassName()).isEqualTo(BytesWritable.class.getName());
+            assertThat(reader.getValueClassName()).isEqualTo(Text.class.getName());
 
             Map<String, String> actualMetadata = reader.getMetadata().getMetadata().entrySet().stream()
                     .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> entry.getValue().toString()));
-            assertEquals(actualMetadata, metadata);
+            assertThat(actualMetadata).isEqualTo(metadata);
 
             switch (reader.getCompressionType()) {
                 case NONE -> assertThat(compressionKind).isEmpty();
                 case RECORD -> {
                     assertThat(compressionKind).isPresent();
-                    assertFalse(blockCompressed);
+                    assertThat(blockCompressed).isFalse();
                 }
                 case BLOCK -> {
                     assertThat(compressionKind).isPresent();
-                    assertTrue(blockCompressed);
+                    assertThat(blockCompressed).isTrue();
                 }
             }
 
             BytesWritable key = new BytesWritable();
             Text text = new Text();
             for (String expected : values) {
-                assertTrue(reader.next(key, text));
-                assertEquals(text.toString(), expected);
+                assertThat(reader.next(key, text)).isTrue();
+                assertThat(text.toString()).isEqualTo(expected);
             }
 
-            assertFalse(reader.next(key, text));
+            assertThat(reader.next(key, text)).isFalse();
         }
     }
 

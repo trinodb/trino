@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -97,6 +98,15 @@ public class PartitionStatistics
     public PartitionStatistics withBasicStatistics(HiveBasicStatistics basicStatistics)
     {
         return new PartitionStatistics(basicStatistics, columnStatistics);
+    }
+
+    public PartitionStatistics withEmptyColumnStatisticsRemoved()
+    {
+        return new PartitionStatistics(
+                basicStatistics,
+                columnStatistics.entrySet().stream()
+                        .filter(entry -> !entry.getValue().equals(HiveColumnStatistics.empty()))
+                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 
     public static class Builder

@@ -47,11 +47,9 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 public class TestMemoryTracking
@@ -70,11 +68,13 @@ public class TestMemoryTracking
     private MemoryPool memoryPool;
     private ExecutorService notificationExecutor;
     private ScheduledExecutorService yieldExecutor;
+    private ScheduledExecutorService timeoutExecutor;
 
     @AfterEach
     public void tearDown()
     {
         notificationExecutor.shutdownNow();
+        timeoutExecutor.shutdownNow();
         yieldExecutor.shutdownNow();
         queryContext = null;
         taskContext = null;
@@ -89,6 +89,7 @@ public class TestMemoryTracking
     {
         notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
         yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
+        timeoutExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-driver-timeout-%s"));
 
         memoryPool = new MemoryPool(memoryPoolSize);
         queryContext = new QueryContext(
@@ -98,6 +99,7 @@ public class TestMemoryTracking
                 new TestingGcMonitor(),
                 notificationExecutor,
                 yieldExecutor,
+                timeoutExecutor,
                 queryMaxSpillSize,
                 spillSpaceTracker);
         taskContext = queryContext.addTaskContext(
@@ -162,9 +164,9 @@ public class TestMemoryTracking
                 taskContext.getTaskMemoryContext(),
                 pipelineLocalAllocation + taskLocalAllocation,
                 11_000_000);
-        assertEquals(pipelineContext.getPipelineStats().getUserMemoryReservation().toBytes(),
-                pipelineLocalAllocation,
-                "task level allocations should not be visible at the pipeline level");
+        assertThat(pipelineContext.getPipelineStats().getUserMemoryReservation().toBytes())
+                .describedAs("task level allocations should not be visible at the pipeline level")
+                .isEqualTo(pipelineLocalAllocation);
         pipelineLocalMemoryContext.setBytes(pipelineLocalMemoryContext.getBytes() - pipelineLocalAllocation);
         assertLocalMemoryAllocations(
                 pipelineContext.getPipelineMemoryContext(),
@@ -258,7 +260,7 @@ public class TestMemoryTracking
     public void testTrySetBytes()
     {
         LocalMemoryContext localMemoryContext = operatorContext.localUserMemoryContext();
-        assertTrue(localMemoryContext.trySetBytes(100_000_000));
+        assertThat(localMemoryContext.trySetBytes(100_000_000)).isTrue();
         assertStats(
                 operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
@@ -267,7 +269,7 @@ public class TestMemoryTracking
                 100_000_000,
                 0);
 
-        assertTrue(localMemoryContext.trySetBytes(200_000_000));
+        assertThat(localMemoryContext.trySetBytes(200_000_000)).isTrue();
         assertStats(
                 operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
@@ -276,7 +278,7 @@ public class TestMemoryTracking
                 200_000_000,
                 0);
 
-        assertTrue(localMemoryContext.trySetBytes(100_000_000));
+        assertThat(localMemoryContext.trySetBytes(100_000_000)).isTrue();
         assertStats(
                 operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
@@ -286,7 +288,7 @@ public class TestMemoryTracking
                 0);
 
         // allocating more than the pool size should fail and we should have the same stats as before
-        assertFalse(localMemoryContext.trySetBytes(memoryPool.getMaxBytes() + 1));
+        assertThat(localMemoryContext.trySetBytes(memoryPool.getMaxBytes() + 1)).isFalse();
         assertStats(
                 operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
@@ -304,7 +306,7 @@ public class TestMemoryTracking
         TaskId taskId = new TaskId(new StageId("test_query", 0), 0, 0);
         memoryPool.reserve(taskId, "test", memoryPool.getFreeBytes());
         // try to reserve 0 bytes in the full pool
-        assertTrue(localMemoryContext.trySetBytes(localMemoryContext.getBytes()));
+        assertThat(localMemoryContext.trySetBytes(localMemoryContext.getBytes())).isTrue();
     }
 
     @Test
@@ -314,7 +316,7 @@ public class TestMemoryTracking
         LocalMemoryContext newLocalRevocableMemoryContext = operatorContext.localRevocableMemoryContext();
         newLocalRevocableMemoryContext.setBytes(200_000);
         newLocalUserMemoryContext.setBytes(400_000);
-        assertEquals(operatorContext.getOperatorMemoryContext().getUserMemory(), 400_000);
+        assertThat(operatorContext.getOperatorMemoryContext().getUserMemory()).isEqualTo(400_000);
         operatorContext.destroy();
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 0);
     }
@@ -328,15 +330,15 @@ public class TestMemoryTracking
             long expectedRevocableMemory)
     {
         OperatorStats operatorStats = getOnlyElement(nestedOperatorStats);
-        assertEquals(operatorStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
-        assertEquals(driverStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
-        assertEquals(pipelineStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
-        assertEquals(taskStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
+        assertThat(operatorStats.getUserMemoryReservation().toBytes()).isEqualTo(expectedUserMemory);
+        assertThat(driverStats.getUserMemoryReservation().toBytes()).isEqualTo(expectedUserMemory);
+        assertThat(pipelineStats.getUserMemoryReservation().toBytes()).isEqualTo(expectedUserMemory);
+        assertThat(taskStats.getUserMemoryReservation().toBytes()).isEqualTo(expectedUserMemory);
 
-        assertEquals(operatorStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
-        assertEquals(driverStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
-        assertEquals(pipelineStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
-        assertEquals(taskStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
+        assertThat(operatorStats.getRevocableMemoryReservation().toBytes()).isEqualTo(expectedRevocableMemory);
+        assertThat(driverStats.getRevocableMemoryReservation().toBytes()).isEqualTo(expectedRevocableMemory);
+        assertThat(pipelineStats.getRevocableMemoryReservation().toBytes()).isEqualTo(expectedRevocableMemory);
+        assertThat(taskStats.getRevocableMemoryReservation().toBytes()).isEqualTo(expectedRevocableMemory);
     }
 
     // the allocations that are done at the operator level are reflected at that level and all the way up to the pools
@@ -345,9 +347,15 @@ public class TestMemoryTracking
             long expectedUserMemory,
             long expectedRevocableMemory)
     {
-        assertEquals(memoryTrackingContext.getUserMemory(), expectedUserMemory, "User memory verification failed");
-        assertEquals(memoryPool.getReservedBytes(), expectedUserMemory, "Memory pool verification failed");
-        assertEquals(memoryTrackingContext.getRevocableMemory(), expectedRevocableMemory, "Revocable memory verification failed");
+        assertThat(memoryTrackingContext.getUserMemory())
+                .describedAs("User memory verification failed")
+                .isEqualTo(expectedUserMemory);
+        assertThat(memoryPool.getReservedBytes())
+                .describedAs("Memory pool verification failed")
+                .isEqualTo(expectedUserMemory);
+        assertThat(memoryTrackingContext.getRevocableMemory())
+                .describedAs("Revocable memory verification failed")
+                .isEqualTo(expectedRevocableMemory);
     }
 
     // the local allocations are reflected only at that level and all the way up to the pools
@@ -356,7 +364,11 @@ public class TestMemoryTracking
             long expectedPoolMemory,
             long expectedContextUserMemory)
     {
-        assertEquals(memoryTrackingContext.getUserMemory(), expectedContextUserMemory, "User memory verification failed");
-        assertEquals(memoryPool.getReservedBytes(), expectedPoolMemory, "Memory pool verification failed");
+        assertThat(memoryTrackingContext.getUserMemory())
+                .describedAs("User memory verification failed")
+                .isEqualTo(expectedContextUserMemory);
+        assertThat(memoryPool.getReservedBytes())
+                .describedAs("Memory pool verification failed")
+                .isEqualTo(expectedPoolMemory);
     }
 }

@@ -32,7 +32,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.EncoderFactory;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -53,9 +53,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAvroConfluentRowDecoder
 {
@@ -171,7 +169,7 @@ public class TestAvroConfluentRowDecoder
             String columnName = entry.getKey().getName();
             if (getValue(expected, columnName) == null) {
                 // The record uses the old schema and does not contain the new field.
-                assertTrue(entry.getValue().isNull());
+                assertThat(entry.getValue().isNull()).isTrue();
             }
             else {
                 assertValuesAreEqual(entry.getValue(), expected.get(columnName), expected.getSchema().getField(columnName).schema());
@@ -196,25 +194,25 @@ public class TestAvroConfluentRowDecoder
     private static void assertValuesAreEqual(FieldValueProvider actual, Object expected, Schema schema)
     {
         if (actual.isNull()) {
-            assertNull(expected);
+            assertThat(expected).isNull();
         }
         else {
             switch (schema.getType()) {
                 case INT:
                 case LONG:
-                    assertEquals(actual.getLong(), ((Number) expected).longValue());
+                    assertThat(actual.getLong()).isEqualTo(((Number) expected).longValue());
                     break;
                 case STRING:
-                    assertEquals(actual.getSlice().toStringUtf8(), expected);
+                    assertThat(actual.getSlice().toStringUtf8()).isEqualTo(expected);
                     break;
                 case BYTES:
-                    assertEquals(actual.getSlice().getBytes(), ((ByteBuffer) expected).array());
+                    assertThat(actual.getSlice().getBytes()).isEqualTo(((ByteBuffer) expected).array());
                     break;
                 case UNION:
                     Optional<Schema> nonNullSchema = schema.getTypes().stream()
                             .filter(type -> type.getType() != Schema.Type.NULL)
                             .findFirst();
-                    assertTrue(nonNullSchema.isPresent());
+                    assertThat(nonNullSchema.isPresent()).isTrue();
 
                     if (expected == null) {
                         expected = getOnlyElement(schema.getFields()).defaultVal();

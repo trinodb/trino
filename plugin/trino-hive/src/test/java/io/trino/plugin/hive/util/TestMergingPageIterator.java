@@ -32,9 +32,6 @@ import static java.util.Comparator.naturalOrder;
 import static java.util.Comparator.nullsFirst;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestMergingPageIterator
 {
@@ -72,7 +69,7 @@ public class TestMergingPageIterator
                 pageBuilder.reset();
             }
             pageLists.add(pages);
-            assertFalse(values.hasNext());
+            assertThat(values.hasNext()).isFalse();
         }
 
         List<Iterator<Page>> pages = pageLists.stream()
@@ -85,13 +82,13 @@ public class TestMergingPageIterator
             Page page = iterator.next();
             for (int i = 0; i < page.getPositionCount(); i++) {
                 if (page.getBlock(0).isNull(i)) {
-                    assertTrue(page.getBlock(1).isNull(i));
+                    assertThat(page.getBlock(1).isNull(i)).isTrue();
                     values.add(null);
                 }
                 else {
                     int x = INTEGER.getInt(page.getBlock(0), i);
                     int y = INTEGER.getInt(page.getBlock(1), i);
-                    assertEquals(y, x * 22);
+                    assertThat(y).isEqualTo(x * 22);
                     values.add(x);
                 }
             }

@@ -43,6 +43,6 @@ public class TestHudiSystemTables
                 "VALUES ('20220906063435640', 'commit', 'COMPLETED'), ('20220906063456550', 'commit', 'COMPLETED')");
 
         assertQueryFails("SELECT timestamp, action, state FROM tests.\"non_existing$timeline\"",
-                ".*Table 'hudi.tests.non_existing\\$timeline' does not exist");
+                ".*Table 'hudi.tests.\"non_existing\\$timeline\"' does not exist");
     }
 }

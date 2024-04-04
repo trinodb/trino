@@ -37,6 +37,11 @@ public class TestAtopPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
 
         Path atopExecutable = Files.createTempFile(null, null);
-        factory.create("test", ImmutableMap.of("atop.executable-path", atopExecutable.toString()), new TestingConnectorContext()).shutdown();
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "atop.executable-path", atopExecutable.toString(),
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()).shutdown();
     }
 }

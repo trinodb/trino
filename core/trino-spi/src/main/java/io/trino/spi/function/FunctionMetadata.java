@@ -15,6 +15,7 @@ package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.Experimental;
 
 import java.util.ArrayList;
@@ -149,6 +150,7 @@ public class FunctionMetadata
     }
 
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
     public static FunctionMetadata fromJson(
             @JsonProperty FunctionId functionId,
             @JsonProperty Signature signature,

@@ -15,7 +15,6 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
@@ -61,7 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -160,12 +158,10 @@ public class OrcPageSourceFactory
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
-    public static Properties stripUnnecessaryProperties(Properties schema)
+    public static Map<String, String> stripUnnecessaryProperties(Map<String, String> schema)
     {
-        if (ORC_SERDE_CLASS.equals(getDeserializerClassName(schema)) && !isFullAcidTable(Maps.fromProperties(schema))) {
-            Properties stripped = new Properties();
-            stripped.put(SERIALIZATION_LIB, schema.getProperty(SERIALIZATION_LIB));
-            return stripped;
+        if (ORC_SERDE_CLASS.equals(getDeserializerClassName(schema)) && !isFullAcidTable(schema)) {
+            return ImmutableMap.of(SERIALIZATION_LIB, schema.get(SERIALIZATION_LIB));
         }
         return schema;
     }
@@ -177,7 +173,7 @@ public class OrcPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
-            Properties schema,
+            Map<String, String> schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,
@@ -207,7 +203,7 @@ public class OrcPageSourceFactory
                 readerColumnHandles,
                 columns,
                 isUseOrcColumnNames(session),
-                isFullAcidTable(Maps.fromProperties(schema)),
+                isFullAcidTable(schema),
                 effectivePredicate,
                 legacyTimeZone,
                 orcReaderOptions
@@ -256,7 +252,7 @@ public class OrcPageSourceFactory
 
         boolean originalFilesPresent = acidInfo.isPresent() && !acidInfo.get().getOriginalFiles().isEmpty();
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             TrinoInputFile inputFile = fileSystem.newInputFile(path, estimatedFileSize);
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),

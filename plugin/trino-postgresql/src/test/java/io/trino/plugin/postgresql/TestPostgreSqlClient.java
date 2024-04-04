@@ -53,15 +53,13 @@ import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -72,12 +70,9 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestPostgreSqlClient
 {
@@ -217,10 +212,12 @@ public class TestPostgreSqlClient
         }
         else {
             assertThat(result).isPresent();
-            assertEquals(result.get().getExpression(), expectedExpression.get());
+            assertThat(result.get().getExpression()).isEqualTo(expectedExpression.get());
             Optional<ColumnMapping> columnMapping = JDBC_CLIENT.toColumnMapping(SESSION, null, result.get().getJdbcTypeHandle());
-            assertTrue(columnMapping.isPresent(), "No mapping for: " + result.get().getJdbcTypeHandle());
-            assertEquals(columnMapping.get().getType(), aggregateFunction.getOutputType());
+            assertThat(columnMapping.isPresent())
+                    .describedAs("No mapping for: " + result.get().getJdbcTypeHandle())
+                    .isTrue();
+            assertThat(columnMapping.get().getType()).isEqualTo(aggregateFunction.getOutputType());
         }
     }
 
@@ -292,68 +289,58 @@ public class TestPostgreSqlClient
                 new QueryParameter(BIGINT, Optional.of(44L))));
     }
 
-    @Test(dataProvider = "testConvertComparisonDataProvider")
-    public void testConvertComparison(ComparisonExpression.Operator operator)
+    @Test
+    public void testConvertComparison()
     {
-        Optional<ParameterizedExpression> converted = JDBC_CLIENT.convertPredicate(
-                SESSION,
-                translateToConnectorExpression(
-                        new ComparisonExpression(
-                                operator,
-                                new SymbolReference("c_bigint_symbol"),
-                                LITERAL_ENCODER.toExpression(42L, BIGINT)),
-                        Map.of("c_bigint_symbol", BIGINT)),
-                Map.of("c_bigint_symbol", BIGINT_COLUMN));
+        for (ComparisonExpression.Operator operator : ComparisonExpression.Operator.values()) {
+            Optional<ParameterizedExpression> converted = JDBC_CLIENT.convertPredicate(
+                    SESSION,
+                    translateToConnectorExpression(
+                            new ComparisonExpression(
+                                    operator,
+                                    new SymbolReference("c_bigint_symbol"),
+                                    LITERAL_ENCODER.toExpression(42L, BIGINT)),
+                            Map.of("c_bigint_symbol", BIGINT)),
+                    Map.of("c_bigint_symbol", BIGINT_COLUMN));
 
-        switch (operator) {
-            case EQUAL:
-            case NOT_EQUAL:
-                assertThat(converted).isPresent();
-                assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
-                assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
-                return;
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
-            case IS_DISTINCT_FROM:
-                // Not supported yet, even for bigint
-                assertThat(converted).isEmpty();
-                return;
+            switch (operator) {
+                case EQUAL:
+                case NOT_EQUAL:
+                    assertThat(converted).isPresent();
+                    assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
+                    assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
+                    return;
+                case LESS_THAN:
+                case LESS_THAN_OR_EQUAL:
+                case GREATER_THAN:
+                case GREATER_THAN_OR_EQUAL:
+                case IS_DISTINCT_FROM:
+                    // Not supported yet, even for bigint
+                    assertThat(converted).isEmpty();
+                    return;
+            }
+            throw new UnsupportedOperationException("Unsupported operator: " + operator);
         }
-        throw new UnsupportedOperationException("Unsupported operator: " + operator);
     }
 
-    @DataProvider
-    public static Object[][] testConvertComparisonDataProvider()
+    @Test
+    public void testConvertArithmeticBinary()
     {
-        return Stream.of(ComparisonExpression.Operator.values())
-                .collect(toDataProvider());
-    }
+        for (ArithmeticBinaryExpression.Operator operator : ArithmeticBinaryExpression.Operator.values()) {
+            ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                            SESSION,
+                            translateToConnectorExpression(
+                                    new ArithmeticBinaryExpression(
+                                            operator,
+                                            new SymbolReference("c_bigint_symbol"),
+                                            LITERAL_ENCODER.toExpression(42L, BIGINT)),
+                                    Map.of("c_bigint_symbol", BIGINT)),
+                            Map.of("c_bigint_symbol", BIGINT_COLUMN))
+                    .orElseThrow();
 
-    @Test(dataProvider = "testConvertArithmeticBinaryDataProvider")
-    public void testConvertArithmeticBinary(ArithmeticBinaryExpression.Operator operator)
-    {
-        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
-                        SESSION,
-                        translateToConnectorExpression(
-                                new ArithmeticBinaryExpression(
-                                        operator,
-                                        new SymbolReference("c_bigint_symbol"),
-                                        LITERAL_ENCODER.toExpression(42L, BIGINT)),
-                                Map.of("c_bigint_symbol", BIGINT)),
-                        Map.of("c_bigint_symbol", BIGINT_COLUMN))
-                .orElseThrow();
-
-        assertThat(converted.expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
-        assertThat(converted.parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
-    }
-
-    @DataProvider
-    public static Object[][] testConvertArithmeticBinaryDataProvider()
-    {
-        return Stream.of(ArithmeticBinaryExpression.Operator.values())
-                .collect(toDataProvider());
+            assertThat(converted.expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
+            assertThat(converted.parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
+        }
     }
 
     @Test

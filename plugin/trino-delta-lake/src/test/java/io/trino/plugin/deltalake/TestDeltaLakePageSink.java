@@ -72,8 +72,7 @@ import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static java.lang.Math.round;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakePageSink
 {
@@ -121,23 +120,23 @@ public class TestDeltaLakePageSink
                     .map(dataFileInfoCodec::fromJson)
                     .collect(toImmutableList());
 
-            assertEquals(dataFileInfos.size(), 1);
+            assertThat(dataFileInfos.size()).isEqualTo(1);
             DataFileInfo dataFileInfo = dataFileInfos.get(0);
 
             List<File> files = ImmutableList.copyOf(new File(tablePath).listFiles((dir, name) -> !name.endsWith(".crc")));
-            assertEquals(files.size(), 1);
+            assertThat(files.size()).isEqualTo(1);
             File outputFile = files.get(0);
 
-            assertEquals(round(stats.getInputPageSizeInBytes().getAllTime().getMax()), page.getRetainedSizeInBytes());
+            assertThat(round(stats.getInputPageSizeInBytes().getAllTime().getMax())).isEqualTo(page.getRetainedSizeInBytes());
 
-            assertEquals(dataFileInfo.getStatistics().getNumRecords(), Optional.of(rows));
-            assertEquals(dataFileInfo.getPartitionValues(), ImmutableList.of());
-            assertEquals(dataFileInfo.getSize(), outputFile.length());
-            assertEquals(dataFileInfo.getPath(), outputFile.getName());
+            assertThat(dataFileInfo.getStatistics().getNumRecords()).isEqualTo(Optional.of(rows));
+            assertThat(dataFileInfo.getPartitionValues()).isEqualTo(ImmutableList.of());
+            assertThat(dataFileInfo.getSize()).isEqualTo(outputFile.length());
+            assertThat(dataFileInfo.getPath()).isEqualTo(outputFile.getName());
 
             Instant now = Instant.now();
-            assertTrue(dataFileInfo.getCreationTime() < now.toEpochMilli());
-            assertTrue(dataFileInfo.getCreationTime() > now.minus(1, MINUTES).toEpochMilli());
+            assertThat(dataFileInfo.getCreationTime() < now.toEpochMilli()).isTrue();
+            assertThat(dataFileInfo.getCreationTime() > now.minus(1, MINUTES).toEpochMilli()).isTrue();
         }
         finally {
             deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);

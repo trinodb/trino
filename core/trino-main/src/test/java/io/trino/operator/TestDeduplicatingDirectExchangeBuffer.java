@@ -32,6 +32,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.HashSet;
 import java.util.List;
@@ -50,13 +51,10 @@ import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDeduplicatingDirectExchangeBuffer
 {
     private static final DataSize DEFAULT_BUFFER_CAPACITY = DataSize.of(1, KILOBYTE);
@@ -344,175 +342,6 @@ public class TestDeduplicatingDirectExchangeBuffer
                 error);
     }
 
-    @Test
-    public void testPollPagesTaskLevelRetry()
-    {
-        // 0 pages
-        testPollPages(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.of(),
-                ImmutableMap.of(),
-                DEFAULT_BUFFER_CAPACITY,
-                0,
-                ImmutableList.of());
-
-        // single page, no spilling
-        testPollPages(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.of(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(10, BYTE))),
-                ImmutableMap.of(),
-                DataSize.of(1, KILOBYTE),
-                0,
-                ImmutableList.of(createPage("p0a0v0", DataSize.of(10, BYTE))));
-
-        // single page, with spilling
-        testPollPages(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.of(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(2, KILOBYTE))),
-                ImmutableMap.of(),
-                DataSize.of(1, KILOBYTE),
-                1,
-                ImmutableList.of(createPage("p0a0v0", DataSize.of(2, KILOBYTE))));
-
-        // discard single page, with no spilling
-        testPollPages(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(6, KILOBYTE)))
-                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(3, KILOBYTE)))
-                        .build(),
-                ImmutableMap.of(),
-                DataSize.of(10, KILOBYTE),
-                0,
-                ImmutableList.of(
-                        createPage("p0a0v0", DataSize.of(6, KILOBYTE))));
-
-        // discard single page, with spilling
-        testPollPages(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(6, KILOBYTE)))
-                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(3, KILOBYTE)))
-                        .build(),
-                ImmutableMap.of(),
-                DataSize.of(5, KILOBYTE),
-                2,
-                ImmutableList.of(
-                        createPage("p0a0v0", DataSize.of(6, KILOBYTE))));
-
-        // multiple pages, no spilling
-        testPollPages(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
-                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
-                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
-                        .build(),
-                ImmutableMap.of(),
-                DataSize.of(5, KILOBYTE),
-                0,
-                ImmutableList.of(
-                        createPage("p0a0v0", DataSize.of(1, KILOBYTE)),
-                        createPage("p1a0v0", DataSize.of(1, KILOBYTE))));
-
-        // multiple pages, with spilling
-        testPollPages(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
-                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(2, KILOBYTE)))
-                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
-                        .build(),
-                ImmutableMap.of(),
-                DataSize.of(2, KILOBYTE),
-                3,
-                ImmutableList.of(
-                        createPage("p0a0v0", DataSize.of(1, KILOBYTE)),
-                        createPage("p1a0v0", DataSize.of(1, KILOBYTE))));
-
-        // failure in a task that produced no pages, no spilling
-        testPollPages(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
-                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(2, KILOBYTE)))
-                        .put(createTaskId(1, 1), createPage("p1a1v0", DataSize.of(1, KILOBYTE)))
-                        .build(),
-                ImmutableMap.of(createTaskId(1, 0), new RuntimeException("error")),
-                DataSize.of(10, KILOBYTE),
-                0,
-                ImmutableList.of(
-                        createPage("p0a0v0", DataSize.of(1, KILOBYTE)),
-                        createPage("p1a1v0", DataSize.of(1, KILOBYTE))));
-
-        // failure in a task that produced no pages, with spilling
-        testPollPages(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
-                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(2, KILOBYTE)))
-                        .put(createTaskId(1, 1), createPage("p1a1v0", DataSize.of(1, KILOBYTE)))
-                        .build(),
-                ImmutableMap.of(createTaskId(1, 0), new RuntimeException("error")),
-                DataSize.of(2, KILOBYTE),
-                3,
-                ImmutableList.of(
-                        createPage("p0a0v0", DataSize.of(1, KILOBYTE)),
-                        createPage("p1a1v0", DataSize.of(1, KILOBYTE))));
-
-        RuntimeException error = new RuntimeException("error");
-
-        // buffer failure in a task that produced no pages, no spilling
-        testPollPagesFailure(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
-                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
-                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
-                        .build(),
-                ImmutableMap.of(createTaskId(2, 2), error),
-                DataSize.of(5, KILOBYTE),
-                0,
-                error);
-
-        // buffer failure in a task that produced some pages, no spilling
-        testPollPagesFailure(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
-                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
-                        .build(),
-                ImmutableMap.of(createTaskId(0, 1), error),
-                DataSize.of(5, KILOBYTE),
-                0,
-                error);
-
-        // buffer failure in a task that produced no pages, with spilling
-        testPollPagesFailure(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
-                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(2, KILOBYTE)))
-                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
-                        .build(),
-                ImmutableMap.of(createTaskId(2, 2), error),
-                DataSize.of(2, KILOBYTE),
-                3,
-                error);
-
-        // buffer failure in a task that produced some pages, with spilling
-        testPollPagesFailure(
-                RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
-                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
-                        .build(),
-                ImmutableMap.of(createTaskId(0, 1), error),
-                DataSize.of(1, KILOBYTE),
-                2,
-                error);
-    }
-
     private void testPollPages(
             RetryPolicy retryPolicy,
             Multimap<TaskId, Slice> pages,
@@ -522,7 +351,7 @@ public class TestDeduplicatingDirectExchangeBuffer
             List<Slice> expectedOutput)
     {
         List<Slice> actualOutput = pollPages(retryPolicy, pages, failures, bufferCapacity, expectedSpilledPageCount);
-        assertEquals(actualOutput, expectedOutput);
+        assertThat(actualOutput).isEqualTo(expectedOutput);
     }
 
     private void testPollPagesFailure(
@@ -572,8 +401,8 @@ public class TestDeduplicatingDirectExchangeBuffer
                 }
                 result.add(page);
             }
-            assertTrue(buffer.isFinished());
-            assertEquals(buffer.getSpilledPageCount(), expectedSpilledPageCount);
+            assertThat(buffer.isFinished()).isTrue();
+            assertThat(buffer.getSpilledPageCount()).isEqualTo(expectedSpilledPageCount);
             return result.build();
         }
     }
@@ -582,7 +411,7 @@ public class TestDeduplicatingDirectExchangeBuffer
     public void testRemovePagesForPreviousAttempts()
     {
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DataSize.of(1, KILOBYTE), RetryPolicy.QUERY)) {
-            assertEquals(buffer.getRetainedSizeInBytes(), 0);
+            assertThat(buffer.getRetainedSizeInBytes()).isEqualTo(0);
 
             TaskId partition0Attempt0 = createTaskId(0, 0);
             TaskId partition1Attempt0 = createTaskId(1, 0);
@@ -598,13 +427,13 @@ public class TestDeduplicatingDirectExchangeBuffer
             buffer.addPages(partition1Attempt0, ImmutableList.of(page2));
 
             assertThat(buffer.getRetainedSizeInBytes()).isGreaterThan(0);
-            assertEquals(buffer.getRetainedSizeInBytes(), page1.getRetainedSize() + page2.getRetainedSize());
+            assertThat(buffer.getRetainedSizeInBytes()).isEqualTo(page1.getRetainedSize() + page2.getRetainedSize());
 
             buffer.addTask(partition0Attempt1);
-            assertEquals(buffer.getRetainedSizeInBytes(), 0);
+            assertThat(buffer.getRetainedSizeInBytes()).isEqualTo(0);
 
             buffer.addPages(partition0Attempt1, ImmutableList.of(page3));
-            assertEquals(buffer.getRetainedSizeInBytes(), page3.getRetainedSize());
+            assertThat(buffer.getRetainedSizeInBytes()).isEqualTo(page3.getRetainedSize());
         }
     }
 
@@ -627,11 +456,11 @@ public class TestDeduplicatingDirectExchangeBuffer
             buffer.taskFinished(task);
             buffer.noMoreTasks();
 
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
             assertNotBlocked(buffer.isBlocked());
-            assertEquals(buffer.pollPage(), page);
-            assertNull(buffer.pollPage());
-            assertTrue(buffer.isFinished());
+            assertThat(buffer.pollPage()).isEqualTo(page);
+            assertThat(buffer.pollPage()).isNull();
+            assertThat(buffer.isFinished()).isTrue();
         }
 
         // overflow
@@ -652,16 +481,16 @@ public class TestDeduplicatingDirectExchangeBuffer
             buffer.addTask(task);
             buffer.addPages(task, ImmutableList.of(page1));
 
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
             assertBlocked(buffer.isBlocked());
-            assertEquals(buffer.getRetainedSizeInBytes(), page1.getRetainedSize());
+            assertThat(buffer.getRetainedSizeInBytes()).isEqualTo(page1.getRetainedSize());
 
             buffer.addPages(task, ImmutableList.of(page2));
-            assertFalse(buffer.isFinished());
-            assertTrue(buffer.isFailed());
+            assertThat(buffer.isFinished()).isFalse();
+            assertThat(buffer.isFailed()).isTrue();
             assertNotBlocked(buffer.isBlocked());
-            assertEquals(buffer.getRetainedSizeInBytes(), 0);
-            assertEquals(buffer.getBufferedPageCount(), 0);
+            assertThat(buffer.getRetainedSizeInBytes()).isEqualTo(0);
+            assertThat(buffer.getBufferedPageCount()).isEqualTo(0);
 
             assertThatThrownBy(buffer::pollPage)
                     .isInstanceOf(TrinoException.class);
@@ -673,133 +502,133 @@ public class TestDeduplicatingDirectExchangeBuffer
     {
         // close right away
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
             buffer.close();
-            assertTrue(buffer.isFinished());
+            assertThat(buffer.isFinished()).isTrue();
         }
 
         // 0 tasks
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
             buffer.noMoreTasks();
-            assertTrue(buffer.isFinished());
+            assertThat(buffer.isFinished()).isTrue();
         }
 
         // single task producing no results, finish before noMoreTasks
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.taskFinished(taskId);
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.noMoreTasks();
-            assertTrue(buffer.isFinished());
+            assertThat(buffer.isFinished()).isTrue();
         }
 
         // single task producing no results, finish after noMoreTasks
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.noMoreTasks();
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.taskFinished(taskId);
-            assertTrue(buffer.isFinished());
+            assertThat(buffer.isFinished()).isTrue();
         }
 
         // single task producing no results, fail before noMoreTasks
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.taskFailed(taskId, new RuntimeException());
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.noMoreTasks();
-            assertFalse(buffer.isFinished());
-            assertTrue(buffer.isFailed());
+            assertThat(buffer.isFinished()).isFalse();
+            assertThat(buffer.isFailed()).isTrue();
         }
 
         // single task producing no results, fail after noMoreTasks
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.noMoreTasks();
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.taskFailed(taskId, new RuntimeException());
-            assertFalse(buffer.isFinished());
-            assertTrue(buffer.isFailed());
+            assertThat(buffer.isFinished()).isFalse();
+            assertThat(buffer.isFailed()).isTrue();
         }
 
         // single task producing one page, fail after noMoreTasks
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
             buffer.addPages(taskId, ImmutableList.of(utf8Slice("page")));
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.noMoreTasks();
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.taskFailed(taskId, new RuntimeException());
-            assertFalse(buffer.isFinished());
-            assertTrue(buffer.isFailed());
+            assertThat(buffer.isFinished()).isFalse();
+            assertThat(buffer.isFailed()).isTrue();
         }
 
         // single task producing one page, finish after noMoreTasks
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
             buffer.addPages(taskId, ImmutableList.of(utf8Slice("page")));
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.noMoreTasks();
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.taskFinished(taskId);
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
-            assertNotNull(buffer.pollPage());
-            assertTrue(buffer.isFinished());
+            assertThat(buffer.pollPage()).isNotNull();
+            assertThat(buffer.isFinished()).isTrue();
         }
 
         // single task producing one page, finish before noMoreTasks
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
             buffer.addPages(taskId, ImmutableList.of(utf8Slice("page")));
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.taskFinished(taskId);
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             buffer.noMoreTasks();
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
-            assertNotNull(buffer.pollPage());
-            assertTrue(buffer.isFinished());
+            assertThat(buffer.pollPage()).isNotNull();
+            assertThat(buffer.isFinished()).isTrue();
         }
     }
 
@@ -807,14 +636,14 @@ public class TestDeduplicatingDirectExchangeBuffer
     public void testRemainingBufferCapacity()
     {
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
-            assertFalse(buffer.isFinished());
+            assertThat(buffer.isFinished()).isFalse();
 
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
             Slice page = utf8Slice("page");
             buffer.addPages(taskId, ImmutableList.of(page));
 
-            assertEquals(buffer.getRemainingCapacityInBytes(), Long.MAX_VALUE);
+            assertThat(buffer.getRemainingCapacityInBytes()).isEqualTo(Long.MAX_VALUE);
         }
     }
 
@@ -822,7 +651,6 @@ public class TestDeduplicatingDirectExchangeBuffer
     public void testRemoteTaskFailedError()
     {
         testRemoteTaskFailedError(RetryPolicy.QUERY);
-        testRemoteTaskFailedError(RetryPolicy.TASK);
     }
 
     private void testRemoteTaskFailedError(RetryPolicy retryPolicy)
@@ -834,10 +662,10 @@ public class TestDeduplicatingDirectExchangeBuffer
             buffer.taskFailed(taskId, new TrinoException(REMOTE_TASK_FAILED, "Remote task failed"));
             buffer.noMoreTasks();
 
-            assertFalse(buffer.isFinished());
-            assertFalse(buffer.isFailed());
+            assertThat(buffer.isFinished()).isFalse();
+            assertThat(buffer.isFailed()).isFalse();
             assertBlocked(buffer.isBlocked());
-            assertNull(buffer.pollPage());
+            assertThat(buffer.pollPage()).isNull();
         }
 
         // fail after noMoreTasks
@@ -847,10 +675,10 @@ public class TestDeduplicatingDirectExchangeBuffer
             buffer.noMoreTasks();
             buffer.taskFailed(taskId, new TrinoException(REMOTE_TASK_FAILED, "Remote task failed"));
 
-            assertFalse(buffer.isFinished());
-            assertFalse(buffer.isFailed());
+            assertThat(buffer.isFinished()).isFalse();
+            assertThat(buffer.isFailed()).isFalse();
             assertBlocked(buffer.isBlocked());
-            assertNull(buffer.pollPage());
+            assertThat(buffer.pollPage()).isNull();
         }
     }
 
@@ -882,11 +710,11 @@ public class TestDeduplicatingDirectExchangeBuffer
 
     private static void assertNotBlocked(ListenableFuture<Void> blocked)
     {
-        assertTrue(blocked.isDone());
+        assertThat(blocked.isDone()).isTrue();
     }
 
     private static void assertBlocked(ListenableFuture<Void> blocked)
     {
-        assertFalse(blocked.isDone());
+        assertThat(blocked.isDone()).isFalse();
     }
 }

@@ -14,11 +14,10 @@
 package io.trino.plugin.hive.coercions;
 
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 
@@ -28,49 +27,67 @@ import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDateCoercer
 {
-    @Test(dataProvider = "validDateProvider")
-    public void testValidVarcharToDate(String date)
+    @Test
+    public void testValidVarcharToDate()
     {
-        assertVarcharToDateCoercion(createUnboundedVarcharType(), date);
+        assertVarcharToDateCoercion(createUnboundedVarcharType(), "+10000-04-13");
+        assertVarcharToDateCoercion(createUnboundedVarcharType(), "1900-01-01");
+        assertVarcharToDateCoercion(createUnboundedVarcharType(), "2000-01-01");
+        assertVarcharToDateCoercion(createUnboundedVarcharType(), "2023-03-12");
     }
 
-    @DataProvider
-    public static Object[][] validDateProvider()
+    @Test
+    public void testThrowsExceptionWhenStringIsNotAValidDate()
     {
-        return new Object[][] {
-                {"+10000-04-13"},
-                {"1900-01-01"},
-                {"2000-01-01"},
-                {"2023-03-12"}};
-    }
-
-    @Test(dataProvider = "invalidDateProvider")
-    public void testThrowsExceptionWhenStringIsNotAValidDate(String date)
-    {
-        assertThatThrownBy(() -> assertVarcharToDateCoercion(createUnboundedVarcharType(), date, null))
+        // hive would return 2023-02-09
+        assertThatThrownBy(() -> assertVarcharToDateCoercion(createUnboundedVarcharType(), "2023-01-40", null))
                 .hasMessageMatching(".*Invalid date value.*is not a valid date.*");
-    }
 
-    @DataProvider
-    public static Object[][] invalidDateProvider()
-    {
-        return new Object[][] {
-                {"2023-01-40"}, // hive would return 2023-02-09
-                {"2023-15-13"}, // hive would return 2024-03-13
-                {"invalidDate"}}; // hive would return null
+        // hive would return 2024-03-13
+        assertThatThrownBy(() -> assertVarcharToDateCoercion(createUnboundedVarcharType(), "2023-15-13", null))
+                .hasMessageMatching(".*Invalid date value.*is not a valid date.*");
+
+        // hive would return null
+        assertThatThrownBy(() -> assertVarcharToDateCoercion(createUnboundedVarcharType(), "invalidDate", null))
+                .hasMessageMatching(".*Invalid date value.*is not a valid date.*");
     }
 
     @Test
     public void testThrowsExceptionWhenDateIsTooOld()
     {
         assertThatThrownBy(() -> assertVarcharToDateCoercion(createUnboundedVarcharType(), "1899-12-31", null))
+                .hasMessageMatching(".*Coercion on historical dates is not supported.*");
+    }
+
+    @Test
+    public void testDateToVarchar()
+    {
+        assertDateToVarcharCoercion(createUnboundedVarcharType(), LocalDate.parse("2023-01-10"), "2023-01-10");
+        assertDateToVarcharCoercion(createUnboundedVarcharType(), LocalDate.parse("+10000-04-25"), "+10000-04-25");
+    }
+
+    @Test
+    public void testDateToLowerBoundedVarchar()
+    {
+        assertThatThrownBy(() -> assertDateToVarcharCoercion(createVarcharType(8), LocalDate.parse("2023-10-23"), "2023-10-23"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Varchar representation of '2023-10-23' exceeds varchar(8) bounds");
+    }
+
+    @Test
+    public void testHistoricalDateToVarchar()
+    {
+        assertThatThrownBy(() -> assertDateToVarcharCoercion(createUnboundedVarcharType(), LocalDate.parse("1899-12-31"), null))
                 .hasMessageMatching(".*Coercion on historical dates is not supported.*");
     }
 
@@ -81,10 +98,18 @@ public class TestDateCoercer
 
     private void assertVarcharToDateCoercion(Type fromType, String date, Long expected)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(DateType.DATE), new CoercionContext(NANOSECONDS, false)).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(DATE), new CoercionContext(NANOSECONDS, false)).orElseThrow()
                 .apply(nativeValueToBlock(fromType, utf8Slice(date)));
-        assertThat(blockToNativeValue(DateType.DATE, coercedValue))
+        assertThat(blockToNativeValue(DATE, coercedValue))
                 .isEqualTo(expected);
+    }
+
+    private void assertDateToVarcharCoercion(Type toType, LocalDate date, String expected)
+    {
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(DATE), toHiveType(toType), new CoercionContext(NANOSECONDS, false)).orElseThrow()
+                .apply(nativeValueToBlock(DATE, date.toEpochDay()));
+        assertThat(blockToNativeValue(VARCHAR, coercedValue))
+                .isEqualTo(utf8Slice(expected));
     }
 
     private long fromDateToEpochDate(String dateString)

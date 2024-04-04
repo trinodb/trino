@@ -43,7 +43,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.testng.SkipException;
 
 import java.util.List;
 import java.util.Map;
@@ -84,10 +83,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 public abstract class BaseDeltaLakeConnectorSmokeTest
@@ -191,12 +188,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 registerTableFromResources(table.tableName(), table.resourcePath(), queryRunner);
             });
 
-            queryRunner.installPlugin(new TestingHivePlugin());
+            queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
 
             queryRunner.createCatalog(
                     "hive",
                     "hive",
                     ImmutableMap.<String, String>builder()
+                            .put("hive.metastore", "thrift")
                             .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
                             .put("hive.allow-drop-table", "true")
                             .putAll(hiveStorageConfiguration())
@@ -457,9 +455,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         getLocationForTable(bucketName, "foo")));
 
         MaterializedResultWithQueryId deltaResult = queryRunner.executeWithQueryId(broadcastJoinDistribution(true), "SELECT * FROM foo");
-        assertEquals(deltaResult.getResult().getRowCount(), 2);
+        assertThat(deltaResult.getResult().getRowCount()).isEqualTo(2);
         MaterializedResultWithQueryId hiveResult = queryRunner.executeWithQueryId(broadcastJoinDistribution(true), format("SELECT * FROM %s.%s.%s", "hive", SCHEMA, hiveTableName));
-        assertEquals(hiveResult.getResult().getRowCount(), 2);
+        assertThat(hiveResult.getResult().getRowCount()).isEqualTo(2);
 
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         assertThat(queryManager.getFullQueryInfo(deltaResult.getQueryId()).getQueryStats().getProcessedInputDataSize()).as("delta processed input data size")
@@ -481,20 +479,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testHiveViewsCannotBeAccessed()
     {
+        String schemaName = "test_schema" + randomNameSuffix();
         String viewName = "dummy_view";
-        hiveHadoop.runOnHive(format("CREATE VIEW %1$s.%2$s AS SELECT * FROM %1$s.customer", SCHEMA, viewName));
-        assertThatThrownBy(() -> computeActual("DESCRIBE " + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", SCHEMA, viewName));
-        hiveHadoop.runOnHive("DROP VIEW " + viewName);
-    }
-
-    @Test
-    public void testNonDeltaTablesCannotBeAccessed()
-    {
-        String tableName = "hive_table";
-        hiveHadoop.runOnHive(format("CREATE TABLE %s.%s (id BIGINT)", SCHEMA, tableName));
-        assertEquals(computeScalar(format("SHOW TABLES LIKE '%s'", tableName)), tableName);
-        assertThatThrownBy(() -> computeActual("DESCRIBE " + tableName)).hasMessageContaining(tableName + " is not a Delta Lake table");
-        hiveHadoop.runOnHive(format("DROP TABLE %s.%s", SCHEMA, tableName));
+        hiveHadoop.runOnHive("CREATE DATABASE " + schemaName);
+        hiveHadoop.runOnHive(format("CREATE VIEW %s.%s AS SELECT * FROM %s.customer", schemaName, viewName, SCHEMA));
+        assertThat(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, viewName))).isEqualTo(viewName);
+        assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", schemaName, viewName));
+        hiveHadoop.runOnHive("DROP DATABASE " + schemaName + " CASCADE");
     }
 
     @Test
@@ -516,9 +507,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     private void testDropTable(String tableName, String resourcePath)
     {
         registerTableFromResources(tableName, resourcePath, getQueryRunner());
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertThat(getTableFiles(tableName)).hasSizeGreaterThan(1); // the data should not be deleted
     }
 
@@ -851,7 +842,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "SELECT count(*) FROM nation");
         int fileCount = getTableFiles(tableName).size();
         assertUpdate(format("DROP TABLE %s.%s", schemaName, tableName));
-        assertEquals(getTableFiles(tableName).size(), fileCount);
+        assertThat(getTableFiles(tableName).size()).isEqualTo(fileCount);
     }
 
     @Test
@@ -1914,7 +1905,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     private void testCountQuery(@Language("SQL") String sql, long expectedRowCount, long expectedSplitCount)
     {
         MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        assertEquals(result.getResult().getOnlyColumnAsSet(), ImmutableSet.of(expectedRowCount));
+        assertThat(result.getResult().getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(expectedRowCount));
         verifySplitCount(result.getQueryId(), expectedSplitCount);
     }
 
@@ -1940,7 +1931,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testDelete()
     {
         if (!hasBehavior(SUPPORTS_DELETE)) {
-            throw new SkipException("testDelete requires DELETE support");
+            abort("testDelete requires DELETE support");
         }
 
         String tableName = "test_delete_" + randomNameSuffix();

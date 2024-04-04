@@ -16,8 +16,7 @@ package io.trino.execution.resourcegroups;
 import io.trino.execution.resourcegroups.WeightedFairQueue.Usage;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestWeightedFairQueue
 {
@@ -30,14 +29,14 @@ public class TestWeightedFairQueue
         queue.addOrUpdate(item1, new Usage(1, 1));
         queue.addOrUpdate(item2, new Usage(2, 1));
 
-        assertEquals(queue.size(), 2);
-        assertEquals(queue.poll(), item2);
-        assertTrue(queue.contains(item1));
-        assertEquals(queue.poll(), item1);
-        assertEquals(queue.size(), 0);
-        assertEquals(queue.poll(), null);
-        assertEquals(queue.poll(), null);
-        assertEquals(queue.size(), 0);
+        assertThat(queue.size()).isEqualTo(2);
+        assertThat(queue.poll()).isEqualTo(item2);
+        assertThat(queue.contains(item1)).isTrue();
+        assertThat(queue.poll()).isEqualTo(item1);
+        assertThat(queue.size()).isEqualTo(0);
+        assertThat(queue.poll()).isEqualTo(null);
+        assertThat(queue.poll()).isEqualTo(null);
+        assertThat(queue.size()).isEqualTo(0);
     }
 
     @Test
@@ -51,11 +50,11 @@ public class TestWeightedFairQueue
         queue.addOrUpdate(item2, new Usage(2, 1));
         queue.addOrUpdate(item3, new Usage(3, 1));
 
-        assertEquals(queue.poll(), item3);
+        assertThat(queue.poll()).isEqualTo(item3);
         queue.addOrUpdate(item1, new Usage(4, 1));
-        assertEquals(queue.poll(), item1);
-        assertEquals(queue.poll(), item2);
-        assertEquals(queue.size(), 0);
+        assertThat(queue.poll()).isEqualTo(item1);
+        assertThat(queue.poll()).isEqualTo(item2);
+        assertThat(queue.size()).isEqualTo(0);
     }
 
     @Test
@@ -80,7 +79,7 @@ public class TestWeightedFairQueue
             }
         }
 
-        assertEquals(count1, 500);
-        assertEquals(count2, 500);
+        assertThat(count1).isEqualTo(500);
+        assertThat(count2).isEqualTo(500);
     }
 }

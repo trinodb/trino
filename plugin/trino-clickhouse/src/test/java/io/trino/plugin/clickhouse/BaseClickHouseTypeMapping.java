@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.clickhouse;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.UuidType;
@@ -26,13 +27,14 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -55,7 +57,9 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public abstract class BaseClickHouseTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -69,7 +73,7 @@ public abstract class BaseClickHouseTypeMapping
 
     protected TestingClickHouseServer clickhouseServer;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
@@ -595,46 +599,54 @@ public abstract class BaseClickHouseTypeMapping
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
     {
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .build();
-        SqlDataTypeTest.create()
-                .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
-                .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
-                .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
-                .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
-                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+        for (ZoneId sessionZone : timezones()) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                    .build();
+            SqlDataTypeTest.create()
+                    .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
+                    .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
+                    .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                    .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                    .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
+                    .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                    .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
 
-        // Null
-        SqlDataTypeTest.create()
-                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
-        SqlDataTypeTest.create()
-                .addRoundTrip("Nullable(date)", "NULL", DATE, "CAST(NULL AS DATE)")
-                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"));
+            // Null
+            SqlDataTypeTest.create()
+                    .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+            SqlDataTypeTest.create()
+                    .addRoundTrip("Nullable(date)", "NULL", DATE, "CAST(NULL AS DATE)")
+                    .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"));
+        }
     }
 
-    @Test(dataProvider = "clickHouseDateMinMaxValuesDataProvider")
-    public void testClickHouseDateMinMaxValues(String date)
+    @Test
+    public void testClickHouseDateMinMaxValues()
+    {
+        testClickHouseDateMinMaxValues("1970-01-01");
+        testClickHouseDateMinMaxValues("2149-06-06");
+    }
+
+    private void testClickHouseDateMinMaxValues(String date)
     {
         SqlDataTypeTest dateTests = SqlDataTypeTest.create()
                 .addRoundTrip("date", format("DATE '%s'", date), DATE, format("DATE '%s'", date));
 
-        for (Object[] timeZoneIds : sessionZonesDataProvider()) {
+        for (ZoneId timeZoneId : timezones()) {
             Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(((ZoneId) timeZoneIds[0]).getId()))
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId.getId()))
                     .build();
             dateTests
                     .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
@@ -645,20 +657,17 @@ public abstract class BaseClickHouseTypeMapping
         }
     }
 
-    @DataProvider
-    public Object[][] clickHouseDateMinMaxValuesDataProvider()
+    @Test
+    public void testUnsupportedDate()
     {
-        return new Object[][] {
-                {"1970-01-01"}, // min value in ClickHouse
-                {"2149-06-06"}, // max value in ClickHouse
-        };
+        testUnsupportedDate("1969-12-31");
+        testUnsupportedDate("2149-06-07");
     }
 
-    @Test(dataProvider = "unsupportedClickHouseDateValuesDataProvider")
-    public void testUnsupportedDate(String unsupportedDate)
+    private void testUnsupportedDate(String unsupportedDate)
     {
-        String minSupportedDate = (String) clickHouseDateMinMaxValuesDataProvider()[0][0];
-        String maxSupportedDate = (String) clickHouseDateMinMaxValuesDataProvider()[1][0];
+        String minSupportedDate = "1970-01-01";
+        String maxSupportedDate = "2149-06-06";
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt date)")) {
             assertQueryFails(
@@ -672,36 +681,29 @@ public abstract class BaseClickHouseTypeMapping
         }
     }
 
-    @DataProvider
-    public Object[][] unsupportedClickHouseDateValuesDataProvider()
+    @Test
+    public void testTimestamp()
     {
-        return new Object[][] {
-                {"1969-12-31"}, // min - 1 day
-                {"2149-06-07"}, // max + 1 day
-        };
-    }
+        for (ZoneId sessionZone : timezones()) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                    .build();
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestamp(ZoneId sessionZone)
-    {
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .build();
+            SqlDataTypeTest.create()
+                    .addRoundTrip("timestamp(0)", "timestamp '1986-01-01 00:13:07'", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'") // time gap in Kathmandu
+                    .addRoundTrip("timestamp(0)", "timestamp '2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
+                    .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
+                    .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
 
-        SqlDataTypeTest.create()
-                .addRoundTrip("timestamp(0)", "timestamp '1986-01-01 00:13:07'", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'") // time gap in Kathmandu
-                .addRoundTrip("timestamp(0)", "timestamp '2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
-                .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
-                .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
-
-        timestampTest("timestamp")
-                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_timestamp"));
-        timestampTest("datetime")
-                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_datetime"));
+            timestampTest("timestamp")
+                    .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_timestamp"));
+            timestampTest("datetime")
+                    .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_datetime"));
+        }
     }
 
     private SqlDataTypeTest timestampTest(String inputType)
@@ -720,8 +722,14 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip(inputType, "'1969-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'");
     }
 
-    @Test(dataProvider = "clickHouseDateTimeMinMaxValuesDataProvider")
-    public void testClickHouseDateTimeMinMaxValues(String timestamp)
+    @Test
+    public void testClickHouseDateTimeMinMaxValues()
+    {
+        testClickHouseDateTimeMinMaxValues("1970-01-01 00:00:00"); // min value in ClickHouse
+        testClickHouseDateTimeMinMaxValues("2106-02-07 06:28:15"); // max value in ClickHouse
+    }
+
+    private void testClickHouseDateTimeMinMaxValues(String timestamp)
     {
         SqlDataTypeTest dateTests1 = SqlDataTypeTest.create()
                 .addRoundTrip("timestamp(0)", format("timestamp '%s'", timestamp), createTimestampType(0), format("TIMESTAMP '%s'", timestamp));
@@ -730,9 +738,9 @@ public abstract class BaseClickHouseTypeMapping
         SqlDataTypeTest dateTests3 = SqlDataTypeTest.create()
                 .addRoundTrip("datetime", format("'%s'", timestamp), createTimestampType(0), format("TIMESTAMP '%s'", timestamp));
 
-        for (Object[] timeZoneIds : sessionZonesDataProvider()) {
+        for (ZoneId timeZoneId : timezones()) {
             Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(((ZoneId) timeZoneIds[0]).getId()))
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId.getId()))
                     .build();
             dateTests1
                     .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
@@ -744,20 +752,17 @@ public abstract class BaseClickHouseTypeMapping
         }
     }
 
-    @DataProvider
-    public Object[][] clickHouseDateTimeMinMaxValuesDataProvider()
+    @Test
+    public void testUnsupportedTimestamp()
     {
-        return new Object[][] {
-                {"1970-01-01 00:00:00"}, // min value in ClickHouse
-                {"2106-02-07 06:28:15"}, // max value in ClickHouse
-        };
+        testUnsupportedTimestamp("1969-12-31 23:59:59"); // min - 1 second
+        testUnsupportedTimestamp("2106-02-07 06:28:16"); // max + 1 second
     }
 
-    @Test(dataProvider = "unsupportedTimestampDataProvider")
     public void testUnsupportedTimestamp(String unsupportedTimestamp)
     {
-        String minSupportedTimestamp = (String) clickHouseDateTimeMinMaxValuesDataProvider()[0][0];
-        String maxSupportedTimestamp = (String) clickHouseDateTimeMinMaxValuesDataProvider()[1][0];
+        String minSupportedTimestamp = "1970-01-01 00:00:00";
+        String maxSupportedTimestamp = "2106-02-07 06:28:15";
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_timestamp", "(dt timestamp(0))")) {
             assertQueryFails(
@@ -771,24 +776,17 @@ public abstract class BaseClickHouseTypeMapping
         }
     }
 
-    @DataProvider
-    public Object[][] unsupportedTimestampDataProvider()
+    @Test
+    public void testClickHouseDateTimeWithTimeZone()
     {
-        return new Object[][] {
-                {"1969-12-31 23:59:59"}, // min - 1 second
-                {"2106-02-07 06:28:16"}, // max + 1 second
-        };
-    }
+        for (ZoneId sessionZone : timezones()) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                    .build();
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testClickHouseDateTimeWithTimeZone(ZoneId sessionZone)
-    {
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .build();
-
-        dateTimeWithTimeZoneTest(clickhouseDateTimeInputTypeFactory("datetime"))
-                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.datetime_tz"));
+            dateTimeWithTimeZoneTest(clickhouseDateTimeInputTypeFactory("datetime"))
+                    .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.datetime_tz"));
+        }
     }
 
     private SqlDataTypeTest dateTimeWithTimeZoneTest(Function<ZoneId, String> inputTypeFactory)
@@ -837,17 +835,15 @@ public abstract class BaseClickHouseTypeMapping
         return tests;
     }
 
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
+    private List<ZoneId> timezones()
     {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
+        return ImmutableList.of(
+                UTC,
+                jvmZone,
                 // using two non-JVM zones so that we don't need to worry what ClickHouse system zone is
-                {vilnius},
-                {kathmandu},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
+                vilnius,
+                kathmandu,
+                TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
     }
 
     @Test

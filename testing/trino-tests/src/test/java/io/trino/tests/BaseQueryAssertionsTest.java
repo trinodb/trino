@@ -334,6 +334,25 @@ public abstract class BaseQueryAssertionsTest
     }
 
     @Test
+    public void testIsReplacedWithEmptyValues()
+    {
+        assertThat(query("SELECT 1 WHERE false")).isReplacedWithEmptyValues();
+
+        // Test that, in case of failure, there is no failure when rendering expected and actual plans
+        assertThatThrownBy(() -> assertThat(query("SELECT 1 WHERE true")).isReplacedWithEmptyValues())
+                .hasMessageContaining(
+                        "Plan does not match, expected [\n" +
+                                "\n" +
+                                "- node(OutputNode)\n")
+                .hasMessageContaining(
+                        "\n" +
+                                "\n" +
+                                "] but found [\n" +
+                                "\n" +
+                                "Output[columnNames = [_col0]]\n");
+    }
+
+    @Test
     public void testIsNotFullyPushedDown()
     {
         assertThat(query("SELECT name FROM nation WHERE rand() = 42")).isNotFullyPushedDown(FilterNode.class);

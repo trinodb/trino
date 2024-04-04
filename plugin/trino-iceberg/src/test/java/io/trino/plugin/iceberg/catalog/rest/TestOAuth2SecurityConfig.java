@@ -21,7 +21,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOAuth2SecurityConfig
 {
@@ -44,7 +44,7 @@ public class TestOAuth2SecurityConfig
         OAuth2SecurityConfig expected = new OAuth2SecurityConfig()
                 .setCredential("credential")
                 .setToken("token");
-        assertTrue(expected.credentialOrTokenPresent());
+        assertThat(expected.credentialOrTokenPresent()).isTrue();
         assertFullMapping(properties, expected);
     }
 }

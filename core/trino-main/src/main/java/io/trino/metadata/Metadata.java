@@ -37,6 +37,7 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
@@ -163,6 +164,12 @@ public interface Metadata
      * This includes all relations (e.g. tables, views, materialized views).
      */
     List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Get the relation names that match the specified table prefix (never null).
+     * This includes all relations (e.g. tables, views, materialized views).
+     */
+    Map<SchemaTableName, RelationType> getRelationTypes(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Gets all of the columns on the specified table, or an empty map if the columns cannot be enumerated.
@@ -703,7 +710,13 @@ public interface Metadata
     /**
      * Creates the specified materialized view with the specified view definition.
      */
-    void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
+    void createMaterializedView(
+            Session session,
+            QualifiedObjectName viewName,
+            MaterializedViewDefinition definition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting);
 
     /**
      * Drops the specified materialized view.
@@ -732,6 +745,8 @@ public interface Metadata
      * Returns the materialized view definition for the specified view name.
      */
     Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
+
+    Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName objectName, MaterializedViewDefinition materializedViewDefinition);
 
     /**
      * Method to get difference between the states of table at two different points in time/or as of given token-ids.

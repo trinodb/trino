@@ -17,25 +17,31 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.Session;
 import io.trino.execution.QueryStats;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metric;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import java.io.File;
-import java.net.URISyntaxException;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.URL;
 import java.util.Map;
+import java.util.UUID;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.parquet.reader.ParquetReader.COLUMN_INDEX_ROWS_FILTERED;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -44,24 +50,32 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestParquetPageSkipping
         extends AbstractTestQueryFramework
 {
+    private TrinoFileSystem fileSystem;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.builder()
+        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(
                         ImmutableMap.of(
                                 "parquet.use-column-index", "true",
                                 "parquet.max-buffer-size", "1MB"))
                 .build();
+
+        fileSystem = getConnectorService(queryRunner, TrinoFileSystemFactory.class)
+                .create(ConnectorIdentity.ofUser("test"));
+
+        return queryRunner;
     }
 
     @Test
     public void testRowGroupPruningFromPageIndexes()
             throws Exception
     {
+        Location dataFile = copyInDataFile("parquet_page_skipping/orders_sorted_by_totalprice/data.parquet");
+
         String tableName = "test_row_group_pruning_" + randomNameSuffix();
-        File parquetFile = new File(Resources.getResource("parquet_page_skipping/orders_sorted_by_totalprice").toURI());
         assertUpdate(
                 """
                         CREATE TABLE %s (
@@ -78,7 +92,7 @@ public class TestParquetPageSkipping
                         WITH (
                            format = 'PARQUET',
                            external_location = '%s')
-                        """.formatted(tableName, parquetFile.getAbsolutePath()));
+                        """.formatted(tableName, dataFile.parentDirectory()));
 
         int rowCount = assertColumnIndexResults("SELECT * FROM " + tableName + " WHERE totalprice BETWEEN 100000 AND 131280 AND clerk = 'Clerk#000000624'");
         assertThat(rowCount).isGreaterThan(0);
@@ -91,14 +105,14 @@ public class TestParquetPageSkipping
 
     @Test
     public void testPageSkippingWithNonSequentialOffsets()
-            throws URISyntaxException
+            throws IOException
     {
+        Location dataFile = copyInDataFile("parquet_page_skipping/random/data.parquet");
         String tableName = "test_random_" + randomNameSuffix();
-        File parquetFile = new File(Resources.getResource("parquet_page_skipping/random").toURI());
         assertUpdate(format(
                 "CREATE TABLE %s (col double) WITH (format = 'PARQUET', external_location = '%s')",
                 tableName,
-                parquetFile.getAbsolutePath()));
+                dataFile.parentDirectory()));
         // These queries select a subset of pages which are stored at non-sequential offsets
         // This reproduces the issue identified in https://github.com/trinodb/trino/issues/9097
         for (double i = 0; i < 1; i += 0.1) {
@@ -109,17 +123,18 @@ public class TestParquetPageSkipping
 
     @Test
     public void testFilteringOnColumnNameWithDot()
-            throws URISyntaxException
+            throws IOException
     {
+        Location dataFile = copyInDataFile("parquet_page_skipping/column_name_with_dot/data.parquet");
+
         String nameInSql = "\"a.dot\"";
         String tableName = "test_column_name_with_dot_" + randomNameSuffix();
 
-        File parquetFile = new File(Resources.getResource("parquet_page_skipping/column_name_with_dot").toURI());
         assertUpdate(format(
                 "CREATE TABLE %s (key varchar(50), %s varchar(50)) WITH (format = 'PARQUET', external_location = '%s')",
                 tableName,
                 nameInSql,
-                parquetFile.getAbsolutePath()));
+                dataFile.parentDirectory()));
 
         assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
         assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
@@ -127,8 +142,54 @@ public class TestParquetPageSkipping
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "dataType")
-    public void testPageSkipping(String sortByColumn, String sortByColumnType, Object[][] valuesArray)
+    @Test
+    public void testUnsupportedColumnIndex()
+            throws IOException
+    {
+        String tableName = "test_unsupported_column_index_" + randomNameSuffix();
+
+        // Test for https://github.com/trinodb/trino/issues/16801
+        Location dataFile = copyInDataFile("parquet_page_skipping/unsupported_column_index/data.parquet");
+        assertUpdate(format(
+                "CREATE TABLE %s (stime timestamp(3), btime timestamp(3), detail varchar) WITH (format = 'PARQUET', external_location = '%s')",
+                tableName,
+                dataFile.parentDirectory()));
+
+        assertQuery(
+                "SELECT * FROM " + tableName + " WHERE btime >= timestamp '2023-03-27 13:30:00'",
+                "VALUES ('2023-03-31 18:00:00.000', '2023-03-31 18:00:00.000', 'record_1')");
+
+        assertQuery(
+                "SELECT * FROM " + tableName + " WHERE detail = 'record_2'",
+                "VALUES ('2023-03-31 18:00:00.000', null, 'record_2')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPageSkipping()
+    {
+        testPageSkipping("orderkey", "bigint", new Object[][] {{2, 7520, 7523, 14950}});
+        testPageSkipping("totalprice", "double", new Object[][] {{974.04, 131094.34, 131279.97, 406938.36}});
+        testPageSkipping("totalprice", "real", new Object[][] {{974.04, 131094.34, 131279.97, 406938.36}});
+        testPageSkipping("totalprice", "decimal(12,2)", new Object[][] {
+                {974.04, 131094.34, 131279.97, 406938.36},
+                {973, 131095, 131280, 406950},
+                {974.04123, 131094.34123, 131279.97012, 406938.36555}});
+        testPageSkipping("totalprice", "decimal(12,0)", new Object[][] {
+                {973, 131095, 131280, 406950}});
+        testPageSkipping("totalprice", "decimal(35,2)", new Object[][] {
+                {974.04, 131094.34, 131279.97, 406938.36},
+                {973, 131095, 131280, 406950},
+                {974.04123, 131094.34123, 131279.97012, 406938.36555}});
+        testPageSkipping("orderdate", "date", new Object[][] {{"DATE '1992-01-05'", "DATE '1995-10-13'", "DATE '1995-10-13'", "DATE '1998-07-29'"}});
+        testPageSkipping("orderdate", "timestamp", new Object[][] {{"TIMESTAMP '1992-01-05'", "TIMESTAMP '1995-10-13'", "TIMESTAMP '1995-10-14'", "TIMESTAMP '1998-07-29'"}});
+        testPageSkipping("clerk", "varchar(15)", new Object[][] {{"'Clerk#000000006'", "'Clerk#000000508'", "'Clerk#000000513'", "'Clerk#000000996'"}});
+        testPageSkipping("custkey", "integer", new Object[][] {{4, 634, 640, 1493}});
+        testPageSkipping("custkey", "smallint", new Object[][] {{4, 634, 640, 1493}});
+    }
+
+    private void testPageSkipping(String sortByColumn, String sortByColumnType, Object[][] valuesArray)
     {
         String tableName = "test_page_skipping_" + randomNameSuffix();
         buildSortedTables(tableName, sortByColumn, sortByColumnType);
@@ -156,15 +217,15 @@ public class TestParquetPageSkipping
 
     @Test
     public void testFilteringWithColumnIndex()
-            throws URISyntaxException
+            throws IOException
     {
+        Location dataFile = copyInDataFile("parquet_page_skipping/lineitem_sorted_by_suppkey/data.parquet");
         String tableName = "test_page_filtering_" + randomNameSuffix();
-        File parquetFile = new File(Resources.getResource("parquet_page_skipping/lineitem_sorted_by_suppkey").toURI());
         assertUpdate(format(
                 "CREATE TABLE %s (suppkey bigint, extendedprice decimal(12, 2), shipmode varchar(10), comment varchar(44)) " +
                         "WITH (format = 'PARQUET', external_location = '%s')",
                 tableName,
-                parquetFile.getAbsolutePath()));
+                dataFile.parentDirectory()));
 
         verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey = 10");
         verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey BETWEEN 25 AND 35");
@@ -232,31 +293,6 @@ public class TestParquetPageSkipping
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
     }
 
-    @DataProvider
-    public Object[][] dataType()
-    {
-        return new Object[][] {
-                {"orderkey", "bigint", new Object[][] {{2, 7520, 7523, 14950}}},
-                {"totalprice", "double", new Object[][] {{974.04, 131094.34, 131279.97, 406938.36}}},
-                {"totalprice", "real", new Object[][] {{974.04, 131094.34, 131279.97, 406938.36}}},
-                {"totalprice", "decimal(12,2)", new Object[][] {
-                        {974.04, 131094.34, 131279.97, 406938.36},
-                        {973, 131095, 131280, 406950},
-                        {974.04123, 131094.34123, 131279.97012, 406938.36555}}},
-                {"totalprice", "decimal(12,0)", new Object[][] {
-                        {973, 131095, 131280, 406950}}},
-                {"totalprice", "decimal(35,2)", new Object[][] {
-                        {974.04, 131094.34, 131279.97, 406938.36},
-                        {973, 131095, 131280, 406950},
-                        {974.04123, 131094.34123, 131279.97012, 406938.36555}}},
-                {"orderdate", "date", new Object[][] {{"DATE '1992-01-05'", "DATE '1995-10-13'", "DATE '1995-10-13'", "DATE '1998-07-29'"}}},
-                {"orderdate", "timestamp", new Object[][] {{"TIMESTAMP '1992-01-05'", "TIMESTAMP '1995-10-13'", "TIMESTAMP '1995-10-14'", "TIMESTAMP '1998-07-29'"}}},
-                {"clerk", "varchar(15)", new Object[][] {{"'Clerk#000000006'", "'Clerk#000000508'", "'Clerk#000000513'", "'Clerk#000000996'"}}},
-                {"custkey", "integer", new Object[][] {{4, 634, 640, 1493}}},
-                {"custkey", "smallint", new Object[][] {{4, 634, 640, 1493}}}
-        };
-    }
-
     private Session noParquetColumnIndexFiltering(Session session)
     {
         return Session.builder(session)
@@ -316,5 +352,19 @@ public class TestParquetPageSkipping
                         .build(),
                 format("INSERT INTO %s SELECT *, ARRAY[rand(), rand(), rand()] FROM tpch.tiny.orders", tableName),
                 15000);
+    }
+
+    private Location copyInDataFile(String resourceFileName)
+            throws IOException
+    {
+        URL resourceLocation = Resources.getResource(resourceFileName);
+
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        Location dataFile = tempDir.appendPath("data.parquet");
+        try (OutputStream out = fileSystem.newOutputFile(dataFile).create()) {
+            Resources.copy(resourceLocation, out);
+        }
+        return dataFile;
     }
 }

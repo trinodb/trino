@@ -263,10 +263,10 @@ public class S3FileSystemExchangeStorage
         for (URI dir : directories) {
             ImmutableList.Builder<String> keys = ImmutableList.builder();
             ListenableFuture<List<String>> listObjectsFuture = Futures.transform(
-                    toListenableFuture((listObjectsRecursively(dir)
+                    toListenableFuture(listObjectsRecursively(dir)
                             .subscribe(listObjectsV2Response -> listObjectsV2Response.contents().stream()
                                     .map(S3Object::key)
-                                    .forEach(keys::add)))),
+                                    .forEach(keys::add))),
                     ignored -> keys.build(),
                     directExecutor());
             bucketToListObjectsFuturesBuilder.put(getBucketName(dir), listObjectsFuture);
@@ -309,7 +309,7 @@ public class S3FileSystemExchangeStorage
     {
         ImmutableList.Builder<FileStatus> fileStatuses = ImmutableList.builder();
         return stats.getListFilesRecursively().record(Futures.transform(
-                toListenableFuture((listObjectsRecursively(dir)
+                toListenableFuture(listObjectsRecursively(dir)
                         .subscribe(listObjectsV2Response -> {
                             for (S3Object s3Object : listObjectsV2Response.contents()) {
                                 URI uri;
@@ -321,7 +321,7 @@ public class S3FileSystemExchangeStorage
                                 }
                                 fileStatuses.add(new FileStatus(uri.toString(), s3Object.size()));
                             }
-                        }))),
+                        })),
                 ignored -> fileStatuses.build(),
                 directExecutor()));
     }

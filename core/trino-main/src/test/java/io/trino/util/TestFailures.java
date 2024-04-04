@@ -20,9 +20,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static io.trino.util.Failures.toFailure;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFailures
 {
@@ -35,19 +33,19 @@ public class TestFailures
 
         // add exception 1 --> add suppress (exception 2) --> add cause (exception 1)
         ExecutionFailureInfo failure = toFailure(exception1);
-        assertEquals(failure.getMessage(), "fake exception 1");
-        assertNull(failure.getCause());
-        assertEquals(failure.getSuppressed().size(), 1);
-        assertEquals(failure.getSuppressed().get(0).getMessage(), "fake exception 2");
-        assertEquals(failure.getErrorCode(), TOO_MANY_REQUESTS_FAILED.toErrorCode());
+        assertThat(failure.getMessage()).isEqualTo("fake exception 1");
+        assertThat(failure.getCause()).isNull();
+        assertThat(failure.getSuppressed().size()).isEqualTo(1);
+        assertThat(failure.getSuppressed().get(0).getMessage()).isEqualTo("fake exception 2");
+        assertThat(failure.getErrorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
 
         // add exception 2 --> add cause (exception 2) --> add suppress (exception 1)
         failure = toFailure(exception2);
-        assertEquals(failure.getMessage(), "fake exception 2");
-        assertNotNull(failure.getCause());
-        assertEquals(failure.getCause().getMessage(), "fake exception 1");
-        assertEquals(failure.getSuppressed().size(), 0);
-        assertEquals(failure.getErrorCode(), TOO_MANY_REQUESTS_FAILED.toErrorCode());
+        assertThat(failure.getMessage()).isEqualTo("fake exception 2");
+        assertThat(failure.getCause()).isNotNull();
+        assertThat(failure.getCause().getMessage()).isEqualTo("fake exception 1");
+        assertThat(failure.getSuppressed().size()).isEqualTo(0);
+        assertThat(failure.getErrorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
 
         // add exception 1 --> add suppress (exception 2) --> add suppress (exception 1)
         exception1 = new TrinoException(TOO_MANY_REQUESTS_FAILED, "fake exception 1");
@@ -55,21 +53,21 @@ public class TestFailures
         exception1.addSuppressed(exception2);
         exception2.addSuppressed(exception1);
         failure = toFailure(exception1);
-        assertEquals(failure.getMessage(), "fake exception 1");
-        assertNull(failure.getCause());
-        assertEquals(failure.getSuppressed().size(), 1);
-        assertEquals(failure.getSuppressed().get(0).getMessage(), "fake exception 2");
-        assertEquals(failure.getErrorCode(), TOO_MANY_REQUESTS_FAILED.toErrorCode());
+        assertThat(failure.getMessage()).isEqualTo("fake exception 1");
+        assertThat(failure.getCause()).isNull();
+        assertThat(failure.getSuppressed().size()).isEqualTo(1);
+        assertThat(failure.getSuppressed().get(0).getMessage()).isEqualTo("fake exception 2");
+        assertThat(failure.getErrorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
 
         // add exception 2 --> add cause (exception 1) --> add cause (exception 2)
         exception1 = new RuntimeException("fake exception 1");
         exception2 = new RuntimeException("fake exception 2", exception1);
         exception1.initCause(exception2);
         failure = toFailure(exception2);
-        assertEquals(failure.getMessage(), "fake exception 2");
-        assertNotNull(failure.getCause());
-        assertEquals(failure.getCause().getMessage(), "fake exception 1");
-        assertEquals(failure.getSuppressed().size(), 0);
-        assertEquals(failure.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
+        assertThat(failure.getMessage()).isEqualTo("fake exception 2");
+        assertThat(failure.getCause()).isNotNull();
+        assertThat(failure.getCause().getMessage()).isEqualTo("fake exception 1");
+        assertThat(failure.getSuppressed().size()).isEqualTo(0);
+        assertThat(failure.getErrorCode()).isEqualTo(GENERIC_INTERNAL_ERROR.toErrorCode());
     }
 }

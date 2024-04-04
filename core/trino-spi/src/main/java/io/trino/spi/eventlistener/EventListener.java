@@ -34,4 +34,13 @@ public interface EventListener
     {
         return false;
     }
+
+    /**
+     * Shutdown the event listener by releasing any held resources such as
+     * threads, sockets, etc. After this method is called,
+     * no methods will be called on the event listener.
+     */
+    default void shutdown()
+    {
+    }
 }

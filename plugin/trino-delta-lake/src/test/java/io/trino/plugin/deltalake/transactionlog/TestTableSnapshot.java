@@ -28,6 +28,7 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +43,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
@@ -59,7 +61,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_METHOD) // e.g. TrackingFileSystemFactory is shared mutable state
 public class TestTableSnapshot
@@ -142,7 +143,15 @@ public class TestTableSnapshot
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
         tableSnapshot.setCachedMetadata(Optional.of(metadataEntry));
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
-                SESSION, ImmutableSet.of(ADD), checkpointSchemaManager, TESTING_TYPE_MANAGER, trackingFileSystem, new FileFormatDataSourceStats(), Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)))) {
+                SESSION,
+                ImmutableSet.of(ADD),
+                checkpointSchemaManager,
+                TESTING_TYPE_MANAGER,
+                trackingFileSystem,
+                new FileFormatDataSourceStats(),
+                Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
+                TupleDomain.all(),
+                Optional.of(alwaysTrue()))) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(9);
@@ -184,7 +193,15 @@ public class TestTableSnapshot
 
         // lets read two entry types in one call; add and protocol
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
-                SESSION, ImmutableSet.of(ADD, PROTOCOL), checkpointSchemaManager, TESTING_TYPE_MANAGER, trackingFileSystem, new FileFormatDataSourceStats(), Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)))) {
+                SESSION,
+                ImmutableSet.of(ADD, PROTOCOL),
+                checkpointSchemaManager,
+                TESTING_TYPE_MANAGER,
+                trackingFileSystem,
+                new FileFormatDataSourceStats(),
+                Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
+                TupleDomain.all(),
+                Optional.of(alwaysTrue()))) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(10);
@@ -240,7 +257,7 @@ public class TestTableSnapshot
                 parquetReaderOptions,
                 true,
                 domainCompactionThreshold);
-        assertEquals(tableSnapshot.getVersion(), 13L);
+        assertThat(tableSnapshot.getVersion()).isEqualTo(13L);
     }
 
     private void assertFileSystemAccesses(ThrowingRunnable callback, Multiset<FileOperation> expectedAccesses)

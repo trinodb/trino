@@ -19,7 +19,9 @@ import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
@@ -38,7 +40,6 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.SplitWeight;
@@ -56,13 +57,15 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
-import static org.testng.Assert.assertEquals;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeSplitManager
 {
@@ -115,7 +118,7 @@ public class TestDeltaLakeSplitManager
                 makeSplit(10_000, 5_000, fileSize, minimumAssignedSplitWeight),
                 makeSplit(15_000, 5_000, fileSize, minimumAssignedSplitWeight));
 
-        assertEquals(splits, expected);
+        assertThat(splits).isEqualTo(expected);
     }
 
     @Test
@@ -142,7 +145,7 @@ public class TestDeltaLakeSplitManager
                 makeSplit(25_000, 20_000, fileSize, minimumAssignedSplitWeight),
                 makeSplit(45_000, 5_000, fileSize, minimumAssignedSplitWeight));
 
-        assertEquals(splits, expected);
+        assertThat(splits).isEqualTo(expected);
     }
 
     @Test
@@ -167,7 +170,7 @@ public class TestDeltaLakeSplitManager
                 makeSplit(2_000, 2_000, secondFileSize, minimumAssignedSplitWeight),
                 makeSplit(4_000, 10_000, secondFileSize, minimumAssignedSplitWeight),
                 makeSplit(14_000, 6_000, secondFileSize, minimumAssignedSplitWeight));
-        assertEquals(splits, expected);
+        assertThat(splits).isEqualTo(expected);
     }
 
     private DeltaLakeSplitManager setupSplitManager(List<AddFileEntry> addFileEntries, DeltaLakeConfig deltaLakeConfig)
@@ -185,7 +188,13 @@ public class TestDeltaLakeSplitManager
                 new ParquetReaderConfig())
         {
             @Override
-            public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, ConnectorSession session)
+            public List<AddFileEntry> getActiveFiles(
+                    TableSnapshot tableSnapshot,
+                    MetadataEntry metadataEntry,
+                    ProtocolEntry protocolEntry,
+                    TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+                    Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
+                    ConnectorSession session)
             {
                 return addFileEntries;
             }
@@ -201,7 +210,7 @@ public class TestDeltaLakeSplitManager
                 JsonCodec.jsonCodec(LastCheckpoint.class));
 
         DeltaLakeMetadataFactory metadataFactory = new DeltaLakeMetadataFactory(
-                HiveMetastoreFactory.ofInstance(new UnimplementedHiveMetastore()),
+                HiveMetastoreFactory.ofInstance(createTestingFileHiveMetastore(new MemoryFileSystemFactory(), Location.of("memory:///"))),
                 hdfsFileSystemFactory,
                 transactionLogAccess,
                 typeManager,

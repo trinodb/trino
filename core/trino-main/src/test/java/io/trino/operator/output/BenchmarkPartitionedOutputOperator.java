@@ -298,23 +298,20 @@ public class BenchmarkPartitionedOutputOperator
                         types.stream()
                                 .map(type -> {
                                     boolean[] isNull = null;
-                                    int nullPositionCount = 0;
                                     if (nullRate > 0) {
                                         isNull = new boolean[positionCount];
                                         Set<Integer> nullPositions = chooseNullPositions(positionCount, nullRate);
                                         for (int nullPosition : nullPositions) {
                                             isNull[nullPosition] = true;
                                         }
-                                        nullPositionCount = nullPositions.size();
                                     }
 
-                                    int notNullPositionsCount = positionCount - nullPositionCount;
-                                    return RowBlock.fromFieldBlocks(
+                                    return RowBlock.fromNotNullSuppressedFieldBlocks(
                                             positionCount,
                                             Optional.ofNullable(isNull),
                                             new Block[] {
-                                                    RunLengthEncodedBlock.create(createLongsBlock(-65128734213L), notNullPositionsCount),
-                                                    createRandomLongsBlock(notNullPositionsCount, nullRate)});
+                                                    RunLengthEncodedBlock.create(createLongsBlock(-65128734213L), positionCount),
+                                                    createRandomLongsBlock(positionCount, nullRate)});
                                 })
                                 .collect(toImmutableList()));
             });

@@ -13,6 +13,8 @@
  */
 package io.trino.parquet;
 
+import com.google.errorprone.annotations.FormatMethod;
+
 import java.io.IOException;
 
 import static java.lang.String.format;
@@ -20,21 +22,18 @@ import static java.lang.String.format;
 public class ParquetCorruptionException
         extends IOException
 {
-    public ParquetCorruptionException(String message)
+    public ParquetCorruptionException(ParquetDataSourceId dataSourceId, String message)
     {
-        super(message);
+        this(dataSourceId, "%s", message);
     }
 
-    public ParquetCorruptionException(String messageFormat, Object... args)
+    @FormatMethod
+    public ParquetCorruptionException(Throwable cause, ParquetDataSourceId dataSourceId, String messageFormat, Object... args)
     {
-        super(format(messageFormat, args));
+        super(formatMessage(dataSourceId, messageFormat, args), cause);
     }
 
-    public ParquetCorruptionException(Throwable cause, String messageFormat, Object... args)
-    {
-        super(format(messageFormat, args), cause);
-    }
-
+    @FormatMethod
     public ParquetCorruptionException(ParquetDataSourceId dataSourceId, String messageFormat, Object... args)
     {
         super(formatMessage(dataSourceId, messageFormat, args));

@@ -33,8 +33,6 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
@@ -121,11 +119,9 @@ public class TestIgniteCaseInsensitiveMapping
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertEquals(
-                    computeActual("SHOW COLUMNS FROM public.nonlowercasetable").getMaterializedRows().stream()
+            assertThat(computeActual("SHOW COLUMNS FROM public.nonlowercasetable").getMaterializedRows().stream()
                             .map(row -> row.getField(0))
-                            .collect(toImmutableSet()),
-                    ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
+                            .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
 
             assertQuery("SELECT lower_case_name FROM public.nonlowercasetable", "VALUES 'a'");
             assertQuery("SELECT mixed_case_name FROM public.nonlowercasetable", "VALUES 'b'");
@@ -182,12 +178,12 @@ public class TestIgniteCaseInsensitiveMapping
         try (AutoCloseable ignore = withTable("public", nameVariants[0], "(a varchar(1), b int primary key)");
                 AutoCloseable ignore1 = withTable("public", "some_table", "(d varchar(5), ignore varchar(1) primary key)")) {
             List<MaterializedRow> rows = computeActual("SHOW COLUMNS FROM some_table").getMaterializedRows();
-            assertTrue(rows != null && rows.size() == 2);
-            assertEquals(rows.get(0).getField(0), "d");
-            assertEquals(rows.get(0).getField(1), "varchar(5)");
-            assertEquals(rows.get(0).getField(2), "");
-            assertEquals(rows.get(1).getField(0), "ignore");
-            assertEquals(rows.get(1).getField(1), "varchar(1)");
+            assertThat(rows != null && rows.size() == 2).isTrue();
+            assertThat(rows.get(0).getField(0)).isEqualTo("d");
+            assertThat(rows.get(0).getField(1)).isEqualTo("varchar(5)");
+            assertThat(rows.get(0).getField(2)).isEqualTo("");
+            assertThat(rows.get(1).getField(0)).isEqualTo("ignore");
+            assertThat(rows.get(1).getField(1)).isEqualTo("varchar(1)");
 
             assertQueryReturnsEmptyResult("SELECT * FROM some_table");
             for (String nameVariant : nameVariants) {

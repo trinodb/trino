@@ -15,7 +15,7 @@ package io.trino.parquet.reader.flat;
 
 import com.google.common.base.VerifyException;
 import io.trino.parquet.reader.FilteredRowRanges;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.OptionalLong;

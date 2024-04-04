@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -59,8 +60,8 @@ public final class Partitioning
                 .collect(toImmutableList()));
     }
 
-    // Factory method for JSON serde only!
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
     public static Partitioning jsonCreate(
             @JsonProperty("handle") PartitioningHandle handle,
             @JsonProperty("arguments") List<ArgumentBinding> arguments)

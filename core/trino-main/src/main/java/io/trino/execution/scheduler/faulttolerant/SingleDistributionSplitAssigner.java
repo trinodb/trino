@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -87,5 +88,16 @@ class SingleDistributionSplitAssigner
                     .setNoMorePartitions();
         }
         return result.build();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("hostRequirement", hostRequirement)
+                .add("allSources", allSources)
+                .add("partitionAdded", partitionAdded)
+                .add("completedSources", completedSources)
+                .toString();
     }
 }

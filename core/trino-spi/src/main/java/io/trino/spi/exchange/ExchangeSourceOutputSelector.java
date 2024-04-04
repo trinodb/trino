@@ -15,6 +15,7 @@ package io.trino.spi.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -22,7 +23,10 @@ import io.airlift.slice.Slices;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.StringJoiner;
+import java.util.TreeMap;
 import java.util.function.Function;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -31,6 +35,7 @@ import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.INCLU
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.UNKNOWN;
 import static java.lang.Math.max;
 import static java.util.Arrays.fill;
+import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableMap;
@@ -157,6 +162,55 @@ public class ExchangeSourceOutputSelector
                 this.finalSelector && other.finalSelector);
     }
 
+    @Override
+    public String toString()
+    {
+        return new StringJoiner(", ", ExchangeSourceOutputSelector.class.getSimpleName() + "[", "]")
+                .add("version=" + version)
+                .add("values=" + values.entrySet().stream()
+                        .map(e -> entry(e.getKey().toString(), valuesSliceToString(e.getValue())))
+                        // collect to TreeMap to ensure ordering of keys
+                        .collect(toMap(
+                                Entry::getKey,
+                                Entry::getValue,
+                                (a, b) -> { throw new IllegalArgumentException("got duplicate key " + a + ", " + b); },
+                                TreeMap::new)))
+                .add("finalSelector=" + finalSelector)
+                .toString();
+    }
+
+    private String valuesSliceToString(Slice values)
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+        try (BasicSliceInput input = new BasicSliceInput(values)) {
+            int taskPartitionId = 0;
+            while (true) {
+                int value = input.read();
+                if (value == -1) {
+                    break;
+                }
+                if (taskPartitionId != 0) {
+                    builder.append(",");
+                }
+                builder.append(taskPartitionId);
+                builder.append("=");
+                if ((byte) value == EXCLUDED.value) {
+                    builder.append("E");
+                }
+                else if ((byte) value == UNKNOWN.value) {
+                    builder.append("U");
+                }
+                else {
+                    builder.append(value);
+                }
+                taskPartitionId++;
+            }
+        }
+        builder.append("]");
+        return builder.toString();
+    }
+
     private int getPartitionCount(ExchangeId exchangeId)
     {
         Slice values = this.values.get(exchangeId);
@@ -272,7 +326,7 @@ public class ExchangeSourceOutputSelector
             return new ExchangeSourceOutputSelector(
                     nextVersion++,
                     exchangeValues.entrySet().stream()
-                            .collect(toMap(Map.Entry::getKey, entry -> {
+                            .collect(toMap(Entry::getKey, entry -> {
                                 ExchangeId exchangeId = entry.getKey();
                                 ValuesBuilder valuesBuilder = entry.getValue();
                                 if (finalSelector) {

@@ -17,9 +17,7 @@ import com.google.inject.Inject;
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
-import io.trino.tempto.query.QueryExecutionException;
 import io.trino.testng.services.Flaky;
-import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -27,7 +25,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tests.product.TestGroups.AVRO;
@@ -199,13 +196,6 @@ public class TestAvroSchemaUrl
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testPartitionedTableWithLongColumnType()
     {
-        if (isOnHdp() && getHiveVersionMajor() < 3) {
-            // HDP 2.6 won't allow to define a partitioned table with schema having a column with type definition over 2000 characters.
-            // It is possible to create table with simpler schema and then alter the schema, but that results in different end state.
-            // To retain proper test coverage, this test needs to be disabled on HDP 2.
-            throw new SkipException("Skipping on HDP 2");
-        }
-
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_partitioned_long_column");
         onHive().executeQuery("" +
                 "CREATE TABLE test_avro_schema_url_partitioned_long_column " +
@@ -262,16 +252,5 @@ public class TestAvroSchemaUrl
                 .containsOnly(row("stringcol"), row("intcol"));
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_camelCase_avro_schema_url_hive");
-    }
-
-    private boolean isOnHdp()
-    {
-        try {
-            String hdpVersion = (String) onHive().executeQuery("SET system:hdp.version").getOnlyValue();
-            return !isNullOrEmpty(hdpVersion);
-        }
-        catch (QueryExecutionException e) {
-            return false;
-        }
     }
 }

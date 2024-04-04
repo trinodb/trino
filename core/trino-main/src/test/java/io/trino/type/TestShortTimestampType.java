@@ -29,7 +29,6 @@ import java.util.stream.Stream;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestShortTimestampType
         extends AbstractTestType
@@ -66,8 +65,8 @@ public class TestShortTimestampType
     public void testRange()
     {
         Range range = type.getRange().orElseThrow();
-        assertEquals(range.getMin(), Long.MIN_VALUE + 808);
-        assertEquals(range.getMax(), Long.MAX_VALUE - 807);
+        assertThat(range.getMin()).isEqualTo(Long.MIN_VALUE + 808);
+        assertThat(range.getMax()).isEqualTo(Long.MAX_VALUE - 807);
     }
 
     @ParameterizedTest
@@ -75,8 +74,8 @@ public class TestShortTimestampType
     public void testRangeEveryPrecision(int precision, long expectedMin, long expectedMax)
     {
         Range range = createTimestampType(precision).getRange().orElseThrow();
-        assertEquals(range.getMin(), expectedMin);
-        assertEquals(range.getMax(), expectedMax);
+        assertThat(range.getMin()).isEqualTo(expectedMin);
+        assertThat(range.getMax()).isEqualTo(expectedMax);
     }
 
     public static Stream<Arguments> testRangeEveryPrecisionDataProvider()

@@ -127,7 +127,7 @@ public class Minio
     public void copyResources(String resourcePath, String bucketName, String target)
     {
         try (MinioClient minioClient = createMinioClient()) {
-            for (ClassPath.ResourceInfo resourceInfo : ClassPath.from(MinioClient.class.getClassLoader())
+            for (ClassPath.ResourceInfo resourceInfo : ClassPath.from(getClass().getClassLoader())
                     .getResources()) {
                 if (resourceInfo.getResourceName().startsWith(resourcePath)) {
                     String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(target));

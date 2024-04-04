@@ -13,6 +13,8 @@
  */
 package io.trino.hive.formats;
 
+import com.google.errorprone.annotations.FormatMethod;
+
 import java.io.IOException;
 
 import static java.lang.String.format;
@@ -25,11 +27,13 @@ public class FileCorruptionException
         super(message);
     }
 
+    @FormatMethod
     public FileCorruptionException(String messageFormat, Object... args)
     {
         super(format(messageFormat, args));
     }
 
+    @FormatMethod
     public FileCorruptionException(Throwable cause, String messageFormat, Object... args)
     {
         super(format(messageFormat, args), cause);

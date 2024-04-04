@@ -14,14 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
-import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension;
 import io.opentelemetry.sdk.trace.data.SpanData;
-import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -29,47 +27,47 @@ import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tracing.TracingMetadata;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // Cost-based optimizers' behaviors are affected by the statistics returned by the Connectors. Here is to count the getTableStatistics calls
 // when CBOs work with Iceberg Connector.
-@Test(singleThreaded = true) // counting metadata is a shared mutable state
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestIcebergGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
+    @RegisterExtension
+    static final OpenTelemetryExtension TELEMETRY = OpenTelemetryExtension.create();
+
     private LocalQueryRunner localQueryRunner;
-    private InMemorySpanExporter spanExporter;
-    private File metastoreDir;
+    private Path metastoreDir;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        spanExporter = closeAfterClass(InMemorySpanExporter.create());
-
-        SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
-                .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
-                .build();
-
         localQueryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .withMetadataDecorator(metadata -> new TracingMetadata(tracerProvider.get("test"), metadata))
+                .withMetadataDecorator(metadata -> new TracingMetadata(TELEMETRY.getOpenTelemetry().getTracer("test"), metadata))
                 .build();
         localQueryRunner.installPlugin(new TpchPlugin());
         localQueryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
@@ -78,12 +76,16 @@ public class TestIcebergGetTableStatisticsOperations
         new IcebergPlugin().getFunctions().forEach(functions::functions);
         localQueryRunner.addFunctions(functions.build());
 
-        metastoreDir = Files.createTempDirectory("test_iceberg_get_table_statistics_operations").toFile();
-        HiveMetastore metastore = createTestingFileHiveMetastore(metastoreDir);
+        metastoreDir = Files.createTempDirectory("test_iceberg_get_table_statistics_operations");
         localQueryRunner.createCatalog(
                 "iceberg",
-                new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE),
+                new TestingIcebergConnectorFactory(metastoreDir),
                 ImmutableMap.of());
+
+        HiveMetastore metastore = ((IcebergConnector) localQueryRunner.getConnector(ICEBERG_CATALOG)).getInjector()
+                .getInstance(HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
+
         Database database = Database.builder()
                 .setDatabaseName("tiny")
                 .setOwnerName(Optional.of("public"))
@@ -98,20 +100,12 @@ public class TestIcebergGetTableStatisticsOperations
         return localQueryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {
-        deleteRecursively(metastoreDir.toPath(), ALLOW_INSECURE);
+        deleteRecursively(metastoreDir, ALLOW_INSECURE);
         localQueryRunner.close();
-        localQueryRunner = null;
-        spanExporter = null;
-    }
-
-    @BeforeMethod
-    public void resetCounters()
-    {
-        spanExporter.reset();
     }
 
     @Test
@@ -143,9 +137,9 @@ public class TestIcebergGetTableStatisticsOperations
                 createPlanOptimizersStatsCollector()));
     }
 
-    private long getTableStatisticsMethodInvocations()
+    private static long getTableStatisticsMethodInvocations()
     {
-        return spanExporter.getFinishedSpanItems().stream()
+        return TELEMETRY.getSpans().stream()
                 .map(SpanData::getName)
                 .filter(name -> name.equals("Metadata.getTableStatistics"))
                 .count();

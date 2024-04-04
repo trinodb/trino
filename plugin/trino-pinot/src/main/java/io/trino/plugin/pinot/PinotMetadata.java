@@ -317,7 +317,7 @@ public class PinotMetadata
                 newDomain,
                 handle.getLimit(),
                 handle.getQuery());
-        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
     }
 
     // IS NULL and IS NOT NULL are handled differently in Pinot, pushing down would lead to inconsistent results.

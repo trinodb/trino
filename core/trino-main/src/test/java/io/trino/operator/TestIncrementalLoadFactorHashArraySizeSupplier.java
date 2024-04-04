@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.operator.IncrementalLoadFactorHashArraySizeSupplier.THRESHOLD_25;
 import static io.trino.operator.IncrementalLoadFactorHashArraySizeSupplier.THRESHOLD_50;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIncrementalLoadFactorHashArraySizeSupplier
 {
@@ -43,7 +43,7 @@ public class TestIncrementalLoadFactorHashArraySizeSupplier
     {
         int size = sizeSupplier.getHashArraySize(expectedCount);
         assertGreaterThanOrEqual(size, previousSize);
-        assertEquals(sizeSupplier.getHashArraySize(expectedCount) * 4, sizeSupplierWithMultiplier.getHashArraySize(expectedCount * 4));
+        assertThat(sizeSupplier.getHashArraySize(expectedCount) * 4).isEqualTo(sizeSupplierWithMultiplier.getHashArraySize(expectedCount * 4));
         return size;
     }
 }

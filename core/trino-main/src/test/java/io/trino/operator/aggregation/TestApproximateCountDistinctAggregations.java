@@ -18,33 +18,33 @@ import org.junit.jupiter.api.Test;
 import static io.trino.operator.aggregation.ApproximateCountDistinctAggregation.standardErrorToBuckets;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestApproximateCountDistinctAggregations
 {
     @Test
     public void testStandardErrorToBuckets()
     {
-        assertEquals(standardErrorToBuckets(0.0326), 1024);
-        assertEquals(standardErrorToBuckets(0.0325), 1024);
-        assertEquals(standardErrorToBuckets(0.0324), 2048);
-        assertEquals(standardErrorToBuckets(0.0231), 2048);
-        assertEquals(standardErrorToBuckets(0.0230), 2048);
-        assertEquals(standardErrorToBuckets(0.0229), 4096);
-        assertEquals(standardErrorToBuckets(0.0164), 4096);
-        assertEquals(standardErrorToBuckets(0.0163), 4096);
-        assertEquals(standardErrorToBuckets(0.0162), 8192);
-        assertEquals(standardErrorToBuckets(0.0116), 8192);
-        assertEquals(standardErrorToBuckets(0.0115), 8192);
-        assertEquals(standardErrorToBuckets(0.0114), 16384);
-        assertEquals(standardErrorToBuckets(0.008126), 16384);
-        assertEquals(standardErrorToBuckets(0.008125), 16384);
-        assertEquals(standardErrorToBuckets(0.008124), 32768);
-        assertEquals(standardErrorToBuckets(0.00576), 32768);
-        assertEquals(standardErrorToBuckets(0.00575), 32768);
-        assertEquals(standardErrorToBuckets(0.00574), 65536);
-        assertEquals(standardErrorToBuckets(0.0040626), 65536);
-        assertEquals(standardErrorToBuckets(0.0040625), 65536);
+        assertThat(standardErrorToBuckets(0.0326)).isEqualTo(1024);
+        assertThat(standardErrorToBuckets(0.0325)).isEqualTo(1024);
+        assertThat(standardErrorToBuckets(0.0324)).isEqualTo(2048);
+        assertThat(standardErrorToBuckets(0.0231)).isEqualTo(2048);
+        assertThat(standardErrorToBuckets(0.0230)).isEqualTo(2048);
+        assertThat(standardErrorToBuckets(0.0229)).isEqualTo(4096);
+        assertThat(standardErrorToBuckets(0.0164)).isEqualTo(4096);
+        assertThat(standardErrorToBuckets(0.0163)).isEqualTo(4096);
+        assertThat(standardErrorToBuckets(0.0162)).isEqualTo(8192);
+        assertThat(standardErrorToBuckets(0.0116)).isEqualTo(8192);
+        assertThat(standardErrorToBuckets(0.0115)).isEqualTo(8192);
+        assertThat(standardErrorToBuckets(0.0114)).isEqualTo(16384);
+        assertThat(standardErrorToBuckets(0.008126)).isEqualTo(16384);
+        assertThat(standardErrorToBuckets(0.008125)).isEqualTo(16384);
+        assertThat(standardErrorToBuckets(0.008124)).isEqualTo(32768);
+        assertThat(standardErrorToBuckets(0.00576)).isEqualTo(32768);
+        assertThat(standardErrorToBuckets(0.00575)).isEqualTo(32768);
+        assertThat(standardErrorToBuckets(0.00574)).isEqualTo(65536);
+        assertThat(standardErrorToBuckets(0.0040626)).isEqualTo(65536);
+        assertThat(standardErrorToBuckets(0.0040625)).isEqualTo(65536);
     }
 
     @Test

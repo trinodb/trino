@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -95,12 +96,14 @@ public class FaultTolerantPartitioningScheme
         return partitionToNodeMap;
     }
 
-    public FaultTolerantPartitioningScheme withPartitionCount(int partitionCount)
+    @Override
+    public String toString()
     {
-        return new FaultTolerantPartitioningScheme(
-                partitionCount,
-                this.bucketToPartitionMap,
-                this.splitToBucketFunction,
-                this.partitionToNodeMap);
+        return toStringHelper(this)
+                .add("partitionCount", partitionCount)
+                .add("bucketToPartitionMap", bucketToPartitionMap.isPresent() ? "present" : "empty")
+                .add("splitToBucketFunction", splitToBucketFunction.isPresent() ? "present" : "empty")
+                .add("partitionToNodeMap", partitionToNodeMap)
+                .toString();
     }
 }

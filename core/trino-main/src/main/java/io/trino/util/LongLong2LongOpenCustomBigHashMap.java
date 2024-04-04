@@ -276,7 +276,7 @@ public class LongLong2LongOpenCustomBigHashMap
 
     private long find(final long k1, final long k2)
     {
-        if ((strategy.equals((k1), (k2), (nullKey1), (nullKey2)))) {
+        if (strategy.equals(k1, k2, nullKey1, nullKey2)) {
             return containsNullKey ? n : -(n + 1);
         }
         long curr1;
@@ -287,10 +287,10 @@ public class LongLong2LongOpenCustomBigHashMap
         long pos = HashCommon.mix(strategy.hashCode(k1, k2)) & mask;
         curr1 = key1.get(pos);
         curr2 = key2.get(pos);
-        if ((curr1 == (nullKey1) && curr2 == (nullKey2))) {
+        if (curr1 == nullKey1 && curr2 == nullKey2) {
             return -(pos + 1);
         }
-        if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
+        if (strategy.equals(k1, k2, curr1, curr2)) {
             return pos;
         }
         // There's always an unused entry.
@@ -298,10 +298,10 @@ public class LongLong2LongOpenCustomBigHashMap
             pos = (pos + 1) & mask;
             curr1 = key1.get(pos);
             curr2 = key2.get(pos);
-            if ((curr1 == (nullKey1) && curr2 == (nullKey2))) {
+            if (curr1 == nullKey1 && curr2 == nullKey2) {
                 return -(pos + 1);
             }
-            if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
+            if (strategy.equals(k1, k2, curr1, curr2)) {
                 return pos;
             }
         }
@@ -360,7 +360,7 @@ public class LongLong2LongOpenCustomBigHashMap
     public long addTo(final long k1, final long k2, final long incr)
     {
         long pos;
-        if ((strategy.equals((k1), (k2), (nullKey1), (nullKey2)))) {
+        if (strategy.equals(k1, k2, nullKey1, nullKey2)) {
             if (containsNullKey) {
                 return addToValue(n, incr);
             }
@@ -371,18 +371,18 @@ public class LongLong2LongOpenCustomBigHashMap
             final LongBigArray key1 = this.key1;
             final LongBigArray key2 = this.key2;
             // The starting point.
-            pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+            pos = HashCommon.mix(strategy.hashCode(k1, k2)) & mask;
             long curr1 = key1.get(pos);
             long curr2 = key2.get(pos);
-            if (!((curr1) == (nullKey1) && (curr2) == (nullKey2))) {
-                if ((strategy.equals((curr1), (curr2), (k1), (k2)))) {
+            if (!(curr1 == nullKey1 && curr2 == nullKey2)) {
+                if (strategy.equals(curr1, curr2, k1, k2)) {
                     return addToValue(pos, incr);
                 }
                 pos = (pos + 1) & mask;
                 curr1 = key1.get(pos);
                 curr2 = key2.get(pos);
-                while (!((curr1) == (nullKey1) && (curr2) == (nullKey2))) {
-                    if ((strategy.equals((curr1), (curr2), (k1), (k2)))) {
+                while (!(curr1 == nullKey1 && curr2 == nullKey2)) {
+                    if (strategy.equals(curr1, curr2, k1, k2)) {
                         return addToValue(pos, incr);
                     }
                     pos = (pos + 1) & mask;
@@ -420,16 +420,16 @@ public class LongLong2LongOpenCustomBigHashMap
         final LongBigArray key2 = this.key2;
         for (; ; ) {
             last = pos;
-            pos = ((pos) + 1) & mask;
+            pos = (pos + 1) & mask;
             for (; ; ) {
                 curr1 = key1.get(pos);
                 curr2 = key2.get(pos);
-                if (((curr1) == (nullKey1)) && ((curr2) == (nullKey2))) {
+                if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
                     key1.set(last, nullKey1);
                     key2.set(last, nullKey2);
                     return;
                 }
-                slot = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(curr1, curr2))) & mask;
+                slot = HashCommon.mix(strategy.hashCode(curr1, curr2)) & mask;
                 if (last <= pos ? last >= slot || slot > pos : last >= slot && slot > pos) {
                     break;
                 }
@@ -443,7 +443,7 @@ public class LongLong2LongOpenCustomBigHashMap
 
     public long remove(final long k1, final long k2)
     {
-        if ((strategy.equals((k1), (k2), (nullKey1), (nullKey2)))) {
+        if (strategy.equals(k1, k2, nullKey1, nullKey2)) {
             if (containsNullKey) {
                 return removeNullEntry();
             }
@@ -452,23 +452,23 @@ public class LongLong2LongOpenCustomBigHashMap
         final LongBigArray key1 = this.key1;
         final LongBigArray key2 = this.key2;
         // The starting point.
-        long pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+        long pos = HashCommon.mix(strategy.hashCode(k1, k2)) & mask;
         long curr1 = key1.get(pos);
         long curr2 = key2.get(pos);
-        if (((curr1) == (nullKey1)) && ((curr2) == (nullKey2))) {
+        if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
             return defRetValue;
         }
-        if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
+        if (strategy.equals(k1, k2, curr1, curr2)) {
             return removeEntry(pos);
         }
         while (true) {
             pos = (pos + 1) & mask;
             curr1 = key1.get(pos);
             curr2 = key2.get(pos);
-            if (((curr1) == (nullKey1)) && ((curr2) == (nullKey2))) {
+            if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
                 return defRetValue;
             }
-            if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
+            if (strategy.equals(k1, k2, curr1, curr2)) {
                 return removeEntry(pos);
             }
         }
@@ -476,19 +476,19 @@ public class LongLong2LongOpenCustomBigHashMap
 
     public long get(final long k1, final long k2)
     {
-        if ((strategy.equals((k1), (k2), (nullKey1), (nullKey2)))) {
+        if (strategy.equals(k1, k2, nullKey1, nullKey2)) {
             return containsNullKey ? value.get(n) : defRetValue;
         }
         final LongBigArray key1 = this.key1;
         final LongBigArray key2 = this.key2;
         // The starting point.
-        long pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+        long pos = HashCommon.mix(strategy.hashCode(k1, k2)) & mask;
         long curr1 = key1.get(pos);
         long curr2 = key2.get(pos);
-        if (((curr1) == (nullKey1)) && ((curr2) == (nullKey2))) {
+        if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
             return defRetValue;
         }
-        if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
+        if (strategy.equals(k1, k2, curr1, curr2)) {
             return value.get(pos);
         }
         // There's always an unused entry.
@@ -496,10 +496,10 @@ public class LongLong2LongOpenCustomBigHashMap
             pos = (pos + 1) & mask;
             curr1 = key1.get(pos);
             curr2 = key2.get(pos);
-            if (((curr1) == (nullKey1)) && ((curr2) == (nullKey2))) {
+            if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
                 return defRetValue;
             }
-            if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
+            if (strategy.equals(k1, k2, curr1, curr2)) {
                 return value.get(pos);
             }
         }
@@ -507,19 +507,19 @@ public class LongLong2LongOpenCustomBigHashMap
 
     public boolean containsKey(final long k1, final long k2)
     {
-        if ((strategy.equals((k1), (k2), (nullKey1), (nullKey2)))) {
+        if (strategy.equals(k1, k2, nullKey1, nullKey2)) {
             return containsNullKey;
         }
         final LongBigArray key1 = this.key1;
         final LongBigArray key2 = this.key2;
         // The starting point.
-        long pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+        long pos = HashCommon.mix(strategy.hashCode(k1, k2)) & mask;
         long curr1 = key1.get(pos);
         long curr2 = key2.get(pos);
-        if (((curr1) == (nullKey1)) && ((curr2) == (nullKey2))) {
+        if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
             return false;
         }
-        if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
+        if (strategy.equals(k1, k2, curr1, curr2)) {
             return true;
         }
         // There's always an unused entry.
@@ -527,10 +527,10 @@ public class LongLong2LongOpenCustomBigHashMap
             pos = (pos + 1) & mask;
             curr1 = key1.get(pos);
             curr2 = key2.get(pos);
-            if (((curr1) == (nullKey1)) && ((curr2) == (nullKey2))) {
+            if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
                 return false;
             }
-            if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
+            if (strategy.equals(k1, k2, curr1, curr2)) {
                 return true;
             }
         }
@@ -541,11 +541,11 @@ public class LongLong2LongOpenCustomBigHashMap
         final LongBigArray value = this.value;
         final LongBigArray key1 = this.key1;
         final LongBigArray key2 = this.key2;
-        if (containsNullKey && ((value.get(n)) == (v))) {
+        if (containsNullKey && (value.get(n) == v)) {
             return true;
         }
         for (long i = n; i-- != 0; ) {
-            if (!((key1.get(i)) == (nullKey1) && (key2.get(i)) == (nullKey2)) && ((value.get(i)) == (v))) {
+            if (!(key1.get(i) == nullKey1 && key2.get(i) == nullKey2) && (value.get(i) == v)) {
                 return true;
             }
         }
@@ -554,19 +554,19 @@ public class LongLong2LongOpenCustomBigHashMap
 
     public long getOrDefault(final long k1, final long k2, final long defaultValue)
     {
-        if ((strategy.equals((k1), (k2), (nullKey1), (nullKey2)))) {
+        if (strategy.equals(k1, k2, nullKey1, nullKey2)) {
             return containsNullKey ? value.get(n) : defaultValue;
         }
         final LongBigArray key1 = this.key1;
         final LongBigArray key2 = this.key2;
         // The starting point.
-        long pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+        long pos = HashCommon.mix(strategy.hashCode(k1, k2)) & mask;
         long curr1 = key1.get(pos);
         long curr2 = key2.get(pos);
-        if (((curr1) == (nullKey1)) && ((curr2) == (nullKey2))) {
+        if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
             return defaultValue;
         }
-        if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
+        if (strategy.equals(k1, k2, curr1, curr2)) {
             return value.get(pos);
         }
         // There's always an unused entry.
@@ -574,10 +574,10 @@ public class LongLong2LongOpenCustomBigHashMap
             pos = (pos + 1) & mask;
             curr1 = key1.get(pos);
             curr2 = key2.get(pos);
-            if (((curr1) == (nullKey1)) && ((curr2) == (nullKey2))) {
+            if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
                 return defaultValue;
             }
-            if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
+            if (strategy.equals(k1, k2, curr1, curr2)) {
                 return value.get(pos);
             }
         }
@@ -595,8 +595,8 @@ public class LongLong2LongOpenCustomBigHashMap
 
     public boolean remove(final long k1, final long k2, final long v)
     {
-        if ((strategy.equals((k1), (k2), (nullKey1), (nullKey2)))) {
-            if (containsNullKey && ((v) == (value.get(n)))) {
+        if (strategy.equals(k1, k2, nullKey1, nullKey2)) {
+            if (containsNullKey && (v == value.get(n))) {
                 removeNullEntry();
                 return true;
             }
@@ -605,13 +605,13 @@ public class LongLong2LongOpenCustomBigHashMap
         final LongBigArray key1 = this.key1;
         final LongBigArray key2 = this.key2;
         // The starting point.
-        long pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+        long pos = HashCommon.mix(strategy.hashCode(k1, k2)) & mask;
         long curr1 = key1.get(pos);
         long curr2 = key2.get(pos);
-        if (((curr1) == (nullKey1)) && ((curr2) == (nullKey2))) {
+        if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
             return false;
         }
-        if ((strategy.equals((k1), (k2), (curr1), (curr2))) && ((v) == (value.get(pos)))) {
+        if (strategy.equals(k1, k2, curr1, curr2) && (v == value.get(pos))) {
             removeEntry(pos);
             return true;
         }
@@ -619,10 +619,10 @@ public class LongLong2LongOpenCustomBigHashMap
             pos = (pos + 1) & mask;
             curr1 = key1.get(pos);
             curr2 = key2.get(pos);
-            if (((curr1) == (nullKey1)) && ((curr2) == (nullKey2))) {
+            if ((curr1 == nullKey1) && (curr2 == nullKey2)) {
                 return false;
             }
-            if ((strategy.equals((k1), (k2), (curr1), (curr2))) && ((v) == (value.get(pos)))) {
+            if (strategy.equals(k1, k2, curr1, curr2) && (v == value.get(pos))) {
                 removeEntry(pos);
                 return true;
             }
@@ -632,7 +632,7 @@ public class LongLong2LongOpenCustomBigHashMap
     public boolean replace(final long k1, final long k2, final long oldValue, final long v)
     {
         final long pos = find(k1, k2);
-        if (pos < 0 || !((oldValue) == (value.get(pos)))) {
+        if (pos < 0 || !(oldValue == value.get(pos))) {
             return false;
         }
         value.set(pos, v);
@@ -673,7 +673,7 @@ public class LongLong2LongOpenCustomBigHashMap
         }
         final Long newValue = remappingFunction.apply(Long.valueOf(value.get(pos)), Long.valueOf(v));
         if (newValue == null) {
-            if ((strategy.equals((k1), (k2), (nullKey1), (nullKey2)))) {
+            if (strategy.equals(k1, k2, nullKey1, nullKey2)) {
                 removeNullEntry();
             }
             else {
@@ -681,8 +681,8 @@ public class LongLong2LongOpenCustomBigHashMap
             }
             return defRetValue;
         }
-        value.set(pos, (newValue).longValue());
-        return (newValue).longValue();
+        value.set(pos, newValue.longValue());
+        return newValue.longValue();
     }
 
     /*
@@ -786,22 +786,22 @@ public class LongLong2LongOpenCustomBigHashMap
         final LongBigArray value = this.value;
         final long mask = newN - 1; // Note that this is used by the hashing macro
         final LongBigArray newKey1 = new LongBigArray(nullKey1);
-        newKey1.ensureCapacity((newN + 1));
+        newKey1.ensureCapacity(newN + 1);
         final LongBigArray newKey2 = new LongBigArray(nullKey2);
-        newKey2.ensureCapacity((newN + 1));
+        newKey2.ensureCapacity(newN + 1);
         final LongBigArray newValue = new LongBigArray();
         newValue.ensureCapacity(newN + 1);
         long i = n;
         long pos;
         for (long j = realSize(); j-- != 0; ) {
             --i;
-            while (((key1.get(i)) == (nullKey1)) && ((key2.get(i)) == (nullKey2))) {
+            while ((key1.get(i) == nullKey1) && (key2.get(i) == nullKey2)) {
                 --i;
             }
-            pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(key1.get(i), key2.get(i)))) & mask;
-            if (!((newKey1.get(pos)) == (nullKey1) && (newKey2.get(pos)) == (nullKey2))) {
+            pos = HashCommon.mix(strategy.hashCode(key1.get(i), key2.get(i))) & mask;
+            if (!(newKey1.get(pos) == nullKey1 && newKey2.get(pos) == nullKey2)) {
                 pos = (pos + 1) & mask;
-                while (!((newKey1.get(pos)) == (nullKey1) && (newKey2.get(pos)) == (nullKey2))) {
+                while (!(newKey1.get(pos) == nullKey1 && newKey2.get(pos) == nullKey2)) {
                     pos = (pos + 1) & mask;
                 }
             }

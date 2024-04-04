@@ -18,8 +18,8 @@ import io.trino.plugin.deltalake.expression.ArithmeticBinaryExpression.Operator;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.deltalake.expression.SparkExpressionParser.createExpression;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestSparkExpressionParser
 {
@@ -55,12 +55,12 @@ public class TestSparkExpressionParser
     @Test
     public void testArithmeticBinary()
     {
-        assertEquals(createExpression("a + b * c"), new ArithmeticBinaryExpression(
+        assertThat(createExpression("a + b * c")).isEqualTo(new ArithmeticBinaryExpression(
                 Operator.ADD,
                 new Identifier("a"),
                 new ArithmeticBinaryExpression(Operator.MULTIPLY, new Identifier("b"), new Identifier("c"))));
 
-        assertEquals(createExpression("a * b + c"), new ArithmeticBinaryExpression(
+        assertThat(createExpression("a * b + c")).isEqualTo(new ArithmeticBinaryExpression(
                 Operator.ADD,
                 new ArithmeticBinaryExpression(Operator.MULTIPLY, new Identifier("a"), new Identifier("b")),
                 new Identifier("c")));
@@ -69,7 +69,7 @@ public class TestSparkExpressionParser
     private static void assertStringLiteral(String sparkExpression, String expected)
     {
         SparkExpression expression = createExpression(sparkExpression);
-        assertEquals(expression, new StringLiteral(expected));
+        assertThat(expression).isEqualTo(new StringLiteral(expected));
     }
 
     private static void assertParseFailure(String sparkExpression, String reason)

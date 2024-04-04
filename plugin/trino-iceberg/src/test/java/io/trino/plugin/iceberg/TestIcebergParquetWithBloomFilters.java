@@ -39,10 +39,8 @@ public class TestIcebergParquetWithBloomFilters
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
 
         // create hive catalog
-        queryRunner.installPlugin(new TestingHivePlugin());
+        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
-                .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", dataDirectory.toString())
                 .put("hive.security", "allow-all")
                 .buildOrThrow());
 

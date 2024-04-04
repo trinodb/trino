@@ -413,7 +413,7 @@ public class OptimizeMixedDistinctAggregations
                     groups,
                     allSymbols.stream().collect(Collectors.toMap(
                             symbol -> symbol,
-                            symbol -> (symbol.equals(duplicatedDistinctSymbol) ? distinctSymbol : symbol))),
+                            symbol -> symbol.equals(duplicatedDistinctSymbol) ? distinctSymbol : symbol)),
                     ImmutableList.of(),
                     groupSymbol);
         }

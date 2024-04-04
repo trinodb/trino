@@ -200,7 +200,7 @@
 
 ## I
 
-- [if](if-function)
+- [if](if-expression)
 - {func}`index`
 - {func}`infinity`
 - {func}`intersection_cardinality`

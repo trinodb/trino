@@ -138,6 +138,13 @@ final class SwitchingFileSystem
         return fileSystem(location).listDirectories(location);
     }
 
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+            throws IOException
+    {
+        return fileSystem(targetPath).createTemporaryDirectory(targetPath, temporaryPrefix, relativePrefix);
+    }
+
     private TrinoFileSystem fileSystem(Location location)
     {
         return createFileSystem(determineFactory(location));

@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
@@ -44,19 +45,31 @@ import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.IpAddressType.IPADDRESS;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestFlatHashStrategy
 {
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
+    private final TypeOperators typeOperators = new TypeOperators();
+    private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
+
+    @Test
+    public void testBatchedRawHashesZeroLength()
+    {
+        List<Type> types = createTestingTypes(typeOperators);
+        FlatHashStrategy flatHashStrategy = joinCompiler.getFlatHashStrategy(types);
+
+        int positionCount = 10;
+        // Attempting to touch any of the blocks would result in a NullPointerException
+        assertDoesNotThrow(() -> flatHashStrategy.hashBlocksBatched(new Block[types.size()], new long[positionCount], 0, 0));
+    }
 
     @Test
     public void testBatchedRawHashesMatchSinglePositionHashes()
     {
-        List<Type> types = createTestingTypes();
-        FlatHashStrategy flatHashStrategy = JOIN_COMPILER.getFlatHashStrategy(types);
+        List<Type> types = createTestingTypes(typeOperators);
+        FlatHashStrategy flatHashStrategy = joinCompiler.getFlatHashStrategy(types);
 
         int positionCount = 1024;
         Block[] blocks = new Block[types.size()];
@@ -66,17 +79,30 @@ public class TestFlatHashStrategy
 
         long[] hashes = new long[positionCount];
         flatHashStrategy.hashBlocksBatched(blocks, hashes, 0, positionCount);
-        for (int position = 0; position < hashes.length; position++) {
-            long singleRowHash = flatHashStrategy.hash(blocks, position);
-            if (hashes[position] != singleRowHash) {
-                fail("Hash mismatch: %s <> %s at position %s - Values: %s".formatted(hashes[position], singleRowHash, position, singleRowTypesAndValues(types, blocks, position)));
-            }
+        assertHashesEqual(types, blocks, hashes, flatHashStrategy);
+
+        // Convert all blocks to RunLengthEncoded and re-check results match
+        for (int i = 0; i < blocks.length; i++) {
+            blocks[i] = RunLengthEncodedBlock.create(blocks[i].getSingleValueBlock(0), positionCount);
         }
+        flatHashStrategy.hashBlocksBatched(blocks, hashes, 0, positionCount);
+        assertHashesEqual(types, blocks, hashes, flatHashStrategy);
+
         // Ensure the formatting logic produces a real string and doesn't blow up since otherwise this code wouldn't be exercised
         assertNotNull(singleRowTypesAndValues(types, blocks, 0));
     }
 
-    private static List<Type> createTestingTypes()
+    private static void assertHashesEqual(List<Type> types, Block[] blocks, long[] batchedHashes, FlatHashStrategy flatHashStrategy)
+    {
+        for (int position = 0; position < batchedHashes.length; position++) {
+            long singleRowHash = flatHashStrategy.hash(blocks, position);
+            if (batchedHashes[position] != singleRowHash) {
+                fail("Hash mismatch: %s <> %s at position %s - Values: %s".formatted(batchedHashes[position], singleRowHash, position, singleRowTypesAndValues(types, blocks, position)));
+            }
+        }
+    }
+
+    private static List<Type> createTestingTypes(TypeOperators typeOperators)
     {
         List<Type> baseTypes = List.of(
                 BIGINT,
@@ -102,7 +128,7 @@ public class TestFlatHashStrategy
         builder.add(RowType.anonymous(baseTypes));
         for (Type baseType : baseTypes) {
             builder.add(new ArrayType(baseType));
-            builder.add(new MapType(baseType, baseType, TYPE_OPERATORS));
+            builder.add(new MapType(baseType, baseType, typeOperators));
         }
         return builder.build();
     }

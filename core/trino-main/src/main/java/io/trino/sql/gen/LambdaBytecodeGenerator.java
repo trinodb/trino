@@ -308,7 +308,7 @@ public final class LambdaBytecodeGenerator
                 .filter(method -> method.getName().equals("apply"))
                 .collect(toImmutableList());
 
-        checkCondition(applyMethods.size() == 1, COMPILER_ERROR, "Expect to have exactly 1 method with name 'apply' in interface " + lambdaFunctionInterface.getName());
+        checkCondition(applyMethods.size() == 1, COMPILER_ERROR, "Expect to have exactly 1 method with name 'apply' in interface %s", lambdaFunctionInterface.getName());
         return applyMethods.get(0);
     }
 

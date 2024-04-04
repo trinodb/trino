@@ -57,6 +57,7 @@ public class TestQueryManagerConfig
                 .setQueryManagerExecutorPoolSize(5)
                 .setQueryExecutorPoolSize(1000)
                 .setMaxStateMachineCallbackThreads(5)
+                .setMaxSplitManagerCallbackThreads(100)
                 .setRemoteTaskMaxErrorDuration(new Duration(5, MINUTES))
                 .setRemoteTaskMaxCallbackThreads(1000)
                 .setQueryExecutionPolicy("phased")
@@ -108,7 +109,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionSmallStageSourceSizeMultiplier(1.2)
                 .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(false)
                 .setFaultTolerantExecutionStageEstimationForEagerParentEnabled(true)
-                .setMaxWriterTasksCount(100));
+                .setMaxWriterTaskCount(100));
     }
 
     @Test
@@ -132,6 +133,7 @@ public class TestQueryManagerConfig
                 .put("query.manager-executor-pool-size", "11")
                 .put("query.executor-pool-size", "111")
                 .put("query.max-state-machine-callback-threads", "112")
+                .put("query.max-split-manager-callback-threads", "113")
                 .put("query.remote-task.max-error-duration", "60s")
                 .put("query.remote-task.max-callback-threads", "10")
                 .put("query.execution-policy", "foo-bar-execution-policy")
@@ -204,6 +206,7 @@ public class TestQueryManagerConfig
                 .setQueryManagerExecutorPoolSize(11)
                 .setQueryExecutorPoolSize(111)
                 .setMaxStateMachineCallbackThreads(112)
+                .setMaxSplitManagerCallbackThreads(113)
                 .setRemoteTaskMaxErrorDuration(new Duration(60, SECONDS))
                 .setRemoteTaskMaxCallbackThreads(10)
                 .setQueryExecutionPolicy("foo-bar-execution-policy")
@@ -255,7 +258,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionSmallStageSourceSizeMultiplier(1.6)
                 .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(true)
                 .setFaultTolerantExecutionStageEstimationForEagerParentEnabled(false)
-                .setMaxWriterTasksCount(101);
+                .setMaxWriterTaskCount(101);
 
         assertFullMapping(properties, expected);
     }

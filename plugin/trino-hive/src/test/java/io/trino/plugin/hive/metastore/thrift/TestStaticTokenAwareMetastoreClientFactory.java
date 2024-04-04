@@ -26,8 +26,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestStaticTokenAwareMetastoreClientFactory
 {
@@ -228,6 +228,6 @@ public class TestStaticTokenAwareMetastoreClientFactory
         if (expected instanceof FailureAwareThriftMetastoreClient) {
             expected = ((FailureAwareThriftMetastoreClient) expected).getDelegate();
         }
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 }

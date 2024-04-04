@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.testing.AbstractTestQueryFramework;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -25,7 +25,6 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public abstract class BaseSharedMetastoreTest
         extends AbstractTestQueryFramework
@@ -118,21 +117,13 @@ public abstract class BaseSharedMetastoreTest
                 .containsAll("VALUES '" + schema + "'");
 
         String showCreateHiveSchema = (String) computeActual("SHOW CREATE SCHEMA hive." + schema).getOnlyValue();
-        assertEquals(
-                showCreateHiveSchema,
-                getExpectedHiveCreateSchema("hive"));
+        assertThat(showCreateHiveSchema).isEqualTo(getExpectedHiveCreateSchema("hive"));
         String showCreateIcebergSchema = (String) computeActual("SHOW CREATE SCHEMA iceberg." + schema).getOnlyValue();
-        assertEquals(
-                showCreateIcebergSchema,
-                getExpectedIcebergCreateSchema("iceberg"));
+        assertThat(showCreateIcebergSchema).isEqualTo(getExpectedIcebergCreateSchema("iceberg"));
         String showCreateHiveWithRedirectionsSchema = (String) computeActual("SHOW CREATE SCHEMA hive_with_redirections." + schema).getOnlyValue();
-        assertEquals(
-                showCreateHiveWithRedirectionsSchema,
-                getExpectedHiveCreateSchema("hive_with_redirections"));
+        assertThat(showCreateHiveWithRedirectionsSchema).isEqualTo(getExpectedHiveCreateSchema("hive_with_redirections"));
         String showCreateIcebergWithRedirectionsSchema = (String) computeActual("SHOW CREATE SCHEMA iceberg_with_redirections." + schema).getOnlyValue();
-        assertEquals(
-                showCreateIcebergWithRedirectionsSchema,
-                getExpectedIcebergCreateSchema("iceberg_with_redirections"));
+        assertThat(showCreateIcebergWithRedirectionsSchema).isEqualTo(getExpectedIcebergCreateSchema("iceberg_with_redirections"));
     }
 
     @Test

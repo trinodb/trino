@@ -63,7 +63,7 @@ public class TestTpcdsMetadataStatistics
                             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle);
                             assertThat(tableStatistics.getRowCount().isUnknown()).isFalse();
                             for (ColumnHandle column : metadata.getColumnHandles(session, tableHandle).values()) {
-                                assertThat(tableStatistics.getColumnStatistics().containsKey(column)).isTrue();
+                                assertThat(tableStatistics.getColumnStatistics()).containsKey(column);
                                 assertThat(tableStatistics.getColumnStatistics().get(column)).isNotNull();
                             }
                         }));
@@ -81,7 +81,7 @@ public class TestTpcdsMetadataStatistics
         // all columns have stats
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         for (ColumnHandle column : columnHandles.values()) {
-            assertThat(tableStatistics.getColumnStatistics().containsKey(column)).isTrue();
+            assertThat(tableStatistics.getColumnStatistics()).containsKey(column);
             assertThat(tableStatistics.getColumnStatistics().get(column)).isNotNull();
         }
 

@@ -913,40 +913,6 @@ public class TranslationMap
                 return coerceIfNecessary(node, result);
             }
 
-            private ParametersRow getParametersRow(
-                    List<JsonPathParameter> pathParameters,
-                    List<JsonPathParameter> rewrittenPathParameters,
-                    Type parameterRowType,
-                    BooleanLiteral failOnError)
-            {
-                Expression parametersRow;
-                List<String> parametersOrder;
-                if (!pathParameters.isEmpty()) {
-                    ImmutableList.Builder<Expression> parameters = ImmutableList.builder();
-                    for (int i = 0; i < pathParameters.size(); i++) {
-                        ResolvedFunction parameterToJson = analysis.getJsonInputFunction(pathParameters.get(i).getParameter());
-                        Expression rewrittenParameter = rewrittenPathParameters.get(i).getParameter();
-                        if (parameterToJson != null) {
-                            parameters.add(new FunctionCall(parameterToJson.toQualifiedName(), ImmutableList.of(rewrittenParameter, failOnError)));
-                        }
-                        else {
-                            parameters.add(rewrittenParameter);
-                        }
-                    }
-                    parametersRow = new Cast(new Row(parameters.build()), toSqlType(parameterRowType));
-                    parametersOrder = pathParameters.stream()
-                            .map(parameter -> parameter.getName().getCanonicalValue())
-                            .collect(toImmutableList());
-                }
-                else {
-                    checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(parameterRowType), "invalid type of parameters row when no parameters are passed");
-                    parametersRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
-                    parametersOrder = ImmutableList.of();
-                }
-
-                return new ParametersRow(parametersRow, parametersOrder);
-            }
-
             @Override
             public Expression rewriteJsonObject(JsonObject node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
@@ -1132,7 +1098,41 @@ public class TranslationMap
         return scope;
     }
 
-    private static class ParametersRow
+    public ParametersRow getParametersRow(
+            List<JsonPathParameter> pathParameters,
+            List<JsonPathParameter> rewrittenPathParameters,
+            Type parameterRowType,
+            BooleanLiteral failOnError)
+    {
+        Expression parametersRow;
+        List<String> parametersOrder;
+        if (!pathParameters.isEmpty()) {
+            ImmutableList.Builder<Expression> parameters = ImmutableList.builder();
+            for (int i = 0; i < pathParameters.size(); i++) {
+                ResolvedFunction parameterToJson = analysis.getJsonInputFunction(pathParameters.get(i).getParameter());
+                Expression rewrittenParameter = rewrittenPathParameters.get(i).getParameter();
+                if (parameterToJson != null) {
+                    parameters.add(new FunctionCall(parameterToJson.toQualifiedName(), ImmutableList.of(rewrittenParameter, failOnError)));
+                }
+                else {
+                    parameters.add(rewrittenParameter);
+                }
+            }
+            parametersRow = new Cast(new Row(parameters.build()), toSqlType(parameterRowType));
+            parametersOrder = pathParameters.stream()
+                    .map(parameter -> parameter.getName().getCanonicalValue())
+                    .collect(toImmutableList());
+        }
+        else {
+            checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(parameterRowType), "invalid type of parameters row when no parameters are passed");
+            parametersRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+            parametersOrder = ImmutableList.of();
+        }
+
+        return new ParametersRow(parametersRow, parametersOrder);
+    }
+
+    public static class ParametersRow
     {
         private final Expression parametersRow;
         private final List<String> parametersOrder;

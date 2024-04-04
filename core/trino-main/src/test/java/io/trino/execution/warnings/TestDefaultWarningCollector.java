@@ -17,7 +17,7 @@ import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDefaultWarningCollector
 {
@@ -26,7 +26,7 @@ public class TestDefaultWarningCollector
     {
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig().setMaxWarnings(0));
         warningCollector.add(new TrinoWarning(new WarningCode(1, "1"), "warning 1"));
-        assertEquals(warningCollector.getWarnings().size(), 0);
+        assertThat(warningCollector.getWarnings().size()).isEqualTo(0);
     }
 
     @Test
@@ -36,6 +36,6 @@ public class TestDefaultWarningCollector
         warningCollector.add(new TrinoWarning(new WarningCode(1, "1"), "warning 1"));
         warningCollector.add(new TrinoWarning(new WarningCode(2, "2"), "warning 2"));
         warningCollector.add(new TrinoWarning(new WarningCode(3, "3"), "warning 3"));
-        assertEquals(warningCollector.getWarnings().size(), 2);
+        assertThat(warningCollector.getWarnings().size()).isEqualTo(2);
     }
 }

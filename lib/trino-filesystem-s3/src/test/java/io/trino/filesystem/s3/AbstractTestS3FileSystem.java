@@ -63,11 +63,70 @@ public abstract class AbstractTestS3FileSystem
         fileSystemFactory = null;
     }
 
+    @Override
+    protected final boolean isHierarchical()
+    {
+        return false;
+    }
+
+    @Override
+    protected final TrinoFileSystem getFileSystem()
+    {
+        return fileSystem;
+    }
+
+    @Override
+    protected final Location getRootLocation()
+    {
+        return Location.of("s3://%s/".formatted(bucket()));
+    }
+
+    @Override
+    protected final boolean supportsCreateExclusive()
+    {
+        return false;
+    }
+
+    @Override
+    protected final boolean supportsRenameFile()
+    {
+        return false;
+    }
+
+    @Override
+    protected final void verifyFileSystemIsEmpty()
+    {
+        try (S3Client client = createS3Client()) {
+            ListObjectsV2Request request = ListObjectsV2Request.builder()
+                    .bucket(bucket())
+                    .build();
+            assertThat(client.listObjectsV2(request).contents()).isEmpty();
+        }
+    }
+
+    protected void initEnvironment() {}
+
+    protected abstract String bucket();
+
+    protected abstract S3FileSystemFactory createS3FileSystemFactory();
+
+    protected abstract S3Client createS3Client();
+
+    protected List<FileEntry> toList(FileIterator fileIterator)
+            throws IOException
+    {
+        ImmutableList.Builder<FileEntry> list = ImmutableList.builder();
+        while (fileIterator.hasNext()) {
+            list.add(fileIterator.next());
+        }
+        return list.build();
+    }
+
     /**
      * Tests same things as {@link #testFileWithTrailingWhitespace()} but with setup and assertions using {@link S3Client}.
      */
     @Test
-    public void testFileWithTrailingWhitespaceAgainstNativeClient()
+    void testFileWithTrailingWhitespaceAgainstNativeClient()
             throws IOException
     {
         try (S3Client s3Client = createS3Client()) {
@@ -110,68 +169,30 @@ public abstract class AbstractTestS3FileSystem
         }
     }
 
-    @Override
-    protected final boolean isHierarchical()
-    {
-        return false;
-    }
-
-    @Override
-    protected final TrinoFileSystem getFileSystem()
-    {
-        return fileSystem;
-    }
-
-    @Override
-    protected final Location getRootLocation()
-    {
-        return Location.of("s3://%s/".formatted(bucket()));
-    }
-
-    @Override
-    protected final boolean supportsCreateExclusive()
-    {
-        return false;
-    }
-
-    @Override
-    protected final boolean supportsRenameFile()
-    {
-        return false;
-    }
-
-    @Override
-    protected final boolean deleteFileFailsIfNotExists()
-    {
-        return false;
-    }
-
-    @Override
-    protected final void verifyFileSystemIsEmpty()
-    {
-        try (S3Client client = createS3Client()) {
-            ListObjectsV2Request request = ListObjectsV2Request.builder()
-                    .bucket(bucket())
-                    .build();
-            assertThat(client.listObjectsV2(request).contents()).isEmpty();
-        }
-    }
-
-    protected void initEnvironment() {}
-
-    protected abstract String bucket();
-
-    protected abstract S3FileSystemFactory createS3FileSystemFactory();
-
-    protected abstract S3Client createS3Client();
-
-    protected List<FileEntry> toList(FileIterator fileIterator)
+    @Test
+    void testExistingFileWithTrailingSlash()
             throws IOException
     {
-        ImmutableList.Builder<FileEntry> list = ImmutableList.builder();
-        while (fileIterator.hasNext()) {
-            list.add(fileIterator.next());
+        try (S3Client s3Client = createS3Client()) {
+            String key = "data/file/";
+            s3Client.putObject(request -> request.bucket(bucket()).key(key), RequestBody.empty());
+            try {
+                assertThat(fileSystem.listFiles(getRootLocation()).hasNext()).isFalse();
+
+                Location data = getRootLocation().appendPath("data/");
+                assertThat(fileSystem.listDirectories(getRootLocation())).containsExactly(data);
+                assertThat(fileSystem.listDirectories(data)).containsExactly(data.appendPath("file/"));
+
+                // blobs ending in slash are invisible to S3FileSystem and will not be deleted
+                fileSystem.deleteDirectory(data);
+                assertThat(fileSystem.listDirectories(getRootLocation())).containsExactly(data);
+
+                fileSystem.deleteDirectory(getRootLocation());
+                assertThat(fileSystem.listDirectories(getRootLocation())).containsExactly(data);
+            }
+            finally {
+                s3Client.deleteObject(delete -> delete.bucket(bucket()).key(key));
+            }
         }
-        return list.build();
     }
 }

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 
@@ -35,11 +36,10 @@ import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestLikeFunctions
 {
     private QueryAssertions assertions;
@@ -69,8 +69,8 @@ public class TestLikeFunctions
     public void testLikeBasic()
     {
         LikePattern matcher = LikePattern.compile(utf8Slice("f%b__").toStringUtf8(), Optional.empty());
-        assertTrue(likeVarchar(utf8Slice("foobar"), matcher));
-        assertTrue(likeVarchar(offsetHeapSlice("foobar"), matcher));
+        assertThat(likeVarchar(utf8Slice("foobar"), matcher)).isTrue();
+        assertThat(likeVarchar(offsetHeapSlice("foobar"), matcher)).isTrue();
 
         assertThat(assertions.expression("a LIKE 'f%b__'")
                 .binding("a", "'foob'"))
@@ -109,12 +109,12 @@ public class TestLikeFunctions
     public void testLikeChar()
     {
         LikePattern matcher = LikePattern.compile(utf8Slice("f%b__").toStringUtf8(), Optional.empty());
-        assertTrue(likeChar(6L, utf8Slice("foobar"), matcher));
-        assertTrue(likeChar(6L, offsetHeapSlice("foobar"), matcher));
-        assertTrue(likeChar(6L, utf8Slice("foob"), matcher));
-        assertTrue(likeChar(6L, offsetHeapSlice("foob"), matcher));
-        assertFalse(likeChar(7L, utf8Slice("foob"), matcher));
-        assertFalse(likeChar(7L, offsetHeapSlice("foob"), matcher));
+        assertThat(likeChar(6L, utf8Slice("foobar"), matcher)).isTrue();
+        assertThat(likeChar(6L, offsetHeapSlice("foobar"), matcher)).isTrue();
+        assertThat(likeChar(6L, utf8Slice("foob"), matcher)).isTrue();
+        assertThat(likeChar(6L, offsetHeapSlice("foob"), matcher)).isTrue();
+        assertThat(likeChar(7L, utf8Slice("foob"), matcher)).isFalse();
+        assertThat(likeChar(7L, offsetHeapSlice("foob"), matcher)).isFalse();
 
         // pattern shorter than value length
         assertThat(assertions.expression("a LIKE 'foo'")
@@ -202,36 +202,36 @@ public class TestLikeFunctions
     public void testLikeSpacesInPattern()
     {
         LikePattern matcher = LikePattern.compile(utf8Slice("ala  ").toStringUtf8(), Optional.empty());
-        assertTrue(likeVarchar(utf8Slice("ala  "), matcher));
-        assertFalse(likeVarchar(utf8Slice("ala"), matcher));
+        assertThat(likeVarchar(utf8Slice("ala  "), matcher)).isTrue();
+        assertThat(likeVarchar(utf8Slice("ala"), matcher)).isFalse();
     }
 
     @Test
     public void testLikeNewlineInPattern()
     {
         LikePattern matcher = LikePattern.compile(utf8Slice("%o\nbar").toStringUtf8(), Optional.empty());
-        assertTrue(likeVarchar(utf8Slice("foo\nbar"), matcher));
+        assertThat(likeVarchar(utf8Slice("foo\nbar"), matcher)).isTrue();
     }
 
     @Test
     public void testLikeNewlineBeforeMatch()
     {
         LikePattern matcher = LikePattern.compile(utf8Slice("%b%").toStringUtf8(), Optional.empty());
-        assertTrue(likeVarchar(utf8Slice("foo\nbar"), matcher));
+        assertThat(likeVarchar(utf8Slice("foo\nbar"), matcher)).isTrue();
     }
 
     @Test
     public void testLikeNewlineInMatch()
     {
         LikePattern matcher = LikePattern.compile(utf8Slice("f%b%").toStringUtf8(), Optional.empty());
-        assertTrue(likeVarchar(utf8Slice("foo\nbar"), matcher));
+        assertThat(likeVarchar(utf8Slice("foo\nbar"), matcher)).isTrue();
     }
 
     @Test
     public void testLikeUtf8Pattern()
     {
         LikePattern matcher = likePattern(utf8Slice("%\u540d\u8a89%"), utf8Slice("\\"));
-        assertFalse(likeVarchar(utf8Slice("foo"), matcher));
+        assertThat(likeVarchar(utf8Slice("foo"), matcher)).isFalse();
     }
 
     @Test
@@ -239,28 +239,28 @@ public class TestLikeFunctions
     {
         Slice value = Slices.wrappedBuffer(new byte[] {'a', 'b', 'c', (byte) 0xFF, 'x', 'y'});
         LikePattern matcher = likePattern(utf8Slice("%b%"), utf8Slice("\\"));
-        assertTrue(likeVarchar(value, matcher));
+        assertThat(likeVarchar(value, matcher)).isTrue();
     }
 
     @Test
     public void testBackslashesNoSpecialTreatment()
     {
         LikePattern matcher = LikePattern.compile(utf8Slice("\\abc\\/\\\\").toStringUtf8(), Optional.empty());
-        assertTrue(likeVarchar(utf8Slice("\\abc\\/\\\\"), matcher));
+        assertThat(likeVarchar(utf8Slice("\\abc\\/\\\\"), matcher)).isTrue();
     }
 
     @Test
     public void testSelfEscaping()
     {
         LikePattern matcher = likePattern(utf8Slice("\\\\abc\\%"), utf8Slice("\\"));
-        assertTrue(likeVarchar(utf8Slice("\\abc%"), matcher));
+        assertThat(likeVarchar(utf8Slice("\\abc%"), matcher)).isTrue();
     }
 
     @Test
     public void testAlternateEscapedCharacters()
     {
         LikePattern matcher = likePattern(utf8Slice("xxx%x_abcxx"), utf8Slice("x"));
-        assertTrue(likeVarchar(utf8Slice("x%_abcx"), matcher));
+        assertThat(likeVarchar(utf8Slice("x%_abcx"), matcher)).isTrue();
     }
 
     @Test
@@ -280,14 +280,14 @@ public class TestLikeFunctions
     @Test
     public void testIsLikePattern()
     {
-        assertFalse(isLikePattern(utf8Slice("abc"), Optional.empty()));
-        assertFalse(isLikePattern(utf8Slice("abc#_def"), Optional.of(utf8Slice("#"))));
-        assertFalse(isLikePattern(utf8Slice("abc##def"), Optional.of(utf8Slice("#"))));
-        assertFalse(isLikePattern(utf8Slice("abc#%def"), Optional.of(utf8Slice("#"))));
-        assertTrue(isLikePattern(utf8Slice("abc%def"), Optional.empty()));
-        assertTrue(isLikePattern(utf8Slice("abcdef_"), Optional.empty()));
-        assertTrue(isLikePattern(utf8Slice("abcdef##_"), Optional.of(utf8Slice("#"))));
-        assertTrue(isLikePattern(utf8Slice("%abcdef#_"), Optional.of(utf8Slice("#"))));
+        assertThat(isLikePattern(utf8Slice("abc"), Optional.empty())).isFalse();
+        assertThat(isLikePattern(utf8Slice("abc#_def"), Optional.of(utf8Slice("#")))).isFalse();
+        assertThat(isLikePattern(utf8Slice("abc##def"), Optional.of(utf8Slice("#")))).isFalse();
+        assertThat(isLikePattern(utf8Slice("abc#%def"), Optional.of(utf8Slice("#")))).isFalse();
+        assertThat(isLikePattern(utf8Slice("abc%def"), Optional.empty())).isTrue();
+        assertThat(isLikePattern(utf8Slice("abcdef_"), Optional.empty())).isTrue();
+        assertThat(isLikePattern(utf8Slice("abcdef##_"), Optional.of(utf8Slice("#")))).isTrue();
+        assertThat(isLikePattern(utf8Slice("%abcdef#_"), Optional.of(utf8Slice("#")))).isTrue();
         assertThatThrownBy(() -> isLikePattern(utf8Slice("#"), Optional.of(utf8Slice("#"))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
@@ -302,14 +302,14 @@ public class TestLikeFunctions
     @Test
     public void testPatternConstantPrefixBytes()
     {
-        assertEquals(patternConstantPrefixBytes(utf8Slice("abc"), Optional.empty()), 3);
-        assertEquals(patternConstantPrefixBytes(utf8Slice("abc#_def"), Optional.of(utf8Slice("#"))), 8);
-        assertEquals(patternConstantPrefixBytes(utf8Slice("abc##def"), Optional.of(utf8Slice("#"))), 8);
-        assertEquals(patternConstantPrefixBytes(utf8Slice("abc#%def"), Optional.of(utf8Slice("#"))), 8);
-        assertEquals(patternConstantPrefixBytes(utf8Slice("abc%def"), Optional.empty()), 3);
-        assertEquals(patternConstantPrefixBytes(utf8Slice("abcdef_"), Optional.empty()), 6);
-        assertEquals(patternConstantPrefixBytes(utf8Slice("abcdef##_"), Optional.of(utf8Slice("#"))), 8);
-        assertEquals(patternConstantPrefixBytes(utf8Slice("%abcdef#_"), Optional.of(utf8Slice("#"))), 0);
+        assertThat(patternConstantPrefixBytes(utf8Slice("abc"), Optional.empty())).isEqualTo(3);
+        assertThat(patternConstantPrefixBytes(utf8Slice("abc#_def"), Optional.of(utf8Slice("#")))).isEqualTo(8);
+        assertThat(patternConstantPrefixBytes(utf8Slice("abc##def"), Optional.of(utf8Slice("#")))).isEqualTo(8);
+        assertThat(patternConstantPrefixBytes(utf8Slice("abc#%def"), Optional.of(utf8Slice("#")))).isEqualTo(8);
+        assertThat(patternConstantPrefixBytes(utf8Slice("abc%def"), Optional.empty())).isEqualTo(3);
+        assertThat(patternConstantPrefixBytes(utf8Slice("abcdef_"), Optional.empty())).isEqualTo(6);
+        assertThat(patternConstantPrefixBytes(utf8Slice("abcdef##_"), Optional.of(utf8Slice("#")))).isEqualTo(8);
+        assertThat(patternConstantPrefixBytes(utf8Slice("%abcdef#_"), Optional.of(utf8Slice("#")))).isEqualTo(0);
         assertThatThrownBy(() -> patternConstantPrefixBytes(utf8Slice("#"), Optional.of(utf8Slice("#"))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
@@ -324,10 +324,10 @@ public class TestLikeFunctions
     @Test
     public void testUnescapeValidLikePattern()
     {
-        assertEquals(unescapeLiteralLikePattern(utf8Slice("abc"), Optional.empty()), utf8Slice("abc"));
-        assertEquals(unescapeLiteralLikePattern(utf8Slice("abc#_"), Optional.of(utf8Slice("#"))), utf8Slice("abc_"));
-        assertEquals(unescapeLiteralLikePattern(utf8Slice("a##bc#_"), Optional.of(utf8Slice("#"))), utf8Slice("a#bc_"));
-        assertEquals(unescapeLiteralLikePattern(utf8Slice("a###_bc"), Optional.of(utf8Slice("#"))), utf8Slice("a#_bc"));
+        assertThat(unescapeLiteralLikePattern(utf8Slice("abc"), Optional.empty())).isEqualTo(utf8Slice("abc"));
+        assertThat(unescapeLiteralLikePattern(utf8Slice("abc#_"), Optional.of(utf8Slice("#")))).isEqualTo(utf8Slice("abc_"));
+        assertThat(unescapeLiteralLikePattern(utf8Slice("a##bc#_"), Optional.of(utf8Slice("#")))).isEqualTo(utf8Slice("a#bc_"));
+        assertThat(unescapeLiteralLikePattern(utf8Slice("a###_bc"), Optional.of(utf8Slice("#")))).isEqualTo(utf8Slice("a#_bc"));
     }
 
     @Test

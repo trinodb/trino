@@ -212,6 +212,7 @@ public class MockRemoteTaskFactory
                     new TestingGcMonitor(),
                     executor,
                     scheduledExecutor,
+                    scheduledExecutor,
                     DataSize.of(1, MEGABYTE),
                     spillSpaceTracker);
             this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, true, true);

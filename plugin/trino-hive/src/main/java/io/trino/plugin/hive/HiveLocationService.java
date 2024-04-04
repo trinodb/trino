@@ -15,15 +15,14 @@ package io.trino.plugin.hive;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
 
 import java.util.Optional;
 
@@ -33,10 +32,8 @@ import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW
 import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createTemporaryPath;
+import static io.trino.plugin.hive.util.HiveWriteUtils.directoryExists;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
-import static io.trino.plugin.hive.util.HiveWriteUtils.isHdfsEncrypted;
-import static io.trino.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
-import static io.trino.plugin.hive.util.HiveWriteUtils.pathExists;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -44,14 +41,14 @@ import static java.util.Objects.requireNonNull;
 public class HiveLocationService
         implements LocationService
 {
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean temporaryStagingDirectoryEnabled;
     private final String temporaryStagingDirectoryPath;
 
     @Inject
-    public HiveLocationService(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
+    public HiveLocationService(TrinoFileSystemFactory fileSystemFactory, HiveConfig hiveConfig)
     {
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.temporaryStagingDirectoryEnabled = hiveConfig.isTemporaryStagingDirectoryEnabled();
         this.temporaryStagingDirectoryPath = hiveConfig.getTemporaryStagingDirectoryPath();
     }
@@ -59,11 +56,11 @@ public class HiveLocationService
     @Override
     public Location forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName)
     {
-        HdfsContext context = new HdfsContext(session);
-        Location targetPath = getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        Location targetPath = getTableDefaultLocation(metastore, fileSystem, schemaName, tableName);
 
         // verify the target directory for table
-        if (pathExists(context, hdfsEnvironment, new Path(targetPath.toString()))) {
+        if (directoryExists(fileSystem, targetPath).orElse(false)) {
             throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
         return targetPath;
@@ -72,18 +69,20 @@ public class HiveLocationService
     @Override
     public LocationHandle forNewTableAsSelect(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Location> externalLocation)
     {
-        HdfsContext context = new HdfsContext(session);
-        Location targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        Location targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(metastore, fileSystem, schemaName, tableName));
 
         // verify the target directory for the table
-        if (pathExists(context, hdfsEnvironment, new Path(targetPath.toString()))) {
+        if (directoryExists(fileSystem, targetPath).orElse(false)) {
             throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
 
-        // TODO detect when existing table's location is a on a different file system than the temporary directory
-        if (shouldUseTemporaryDirectory(context, new Path(targetPath.toString()), externalLocation.isPresent())) {
-            Location writePath = createTemporaryPath(context, hdfsEnvironment, new Path(targetPath.toString()), temporaryStagingDirectoryPath);
-            return new LocationHandle(targetPath, writePath, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
+        // Skip using temporary directory if the destination is external. Target may be on a different file system.
+        if (temporaryStagingDirectoryEnabled && externalLocation.isEmpty()) {
+            Optional<Location> writePath = createTemporaryPath(fileSystem, session.getIdentity(), targetPath, temporaryStagingDirectoryPath);
+            if (writePath.isPresent()) {
+                return new LocationHandle(targetPath, writePath.get(), STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
+            }
         }
         return new LocationHandle(targetPath, targetPath, DIRECT_TO_TARGET_NEW_DIRECTORY);
     }
@@ -91,12 +90,14 @@ public class HiveLocationService
     @Override
     public LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table)
     {
-        HdfsContext context = new HdfsContext(session);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         Location targetPath = Location.of(table.getStorage().getLocation());
 
-        if (shouldUseTemporaryDirectory(context, new Path(targetPath.toString()), false) && !isTransactionalTable(table.getParameters())) {
-            Location writePath = createTemporaryPath(context, hdfsEnvironment, new Path(targetPath.toString()), temporaryStagingDirectoryPath);
-            return new LocationHandle(targetPath, writePath, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
+        if (temporaryStagingDirectoryEnabled && !isTransactionalTable(table.getParameters())) {
+            Optional<Location> writePath = createTemporaryPath(fileSystem, session.getIdentity(), targetPath, temporaryStagingDirectoryPath);
+            if (writePath.isPresent()) {
+                return new LocationHandle(targetPath, writePath.get(), STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
+            }
         }
         return new LocationHandle(targetPath, targetPath, DIRECT_TO_TARGET_EXISTING_DIRECTORY);
     }
@@ -107,17 +108,6 @@ public class HiveLocationService
         // For OPTIMIZE write result files directly to table directory; that is needed by the commit logic in HiveMetadata#finishTableExecute
         Location targetPath = Location.of(table.getStorage().getLocation());
         return new LocationHandle(targetPath, targetPath, DIRECT_TO_TARGET_EXISTING_DIRECTORY);
-    }
-
-    private boolean shouldUseTemporaryDirectory(HdfsContext context, Path path, boolean hasExternalLocation)
-    {
-        return temporaryStagingDirectoryEnabled
-                // skip using temporary directory for S3
-                && !isS3FileSystem(context, hdfsEnvironment, path)
-                // skip using temporary directory if destination is encrypted; it's not possible to move a file between encryption zones
-                && !isHdfsEncrypted(context, hdfsEnvironment, path)
-                // Skip using temporary directory if destination is external. Target may be on a different file system.
-                && !hasExternalLocation;
     }
 
     @Override

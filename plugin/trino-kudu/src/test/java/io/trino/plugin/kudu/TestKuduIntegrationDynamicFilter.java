@@ -54,9 +54,7 @@ import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerT
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKuduIntegrationDynamicFilter
         extends AbstractTestQueryFramework
@@ -89,7 +87,7 @@ public class TestKuduIntegrationDynamicFilter
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
         QualifiedObjectName tableName = new QualifiedObjectName("kudu", "tpch", "orders");
         Optional<TableHandle> tableHandle = runner.getMetadata().getTableHandle(session, tableName);
-        assertTrue(tableHandle.isPresent());
+        assertThat(tableHandle.isPresent()).isTrue();
         SplitSource splitSource = runner.getSplitManager()
                 .getSplits(session, Span.getInvalid(), tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
         List<Split> splits = new ArrayList<>();
@@ -97,7 +95,7 @@ public class TestKuduIntegrationDynamicFilter
             splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
         }
         splitSource.close();
-        assertFalse(splits.isEmpty());
+        assertThat(splits.isEmpty()).isFalse();
     }
 
     private static class IncompleteDynamicFilter
@@ -171,8 +169,8 @@ public class TestKuduIntegrationDynamicFilter
         DistributedQueryRunner runner = getDistributedQueryRunner();
         MaterializedResultWithQueryId result = runner.executeWithQueryId(session, selectQuery);
 
-        assertEquals(result.getResult().getRowCount(), expectedRowCount);
-        assertEquals(getOperatorRowsRead(runner, result.getQueryId()), Ints.asList(expectedOperatorRowsRead));
+        assertThat(result.getResult().getRowCount()).isEqualTo(expectedRowCount);
+        assertThat(getOperatorRowsRead(runner, result.getQueryId())).isEqualTo(Ints.asList(expectedOperatorRowsRead));
     }
 
     private Session withBroadcastJoin()

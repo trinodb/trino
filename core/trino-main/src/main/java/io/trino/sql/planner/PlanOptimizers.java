@@ -415,7 +415,6 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(columnPruningRules)
                                 .addAll(projectionPushdownRules)
-                                .addAll(limitPushdownRules)
                                 .addAll(new UnwrapRowSubscript().rules())
                                 .addAll(new PushCastIntoRow().rules())
                                 .addAll(ImmutableSet.of(
@@ -430,6 +429,7 @@ public class PlanOptimizers
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),
                                         new PushOffsetThroughProject(),
+                                        new MergeUnion(),
                                         new MergeLimits(),
                                         new MergeLimitWithSort(),
                                         new MergeLimitOverProjectWithSort(),
@@ -456,6 +456,29 @@ public class PlanOptimizers
                                         new RewriteSpatialPartitioningAggregation(plannerContext),
                                         new SimplifyCountOverConstant(plannerContext),
                                         new PreAggregateCaseAggregations(plannerContext, typeAnalyzer)))
+                                .build()),
+                // MergeUnion and related projection pruning rules must run before limit pushdown rules, otherwise
+                // an intermediate limit node will prevent unions from being merged later on
+                new IterativeOptimizer(
+                        plannerContext,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(projectionPushdownRules)
+                                .addAll(columnPruningRules)
+                                .addAll(limitPushdownRules)
+                                .addAll(ImmutableSet.of(
+                                        new MergeUnion(),
+                                        new RemoveEmptyUnionBranches(),
+                                        new MergeFilters(metadata),
+                                        new RemoveTrivialFilters(),
+                                        new MergeLimits(),
+                                        new MergeLimitWithSort(),
+                                        new MergeLimitOverProjectWithSort(),
+                                        new MergeLimitWithTopN(),
+                                        new InlineProjections(plannerContext, typeAnalyzer),
+                                        new RemoveRedundantIdentityProjections()))
                                 .build()),
                 new IterativeOptimizer(
                         plannerContext,

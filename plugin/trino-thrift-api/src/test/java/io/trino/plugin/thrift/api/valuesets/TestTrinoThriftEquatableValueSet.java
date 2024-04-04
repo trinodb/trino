@@ -16,17 +16,14 @@ package io.trino.plugin.thrift.api.valuesets;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.thrift.api.datatypes.TrinoThriftJson;
 import io.trino.spi.predicate.ValueSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.thrift.api.TrinoThriftBlock.jsonData;
 import static io.trino.plugin.thrift.api.valuesets.TrinoThriftValueSet.fromValueSet;
 import static io.trino.type.JsonType.JSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTrinoThriftEquatableValueSet
 {
@@ -37,27 +34,27 @@ public class TestTrinoThriftEquatableValueSet
     public void testFromValueSetAll()
     {
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.all(JSON));
-        assertNotNull(thriftValueSet.getEquatableValueSet());
-        assertFalse(thriftValueSet.getEquatableValueSet().isInclusive());
-        assertTrue(thriftValueSet.getEquatableValueSet().getValues().isEmpty());
+        assertThat(thriftValueSet.getEquatableValueSet()).isNotNull();
+        assertThat(thriftValueSet.getEquatableValueSet().isInclusive()).isFalse();
+        assertThat(thriftValueSet.getEquatableValueSet().getValues().isEmpty()).isTrue();
     }
 
     @Test
     public void testFromValueSetNone()
     {
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.none(JSON));
-        assertNotNull(thriftValueSet.getEquatableValueSet());
-        assertTrue(thriftValueSet.getEquatableValueSet().isInclusive());
-        assertTrue(thriftValueSet.getEquatableValueSet().getValues().isEmpty());
+        assertThat(thriftValueSet.getEquatableValueSet()).isNotNull();
+        assertThat(thriftValueSet.getEquatableValueSet().isInclusive()).isTrue();
+        assertThat(thriftValueSet.getEquatableValueSet().getValues().isEmpty()).isTrue();
     }
 
     @Test
     public void testFromValueSetOf()
     {
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.of(JSON, utf8Slice(JSON1), utf8Slice(JSON2)));
-        assertNotNull(thriftValueSet.getEquatableValueSet());
-        assertTrue(thriftValueSet.getEquatableValueSet().isInclusive());
-        assertEquals(thriftValueSet.getEquatableValueSet().getValues(), ImmutableList.of(
+        assertThat(thriftValueSet.getEquatableValueSet()).isNotNull();
+        assertThat(thriftValueSet.getEquatableValueSet().isInclusive()).isTrue();
+        assertThat(thriftValueSet.getEquatableValueSet().getValues()).isEqualTo(ImmutableList.of(
                 jsonData(new TrinoThriftJson(null, new int[] {JSON1.length()}, JSON1.getBytes(UTF_8))),
                 jsonData(new TrinoThriftJson(null, new int[] {JSON2.length()}, JSON2.getBytes(UTF_8)))));
     }

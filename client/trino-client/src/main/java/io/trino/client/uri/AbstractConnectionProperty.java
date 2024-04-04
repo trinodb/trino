@@ -196,7 +196,7 @@ abstract class AbstractConnectionProperty<V, T>
         {
             requireNonNull(other, "other is null");
             // return the first non-empty optional
-            return (t) -> {
+            return t -> {
                 Optional<String> result = validate(t);
                 if (result.isPresent()) {
                     return result;

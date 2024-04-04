@@ -20,7 +20,6 @@ import io.trino.testing.AbstractTestFaultTolerantExecutionOrderByQueries;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
-import org.testng.annotations.AfterClass;
 
 import java.util.Map;
 
@@ -51,7 +50,6 @@ public class TestHiveFaultTolerantExecutionOrderByQueries
     }
 
     @AfterAll
-    @AfterClass(alwaysRun = true)
     public void destroy()
             throws Exception
     {

@@ -64,6 +64,12 @@ public class CanonicalColumnName
         return this.hash;
     }
 
+    @Override
+    public String toString()
+    {
+        return originalName;
+    }
+
     public long getRetainedSize()
     {
         return INSTANCE_SIZE + SizeOf.estimatedSizeOf(originalName);

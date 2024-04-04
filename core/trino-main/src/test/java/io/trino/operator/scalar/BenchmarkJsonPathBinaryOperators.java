@@ -179,9 +179,9 @@ public class BenchmarkJsonPathBinaryOperators
             BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput slice = new DynamicSliceOutput(20);
-                slice.appendBytes(("{\"first\" : ").getBytes(UTF_8))
+                slice.appendBytes("{\"first\" : ".getBytes(UTF_8))
                         .appendBytes(format("%e", (double) position % 100).getBytes(UTF_8)) // real
-                        .appendBytes((", \"second\" : ").getBytes(UTF_8))
+                        .appendBytes(", \"second\" : ".getBytes(UTF_8))
                         .appendBytes(format("%s", position % 10).getBytes(UTF_8)) // int
                         .appendByte('}');
                 VARCHAR.writeSlice(blockBuilder, slice.slice());
@@ -194,7 +194,7 @@ public class BenchmarkJsonPathBinaryOperators
             BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput slice = new DynamicSliceOutput(20);
-                slice.appendBytes(("{\"first\" : ").getBytes(UTF_8));
+                slice.appendBytes("{\"first\" : ".getBytes(UTF_8));
                 if (position % 3 == 0) {
                     slice.appendBytes(format("%e", (double) position % 100).getBytes(UTF_8)); // real
                 }
@@ -204,7 +204,7 @@ public class BenchmarkJsonPathBinaryOperators
                 else {
                     slice.appendBytes(format("%s", position % 100).getBytes(UTF_8)); // int
                 }
-                slice.appendBytes((", \"second\" : ").getBytes(UTF_8))
+                slice.appendBytes(", \"second\" : ".getBytes(UTF_8))
                         .appendBytes(format("%s", position % 10).getBytes(UTF_8)) // int
                         .appendByte('}');
                 VARCHAR.writeSlice(blockBuilder, slice.slice());
@@ -218,7 +218,7 @@ public class BenchmarkJsonPathBinaryOperators
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput slice = new DynamicSliceOutput(20);
 
-                slice.appendBytes(("{\"first\" : ").getBytes(UTF_8));
+                slice.appendBytes("{\"first\" : ".getBytes(UTF_8));
                 if (position % 3 == 0) {
                     slice.appendBytes(format("%e", (double) position % 100).getBytes(UTF_8)); // real
                 }
@@ -229,7 +229,7 @@ public class BenchmarkJsonPathBinaryOperators
                     slice.appendBytes(format("%s", position % 100).getBytes(UTF_8)); // int
                 }
 
-                slice.appendBytes((", \"second\" : ").getBytes(UTF_8));
+                slice.appendBytes(", \"second\" : ".getBytes(UTF_8));
                 if (position % 4 == 0) {
                     slice.appendBytes(format("%e", (double) position % 10).getBytes(UTF_8)); // real
                 }

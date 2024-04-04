@@ -47,6 +47,7 @@ import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.ColumnOrder;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
@@ -207,6 +208,10 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            // ParquetMetadataConverter#fromParquetColumnIndex returns null if the parquet primitive type does not support min/max stats
+            if (!isColumnIndexStatsSupported(column.getPrimitiveType())) {
+                continue;
+            }
             ColumnIndex columnIndex = columnIndexStore.getColumnIndex(ColumnPath.get(column.getPath()));
             if (columnIndex == null) {
                 continue;
@@ -595,12 +600,12 @@ public class TupleDomainParquetPredicate
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, Statistics<?> statistics, Exception cause)
     {
-        return new ParquetCorruptionException(cause, format("Corrupted statistics for column \"%s\" in Parquet file \"%s\": [%s]", column, id, statistics));
+        return new ParquetCorruptionException(cause, id, "Corrupted statistics for column \"%s\": [%s]", column, statistics);
     }
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, ColumnIndex columnIndex, Exception cause)
     {
-        return new ParquetCorruptionException(cause, format("Corrupted statistics for column \"%s\" in Parquet file \"%s\". Corrupted column index: [%s]", column, id, columnIndex));
+        return new ParquetCorruptionException(cause, id, "Corrupted statistics for column \"%s\". Corrupted column index: [%s]", column, columnIndex);
     }
 
     private static boolean isCorruptedColumnIndex(
@@ -682,6 +687,11 @@ public class TupleDomainParquetPredicate
             }
 
             if (domain.isAll()) {
+                continue;
+            }
+
+            // ParquetMetadataConverter#fromParquetColumnIndex returns null if the parquet primitive type does not support min/max stats
+            if (!isColumnIndexStatsSupported(column.getPrimitiveType())) {
                 continue;
             }
 
@@ -807,5 +817,11 @@ public class TupleDomainParquetPredicate
         {
             super(columnPath, Integer.class);
         }
+    }
+
+    // Copy of org.apache.parquet.format.converter.ParquetMetadataConverter#isMinMaxStatsSupported
+    private static boolean isColumnIndexStatsSupported(PrimitiveType type)
+    {
+        return type.columnOrder().getColumnOrderName() == ColumnOrder.ColumnOrderName.TYPE_DEFINED_ORDER;
     }
 }

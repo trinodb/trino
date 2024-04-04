@@ -25,7 +25,6 @@ import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestRealType
         extends AbstractTestType
@@ -73,10 +72,10 @@ public class TestRealType
         Block block = blockBuilder.build();
 
         BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(REAL);
-        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 1));
-        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 2));
-        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 3));
-        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 4));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 1));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 2));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 3));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 4));
     }
 
     @Test

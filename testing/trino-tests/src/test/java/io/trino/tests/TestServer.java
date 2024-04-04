@@ -37,6 +37,8 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.Collections;
@@ -81,11 +83,12 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestServer
 {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
@@ -129,12 +132,12 @@ public class TestServer
                 .collect(last());
 
         QueryError queryError = queryResults.getError();
-        assertNotNull(queryError);
+        assertThat(queryError).isNotNull();
         TimeZoneNotSupportedException expected = new TimeZoneNotSupportedException(invalidTimeZone);
-        assertEquals(queryError.getErrorCode(), expected.getErrorCode().getCode());
-        assertEquals(queryError.getErrorName(), expected.getErrorCode().getName());
-        assertEquals(queryError.getErrorType(), expected.getErrorCode().getType().name());
-        assertEquals(queryError.getMessage(), expected.getMessage());
+        assertThat(queryError.getErrorCode()).isEqualTo(expected.getErrorCode().getCode());
+        assertThat(queryError.getErrorName()).isEqualTo(expected.getErrorCode().getName());
+        assertThat(queryError.getErrorType()).isEqualTo(expected.getErrorCode().getType().name());
+        assertThat(queryError.getMessage()).isEqualTo(expected.getMessage());
     }
 
     @Test
@@ -153,14 +156,14 @@ public class TestServer
 
         Optional<QueryResults> data = queryResults.stream().filter(results -> results.getData() != null).findFirst();
 
-        assertNull(first.getColumns());
-        assertEquals(first.getStats().getState(), "QUEUED");
-        assertNull(first.getData());
+        assertThat(first.getColumns()).isNull();
+        assertThat(first.getStats().getState()).isEqualTo("QUEUED");
+        assertThat(first.getData()).isNull();
 
         assertThat(last.getColumns()).hasSize(1);
         assertThat(last.getColumns().get(0).getName()).isEqualTo("Catalog");
         assertThat(last.getColumns().get(0).getType()).isEqualTo("varchar(6)");
-        assertEquals(last.getStats().getState(), "FINISHED");
+        assertThat(last.getStats().getState()).isEqualTo("FINISHED");
 
         assertThat(data).isPresent();
 
@@ -175,7 +178,7 @@ public class TestServer
                 prepareGet().setUri(server.resolve("/v1/info")).build(),
                 createStatusResponseHandler());
 
-        assertEquals(response.getStatusCode(), OK.getStatusCode());
+        assertThat(response.getStatusCode()).isEqualTo(OK.getStatusCode());
     }
 
     @Test
@@ -192,7 +195,7 @@ public class TestServer
                 .addHeader(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
                 .addHeader(TRINO_HEADERS.requestPreparedStatement(), "foo=select * from bar"))
                 .map(JsonResponse::getValue)
-                .peek(result -> assertNull(result.getError()))
+                .peek(result -> assertThat(result.getError()).isNull())
                 .peek(results -> {
                     if (results.getData() != null) {
                         data.addAll(results.getData());
@@ -204,20 +207,20 @@ public class TestServer
         BasicQueryInfo queryInfo = server.getQueryManager().getQueryInfo(new QueryId(queryResults.getId()));
 
         // verify session properties
-        assertEquals(queryInfo.getSession().getSystemProperties(), ImmutableMap.builder()
+        assertThat(queryInfo.getSession().getSystemProperties()).isEqualTo(ImmutableMap.builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(MAX_HASH_PARTITION_COUNT, "43")
                 .buildOrThrow());
 
         // verify client info in session
-        assertEquals(queryInfo.getSession().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertThat(queryInfo.getSession().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
 
         // verify prepared statements
-        assertEquals(queryInfo.getSession().getPreparedStatements(), ImmutableMap.of("foo", "select * from bar"));
+        assertThat(queryInfo.getSession().getPreparedStatements()).isEqualTo(ImmutableMap.of("foo", "select * from bar"));
 
         List<List<Object>> rows = data.build();
-        assertEquals(rows, ImmutableList.of(ImmutableList.of("memory"), ImmutableList.of("system")));
+        assertThat(rows).isEqualTo(ImmutableList.of(ImmutableList.of("memory"), ImmutableList.of("system")));
     }
 
     @Test
@@ -226,9 +229,9 @@ public class TestServer
         JsonResponse<QueryResults> queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8))
                 .setHeader(TRINO_HEADERS.requestTransactionId(), "none"))
-                .peek(result -> assertNull(result.getValue().getError()))
+                .peek(result -> assertThat(result.getValue().getError()).isNull())
                 .collect(last());
-        assertNotNull(queryResults.getHeader(TRINO_HEADERS.responseStartedTransactionId()));
+        assertThat(queryResults.getHeader(TRINO_HEADERS.responseStartedTransactionId())).isNotNull();
     }
 
     @Test
@@ -240,8 +243,8 @@ public class TestServer
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Error expected"));
 
-        assertNull(queryResults.getNextUri());
-        assertEquals(queryResults.getError().getErrorCode(), INCOMPATIBLE_CLIENT.toErrorCode().getCode());
+        assertThat(queryResults.getNextUri()).isNull();
+        assertThat(queryResults.getError().getErrorCode()).isEqualTo(INCOMPATIBLE_CLIENT.toErrorCode().getCode());
     }
 
     @Test
@@ -329,7 +332,7 @@ public class TestServer
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Error expected"));
 
-        assertNull(queryResults.getNextUri());
+        assertThat(queryResults.getNextUri()).isNull();
         QueryError queryError = queryResults.getError();
         String stackTrace = getStackTraceAsString(queryError.getFailureInfo().toException());
         assertThat(stackTrace).containsPattern(proofOfOrigin);
@@ -350,8 +353,12 @@ public class TestServer
                 .setFollowRedirects(false)
                 .build();
         StatusResponse response = client.execute(request, createStatusResponseHandler());
-        assertEquals(response.getStatusCode(), OK.getStatusCode(), "Status code");
-        assertEquals(response.getHeader(CONTENT_TYPE), APPLICATION_JSON, "Content Type");
+        assertThat(response.getStatusCode())
+                .describedAs("Status code")
+                .isEqualTo(OK.getStatusCode());
+        assertThat(response.getHeader(CONTENT_TYPE))
+                .describedAs("Content Type")
+                .isEqualTo(APPLICATION_JSON);
     }
 
     @Test
@@ -362,8 +369,12 @@ public class TestServer
                 .setFollowRedirects(false)
                 .build();
         StatusResponse response = client.execute(request, createStatusResponseHandler());
-        assertEquals(response.getStatusCode(), SEE_OTHER.getStatusCode(), "Status code");
-        assertEquals(response.getHeader("Location"), server.getBaseUrl() + "/ui/", "Location");
+        assertThat(response.getStatusCode())
+                .describedAs("Status code")
+                .isEqualTo(SEE_OTHER.getStatusCode());
+        assertThat(response.getHeader("Location"))
+                .describedAs("Location")
+                .isEqualTo(server.getBaseUrl() + "/ui/");
 
         // behind a proxy
         request = prepareGet()
@@ -374,8 +385,12 @@ public class TestServer
                 .setFollowRedirects(false)
                 .build();
         response = client.execute(request, createStatusResponseHandler());
-        assertEquals(response.getStatusCode(), SEE_OTHER.getStatusCode(), "Status code");
-        assertEquals(response.getHeader("Location"), "https://my-load-balancer.local/ui/", "Location");
+        assertThat(response.getStatusCode())
+                .describedAs("Status code")
+                .isEqualTo(SEE_OTHER.getStatusCode());
+        assertThat(response.getHeader("Location"))
+                .describedAs("Location")
+                .isEqualTo("https://my-load-balancer.local/ui/");
     }
 
     private Stream<JsonResponse<QueryResults>> postQuery(Function<Request.Builder, Request.Builder> requestConfigurer)

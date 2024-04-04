@@ -16,18 +16,25 @@ package io.trino.plugin.hudi.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hudi.HudiConnector;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
-import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchColumnType;
 import io.trino.tpch.TpchColumnTypes;
@@ -40,6 +47,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
 import org.apache.hudi.common.bootstrap.index.NoOpBootstrapIndex;
+import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieAvroRecord;
 import org.apache.hudi.common.model.HoodieKey;
@@ -60,6 +68,7 @@ import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
@@ -68,21 +77,24 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_DATE;
 import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.util.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
 import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
 public class TpchHudiTablesInitializer
         implements HudiTablesInitializer
@@ -92,11 +104,11 @@ public class TpchHudiTablesInitializer
     private static final String PARTITION_PATH = "";
     private static final Logger log = Logger.get(TpchHudiTablesInitializer.class);
     private static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
-            new Column("_hoodie_commit_time", HIVE_STRING, Optional.empty()),
-            new Column("_hoodie_commit_seqno", HIVE_STRING, Optional.empty()),
-            new Column("_hoodie_record_key", HIVE_STRING, Optional.empty()),
-            new Column("_hoodie_partition_path", HIVE_STRING, Optional.empty()),
-            new Column("_hoodie_file_name", HIVE_STRING, Optional.empty()));
+            new Column("_hoodie_commit_time", HIVE_STRING, Optional.empty(), Map.of()),
+            new Column("_hoodie_commit_seqno", HIVE_STRING, Optional.empty(), Map.of()),
+            new Column("_hoodie_record_key", HIVE_STRING, Optional.empty(), Map.of()),
+            new Column("_hoodie_partition_path", HIVE_STRING, Optional.empty(), Map.of()),
+            new Column("_hoodie_file_name", HIVE_STRING, Optional.empty(), Map.of()));
     private static final HdfsContext CONTEXT = new HdfsContext(SESSION);
 
     private final HoodieTableType tableType;
@@ -109,29 +121,41 @@ public class TpchHudiTablesInitializer
     }
 
     @Override
-    public void initializeTables(
-            QueryRunner queryRunner,
-            HiveMetastore metastore,
-            String schemaName,
-            String dataDir,
-            HdfsEnvironment hdfsEnvironment)
+    public void initializeTables(DistributedQueryRunner queryRunner, Location externalLocation, String schemaName)
+            throws Exception
     {
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog(TPCH_TINY.getCatalogName(), "tpch", ImmutableMap.of());
-        for (TpchTable<?> table : tpchTables) {
-            load(table, queryRunner, metastore, schemaName, dataDir, hdfsEnvironment);
+        TrinoFileSystem fileSystem = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
+                .getInstance(TrinoFileSystemFactory.class)
+                .create(ConnectorIdentity.ofUser("test"));
+        HiveMetastore metastore = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
+                        .getInstance(HiveMetastoreFactory.class)
+                        .createMetastore(Optional.empty());
+
+        Location dataLocation = externalLocation.appendPath("tpch");
+
+        java.nio.file.Path tempDir = createTempDirectory("test");
+        try {
+            for (TpchTable<?> tpchTable : tpchTables) {
+                java.nio.file.Path tempTableDir = tempDir.resolve(tpchTable.getTableName());
+                load(tpchTable, queryRunner, tempTableDir);
+
+                Location tableLocation = dataLocation.appendPath(tpchTable.getTableName());
+                ResourceHudiTablesInitializer.copyDir(tempTableDir, fileSystem, tableLocation);
+
+                Table table = createTableDefinition(schemaName, tpchTable, tableLocation);
+                metastore.createTable(table, PrincipalPrivileges.NO_PRIVILEGES);
+            }
+        }
+        finally {
+            deleteRecursively(tempDir, ALLOW_INSECURE);
         }
     }
 
-    private void load(
-            TpchTable<?> tpchTables,
-            QueryRunner queryRunner,
-            HiveMetastore metastore,
-            String schemaName,
-            String basePath,
-            HdfsEnvironment hdfsEnvironment)
+    public void load(TpchTable<?> tpchTables, DistributedQueryRunner queryRunner, java.nio.file.Path tableDirectory)
     {
-        try (HoodieJavaWriteClient<HoodieAvroPayload> writeClient = createWriteClient(tpchTables, basePath, hdfsEnvironment)) {
+        try (HoodieJavaWriteClient<HoodieAvroPayload> writeClient = createWriteClient(tpchTables, HDFS_ENVIRONMENT, new Path(tableDirectory.toUri()))) {
             RecordConverter recordConverter = createRecordConverter(tpchTables);
 
             @Language("SQL") String sql = generateScanSql(TPCH_TINY, tpchTables);
@@ -147,11 +171,9 @@ public class TpchHudiTablesInitializer
             writeClient.startCommitWithTime(timestamp);
             writeClient.insert(records, timestamp);
         }
-
-        metastore.createTable(createMetastoreTable(schemaName, tpchTables, basePath), NO_PRIVILEGES);
     }
 
-    private String generateScanSql(CatalogSchemaName catalogSchemaName, TpchTable<?> table)
+    private static String generateScanSql(CatalogSchemaName catalogSchemaName, TpchTable<?> table)
     {
         StringBuilder builder = new StringBuilder();
         builder.append("SELECT ");
@@ -165,12 +187,11 @@ public class TpchHudiTablesInitializer
         return builder.toString();
     }
 
-    private Table createMetastoreTable(String schemaName, TpchTable<?> table, String basePath)
+    private static Table createTableDefinition(String schemaName, TpchTable<?> table, Location location)
     {
-        String tablePath = getTablePath(table, basePath);
         List<Column> columns = Stream.of(HUDI_META_COLUMNS, createMetastoreColumns(table))
                 .flatMap(Collection::stream)
-                .collect(toUnmodifiableList());
+                .toList();
         StorageFormat storageFormat = StorageFormat.create(
                 PARQUET_HIVE_SERDE_CLASS,
                 HUDI_PARQUET_INPUT_FORMAT,
@@ -185,49 +206,45 @@ public class TpchHudiTablesInitializer
                 .setParameters(ImmutableMap.of("serialization.format", "1", "EXTERNAL", "TRUE"))
                 .withStorage(storageBuilder -> storageBuilder
                         .setStorageFormat(storageFormat)
-                        .setLocation(tablePath))
+                        .setLocation(location.toString()))
                 .build();
     }
 
-    private HoodieJavaWriteClient<HoodieAvroPayload> createWriteClient(TpchTable<?> table, String basePath, HdfsEnvironment hdfsEnvironment)
+    private static HoodieJavaWriteClient<HoodieAvroPayload> createWriteClient(TpchTable<?> table, HdfsEnvironment hdfsEnvironment, Path tablePath)
     {
-        String tableName = table.getTableName();
-        String tablePath = getTablePath(table, basePath);
         Schema schema = createAvroSchema(table);
-        Configuration conf = hdfsEnvironment.getConfiguration(CONTEXT, new Path(tablePath));
+        Configuration conf = hdfsEnvironment.getConfiguration(CONTEXT, tablePath);
 
         try {
             HoodieTableMetaClient.withPropertyBuilder()
-                    .setTableType(tableType)
-                    .setTableName(tableName)
+                    .setTableType(COPY_ON_WRITE)
+                    .setTableName(table.getTableName())
                     .setBootstrapIndexClass(NoOpBootstrapIndex.class.getName())
                     .setPayloadClassName(HoodieAvroPayload.class.getName())
                     .setRecordKeyFields(FIELD_UUID)
-                    .initTable(conf, tablePath);
+                    .initTable(conf, tablePath.toString());
         }
         catch (IOException e) {
-            throw new RuntimeException("Could not init table " + tableName, e);
+            throw new RuntimeException("Could not init table " + table.getTableName(), e);
         }
 
         HoodieIndexConfig indexConfig = HoodieIndexConfig.newBuilder().withIndexType(HoodieIndex.IndexType.INMEMORY).build();
         HoodieArchivalConfig archivalConfig = HoodieArchivalConfig.newBuilder().archiveCommitsWith(20, 30).build();
         HoodieWriteConfig cfg = HoodieWriteConfig.newBuilder()
-                .withPath(tablePath)
+                .withPath(tablePath.toString())
                 .withSchema(schema.toString())
                 .withParallelism(2, 2)
                 .withDeleteParallelism(2)
-                .forTable(tableName)
+                .forTable(table.getTableName())
                 .withIndexConfig(indexConfig)
                 .withArchivalConfig(archivalConfig)
                 .withEmbeddedTimelineServerEnabled(false)
                 .withMarkersType(MarkerType.DIRECT.name())
+                // Disabling Hudi metadata table (MDT) in tests as the support of
+                // reading MDT is broken after removal of Hudi dependencies from compile time
+                .withMetadataConfig(HoodieMetadataConfig.newBuilder().enable(false).build())
                 .build();
         return new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(conf), cfg);
-    }
-
-    private String getTablePath(TpchTable<?> table, String basePath)
-    {
-        return basePath + "/" + table.getTableName();
     }
 
     private static RecordConverter createRecordConverter(TpchTable<?> table)
@@ -238,11 +255,11 @@ public class TpchHudiTablesInitializer
         int numberOfColumns = columns.size();
         List<String> columnNames = columns.stream()
                 .map(TpchColumn::getSimplifiedColumnName)
-                .collect(toUnmodifiableList());
+                .toList();
         List<Function<Object, Object>> columnConverters = columns.stream()
                 .map(TpchColumn::getType)
                 .map(TpchHudiTablesInitializer::avroEncoderOf)
-                .collect(toUnmodifiableList());
+                .toList();
 
         return row -> {
             checkArgument(row.size() == numberOfColumns);
@@ -259,14 +276,7 @@ public class TpchHudiTablesInitializer
             // wrap to a HoodieRecord
             HoodieKey key = new HoodieKey(uuid, PARTITION_PATH);
             HoodieAvroPayload data = new HoodieAvroPayload(Option.of(record));
-            return new HoodieRecord<>(key, data)
-            {
-                @Override
-                public HoodieRecord<HoodieAvroPayload> newInstance()
-                {
-                    return new HoodieAvroRecord<>(key, data, null);
-                }
-            };
+            return new HoodieAvroRecord<>(key, data, null);
         };
     }
 
@@ -291,9 +301,9 @@ public class TpchHudiTablesInitializer
         List<Column> columns = new ArrayList<>(tpchColumns.size() + 1);
         for (TpchColumn<?> c : tpchColumns) {
             HiveType hiveType = TpchColumnTypeAdapter.toHiveType(c.getType());
-            columns.add(new Column(c.getSimplifiedColumnName(), hiveType, Optional.empty()));
+            columns.add(new Column(c.getSimplifiedColumnName(), hiveType, Optional.empty(), Map.of()));
         }
-        columns.add(new Column(FIELD_UUID, HIVE_STRING, Optional.empty()));
+        columns.add(new Column(FIELD_UUID, HIVE_STRING, Optional.empty(), Map.of()));
         return unmodifiableList(columns);
     }
 

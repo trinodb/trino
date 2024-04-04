@@ -18,8 +18,7 @@ import io.airlift.units.Duration;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.security.GeneralSecurityException;
@@ -60,24 +59,29 @@ public class TestJweTokenSerializer
         assertThat(deserializedTokenPair.refreshToken()).isEqualTo(Optional.of("refresh_token"));
     }
 
-    @Test(dataProvider = "wrongSecretsProvider")
-    public void testDeserializationWithWrongSecret(String encryptionSecret, String decryptionSecret)
+    @Test
+    public void testDeserializationWithWrongSecret()
     {
-        assertThatThrownBy(() -> assertRoundTrip(Optional.ofNullable(encryptionSecret), Optional.ofNullable(decryptionSecret)))
+        assertThatThrownBy(() -> assertRoundTrip(Optional.of(randomEncodedSecret()), Optional.of(randomEncodedSecret())))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("decryption failed: Tag mismatch");
-    }
 
-    @DataProvider
-    public Object[][] wrongSecretsProvider()
-    {
-        return new Object[][]{
-                {randomEncodedSecret(), randomEncodedSecret()},
-                {randomEncodedSecret(16), randomEncodedSecret(24)},
-                {null, null}, // This will generate two different secret keys
-                {null, randomEncodedSecret()},
-                {randomEncodedSecret(), null}
-        };
+        assertThatThrownBy(() -> assertRoundTrip(Optional.of(randomEncodedSecret(16)), Optional.of(randomEncodedSecret(24))))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("decryption failed: Tag mismatch");
+
+        // This will generate two different secret keys
+        assertThatThrownBy(() -> assertRoundTrip(Optional.empty(), Optional.empty()))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("decryption failed: Tag mismatch");
+
+        assertThatThrownBy(() -> assertRoundTrip(Optional.empty(), Optional.of(randomEncodedSecret())))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("decryption failed: Tag mismatch");
+
+        assertThatThrownBy(() -> assertRoundTrip(Optional.of(randomEncodedSecret()), Optional.empty()))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("decryption failed: Tag mismatch");
     }
 
     @Test

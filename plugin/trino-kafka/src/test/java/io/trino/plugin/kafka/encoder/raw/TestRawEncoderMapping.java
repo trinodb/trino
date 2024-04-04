@@ -23,7 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -33,7 +33,7 @@ import static io.trino.plugin.kafka.encoder.KafkaFieldType.MESSAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRawEncoderMapping
 {
@@ -78,6 +78,6 @@ public class TestRawEncoderMapping
         rowEncoder.appendColumnValue(varArrayBlock, 0);
         rowEncoder.appendColumnValue(varArrayBlock, 0);
 
-        assertEquals(buf.array(), rowEncoder.toByteArray());
+        assertThat(buf.array()).isEqualTo(rowEncoder.toByteArray());
     }
 }

@@ -19,7 +19,6 @@ public final class SerdeConstants
     public static final String SERIALIZATION_NULL_FORMAT = "serialization.null.format";
 
     public static final String FIELD_DELIM = "field.delim";
-    public static final String LINE_DELIM = "line.delim";
     public static final String ESCAPE_CHAR = "escape.delim";
 
     public static final String HEADER_COUNT = "skip.header.line.count";

@@ -143,7 +143,7 @@ public class BigQueryProxyConfig
             throw exception("BigQuery RPC proxy URI cannot specify path");
         }
 
-        if ((username.isPresent() && password.isEmpty())) {
+        if (username.isPresent() && password.isEmpty()) {
             throw exception("bigquery.rpc-proxy.username was set but bigquery.rpc-proxy.password is empty");
         }
 

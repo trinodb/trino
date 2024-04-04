@@ -17,9 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
 import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPageCodecMarker
 {
@@ -31,50 +29,50 @@ public class TestPageCodecMarker
         byte compressedAndEncrypted = ENCRYPTED.set(COMPRESSED.set(PageCodecMarker.none()));
 
         // Not set when no markers present
-        assertFalse(COMPRESSED.isSet(PageCodecMarker.none()));
-        assertFalse(ENCRYPTED.isSet(PageCodecMarker.none()));
+        assertThat(COMPRESSED.isSet(PageCodecMarker.none())).isFalse();
+        assertThat(ENCRYPTED.isSet(PageCodecMarker.none())).isFalse();
 
         // Setting Markers
-        assertTrue(COMPRESSED.isSet(compressed));
-        assertTrue(COMPRESSED.isSet(compressedAndEncrypted));
-        assertTrue(ENCRYPTED.isSet(encrypted));
-        assertTrue(ENCRYPTED.isSet(compressedAndEncrypted));
+        assertThat(COMPRESSED.isSet(compressed)).isTrue();
+        assertThat(COMPRESSED.isSet(compressedAndEncrypted)).isTrue();
+        assertThat(ENCRYPTED.isSet(encrypted)).isTrue();
+        assertThat(ENCRYPTED.isSet(compressedAndEncrypted)).isTrue();
 
         // Unsetting Markers
-        assertEquals(COMPRESSED.unset(compressed), PageCodecMarker.none());
-        assertEquals(ENCRYPTED.unset(encrypted), PageCodecMarker.none());
-        assertFalse(COMPRESSED.isSet(COMPRESSED.unset(compressedAndEncrypted)));
-        assertFalse(ENCRYPTED.isSet(ENCRYPTED.unset(compressedAndEncrypted)));
+        assertThat(COMPRESSED.unset(compressed)).isEqualTo(PageCodecMarker.none());
+        assertThat(ENCRYPTED.unset(encrypted)).isEqualTo(PageCodecMarker.none());
+        assertThat(COMPRESSED.isSet(COMPRESSED.unset(compressedAndEncrypted))).isFalse();
+        assertThat(ENCRYPTED.isSet(ENCRYPTED.unset(compressedAndEncrypted))).isFalse();
 
         // Summary String
-        assertEquals(PageCodecMarker.toSummaryString(PageCodecMarker.none()), "NONE");
-        assertEquals(PageCodecMarker.toSummaryString(encrypted), "ENCRYPTED");
-        assertEquals(PageCodecMarker.toSummaryString(compressed), "COMPRESSED");
-        assertEquals(PageCodecMarker.toSummaryString(compressedAndEncrypted), "COMPRESSED, ENCRYPTED");
+        assertThat(PageCodecMarker.toSummaryString(PageCodecMarker.none())).isEqualTo("NONE");
+        assertThat(PageCodecMarker.toSummaryString(encrypted)).isEqualTo("ENCRYPTED");
+        assertThat(PageCodecMarker.toSummaryString(compressed)).isEqualTo("COMPRESSED");
+        assertThat(PageCodecMarker.toSummaryString(compressedAndEncrypted)).isEqualTo("COMPRESSED, ENCRYPTED");
     }
 
     @Test
     public void testIsSet()
     {
-        assertEquals((byte) 0, PageCodecMarker.none());
+        assertThat((byte) 0).isEqualTo(PageCodecMarker.none());
 
         PageCodecMarker.MarkerSet markerSet = PageCodecMarker.MarkerSet.empty();
 
         for (PageCodecMarker marker : PageCodecMarker.values()) {
-            assertFalse(marker.isSet(PageCodecMarker.none()));
-            assertFalse(markerSet.contains(marker));
+            assertThat(marker.isSet(PageCodecMarker.none())).isFalse();
+            assertThat(markerSet.contains(marker)).isFalse();
 
             markerSet.add(marker);
-            assertTrue(markerSet.contains(marker));
-            assertTrue(marker.isSet(marker.set(PageCodecMarker.none())));
+            assertThat(markerSet.contains(marker)).isTrue();
+            assertThat(marker.isSet(marker.set(PageCodecMarker.none()))).isTrue();
 
             markerSet.remove(marker);
-            assertFalse(markerSet.contains(marker));
-            assertFalse(marker.isSet(marker.unset(marker.set(PageCodecMarker.none()))));
+            assertThat(markerSet.contains(marker)).isFalse();
+            assertThat(marker.isSet(marker.unset(marker.set(PageCodecMarker.none())))).isFalse();
 
             for (PageCodecMarker other : PageCodecMarker.values()) {
-                assertEquals(other == marker, PageCodecMarker.MarkerSet.of(marker).contains(other));
-                assertEquals(other == marker, other.isSet(marker.set(PageCodecMarker.none())));
+                assertThat(other == marker).isEqualTo(PageCodecMarker.MarkerSet.of(marker).contains(other));
+                assertThat(other == marker).isEqualTo(other.isSet(marker.set(PageCodecMarker.none())));
             }
         }
     }
@@ -95,20 +93,20 @@ public class TestPageCodecMarker
     public void testSummaryString()
     {
         byte allMarkers = PageCodecMarker.none();
-        assertEquals(PageCodecMarker.toSummaryString(PageCodecMarker.none()), "NONE");
+        assertThat(PageCodecMarker.toSummaryString(PageCodecMarker.none())).isEqualTo("NONE");
         for (PageCodecMarker marker : PageCodecMarker.values()) {
-            assertEquals(PageCodecMarker.toSummaryString(marker.set(PageCodecMarker.none())), marker.name());
-            assertTrue(PageCodecMarker.MarkerSet.of(marker).toString().contains(marker.name()));
+            assertThat(PageCodecMarker.toSummaryString(marker.set(PageCodecMarker.none()))).isEqualTo(marker.name());
+            assertThat(PageCodecMarker.MarkerSet.of(marker).toString().contains(marker.name())).isTrue();
             allMarkers = marker.set(allMarkers);
         }
 
         PageCodecMarker.MarkerSet allInSet = PageCodecMarker.MarkerSet.fromByteValue(allMarkers);
         String allMarkersSummary = PageCodecMarker.toSummaryString(allMarkers);
-        assertTrue(allInSet.toString().contains(allMarkersSummary));
+        assertThat(allInSet.toString().contains(allMarkersSummary)).isTrue();
 
         for (PageCodecMarker marker : PageCodecMarker.values()) {
-            assertTrue(allMarkersSummary.contains(marker.name()));
-            assertTrue(allInSet.contains(marker));
+            assertThat(allMarkersSummary.contains(marker.name())).isTrue();
+            assertThat(allInSet.contains(marker)).isTrue();
         }
     }
 }

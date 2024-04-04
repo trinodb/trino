@@ -17,6 +17,7 @@ properties, refer to the {doc}`connector documentation </connector/>`.
 General <properties-general>
 Resource management <properties-resource-management>
 Query management <properties-query-management>
+Catalog management <properties-catalog>
 SQL environment <properties-sql-environment>
 Spilling <properties-spilling>
 Exchange <properties-exchange>

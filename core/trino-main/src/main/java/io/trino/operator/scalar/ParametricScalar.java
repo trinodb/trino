@@ -127,7 +127,7 @@ public class ParametricScalar
         ParametricScalarImplementation exactImplementation = implementations.getExactImplementations().get(boundSignature.toSignature());
         if (exactImplementation != null) {
             Optional<SpecializedSqlScalarFunction> scalarFunctionImplementation = exactImplementation.specialize(functionBinding, functionDependencies);
-            checkCondition(scalarFunctionImplementation.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, format("Exact implementation of %s do not match expected java types.", boundSignature.getName()));
+            checkCondition(scalarFunctionImplementation.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, "Exact implementation of %s do not match expected java types", boundSignature.getName());
             return scalarFunctionImplementation.get();
         }
 

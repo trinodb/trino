@@ -18,9 +18,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLong2LongOpenBigHashMap
 {
@@ -31,10 +29,10 @@ public class TestLong2LongOpenBigHashMap
         Long2LongOpenBigHashMap map = new Long2LongOpenBigHashMap(expected);
         map.defaultReturnValue(-1);
 
-        assertTrue(map.isEmpty());
-        assertEquals(map.size(), 0);
-        assertEquals(map.get(0), -1);
-        assertEquals(map.get(1), -1);
+        assertThat(map.isEmpty()).isTrue();
+        assertThat(map.size()).isEqualTo(0);
+        assertThat(map.get(0)).isEqualTo(-1);
+        assertThat(map.get(1)).isEqualTo(-1);
 
         List<Long> values = Arrays.asList(Long.MIN_VALUE, -10L, 0L, 10L, Long.MAX_VALUE);
 
@@ -42,34 +40,34 @@ public class TestLong2LongOpenBigHashMap
         int count = 0;
         for (long key : values) {
             count++;
-            assertEquals(map.put(key, count - 1), -1);
-            assertFalse(map.isEmpty());
-            assertEquals(map.size(), count);
+            assertThat(map.put(key, count - 1)).isEqualTo(-1);
+            assertThat(map.isEmpty()).isFalse();
+            assertThat(map.size()).isEqualTo(count);
         }
 
         // Replace
         count = 0;
         for (long key : values) {
             count++;
-            assertTrue(map.replace(key, count - 1, count));
-            assertFalse(map.isEmpty());
-            assertEquals(map.size(), values.size());
+            assertThat(map.replace(key, count - 1, count)).isTrue();
+            assertThat(map.isEmpty()).isFalse();
+            assertThat(map.size()).isEqualTo(values.size());
         }
 
         // Get
         count = 0;
         for (long key : values) {
             count++;
-            assertTrue(map.containsKey(key));
-            assertTrue(map.containsValue(count));
-            assertEquals(map.get(key), count);
+            assertThat(map.containsKey(key)).isTrue();
+            assertThat(map.containsValue(count)).isTrue();
+            assertThat(map.get(key)).isEqualTo(count);
         }
 
         // Remove
         count = 0;
         for (long key : values) {
             count++;
-            assertEquals(map.remove(key), count);
+            assertThat(map.remove(key)).isEqualTo(count);
         }
     }
 
@@ -83,11 +81,11 @@ public class TestLong2LongOpenBigHashMap
         // Inserting 1M elements should be enough to trigger some rehashes given an initial capacity of 1.
 
         for (long key = 0; key < 1_000_000; key++) {
-            assertEquals(map.put(key, key + 1), -1);
+            assertThat(map.put(key, key + 1)).isEqualTo(-1);
         }
 
         for (long key = 0; key < 1_000_000; key++) {
-            assertEquals(map.get(key), key + 1);
+            assertThat(map.get(key)).isEqualTo(key + 1);
         }
 
         // Remove most of the elements and force a trim()
@@ -97,6 +95,6 @@ public class TestLong2LongOpenBigHashMap
         map.trim();
 
         // Make sure we can still fetch the remaining key
-        assertEquals(map.get(0), 1);
+        assertThat(map.get(0)).isEqualTo(1);
     }
 }

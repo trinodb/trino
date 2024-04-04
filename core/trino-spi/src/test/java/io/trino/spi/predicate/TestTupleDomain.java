@@ -462,6 +462,16 @@ public class TestTupleDomain
                 ImmutableMap.of(
                         A, Domain.singleValue(BIGINT, 0L),
                         B, Domain.none(VARCHAR)))).isTrue();
+
+        assertThat(contains(
+                ImmutableMap.of(A, Domain.singleValue(DOUBLE, 0.0)),
+                ImmutableMap.of(A, Domain.singleValue(DOUBLE, -0.0))))
+                .isTrue();
+
+        assertThat(contains(
+                ImmutableMap.of(A, Domain.singleValue(DOUBLE, -0.0)),
+                ImmutableMap.of(A, Domain.singleValue(DOUBLE, 0.0))))
+                .isTrue();
     }
 
     @Test
@@ -575,6 +585,11 @@ public class TestTupleDomain
                 ImmutableMap.of(
                         A, Domain.singleValue(BIGINT, 0L),
                         C, Domain.singleValue(DOUBLE, 0.0)))).isFalse();
+
+        assertThat(equals(
+                ImmutableMap.of(A, Domain.singleValue(DOUBLE, 0.0)),
+                ImmutableMap.of(A, Domain.singleValue(DOUBLE, -0.0))))
+                .isTrue();
     }
 
     @Test

@@ -14,6 +14,8 @@
 
 package io.trino.plugin.hive.security;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.plugin.base.security.ForwardingConnectorAccessControl;
 import io.trino.plugin.hive.SystemTableProvider;
@@ -22,9 +24,12 @@ import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.util.SystemTables.getSourceTableNameFromSystemTable;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
@@ -67,13 +72,23 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
-    public Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
+    public Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return tableColumns.entrySet().stream()
+                .collect(toImmutableMap(
+                        Entry::getKey,
+                        // TODO call delegate.filterColumns in bulk
+                        entry -> filterColumns(context, entry.getKey(), entry.getValue())));
+    }
+
+    private Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
         Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(systemTableProviders, tableName);
         if (sourceTableName.isPresent()) {
+            // TODO system table may have quite different columns that its source table. It's unclear why it's a good idea to conflate the two.
             return filterColumns(context, sourceTableName.get(), columns);
         }
-        return delegate.filterColumns(context, tableName, columns);
+        return delegate.filterColumns(context, ImmutableMap.of(tableName, columns)).getOrDefault(tableName, ImmutableSet.of());
     }
 
     @Override

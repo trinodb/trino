@@ -35,7 +35,13 @@ public class HadoopIcebergTableOperationsProvider
     }
 
     @Override
-    public IcebergTableOperations createTableOperations(TrinoCatalog catalog, ConnectorSession session, String database, String table, Optional<String> owner, Optional<String> location)
+    public IcebergTableOperations createTableOperations(
+            TrinoCatalog catalog,
+            ConnectorSession session,
+            String database,
+            String table,
+            Optional<String> owner,
+            Optional<String> location)
     {
         return new HadoopIcebergTableOperations(
                 new ForwardingFileIo(fileSystemFactory.create(session)),

@@ -56,10 +56,10 @@ public class TaskManagerConfig
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private Integer minDrivers;
-    private int initialSplitsPerNode = Runtime.getRuntime().availableProcessors() * 4;
+    private int initialSplitsPerNode = maxWorkerThreads;
     private int minDriversPerTask = 3;
     private int maxDriversPerTask = Integer.MAX_VALUE;
-    private Duration splitConcurrencyAdjustmentInterval = new Duration(1, TimeUnit.SECONDS);
+    private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private DataSize sinkMaxBroadcastBufferSize = DataSize.of(200, Unit.MEGABYTE);
@@ -100,6 +100,7 @@ public class TaskManagerConfig
 
     private int taskNotificationThreads = 5;
     private int taskYieldThreads = 3;
+    private int driverTimeoutThreads = 5;
 
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
 
@@ -566,6 +567,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
     {
         this.taskYieldThreads = taskYieldThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getDriverTimeoutThreads()
+    {
+        return driverTimeoutThreads;
+    }
+
+    @Config("task.driver-timeout-threads")
+    @ConfigDescription("Number of threads used for timing out blocked drivers if the timeout is set")
+    public TaskManagerConfig setDriverTimeoutThreads(int driverTimeoutThreads)
+    {
+        this.driverTimeoutThreads = driverTimeoutThreads;
         return this;
     }
 

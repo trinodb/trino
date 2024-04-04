@@ -26,7 +26,7 @@ import static io.trino.client.ClientStandardTypes.VARBINARY;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMarkdownTablePrinter
 {
@@ -60,7 +60,7 @@ public class TestMarkdownTablePrinter
                 "| some long<br>text that<br>does not<br>fit on<br>one line | more<br>text |     4567 |\n" +
                 "| bye \\| not \\*\\*& \\<a\\>\\*\\*                               | done         |      -15 |\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -82,7 +82,7 @@ public class TestMarkdownTablePrinter
                 "| ------------------------------- | ---- |\n" +
                 "| a long line<br>without wrapping | text |\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -100,7 +100,7 @@ public class TestMarkdownTablePrinter
 
         String expected = "";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -129,7 +129,7 @@ public class TestMarkdownTablePrinter
                 "| a     | 73 6f 6d 65 20 6c 6f 6e 67 20 74 65 78 74 20 74<br>68 61 74 20 69 73 20 6d 6f 72 65 20 74 68 61 6e<br>20 31 36 20 62 79 74 65 73 | b     |\n" +
                 "| cat   |                                                                                                                                  | dog   |\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -158,7 +158,7 @@ public class TestMarkdownTablePrinter
                 "| some long<br>text \u7f51<br>does not\u7f51<br>fit | more<br>text |       4567 |\n" +
                 "| bye                                       | done         |        -15 |\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     static Column column(String name, String type)

@@ -13,51 +13,65 @@
  */
 package io.trino.plugin.hive.avro;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.local.LocalFileSystem;
-import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.serde2.avro.AvroSerdeUtils;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static io.trino.plugin.hive.HiveType.HIVE_STRING;
+import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.avro.AvroHiveConstants.TABLE_NAME;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAvroSchemaGeneration
 {
     @Test
     public void testOldVsNewSchemaGeneration()
-            throws IOException
+            throws Exception
     {
-        Properties properties = new Properties();
-        properties.setProperty(TABLE_NAME, "testingTable");
-        properties.setProperty(LIST_COLUMNS, "a,b");
-        properties.setProperty(LIST_COLUMN_TYPES, Stream.of(HiveType.HIVE_INT, HiveType.HIVE_STRING).map(HiveType::getTypeInfo).map(TypeInfo::toString).collect(Collectors.joining(",")));
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put(TABLE_NAME, "testingTable")
+                .put(LIST_COLUMNS, "a,b")
+                .put(LIST_COLUMN_TYPES, Stream.of(HiveType.HIVE_INT, HIVE_STRING).map(HiveType::getTypeInfo).map(TypeInfo::toString).collect(Collectors.joining(",")))
+                .buildOrThrow();
         Schema actual = AvroHiveFileUtils.determineSchemaOrThrowException(new LocalFileSystem(Path.of("/")), properties);
-        Schema expected = new TrinoAvroSerDe().determineSchemaOrReturnErrorSchema(ConfigurationInstantiator.newEmptyConfiguration(), properties);
+        Schema expected = AvroSerdeUtils.determineSchemaOrThrowException(new Configuration(false), toProperties(properties));
         assertThat(actual).isEqualTo(expected);
     }
 
     @Test
     public void testOldVsNewSchemaGenerationWithNested()
-            throws IOException
+            throws Exception
     {
-        Properties properties = new Properties();
-        properties.setProperty(TABLE_NAME, "testingTable");
-        properties.setProperty(LIST_COLUMNS, "a,b");
-        properties.setProperty(LIST_COLUMN_TYPES, Stream.of(HiveType.toHiveType(RowType.rowType(RowType.field("a", VarcharType.VARCHAR))), HiveType.HIVE_STRING).map(HiveType::getTypeInfo).map(TypeInfo::toString).collect(Collectors.joining(",")));
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put(TABLE_NAME, "testingTable")
+                .put(LIST_COLUMNS, "a,b")
+                .put(LIST_COLUMN_TYPES, toHiveType(RowType.rowType(RowType.field("a", VARCHAR))) + "," + HIVE_STRING)
+                .buildOrThrow();
         Schema actual = AvroHiveFileUtils.determineSchemaOrThrowException(new LocalFileSystem(Path.of("/")), properties);
-        Schema expected = new TrinoAvroSerDe().determineSchemaOrReturnErrorSchema(ConfigurationInstantiator.newEmptyConfiguration(), properties);
+
+        Schema expected = AvroSerdeUtils.determineSchemaOrThrowException(new Configuration(false), toProperties(properties));
         assertThat(actual).isEqualTo(expected);
+    }
+
+    private static Properties toProperties(Map<String, String> properties)
+    {
+        Properties hiveProperties = new Properties();
+        hiveProperties.putAll(properties);
+        return hiveProperties;
     }
 }

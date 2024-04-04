@@ -19,7 +19,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.local.LocalInputFile;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
@@ -35,7 +34,6 @@ import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -111,11 +109,6 @@ public final class IcebergTestUtils
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    public static boolean checkParquetFileSorting(String path, String sortColumnName)
-    {
-        return checkParquetFileSorting(new LocalInputFile(new File(path)), sortColumnName);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

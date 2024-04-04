@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation.listagg;
 
 import com.google.common.primitives.Ints;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
@@ -40,6 +41,7 @@ public class GroupListaggAggregationState
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, LITTLE_ENDIAN);
 
     private final int recordNextIndexOffset;
+    private final DynamicSliceOutput out = new DynamicSliceOutput(0);
 
     private long[] groupHeadPositions = new long[0];
     private long[] groupTailPositions = new long[0];
@@ -130,7 +132,9 @@ public class GroupListaggAggregationState
             blockBuilder.appendNull();
             return;
         }
-        blockBuilder.buildEntry(this::write);
+        out.reset();
+        write(out);
+        blockBuilder.writeEntry(out.slice());
     }
 
     private void write(SliceOutput out)

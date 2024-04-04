@@ -38,7 +38,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 
-public class IcebergAvroFileWriter
+public final class IcebergAvroFileWriter
         implements IcebergFileWriter
 {
     private static final int INSTANCE_SIZE = instanceSize(IcebergAvroFileWriter.class);

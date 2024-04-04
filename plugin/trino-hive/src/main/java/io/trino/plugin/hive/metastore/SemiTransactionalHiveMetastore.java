@@ -42,7 +42,6 @@ import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.PartitionUpdateAndMergeResults;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableInvalidationCallback;
 import io.trino.plugin.hive.acid.AcidOperation;
@@ -52,6 +51,7 @@ import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
 import io.trino.plugin.hive.util.ValidTxnWriteIdList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -101,7 +101,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
@@ -240,7 +240,7 @@ public class SemiTransactionalHiveMetastore
         if (!tableActions.isEmpty()) {
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
-        return delegate.getAllTables(databaseName);
+        return delegate.getTables(databaseName);
     }
 
     public synchronized Optional<List<SchemaTableName>> getAllTables()
@@ -250,6 +250,24 @@ public class SemiTransactionalHiveMetastore
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
         return delegate.getAllTables();
+    }
+
+    public synchronized Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all relations after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getRelationTypes(databaseName);
+    }
+
+    public synchronized Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all relations after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getAllRelationTypes();
     }
 
     public synchronized Optional<Table> getTable(String databaseName, String tableName)
@@ -423,7 +441,7 @@ public class SemiTransactionalHiveMetastore
         if (!tableActions.isEmpty()) {
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
-        return delegate.getAllViews(databaseName);
+        return delegate.getViews(databaseName);
     }
 
     public synchronized Optional<List<SchemaTableName>> getAllViews()
@@ -445,26 +463,7 @@ public class SemiTransactionalHiveMetastore
                 "Database '%s' does not have correct query id set",
                 database.getDatabaseName());
 
-        setExclusive(delegate -> {
-            try {
-                delegate.createDatabase(database);
-            }
-            catch (SchemaAlreadyExistsException e) {
-                // Ignore SchemaAlreadyExistsException when database looks like created by us.
-                // This may happen when an actually successful metastore create call is retried
-                // e.g. because of a timeout on our side.
-                Optional<Database> existingDatabase = delegate.getDatabase(database.getDatabaseName());
-                if (existingDatabase.isEmpty() || !isCreatedBy(existingDatabase.get(), queryId)) {
-                    throw e;
-                }
-            }
-        });
-    }
-
-    private static boolean isCreatedBy(Database database, String queryId)
-    {
-        Optional<String> databaseQueryId = getQueryId(database);
-        return databaseQueryId.isPresent() && databaseQueryId.get().equals(queryId);
+        setExclusive(delegate -> delegate.createDatabase(database));
     }
 
     public synchronized void dropDatabase(ConnectorSession session, String schemaName)
@@ -749,7 +748,7 @@ public class SemiTransactionalHiveMetastore
         }
 
         Location location = Location.of(table.getStorage().getLocation());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         setExclusive(delegate -> {
             RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(fileSystem, location, ImmutableSet.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
@@ -791,8 +790,7 @@ public class SemiTransactionalHiveMetastore
                                     table,
                                     Optional.of(principalPrivileges),
                                     Optional.of(currentLocation),
-                                    partitionUpdateAndMergeResults,
-                                    partitions),
+                                    partitionUpdateAndMergeResults),
                             session.getIdentity(),
                             session.getQueryId()));
             return;
@@ -1150,13 +1148,6 @@ public class SemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        checkReadable();
-        return delegate.listGrantedPrincipals(role);
-    }
-
-    @Override
     public synchronized Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         checkReadable();
@@ -1245,7 +1236,7 @@ public class SemiTransactionalHiveMetastore
     public synchronized Collection<LanguageFunction> getFunctions(String schemaName)
     {
         checkReadable();
-        return delegate.getFunctions(schemaName);
+        return delegate.getAllFunctions(schemaName);
     }
 
     public synchronized Collection<LanguageFunction> getFunctions(SchemaFunctionName name)
@@ -2743,17 +2734,17 @@ public class SemiTransactionalHiveMetastore
 
     private static Optional<String> getQueryId(Database database)
     {
-        return Optional.ofNullable(database.getParameters().get(PRESTO_QUERY_ID_NAME));
+        return Optional.ofNullable(database.getParameters().get(TRINO_QUERY_ID_NAME));
     }
 
     private static Optional<String> getQueryId(Table table)
     {
-        return Optional.ofNullable(table.getParameters().get(PRESTO_QUERY_ID_NAME));
+        return Optional.ofNullable(table.getParameters().get(TRINO_QUERY_ID_NAME));
     }
 
     private static Optional<String> getQueryId(Partition partition)
     {
-        return Optional.ofNullable(partition.getParameters().get(PRESTO_QUERY_ID_NAME));
+        return Optional.ofNullable(partition.getParameters().get(TRINO_QUERY_ID_NAME));
     }
 
     private static Location asFileLocation(Location location)
@@ -2949,18 +2940,11 @@ public class SemiTransactionalHiveMetastore
             extends TableAndMore
     {
         private final List<PartitionUpdateAndMergeResults> partitionMergeResults;
-        private final List<Partition> partitions;
 
-        public TableAndMergeResults(Table table, Optional<PrincipalPrivileges> principalPrivileges, Optional<Location> currentLocation, List<PartitionUpdateAndMergeResults> partitionMergeResults, List<Partition> partitions)
+        public TableAndMergeResults(Table table, Optional<PrincipalPrivileges> principalPrivileges, Optional<Location> currentLocation, List<PartitionUpdateAndMergeResults> partitionMergeResults)
         {
             super(table, principalPrivileges, currentLocation, Optional.empty(), false, PartitionStatistics.empty(), PartitionStatistics.empty(), false); // retries are not supported for transactional tables
             this.partitionMergeResults = requireNonNull(partitionMergeResults, "partitionMergeResults is null");
-            this.partitions = requireNonNull(partitions, "partitions is nul");
-        }
-
-        public List<Partition> getPartitions()
-        {
-            return partitions;
         }
 
         @Override
@@ -2969,7 +2953,6 @@ public class SemiTransactionalHiveMetastore
             return toStringHelper(this)
                     .add("table", getTable())
                     .add("partitionMergeResults", partitionMergeResults)
-                    .add("partitions", partitions)
                     .add("principalPrivileges", getPrincipalPrivileges())
                     .add("currentLocation", getCurrentLocation())
                     .toString();
@@ -3382,7 +3365,7 @@ public class SemiTransactionalHiveMetastore
         public void run(HiveMetastoreClosure metastore, AcidTransaction transaction)
         {
             if (partitionName.isPresent()) {
-                metastore.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::updateStatistics);
+                metastore.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::updateStatistics);
             }
             else {
                 metastore.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), transaction, this::updateStatistics);
@@ -3396,7 +3379,7 @@ public class SemiTransactionalHiveMetastore
                 return;
             }
             if (partitionName.isPresent()) {
-                metastore.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::resetStatistics);
+                metastore.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::resetStatistics);
             }
             else {
                 metastore.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), transaction, this::resetStatistics);
@@ -3577,19 +3560,9 @@ public class SemiTransactionalHiveMetastore
         delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange);
     }
 
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
-    {
-        delegate.alterPartitions(dbName, tableName, partitions, writeId);
-    }
-
     public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
         delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
-    }
-
-    public void commitTransaction(long transactionId)
-    {
-        delegate.commitTransaction(transactionId);
     }
 
     public static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, Location path, Set<String> filesToKeep)

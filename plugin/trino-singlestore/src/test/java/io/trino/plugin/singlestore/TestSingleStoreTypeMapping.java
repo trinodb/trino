@@ -29,9 +29,10 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -73,10 +74,14 @@ import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 /**
  * @see <a href="https://docs.singlestore.com/db/latest/en/reference/sql-reference/data-types.html">SingleStore (MemSQL) data types</a>
  */
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestSingleStoreTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -100,7 +105,7 @@ public class TestSingleStoreTypeMapping
         return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
@@ -414,8 +419,14 @@ public class TestSingleStoreTypeMapping
         }
     }
 
-    @Test(dataProvider = "testDecimalExceedingPrecisionMaxProvider")
-    public void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
+    @Test
+    public void testDecimalExceedingPrecisionMaxWithSupportedValues()
+    {
+        testDecimalExceedingPrecisionMaxWithSupportedValues(40, 8);
+        testDecimalExceedingPrecisionMaxWithSupportedValues(50, 10);
+    }
+
+    private void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
     {
         try (TestTable testTable = new TestTable(
                 singleStoreServer::execute,
@@ -463,15 +474,6 @@ public class TestSingleStoreTypeMapping
                     "SELECT d_col FROM " + testTable.getName(),
                     "VALUES (12.01), (-12.01), (123), (-123), (1.12345678), (-1.12345678)");
         }
-    }
-
-    @DataProvider
-    public Object[][] testDecimalExceedingPrecisionMaxProvider()
-    {
-        return new Object[][] {
-                {40, 8},
-                {50, 10},
-        };
     }
 
     private Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
@@ -628,8 +630,19 @@ public class TestSingleStoreTypeMapping
                 .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_binary"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
+    {
+        testDate(UTC);
+        testDate(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testDate(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testDate(ZoneId.of("Asia/Kathmandu"));
+        testDate(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -658,8 +671,19 @@ public class TestSingleStoreTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTime(ZoneId sessionZone)
+    @Test
+    public void testTime()
+    {
+        testTime(UTC);
+        testTime(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTime(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testTime(ZoneId.of("Asia/Kathmandu"));
+        testTime(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTime(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -712,8 +736,16 @@ public class TestSingleStoreTypeMapping
                 .execute(getQueryRunner(), session, singleStoreCreateAndInsert("tpch.test_time"));
     }
 
-    @Test(dataProvider = "unsupportedTimeDataProvider")
-    public void testUnsupportedTime(String unsupportedTime)
+    @Test
+    public void testUnsupportedTime()
+    {
+        testUnsupportedTime("-838:59:59"); // min value in SingleStore
+        testUnsupportedTime("-00:00:01");
+        testUnsupportedTime("24:00:00");
+        testUnsupportedTime("838:59:59"); // max value in SingleStore
+    }
+
+    private void testUnsupportedTime(String unsupportedTime)
     {
         // SingleStore stores incorrect results when the values are out of supported range. This test should be fixed when SingleStore changes the behavior
         try (TestTable table = new TestTable(singleStoreServer::execute, "tpch.test_unsupported_time", "(col time)", ImmutableList.of(format("'%s'", unsupportedTime)))) {
@@ -729,18 +761,19 @@ public class TestSingleStoreTypeMapping
         }
     }
 
-    @DataProvider
-    public Object[][] unsupportedTimeDataProvider()
+    @Test
+    public void testUnsupportedTimePrecision()
     {
-        return new Object[][] {
-                {"-838:59:59"}, // min value in SingleStore
-                {"-00:00:01"},
-                {"24:00:00"},
-                {"838:59:59"}, // max value in SingleStore
-        };
+        testUnsupportedTimePrecision(1);
+        testUnsupportedTimePrecision(2);
+        testUnsupportedTimePrecision(3);
+        testUnsupportedTimePrecision(4);
+        testUnsupportedTimePrecision(5);
+        testUnsupportedTimePrecision(7);
+        testUnsupportedTimePrecision(8);
+        testUnsupportedTimePrecision(9);
     }
 
-    @Test(dataProvider = "unsupportedDateTimePrecisions")
     public void testUnsupportedTimePrecision(int precision)
     {
         // This test should be fixed if future SingleStore supports those precisions
@@ -748,8 +781,19 @@ public class TestSingleStoreTypeMapping
                 .hasMessageContaining("Feature 'TIME type with precision other than 0 or 6' is not supported by MemSQL.");
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDatetime(ZoneId sessionZone)
+    @Test
+    public void testDatetime()
+    {
+        testDatetime(UTC);
+        testDatetime(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testDatetime(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testDatetime(ZoneId.of("Asia/Kathmandu"));
+        testDatetime(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDatetime(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -805,8 +849,19 @@ public class TestSingleStoreTypeMapping
                 .execute(getQueryRunner(), session, singleStoreCreateAndInsert("tpch.test_datetime"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestamp(ZoneId sessionZone)
+    @Test
+    public void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimestamp(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testTimestamp(ZoneId.of("Asia/Kathmandu"));
+        testTimestamp(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -852,8 +907,19 @@ public class TestSingleStoreTypeMapping
                 .execute(getQueryRunner(), session, singleStoreCreateAndInsert("tpch.test_timestamp"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestampWrite(ZoneId sessionZone)
+    @Test
+    public void testTimestampWrite()
+    {
+        testTimestampWrite(UTC);
+        testTimestampWrite(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimestampWrite(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testTimestampWrite(ZoneId.of("Asia/Kathmandu"));
+        testTimestampWrite(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestampWrite(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -914,22 +980,20 @@ public class TestSingleStoreTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_datetime"));
     }
 
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
+    @Test
+    public void testUnsupportedDateTimePrecision()
     {
-        return new Object[][] {
-                {UTC},
-                {ZoneId.systemDefault()},
-                // no DST in 1970, but has DST in later years (e.g. 2018)
-                {ZoneId.of("Europe/Vilnius")},
-                // minutes offset change since 1970-01-01, no DST
-                {ZoneId.of("Asia/Kathmandu")},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
+        testUnsupportedDateTimePrecision(1);
+        testUnsupportedDateTimePrecision(2);
+        testUnsupportedDateTimePrecision(3);
+        testUnsupportedDateTimePrecision(4);
+        testUnsupportedDateTimePrecision(5);
+        testUnsupportedDateTimePrecision(7);
+        testUnsupportedDateTimePrecision(8);
+        testUnsupportedDateTimePrecision(9);
     }
 
-    @Test(dataProvider = "unsupportedDateTimePrecisions")
-    public void testUnsupportedDateTimePrecision(int precision)
+    private void testUnsupportedDateTimePrecision(int precision)
     {
         // This test should be fixed if future SingleStore supports those precisions
         assertThatThrownBy(() -> singleStoreServer.execute(format("CREATE TABLE test_unsupported_timestamp_precision (col1 TIMESTAMP(%s))", precision)))
@@ -937,21 +1001,6 @@ public class TestSingleStoreTypeMapping
 
         assertThatThrownBy(() -> singleStoreServer.execute(format("CREATE TABLE test_unsupported_datetime_precision (col1 DATETIME(%s))", precision)))
                 .hasMessageContaining("Feature 'DATETIME type with precision other than 0 or 6' is not supported by MemSQL.");
-    }
-
-    @DataProvider
-    public Object[][] unsupportedDateTimePrecisions()
-    {
-        return new Object[][] {
-                {1},
-                {2},
-                {3},
-                {4},
-                {5},
-                {7},
-                {8},
-                {9},
-        };
     }
 
     @Test

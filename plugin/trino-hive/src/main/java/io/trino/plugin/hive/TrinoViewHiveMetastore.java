@@ -73,7 +73,7 @@ public final class TrinoViewHiveMetastore
                 .setTableName(schemaViewName.getTableName())
                 .setOwner(isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser()))
                 .setTableType(VIRTUAL_VIEW.name())
-                .setDataColumns(ImmutableList.of(new Column("dummy", HIVE_STRING, Optional.empty())))
+                .setDataColumns(ImmutableList.of(new Column("dummy", HIVE_STRING, Optional.empty(), Map.of())))
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(createViewProperties(session, trinoVersion, connectorName))
                 .setViewOriginalText(Optional.of(encodeViewData(definition)))
@@ -143,7 +143,7 @@ public final class TrinoViewHiveMetastore
                 getView(name).ifPresent(view -> views.put(name, view));
             }
             catch (TrinoException e) {
-                if (e.getErrorCode().equals(TABLE_NOT_FOUND.toErrorCode())) {
+                if (e.getErrorCode().equals(TABLE_NOT_FOUND.toErrorCode()) || e instanceof TableNotFoundException || e instanceof ViewNotFoundException) {
                     // Ignore view that was dropped during query execution (race condition)
                 }
                 else {

@@ -23,11 +23,13 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,30 +43,19 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNotSame;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDictionaryAwarePageProjection
 {
     private static final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("TestDictionaryAwarePageProjection-%s"));
 
-    @DataProvider(name = "forceYield")
-    public static Object[][] forceYieldAndProduceLazyBlock()
-    {
-        return new Object[][] {
-                {true, false},
-                {false, true},
-                {false, false}};
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
@@ -74,59 +65,71 @@ public class TestDictionaryAwarePageProjection
     public void testDelegateMethods()
     {
         DictionaryAwarePageProjection projection = createProjection(false);
-        assertEquals(projection.isDeterministic(), true);
-        assertEquals(projection.getInputChannels().getInputChannels(), ImmutableList.of(3));
-        assertEquals(projection.getType(), BIGINT);
+        assertThat(projection.isDeterministic()).isEqualTo(true);
+        assertThat(projection.getInputChannels().getInputChannels()).isEqualTo(ImmutableList.of(3));
+        assertThat(projection.getType()).isEqualTo(BIGINT);
     }
 
-    @Test(dataProvider = "forceYield")
-    public void testSimpleBlock(boolean forceYield, boolean produceLazyBlock)
+    @Test
+    public void testSimpleBlock()
     {
-        Block block = createLongSequenceBlock(0, 100);
-        testProject(block, block.getClass(), forceYield, produceLazyBlock);
+        ValueBlock block = createLongSequenceBlock(0, 100);
+        testProject(block, block.getClass(), true, false);
+        testProject(block, block.getClass(), false, true);
+        testProject(block, block.getClass(), false, false);
     }
 
-    @Test(dataProvider = "forceYield")
-    public void testRleBlock(boolean forceYield, boolean produceLazyBlock)
+    @Test
+    public void testRleBlock()
     {
         Block value = createLongSequenceBlock(42, 43);
         RunLengthEncodedBlock block = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(value, 100);
 
-        testProject(block, RunLengthEncodedBlock.class, forceYield, produceLazyBlock);
+        testProject(block, RunLengthEncodedBlock.class, true, false);
+        testProject(block, RunLengthEncodedBlock.class, false, true);
+        testProject(block, RunLengthEncodedBlock.class, false, false);
     }
 
-    @Test(dataProvider = "forceYield")
-    public void testRleBlockWithFailure(boolean forceYield, boolean produceLazyBlock)
+    @Test
+    public void testRleBlockWithFailure()
     {
         Block value = createLongSequenceBlock(-43, -42);
         RunLengthEncodedBlock block = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(value, 100);
 
-        testProjectFails(block, RunLengthEncodedBlock.class, forceYield, produceLazyBlock);
+        testProjectFails(block, RunLengthEncodedBlock.class, true, false);
+        testProjectFails(block, RunLengthEncodedBlock.class, false, true);
+        testProjectFails(block, RunLengthEncodedBlock.class, false, false);
     }
 
-    @Test(dataProvider = "forceYield")
-    public void testDictionaryBlock(boolean forceYield, boolean produceLazyBlock)
+    @Test
+    public void testDictionaryBlock()
     {
         Block block = createDictionaryBlock(10, 100);
 
-        testProject(block, DictionaryBlock.class, forceYield, produceLazyBlock);
+        testProject(block, DictionaryBlock.class, true, false);
+        testProject(block, DictionaryBlock.class, false, true);
+        testProject(block, DictionaryBlock.class, false, false);
     }
 
-    @Test(dataProvider = "forceYield")
-    public void testDictionaryBlockWithFailure(boolean forceYield, boolean produceLazyBlock)
+    @Test
+    public void testDictionaryBlockWithFailure()
     {
         Block block = createDictionaryBlockWithFailure(10, 100);
 
-        testProjectFails(block, DictionaryBlock.class, forceYield, produceLazyBlock);
+        testProjectFails(block, DictionaryBlock.class, true, false);
+        testProjectFails(block, DictionaryBlock.class, false, true);
+        testProjectFails(block, DictionaryBlock.class, false, false);
     }
 
-    @Test(dataProvider = "forceYield")
-    public void testDictionaryBlockProcessingWithUnusedFailure(boolean forceYield, boolean produceLazyBlock)
+    @Test
+    public void testDictionaryBlockProcessingWithUnusedFailure()
     {
         Block block = createDictionaryBlockWithUnusedEntries(10, 100);
 
         // failures in the dictionary processing will cause a fallback to normal columnar processing
-        testProject(block, LongArrayBlock.class, forceYield, produceLazyBlock);
+        testProject(block, LongArrayBlock.class, true, false);
+        testProject(block, LongArrayBlock.class, false, true);
+        testProject(block, LongArrayBlock.class, false, false);
     }
 
     @Test
@@ -142,8 +145,15 @@ public class TestDictionaryAwarePageProjection
         testProjectFastReturnIgnoreYield(block, projection, false);
     }
 
-    @Test(dataProvider = "forceYield")
-    public void testDictionaryProcessingEnableDisable(boolean forceYield, boolean produceLazyBlock)
+    @Test
+    public void testDictionaryProcessingEnableDisable()
+    {
+        testDictionaryProcessingEnableDisable(true, false);
+        testDictionaryProcessingEnableDisable(false, true);
+        testDictionaryProcessingEnableDisable(false, false);
+    }
+
+    private void testDictionaryProcessingEnableDisable(boolean forceYield, boolean produceLazyBlock)
     {
         DictionaryAwarePageProjection projection = createProjection(produceLazyBlock);
 
@@ -192,21 +202,21 @@ public class TestDictionaryAwarePageProjection
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         Work<Block> firstWork = projection.project(null, yieldSignal, new Page(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
 
-        assertTrue(firstWork.process());
+        assertThat(firstWork.process()).isTrue();
         Block firstOutputBlock = firstWork.getResult();
         assertInstanceOf(firstOutputBlock, DictionaryBlock.class);
 
         Work<Block> secondWork = projection.project(null, yieldSignal, new Page(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
 
-        assertTrue(secondWork.process());
+        assertThat(secondWork.process()).isTrue();
         Block secondOutputBlock = secondWork.getResult();
         assertInstanceOf(secondOutputBlock, DictionaryBlock.class);
 
-        assertNotSame(firstOutputBlock, secondOutputBlock);
+        assertThat(firstOutputBlock).isNotSameAs(secondOutputBlock);
         Block firstDictionary = ((DictionaryBlock) firstOutputBlock).getDictionary();
         Block secondDictionary = ((DictionaryBlock) secondOutputBlock).getDictionary();
-        assertSame(firstDictionary, secondDictionary);
-        assertSame(firstDictionary, dictionary);
+        assertThat(firstDictionary).isSameAs(secondDictionary);
+        assertThat(firstDictionary).isSameAs(dictionary);
     }
 
     private static Block createDictionaryBlock(int dictionarySize, int blockSize)
@@ -288,14 +298,14 @@ public class TestDictionaryAwarePageProjection
             result = projectWithYield(work, yieldSignal);
         }
         else {
-            assertTrue(work.process());
+            assertThat(work.process()).isTrue();
             result = work.getResult();
         }
 
         if (produceLazyBlock) {
             assertInstanceOf(result, LazyBlock.class);
-            assertFalse(result.isLoaded());
-            assertFalse(block.isLoaded());
+            assertThat(result.isLoaded()).isFalse();
+            assertThat(block.isLoaded()).isFalse();
             result = result.getLoadedBlock();
         }
 
@@ -320,14 +330,14 @@ public class TestDictionaryAwarePageProjection
             result = projectWithYield(work, yieldSignal);
         }
         else {
-            assertTrue(work.process());
+            assertThat(work.process()).isTrue();
             result = work.getResult();
         }
 
         if (produceLazyBlock) {
             assertInstanceOf(result, LazyBlock.class);
-            assertFalse(result.isLoaded());
-            assertFalse(block.isLoaded());
+            assertThat(result.isLoaded()).isFalse();
+            assertThat(block.isLoaded()).isFalse();
             result = result.getLoadedBlock();
         }
 
@@ -350,14 +360,14 @@ public class TestDictionaryAwarePageProjection
         yieldSignal.forceYieldForTesting();
 
         // yield signal is ignored given the block has already been loaded
-        assertTrue(work.process());
+        assertThat(work.process()).isTrue();
         Block result = work.getResult();
         yieldSignal.reset();
 
         if (produceLazyBlock) {
             assertInstanceOf(result, LazyBlock.class);
-            assertFalse(result.isLoaded());
-            assertFalse(block.isLoaded());
+            assertThat(result.isLoaded()).isFalse();
+            assertThat(block.isLoaded()).isFalse();
             result = result.getLoadedBlock();
         }
 
@@ -430,7 +440,7 @@ public class TestDictionaryAwarePageProjection
             @Override
             public boolean process()
             {
-                assertNull(result);
+                assertThat(result).isNull();
                 if (selectedPositions.isList()) {
                     int offset = selectedPositions.getOffset();
                     int[] positions = selectedPositions.getPositions();
@@ -460,7 +470,7 @@ public class TestDictionaryAwarePageProjection
             @Override
             public Block getResult()
             {
-                assertNotNull(result);
+                assertThat(result).isNotNull();
                 return result;
             }
         }

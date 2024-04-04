@@ -53,6 +53,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class SystemSessionProperties
         implements SystemSessionPropertiesProvider
@@ -83,7 +84,7 @@ public final class SystemSessionProperties
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
-    public static final String MAX_WRITER_TASKS_COUNT = "max_writer_tasks_count";
+    public static final String MAX_WRITER_TASK_COUNT = "max_writer_task_count";
     public static final String WRITER_SCALING_MIN_DATA_PROCESSED = "writer_scaling_min_data_processed";
     public static final String SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = "skewed_partition_min_data_processed_rebalance_threshold";
     public static final String MAX_MEMORY_PER_PARTITION_WRITER = "max_memory_per_partition_writer";
@@ -135,7 +136,6 @@ public final class SystemSessionProperties
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
-    public static final String LATE_MATERIALIZATION = "late_materialization";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION = "enable_coordinator_dynamic_filters_distribution";
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
@@ -208,6 +208,8 @@ public final class SystemSessionProperties
     public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
+    public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
+    public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -321,10 +323,10 @@ public final class SystemSessionProperties
                         featuresConfig.isScaleWriters(),
                         false),
                 integerProperty(
-                        MAX_WRITER_TASKS_COUNT,
+                        MAX_WRITER_TASK_COUNT,
                         "Maximum number of tasks that will participate in writing data",
-                        queryManagerConfig.getMaxWriterTasksCount(),
-                        value -> validateIntegerValue(value, MAX_WRITER_TASKS_COUNT, 1, false),
+                        queryManagerConfig.getMaxWriterTaskCount(),
+                        value -> validateIntegerValue(value, MAX_WRITER_TASK_COUNT, 1, false),
                         false),
                 booleanProperty(
                         TASK_SCALE_WRITERS_ENABLED,
@@ -663,11 +665,6 @@ public final class SystemSessionProperties
                         PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES,
                         "Use table properties in predicate pushdown",
                         optimizerConfig.isPredicatePushdownUseTableProperties(),
-                        false),
-                booleanProperty(
-                        LATE_MATERIALIZATION,
-                        "Experimental: Use late materialization (including WorkProcessor pipelines)",
-                        featuresConfig.isLateMaterializationEnabled(),
                         false),
                 booleanProperty(
                         ENABLE_DYNAMIC_FILTERING,
@@ -1064,6 +1061,14 @@ public final class SystemSessionProperties
                 integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
+                        true),
+                dataSizeProperty(IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD,
+                        "Minimum amount of data written by a writer operator on average before it tries to close the idle writers",
+                        DataSize.of(256, MEGABYTE),
+                        true),
+                durationProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION,
+                        "The duration after which the writer operator tries to close the idle writers",
+                        new Duration(5, SECONDS),
                         true));
     }
 
@@ -1155,7 +1160,7 @@ public final class SystemSessionProperties
 
     public static int getMaxWriterTaskCount(Session session)
     {
-        return session.getSystemProperty(MAX_WRITER_TASKS_COUNT, Integer.class);
+        return session.getSystemProperty(MAX_WRITER_TASK_COUNT, Integer.class);
     }
 
     public static DataSize getWriterScalingMinDataProcessed(Session session)
@@ -1542,11 +1547,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES, Boolean.class);
     }
 
-    public static boolean isLateMaterializationEnabled(Session session)
-    {
-        return session.getSystemProperty(LATE_MATERIALIZATION, Boolean.class);
-    }
-
     public static boolean isEnableDynamicFiltering(Session session)
     {
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
@@ -1906,5 +1906,15 @@ public final class SystemSessionProperties
     public static int getPagePartitioningBufferPoolSize(Session session)
     {
         return session.getSystemProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE, Integer.class);
+    }
+
+    public static DataSize getIdleWriterMinDataSizeThreshold(Session session)
+    {
+        return session.getSystemProperty(IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD, DataSize.class);
+    }
+
+    public static Duration getCloseIdleWritersTriggerDuration(Session session)
+    {
+        return session.getSystemProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION, Duration.class);
     }
 }

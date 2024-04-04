@@ -40,13 +40,13 @@ public final class PathParser
 {
     private final BaseErrorListener errorListener;
 
-    public PathParser(Location startLocation)
+    public static PathParser withRelativeErrorLocation(Location startLocation)
     {
         requireNonNull(startLocation, "startLocation is null");
 
         int pathStartLine = startLocation.line();
         int pathStartColumn = startLocation.column();
-        this.errorListener = new BaseErrorListener()
+        return new PathParser(new BaseErrorListener()
         {
             @Override
             public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
@@ -58,7 +58,26 @@ public final class PathParser
                 int columnInQuery = line == 1 ? pathStartColumn + 1 + charPositionInLine : charPositionInLine + 1;
                 throw new ParsingException(message, e, lineInQuery, columnInQuery);
             }
-        };
+        });
+    }
+
+    public static PathParser withFixedErrorLocation(Location location)
+    {
+        requireNonNull(location, "location is null");
+
+        return new PathParser(new BaseErrorListener()
+        {
+            @Override
+            public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
+            {
+                throw new ParsingException(message, e, location.line, location.column);
+            }
+        });
+    }
+
+    private PathParser(BaseErrorListener errorListener)
+    {
+        this.errorListener = requireNonNull(errorListener, "errorListener is null");
     }
 
     public PathNode parseJsonPath(String path)

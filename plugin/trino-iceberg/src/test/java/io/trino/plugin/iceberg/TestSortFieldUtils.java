@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test;
 import java.util.function.Consumer;
 
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestSortFieldUtils
 {
@@ -100,8 +100,8 @@ public class TestSortFieldUtils
 
     private static void assertParse(@Language("SQL") String value, SortOrder expected)
     {
-        assertEquals(expected.fields().size(), 1);
-        assertEquals(parseField(value), expected);
+        assertThat(expected.fields().size()).isEqualTo(1);
+        assertThat(parseField(value)).isEqualTo(expected);
     }
 
     private static void assertDoesNotParse(@Language("SQL") String value)

@@ -13,17 +13,12 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
-import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.benchmark.StandardFileFormats;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
@@ -34,17 +29,17 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
-import java.util.Properties;
 
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
+import static io.trino.plugin.hive.parquet.ParquetUtil.createPageSource;
+import static io.trino.spi.predicate.Domain.notNull;
+import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static java.util.Collections.singletonList;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOnlyNulls
@@ -61,13 +56,13 @@ public class TestOnlyNulls
         HiveColumnHandle column = createBaseColumn(columnName, 0, HiveType.toHiveType(columnType), columnType, REGULAR, Optional.empty());
 
         // match not null
-        try (ConnectorPageSource pageSource = createPageSource(parquetFile, column, TupleDomain.withColumnDomains(Map.of(column, Domain.notNull(columnType))))) {
+        try (ConnectorPageSource pageSource = createPageSource(SESSION, parquetFile, ImmutableList.of(column), TupleDomain.withColumnDomains(Map.of(column, notNull(columnType))))) {
             MaterializedResult result = materializeSourceDataStream(getHiveSession(new HiveConfig()), pageSource, List.of(columnType)).toTestTypes();
             assertThat(result.getMaterializedRows()).isEmpty();
         }
 
         // match null
-        try (ConnectorPageSource pageSource = createPageSource(parquetFile, column, TupleDomain.withColumnDomains(Map.of(column, Domain.onlyNull(columnType))))) {
+        try (ConnectorPageSource pageSource = createPageSource(SESSION, parquetFile, ImmutableList.of(column), TupleDomain.withColumnDomains(Map.of(column, onlyNull(columnType))))) {
             MaterializedResult result = materializeSourceDataStream(getHiveSession(new HiveConfig()), pageSource, List.of(columnType)).toTestTypes();
 
             assertThat(result.getMaterializedRows())
@@ -77,29 +72,5 @@ public class TestOnlyNulls
                             new MaterializedRow(singletonList(null)),
                             new MaterializedRow(singletonList(null))));
         }
-    }
-
-    private static ConnectorPageSource createPageSource(File parquetFile, HiveColumnHandle column, TupleDomain<HiveColumnHandle> domain)
-    {
-        HivePageSourceFactory pageSourceFactory = StandardFileFormats.TRINO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT);
-
-        Properties schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde());
-
-        return pageSourceFactory.createPageSource(
-                        getHiveSession(new HiveConfig()),
-                        Location.of(parquetFile.getPath()),
-                        0,
-                        parquetFile.length(),
-                        parquetFile.length(),
-                        schema,
-                        List.of(column),
-                        domain,
-                        Optional.empty(),
-                        OptionalInt.empty(),
-                        false,
-                        AcidTransaction.NO_ACID_TRANSACTION)
-                .orElseThrow()
-                .get();
     }
 }

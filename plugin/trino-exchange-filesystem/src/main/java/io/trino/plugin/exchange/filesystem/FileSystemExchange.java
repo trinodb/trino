@@ -49,6 +49,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -183,7 +184,6 @@ public class FileSystemExchange
                 return;
             }
             verify(noMoreSinks, "noMoreSinks is expected to be set");
-            verify(finishedSinks.keySet().containsAll(allSinks), "all sinks are expected to be finished");
             // input is ready, create exchange source handles
             exchangeSourceHandlesCreationStarted = true;
             exchangeSourceHandlesCreationFuture = stats.getCreateExchangeSourceHandles().record(this::createExchangeSourceHandles);
@@ -337,5 +337,25 @@ public class FileSystemExchange
             checkArgument(partitionId >= 0, "partitionId is expected to be greater than or equal to zero: %s", partitionId);
             checkArgument(attemptId >= 0, "attemptId is expected to be greater than or equal to zero: %s", attemptId);
         }
+    }
+
+    @Override
+    public synchronized String toString()
+    {
+        return toStringHelper(this)
+                .add("baseDirectories", baseDirectories)
+                .add("exchangeStorage", exchangeStorage.getClass().getName())
+                .add("exchangeContext", exchangeContext)
+                .add("outputPartitionCount", outputPartitionCount)
+                .add("preserveOrderWithinPartition", preserveOrderWithinPartition)
+                .add("fileListingParallelism", fileListingParallelism)
+                .add("exchangeSourceHandleTargetDataSizeInBytes", exchangeSourceHandleTargetDataSizeInBytes)
+                .add("outputDirectories", outputDirectories)
+                .add("allSinks", allSinks)
+                .add("finishedSinks", finishedSinks)
+                .add("noMoreSinks", noMoreSinks)
+                .add("exchangeSourceHandlesCreationStarted", exchangeSourceHandlesCreationStarted)
+                .add("exchangeSourceHandlesFuture", exchangeSourceHandlesFuture)
+                .toString();
     }
 }

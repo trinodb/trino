@@ -14,33 +14,24 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.google.inject.Inject;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.tracing.TracingHiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
-import org.weakref.jmx.Flatten;
-import org.weakref.jmx.Managed;
 
 import java.util.Optional;
-
-import static java.util.Objects.requireNonNull;
 
 public class GlueHiveMetastoreFactory
         implements HiveMetastoreFactory
 {
-    private final GlueHiveMetastore metastore;
+    private final HiveMetastore metastore;
 
     // Glue metastore does not support impersonation, so just use single shared instance
     @Inject
-    public GlueHiveMetastoreFactory(GlueHiveMetastore metastore)
+    public GlueHiveMetastoreFactory(GlueHiveMetastore metastore, Tracer tracer)
     {
-        this.metastore = requireNonNull(metastore, "metastore is null");
-    }
-
-    @Flatten
-    @Managed
-    public GlueHiveMetastore getMetastore()
-    {
-        return metastore;
+        this.metastore = new TracingHiveMetastore(tracer, metastore);
     }
 
     @Override

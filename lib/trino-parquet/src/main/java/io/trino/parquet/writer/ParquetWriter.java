@@ -19,13 +19,14 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.parquet.Field;
+import io.trino.parquet.Column;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.parquet.writer.ColumnWriter.BufferData;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
@@ -69,7 +70,6 @@ import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.US_ASCII;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 
@@ -242,25 +242,25 @@ public class ParquetWriter
     {
         org.apache.parquet.hadoop.metadata.FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
         MessageColumnIO messageColumnIO = getColumnIO(fileMetaData.getSchema(), fileMetaData.getSchema());
-        ImmutableList.Builder<Field> columnFields = ImmutableList.builder();
+        ImmutableList.Builder<Column> columnFields = ImmutableList.builder();
         for (int i = 0; i < writeValidation.getTypes().size(); i++) {
-            columnFields.add(constructField(
-                    writeValidation.getTypes().get(i),
-                    lookupColumnByName(messageColumnIO, writeValidation.getColumnNames().get(i)))
-                    .orElseThrow());
+            columnFields.add(new Column(
+                    messageColumnIO.getName(),
+                    constructField(
+                            writeValidation.getTypes().get(i),
+                            lookupColumnByName(messageColumnIO, writeValidation.getColumnNames().get(i)))
+                            .orElseThrow()));
         }
         long nextStart = 0;
-        ImmutableList.Builder<Long> blockStartsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
         for (BlockMetaData block : parquetMetadata.getBlocks()) {
-            blockStartsBuilder.add(nextStart);
+            rowGroupInfoBuilder.add(new RowGroupInfo(block, nextStart, Optional.empty()));
             nextStart += block.getRowCount();
         }
-        List<Long> blockStarts = blockStartsBuilder.build();
         return new ParquetReader(
                 Optional.ofNullable(fileMetaData.getCreatedBy()),
                 columnFields.build(),
-                parquetMetadata.getBlocks(),
-                blockStarts,
+                rowGroupInfoBuilder.build(),
                 input,
                 parquetTimeZone.orElseThrow(),
                 newSimpleAggregatedMemoryContext(),
@@ -270,7 +270,6 @@ public class ParquetWriter
                     return new RuntimeException(exception);
                 },
                 Optional.empty(),
-                nCopies(blockStarts.size(), Optional.empty()),
                 Optional.of(writeValidation));
     }
 

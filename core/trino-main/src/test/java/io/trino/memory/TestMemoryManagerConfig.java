@@ -36,51 +36,51 @@ public class TestMemoryManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MemoryManagerConfig.class)
-                .setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES)
-                .setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES)
-                .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
                 .setMaxQueryMemory(DataSize.of(20, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE))
                 .setFaultTolerantExecutionCoordinatorTaskMemory(DataSize.of(2, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemory(DataSize.of(5, GIGABYTE))
-                .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(1, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemoryGrowthFactor(3.0)
                 .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.9)
+                .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(1, GIGABYTE))
                 .setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(true)
-                .setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize.of(20, GIGABYTE)));
+                .setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize.of(20, GIGABYTE))
+                .setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES)
+                .setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES)
+                .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("query.low-memory-killer.policy", "none")
-                .put("task.low-memory-killer.policy", "none")
-                .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-total-memory", "3GB")
                 .put("fault-tolerant-execution-coordinator-task-memory", "123GB")
                 .put("fault-tolerant-execution-task-memory", "2GB")
-                .put("fault-tolerant-execution-task-runtime-memory-estimation-overhead", "300MB")
                 .put("fault-tolerant-execution-task-memory-growth-factor", "17.3")
                 .put("fault-tolerant-execution-task-memory-estimation-quantile", "0.7")
+                .put("fault-tolerant-execution-task-runtime-memory-estimation-overhead", "300MB")
                 .put("fault-tolerant-execution.memory-requirement-increase-on-worker-crash-enabled", "false")
                 .put("fault-tolerant-execution-eager-speculative-tasks-node_memory-overcommit", "21GB")
+                .put("query.low-memory-killer.policy", "none")
+                .put("task.low-memory-killer.policy", "none")
+                .put("query.low-memory-killer.delay", "20s")
                 .buildOrThrow();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
-                .setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy.NONE)
-                .setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy.NONE)
-                .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
                 .setMaxQueryMemory(DataSize.of(2, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(3, GIGABYTE))
                 .setFaultTolerantExecutionCoordinatorTaskMemory(DataSize.of(123, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemory(DataSize.of(2, GIGABYTE))
-                .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(300, MEGABYTE))
                 .setFaultTolerantExecutionTaskMemoryGrowthFactor(17.3)
                 .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.7)
+                .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(300, MEGABYTE))
                 .setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(false)
-                .setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize.of(21, GIGABYTE));
+                .setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize.of(21, GIGABYTE))
+                .setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy.NONE)
+                .setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy.NONE)
+                .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS));
 
         assertFullMapping(properties, expected);
     }

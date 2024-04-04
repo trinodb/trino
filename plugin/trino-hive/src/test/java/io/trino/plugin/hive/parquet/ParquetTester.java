@@ -31,8 +31,6 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.benchmark.FileFormat;
-import io.trino.plugin.hive.benchmark.StandardFileFormats;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
@@ -54,6 +52,7 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
@@ -64,6 +63,7 @@ import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorSession;
@@ -108,16 +108,16 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
-import static io.trino.plugin.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
+import static io.trino.plugin.hive.parquet.ParquetUtil.createPageSource;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -132,6 +132,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
@@ -149,11 +150,9 @@ import static org.apache.parquet.format.CompressionCodec.ZSTD;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.COMPRESSION;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.ENABLE_DICTIONARY;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
-public class ParquetTester
+class ParquetTester
 {
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
@@ -171,16 +170,13 @@ public class ParquetTester
 
     private final Set<ConnectorSession> sessions;
 
-    private final FileFormat fileFormat;
-
     public static ParquetTester quickParquetTester()
     {
         return new ParquetTester(
                 ImmutableSet.of(GZIP),
                 ImmutableSet.of(GZIP),
                 ImmutableSet.of(PARQUET_1_0),
-                ImmutableSet.of(SESSION),
-                StandardFileFormats.TRINO_PARQUET);
+                ImmutableSet.of(SESSION));
     }
 
     public static ParquetTester fullParquetTester()
@@ -189,22 +185,19 @@ public class ParquetTester
                 ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO, LZ4, ZSTD),
                 ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, ZSTD),
                 ImmutableSet.copyOf(WriterVersion.values()),
-                ImmutableSet.of(SESSION, SESSION_USE_NAME),
-                StandardFileFormats.TRINO_PARQUET);
+                ImmutableSet.of(SESSION, SESSION_USE_NAME));
     }
 
     public ParquetTester(
             Set<CompressionCodec> compressions,
             Set<CompressionCodec> writerCompressions,
             Set<WriterVersion> versions,
-            Set<ConnectorSession> sessions,
-            FileFormat fileFormat)
+            Set<ConnectorSession> sessions)
     {
         this.compressions = requireNonNull(compressions, "compressions is null");
         this.writerCompressions = requireNonNull(writerCompressions, "writerCompressions is null");
         this.versions = requireNonNull(versions, "writerCompressions is null");
         this.sessions = requireNonNull(sessions, "sessions is null");
-        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
     }
 
     public void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<?> writeValues, Type parameterType)
@@ -383,7 +376,7 @@ public class ParquetTester
             for (CompressionCodec compressionCodec : compressions) {
                 for (ConnectorSession session : sessions) {
                     try (TempFile tempFile = new TempFile("test", "parquet")) {
-                        JobConf jobConf = new JobConf(newEmptyConfiguration());
+                        JobConf jobConf = new JobConf(false);
                         jobConf.setEnum(COMPRESSION, compressionCodec);
                         jobConf.setBoolean(ENABLE_DICTIONARY, true);
                         jobConf.setEnum(WRITER_VERSION, version);
@@ -447,7 +440,7 @@ public class ParquetTester
                 .build();
 
         try (TempFile tempFile = new TempFile("test", "parquet")) {
-            JobConf jobConf = new JobConf(newEmptyConfiguration());
+            JobConf jobConf = new JobConf(false);
             jobConf.setEnum(COMPRESSION, compressionCodec);
             jobConf.setBoolean(ENABLE_DICTIONARY, true);
             jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
@@ -463,9 +456,8 @@ public class ParquetTester
                     DateTimeZone.getDefault());
 
             Iterator<?>[] expectedValues = getIterators(readValues);
-            try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
+            try (ConnectorPageSource pageSource = createPageSource(
                     session,
-                    HDFS_ENVIRONMENT,
                     tempFile.getFile(),
                     columnNames,
                     columnTypes)) {
@@ -474,7 +466,7 @@ public class ParquetTester
                         expectedValues,
                         pageSource,
                         Optional.of(getParquetMaxReadBlockSize(session).toBytes()));
-                assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
+                assertThat(stream(expectedValues).allMatch(Iterator::hasNext)).isFalse();
             }
         }
     }
@@ -487,9 +479,8 @@ public class ParquetTester
             List<Type> columnTypes)
             throws IOException
     {
-        try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
+        try (ConnectorPageSource pageSource = createPageSource(
                 session,
-                HDFS_ENVIRONMENT,
                 dataFile,
                 columnNames,
                 columnTypes)) {
@@ -499,7 +490,7 @@ public class ParquetTester
             else {
                 assertPageSource(columnTypes, expectedValues, pageSource);
             }
-            assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
+            assertThat(stream(expectedValues).allMatch(Iterator::hasNext)).isFalse();
         }
     }
 
@@ -517,15 +508,15 @@ public class ParquetTester
             }
 
             maxReadBlockSize.ifPresent(max ->
-                    assertTrue(page.getPositionCount() == 1 || page.getSizeInBytes() <= max));
+                    assertThat(page.getPositionCount() == 1 || page.getSizeInBytes() <= max).isTrue());
 
             for (int field = 0; field < page.getChannelCount(); field++) {
                 Block block = page.getBlock(field);
                 for (int i = 0; i < block.getPositionCount(); i++) {
-                    assertTrue(valuesByField[field].hasNext());
+                    assertThat(valuesByField[field].hasNext()).isTrue();
                     Object expected = valuesByField[field].next();
                     Object actual = decodeObject(types.get(field), block, i);
-                    assertEquals(actual, expected);
+                    assertThat(actual).isEqualTo(expected);
                 }
             }
         }
@@ -535,10 +526,10 @@ public class ParquetTester
     {
         while (cursor.advanceNextPosition()) {
             for (int field = 0; field < types.size(); field++) {
-                assertTrue(valuesByField[field].hasNext());
+                assertThat(valuesByField[field].hasNext()).isTrue();
                 Object expected = valuesByField[field].next();
                 Object actual = getActualCursorValue(cursor, types.get(field), field);
-                assertEquals(actual, expected);
+                assertThat(actual).isEqualTo(expected);
             }
         }
     }
@@ -576,6 +567,53 @@ public class ParquetTester
             return SqlTimestamp.fromMillis(3, (long) fieldFromCursor);
         }
         return fieldFromCursor;
+    }
+
+    private static Object getFieldFromCursor(RecordCursor cursor, Type type, int field)
+    {
+        if (cursor.isNull(field)) {
+            return null;
+        }
+        if (BOOLEAN.equals(type)) {
+            return cursor.getBoolean(field);
+        }
+        if (TINYINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        if (SMALLINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        if (INTEGER.equals(type)) {
+            return (int) cursor.getLong(field);
+        }
+        if (BIGINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        if (REAL.equals(type)) {
+            return intBitsToFloat((int) cursor.getLong(field));
+        }
+        if (DOUBLE.equals(type)) {
+            return cursor.getDouble(field);
+        }
+        if (type instanceof VarcharType || type instanceof CharType || VARBINARY.equals(type)) {
+            return cursor.getSlice(field);
+        }
+        if (DateType.DATE.equals(type)) {
+            return cursor.getLong(field);
+        }
+        if (TimestampType.TIMESTAMP_MILLIS.equals(type)) {
+            return cursor.getLong(field);
+        }
+        if (isStructuralType(type)) {
+            return cursor.getObject(field);
+        }
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
+                return BigInteger.valueOf(cursor.getLong(field));
+            }
+            return ((Int128) cursor.getObject(field)).toBigInteger();
+        }
+        throw new RuntimeException("unknown type");
     }
 
     private static Map<?, ?> toMapValue(SqlMap sqlMap, Type keyType, Type valueType)
@@ -654,8 +692,8 @@ public class ParquetTester
     public static Properties createTableProperties(List<String> columnNames, List<ObjectInspector> objectInspectors)
     {
         Properties orderTableProperties = new Properties();
-        orderTableProperties.setProperty("columns", Joiner.on(',').join(columnNames));
-        orderTableProperties.setProperty("columns.types", Joiner.on(',').join(transform(objectInspectors, ObjectInspector::getTypeName)));
+        orderTableProperties.setProperty(LIST_COLUMNS, Joiner.on(',').join(columnNames));
+        orderTableProperties.setProperty(LIST_COLUMN_TYPES, Joiner.on(',').join(transform(objectInspectors, ObjectInspector::getTypeName)));
         return orderTableProperties;
     }
 
@@ -920,11 +958,6 @@ public class ParquetTester
         public static ParquetSchemaOptions withSingleLevelArray()
         {
             return new ParquetSchemaOptions(true, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING, HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING);
-        }
-
-        public static ParquetSchemaOptions withIntegerBackedDecimals()
-        {
-            return new ParquetSchemaOptions(false, false, HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING);
         }
 
         public static ParquetSchemaOptions withInt64BackedTimestamps()

@@ -16,9 +16,8 @@ package io.trino.util;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.Throwables.propagateIfPossible;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
 
 public class TestAutoCloseableCloser
 {
@@ -59,11 +58,11 @@ public class TestAutoCloseableCloser
 
         assertThatThrownBy(closer::close)
                 .isInstanceOfSatisfying(Exception.class, t -> {
-                    assertSame(t, runtimeException);
-                    assertSame(t.getSuppressed()[0], exception);
-                    assertSame(t.getSuppressed()[1], exception);
-                    assertSame(t.getSuppressed()[2], error);
-                    assertSame(t.getSuppressed()[3], error);
+                    assertThat(t).isSameAs(runtimeException);
+                    assertThat(t.getSuppressed()[0]).isSameAs(exception);
+                    assertThat(t.getSuppressed()[1]).isSameAs(exception);
+                    assertThat(t.getSuppressed()[2]).isSameAs(error);
+                    assertThat(t.getSuppressed()[3]).isSameAs(error);
                 });
     }
 
@@ -79,7 +78,7 @@ public class TestAutoCloseableCloser
         catch (Throwable ignored) {
         }
         for (TestAutoCloseable closeable : closeables) {
-            assertTrue(closeable.isClosed());
+            assertThat(closeable.isClosed()).isTrue();
         }
     }
 

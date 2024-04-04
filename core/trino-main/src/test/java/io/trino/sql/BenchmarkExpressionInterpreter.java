@@ -37,7 +37,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.sql.TestExpressionInterpreter.planExpression;
 import static java.util.stream.Collectors.joining;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Benchmark)
@@ -91,7 +91,7 @@ public class BenchmarkExpressionInterpreter
         BenchmarkData data = new BenchmarkData();
         data.setup();
         BenchmarkExpressionInterpreter benchmark = new BenchmarkExpressionInterpreter();
-        assertEquals(benchmark.optimize(data).size(), data.expressions.size());
+        assertThat(benchmark.optimize(data).size()).isEqualTo(data.expressions.size());
     }
 
     public static void main(String[] args)

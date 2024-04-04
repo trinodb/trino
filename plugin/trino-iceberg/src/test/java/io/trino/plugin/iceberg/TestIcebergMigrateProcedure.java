@@ -33,7 +33,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestIcebergMigrateProcedure
         extends AbstractTestQueryFramework
@@ -46,10 +45,10 @@ public class TestIcebergMigrateProcedure
     {
         dataDirectory = Files.createTempDirectory("_test_hidden");
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().setMetastoreDirectory(dataDirectory.toFile()).build();
-        queryRunner.installPlugin(new TestingHivePlugin());
+        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
-                .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", dataDirectory.toString())
+//                .put("hive.metastore", "file")
+//                .put("hive.metastore.catalog.dir", dataDirectory.toString())
                 .put("hive.security", "allow-all")
                 .buildOrThrow());
         return queryRunner;
@@ -286,8 +285,8 @@ public class TestIcebergMigrateProcedure
         assertUpdate("CREATE TABLE " + hiveTableName + "(col int COMMENT 'column comment') COMMENT 'table comment'");
         assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
 
-        assertEquals(getTableComment(tableName), "table comment");
-        assertEquals(getColumnComment(tableName, "col"), "column comment");
+        assertThat(getTableComment(tableName)).isEqualTo("table comment");
+        assertThat(getColumnComment(tableName, "col")).isEqualTo("column comment");
 
         assertUpdate("DROP TABLE " + tableName);
     }

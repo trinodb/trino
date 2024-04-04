@@ -45,10 +45,10 @@ public class TestHudiHiveTablesCompatibility
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Not a Hudi table: default." + tableName);
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hudi.default.\"" + tableName + "$data\""))
-                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'hudi.default." + tableName + "$data' does not exist");
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'hudi.default.\"" + tableName + "$data\"' does not exist");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hudi.default.\"" + tableName + "$timeline\""))
-                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'hudi.default." + tableName + "$timeline' does not exist");
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'hudi.default.\"" + tableName + "$timeline\"' does not exist");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hudi.default.\"" + tableName + "$files\""))
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Invalid Hudi table name (unknown type 'files'): " + tableName + "$files");
@@ -68,7 +68,7 @@ public class TestHudiHiveTablesCompatibility
                 .hasMessageMatching(format("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'hive.default.%s' does not exist", tableName));
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.default.\"" + tableName + "$partitions\""))
-                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'hive.default." + tableName + "$partitions' does not exist");
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'hive.default.\"" + tableName + "$partitions\"' does not exist");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.default.\"" + tableName + "$properties\""))
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Table 'default." + tableName + "$properties' not found");

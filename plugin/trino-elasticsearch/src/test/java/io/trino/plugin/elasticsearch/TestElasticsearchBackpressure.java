@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.ManageTestResources.Suppress;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -35,11 +34,8 @@ public class TestElasticsearchBackpressure
 {
     private static final String image = "elasticsearch:7.0.0";
 
-    @Suppress(because = "Not a TestNG test class")
     private Network network;
-    @Suppress(because = "Not a TestNG test class")
     private ElasticsearchServer elasticsearch;
-    @Suppress(because = "Not a TestNG test class")
     private ElasticsearchNginxProxy elasticsearchNginxProxy;
 
     @Override

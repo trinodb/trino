@@ -42,53 +42,12 @@ public class MemoryManagerConfig
     private double faultTolerantExecutionTaskMemoryGrowthFactor = 3.0;
     private double faultTolerantExecutionTaskMemoryEstimationQuantile = 0.9;
     private DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = DataSize.of(1, GIGABYTE);
-    private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
-    private LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy = LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private boolean faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled = true;
     private DataSize faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit = DataSize.of(20, GIGABYTE);
-
-    /**
-     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
-     */
+    private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
+    private LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy = LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
+    // default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
-
-    public LowMemoryQueryKillerPolicy getLowMemoryQueryKillerPolicy()
-    {
-        return lowMemoryQueryKillerPolicy;
-    }
-
-    @Config("query.low-memory-killer.policy")
-    public MemoryManagerConfig setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy)
-    {
-        this.lowMemoryQueryKillerPolicy = lowMemoryQueryKillerPolicy;
-        return this;
-    }
-
-    public LowMemoryTaskKillerPolicy getLowMemoryTaskKillerPolicy()
-    {
-        return lowMemoryTaskKillerPolicy;
-    }
-
-    @Config("task.low-memory-killer.policy")
-    public MemoryManagerConfig setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy)
-    {
-        this.lowMemoryTaskKillerPolicy = lowMemoryTaskKillerPolicy;
-        return this;
-    }
-
-    @NotNull
-    public Duration getKillOnOutOfMemoryDelay()
-    {
-        return killOnOutOfMemoryDelay;
-    }
-
-    @Config("query.low-memory-killer.delay")
-    @ConfigDescription("Delay between cluster running low on memory and invoking killer")
-    public MemoryManagerConfig setKillOnOutOfMemoryDelay(Duration killOnOutOfMemoryDelay)
-    {
-        this.killOnOutOfMemoryDelay = killOnOutOfMemoryDelay;
-        return this;
-    }
 
     @NotNull
     public DataSize getMaxQueryMemory()
@@ -148,20 +107,6 @@ public class MemoryManagerConfig
     }
 
     @NotNull
-    public DataSize getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead()
-    {
-        return faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead;
-    }
-
-    @Config("fault-tolerant-execution-task-runtime-memory-estimation-overhead")
-    @ConfigDescription("Extra memory to account for when estimating actual task runtime memory consumption")
-    public MemoryManagerConfig setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead)
-    {
-        this.faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead;
-        return this;
-    }
-
-    @NotNull
     public double getFaultTolerantExecutionTaskMemoryGrowthFactor()
     {
         return faultTolerantExecutionTaskMemoryGrowthFactor;
@@ -192,6 +137,20 @@ public class MemoryManagerConfig
         return this;
     }
 
+    @NotNull
+    public DataSize getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead()
+    {
+        return faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead;
+    }
+
+    @Config("fault-tolerant-execution-task-runtime-memory-estimation-overhead")
+    @ConfigDescription("Extra memory to account for when estimating actual task runtime memory consumption")
+    public MemoryManagerConfig setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead)
+    {
+        this.faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead;
+        return this;
+    }
+
     public boolean isFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled()
     {
         return faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled;
@@ -214,6 +173,44 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit)
     {
         this.faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit = faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit;
+        return this;
+    }
+
+    public LowMemoryQueryKillerPolicy getLowMemoryQueryKillerPolicy()
+    {
+        return lowMemoryQueryKillerPolicy;
+    }
+
+    @Config("query.low-memory-killer.policy")
+    public MemoryManagerConfig setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy)
+    {
+        this.lowMemoryQueryKillerPolicy = lowMemoryQueryKillerPolicy;
+        return this;
+    }
+
+    public LowMemoryTaskKillerPolicy getLowMemoryTaskKillerPolicy()
+    {
+        return lowMemoryTaskKillerPolicy;
+    }
+
+    @Config("task.low-memory-killer.policy")
+    public MemoryManagerConfig setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy)
+    {
+        this.lowMemoryTaskKillerPolicy = lowMemoryTaskKillerPolicy;
+        return this;
+    }
+
+    @NotNull
+    public Duration getKillOnOutOfMemoryDelay()
+    {
+        return killOnOutOfMemoryDelay;
+    }
+
+    @Config("query.low-memory-killer.delay")
+    @ConfigDescription("Delay between cluster running low on memory and invoking killer")
+    public MemoryManagerConfig setKillOnOutOfMemoryDelay(Duration killOnOutOfMemoryDelay)
+    {
+        this.killOnOutOfMemoryDelay = killOnOutOfMemoryDelay;
         return this;
     }
 

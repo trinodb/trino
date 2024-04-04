@@ -21,23 +21,21 @@ import java.util.List;
 import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.HIGH_TO_LOW;
 import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.LOW_TO_HIGH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestUpdateablePriorityQueue
 {
     @Test
     public void testFifoQueue()
     {
-        assertEquals(populateAndExtract(new FifoQueue<>()), ImmutableList.of(1, 2, 3));
+        assertThat(populateAndExtract(new FifoQueue<>())).isEqualTo(ImmutableList.of(1, 2, 3));
     }
 
     @Test
     public void testIndexedPriorityQueue()
     {
-        assertEquals(populateAndExtract(new IndexedPriorityQueue<>()), ImmutableList.of(3, 2, 1));
-        assertEquals(populateAndExtract(new IndexedPriorityQueue<>(HIGH_TO_LOW)), ImmutableList.of(3, 2, 1));
-        assertEquals(populateAndExtract(new IndexedPriorityQueue<>(LOW_TO_HIGH)), ImmutableList.of(1, 2, 3));
+        assertThat(populateAndExtract(new IndexedPriorityQueue<>())).isEqualTo(ImmutableList.of(3, 2, 1));
+        assertThat(populateAndExtract(new IndexedPriorityQueue<>(HIGH_TO_LOW))).isEqualTo(ImmutableList.of(3, 2, 1));
+        assertThat(populateAndExtract(new IndexedPriorityQueue<>(LOW_TO_HIGH))).isEqualTo(ImmutableList.of(1, 2, 3));
     }
 
     @Test
@@ -76,7 +74,7 @@ public class TestUpdateablePriorityQueue
     @Test
     public void testStochasticPriorityQueue()
     {
-        assertTrue(populateAndExtract(new StochasticPriorityQueue<>()).size() == 3);
+        assertThat(populateAndExtract(new StochasticPriorityQueue<>()).size() == 3).isTrue();
     }
 
     private static List<Integer> populateAndExtract(UpdateablePriorityQueue<Integer> queue)

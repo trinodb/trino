@@ -18,6 +18,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 
 import java.util.Map;
@@ -29,7 +30,7 @@ public final class ResolvedFunctionCallRewriter
 {
     private ResolvedFunctionCallRewriter() {}
 
-    public static Expression rewriteResolvedFunctions(Expression expression, Map<NodeRef<Expression>, ResolvedFunction> resolvedFunctions)
+    public static Expression rewriteResolvedFunctions(Expression expression, Map<NodeRef<Node>, ResolvedFunction> resolvedFunctions)
     {
         return ExpressionTreeRewriter.rewriteWith(new Visitor(resolvedFunctions), expression);
     }
@@ -37,9 +38,9 @@ public final class ResolvedFunctionCallRewriter
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
-        private final Map<NodeRef<Expression>, ResolvedFunction> resolvedFunctions;
+        private final Map<NodeRef<Node>, ResolvedFunction> resolvedFunctions;
 
-        public Visitor(Map<NodeRef<Expression>, ResolvedFunction> resolvedFunctions)
+        public Visitor(Map<NodeRef<Node>, ResolvedFunction> resolvedFunctions)
         {
             this.resolvedFunctions = requireNonNull(resolvedFunctions, "resolvedFunctions is null");
         }

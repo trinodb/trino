@@ -302,7 +302,7 @@ public final class ScalarFunctionAdapter
             InvocationReturnConvention returnConvention)
     {
         // For value block, cast specialized parameter to ValueBlock
-        if (actualArgumentConvention == VALUE_BLOCK_POSITION || actualArgumentConvention == VALUE_BLOCK_POSITION_NOT_NULL && methodHandle.type().parameterType(parameterIndex) != ValueBlock.class) {
+        if ((actualArgumentConvention == VALUE_BLOCK_POSITION || actualArgumentConvention == VALUE_BLOCK_POSITION_NOT_NULL) && methodHandle.type().parameterType(parameterIndex) != ValueBlock.class) {
             methodHandle = methodHandle.asType(methodHandle.type().changeParameterType(parameterIndex, ValueBlock.class));
         }
 

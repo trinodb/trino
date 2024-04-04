@@ -17,33 +17,31 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static java.lang.String.format;
-import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         extends AbstractTestQueryFramework
 {
     private C directoryLister;
-    private FileHiveMetastore fileHiveMetastore;
+    private HiveMetastore metastore;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -55,14 +53,16 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
     protected QueryRunner createQueryRunner(Map<String, String> properties)
             throws Exception
     {
-        Path temporaryMetastoreDirectory = createTempDirectory(null);
-        closeAfterClass(() -> deleteRecursively(temporaryMetastoreDirectory, ALLOW_INSECURE));
         directoryLister = createDirectoryLister();
-        return HiveQueryRunner.builder()
+        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(properties)
-                .setMetastore(distributedQueryRunner -> fileHiveMetastore = createTestingFileHiveMetastore(temporaryMetastoreDirectory.toFile()))
                 .setDirectoryLister(directoryLister)
                 .build();
+
+        metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
+
+        return queryRunner;
     }
 
     protected abstract C createDirectoryLister();
@@ -335,17 +335,17 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
 
     protected Optional<Table> getTable(String schemaName, String tableName)
     {
-        return fileHiveMetastore.getTable(schemaName, tableName);
+        return metastore.getTable(schemaName, tableName);
     }
 
     protected void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
-        fileHiveMetastore.createTable(table, principalPrivileges);
+        metastore.createTable(table, principalPrivileges);
     }
 
     protected void dropTable(String schemaName, String tableName, boolean deleteData)
     {
-        fileHiveMetastore.dropTable(schemaName, tableName, deleteData);
+        metastore.dropTable(schemaName, tableName, deleteData);
     }
 
     protected String getTableLocation(String schemaName, String tableName)
@@ -360,7 +360,7 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         Table table = getTable(schemaName, tableName)
                 .orElseThrow(() -> new NoSuchElementException(format("The table %s.%s could not be found", schemaName, tableName)));
 
-        return fileHiveMetastore.getPartition(table, partitionValues)
+        return metastore.getPartition(table, partitionValues)
                 .map(partition -> partition.getStorage().getLocation())
                 .orElseThrow(() -> new NoSuchElementException(format("The partition %s from the table %s.%s could not be found", partitionValues, schemaName, tableName)));
     }

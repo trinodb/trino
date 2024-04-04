@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Percentage.withPercentage;
-import static org.testng.Assert.assertEquals;
 
 public class TestSpoolingOutputStats
 {
@@ -48,7 +47,7 @@ public class TestSpoolingOutputStats
         assertThat(spoolingOutputStats.getFinalSnapshot()).isPresent();
 
         SpoolingOutputStats.Snapshot snapshot = spoolingOutputStats.getFinalSnapshot().orElseThrow();
-        assertEquals(snapshot.getPartitionSizeInBytes(0), 1);
+        assertThat(snapshot.getPartitionSizeInBytes(0)).isEqualTo(1);
 
         for (int partition = 0; partition < numberOfPartitions; partition++) {
             assertThat(snapshot.getPartitionSizeInBytes(partition)).isCloseTo(expectedValues[partition], withPercentage(EXPECTED_PRECISION_LOSS_IN_PERCENTS));

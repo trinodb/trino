@@ -28,20 +28,24 @@ final class AzureUtils
     public static IOException handleAzureException(RuntimeException exception, String action, AzureLocation location)
             throws IOException
     {
-        if (exception instanceof BlobStorageException blobStorageException) {
-            if (BlobErrorCode.BLOB_NOT_FOUND.equals(blobStorageException.getErrorCode())) {
-                throw withCause(new FileNotFoundException(location.toString()), exception);
-            }
-        }
-        if (exception instanceof DataLakeStorageException dataLakeStorageException) {
-            if ("PathNotFound".equals(dataLakeStorageException.getErrorCode())) {
-                throw withCause(new FileNotFoundException(location.toString()), exception);
-            }
+        if (isFileNotFoundException(exception)) {
+            throw withCause(new FileNotFoundException(location.toString()), exception);
         }
         if (exception instanceof AzureException) {
             throw new IOException("Azure service error %s file: %s".formatted(action, location), exception);
         }
         throw new IOException("Error %s file: %s".formatted(action, location), exception);
+    }
+
+    public static boolean isFileNotFoundException(RuntimeException exception)
+    {
+        if (exception instanceof BlobStorageException blobStorageException) {
+            return BlobErrorCode.BLOB_NOT_FOUND.equals(blobStorageException.getErrorCode());
+        }
+        if (exception instanceof DataLakeStorageException dataLakeStorageException) {
+            return "PathNotFound" .equals(dataLakeStorageException.getErrorCode());
+        }
+        return false;
     }
 
     private static <T extends Throwable> T withCause(T throwable, Throwable cause)

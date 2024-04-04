@@ -112,8 +112,8 @@ public final class VarcharToTimeWithTimeZoneCast
     {
         if (matcher.group("offsetHour") != null && matcher.group("offsetMinute") != null) {
             int offsetSign = matcher.group("sign").equals("+") ? 1 : -1;
-            int offsetHour = Integer.parseInt((matcher.group("offsetHour")));
-            int offsetMinute = Integer.parseInt((matcher.group("offsetMinute")));
+            int offsetHour = Integer.parseInt(matcher.group("offsetHour"));
+            int offsetMinute = Integer.parseInt(matcher.group("offsetMinute"));
 
             if (!isValidOffset(offsetHour, offsetMinute)) {
                 throw new IllegalArgumentException("Invalid time");

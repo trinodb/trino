@@ -327,6 +327,7 @@ public class RaptorMetadata
                         newDomain.intersect(table.getConstraint()),
                         table.getBucketAssignments()),
                 constraint.getSummary(),
+                constraint.getExpression(),
                 false));
     }
 

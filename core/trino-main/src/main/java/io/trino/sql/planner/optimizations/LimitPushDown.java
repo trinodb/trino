@@ -135,8 +135,10 @@ public class LimitPushDown
             }
 
             if (!node.requiresPreSortedInputs() && (!node.isWithTies() || (limit != null && node.getCount() >= limit.getCount()))) {
+                // The new limit context is partial if neither the existing context nor this limit node is final
+                boolean partial = node.isPartial() && (limit == null || limit.isPartial());
                 // default visitPlan logic will insert the limit node
-                return context.rewrite(node.getSource(), new LimitContext(count, false));
+                return context.rewrite(node.getSource(), new LimitContext(count, partial));
             }
 
             return context.defaultRewrite(node, context.get());

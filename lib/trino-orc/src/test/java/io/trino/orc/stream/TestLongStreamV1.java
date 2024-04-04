@@ -17,7 +17,7 @@ import io.airlift.slice.Slice;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDecompressor;
 import io.trino.orc.checkpoint.LongStreamCheckpoint;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,7 +42,7 @@ public class TestLongStreamV1
 
         group = new ArrayList<>();
         for (int i = 0; i < 1000; i++) {
-            group.add((long) (i));
+            group.add((long) i);
         }
         groups.add(group);
 

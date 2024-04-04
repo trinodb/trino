@@ -23,6 +23,7 @@ import io.trino.hdfs.authentication.GenericExceptionAction;
 import io.trino.hdfs.authentication.HdfsAuthentication;
 import io.trino.hdfs.gcs.GcsStorageFactory;
 import io.trino.spi.Plugin;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import org.apache.hadoop.conf.Configuration;
@@ -82,7 +83,7 @@ public class HdfsEnvironment
     public void shutdown()
             throws IOException
     {
-        // shut down if running in a plugin classloader
+        // shut down if running in an isolated classloader
         if (!getClass().getClassLoader().equals(Plugin.class.getClassLoader())) {
             FileSystemFinalizerService.shutdown();
             stopFileSystemStatsThread();
@@ -104,14 +105,16 @@ public class HdfsEnvironment
     public FileSystem getFileSystem(ConnectorIdentity identity, Path path, Configuration configuration)
             throws IOException
     {
-        return hdfsAuthentication.doAs(identity, () -> {
-            FileSystem fileSystem = path.getFileSystem(configuration);
-            fileSystem.setVerifyChecksum(verifyChecksum);
-            if (getRawFileSystem(fileSystem) instanceof OpenTelemetryAwareFileSystem fs) {
-                fs.setOpenTelemetry(openTelemetry);
-            }
-            return fileSystem;
-        });
+        try (var ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            return hdfsAuthentication.doAs(identity, () -> {
+                FileSystem fileSystem = path.getFileSystem(configuration);
+                fileSystem.setVerifyChecksum(verifyChecksum);
+                if (getRawFileSystem(fileSystem) instanceof OpenTelemetryAwareFileSystem fs) {
+                    fs.setOpenTelemetry(openTelemetry);
+                }
+                return fileSystem;
+            });
+        }
     }
 
     public Optional<FsPermission> getNewDirectoryPermissions()
@@ -127,7 +130,9 @@ public class HdfsEnvironment
     public <R, E extends Exception> R doAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
             throws E
     {
-        return hdfsAuthentication.doAs(identity, action);
+        try (var ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            return hdfsAuthentication.doAs(identity, action);
+        }
     }
 
     public Storage createGcsStorage(HdfsContext context, Path path)

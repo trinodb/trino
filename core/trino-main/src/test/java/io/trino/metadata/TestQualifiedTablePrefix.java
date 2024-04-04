@@ -17,10 +17,8 @@ import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestQualifiedTablePrefix
 {
@@ -30,10 +28,10 @@ public class TestQualifiedTablePrefix
     public void testCatalog()
     {
         QualifiedTablePrefix tableName = new QualifiedTablePrefix("catalog");
-        assertEquals("catalog", tableName.getCatalogName());
+        assertThat("catalog").isEqualTo(tableName.getCatalogName());
 
-        assertFalse(tableName.hasSchemaName());
-        assertFalse(tableName.hasTableName());
+        assertThat(tableName.hasSchemaName()).isFalse();
+        assertThat(tableName.hasTableName()).isFalse();
     }
 
     @Test
@@ -41,24 +39,24 @@ public class TestQualifiedTablePrefix
     {
         QualifiedTablePrefix tableName = new QualifiedTablePrefix("catalog", "schema");
 
-        assertEquals("catalog", tableName.getCatalogName());
-        assertTrue(tableName.hasSchemaName());
+        assertThat("catalog").isEqualTo(tableName.getCatalogName());
+        assertThat(tableName.hasSchemaName()).isTrue();
 
-        assertEquals("schema", tableName.getSchemaName().get());
-        assertFalse(tableName.hasTableName());
+        assertThat("schema").isEqualTo(tableName.getSchemaName().get());
+        assertThat(tableName.hasTableName()).isFalse();
     }
 
     @Test
     public void testTable()
     {
         QualifiedTablePrefix tableName = new QualifiedTablePrefix("catalog", "schema", "table");
-        assertEquals("catalog", tableName.getCatalogName());
+        assertThat("catalog").isEqualTo(tableName.getCatalogName());
 
-        assertTrue(tableName.hasSchemaName());
-        assertEquals("schema", tableName.getSchemaName().get());
+        assertThat(tableName.hasSchemaName()).isTrue();
+        assertThat("schema").isEqualTo(tableName.getSchemaName().get());
 
-        assertTrue(tableName.hasTableName());
-        assertEquals("table", tableName.getTableName().get());
+        assertThat(tableName.hasTableName()).isTrue();
+        assertThat("table").isEqualTo(tableName.getTableName().get());
     }
 
     @Test
@@ -73,6 +71,6 @@ public class TestQualifiedTablePrefix
     public void testRoundTrip()
     {
         QualifiedTablePrefix table = new QualifiedTablePrefix("abc", "xyz", "fgh");
-        assertEquals(CODEC.fromJson(CODEC.toJson(table)), table);
+        assertThat(CODEC.fromJson(CODEC.toJson(table))).isEqualTo(table);
     }
 }

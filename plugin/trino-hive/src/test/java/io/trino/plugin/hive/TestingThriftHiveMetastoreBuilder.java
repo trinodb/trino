@@ -15,8 +15,8 @@ package io.trino.plugin.hive;
 
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreFactory;
@@ -40,7 +40,7 @@ public final class TestingThriftHiveMetastoreBuilder
     private TokenAwareMetastoreClientFactory tokenAwareMetastoreClientFactory;
     private HiveConfig hiveConfig = new HiveConfig();
     private ThriftMetastoreConfig thriftMetastoreConfig = new ThriftMetastoreConfig();
-    private HdfsEnvironment hdfsEnvironment = HDFS_ENVIRONMENT;
+    private TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
 
     public static TestingThriftHiveMetastoreBuilder testingThriftHiveMetastoreBuilder()
     {
@@ -86,9 +86,9 @@ public final class TestingThriftHiveMetastoreBuilder
         return this;
     }
 
-    public TestingThriftHiveMetastoreBuilder hdfsEnvironment(HdfsEnvironment hdfsEnvironment)
+    public TestingThriftHiveMetastoreBuilder fileSystemFactory(TrinoFileSystemFactory fileSystemFactory)
     {
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         return this;
     }
 
@@ -100,7 +100,7 @@ public final class TestingThriftHiveMetastoreBuilder
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 hiveConfig.isTranslateHiveViews(),
                 thriftMetastoreConfig,
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                fileSystemFactory,
                 newFixedThreadPool(thriftMetastoreConfig.getWriteStatisticsThreads()));
         return metastoreFactory.createMetastore(Optional.empty());
     }

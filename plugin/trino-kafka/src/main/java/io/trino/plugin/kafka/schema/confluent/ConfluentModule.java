@@ -57,7 +57,9 @@ import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.PreDestroy;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -134,6 +136,13 @@ public class ConfluentModule
                         ImmutableList.copyOf(schemaProviders),
                         schemaRegistryClientProperties),
                 classLoader);
+    }
+
+    @PreDestroy
+    public void destroy(SchemaRegistryClient client)
+            throws IOException
+    {
+        client.close();
     }
 
     private class ConfluentDecoderModule

@@ -18,12 +18,12 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
+import static io.trino.plugin.deltalake.InternalDeltaLakeConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeConnectorFactory
@@ -31,9 +31,14 @@ public class DeltaLakeConnectorFactory
 {
     public static final String CONNECTOR_NAME = "delta_lake";
 
-    private final Class<? extends Module> module;
+    private final Module module;
 
-    public DeltaLakeConnectorFactory(Class<? extends Module> module)
+    public DeltaLakeConnectorFactory()
+    {
+        this(EMPTY_MODULE);
+    }
+
+    public DeltaLakeConnectorFactory(Module module)
     {
         this.module = requireNonNull(module, "module is null");
     }
@@ -48,22 +53,6 @@ public class DeltaLakeConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-
-        ClassLoader classLoader = context.duplicatePluginClassLoader();
-        try {
-            Class<?> moduleClass = classLoader.loadClass(Module.class.getName());
-            Object moduleInstance = classLoader.loadClass(module.getName()).getConstructor().newInstance();
-            return (Connector) classLoader.loadClass(InternalDeltaLakeConnectorFactory.class.getName())
-                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class, Optional.class, moduleClass)
-                    .invoke(null, catalogName, config, context, Optional.empty(), Optional.empty(), moduleInstance);
-        }
-        catch (InvocationTargetException e) {
-            Throwable targetException = e.getTargetException();
-            throwIfUnchecked(targetException);
-            throw new RuntimeException(targetException);
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
+        return createConnector(catalogName, config, context, Optional.empty(), Optional.empty(), module);
     }
 }

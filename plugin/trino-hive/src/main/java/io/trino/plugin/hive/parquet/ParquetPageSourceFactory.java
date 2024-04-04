@@ -22,7 +22,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.parquet.BloomFilterStore;
+import io.trino.parquet.Column;
 import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
@@ -32,7 +32,7 @@ import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
-import io.trino.parquet.reader.TrinoColumnIndexStore;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -49,12 +49,8 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
-import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
@@ -62,28 +58,24 @@ import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-import java.util.Properties;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.parquet.BloomFilterStore.getBloomFilterStore;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
-import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
+import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -148,12 +140,10 @@ public class ParquetPageSourceFactory
         domainCompactionThreshold = hiveConfig.getDomainCompactionThreshold();
     }
 
-    public static Properties stripUnnecessaryProperties(Properties schema)
+    public static Map<String, String> stripUnnecessaryProperties(Map<String, String> schema)
     {
         if (PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
-            Properties stripped = new Properties();
-            stripped.put(SERIALIZATION_LIB, schema.getProperty(SERIALIZATION_LIB));
-            return stripped;
+            return ImmutableMap.of(SERIALIZATION_LIB, schema.get(SERIALIZATION_LIB));
         }
         return schema;
     }
@@ -165,7 +155,7 @@ public class ParquetPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
-            Properties schema,
+            Map<String, String> schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,
@@ -240,8 +230,8 @@ public class ParquetPageSourceFactory
             List<TupleDomain<ColumnDescriptor>> parquetTupleDomains;
             List<TupleDomainParquetPredicate> parquetPredicates;
             if (options.isIgnoreStatistics()) {
-                parquetTupleDomains = ImmutableList.of();
-                parquetPredicates = ImmutableList.of();
+                parquetTupleDomains = ImmutableList.of(TupleDomain.all());
+                parquetPredicates = ImmutableList.of(buildPredicate(requestedSchema, TupleDomain.all(), descriptorsByPath, timeZone));
             }
             else {
                 ImmutableList.Builder<TupleDomain<ColumnDescriptor>> parquetTupleDomainsBuilder = ImmutableList.builderWithExpectedSize(disjunctTupleDomains.size());
@@ -255,36 +245,17 @@ public class ParquetPageSourceFactory
                 parquetPredicates = parquetPredicatesBuilder.build();
             }
 
-            long nextStart = 0;
-            ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
-            ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
-            ImmutableList.Builder<Optional<ColumnIndexStore>> columnIndexes = ImmutableList.builder();
-            for (BlockMetaData block : parquetMetadata.getBlocks()) {
-                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                for (int i = 0; i < disjunctTupleDomains.size(); i++) {
-                    TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetTupleDomains.get(i);
-                    TupleDomainParquetPredicate parquetPredicate = parquetPredicates.get(i);
-                    Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
-                    Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, block, parquetTupleDomain, options);
-                    if (start <= firstDataPage && firstDataPage < start + length
-                            && predicateMatches(
-                            parquetPredicate,
-                            block,
-                            dataSource,
-                            descriptorsByPath,
-                            parquetTupleDomain,
-                            columnIndex,
-                            bloomFilterStore,
-                            timeZone,
-                            domainCompactionThreshold)) {
-                        blocks.add(block);
-                        blockStarts.add(nextStart);
-                        columnIndexes.add(columnIndex);
-                        break;
-                    }
-                }
-                nextStart += block.getRowCount();
-            }
+            List<RowGroupInfo> rowGroups = getFilteredRowGroups(
+                    start,
+                    length,
+                    dataSource,
+                    parquetMetadata.getBlocks(),
+                    parquetTupleDomains,
+                    parquetPredicates,
+                    descriptorsByPath,
+                    timeZone,
+                    domainCompactionThreshold,
+                    options);
 
             Optional<ReaderColumns> readerProjections = projectBaseColumns(columns, useColumnNames);
             List<HiveColumnHandle> baseColumns = readerProjections.map(projection ->
@@ -298,8 +269,7 @@ public class ParquetPageSourceFactory
             ParquetReaderProvider parquetReaderProvider = fields -> new ParquetReader(
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
                     fields,
-                    blocks.build(),
-                    blockStarts.build(),
+                    rowGroups,
                     finalDataSource,
                     timeZone,
                     memoryContext,
@@ -308,7 +278,6 @@ public class ParquetPageSourceFactory
                     // We avoid using disjuncts of parquetPredicate for page pruning in ParquetReader as currently column indexes
                     // are not present in the Parquet files which are read with disjunct predicates.
                     parquetPredicates.size() == 1 ? Optional.of(parquetPredicates.get(0)) : Optional.empty(),
-                    columnIndexes.build(),
                     parquetWriteValidation);
             ConnectorPageSource parquetPageSource = createParquetPageSource(baseColumns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
             return new ReaderPageSource(parquetPageSource, readerProjections);
@@ -385,43 +354,6 @@ public class ParquetPageSourceFactory
         return Optional.of(new GroupType(baseType.getRepetition(), baseType.getName(), ImmutableList.of(type)));
     }
 
-    public static Optional<ColumnIndexStore> getColumnIndexStore(
-            ParquetDataSource dataSource,
-            BlockMetaData blockMetadata,
-            Map<List<String>, ColumnDescriptor> descriptorsByPath,
-            TupleDomain<ColumnDescriptor> parquetTupleDomain,
-            ParquetReaderOptions options)
-    {
-        if (!options.isUseColumnIndex() || parquetTupleDomain.isAll() || parquetTupleDomain.isNone()) {
-            return Optional.empty();
-        }
-
-        boolean hasColumnIndex = false;
-        for (ColumnChunkMetaData column : blockMetadata.getColumns()) {
-            if (column.getColumnIndexReference() != null && column.getOffsetIndexReference() != null) {
-                hasColumnIndex = true;
-                break;
-            }
-        }
-
-        if (!hasColumnIndex) {
-            return Optional.empty();
-        }
-
-        Set<ColumnPath> columnsReadPaths = new HashSet<>(descriptorsByPath.size());
-        for (List<String> path : descriptorsByPath.keySet()) {
-            columnsReadPaths.add(ColumnPath.get(path.toArray(new String[0])));
-        }
-
-        Map<ColumnDescriptor, Domain> parquetDomains = parquetTupleDomain.getDomains()
-                .orElseThrow(() -> new IllegalStateException("Predicate other than none should have domains"));
-        Set<ColumnPath> columnsFilteredPaths = parquetDomains.keySet().stream()
-                .map(column -> ColumnPath.get(column.getPath()))
-                .collect(toImmutableSet());
-
-        return Optional.of(new TrinoColumnIndexStore(dataSource, blockMetadata, columnsReadPaths, columnsFilteredPaths));
-    }
-
     public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -476,7 +408,7 @@ public class ParquetPageSourceFactory
 
     public interface ParquetReaderProvider
     {
-        ParquetReader createParquetReader(List<Field> fields)
+        ParquetReader createParquetReader(List<Column> fields)
                 throws IOException;
     }
 
@@ -489,7 +421,7 @@ public class ParquetPageSourceFactory
             throws IOException
     {
         ParquetPageSource.Builder pageSourceBuilder = ParquetPageSource.builder();
-        ImmutableList.Builder<Field> parquetColumnFieldsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Column> parquetColumnFieldsBuilder = ImmutableList.builder();
         int sourceChannel = 0;
         for (HiveColumnHandle column : baseColumns) {
             if (column == PARQUET_ROW_INDEX_COLUMN) {
@@ -508,7 +440,7 @@ public class ParquetPageSourceFactory
                 pageSourceBuilder.addNullColumn(column.getBaseType());
                 continue;
             }
-            parquetColumnFieldsBuilder.add(field.get());
+            parquetColumnFieldsBuilder.add(new Column(columnName, field.get()));
             pageSourceBuilder.addSourceColumn(sourceChannel);
             sourceChannel++;
         }

@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.VarcharType;
@@ -91,6 +92,27 @@ public final class TimestampCoercer
                             Slices.utf8Slice(
                                     LOCAL_DATE_TIME.format(LocalDateTime.ofEpochSecond(epochSecond, toIntExact(nanosFraction), UTC))),
                             toType));
+        }
+    }
+
+    public static class LongTimestampToDateCoercer
+            extends TypeCoercer<TimestampType, DateType>
+    {
+        public LongTimestampToDateCoercer(TimestampType fromType, DateType toType)
+        {
+            super(fromType, toType);
+        }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            LongTimestamp timestamp = (LongTimestamp) fromType.getObject(block, position);
+
+            long epochSecond = floorDiv(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
+            if (epochSecond < START_OF_MODERN_ERA_SECONDS) {
+                throw new TrinoException(HIVE_INVALID_TIMESTAMP_COERCION, "Coercion on historical dates is not supported");
+            }
+            toType.writeLong(blockBuilder, floorDiv(epochSecond, SECONDS_PER_DAY));
         }
     }
 

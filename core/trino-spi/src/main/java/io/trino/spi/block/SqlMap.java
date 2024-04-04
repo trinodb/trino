@@ -60,7 +60,7 @@ public class SqlMap
         this.hashTablesSupplier = new HashTableSupplier(createSingleTable(mapType, mode, keyBlock).get());
     }
 
-    public SqlMap(MapType mapType, Block rawKeyBlock, Block rawValueBlock, HashTableSupplier hashTablesSupplier, int offset, int size)
+    SqlMap(MapType mapType, Block rawKeyBlock, Block rawValueBlock, HashTableSupplier hashTablesSupplier, int offset, int size)
     {
         this.mapType = requireNonNull(mapType, "mapType is null");
         this.rawKeyBlock = requireNonNull(rawKeyBlock, "rawKeyBlock is null");

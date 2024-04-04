@@ -25,7 +25,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -39,9 +38,10 @@ import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -107,7 +107,11 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -148,7 +152,7 @@ public class TestPostgreSqlTypeMapping
                 ImmutableList.of());
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
@@ -626,8 +630,14 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    @Test(dataProvider = "testDecimalExceedingPrecisionMaxProvider")
-    public void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
+    @Test
+    public void testDecimalExceedingPrecisionMaxWithSupportedValues()
+    {
+        testDecimalExceedingPrecisionMaxWithSupportedValues(40, 8);
+        testDecimalExceedingPrecisionMaxWithSupportedValues(50, 10);
+    }
+
+    private void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
 
@@ -677,15 +687,6 @@ public class TestPostgreSqlTypeMapping
                     "SELECT d_col FROM " + testTable.getName(),
                     "VALUES (12.01), (-12.01), (123), (-123), (1.12345678), (-1.12345678)");
         }
-    }
-
-    @DataProvider
-    public Object[][] testDecimalExceedingPrecisionMaxProvider()
-    {
-        return new Object[][] {
-                {40, 8},
-                {50, 10},
-        };
     }
 
     @Test
@@ -1070,8 +1071,18 @@ public class TestPostgreSqlTypeMapping
                 valuesList -> valuesList == null ? null : valuesList.stream().map(elementType::toTrinoQueryResult).collect(toList()));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
+    {
+        testDate(UTC);
+        testDate(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        testDate(vilnius);
+        testDate(kathmandu);
+        testDate(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -1152,8 +1163,18 @@ public class TestPostgreSqlTypeMapping
     /**
      * @see #testTimeCoercion
      */
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTime(ZoneId sessionZone)
+    @Test
+    public void testTime()
+    {
+        testTime(UTC);
+        testTime(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        testTime(vilnius);
+        testTime(kathmandu);
+        testTime(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTime(ZoneId sessionZone)
     {
         LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
         checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
@@ -1324,8 +1345,18 @@ public class TestPostgreSqlTypeMapping
     /**
      * @see #testTimestampCoercion
      */
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestamp(ZoneId sessionZone)
+    @Test
+    public void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        testTimestamp(vilnius);
+        testTimestamp(kathmandu);
+        testTimestamp(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
     {
         // no need to test gap for multiple precisions as both Trino and PostgreSql JDBC
         // uses same representation for all precisions 1-6
@@ -1425,8 +1456,18 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_coercion"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testArrayTimestamp(ZoneId sessionZone)
+    @Test
+    public void testArrayTimestamp()
+    {
+        testArrayTimestamp(UTC);
+        testArrayTimestamp(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        testArrayTimestamp(vilnius);
+        testArrayTimestamp(kathmandu);
+        testArrayTimestamp(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testArrayTimestamp(ZoneId sessionZone)
     {
         // no need to test gap for multiple precisions as both Trino and PostgreSql JDBC
         // uses same representation for all precisions 1-6
@@ -1475,24 +1516,17 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_timestamp"));
     }
 
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-                {vilnius},
-                {kathmandu},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
-    }
-
     /**
      * @see #testTimestampWithTimeZoneCoercion
      */
-    @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
-    public void testTimestampWithTimeZone(boolean insertWithTrino)
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        testTimestampWithTimeZone(true);
+        testTimestampWithTimeZone(false);
+    }
+
+    private void testTimestampWithTimeZone(boolean insertWithTrino)
     {
         DataTypeTest tests = DataTypeTest.create(true);
         for (int precision : List.of(3, 6)) {
@@ -1604,8 +1638,14 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_tz_coercion"));
     }
 
-    @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
-    public void testArrayTimestampWithTimeZone(boolean insertWithTrino)
+    @Test
+    public void testArrayTimestampWithTimeZone()
+    {
+        testArrayTimestampWithTimeZone(true);
+        testArrayTimestampWithTimeZone(false);
+    }
+
+    private void testArrayTimestampWithTimeZone(boolean insertWithTrino)
     {
         DataTypeTest tests = DataTypeTest.create();
         for (int precision : List.of(3, 6)) {

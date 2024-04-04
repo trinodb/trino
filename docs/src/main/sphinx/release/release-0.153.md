@@ -93,7 +93,7 @@ and {doc}`/admin/resource-groups` for more details.
   The filesystem location can be specified when creating a schema,
   which allows, for example, easily creating tables on S3.
 - Record Presto query ID for tables or partitions written by Presto
-  using the `presto_query_id` table or partition property.
+  using the `trino_query_id` table or partition property.
 - Include path name in error message when listing a directory fails.
 - Rename `allow-all` authorization method to `legacy`. This
   method is deprecated and will be removed in a future release.

@@ -13,10 +13,8 @@
  */
 package io.trino.plugin.hive;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.model.ConcurrentModificationException;
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
@@ -33,7 +31,6 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -41,10 +38,9 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
+import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingAsyncGlueClient;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -77,7 +73,7 @@ public class TestHiveConcurrentModificationGlueMetastore
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(dataDirectory.toUri().toString());
 
-        AWSGlueAsync glueClient = createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), ImmutableSet.of(), stats.newRequestMetricsCollector());
+        AWSGlueAsync glueClient = createTestingAsyncGlueClient(glueConfig, stats);
         AWSGlueAsync proxiedGlueClient = newProxy(AWSGlueAsync.class, (proxy, method, args) -> {
             try {
                 if (method.getName().equals("updateTable")) {
@@ -104,7 +100,7 @@ public class TestHiveConcurrentModificationGlueMetastore
                 stats,
                 table -> true);
 
-        queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), Optional.empty(), EMPTY_MODULE, Optional.empty()));
+        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), metastore));
         queryRunner.createCatalog(CATALOG_NAME, "hive");
         queryRunner.execute("CREATE SCHEMA " + SCHEMA);
         return queryRunner;

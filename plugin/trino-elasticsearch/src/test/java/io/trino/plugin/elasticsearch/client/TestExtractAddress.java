@@ -18,22 +18,22 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.elasticsearch.client.ElasticsearchClient.extractAddress;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExtractAddress
 {
     @Test
     public void test()
     {
-        assertEquals(extractAddress("node/1.2.3.4:9200"), Optional.of("node:9200"));
-        assertEquals(extractAddress("1.2.3.4:9200"), Optional.of("1.2.3.4:9200"));
-        assertEquals(extractAddress("node/1.2.3.4:9200"), Optional.of("node:9200"));
-        assertEquals(extractAddress("node/[fe80::1]:9200"), Optional.of("node:9200"));
-        assertEquals(extractAddress("[fe80::1]:9200"), Optional.of("[fe80::1]:9200"));
+        assertThat(extractAddress("node/1.2.3.4:9200")).isEqualTo(Optional.of("node:9200"));
+        assertThat(extractAddress("1.2.3.4:9200")).isEqualTo(Optional.of("1.2.3.4:9200"));
+        assertThat(extractAddress("node/1.2.3.4:9200")).isEqualTo(Optional.of("node:9200"));
+        assertThat(extractAddress("node/[fe80::1]:9200")).isEqualTo(Optional.of("node:9200"));
+        assertThat(extractAddress("[fe80::1]:9200")).isEqualTo(Optional.of("[fe80::1]:9200"));
 
-        assertEquals(extractAddress(""), Optional.empty());
-        assertEquals(extractAddress("node/1.2.3.4"), Optional.empty());
-        assertEquals(extractAddress("node/1.2.3.4:xxxx"), Optional.empty());
-        assertEquals(extractAddress("1.2.3.4:xxxx"), Optional.empty());
+        assertThat(extractAddress("")).isEqualTo(Optional.empty());
+        assertThat(extractAddress("node/1.2.3.4")).isEqualTo(Optional.empty());
+        assertThat(extractAddress("node/1.2.3.4:xxxx")).isEqualTo(Optional.empty());
+        assertThat(extractAddress("1.2.3.4:xxxx")).isEqualTo(Optional.empty());
     }
 }

@@ -59,6 +59,7 @@ import io.trino.sql.jsonpath.tree.SqlValueLiteral;
 import io.trino.sql.jsonpath.tree.StartsWithPredicate;
 import io.trino.sql.jsonpath.tree.TypeMethod;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.StringLiteral;
 
 import java.util.LinkedHashMap;
@@ -83,7 +84,6 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.jsonpath.tree.ArithmeticUnary.Sign.PLUS;
 import static io.trino.type.Json2016Type.JSON_2016;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JsonPathAnalyzer
@@ -109,8 +109,15 @@ public class JsonPathAnalyzer
         Location pathStart = extractLocation(path)
                 .map(location -> new Location(location.getLineNumber(), location.getColumnNumber()))
                 .orElseThrow(() -> new IllegalStateException("missing NodeLocation in path"));
-        PathNode root = new PathParser(pathStart).parseJsonPath(path.getValue());
+        PathNode root = PathParser.withRelativeErrorLocation(pathStart).parseJsonPath(path.getValue());
         new Visitor(parameterTypes, path).process(root);
+        return new JsonPathAnalysis((JsonPath) root, types, jsonParameters);
+    }
+
+    public JsonPathAnalysis analyzeImplicitJsonPath(String path, NodeLocation location)
+    {
+        PathNode root = PathParser.withFixedErrorLocation(new Location(location.getLineNumber(), location.getColumnNumber())).parseJsonPath(path);
+        new Visitor(ImmutableMap.of(), new StringLiteral(path)).process(root);
         return new JsonPathAnalysis((JsonPath) root, types, jsonParameters);
     }
 
@@ -368,9 +375,9 @@ public class JsonPathAnalyzer
                         .filter(name -> name.equalsIgnoreCase(node.getName()))
                         .findFirst();
                 if (similarName.isPresent()) {
-                    throw semanticException(INVALID_PATH, pathNode, format("no value passed for parameter %s. Try quoting \"%s\" in the PASSING clause to match case", node.getName(), node.getName()));
+                    throw semanticException(INVALID_PATH, pathNode, "no value passed for parameter %s. Try quoting \"%s\" in the PASSING clause to match case", node.getName(), node.getName());
                 }
-                throw semanticException(INVALID_PATH, pathNode, "no value passed for parameter " + node.getName());
+                throw semanticException(INVALID_PATH, pathNode, "no value passed for parameter %s", node.getName());
             }
 
             if (parameterType.equals(JSON_2016)) {

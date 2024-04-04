@@ -56,7 +56,7 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
                 hiveMinioDataLake.getHiveHadoop());
         queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = 's3://" + bucketName + "/" + schema + "')");
 
-        queryRunner.installPlugin(new TestingHivePlugin());
+        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
         Map<String, String> s3Properties = ImmutableMap.<String, String>builder()
                 .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
                 .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
@@ -67,6 +67,7 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
                 "hive",
                 "hive",
                 ImmutableMap.<String, String>builder()
+                        .put("hive.metastore", "thrift")
                         .put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
                         .put("hive.allow-drop-table", "true")
                         .putAll(s3Properties)

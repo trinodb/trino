@@ -25,12 +25,6 @@ public final class MaterializedViewFreshness
     private final Freshness freshness;
     private final Optional<Instant> lastFreshTime;
 
-    @Deprecated
-    public MaterializedViewFreshness(Freshness freshness)
-    {
-        this(freshness, Optional.empty());
-    }
-
     public MaterializedViewFreshness(Freshness freshness, Optional<Instant> lastFreshTime)
     {
         this.freshness = requireNonNull(freshness, "freshness is null");

@@ -121,96 +121,95 @@ each direction.
 The connector maps MySQL types to the corresponding Trino types following
 this table:
 
-```{eval-rst}
-.. list-table:: MySQL to Trino type mapping
-  :widths: 30, 20, 50
-  :header-rows: 1
+:::{list-table} MySQL to Trino type mapping
+:widths: 30, 30, 40
+:header-rows: 1
 
-  * - MySQL database type
-    - Trino type
-    - Notes
-  * - ``BIT``
-    - ``BOOLEAN``
-    -
-  * - ``BOOLEAN``
-    - ``TINYINT``
-    -
-  * - ``TINYINT``
-    - ``TINYINT``
-    -
-  * - ``TINYINT UNSIGNED``
-    - ``SMALLINT``
-    -
-  * - ``SMALLINT``
-    - ``SMALLINT``
-    -
-  * - ``SMALLINT UNSIGNED``
-    - ``INTEGER``
-    -
-  * - ``INTEGER``
-    - ``INTEGER``
-    -
-  * - ``INTEGER UNSIGNED``
-    - ``BIGINT``
-    -
-  * - ``BIGINT``
-    - ``BIGINT``
-    -
-  * - ``BIGINT UNSIGNED``
-    - ``DECIMAL(20, 0)``
-    -
-  * - ``DOUBLE PRECISION``
-    - ``DOUBLE``
-    -
-  * - ``FLOAT``
-    - ``REAL``
-    -
-  * - ``REAL``
-    - ``REAL``
-    -
-  * - ``DECIMAL(p, s)``
-    - ``DECIMAL(p, s)``
-    - See :ref:`MySQL DECIMAL type handling <mysql-decimal-handling>`
-  * - ``CHAR(n)``
-    - ``CHAR(n)``
-    -
-  * - ``VARCHAR(n)``
-    - ``VARCHAR(n)``
-    -
-  * - ``TINYTEXT``
-    - ``VARCHAR(255)``
-    -
-  * - ``TEXT``
-    - ``VARCHAR(65535)``
-    -
-  * - ``MEDIUMTEXT``
-    - ``VARCHAR(16777215)``
-    -
-  * - ``LONGTEXT``
-    - ``VARCHAR``
-    -
-  * - ``ENUM(n)``
-    - ``VARCHAR(n)``
-    -
-  * - ``BINARY``, ``VARBINARY``, ``TINYBLOB``, ``BLOB``, ``MEDIUMBLOB``, ``LONGBLOB``
-    - ``VARBINARY``
-    -
-  * - ``JSON``
-    - ``JSON``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``TIME(n)``
-    - ``TIME(n)``
-    -
-  * - ``DATETIME(n)``
-    - ``TIMESTAMP(n)``
-    -
-  * - ``TIMESTAMP(n)``
-    - ``TIMESTAMP(n) WITH TIME ZONE``
-    -
-```
+* - MySQL database type
+  - Trino type
+  - Notes
+* - `BIT`
+  - `BOOLEAN`
+  -
+* - `BOOLEAN`
+  - `TINYINT`
+  -
+* - `TINYINT`
+  - `TINYINT`
+  -
+* - `TINYINT UNSIGNED`
+  - `SMALLINT`
+  -
+* - `SMALLINT`
+  - `SMALLINT`
+  -
+* - `SMALLINT UNSIGNED`
+  - `INTEGER`
+  -
+* - `INTEGER`
+  - `INTEGER`
+  -
+* - `INTEGER UNSIGNED`
+  - `BIGINT`
+  -
+* - `BIGINT`
+  - `BIGINT`
+  -
+* - `BIGINT UNSIGNED`
+  - `DECIMAL(20, 0)`
+  -
+* - `DOUBLE PRECISION`
+  - `DOUBLE`
+  -
+* - `FLOAT`
+  - `REAL`
+  -
+* - `REAL`
+  - `REAL`
+  -
+* - `DECIMAL(p, s)`
+  - `DECIMAL(p, s)`
+  - See [MySQL DECIMAL type handling](mysql-decimal-handling)
+* - `CHAR(n)`
+  - `CHAR(n)`
+  -
+* - `VARCHAR(n)`
+  - `VARCHAR(n)`
+  -
+* - `TINYTEXT`
+  - `VARCHAR(255)`
+  -
+* - `TEXT`
+  - `VARCHAR(65535)`
+  -
+* - `MEDIUMTEXT`
+  - `VARCHAR(16777215)`
+  -
+* - `LONGTEXT`
+  - `VARCHAR`
+  -
+* - `ENUM(n)`
+  - `VARCHAR(n)`
+  -
+* - `BINARY`, `VARBINARY`, `TINYBLOB`, `BLOB`, `MEDIUMBLOB`, `LONGBLOB`
+  - `VARBINARY`
+  -
+* - `JSON`
+  - `JSON`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `TIME(n)`
+  - `TIME(n)`
+  -
+* - `DATETIME(n)`
+  - `TIMESTAMP(n)`
+  -
+* - `TIMESTAMP(n)`
+  - `TIMESTAMP(n) WITH TIME ZONE`
+  -
+:::
 
 No other types are supported.
 
@@ -219,60 +218,59 @@ No other types are supported.
 The connector maps Trino types to the corresponding MySQL types following
 this table:
 
-```{eval-rst}
-.. list-table:: Trino to MySQL type mapping
-  :widths: 30, 20, 50
-  :header-rows: 1
+:::{list-table} Trino to MySQL type mapping
+:widths: 30, 30, 40
+:header-rows: 1
 
-  * - Trino type
-    - MySQL type
-    - Notes
-  * - ``BOOLEAN``
-    - ``TINYINT``
-    -
-  * - ``TINYINT``
-    - ``TINYINT``
-    -
-  * - ``SMALLINT``
-    - ``SMALLINT``
-    -
-  * - ``INTEGER``
-    - ``INTEGER``
-    -
-  * - ``BIGINT``
-    - ``BIGINT``
-    -
-  * - ``REAL``
-    - ``REAL``
-    -
-  * - ``DOUBLE``
-    - ``DOUBLE PRECISION``
-    -
-  * - ``DECIMAL(p, s)``
-    - ``DECIMAL(p, s)``
-    - :ref:`MySQL DECIMAL type handling <mysql-decimal-handling>`
-  * - ``CHAR(n)``
-    - ``CHAR(n)``
-    -
-  * - ``VARCHAR(n)``
-    - ``VARCHAR(n)``
-    -
-  * - ``JSON``
-    - ``JSON``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``TIME(n)``
-    - ``TIME(n)``
-    -
-  * - ``TIMESTAMP(n)``
-    - ``DATETIME(n)``
-    -
-  * - ``TIMESTAMP(n) WITH TIME ZONE``
-    - ``TIMESTAMP(n)``
-    -
-```
+* - Trino type
+  - MySQL type
+  - Notes
+* - `BOOLEAN`
+  - `TINYINT`
+  -
+* - `TINYINT`
+  - `TINYINT`
+  -
+* - `SMALLINT`
+  - `SMALLINT`
+  -
+* - `INTEGER`
+  - `INTEGER`
+  -
+* - `BIGINT`
+  - `BIGINT`
+  -
+* - `REAL`
+  - `REAL`
+  -
+* - `DOUBLE`
+  - `DOUBLE PRECISION`
+  -
+* - `DECIMAL(p, s)`
+  - `DECIMAL(p, s)`
+  - [MySQL DECIMAL type handling](mysql-decimal-handling)
+* - `CHAR(n)`
+  - `CHAR(n)`
+  -
+* - `VARCHAR(n)`
+  - `VARCHAR(n)`
+  -
+* - `JSON`
+  - `JSON`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `TIME(n)`
+  - `TIME(n)`
+  -
+* - `TIMESTAMP(n)`
+  - `DATETIME(n)`
+  -
+* - `TIMESTAMP(n) WITH TIME ZONE`
+  - `TIMESTAMP(n)`
+  -
+:::
 
 No other types are supported.
 

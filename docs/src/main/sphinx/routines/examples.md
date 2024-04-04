@@ -201,14 +201,14 @@ SELECT simple_case(null,null); -- null .. but really??
 ## Fibonacci example
 
 This routine calculates the `n`-th value in the Fibonacci series, in which each
-number is the sum of the two preceding ones. The two initial values are are set
+number is the sum of the two preceding ones. The two initial values are set
 to `1` as the defaults for `a` and `b`. The routine uses an `IF` statement
 condition to return `1` for all input values of `2` or less. The `WHILE` block
 then starts to calculate each number in the series, starting with `a=1` and
 `b=1` and iterates until it reaches the `n`-th position. In each iteration is
 sets `a` and `b` for the preceding to values, so it can calculate the sum, and
 finally return it. Note that processing the routine takes longer and longer with
-higher `n` values, and the result it deterministic.
+higher `n` values, and the result is deterministic.
 
 ```sql
 FUNCTION fib(n bigint)
@@ -246,7 +246,7 @@ SELECT fib(8); -- 21
 
 ## Labels and loops
 
-This routing uses the `top` label to name the `WHILE` block, and then controls
+This routine uses the `top` label to name the `WHILE` block, and then controls
 the flow with conditional statements, `ITERATE`, and `LEAVE`. For the values of
 `a=1` and `a=2` in the first two iterations of the loop the `ITERATE` call moves
 the flow up to `top` before `b` is ever increased. Then `b` is increased for the
@@ -368,4 +368,257 @@ BEGIN
   END;
   RETURN r;
 END
+```
+
+## Date string parsing example
+
+This example routine parses a date string of type `VARCHAR` into `TIMESTAMP WITH
+TIME ZONE`. Date strings are commonly represented by ISO 8601 standard, such as
+`2023-12-01`, `2023-12-01T23`. Date strings are also often represented in the
+`YYYYmmdd` and `YYYYmmddHH` format, such as `20230101` and `2023010123`. Hive
+tables can use this format to represent day and hourly partitions, for example
+`/day=20230101`, `/hour=2023010123`.
+
+This routine parses date strings in a best-effort fashion and can be used as a
+replacement for date string manipulation functions such as `date`, `date_parse`,
+`from_iso8601_date`,  and `from_iso8601_timestamp`.
+
+Note that the routine defaults the time value to `00:00:00.000` and the time
+zone to the session time zone.
+
+
+```sql
+FUNCTION from_date_string(date_string VARCHAR)
+RETURNS TIMESTAMP WITH TIME ZONE
+BEGIN
+  IF date_string like '%-%' THEN -- ISO 8601
+    RETURN from_iso8601_timestamp(date_string);
+  ELSEIF length(date_string) = 8 THEN -- YYYYmmdd
+      RETURN date_parse(date_string, '%Y%m%d');
+  ELSEIF length(date_string) = 10 THEN -- YYYYmmddHH
+      RETURN date_parse(date_string, '%Y%m%d%H');
+  END IF;
+  RETURN NULL;
+END
+```
+
+Following are a couple of example invocations with result and explanation:
+
+```sql
+SELECT from_date_string('2023-01-01'); -- 2023-01-01 00:00:00.000 UTC (using the ISO 8601 format)
+SELECT from_date_string('2023-01-01T23'); -- 2023-01-01 23:00:00.000 UTC (using the ISO 8601 format)
+SELECT from_date_string('2023-01-01T23:23:23'); -- 2023-01-01 23:23:23.000 UTC (using the ISO 8601 format)
+SELECT from_date_string('20230101'); -- 2023-01-01 00:00:00.000 UTC (using the YYYYmmdd format)
+SELECT from_date_string('2023010123'); -- 2023-01-01 23:00:00.000 UTC (using the YYYYmmddHH format)
+SELECT from_date_string(NULL); -- NULL (handles NULL string)
+SELECT from_date_string('abc'); -- NULL (not matched to any format)
+```
+
+## Truncating long strings
+
+This example routine `strtrunc` truncates strings longer than 60 characters,
+leaving the first 30 and the last 25 characters, and cutting out extra
+characters in the middle.
+
+```sql
+FUNCTION strtrunc(input VARCHAR)
+RETURNS VARCHAR
+RETURN
+    CASE WHEN length(input) > 60
+    THEN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25)
+    ELSE input
+    END;
+```
+
+The preceding declaration is very compact and consists of only one complex
+statement with a [`CASE` expression](case-expression) and multiple function
+calls. It can therefore define the complete logic in the `RETURN` clause.
+
+The following statement shows the same capability within the routine itself.
+Note the duplicate `RETURN` inside and outside the `CASE` statement and the
+required `END CASE;`. The second `RETURN` statement is required, because a
+routine must end with a `RETURN` statement. As a result the `ELSE` clause can be
+omitted.
+
+```sql
+FUNCTION strtrunc(input VARCHAR)
+RETURNS VARCHAR
+BEGIN
+    CASE WHEN length(input) > 60
+    THEN
+        RETURN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25);
+    ELSE
+        RETURN input;
+    END CASE;
+    RETURN input;
+END;
+```
+
+The next example changes over from a `CASE` to an `IF` statement, and avoids the
+duplicate `RETURN`:
+
+```sql
+FUNCTION strtrunc(input VARCHAR)
+RETURNS VARCHAR
+BEGIN
+    IF length(input) > 60 THEN
+        RETURN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25);
+    END IF;
+    RETURN input;
+END;
+```
+
+All the preceding examples create the same output. Following is an example query
+which generates long strings to truncate:
+
+```sql
+WITH
+data AS (
+    SELECT substring('strtrunc truncates strings longer than 60 characters, leaving the prefix and suffix visible', 1, s.num) AS value
+    FROM table(sequence(start=>40, stop=>80, step=>5)) AS s(num)
+)
+SELECT
+    data.value
+  , strtrunc(data.value) AS truncated
+FROM data
+ORDER BY data.value;
+```
+
+The preceding query produces the following output with all variants of the
+routine:
+
+```
+                                      value                                       |                           truncated
+----------------------------------------------------------------------------------+---------------------------------------------------------------
+ strtrunc truncates strings longer than 6                                         | strtrunc truncates strings longer than 6
+ strtrunc truncates strings longer than 60 cha                                    | strtrunc truncates strings longer than 60 cha
+ strtrunc truncates strings longer than 60 characte                               | strtrunc truncates strings longer than 60 characte
+ strtrunc truncates strings longer than 60 characters, l                          | strtrunc truncates strings longer than 60 characters, l
+ strtrunc truncates strings longer than 60 characters, leavin                     | strtrunc truncates strings longer than 60 characters, leavin
+ strtrunc truncates strings longer than 60 characters, leaving the                | strtrunc truncates strings lon ... 60 characters, leaving the
+ strtrunc truncates strings longer than 60 characters, leaving the pref           | strtrunc truncates strings lon ... aracters, leaving the pref
+ strtrunc truncates strings longer than 60 characters, leaving the prefix an      | strtrunc truncates strings lon ... ers, leaving the prefix an
+ strtrunc truncates strings longer than 60 characters, leaving the prefix and suf | strtrunc truncates strings lon ... leaving the prefix and suf
+```
+
+A possible improvement is to introduce parameters for the total length.
+
+## Formatting bytes
+
+Trino includes a built-in `format_number()` function. However it is using units
+that don't work well with bytes. The following `format_data_size` routine can
+format large values of bytes into a human readable string.
+
+```sql
+FUNCTION format_data_size(input BIGINT)
+RETURNS VARCHAR
+  BEGIN
+    DECLARE value DOUBLE DEFAULT CAST(input AS DOUBLE);
+    DECLARE result BIGINT;
+    DECLARE base INT DEFAULT 1024;
+    DECLARE unit VARCHAR DEFAULT 'B';
+    DECLARE format VARCHAR;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'kB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'MB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'GB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'TB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'PB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'EB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'ZB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'YB';
+    END IF;
+    IF abs(value) < 10 THEN
+      SET format = '%.2f';
+    ELSEIF abs(value) < 100 THEN
+      SET format = '%.1f';
+    ELSE
+      SET format = '%.0f';
+    END IF;
+    RETURN format(format, value) || unit;
+  END;
+```
+
+Below is a query to show how it formats a wide range of values.
+
+```sql
+WITH
+data AS (
+    SELECT CAST(pow(10, s.p) AS BIGINT) AS num
+    FROM table(sequence(start=>1, stop=>18)) AS s(p)
+    UNION ALL
+    SELECT -CAST(pow(10, s.p) AS BIGINT) AS num
+    FROM table(sequence(start=>1, stop=>18)) AS s(p)
+)
+SELECT
+    data.num
+  , format_data_size(data.num) AS formatted
+FROM data
+ORDER BY data.num;
+```
+
+The preceding query produces the following output:
+
+```
+         num          | formatted
+----------------------+-----------
+ -1000000000000000000 | -888PB
+  -100000000000000000 | -88.8PB
+   -10000000000000000 | -8.88PB
+    -1000000000000000 | -909TB
+     -100000000000000 | -90.9TB
+      -10000000000000 | -9.09TB
+       -1000000000000 | -931GB
+        -100000000000 | -93.1GB
+         -10000000000 | -9.31GB
+          -1000000000 | -954MB
+           -100000000 | -95.4MB
+            -10000000 | -9.54MB
+             -1000000 | -977kB
+              -100000 | -97.7kB
+               -10000 | -9.77kB
+                -1000 | -1000B
+                 -100 | -100B
+                  -10 | -10.0B
+                    0 | 0.00B
+                   10 | 10.0B
+                  100 | 100B
+                 1000 | 1000B
+                10000 | 9.77kB
+               100000 | 97.7kB
+              1000000 | 977kB
+             10000000 | 9.54MB
+            100000000 | 95.4MB
+           1000000000 | 954MB
+          10000000000 | 9.31GB
+         100000000000 | 93.1GB
+        1000000000000 | 931GB
+       10000000000000 | 9.09TB
+      100000000000000 | 90.9TB
+     1000000000000000 | 909TB
+    10000000000000000 | 8.88PB
+   100000000000000000 | 88.8PB
+  1000000000000000000 | 888PB
 ```
