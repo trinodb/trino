@@ -38,7 +38,7 @@ public class PruneSortColumns
     {
         Set<Symbol> referencedInputs = Streams.concat(
                 referencedOutputs.stream(),
-                sortNode.getOrderingScheme().getOrderBy().stream())
+                sortNode.getOrderingScheme().orderBy().stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), sortNode, referencedInputs);

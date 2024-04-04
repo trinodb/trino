@@ -73,7 +73,7 @@ public class WindowNode
         ImmutableSet<Symbol> partitionBy = ImmutableSet.copyOf(specification.partitionBy());
         Optional<OrderingScheme> orderingScheme = specification.orderingScheme();
         checkArgument(partitionBy.containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
-        checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderBy().size()), "Cannot have sorted more symbols than those requested");
+        checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().orderBy().size()), "Cannot have sorted more symbols than those requested");
         checkArgument(preSortedOrderPrefix == 0 || partitionBy.equals(prePartitionedInputs), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
 
         this.source = source;

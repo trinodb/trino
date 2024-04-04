@@ -459,14 +459,14 @@ public class SymbolMapper
         ImmutableMap.Builder<Symbol, SortOrder> newOrderings = ImmutableMap.builder();
         int newPreSorted = preSorted;
 
-        Set<Symbol> added = new HashSet<>(orderingScheme.getOrderBy().size());
+        Set<Symbol> added = new HashSet<>(orderingScheme.orderBy().size());
 
-        for (int i = 0; i < orderingScheme.getOrderBy().size(); i++) {
-            Symbol symbol = orderingScheme.getOrderBy().get(i);
+        for (int i = 0; i < orderingScheme.orderBy().size(); i++) {
+            Symbol symbol = orderingScheme.orderBy().get(i);
             Symbol canonical = map(symbol);
             if (added.add(canonical)) {
                 newSymbols.add(canonical);
-                newOrderings.put(canonical, orderingScheme.getOrdering(symbol));
+                newOrderings.put(canonical, orderingScheme.ordering(symbol));
             }
             else if (i < preSorted) {
                 newPreSorted--;
@@ -480,12 +480,12 @@ public class SymbolMapper
     {
         ImmutableList.Builder<Symbol> newSymbols = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, SortOrder> newOrderings = ImmutableMap.builder();
-        Set<Symbol> added = new HashSet<>(orderingScheme.getOrderBy().size());
-        for (Symbol symbol : orderingScheme.getOrderBy()) {
+        Set<Symbol> added = new HashSet<>(orderingScheme.orderBy().size());
+        for (Symbol symbol : orderingScheme.orderBy()) {
             Symbol canonical = map(symbol);
             if (added.add(canonical)) {
                 newSymbols.add(canonical);
-                newOrderings.put(canonical, orderingScheme.getOrdering(symbol));
+                newOrderings.put(canonical, orderingScheme.ordering(symbol));
             }
         }
         return new OrderingScheme(newSymbols.build(), newOrderings.buildOrThrow());

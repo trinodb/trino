@@ -103,7 +103,7 @@ public class ExchangeNode
             PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
             checkArgument(scope != REMOTE || partitioningHandle.equals(SINGLE_DISTRIBUTION), "remote merging exchange requires single distribution");
             checkArgument(scope != LOCAL || partitioningHandle.equals(FIXED_PASSTHROUGH_DISTRIBUTION), "local merging exchange requires passthrough distribution");
-            checkArgument(partitioningScheme.getOutputLayout().containsAll(ordering.getOrderBy()), "Partitioning scheme does not supply all required ordering symbols");
+            checkArgument(partitioningScheme.getOutputLayout().containsAll(ordering.orderBy()), "Partitioning scheme does not supply all required ordering symbols");
             checkArgument(type == Type.GATHER, "Merging exchange must be of GATHER type");
             checkArgument(inputs.size() == 1, "Merging exchange must have single input");
         });

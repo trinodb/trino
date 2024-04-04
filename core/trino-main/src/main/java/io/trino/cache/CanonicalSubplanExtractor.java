@@ -550,9 +550,9 @@ public final class CanonicalSubplanExtractor
         private Optional<Map<CacheColumnId, SortOrder>> canonicalizeOrderingScheme(OrderingScheme orderingScheme, BiMap<CacheColumnId, Symbol> originalSymbolMapping)
         {
             Map<CacheColumnId, SortOrder> orderings = new LinkedHashMap<>();
-            for (Symbol orderKey : orderingScheme.getOrderBy()) {
+            for (Symbol orderKey : orderingScheme.orderBy()) {
                 CacheColumnId columnId = requireNonNull(originalSymbolMapping.inverse().get(orderKey));
-                if (orderings.put(columnId, orderingScheme.getOrdering(orderKey)) != null) {
+                if (orderings.put(columnId, orderingScheme.ordering(orderKey)) != null) {
                     // duplicated column ids are not supported
                     return Optional.empty();
                 }

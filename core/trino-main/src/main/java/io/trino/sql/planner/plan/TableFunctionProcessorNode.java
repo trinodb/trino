@@ -107,7 +107,7 @@ public class TableFunctionProcessorNode
         checkArgument(
                 specification
                         .flatMap(DataOrganizationSpecification::orderingScheme)
-                        .map(OrderingScheme::getOrderBy)
+                        .map(OrderingScheme::orderBy)
                         .map(List::size)
                         .orElse(0) >= preSorted,
                 "the number of pre-sorted symbols cannot be greater than the number of all ordering symbols");

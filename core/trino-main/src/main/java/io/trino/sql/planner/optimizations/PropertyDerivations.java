@@ -247,7 +247,7 @@ public final class PropertyDerivations
             // If the input is completely pre-partitioned and sorted, then the original input properties will be respected
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
             if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
-                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderBy().size())) {
+                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().orderBy().size())) {
                 return properties;
             }
 
@@ -289,7 +289,7 @@ public final class PropertyDerivations
             // Otherwise, partitioning and sorting will be respected.
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
             if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
-                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderBy().size())) {
+                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().orderBy().size())) {
                 if (node.getRowsPerMatch() == WINDOW ||
                         node.getRowsPerMatch() == ONE ||
                         node.getSkipToPosition() == PAST_LAST) {

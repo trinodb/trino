@@ -577,7 +577,7 @@ public class AddExchanges
                                         node.getCount(),
                                         Optional.empty(),
                                         true,
-                                        node.getOrderingScheme().getOrderBy()),
+                                        node.getOrderingScheme().orderBy()),
                                 child.getProperties());
                     }
                     yield rebaseAndDeriveProperties(node, child);
