@@ -317,20 +317,20 @@ public class UnaliasSymbolReferences
 
                 SymbolMapper inputMapper = symbolMapper(new HashMap<>(newSource.getMappings()));
                 TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
-                Optional<DataOrganizationSpecification> newSpecification = properties.getSpecification().map(inputMapper::mapAndDistinct);
+                Optional<DataOrganizationSpecification> newSpecification = properties.specification().map(inputMapper::mapAndDistinct);
                 PassThroughSpecification newPassThroughSpecification = new PassThroughSpecification(
-                        properties.getPassThroughSpecification().declaredAsPassThrough(),
-                        properties.getPassThroughSpecification().columns().stream()
+                        properties.passThroughSpecification().declaredAsPassThrough(),
+                        properties.passThroughSpecification().columns().stream()
                                 .map(column -> new PassThroughColumn(
                                         inputMapper.map(column.symbol()),
                                         column.isPartitioningColumn()))
                                 .collect(toImmutableList()));
                 newTableArgumentProperties.add(new TableArgumentProperties(
-                        properties.getArgumentName(),
-                        properties.isRowSemantics(),
-                        properties.isPruneWhenEmpty(),
+                        properties.argumentName(),
+                        properties.rowSemantics(),
+                        properties.pruneWhenEmpty(),
                         newPassThroughSpecification,
-                        inputMapper.map(properties.getRequiredColumns()),
+                        inputMapper.map(properties.requiredColumns()),
                         newSpecification));
             }
 

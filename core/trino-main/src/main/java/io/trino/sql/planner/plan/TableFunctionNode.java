@@ -127,7 +127,7 @@ public class TableFunctionNode
         symbols.addAll(properOutputs);
 
         tableArgumentProperties.stream()
-                .map(TableArgumentProperties::getPassThroughSpecification)
+                .map(TableArgumentProperties::passThroughSpecification)
                 .map(PassThroughSpecification::columns)
                 .flatMap(Collection::stream)
                 .map(PassThroughColumn::symbol)
@@ -158,66 +158,20 @@ public class TableFunctionNode
                 handle);
     }
 
-    public static class TableArgumentProperties
+    public record TableArgumentProperties(
+            String argumentName,
+            boolean rowSemantics,
+            boolean pruneWhenEmpty,
+            PassThroughSpecification passThroughSpecification,
+            List<Symbol> requiredColumns,
+            Optional<DataOrganizationSpecification> specification)
     {
-        private final String argumentName;
-        private final boolean rowSemantics;
-        private final boolean pruneWhenEmpty;
-        private final PassThroughSpecification passThroughSpecification;
-        private final List<Symbol> requiredColumns;
-        private final Optional<DataOrganizationSpecification> specification;
-
-        @JsonCreator
-        public TableArgumentProperties(
-                @JsonProperty("argumentName") String argumentName,
-                @JsonProperty("rowSemantics") boolean rowSemantics,
-                @JsonProperty("pruneWhenEmpty") boolean pruneWhenEmpty,
-                @JsonProperty("passThroughSpecification") PassThroughSpecification passThroughSpecification,
-                @JsonProperty("requiredColumns") List<Symbol> requiredColumns,
-                @JsonProperty("specification") Optional<DataOrganizationSpecification> specification)
+        public TableArgumentProperties
         {
-            this.argumentName = requireNonNull(argumentName, "argumentName is null");
-            this.rowSemantics = rowSemantics;
-            this.pruneWhenEmpty = pruneWhenEmpty;
-            this.passThroughSpecification = requireNonNull(passThroughSpecification, "passThroughSpecification is null");
-            this.requiredColumns = ImmutableList.copyOf(requiredColumns);
-            this.specification = requireNonNull(specification, "specification is null");
-        }
-
-        @JsonProperty
-        public String getArgumentName()
-        {
-            return argumentName;
-        }
-
-        @JsonProperty
-        public boolean isRowSemantics()
-        {
-            return rowSemantics;
-        }
-
-        @JsonProperty
-        public boolean isPruneWhenEmpty()
-        {
-            return pruneWhenEmpty;
-        }
-
-        @JsonProperty
-        public PassThroughSpecification getPassThroughSpecification()
-        {
-            return passThroughSpecification;
-        }
-
-        @JsonProperty
-        public List<Symbol> getRequiredColumns()
-        {
-            return requiredColumns;
-        }
-
-        @JsonProperty
-        public Optional<DataOrganizationSpecification> getSpecification()
-        {
-            return specification;
+            requireNonNull(argumentName, "argumentName is null");
+            requireNonNull(passThroughSpecification, "passThroughSpecification is null");
+            requiredColumns = ImmutableList.copyOf(requiredColumns);
+            requireNonNull(specification, "specification is null");
         }
     }
 
