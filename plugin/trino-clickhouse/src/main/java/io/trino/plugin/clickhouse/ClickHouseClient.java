@@ -659,7 +659,7 @@ public class ClickHouseClient
                 else {
                     decimalColumnMapping = decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)));
                 }
-                return Optional.of(new ColumnMapping(
+                return Optional.of(ColumnMapping.mapping(
                         decimalColumnMapping.getType(),
                         decimalColumnMapping.getReadFunction(),
                         decimalColumnMapping.getWriteFunction(),
