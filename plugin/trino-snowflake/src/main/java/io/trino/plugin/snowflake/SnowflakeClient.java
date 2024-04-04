@@ -26,7 +26,6 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -369,12 +368,6 @@ public class SnowflakeClient
     {
         requireNonNull(value, "value is null");
         return "'" + value.replace("'", "''").replace("\\", "\\\\") + "'";
-    }
-
-    @Override
-    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
     private static ColumnMapping columnMappingPushdown(ColumnMapping mapping)

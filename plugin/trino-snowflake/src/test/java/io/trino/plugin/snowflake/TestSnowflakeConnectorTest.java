@@ -73,7 +73,7 @@ public class TestSnowflakeConnectorTest
                     SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
                     SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
                     SUPPORTS_ROW_TYPE,
-                    SUPPORTS_SET_COLUMN_TYPE -> false;
+                    SUPPORTS_SET_FIELD_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -366,5 +366,37 @@ public class TestSnowflakeConnectorTest
     public void testSelectInformationSchemaColumns()
     {
         // TODO https://github.com/trinodb/trino/issues/21157 Enable this test after fixing the timeout issue
+    }
+
+    @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        // INT , INTEGER , BIGINT , SMALLINT , TINYINT , BYTEINT are synonymous with NUMBER, except that precision and scale cannot be specified
+        // https://docs.snowflake.com/en/sql-reference/data-types-numeric.html#int-integer-bigint-smallint-tinyint-byteint
+        switch (setup.newColumnType()) {
+            case "smallint":
+            case "integer":
+                return Optional.empty();
+        }
+
+        if (setup.sourceColumnType().startsWith("row") || setup.newColumnType().startsWith("array")) {
+            return Optional.of(setup.asUnsupported());
+        }
+
+        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "decimal(5,3) -> decimal(5,2)":
+            case "varchar -> char(20)":
+            case "time(6) -> time(3)":
+            case "timestamp(6) -> timestamp(3)":
+                return Optional.of(setup.asUnsupported());
+        }
+
+        return Optional.of(setup);
+    }
+
+    @Override
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("SQL compilation error: cannot change column COL from type .* to .*[\\s\\S]*");
     }
 }
