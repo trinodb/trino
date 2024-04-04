@@ -560,7 +560,7 @@ public class SnowflakeClient
     private ColumnMapping updatePushdownController(ColumnMapping mapping)
     {
         verify(mapping.getPredicatePushdownController() != DISABLE_PUSHDOWN);
-        return new ColumnMapping(
+        return ColumnMapping.mapping(
                 mapping.getType(),
                 mapping.getReadFunction(),
                 mapping.getWriteFunction(),
