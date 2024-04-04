@@ -41,6 +41,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -298,6 +299,49 @@ public class TestSnowflakeTypeMapping
                 .addRoundTrip("date", "'5881580-07-11'", DATE, "DATE '5881580-07-11'") // max value in Trino
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
                 .execute(getQueryRunner(), session, snowflakeCreateAndInsert("tpch.test_date"));
+    }
+
+    @Test
+    public void testTime()
+    {
+        testTime(UTC);
+        testTime(jvmZone);
+        testTime(vilnius);
+        testTime(kathmandu);
+        testTime(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTime(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("time(0)", "TIME '01:12:34'", createTimeType(0), "TIME '01:12:34'")
+                .addRoundTrip("time(1)", "TIME '02:12:34.1'", createTimeType(1), "TIME '02:12:34.1'")
+                .addRoundTrip("time(2)", "TIME '02:12:34.01'", createTimeType(2), "TIME '02:12:34.01'")
+                .addRoundTrip("time(3)", "TIME '00:00:00.000'", createTimeType(3), "TIME '00:00:00.000'")
+                .addRoundTrip("time(3)", "TIME '00:12:34.567'", createTimeType(3), "TIME '00:12:34.567'")
+                .addRoundTrip("time(3)", "TIME '02:12:34.001'", createTimeType(3), "TIME '02:12:34.001'")
+                .addRoundTrip("time(3)", "TIME '03:12:34.000'", createTimeType(3), "TIME '03:12:34.000'")
+                .addRoundTrip("time(4)", "TIME '04:12:34.0000'", createTimeType(4), "TIME '04:12:34.0000'")
+                .addRoundTrip("time(5)", "TIME '05:12:34.00000'", createTimeType(5), "TIME '05:12:34.00000'")
+                .addRoundTrip("time(5)", "TIME '06:12:34.00000'", createTimeType(5), "TIME '06:12:34.00000'")
+                .addRoundTrip("time(6)", "TIME '09:12:34.000000'", createTimeType(6), "TIME '09:12:34.000000'")
+                .addRoundTrip("time(6)", "TIME '15:12:34.567000'", createTimeType(6), "TIME '15:12:34.567000'")
+                .addRoundTrip("time(6)", "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
+                .addRoundTrip("time(7)", "TIME '23:59:59.9999999'", createTimeType(7), "TIME '23:59:59.9999999'")
+                .addRoundTrip("time(8)", "TIME '23:59:59.99999999'", createTimeType(8), "TIME '23:59:59.99999999'")
+                .addRoundTrip("time(9)", "TIME '23:59:59.999999990'", createTimeType(9), "TIME '23:59:59.999999990'")
+                .addRoundTrip("time(9)", "TIME '23:59:59.999999995'", createTimeType(9), "TIME '23:59:59.999999995'")
+                .addRoundTrip("time(9)", "TIME '23:59:59.999999996'", createTimeType(9), "TIME '23:59:59.999999996'")
+                .addRoundTrip("time(9)", "TIME '23:59:59.999999999'", createTimeType(9), "TIME '23:59:59.999999999'")
+                .execute(getQueryRunner(), session, snowflakeCreateAndInsert("test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
     }
 
     @Test
