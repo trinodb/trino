@@ -49,7 +49,7 @@ public class TestCanonicalize
                         ") t\n" +
                         "CROSS JOIN (VALUES 2)",
                 anyTree(
-                        values(ImmutableList.of("field", "expr"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 2L), new Constant(BIGINT, 1L))))));
+                        values(ImmutableList.of("expr", "field"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L), new Constant(INTEGER, 2L))))));
     }
 
     @Test
