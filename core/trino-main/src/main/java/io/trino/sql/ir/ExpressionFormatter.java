@@ -106,7 +106,7 @@ public final class ExpressionFormatter
         {
             return "(" +
                     node.arguments().stream()
-                            .map(Symbol::getName)
+                            .map(Symbol::name)
                             .collect(joining(", ")) +
                     ") -> " +
                     process(node.body(), context);

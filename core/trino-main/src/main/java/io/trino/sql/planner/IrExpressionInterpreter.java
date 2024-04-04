@@ -755,7 +755,7 @@ public class IrExpressionInterpreter
 
             Expression body = node.body();
             List<String> argumentNames = node.arguments().stream()
-                    .map(Symbol::getName)
+                    .map(Symbol::name)
                     .toList();
             FunctionType functionType = (FunctionType) node.type();
             checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
@@ -931,8 +931,8 @@ public class IrExpressionInterpreter
         @Override
         public Optional<Constant> getValue(Symbol symbol)
         {
-            checkState(values.containsKey(symbol.getName()), "values does not contain %s", symbol);
-            return Optional.of(new Constant(symbol.getType(), values.get(symbol.getName())));
+            checkState(values.containsKey(symbol.name()), "values does not contain %s", symbol);
+            return Optional.of(new Constant(symbol.type(), values.get(symbol.name())));
         }
     }
 }

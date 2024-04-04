@@ -135,7 +135,7 @@ public class PushAggregationIntoTableScan
 
         Map<String, ColumnHandle> assignments = tableScan.getAssignments()
                 .entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getName(), Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue));
 
         List<Entry<Symbol, AggregationNode.Aggregation>> aggregationsList = ImmutableList.copyOf(aggregations.entrySet());
 
@@ -149,7 +149,7 @@ public class PushAggregationIntoTableScan
                 .collect(toImmutableList());
 
         List<ColumnHandle> groupByColumns = groupingKeys.stream()
-                .map(groupByColumn -> assignments.get(groupByColumn.getName()))
+                .map(groupByColumn -> assignments.get(groupByColumn.name()))
                 .collect(toImmutableList());
 
         Optional<AggregationApplicationResult<TableHandle>> aggregationPushdownResult = plannerContext.getMetadata().applyAggregation(
@@ -204,7 +204,7 @@ public class PushAggregationIntoTableScan
                 .forEach(groupBySymbol -> {
                     // if the connector returned a new mapping from oldColumnHandle to newColumnHandle, groupBy needs to point to
                     // new columnHandle's symbol reference, otherwise it will continue pointing at oldColumnHandle.
-                    ColumnHandle originalColumnHandle = assignments.get(groupBySymbol.getName());
+                    ColumnHandle originalColumnHandle = assignments.get(groupBySymbol.name());
                     ColumnHandle groupByColumnHandle = result.getGroupingColumnMapping().getOrDefault(originalColumnHandle, originalColumnHandle);
                     assignmentBuilder.put(groupBySymbol, columnHandleToSymbol.get(groupByColumnHandle).toSymbolReference());
                 });
@@ -239,7 +239,7 @@ public class PushAggregationIntoTableScan
         Optional<List<SortItem>> sortBy = orderingScheme.map(OrderingScheme::toSortItems);
 
         Optional<ConnectorExpression> filter = aggregation.getFilter()
-                .map(symbol -> new Variable(symbol.getName(), symbol.getType()));
+                .map(symbol -> new Variable(symbol.name(), symbol.type()));
 
         return new AggregateFunction(
                 signature.getName().getFunctionName(),

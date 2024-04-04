@@ -122,8 +122,8 @@ public final class LambdaBytecodeGenerator
         parameters.add(arg("session", ConnectorSession.class));
         for (int i = 0; i < lambdaExpression.getArguments().size(); i++) {
             Symbol argument = lambdaExpression.getArguments().get(i);
-            Class<?> type = Primitives.wrap(argument.getType().getJavaType());
-            String argumentName = argument.getName();
+            Class<?> type = Primitives.wrap(argument.type().getJavaType());
+            String argumentName = argument.name();
             Parameter arg = arg("lambda_" + i + "_" + BytecodeUtils.sanitizeName(argumentName), type);
             parameters.add(arg);
             parameterMapBuilder.put(argumentName, new ParameterAndType(arg, type));

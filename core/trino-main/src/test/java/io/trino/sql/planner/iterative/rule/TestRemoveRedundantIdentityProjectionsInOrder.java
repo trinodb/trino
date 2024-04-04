@@ -45,7 +45,7 @@ class TestRemoveRedundantIdentityProjectionsInOrder
                             p.tableScan(
                                     tester().getCurrentCatalogTableHandle(TINY_SCHEMA_NAME, "orders"),
                                     ImmutableList.of(orderstatus),
-                                    ImmutableMap.of(orderstatus, new TpchColumnHandle(orderstatus.getName(), orderStatusType))));
+                                    ImmutableMap.of(orderstatus, new TpchColumnHandle(orderstatus.name(), orderStatusType))));
                 })
                 .doesNotFire();
     }
@@ -64,8 +64,8 @@ class TestRemoveRedundantIdentityProjectionsInOrder
                                     tester().getCurrentCatalogTableHandle(TINY_SCHEMA_NAME, "orders"),
                                     ImmutableList.of(totalprice, orderstatus),
                                     ImmutableMap.of(
-                                            totalprice, new TpchColumnHandle(totalprice.getName(), DOUBLE),
-                                            orderstatus, new TpchColumnHandle(orderstatus.getName(), orderStatusType))));
+                                            totalprice, new TpchColumnHandle(totalprice.name(), DOUBLE),
+                                            orderstatus, new TpchColumnHandle(orderstatus.name(), orderStatusType))));
                 })
                 .doesNotFire();
     }
@@ -84,8 +84,8 @@ class TestRemoveRedundantIdentityProjectionsInOrder
                                     tester().getCurrentCatalogTableHandle(TINY_SCHEMA_NAME, "orders"),
                                     ImmutableList.of(orderstatus, totalprice),
                                     ImmutableMap.of(
-                                            orderstatus, new TpchColumnHandle(orderstatus.getName(), orderStatusType),
-                                            totalprice, new TpchColumnHandle(totalprice.getName(), DOUBLE))));
+                                            orderstatus, new TpchColumnHandle(orderstatus.name(), orderStatusType),
+                                            totalprice, new TpchColumnHandle(totalprice.name(), DOUBLE))));
                 })
                 .matches(
                         strictConstrainedTableScan(

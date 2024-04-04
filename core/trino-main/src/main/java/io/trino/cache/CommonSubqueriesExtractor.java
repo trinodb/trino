@@ -578,7 +578,7 @@ public final class CommonSubqueriesExtractor
         Optional<List<CacheColumnId>> orderedGroupByColumns = groupByColumns.map(
                 Ordering.from(comparing(CacheColumnId::toString))::immutableSortedCopy);
         List<Type> projectionColumnsTypes = projections.stream()
-                .map(cacheColumnId -> commonColumnIds.get(cacheColumnId).getType())
+                .map(cacheColumnId -> commonColumnIds.get(cacheColumnId).type())
                 .collect(toImmutableList());
         if (tupleDomain.isAll() && predicate.equals(TRUE)) {
             return new PlanSignatureWithPredicate(
@@ -610,7 +610,7 @@ public final class CommonSubqueriesExtractor
                 .filter((columnId, domain) -> !retainedColumnIds.contains(columnId));
         if (!remainingTupleDomain.isAll() || !extractionResult.getRemainingExpression().equals(TRUE)) {
             Expression remainingDomainExpression = DomainTranslator.toPredicate(
-                    remainingTupleDomain.transformKeys(id -> columnIdToSymbol(id, commonColumnIds.get(id).getType())));
+                    remainingTupleDomain.transformKeys(id -> columnIdToSymbol(id, commonColumnIds.get(id).type())));
             signatureKey = combine(
                     signatureKey,
                     "filters=" + formatExpression(combineConjuncts(

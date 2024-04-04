@@ -65,7 +65,7 @@ public class TableScanStatsRule
             Symbol symbol = entry.getKey();
             Optional<ColumnStatistics> columnStatistics = Optional.ofNullable(tableStatistics.getColumnStatistics().get(entry.getValue()));
             SymbolStatsEstimate symbolStatistics = columnStatistics
-                    .map(statistics -> toSymbolStatistics(tableStatistics, statistics, symbol.getType()))
+                    .map(statistics -> toSymbolStatistics(tableStatistics, statistics, symbol.type()))
                     .orElse(SymbolStatsEstimate.unknown());
             outputSymbolStats.put(symbol, symbolStatistics);
         }

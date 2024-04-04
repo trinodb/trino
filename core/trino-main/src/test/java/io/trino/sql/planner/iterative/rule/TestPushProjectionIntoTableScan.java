@@ -157,7 +157,7 @@ public class TestPushProjectionIntoTableScan
                     .withSession(MOCK_SESSION)
                     .on(p -> {
                         // Register symbols
-                        types.forEach((symbol, type) -> p.symbol(symbol.getName(), type));
+                        types.forEach((symbol, type) -> p.symbol(symbol.name(), type));
 
                         return p.project(
                                 inputProjections,
@@ -174,7 +174,7 @@ public class TestPushProjectionIntoTableScan
                     .matches(project(
                             Stream.concat(newNames.entrySet().stream(), constants.entrySet().stream())
                                     .collect(toImmutableMap(
-                                            e -> e.getKey().getName(),
+                                            e -> e.getKey().name(),
                                             e -> {
                                                 if (e.getValue() instanceof String value) {
                                                     return expression(new Reference(BIGINT, value));

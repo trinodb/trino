@@ -114,7 +114,7 @@ public class ApplyTableScanRedirection
             }
 
             // insert ts if redirected types don't match source types
-            Type sourceType = assignment.getKey().getType();
+            Type sourceType = assignment.getKey().type();
             Type redirectedType = plannerContext.getMetadata().getColumnMetadata(context.getSession(), destinationTableHandle, destinationColumnHandle).getType();
             if (!sourceType.equals(redirectedType)) {
                 Symbol redirectedSymbol = context.getSymbolAllocator().newSymbol(destinationColumn, redirectedType);

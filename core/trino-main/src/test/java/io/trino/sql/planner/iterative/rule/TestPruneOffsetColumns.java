@@ -40,7 +40,7 @@ public class TestPruneOffsetColumns
     public void testNotAllInputsReferenced()
     {
         tester().assertThat(new PruneOffsetColumns())
-                .on(p -> buildProjectedOffset(p, symbol -> symbol.getName().equals("b")))
+                .on(p -> buildProjectedOffset(p, symbol -> symbol.name().equals("b")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),

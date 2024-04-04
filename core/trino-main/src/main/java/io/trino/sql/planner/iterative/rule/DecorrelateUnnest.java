@@ -264,7 +264,7 @@ public class DecorrelateUnnest
                         subquerySymbol,
                         ifExpression(
                                 new IsNull(ordinalitySymbol.toSymbolReference()),
-                                new Constant(subquerySymbol.getType(), null),
+                                new Constant(subquerySymbol.type(), null),
                                 subquerySymbol.toSymbolReference()));
             }
             rewrittenPlan = new ProjectNode(

@@ -141,7 +141,7 @@ public class CanonicalSubplan
         return new SymbolMapper(symbol -> {
             CacheColumnId columnId = originalSymbolMapping.inverse().get(symbol);
             requireNonNull(columnId, format("No column id for symbol %s", symbol));
-            return columnIdToSymbol(columnId, symbol.getType());
+            return columnIdToSymbol(columnId, symbol.type());
         });
     }
 

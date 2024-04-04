@@ -120,7 +120,7 @@ public class TestConnectorExpressionTranslator
             .buildOrThrow();
 
     private static final Map<String, Symbol> variableMappings = symbols.entrySet().stream()
-            .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getKey));
+            .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getKey));
 
     @Test
     public void testTranslateConstant()

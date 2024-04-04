@@ -391,7 +391,7 @@ public final class GraphvizPrinter
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 if ((entry.getValue() instanceof Reference) &&
-                        ((Reference) entry.getValue()).name().equals(entry.getKey().getName())) {
+                        ((Reference) entry.getValue()).name().equals(entry.getKey().name())) {
                     // skip identity assignments
                     continue;
                 }

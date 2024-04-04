@@ -119,7 +119,7 @@ public class MultipleDistinctAggregationsToSubqueries
         // sort the aggregation by output symbol to have consistent join layout
         List<Entry<Symbol, Aggregation>> sortedAggregations = aggregationNode.getAggregations().entrySet()
                 .stream()
-                .sorted(Comparator.comparing(entry -> entry.getKey().getName()))
+                .sorted(Comparator.comparing(entry -> entry.getKey().name()))
                 .collect(toImmutableList());
         for (Entry<Symbol, Aggregation> entry : sortedAggregations) {
             aggregationsByArguments.compute(ImmutableSet.copyOf(entry.getValue().getArguments()), (key, current) -> {

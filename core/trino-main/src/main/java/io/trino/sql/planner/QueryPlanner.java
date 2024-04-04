@@ -341,7 +341,7 @@ class QueryPlanner
         List<NodeAndMappings> recursionStepsToUnion = recursionSteps.build();
 
         List<Symbol> unionOutputSymbols = anchorPlan.getFieldMappings().stream()
-                .map(symbol -> symbolAllocator.newSymbol("expanded_" + symbol.getName(), symbol.getType()))
+                .map(symbol -> symbolAllocator.newSymbol("expanded_" + symbol.name(), symbol.type()))
                 .collect(toImmutableList());
 
         ImmutableListMultimap.Builder<Symbol, Symbol> unionSymbolMapping = ImmutableListMultimap.builder();
@@ -543,13 +543,13 @@ class QueryPlanner
                 assignmentsBuilder.putIdentity(symbol);
             }
             else {
-                assignmentsBuilder.put(symbol, new Constant(symbol.getType(), null));
+                assignmentsBuilder.put(symbol, new Constant(symbol.type(), null));
             }
         }
         List<Symbol> columnSymbols = columnSymbolsBuilder.build();
         Symbol operationSymbol = symbolAllocator.newSymbol("operation", TINYINT);
         assignmentsBuilder.put(operationSymbol, new Constant(TINYINT, (long) DELETE_OPERATION_NUMBER));
-        Symbol projectedRowIdSymbol = symbolAllocator.newSymbol(rowIdSymbol.getName(), rowIdType);
+        Symbol projectedRowIdSymbol = symbolAllocator.newSymbol(rowIdSymbol.name(), rowIdType);
         assignmentsBuilder.put(projectedRowIdSymbol, rowIdSymbol.toSymbolReference());
         assignmentsBuilder.put(symbolAllocator.newSymbol("insert_from_update", TINYINT), new Constant(TINYINT, 0L));
         Assignments assignments = assignmentsBuilder.build();
@@ -1144,7 +1144,7 @@ class QueryPlanner
         Symbol[] fields = new Symbol[subPlan.getTranslations().getFieldSymbols().size()];
         for (FieldId field : groupingSetAnalysis.getAllFields()) {
             Symbol input = subPlan.getTranslations().getFieldSymbols().get(field.getFieldIndex());
-            Symbol output = symbolAllocator.newSymbol(input.getName() + "_gid", input.getType());
+            Symbol output = symbolAllocator.newSymbol(input.name() + "_gid", input.type());
             fields[field.getFieldIndex()] = output;
             groupingSetMappings.put(output, input);
         }
@@ -1518,7 +1518,7 @@ class QueryPlanner
 
         // First, append filter to validate offset values. They mustn't be negative or null.
         Symbol offsetSymbol = coercions.get(frameOffset.get());
-        Expression zeroOffset = zeroOfType(offsetSymbol.getType());
+        Expression zeroOffset = zeroOfType(offsetSymbol.type());
         Expression predicate = ifExpression(
                 new Comparison(
                         GREATER_THAN_OR_EQUAL,
@@ -1616,7 +1616,7 @@ class QueryPlanner
         }
 
         Symbol offsetSymbol = frameOffset.get();
-        Type offsetType = offsetSymbol.getType();
+        Type offsetType = offsetSymbol.type();
 
         // Append filter to validate offset values. They mustn't be negative or null.
         Expression zeroOffset = zeroOfType(offsetType);
@@ -2086,8 +2086,8 @@ class QueryPlanner
             Symbol input = visibleFields.get(i);
             Type type = types.get(i);
 
-            if (!input.getType().equals(type)) {
-                Symbol coerced = symbolAllocator.newSymbol(input.getName(), type);
+            if (!input.type().equals(type)) {
+                Symbol coerced = symbolAllocator.newSymbol(input.name(), type);
                 assignments.put(coerced, new Cast(input.toSymbolReference(), type));
                 mappings.add(coerced);
             }

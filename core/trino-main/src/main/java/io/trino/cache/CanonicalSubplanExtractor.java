@@ -100,7 +100,7 @@ public final class CanonicalSubplanExtractor
     {
         StringBuilder builder = new StringBuilder();
         builder.append("aggregation ")
-                .append(aggregation.resolvedFunction().getName().toString())
+                .append(aggregation.resolvedFunction().name().toString())
                 .append('(')
                 .append(aggregation.arguments().stream()
                         .map(ExpressionFormatter::formatExpression)
@@ -205,7 +205,7 @@ public final class CanonicalSubplanExtractor
             for (Symbol groupingKey : node.getGroupingKeys()) {
                 CacheColumnId columnId = requireNonNull(originalSymbolMapping.inverse().get(groupingKey));
                 groupByColumnsBuilder.add(columnId);
-                if (assignments.put(columnId, CacheExpression.ofProjection(columnIdToSymbol(columnId, groupingKey.getType()).toSymbolReference())) != null) {
+                if (assignments.put(columnId, CacheExpression.ofProjection(columnIdToSymbol(columnId, groupingKey.type()).toSymbolReference())) != null) {
                     // duplicated column ids are not supported
                     return Optional.empty();
                 }
@@ -239,7 +239,7 @@ public final class CanonicalSubplanExtractor
             BiMap<CacheColumnId, Symbol> symbolMapping = symbolMappingBuilder.buildOrThrow();
             Set<CacheColumnId> groupByColumns = groupByColumnsBuilder.build();
             Set<Symbol> groupBySymbols = groupByColumns.stream()
-                    .map(id -> columnIdToSymbol(id, symbolMapping.get(id).getType()))
+                    .map(id -> columnIdToSymbol(id, symbolMapping.get(id).type()))
                     .collect(toImmutableSet());
             Map<Boolean, List<Expression>> conjuncts = subplan.getPullableConjuncts().stream()
                     .collect(partitioningBy(expression -> groupBySymbols.containsAll(SymbolsExtractor.extractAll(expression))));
@@ -531,7 +531,7 @@ public final class CanonicalSubplanExtractor
             // pass-through canonical output symbols
             Map<CacheColumnId, CacheExpression> assignments = columnHandles.keySet().stream().collect(toImmutableMap(
                     identity(),
-                    id -> CacheExpression.ofProjection(columnIdToSymbol(id, symbolMapping.get(id).getType()).toSymbolReference())));
+                    id -> CacheExpression.ofProjection(columnIdToSymbol(id, symbolMapping.get(id).type()).toSymbolReference())));
 
             return Optional.of(CanonicalSubplan.builderForTableScan(
                             new ScanFilterProjectKey(tableId.get()),

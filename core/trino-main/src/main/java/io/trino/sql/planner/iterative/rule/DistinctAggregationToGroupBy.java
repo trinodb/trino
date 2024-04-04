@@ -261,7 +261,7 @@ public class DistinctAggregationToGroupBy
                             // we need to duplicate the column in groupId node so that it is used as argument for non-distinct aggregation but not grouped by
                             finalArgumentSymbol = duplicatedGroupIdInputToOutput.computeIfAbsent(
                                     argumentSymbol,
-                                    symbol -> symbolAllocator.newSymbol("gid-non-distinct", symbol.getType()));
+                                    symbol -> symbolAllocator.newSymbol("gid-non-distinct", symbol.type()));
                         }
                         groupIdOutputToInputColumnMapping.put(finalArgumentSymbol, argumentSymbol);
 
@@ -269,7 +269,7 @@ public class DistinctAggregationToGroupBy
                         nonDistinctAggregationArguments.add(finalArgumentSymbol);
                     }
 
-                    Symbol innerAggregationOutputSymbol = symbolAllocator.newSymbol("inner", origalAggregationOutputSymbol.getType());
+                    Symbol innerAggregationOutputSymbol = symbolAllocator.newSymbol("inner", origalAggregationOutputSymbol.type());
 
                     Aggregation innerAggregation = new Aggregation(
                             originalAggregation.getResolvedFunction(),
@@ -297,7 +297,7 @@ public class DistinctAggregationToGroupBy
                     // handle 0 on empty input aggregations
                     CatalogSchemaFunctionName name = originalAggregation.getResolvedFunction().getSignature().getName();
                     if (name.equals(COUNT_NAME) || name.equals(COUNT_IF_NAME) || name.equals(APPROX_DISTINCT_NAME)) {
-                        Symbol coalesceSymbol = symbolAllocator.newSymbol("coalesce_expr", origalAggregationOutputSymbol.getType());
+                        Symbol coalesceSymbol = symbolAllocator.newSymbol("coalesce_expr", origalAggregationOutputSymbol.type());
                         outerAggregationOutputSymbol = coalesceSymbol;
                         coalesceSymbolsBuilder.put(coalesceSymbol, origalAggregationOutputSymbol);
                     }

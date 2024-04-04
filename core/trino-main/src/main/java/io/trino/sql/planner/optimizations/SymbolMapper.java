@@ -162,7 +162,7 @@ public class SymbolMapper
             public Expression rewriteLambda(Lambda node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 List<Symbol> arguments = node.arguments().stream()
-                        .map(symbol -> map(new Symbol(symbol.getType(), symbol.getName())))
+                        .map(symbol -> map(new Symbol(symbol.type(), symbol.name())))
                         .collect(toImmutableList());
 
                 Expression body = treeRewriter.rewrite(node.body(), context);

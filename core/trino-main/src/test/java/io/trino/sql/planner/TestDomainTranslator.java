@@ -1637,7 +1637,7 @@ public class TestDomainTranslator
 
     private In in(Symbol symbol, List<?> values)
     {
-        return in(symbol.toSymbolReference(), symbol.getType(), values);
+        return in(symbol.toSymbolReference(), symbol.type(), values);
     }
 
     private static Between between(Symbol symbol, Expression min, Expression max)
@@ -1801,7 +1801,7 @@ public class TestDomainTranslator
         private NumericValues(Symbol column, T min, T integerNegative, T fractionalNegative, T integerPositive, T fractionalPositive, T max)
         {
             this.column = requireNonNull(column, "column is null");
-            this.type = requireNonNull(column.getType(), "type for column not found: " + column);
+            this.type = requireNonNull(column.type(), "type for column not found: " + column);
             this.min = requireNonNull(min, "min is null");
             this.integerNegative = requireNonNull(integerNegative, "integerNegative is null");
             this.fractionalNegative = requireNonNull(fractionalNegative, "fractionalNegative is null");
