@@ -88,7 +88,7 @@ public final class AvroTypeUtils
         };
     }
 
-    static boolean isSimpleNullableUnion(Schema schema)
+    public static boolean isSimpleNullableUnion(Schema schema)
     {
         verify(schema.isUnion(), "Schema must be union");
         return schema.getTypes().stream().filter(not(Schema::isNullable)).count() == 1L;
