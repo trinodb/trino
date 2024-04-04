@@ -319,7 +319,6 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore</artifactId>
-            <version>4.4.13</version>
             <scope>runtime</scope>
         </dependency>
 
