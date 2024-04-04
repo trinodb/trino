@@ -15,7 +15,8 @@ package io.trino.util;
 
 import org.junit.jupiter.api.Test;
 
-import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -114,7 +115,8 @@ public class TestAutoCloseableCloser
         {
             closed = true;
             if (failure != null) {
-                propagateIfPossible(failure, Exception.class);
+                throwIfInstanceOf(failure, Exception.class);
+                throwIfUnchecked(failure);
                 // not possible
                 throw new AssertionError(failure);
             }

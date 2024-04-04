@@ -25,7 +25,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 
 public class ExceptionWrappingMetadataReader
@@ -115,7 +115,7 @@ public class ExceptionWrappingMetadataReader
 
     private OrcCorruptionException propagate(Throwable throwable, String message)
     {
-        propagateIfPossible(throwable, TrinoException.class);
+        throwIfInstanceOf(throwable, TrinoException.class);
         return new OrcCorruptionException(throwable, orcDataSourceId, "%s", message);
     }
 }

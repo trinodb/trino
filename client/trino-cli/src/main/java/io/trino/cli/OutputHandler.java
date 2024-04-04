@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -109,7 +109,7 @@ public final class OutputHandler
             throw new RuntimeException(e);
         }
         catch (ExecutionException e) {
-            propagateIfPossible(e.getCause(), IOException.class);
+            throwIfInstanceOf(e.getCause(), IOException.class);
             throw new RuntimeException(e.getCause());
         }
     }

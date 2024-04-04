@@ -80,7 +80,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
@@ -786,7 +786,7 @@ public class ThriftHiveMetastoreClient
         }
 
         verifyNotNull(firstException);
-        propagateIfPossible(firstException, TException.class);
+        throwIfInstanceOf(firstException, TException.class);
         throw propagate(firstException);
     }
 
