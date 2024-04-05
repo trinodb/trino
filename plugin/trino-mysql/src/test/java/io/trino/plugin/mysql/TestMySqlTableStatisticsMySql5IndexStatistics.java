@@ -18,6 +18,6 @@ public class TestMySqlTableStatisticsMySql5IndexStatistics
 {
     public TestMySqlTableStatisticsMySql5IndexStatistics()
     {
-        super("mysql:5.5.46"); // oldest available on RDS
+        super("mysql:5.7.44"); // oldest available on RDS
     }
 }
