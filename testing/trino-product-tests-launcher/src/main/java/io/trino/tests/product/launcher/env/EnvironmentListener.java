@@ -256,7 +256,7 @@ public interface EnvironmentListener
                     log.info("Container stats:\n%s", statistics.render());
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    log.error(e, "Error printing container stats");
                 }
             }
         };
