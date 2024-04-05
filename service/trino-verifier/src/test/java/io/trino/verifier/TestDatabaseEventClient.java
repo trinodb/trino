@@ -104,7 +104,7 @@ public class TestDatabaseEventClient
     @BeforeAll
     public void setup()
     {
-        mysqlContainer = new MySQLContainer<>("mysql:8.0.30");
+        mysqlContainer = new MySQLContainer<>("mysql:8.0.36");
         mysqlContainer.start();
         mysqlContainerUrl = getJdbcUrl(mysqlContainer);
         codec = new JsonCodecFactory().listJsonCodec(String.class);
