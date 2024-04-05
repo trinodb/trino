@@ -115,10 +115,12 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
@@ -689,7 +691,8 @@ public class TestLogicalPlanner
                 "SELECT EXISTS (SELECT 1 FROM orders), EXISTS (SELECT 1 FROM orders)",
                 anyTree(
                         node(AggregationNode.class,
-                                tableScan("orders"))));
+                                project(ImmutableMap.of("subquerytrue", expression(TRUE)),
+                                tableScan("orders")))));
     }
 
     @Test
@@ -1089,30 +1092,61 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testCorrelatedExistsRewriteToInnerJoin()
+    {
+        assertPlan("SELECT suppkey FROM lineitem l1 WHERE EXISTS (SELECT * FROM lineitem l2 WHERE l2.orderkey = l1.orderkey AND l2.suppkey <> l1.suppkey)",
+                output(
+                        strictProject(
+                                ImmutableMap.of(
+                                        "SUPPKEY", expression(new Reference(BIGINT, "L_SUPPKEY"))),
+                                aggregation(
+                                        singleGroupingSet("L_ORDERKEY", "L_SUPPKEY", "UNIQUE"),
+                                        ImmutableMap.of(),
+                                        ImmutableList.of("L_ORDERKEY", "L_SUPPKEY", "UNIQUE"),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        join(INNER, builder -> builder
+                                                .maySkipOutputDuplicates(true)
+                                                .equiCriteria("L_ORDERKEY", "R_ORDERKEY")
+                                                .filter(new Comparison(NOT_EQUAL, new Reference(BIGINT, "R_SUPPKEY"), new Reference(BIGINT, "L_SUPPKEY")))
+                                                .dynamicFilter(BIGINT, "L_ORDERKEY", "R_ORDERKEY")
+                                                .left(
+                                                        assignUniqueId(
+                                                                "UNIQUE",
+                                                                anyTree(
+                                                                        tableScan("lineitem", ImmutableMap.of("L_SUPPKEY", "suppkey", "L_ORDERKEY", "orderkey")))))
+                                                .right(
+                                                        exchange(
+                                                                tableScan("lineitem", ImmutableMap.of("R_SUPPKEY", "suppkey", "R_ORDERKEY", "orderkey")))))))));
+    }
+
+    @Test
     public void testCorrelatedScalarAggregationRewriteToLeftOuterJoin()
     {
         assertPlan(
-                "SELECT orderkey, EXISTS(SELECT 1 WHERE orderkey = 3) FROM orders", // EXISTS maps to count(*) > 0
+                "SELECT orderkey, EXISTS(SELECT 1 WHERE orderkey = 3) FROM orders", // EXISTS maps to bool_or()
                 output(
                         strictProject(
                                 ImmutableMap.of(
                                         "ORDERKEY", expression(new Reference(BIGINT, "ORDERKEY")),
-                                        "exists", expression(new Comparison(GREATER_THAN, new Reference(BIGINT, "FINAL_COUNT"), new Constant(BIGINT, 0L)))),
+                                        "exists", expression(new Coalesce(new Reference(BOOLEAN, "AGGR_BOOL"), FALSE))),
                                 aggregation(
                                         singleGroupingSet("ORDERKEY", "UNIQUE"),
-                                        ImmutableMap.of(Optional.of("FINAL_COUNT"), aggregationFunction("count", ImmutableList.of())),
+                                        ImmutableMap.of(Optional.of("AGGR_BOOL"), aggregationFunction("bool_or", ImmutableList.of("SUBQUERY"))),
                                         ImmutableList.of("ORDERKEY", "UNIQUE"),
-                                        ImmutableList.of("NON_NULL"),
+                                        ImmutableList.of(),
                                         Optional.empty(),
                                         SINGLE,
                                         join(LEFT, builder -> builder
+                                                .maySkipOutputDuplicates(false)
                                                 .filter(new Comparison(EQUAL, new Constant(BIGINT, 3L), new Reference(BIGINT, "ORDERKEY")))
                                                 .left(
                                                         assignUniqueId(
                                                                 "UNIQUE",
                                                                 tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))))
                                                 .right(
-                                                        project(ImmutableMap.of("NON_NULL", expression(TRUE)),
+                                                        project(ImmutableMap.of("SUBQUERY", expression(TRUE)),
                                                                 node(ValuesNode.class))))))));
     }
 
