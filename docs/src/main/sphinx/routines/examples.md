@@ -5,7 +5,7 @@ After learning about [SQL routines from the
 introduction](/routines/introduction), the following sections show numerous
 examples of valid SQL routines. The routines are suitable as [inline
 routines](routine-inline) or [catalog routines](routine-catalog), after
-adjusting the name and adjusting the example invocations.
+adjusting the name and the example invocations.
 
 The examples combine numerous supported statements. Refer to the specific
 statement documentation for further details:
@@ -115,7 +115,7 @@ SELECT hello('Jane Doe'); -- Hello, Jane Doe!
 A first example routine, that uses multiple statements in a `BEGIN` block. It
 calculates the result of a multiplication of the input integer with `99`. The
 `bigint` data type is used for all variables and values. The value of integer
-`99` is cast to `bigint` in the default value assignment for the variable `x`.
+`99` is cast to `bigint` in the default value assignment for the variable `x`:
 
 ```sql
 FUNCTION times_ninety_nine(a bigint)
@@ -135,7 +135,7 @@ SELECT times_ninety_nine(CAST(2 as bigint)); -- 198
 ## Conditional flows
 
 A first example of conditional flow control in a routine using the `CASE`
-statement. The simple `bigint` input value is compared to a number of values.
+statement. The simple `bigint` input value is compared to a number of values:
 
 ```sql
 FUNCTION simple_case(a bigint)
@@ -166,7 +166,7 @@ SELECT simple_case(null); -- null .. but really??
 ```
 
 A second example of a routine with a `CASE` statement, this time with two
-parameters, showcasing the importance of the order of the conditions.
+parameters, showcasing the importance of the order of the conditions:
 
 ```sql
 FUNCTION search_case(a bigint, b bigint)
@@ -208,7 +208,7 @@ then starts to calculate each number in the series, starting with `a=1` and
 `b=1` and iterates until it reaches the `n`-th position. In each iteration is
 sets `a` and `b` for the preceding to values, so it can calculate the sum, and
 finally return it. Note that processing the routine takes longer and longer with
-higher `n` values, and the result is deterministic.
+higher `n` values, and the result is deterministic:
 
 ```sql
 FUNCTION fib(n bigint)
@@ -252,7 +252,7 @@ the flow with conditional statements, `ITERATE`, and `LEAVE`. For the values of
 the flow up to `top` before `b` is ever increased. Then `b` is increased for the
 values `a=3`, `a=4`, `a=5`, `a=6`, and `a=7`, resulting in `b=5`. The `LEAVE`
 call then causes the exit of the block before a is increased further to `10` and
-therefore the result of the routine is `5`.
+therefore the result of the routine is `5`:
 
 ```sql
 FUNCTION labels()
@@ -373,8 +373,8 @@ END
 ## Optional parameter example
 
 Routines can invoke other routines and other functions. The full signature of a
-routine is composed of routine name and parameters, and determines the exact
-routine to use. You can declare multiple routines with the same name, but with
+routine is composed of the routine name and parameters, and determines the exact
+routine to use. You can declare multiple routines with the same name, but with a
 different number of arguments or different argument types. One example use case
 is to implement an optional parameter.
 
@@ -410,7 +410,7 @@ RETURNS varchar
 RETURN dots(input, 15);
 ```
 
-You can now use both routines. When the length parameter is omitted the default
+You can now use both routines. When the length parameter is omitted, the default
 value from the second declaration is used.
 
 ```sql
@@ -436,8 +436,7 @@ replacement for date string manipulation functions such as `date`, `date_parse`,
 `from_iso8601_date`,  and `from_iso8601_timestamp`.
 
 Note that the routine defaults the time value to `00:00:00.000` and the time
-zone to the session time zone.
-
+zone to the session time zone:
 
 ```sql
 FUNCTION from_date_string(date_string VARCHAR)
@@ -511,8 +510,8 @@ BEGIN
 END;
 ```
 
-The following examples show the output for a range of values under one month, under
-one year, and various larger values:
+The following examples show the output for a range of values under one month,
+under one year, and various larger values:
 
 ```sql
 SELECT hrd(10); -- Less than 1 month
@@ -529,13 +528,13 @@ Improvements of the routine could include the following modifications:
 * Take into account that one month equals 30.4375 days.
 * Take into account that one year equals 365.25 days.
 * Add weeks to the output.
-* Expand the cover decades, centuries, and millenia.
+* Expand to cover decades, centuries, and millenia.
 
 ## Truncating long strings
 
 This example routine `strtrunc` truncates strings longer than 60 characters,
 leaving the first 30 and the last 25 characters, and cutting out extra
-characters in the middle.
+characters in the middle:
 
 ```sql
 FUNCTION strtrunc(input VARCHAR)
@@ -555,7 +554,7 @@ The following statement shows the same capability within the routine itself.
 Note the duplicate `RETURN` inside and outside the `CASE` statement and the
 required `END CASE;`. The second `RETURN` statement is required, because a
 routine must end with a `RETURN` statement. As a result the `ELSE` clause can be
-omitted.
+omitted:
 
 ```sql
 FUNCTION strtrunc(input VARCHAR)
@@ -591,7 +590,8 @@ which generates long strings to truncate:
 ```sql
 WITH
 data AS (
-    SELECT substring('strtrunc truncates strings longer than 60 characters, leaving the prefix and suffix visible', 1, s.num) AS value
+    SELECT substring('strtrunc truncates strings longer than 60 characters,
+     leaving the prefix and suffix visible', 1, s.num) AS value
     FROM table(sequence(start=>40, stop=>80, step=>5)) AS s(num)
 )
 SELECT
@@ -622,9 +622,9 @@ A possible improvement is to introduce parameters for the total length.
 
 ## Formatting bytes
 
-Trino includes a built-in `format_number()` function. However it is using units
-that don't work well with bytes. The following `format_data_size` routine can
-format large values of bytes into a human readable string.
+Trino includes a built-in `format_number()` function. However, it is using units
+that do not work well with bytes. The following `format_data_size` routine can
+format large values of bytes into a human readable string:
 
 ```sql
 FUNCTION format_data_size(input BIGINT)
@@ -678,7 +678,7 @@ RETURNS VARCHAR
   END;
 ```
 
-Below is a query to show how it formats a wide range of values.
+Below is a query that shows how it formats a wide range of values:
 
 ```sql
 WITH
@@ -743,10 +743,10 @@ The preceding query produces the following output:
 
 ## Charts
 
-Trino already has a built-in `bar()` [color function](/functions/color), but
-it's using ANSI escape codes to output colors, and thus is only usable for
-displaying results in a terminal. The following example shows a similar routine,
-that only uses ASCII characters.
+Trino already has a built-in `bar()` [color function](/functions/color), but it
+is using ANSI escape codes to output colors, and thus is only usable for
+displaying results in a terminal. The following example shows a similar routine
+that only uses ASCII characters:
 
 ```sql
 FUNCTION ascii_bar(value DOUBLE)
@@ -756,11 +756,12 @@ BEGIN
   RETURN array_join(
     repeat('█',
         greatest(0, CAST(floor(max_width * value) AS integer) - 1)), '')
-        || ARRAY[' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'][cast((value % (cast(1 as double) / max_width)) * max_width * 8 + 1 as int)];
+        || ARRAY[' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█']
+        [cast((value % (cast(1 as double) / max_width)) * max_width * 8 + 1 as int)];
 END;
 ```
 
-It can be used to visualize a value.
+It can be used to visualize a value:
 
 ```sql
 WITH
@@ -817,8 +818,8 @@ The preceding query produces the following output:
  3.1 | 0.0416 | ▋
 ```
 
-It's also possible to draw more compacted charts. Following is a routine drawing
-vertical bars:
+It is also possible to draw more compacted charts. Following is a routine
+drawing vertical bars:
 
 ```sql
 FUNCTION vertical_bar(value DOUBLE)
@@ -826,7 +827,7 @@ RETURNS VARCHAR
 RETURN ARRAY[' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'][cast(value * 8 + 1 as int)];
 ```
 
-It can be used to draw a distribution of values, in a single column.
+It can be used to draw a distribution of values, in a single column:
 
 ```sql
 WITH
@@ -873,7 +874,8 @@ SELECT
     min(value) AS min_value,
     max(value) AS max_value,
     avg(value) AS avg_value,
-    array_join(array_agg(coalesce(vertical_bar(normalized), ' ') ORDER BY day), '') AS distribution
+    array_join(array_agg(coalesce(vertical_bar(normalized), ' ') ORDER BY day),
+     '') AS distribution
 FROM normalized
 WHERE sensor_id IS NOT NULL
 GROUP BY sensor_id
@@ -892,12 +894,12 @@ The preceding query produces the following output:
 ## Top-N
 
 Trino already has a built-in [aggregate function](/functions/aggregate) called
-`approx_most_frequent()`, that can calculate most frequently occurring values.
-It returns a map with values as keys and number of occurrences as values. Maps
-are not ordered, so when displayed, the entries can change places on subsequent
-runs of the same query, and readers must still compare all frequencies to find
-the one most frequent value. The following is a routine returns ordered results
-as a string.
+`approx_most_frequent()` that can calculate the most frequently occurring
+values. It returns a map with values as keys and number of occurrences as
+values. Maps are not ordered, so when displayed, the entries can change places
+on subsequent runs of the same query, and readers must still compare all
+frequencies to find the one most frequent value. The following is a routine that
+returns ordered results as a string:
 
 ```sql
 FUNCTION format_topn(input map<varchar, bigint>)
