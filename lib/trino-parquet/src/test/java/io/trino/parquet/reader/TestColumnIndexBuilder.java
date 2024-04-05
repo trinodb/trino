@@ -1463,7 +1463,7 @@ public class TestColumnIndexBuilder
             }
             else {
                 assertThat(value.array())
-                        .describedAs("Invalid value for page " + i)
+                        .describedAs("Value for page %s", i)
                         .isEqualTo(expectedValue.getBytesUnsafe());
             }
         }
