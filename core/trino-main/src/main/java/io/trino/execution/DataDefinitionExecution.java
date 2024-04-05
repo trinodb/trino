@@ -250,6 +250,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public boolean isInfoPruned()
+    {
+        return false;
+    }
+
+    @Override
     public QueryId getQueryId()
     {
         return stateMachine.getQueryId();
