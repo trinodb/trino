@@ -329,6 +329,8 @@ The connector supports pushdown for a number of operations:
 - {func}`corr`
 - {func}`regr_intercept`
 - {func}`regr_slope`
+- {func}`bitwise_and_agg`
+- {func}`bitwise_or_agg`
 
 ```{include} pushdown-correctness-behavior.fragment
 ```

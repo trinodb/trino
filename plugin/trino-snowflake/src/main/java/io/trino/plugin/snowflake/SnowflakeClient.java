@@ -198,6 +198,8 @@ public class SnowflakeClient
                         .add(new ImplementCorr())
                         .add(new ImplementRegrIntercept())
                         .add(new ImplementRegrSlope())
+                        .add(new ImplementBitwiseAndAgg())
+                        .add(new ImplementBitwiseOrAgg())
                         .build());
     }
 
