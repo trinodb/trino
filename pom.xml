@@ -2656,6 +2656,9 @@
                                     -Xep:AnnotateFormatMethod:ERROR \
                                     -Xep:ArgumentSelectionDefectChecker:ERROR \
                                     -Xep:ArrayAsKeyOfSetOrMap:ERROR \
+                                    -Xep:AssertEqualsArgumentOrderChecker:ERROR \
+                                    -Xep:AssertThrowsMultipleStatements:ERROR \
+                                    -Xep:AssertionFailureIgnored:ERROR \
                                     -Xep:AttemptedNegativeZero:ERROR \
                                     -Xep:BadComparable:ERROR \
                                     -Xep:BadInstanceof:ERROR \
@@ -2663,6 +2666,8 @@
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
                                     -Xep:ByteBufferBackingArray:ERROR \
                                     -Xep:CacheLoaderNull:ERROR \
+                                    -Xep:CatchAndPrintStackTrace:ERROR \
+                                    -Xep:CatchFail:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \
                                     -Xep:ClassName:ERROR \
                                     -Xep:ClassNewInstance:ERROR \
