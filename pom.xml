@@ -2670,6 +2670,7 @@
                                     <!-- we would rather want the opposite check -->
                                     -Xep:EqualsGetClass:OFF \
                                     -Xep:EqualsIncompatibleType:ERROR \
+                                    -Xep:ErroneousBitwiseExpression:ERROR \
                                     -Xep:FallThrough:ERROR \
                                     -Xep:GetClassOnEnum:ERROR \
                                     <!-- needs some careful inspection -->
