@@ -8,70 +8,69 @@ local exchange (GATHER, SINGLE, [])
                             intermediate aggregation over (r_reason_desc)
                                 join (INNER, REPLICATED):
                                     partial aggregation over (wr_reason_sk)
-                                        join (INNER, REPLICATED):
-                                            alternatives
-                                                dynamic filter ([cd_demo_sk_9::bigint, cd_education_status_12::char(20), cd_marital_status_11::char(1)])
-                                                    scan customer_demographics
-                                                cache data
-                                                    dynamic filter ([cd_demo_sk_9::bigint, cd_education_status_12::char(20), cd_marital_status_11::char(1)])
-                                                        scan customer_demographics
-                                                load from cache
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    join (INNER, REPLICATED):
-                                                        join (INNER, PARTITIONED):
-                                                            remote exchange (REPARTITION, HASH, [ca_address_sk])
-                                                                alternatives
-                                                                    dynamic filter ([ca_address_sk::bigint])
-                                                                        scan customer_address
-                                                                    cache data
-                                                                        dynamic filter ([ca_address_sk::bigint])
-                                                                            scan customer_address
-                                                                    load from cache
-                                                            local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPARTITION, HASH, [wr_refunded_addr_sk])
+                                        join (INNER, PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, [wr_refunded_addr_sk])
+                                                join (INNER, REPLICATED):
+                                                    join (INNER, PARTITIONED):
+                                                        remote exchange (REPARTITION, HASH, [cd_education_status, cd_marital_status, wr_returning_cdemo_sk])
+                                                            join (INNER, PARTITIONED):
+                                                                remote exchange (REPARTITION, HASH, [wr_refunded_cdemo_sk])
                                                                     join (INNER, PARTITIONED):
-                                                                        remote exchange (REPARTITION, HASH, [wr_refunded_cdemo_sk])
-                                                                            join (INNER, PARTITIONED):
-                                                                                remote exchange (REPARTITION, HASH, [ws_item_sk, ws_order_number])
-                                                                                    join (INNER, REPLICATED):
-                                                                                        alternatives
-                                                                                            dynamic filter ([ws_item_sk::bigint, ws_order_number::bigint], await [ws_sold_date_sk::bigint, ws_web_page_sk::bigint])
-                                                                                                scan web_sales
-                                                                                            cache data
-                                                                                                dynamic filter ([ws_item_sk::bigint, ws_order_number::bigint], await [ws_sold_date_sk::bigint, ws_web_page_sk::bigint])
-                                                                                                    scan web_sales
-                                                                                            load from cache
-                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                alternatives
-                                                                                                    scan date_dim
-                                                                                                    cache data
-                                                                                                        scan date_dim
-                                                                                                    load from cache
+                                                                        remote exchange (REPARTITION, HASH, [ws_item_sk, ws_order_number])
+                                                                            join (INNER, REPLICATED):
+                                                                                alternatives
+                                                                                    dynamic filter ([ws_item_sk::bigint, ws_order_number::bigint], await [ws_sold_date_sk::bigint, ws_web_page_sk::bigint])
+                                                                                        scan web_sales
+                                                                                    cache data
+                                                                                        dynamic filter ([ws_item_sk::bigint, ws_order_number::bigint], await [ws_sold_date_sk::bigint, ws_web_page_sk::bigint])
+                                                                                            scan web_sales
+                                                                                    load from cache
                                                                                 local exchange (GATHER, SINGLE, [])
-                                                                                    remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
+                                                                                    remote exchange (REPLICATE, BROADCAST, [])
                                                                                         alternatives
-                                                                                            dynamic filter ([wr_refunded_cdemo_sk::bigint], await [wr_reason_sk::bigint])
-                                                                                                scan web_returns
+                                                                                            scan date_dim
                                                                                             cache data
-                                                                                                dynamic filter ([wr_refunded_cdemo_sk::bigint], await [wr_reason_sk::bigint])
-                                                                                                    scan web_returns
+                                                                                                scan date_dim
                                                                                             load from cache
                                                                         local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPARTITION, HASH, [cd_demo_sk])
+                                                                            remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
                                                                                 alternatives
-                                                                                    scan customer_demographics
+                                                                                    dynamic filter ([wr_refunded_addr_sk::bigint, wr_refunded_cdemo_sk::bigint, wr_returning_cdemo_sk::bigint], await [wr_reason_sk::bigint])
+                                                                                        scan web_returns
                                                                                     cache data
-                                                                                        scan customer_demographics
+                                                                                        dynamic filter ([wr_refunded_addr_sk::bigint, wr_refunded_cdemo_sk::bigint, wr_returning_cdemo_sk::bigint], await [wr_reason_sk::bigint])
+                                                                                            scan web_returns
                                                                                     load from cache
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPARTITION, HASH, [cd_demo_sk])
+                                                                        alternatives
+                                                                            dynamic filter (await [cd_education_status::char(20), cd_marital_status::char(1)])
+                                                                                scan customer_demographics
+                                                                            cache data
+                                                                                dynamic filter (await [cd_education_status::char(20), cd_marital_status::char(1)])
+                                                                                    scan customer_demographics
+                                                                            load from cache
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                            remote exchange (REPARTITION, HASH, [cd_demo_sk_9, cd_education_status_12, cd_marital_status_11])
                                                                 alternatives
-                                                                    scan web_page
+                                                                    scan customer_demographics
                                                                     cache data
-                                                                        scan web_page
+                                                                        scan customer_demographics
                                                                     load from cache
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            alternatives
+                                                                scan web_page
+                                                                cache data
+                                                                    scan web_page
+                                                                load from cache
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, [ca_address_sk])
+                                                    alternatives
+                                                        scan customer_address
+                                                        cache data
+                                                            scan customer_address
+                                                        load from cache
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             alternatives

@@ -162,9 +162,9 @@ public class TestCanonicalSubplanExtractor
         CacheColumnId regionKeyMultiplyBy2 = canonicalExpressionToColumnId(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "[regionkey:bigint]"), new Constant(BIGINT, 2L))));
         assertThat(nonAggregatedSubplan.getAssignments()).containsExactly(
                 entry(NATIONKEY_ID, CacheExpression.ofProjection(NATIONKEY_REF)),
-                entry(regionKeyMultiplyBy2, CacheExpression.ofProjection(new Call(MULTIPLY_BIGINT, ImmutableList.of(REGIONKEY_REF, new Constant(BIGINT, 2L))))),
+                entry(regionKeyGreaterThan10, CacheExpression.ofProjection(new Comparison(GREATER_THAN, NATIONKEY_REF, new Constant(BIGINT, 10L)))),
                 entry(NAME_ID, CacheExpression.ofProjection(NAME_REF)),
-                entry(regionKeyGreaterThan10, CacheExpression.ofProjection(new Comparison(GREATER_THAN, NATIONKEY_REF, new Constant(BIGINT, 10L)))));
+                entry(regionKeyMultiplyBy2, CacheExpression.ofProjection(new Call(MULTIPLY_BIGINT, ImmutableList.of(REGIONKEY_REF, new Constant(BIGINT, 2L))))));
         assertThat(nonAggregatedSubplan.getTableScan().get().getColumnHandles()).containsExactly(
                 entry(NATIONKEY_ID, new TpchColumnHandle("nationkey", BIGINT)),
                 entry(NAME_ID, new TpchColumnHandle("name", createVarcharType(25))),
@@ -194,11 +194,12 @@ public class TestCanonicalSubplanExtractor
                 canonicalExpressionToColumnId(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "[regionkey:bigint]"), new Constant(BIGINT, 2L)))),
                 canonicalAggregationToColumnId(filteredSum),
                 canonicalAggregationToColumnId(sum));
-        assertThat(aggregatedSubplan.getAssignments()).containsExactly(
-                entry(NAME_ID, CacheExpression.ofProjection(new Reference(createVarcharType(25), "[name:varchar(25)]"))),
-                entry(canonicalExpressionToColumnId(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "[regionkey:bigint]"), new Constant(BIGINT, 2L)))), CacheExpression.ofProjection(columnIdToSymbol(regionKeyMultiplyBy2, BIGINT).toSymbolReference())),
-                entry(canonicalAggregationToColumnId(filteredSum), CacheExpression.ofAggregation(filteredSum)),
-                entry(canonicalAggregationToColumnId(sum), CacheExpression.ofAggregation(sum)));
+        assertThat(aggregatedSubplan.getAssignments()).containsExactlyInAnyOrderEntriesOf(ImmutableMap.<CacheColumnId, CacheExpression>builder()
+                .put(NAME_ID, CacheExpression.ofProjection(new Reference(createVarcharType(25), "[name:varchar(25)]")))
+                .put(canonicalExpressionToColumnId(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "[regionkey:bigint]"), new Constant(BIGINT, 2L)))), CacheExpression.ofProjection(columnIdToSymbol(regionKeyMultiplyBy2, BIGINT).toSymbolReference()))
+                .put(canonicalAggregationToColumnId(filteredSum), CacheExpression.ofAggregation(filteredSum))
+                .put(canonicalAggregationToColumnId(sum), CacheExpression.ofAggregation(sum))
+                .buildOrThrow());
     }
 
     @Test
@@ -216,9 +217,9 @@ public class TestCanonicalSubplanExtractor
         assertThat(nonAggregatedSubplan.getKeyChain()).containsExactly(new ScanFilterProjectKey(tableId));
         assertThat(nonAggregatedSubplan.getGroupByColumns()).isEmpty();
         assertThat(nonAggregatedSubplan.getAssignments()).containsExactly(
+                entry(nationKeyPlusOne, CacheExpression.ofProjection(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 1L))))),
                 entry(NAME_ID, CacheExpression.ofProjection(NAME_REF)),
-                entry(REGIONKEY_ID, CacheExpression.ofProjection(REGIONKEY_REF)),
-                entry(nationKeyPlusOne, CacheExpression.ofProjection(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 1L))))));
+                entry(REGIONKEY_ID, CacheExpression.ofProjection(REGIONKEY_REF)));
         assertThat(nonAggregatedSubplan.getTableScan()).isPresent();
         assertThat(nonAggregatedSubplan.getChildSubplan()).isEmpty();
         assertThat(nonAggregatedSubplan.getTableScan().get().getColumnHandles()).containsExactly(

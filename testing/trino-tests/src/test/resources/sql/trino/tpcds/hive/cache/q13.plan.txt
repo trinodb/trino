@@ -17,35 +17,35 @@ final aggregation over ()
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             alternatives
-                                                scan customer_address
+                                                scan date_dim
                                                 cache data
-                                                    scan customer_address
+                                                    scan date_dim
                                                 load from cache
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         alternatives
-                                            scan date_dim
+                                            scan store
                                             cache data
-                                                scan date_dim
+                                                scan store
                                             load from cache
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     alternatives
-                                        scan household_demographics
+                                        scan customer_address
                                         cache data
-                                            scan household_demographics
+                                            scan customer_address
                                         load from cache
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPLICATE, BROADCAST, [])
                                 alternatives
-                                    scan customer_demographics
+                                    scan household_demographics
                                     cache data
-                                        scan customer_demographics
+                                        scan household_demographics
                                     load from cache
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])
                             alternatives
-                                scan store
+                                scan customer_demographics
                                 cache data
-                                    scan store
+                                    scan customer_demographics
                                 load from cache

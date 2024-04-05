@@ -388,8 +388,8 @@ public class TestCacheCommonSubqueries
                 anyTree(anyTree(aggregation(
                                 singleGroupingSet("REGIONKEY_A"),
                                 ImmutableMap.of(
-                                        Optional.of("MAX_A"), aggregationFunction("max", false, ImmutableList.of(symbol("MAX_PARTIAL_A"))),
-                                        Optional.of("SUM_A"), aggregationFunction("sum", false, ImmutableList.of(symbol("SUM_PARTIAL_A")))),
+                                        Optional.of("SUM_A"), aggregationFunction("sum", false, ImmutableList.of(symbol("SUM_PARTIAL_A"))),
+                                        Optional.of("MAX_A"), aggregationFunction("max", false, ImmutableList.of(symbol("MAX_PARTIAL_A")))),
                                 Optional.empty(),
                                 FINAL,
                                 anyTree(

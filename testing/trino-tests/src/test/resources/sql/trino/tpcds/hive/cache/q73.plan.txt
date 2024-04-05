@@ -34,14 +34,14 @@ remote exchange (GATHER, SINGLE, [])
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 alternatives
-                                                    scan household_demographics
+                                                    scan store
                                                     cache data
-                                                        scan household_demographics
+                                                        scan store
                                                     load from cache
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             alternatives
-                                                scan store
+                                                scan household_demographics
                                                 cache data
-                                                    scan store
+                                                    scan household_demographics
                                                 load from cache
