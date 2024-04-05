@@ -52,6 +52,7 @@ public class SpatialIndexBuilderOperator
         private final List<Integer> outputChannels;
         private final int indexChannel;
         private final Optional<Integer> radiusChannel;
+        private final OptionalDouble constantRadius;
         private final Optional<Integer> partitionChannel;
         private final SpatialPredicate spatialRelationshipTest;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
@@ -69,6 +70,7 @@ public class SpatialIndexBuilderOperator
                 List<Integer> outputChannels,
                 int indexChannel,
                 Optional<Integer> radiusChannel,
+                OptionalDouble constantRadius,
                 Optional<Integer> partitionChannel,
                 SpatialPredicate spatialRelationshipTest,
                 Optional<String> kdbTreeJson,
@@ -87,6 +89,7 @@ public class SpatialIndexBuilderOperator
 
             this.indexChannel = indexChannel;
             this.radiusChannel = radiusChannel;
+            this.constantRadius = constantRadius;
             this.partitionChannel = requireNonNull(partitionChannel, "partitionChannel is null");
             this.spatialRelationshipTest = spatialRelationshipTest;
             this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
@@ -111,6 +114,7 @@ public class SpatialIndexBuilderOperator
                     outputChannels,
                     indexChannel,
                     radiusChannel,
+                    constantRadius,
                     partitionChannel,
                     spatialRelationshipTest,
                     filterFunctionFactory,
@@ -139,6 +143,7 @@ public class SpatialIndexBuilderOperator
     private final List<Integer> outputChannels;
     private final int indexChannel;
     private final Optional<Integer> radiusChannel;
+    private final OptionalDouble constantRadius;
     private final Optional<Integer> partitionChannel;
     private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
@@ -156,6 +161,7 @@ public class SpatialIndexBuilderOperator
             List<Integer> outputChannels,
             int indexChannel,
             Optional<Integer> radiusChannel,
+            OptionalDouble constantRadius,
             Optional<Integer> partitionChannel,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
@@ -174,6 +180,7 @@ public class SpatialIndexBuilderOperator
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.indexChannel = indexChannel;
         this.radiusChannel = radiusChannel;
+        this.constantRadius = constantRadius;
         this.partitionChannel = requireNonNull(partitionChannel, "partitionChannel is null");
 
         this.partitions = requireNonNull(partitions, "partitions is null");
@@ -230,7 +237,7 @@ public class SpatialIndexBuilderOperator
         }
 
         finishing = true;
-        PagesSpatialIndexSupplier spatialIndex = index.createPagesSpatialIndex(operatorContext.getSession(), indexChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, outputChannels, partitions);
+        PagesSpatialIndexSupplier spatialIndex = index.createPagesSpatialIndex(operatorContext.getSession(), indexChannel, radiusChannel, constantRadius, partitionChannel, spatialRelationshipTest, filterFunctionFactory, outputChannels, partitions);
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes() + spatialIndex.getEstimatedSize().toBytes());
         indexNotNeeded = pagesSpatialIndexFactory.lendPagesSpatialIndex(spatialIndex);
     }
