@@ -2815,6 +2815,7 @@
                                     -Xep:CompareToZero:ERROR \
                                     -Xep:DefaultCharset:ERROR \
                                     -Xep:DepAnn:ERROR \
+                                    -Xep:DeprecatedVariable:ERROR \
                                     -Xep:DistinctVarargsChecker:ERROR \
                                     -Xep:DoNotCallSuggester:OFF \
                                     -Xep:EmptyBlockTag:ERROR \
