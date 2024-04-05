@@ -2658,6 +2658,7 @@
                                     -Xep:BadInstanceof:ERROR \
                                     -Xep:BigDecimalEquals:ERROR \
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
+                                    -Xep:ByteBufferBackingArray:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \
                                     -Xep:ClassName:ERROR \
                                     -Xep:CompareToZero:ERROR \
