@@ -49,11 +49,11 @@ class OutputBufferMemoryManager
 
     @GuardedBy("this")
     private boolean closed;
+    // guarded by "this" for updates
     @Nullable
-    @GuardedBy("this")
-    private SettableFuture<Void> bufferBlockedFuture;
-    @GuardedBy("this")
-    private ListenableFuture<Void> blockedOnMemory = NOT_BLOCKED;
+    private volatile SettableFuture<Void> bufferBlockedFuture;
+    // guarded by "this" for updates
+    private volatile ListenableFuture<Void> blockedOnMemory = NOT_BLOCKED;
 
     private final Ticker ticker = Ticker.systemTicker();
 
@@ -145,13 +145,22 @@ class OutputBufferMemoryManager
         }
     }
 
-    public synchronized ListenableFuture<Void> getBufferBlockedFuture()
+    public ListenableFuture<Void> getBufferBlockedFuture()
     {
+        ListenableFuture<Void> bufferBlockedFuture = this.bufferBlockedFuture;
         if (bufferBlockedFuture == null) {
             if (blockedOnMemory.isDone() && !isBufferFull()) {
                 return NOT_BLOCKED;
             }
-            bufferBlockedFuture = SettableFuture.create();
+            synchronized (this) {
+                if (this.bufferBlockedFuture == null) {
+                    if (blockedOnMemory.isDone() && !isBufferFull()) {
+                        return NOT_BLOCKED;
+                    }
+                    this.bufferBlockedFuture = SettableFuture.create();
+                }
+                return this.bufferBlockedFuture;
+            }
         }
         return bufferBlockedFuture;
     }
