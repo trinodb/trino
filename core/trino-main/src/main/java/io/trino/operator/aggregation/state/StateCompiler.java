@@ -466,24 +466,25 @@ public final class StateCompiler
                 type(GroupedAccumulatorState.class),
                 type(InternalDataAccessor.class));
 
-        estimatedSize(definition);
-
         MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
         constructor.getBody()
                 .append(constructor.getThis())
                 .invokeConstructor(Object.class);
 
+        ImmutableList.Builder<FieldDefinition> fieldDefinitions = ImmutableList.builder();
         FieldDefinition groupIdField = definition.declareField(a(PRIVATE), "groupId", int.class);
-
         Class<?> valueElementType = inOutGetterReturnType(type);
         FieldDefinition valueField = definition.declareField(a(PRIVATE, FINAL), "value", getBigArrayType(valueElementType));
+        fieldDefinitions.add(valueField);
         constructor.getBody().append(constructor.getThis().setField(valueField, newInstance(valueField.getType())));
         Function<Scope, BytecodeExpression> valueGetter = scope -> scope.getThis().getField(valueField).invoke("get", valueElementType, scope.getThis().getField(groupIdField).cast(long.class));
 
         Optional<FieldDefinition> nullField;
         Function<Scope, BytecodeExpression> nullGetter;
         if (type.getJavaType().isPrimitive()) {
-            nullField = Optional.of(definition.declareField(a(PRIVATE, FINAL), "valueIdNull", BooleanBigArray.class));
+            FieldDefinition valueIdNullDefinition = definition.declareField(a(PRIVATE, FINAL), "valueIdNull", BooleanBigArray.class);
+            nullField = Optional.of(valueIdNullDefinition);
+            fieldDefinitions.add(valueIdNullDefinition);
             constructor.getBody().append(constructor.getThis().setField(nullField.get(), newInstance(BooleanBigArray.class, constantTrue())));
             nullGetter = scope -> scope.getThis().getField(nullField.get()).invoke("get", boolean.class, scope.getThis().getField(groupIdField).cast(long.class));
         }
@@ -494,6 +495,9 @@ public final class StateCompiler
 
         constructor.getBody()
                 .ret();
+
+        // Generate getEstimatedSize
+        estimatedSize(definition, fieldDefinitions.build());
 
         inOutGroupedSetGroupId(definition, groupIdField);
         inOutGroupedEnsureCapacity(definition, valueField, nullField);
@@ -546,6 +550,23 @@ public final class StateCompiler
                 .getBody()
                 .getStaticField(instanceSize)
                 .retLong();
+    }
+
+    private static void estimatedSize(ClassDefinition definition, List<FieldDefinition> fieldDefinitions)
+    {
+        FieldDefinition instanceSize = generateInstanceSize(definition);
+
+        MethodDefinition getEstimatedSize = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
+        BytecodeBlock body = getEstimatedSize.getBody();
+        Variable size = getEstimatedSize.getScope().declareVariable("size", body, getStatic(instanceSize));
+
+        // add field to size
+        for (FieldDefinition field : fieldDefinitions) {
+            body.append(size.set(add(size, getEstimatedSize.getThis().getField(field).invoke("sizeOf", long.class))));
+        }
+
+        // return size
+        body.append(size.ret());
     }
 
     private static void inOutSingleCopy(ClassDefinition definition, FieldDefinition valueField, Optional<FieldDefinition> nullField)
@@ -883,8 +904,6 @@ public final class StateCompiler
                 type(AbstractGroupedAccumulatorState.class),
                 type(clazz));
 
-        FieldDefinition instanceSize = generateInstanceSize(definition);
-
         List<StateField> fields = enumerateFields(clazz, fieldTypes);
 
         // Create constructor
@@ -906,21 +925,7 @@ public final class StateCompiler
         ensureCapacity.getBody().ret();
 
         // Generate getEstimatedSize
-        MethodDefinition getEstimatedSize = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
-        BytecodeBlock body = getEstimatedSize.getBody();
-
-        Variable size = getEstimatedSize.getScope().declareVariable(long.class, "size");
-
-        // initialize size to the size of the instance
-        body.append(size.set(getStatic(instanceSize)));
-
-        // add field to size
-        for (FieldDefinition field : fieldDefinitions) {
-            body.append(size.set(add(size, getEstimatedSize.getThis().getField(field).invoke("sizeOf", long.class))));
-        }
-
-        // return size
-        body.append(size.ret());
+        estimatedSize(definition, fieldDefinitions);
 
         return defineClass(definition, clazz, classLoader);
     }
