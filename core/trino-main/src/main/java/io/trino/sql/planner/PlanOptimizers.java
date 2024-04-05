@@ -788,7 +788,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(new ReorderJoins(costComparator))));
+                        ImmutableSet.of(new ReorderJoins(plannerContext, costComparator))));
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
         builder.add(new IterativeOptimizer(
