@@ -154,7 +154,7 @@ public class TestBitwiseFunctions
                 .isEqualTo(0L);
 
         assertThat(assertions.function("bitwise_and", "3", "8"))
-                .isEqualTo(3L & 8L);
+                .isEqualTo(0L);
 
         assertThat(assertions.function("bitwise_and", "-4", "12"))
                 .isEqualTo(-4L & 12L);
