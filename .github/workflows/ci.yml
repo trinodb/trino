@@ -154,8 +154,7 @@ jobs:
           echo "matrix=$(jq -c '.' commit-matrix.json)" >> $GITHUB_OUTPUT
 
   check-commit:
-    needs:
-      - check-commits-dispatcher
+    needs: check-commits-dispatcher
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && needs.check-commits-dispatcher.outputs.matrix != ''
     strategy:
