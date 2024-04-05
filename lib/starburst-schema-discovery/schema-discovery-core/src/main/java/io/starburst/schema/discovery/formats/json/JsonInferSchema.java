@@ -84,7 +84,9 @@ class JsonInferSchema
         }
         else if (node.isBigDecimal()) {
             BigDecimal bigDecimal = node.decimalValue();
-            if (BigDecimal.valueOf(bigDecimal.doubleValue()).equals(bigDecimal)) {
+            @SuppressWarnings("BigDecimalEquals")
+            boolean isSameBigDecimal = BigDecimal.valueOf(bigDecimal.doubleValue()).equals(bigDecimal);
+            if (isSameBigDecimal) {
                 return TypeCoercion.compatibleType(typeSoFar, HIVE_DOUBLE).orElse(STRING_TYPE);
             }
             DecimalTypeInfo type = new DecimalTypeInfo(bigDecimal.precision(), bigDecimal.scale());
