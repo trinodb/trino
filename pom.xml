@@ -2651,6 +2651,7 @@
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <arg>
                                     -Xplugin:ErrorProne \
+                                    -Xep:AlmostJavadoc:ERROR \
                                     -Xep:AnnotateFormatMethod:ERROR \
                                     -Xep:ArgumentSelectionDefectChecker:ERROR \
                                     -Xep:BadComparable:ERROR \
