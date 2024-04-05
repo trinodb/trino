@@ -529,7 +529,9 @@ public class TestDeltaLakeDeleteCompatibility
             onDelta().executeQuery("DELETE FROM default." + baseTableName + " WHERE a = 1 OR a = 3");
 
             // The cloned table has 'p' (absolute path) storageType for deletion vector
-            onDelta().executeQuery("CREATE TABLE default." + tableName + " SHALLOW CLONE " + baseTableName);
+            onDelta().executeQuery("" +
+                    "CREATE TABLE default." + tableName + " SHALLOW CLONE " + baseTableName + " " +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-clone-" + baseTableName + "'");
 
             List<Row> expected = ImmutableList.of(row(2, 22), row(4, 44));
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).contains(expected);
