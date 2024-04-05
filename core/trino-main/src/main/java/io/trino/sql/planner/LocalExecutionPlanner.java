@@ -190,6 +190,7 @@ import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
@@ -275,6 +276,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -2451,7 +2453,7 @@ public class LocalExecutionPlanner
                 if (spatialComparison.operator() == LESS_THAN || spatialComparison.operator() == LESS_THAN_OR_EQUAL) {
                     // ST_Distance(a, b) <= r
                     Expression radius = spatialComparison.right();
-                    if (radius instanceof Reference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius)) {
+                    if (radius instanceof Reference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius) || radius instanceof Constant) {
                         Call spatialFunction = (Call) spatialComparison.left();
                         Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.operator()));
                         if (operation.isPresent()) {
@@ -2485,6 +2487,21 @@ public class LocalExecutionPlanner
             PlanNode buildNode = node.getRight();
             Set<Reference> buildSymbols = getSymbolReferences(buildNode.getOutputSymbols());
 
+            Optional<Symbol> radiusSymbol = Optional.empty();
+            OptionalDouble constantRadius = OptionalDouble.empty();
+            if (radius.isPresent()) {
+                Expression expression = radius.get();
+                if (expression instanceof Reference reference) {
+                    radiusSymbol = Optional.of(Symbol.from(reference));
+                }
+                else if (expression instanceof Constant constant) {
+                    constantRadius = OptionalDouble.of((Double) constant.value());
+                }
+                else {
+                    throw new IllegalArgumentException("Unexpected expression for radius: " + expression);
+                }
+            }
+
             if (probeSymbols.contains(firstSymbol) && buildSymbols.contains(secondSymbol)) {
                 return Optional.of(createSpatialLookupJoin(
                         node,
@@ -2492,7 +2509,8 @@ public class LocalExecutionPlanner
                         Symbol.from(firstSymbol),
                         buildNode,
                         Symbol.from(secondSymbol),
-                        radius.map(Symbol::from),
+                        radiusSymbol,
+                        constantRadius,
                         spatialTest(spatialFunction, true, comparisonOperator),
                         filterExpression,
                         context));
@@ -2504,7 +2522,8 @@ public class LocalExecutionPlanner
                         Symbol.from(secondSymbol),
                         buildNode,
                         Symbol.from(firstSymbol),
-                        radius.map(Symbol::from),
+                        radiusSymbol,
+                        constantRadius,
                         spatialTest(spatialFunction, false, comparisonOperator),
                         filterExpression,
                         context));
@@ -2614,6 +2633,7 @@ public class LocalExecutionPlanner
                 PlanNode buildNode,
                 Symbol buildSymbol,
                 Optional<Symbol> radiusSymbol,
+                OptionalDouble constantRadius,
                 SpatialPredicate spatialRelationshipTest,
                 Optional<Expression> joinFilter,
                 LocalExecutionPlanContext context)
@@ -2626,6 +2646,7 @@ public class LocalExecutionPlanner
                     buildNode,
                     buildSymbol,
                     radiusSymbol,
+                    constantRadius,
                     probeSource.getLayout(),
                     spatialRelationshipTest,
                     joinFilter,
@@ -2677,6 +2698,7 @@ public class LocalExecutionPlanner
                 PlanNode buildNode,
                 Symbol buildSymbol,
                 Optional<Symbol> radiusSymbol,
+                OptionalDouble constantRadius,
                 Map<Symbol, Integer> probeLayout,
                 SpatialPredicate spatialRelationshipTest,
                 Optional<Expression> joinFilter,
@@ -2708,6 +2730,7 @@ public class LocalExecutionPlanner
                     buildOutputChannels,
                     buildChannel,
                     radiusChannel,
+                    constantRadius,
                     partitionChannel,
                     spatialRelationshipTest,
                     node.getKdbTree(),
