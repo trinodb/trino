@@ -948,32 +948,32 @@ jobs:
           !contains(github.event.pull_request.labels.*.name, 'product-tests:all')
         # all these envs are required to be set by some product test environments
         env:
-          ABFS_CONTAINER:
-          ABFS_ACCOUNT:
-          ABFS_ACCESS_KEY:
-          S3_BUCKET:
-          AWS_REGION:
-          TRINO_AWS_ACCESS_KEY_ID:
-          TRINO_AWS_SECRET_ACCESS_KEY:
-          DATABRICKS_91_JDBC_URL:
-          DATABRICKS_104_JDBC_URL:
-          DATABRICKS_113_JDBC_URL:
-          DATABRICKS_122_JDBC_URL:
-          DATABRICKS_133_JDBC_URL:
-          DATABRICKS_UNITY_JDBC_URL:
-          DATABRICKS_UNITY_CATALOG_NAME:
-          DATABRICKS_UNITY_EXTERNAL_LOCATION:
-          DATABRICKS_HOST:
-          DATABRICKS_LOGIN:
-          DATABRICKS_TOKEN:
-          GCP_CREDENTIALS_KEY:
-          GCP_STORAGE_BUCKET:
-          SNOWFLAKE_URL:
-          SNOWFLAKE_USER:
-          SNOWFLAKE_PASSWORD:
-          SNOWFLAKE_DATABASE:
-          SNOWFLAKE_ROLE:
-          SNOWFLAKE_WAREHOUSE:
+          ABFS_CONTAINER: ""
+          ABFS_ACCOUNT: ""
+          ABFS_ACCESS_KEY: ""
+          S3_BUCKET: ""
+          AWS_REGION: ""
+          TRINO_AWS_ACCESS_KEY_ID: ""
+          TRINO_AWS_SECRET_ACCESS_KEY: ""
+          DATABRICKS_91_JDBC_URL: ""
+          DATABRICKS_104_JDBC_URL: ""
+          DATABRICKS_113_JDBC_URL: ""
+          DATABRICKS_122_JDBC_URL: ""
+          DATABRICKS_133_JDBC_URL: ""
+          DATABRICKS_UNITY_JDBC_URL: ""
+          DATABRICKS_UNITY_CATALOG_NAME: ""
+          DATABRICKS_UNITY_EXTERNAL_LOCATION: ""
+          DATABRICKS_HOST: ""
+          DATABRICKS_LOGIN: ""
+          DATABRICKS_TOKEN: ""
+          GCP_CREDENTIALS_KEY: ""
+          GCP_STORAGE_BUCKET: ""
+          SNOWFLAKE_URL: ""
+          SNOWFLAKE_USER: ""
+          SNOWFLAKE_PASSWORD: ""
+          SNOWFLAKE_DATABASE: ""
+          SNOWFLAKE_ROLE: ""
+          SNOWFLAKE_WAREHOUSE: ""
           TESTCONTAINERS_NEVER_PULL: true
         run: |
           # converts filtered YAML file into JSON
