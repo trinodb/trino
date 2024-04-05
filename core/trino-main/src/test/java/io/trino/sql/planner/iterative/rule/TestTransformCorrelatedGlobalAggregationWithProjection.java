@@ -19,6 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
@@ -286,5 +288,40 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                                                 values(ImmutableMap.of("corr", 0))))
                                                         .right(project(ImmutableMap.of("non_null", expression(TRUE)),
                                                                 values(ImmutableMap.of("a", 0, "mask", 1)))))))));
+    }
+
+    @Test
+    public void rewritesOnSubqueryWithBoolOr()
+    {
+        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+                .on(p -> p.correlatedJoin(
+                        ImmutableList.of(p.symbol("corr", BIGINT)),
+                        p.values(p.symbol("corr", BIGINT)),
+                        p.project(
+                                Assignments.of(p.symbol("exists", BOOLEAN),
+                                        new Coalesce(new Reference(BOOLEAN, "aggrbool"), FALSE)),
+                                p.aggregation(ab -> ab
+                                        .source(p.values(p.symbol("subquery", BOOLEAN)))
+                                        .addAggregation(
+                                                p.symbol("aggrbool", BOOLEAN),
+                                                PlanBuilder.aggregation("bool_or", ImmutableList.of(new Reference(BOOLEAN, "subquery"))), ImmutableList.of(BOOLEAN))
+                                        .globalGrouping()))))
+                .matches(
+                        project(
+                                ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")),
+                                        "exists", expression(new Coalesce(new Reference(BOOLEAN, "aggrbool"), FALSE))),
+                                aggregation(
+                                        singleGroupingSet("unique", "corr"),
+                                        ImmutableMap.of(Optional.of("aggrbool"), aggregationFunction("bool_or", ImmutableList.of("subquery"))),
+                                        ImmutableList.of(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        join(LEFT, builder -> builder
+                                                .left(
+                                                        assignUniqueId("unique",
+                                                                values(ImmutableMap.of("corr", 0))))
+                                                .right(
+                                                        values(ImmutableMap.of("subquery", 0)))))));
     }
 }
