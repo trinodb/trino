@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.spi.cache.PlanSignature.canonicalizePlanSignature;
@@ -55,6 +56,7 @@ public class ConcurrentCacheManager
 
     private final MemoryAllocator revocableMemoryAllocator;
     private final MemoryCacheManager[] cacheManagers;
+    private final ReentrantReadWriteLock revokeLock = new ReentrantReadWriteLock();
     @GuardedBy("this")
     private long allocatedMemory;
 
@@ -119,12 +121,8 @@ public class ConcurrentCacheManager
         List<MemoryCacheManager> shuffledManagers = new ArrayList<>(Arrays.asList(cacheManagers));
         shuffle(shuffledManagers);
 
-        // acquire exclusive lock for each cache manager
-        for (MemoryCacheManager manager : cacheManagers) {
-            manager.getLock().writeLock().lock();
-        }
+        revokeLock.writeLock().lock();
         try {
-            // memory managers must be locked first, then ConcurrentCacheManager to avoid deadlock
             synchronized (this) {
                 long initialAllocatedMemory = allocatedMemory;
                 int elementsToRevoke = minElementsToRevoke;
@@ -146,9 +144,7 @@ public class ConcurrentCacheManager
             }
         }
         finally {
-            for (MemoryCacheManager manager : cacheManagers) {
-                manager.getLock().writeLock().unlock();
-            }
+            revokeLock.writeLock().unlock();
         }
     }
 
@@ -168,13 +164,29 @@ public class ConcurrentCacheManager
         @Override
         public Optional<ConnectorPageSource> loadPages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
         {
-            return getSplitCache(splitId).loadPages(splitId, predicate, unenforcedPredicate);
+            if (!revokeLock.readLock().tryLock()) {
+                return Optional.empty();
+            }
+            try {
+                return getSplitCache(splitId).loadPages(splitId, predicate, unenforcedPredicate);
+            }
+            finally {
+                revokeLock.readLock().unlock();
+            }
         }
 
         @Override
         public Optional<ConnectorPageSink> storePages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
         {
-            return getSplitCache(splitId).storePages(splitId, predicate, unenforcedPredicate);
+            if (!revokeLock.readLock().tryLock()) {
+                return Optional.empty();
+            }
+            try {
+                return getSplitCache(splitId).storePages(splitId, predicate, unenforcedPredicate);
+            }
+            finally {
+                revokeLock.readLock().unlock();
+            }
         }
 
         @Override

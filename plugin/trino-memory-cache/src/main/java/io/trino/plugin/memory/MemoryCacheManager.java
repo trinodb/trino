@@ -153,11 +153,6 @@ public class MemoryCacheManager
         return runWithLock(lock.readLock(), splitCache::size);
     }
 
-    public ReentrantReadWriteLock getLock()
-    {
-        return lock;
-    }
-
     private Optional<ConnectorPageSource> loadPages(SignatureIds ids, CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
     {
         checkPredicates(ids, predicate, unenforcedPredicate);
