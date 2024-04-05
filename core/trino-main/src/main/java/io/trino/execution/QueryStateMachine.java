@@ -1496,6 +1496,13 @@ public class QueryStateMachine
                 ImmutableList.of());
     }
 
+    public boolean isQueryInfoPruned()
+    {
+        return finalQueryInfo.get()
+                .map(QueryInfo::isPruned)
+                .orElse(false);
+    }
+
     private QueryOutputManager getOutputManager()
     {
         return outputManager;
