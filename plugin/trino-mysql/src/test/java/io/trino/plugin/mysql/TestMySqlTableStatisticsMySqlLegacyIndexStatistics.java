@@ -13,11 +13,13 @@
  */
 package io.trino.plugin.mysql;
 
-public class TestMySqlTableStatisticsMySql5IndexStatistics
+import static io.trino.plugin.mysql.TestingMySqlServer.LEGACY_IMAGE;
+
+public class TestMySqlTableStatisticsMySqlLegacyIndexStatistics
         extends BaseMySqlTableStatisticsIndexStatisticsTest
 {
-    public TestMySqlTableStatisticsMySql5IndexStatistics()
+    public TestMySqlTableStatisticsMySqlLegacyIndexStatistics()
     {
-        super("mysql:5.7.44"); // oldest available on RDS
+        super(LEGACY_IMAGE);
     }
 }

@@ -34,7 +34,7 @@ public class TestingMySqlServer
         implements AutoCloseable
 {
     public static final String DEFAULT_IMAGE = "mysql:8.0.30";
-    public static final String LEGACY_IMAGE = "mysql:5.7.35";
+    public static final String LEGACY_IMAGE = "mysql:5.7.44"; // oldest available on RDS
 
     private final MySQLContainer<?> container;
     private final Closeable cleanup;
