@@ -302,6 +302,12 @@ public class LocalDispatchQuery
     }
 
     @Override
+    public boolean isInfoPruned()
+    {
+        return stateMachine.isQueryInfoPruned();
+    }
+
+    @Override
     public Optional<ErrorCode> getErrorCode()
     {
         return stateMachine.getFailureInfo().map(ExecutionFailureInfo::getErrorCode);
