@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.snowflake;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -408,5 +410,58 @@ public class TestSnowflakeConnectorTest
     protected String sumDistinctAggregationPushdownExpectedResult()
     {
         return "VALUES (BIGINT '4', DECIMAL '8')";
+    }
+
+    @Test
+    public void testBitwiseAggPushdown()
+    {
+        try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
+            assertThat(query("SELECT bitwise_and_agg(a_bigint) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT bitwise_or_agg(a_bigint) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT a_bigint, bitwise_and_agg(a_bigint), bitwise_or_agg(a_bigint) FROM " + emptyTable.getName() + " GROUP BY a_bigint")).isFullyPushedDown();
+        }
+
+        // GROUP BY
+        assertThat(query("SELECT regionkey, bitwise_and_agg(regionkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, bitwise_or_agg(regionkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY and WHERE on aggregation key
+        assertThat(query("SELECT regionkey, bitwise_and_agg(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, bitwise_or_agg(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY above Limit
+        assertThat(query("SELECT regionkey, bitwise_and_agg(nationkey) FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, bitwise_or_agg(nationkey) FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY above TopN
+        assertThat(query("SELECT custkey, bitwise_and_agg(orderkey) FROM (SELECT custkey, orderkey FROM orders ORDER BY orderdate ASC, orderkey ASC LIMIT 10) GROUP BY custkey")).isFullyPushedDown();
+        assertThat(query("SELECT custkey, bitwise_or_agg(orderkey) FROM (SELECT custkey, orderkey FROM orders ORDER BY orderdate ASC, orderkey ASC LIMIT 10) GROUP BY custkey")).isFullyPushedDown();
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_bitwise_agg_pushdown",
+                "(a_bigint bigint, b_bigint bigint)",
+                List.of("0, 0", "1, 1", "2, 2", "3, 3", "4, 4", "5, 8", "6, 16", "6, 20", "7, 2", "7, 4", "7, 8"))) {
+            assertThat(query("SELECT bitwise_and_agg(a_bigint) FROM " + testTable.getName()))
+                    .isFullyPushedDown()
+                    .matches("VALUES BIGINT '0'");
+            assertThat(query("SELECT bitwise_or_agg(a_bigint) FROM " + testTable.getName()))
+                    .isFullyPushedDown()
+                    .matches("VALUES BIGINT '7'");
+
+            assertThat(query("SELECT bitwise_and_agg(a_bigint) FROM " + testTable.getName() + " WHERE b_bigint > 4")) // 5 & 6 & 7 => 4
+                    .isFullyPushedDown()
+                    .matches("VALUES BIGINT '4'");
+            assertThat(query("SELECT bitwise_or_agg(b_bigint) FROM " + testTable.getName() + " WHERE a_bigint = 7")) // 2 | 4 | 8 => 14
+                    .isFullyPushedDown()
+                    .matches("VALUES BIGINT '14'");
+
+            assertThat(query("SELECT a_bigint, bitwise_and_agg(b_bigint) FROM " + testTable.getName() + " WHERE a_bigint > 4 GROUP BY a_bigint"))
+                    .isFullyPushedDown()
+                    .matches("VALUES (BIGINT '5', BIGINT '8'), (BIGINT '6', BIGINT '16'), (BIGINT '7', BIGINT '0')");
+            assertThat(query("SELECT a_bigint, bitwise_or_agg(b_bigint) FROM " + testTable.getName() + " WHERE a_bigint > 4 GROUP BY a_bigint"))
+                    .isFullyPushedDown()
+                    .matches("VALUES (BIGINT '5', BIGINT '8'), (BIGINT '6', BIGINT '20'), (BIGINT '7', BIGINT '14')");
+        }
     }
 }
