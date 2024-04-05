@@ -22,6 +22,7 @@ import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
+import static io.trino.plugin.mysql.TestingMySqlServer.DEFAULT_IMAGE_8;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -32,7 +33,8 @@ public class TestMySqlTableStatisticsMySql8Histograms
 {
     public TestMySqlTableStatisticsMySql8Histograms()
     {
-        super("mysql:8.0.30",
+        super(
+                DEFAULT_IMAGE_8,
                 Function.identity(),
                 Function.identity());
     }
