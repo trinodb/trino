@@ -2652,27 +2652,45 @@
                                 <arg>
                                     -Xplugin:ErrorProne \
                                     -Xep:AlmostJavadoc:ERROR \
+                                    -Xep:AmbiguousMethodReference:ERROR \
                                     -Xep:AnnotateFormatMethod:ERROR \
                                     -Xep:ArgumentSelectionDefectChecker:ERROR \
+                                    -Xep:ArrayAsKeyOfSetOrMap:ERROR \
+                                    -Xep:AttemptedNegativeZero:ERROR \
                                     -Xep:BadComparable:ERROR \
                                     -Xep:BadInstanceof:ERROR \
                                     -Xep:BigDecimalEquals:ERROR \
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
                                     -Xep:ByteBufferBackingArray:ERROR \
+                                    -Xep:CacheLoaderNull:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \
                                     -Xep:ClassName:ERROR \
+                                    -Xep:ClassNewInstance:ERROR \
+                                    -Xep:CollectionUndefinedEquality:ERROR \
+                                    -Xep:CollectorShouldNotUseState:ERROR \
                                     -Xep:CompareToZero:ERROR \
+                                    -Xep:DateChecker:ERROR \
+                                    -Xep:DateFormatConstant:ERROR \
                                     -Xep:DefaultCharset:ERROR \
                                     -Xep:DepAnn:ERROR \
                                     -Xep:DeprecatedVariable:ERROR \
                                     -Xep:DistinctVarargsChecker:ERROR \
                                     -Xep:DoNotCallSuggester:OFF \
+                                    -Xep:DoubleCheckedLocking:ERROR \
                                     -Xep:EmptyBlockTag:ERROR \
+                                    -Xep:EmptySetMultibindingContributions:ERROR \
                                     <!-- we would rather want the opposite check -->
                                     -Xep:EqualsGetClass:OFF \
                                     -Xep:EqualsIncompatibleType:ERROR \
+                                    -Xep:EqualsUnsafeCast:ERROR \
+                                    -Xep:EqualsUsingHashCode:ERROR \
                                     -Xep:ErroneousBitwiseExpression:ERROR \
+                                    -Xep:ErroneousThreadPoolConstructorChecker:ERROR \
+                                    -Xep:EscapedEntity:ERROR \
+                                    -Xep:ExtendingJUnitAssert:ERROR \
+                                    -Xep:ExtendsObject:ERROR \
                                     -Xep:FallThrough:ERROR \
+                                    -Xep:Finalize:ERROR \
                                     -Xep:GetClassOnEnum:ERROR \
                                     <!-- needs some careful inspection -->
                                     -Xep:GuardedBy:OFF \
