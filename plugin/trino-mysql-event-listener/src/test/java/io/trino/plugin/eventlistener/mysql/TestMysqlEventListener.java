@@ -337,7 +337,7 @@ public class TestMysqlEventListener
     @BeforeAll
     public void setup()
     {
-        mysqlContainer = new MySQLContainer<>("mysql:8.0.12");
+        mysqlContainer = new MySQLContainer<>("mysql:8.0.36");
         mysqlContainer.start();
         mysqlContainerUrl = getJdbcUrl(mysqlContainer);
         eventListener = new MysqlEventListenerFactory()
