@@ -2657,6 +2657,7 @@
                                     -Xep:BadInstanceof:ERROR \
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \
+                                    -Xep:ClassName:ERROR \
                                     -Xep:CompareToZero:ERROR \
                                     -Xep:DefaultCharset:ERROR \
                                     -Xep:DepAnn:ERROR \
