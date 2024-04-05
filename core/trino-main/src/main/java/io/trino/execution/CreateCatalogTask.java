@@ -38,6 +38,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_CATALOG_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CreateCatalogTask
@@ -73,7 +74,7 @@ public class CreateCatalogTask
         }
 
         Session session = stateMachine.getSession();
-        CatalogName catalog = new CatalogName(statement.getCatalogName().toString());
+        CatalogName catalog = new CatalogName(statement.getCatalogName().getValue().toLowerCase(ENGLISH));
         accessControl.checkCanCreateCatalog(session.toSecurityContext(), catalog.toString());
 
         Map<String, String> properties = new HashMap<>();
