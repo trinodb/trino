@@ -300,4 +300,29 @@ public class TestJoin
                 """))
                 .matches("VALUES 5");
     }
+
+    @Test
+    void testFilterThatMayFail()
+    {
+        assertThat(assertions.query(
+                """
+                WITH
+                	t(x,y) AS (
+                	    VALUES
+                            ('a', '1'),
+                            ('b', 'x'),
+                            (null, 'y')
+                	),
+                	u(x,y) AS (
+                	    VALUES
+                            ('a', '1'),
+                            ('c', 'x'),
+                            (null, 'y')
+                	)
+                SELECT *
+                FROM t JOIN u ON t.x = u.x
+                WHERE CAST(t.y AS int) = 1
+                """))
+                .matches("VALUES ('a', '1', 'a', '1')");
+    }
 }
