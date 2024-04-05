@@ -535,7 +535,9 @@ public class TestDeltaLakeDeleteCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + baseTableName)).contains(expected);
 
             // The cloned table has 'p' (absolute path) storageType for deletion vector
-            onDelta().executeQuery("CREATE TABLE default." + tableName + " SHALLOW CLONE " + baseTableName);
+            onDelta().executeQuery("" +
+                    "CREATE TABLE default." + tableName + " SHALLOW CLONE " + baseTableName + " " +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-clone-" + baseTableName + "'");
 
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).contains(expected);
             assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
