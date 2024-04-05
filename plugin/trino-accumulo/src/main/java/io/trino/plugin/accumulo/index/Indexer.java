@@ -546,7 +546,7 @@ public class Indexer
         {
             return toStringHelper(this)
                     .add("row", new String(row.array(), UTF_8))
-                    .add("family", new String(row.array(), UTF_8))
+                    .add("family", new String(family.array(), UTF_8))
                     .add("visibility", visibility.toString())
                     .toString();
         }
