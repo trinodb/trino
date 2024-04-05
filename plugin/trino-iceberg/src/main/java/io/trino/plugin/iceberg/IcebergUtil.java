@@ -123,7 +123,9 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_CO
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_NATIVE_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
@@ -832,7 +834,29 @@ public final class IcebergUtil
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
-        return propertiesBuilder.buildOrThrow();
+
+        Map<String, String> baseProperties = propertiesBuilder.buildOrThrow();
+        Map<String, String> extraProperties = IcebergTableProperties.getExtraProperties(tableMetadata.getProperties()).orElseGet(ImmutableMap::of);
+
+        Set<String> illegalExtraProperties = Sets.intersection(
+                ImmutableSet.<String>builder()
+                        .add(TABLE_COMMENT)
+                        .addAll(baseProperties.keySet())
+                        .addAll(SUPPORTED_PROPERTIES)
+                        .addAll(PROTECTED_ICEBERG_NATIVE_PROPERTIES)
+                        .build(),
+                extraProperties.keySet());
+
+        if (!illegalExtraProperties.isEmpty()) {
+            throw new TrinoException(
+                    INVALID_TABLE_PROPERTY,
+                    format("Illegal keys in extra_properties: %s", illegalExtraProperties));
+        }
+
+        return ImmutableMap.<String, String>builder()
+                .putAll(baseProperties)
+                .putAll(extraProperties)
+                .buildOrThrow();
     }
 
     /**
