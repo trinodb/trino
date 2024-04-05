@@ -97,7 +97,7 @@ public abstract class BaseTrinoCatalogTest
         String schema = namespace.toLowerCase(ENGLISH);
 
         // Currently this is actually stored in lowercase by all Catalogs
-        catalog.createNamespace(SESSION, namespace, Map.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         try {
             assertThat(catalog.namespaceExists(SESSION, namespace)).as("catalog.namespaceExists(namespace)")
                     .isFalse();
@@ -354,7 +354,7 @@ public abstract class BaseTrinoCatalogTest
                 ImmutableList.of());
 
         try {
-            catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.createView(SESSION, schemaTableName, viewDefinition, false);
 
             assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, TRINO_VIEW));
