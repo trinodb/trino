@@ -2706,6 +2706,7 @@
                                     -Xep:RethrowReflectiveOperationExceptionAsLinkageError:OFF \
                                     -Xep:StaticAssignmentOfThrowable:ERROR \
                                     -Xep:StreamResourceLeak:ERROR \
+                                    -Xep:SuppressWarningsDeprecated:ERROR \
                                     -Xep:UnicodeEscape:ERROR \
                                     -Xep:UnnecessaryLongToIntConversion:ERROR \
                                     -Xep:UnnecessaryMethodReference:ERROR \
