@@ -82,7 +82,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestDetermineJoinDistributionType
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
 
     private static final CostComparator COST_COMPARATOR = new CostComparator(1, 1, 1);
     private static final int NODES_COUNT = 4;
@@ -210,15 +210,15 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 joinType,
-                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)), ImmutableList.of(new Constant(INTEGER, 11L)))),
-                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 50L)), ImmutableList.of(new Constant(INTEGER, 11L)))),
+                                p.values(ImmutableList.of(p.symbol("A1", BIGINT)), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)), ImmutableList.of(new Constant(BIGINT, 11L)))),
+                                p.values(ImmutableList.of(p.symbol("B1", BIGINT)), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 50L)), ImmutableList.of(new Constant(BIGINT, 11L)))),
                                 ImmutableList.of(),
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
-                                Optional.of(new Comparison(GREATER_THAN, new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "A1"), new Reference(INTEGER, "B1"))), new Constant(INTEGER, 100L)))))
+                                Optional.of(new Comparison(GREATER_THAN, new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "A1"), new Reference(BIGINT, "B1"))), new Constant(BIGINT, 100L)))))
                 .matches(
                         join(joinType, builder -> builder
-                                .filter(new Comparison(GREATER_THAN, new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "A1"), new Reference(INTEGER, "B1"))), new Constant(INTEGER, 100L)))
+                                .filter(new Comparison(GREATER_THAN, new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "A1"), new Reference(BIGINT, "B1"))), new Constant(BIGINT, 100L)))
                                 .distributionType(REPLICATED)
                                 .left(values(ImmutableMap.of("A1", 0)))
                                 .right(values(ImmutableMap.of("B1", 0)))));
