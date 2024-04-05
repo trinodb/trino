@@ -55,6 +55,7 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.AUTOMATI
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
@@ -114,11 +115,12 @@ public class TestReorderJoins
                                 ImmutableList.of(),
                                 Optional.empty()))
                 .matches(
-                        join(INNER, builder -> builder
-                                .equiCriteria("A1", "B1")
-                                .distributionType(PARTITIONED)
-                                .left(values(ImmutableMap.of("A1", 0, "A2", 1)))
-                                .right(values(ImmutableMap.of("B1", 0))))
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("A1", "B1")
+                                        .distributionType(PARTITIONED)
+                                        .left(values(ImmutableMap.of("A1", 0, "A2", 1)))
+                                        .right(values(ImmutableMap.of("B1", 0)))))
                                 .withExactOutputs("A2"));
     }
 
@@ -149,11 +151,12 @@ public class TestReorderJoins
                             Optional.empty());
                 })
                 .matches(
-                        join(INNER, builder -> builder
-                                .equiCriteria("B1", "A1")
-                                .distributionType(REPLICATED)
-                                .left(values(ImmutableMap.of("B1", 0)))
-                                .right(values(ImmutableMap.of("A1", 0)))));
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("B1", "A1")
+                                        .distributionType(REPLICATED)
+                                        .left(values(ImmutableMap.of("B1", 0)))
+                                        .right(values(ImmutableMap.of("A1", 0))))));
     }
 
     @Test
@@ -183,11 +186,12 @@ public class TestReorderJoins
                             Optional.empty());
                 })
                 .matches(
-                        join(INNER, builder -> builder
-                                .equiCriteria("B1", "A1")
-                                .distributionType(PARTITIONED)
-                                .left(values(ImmutableMap.of("B1", 0)))
-                                .right(values(ImmutableMap.of("A1", 0)))));
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("B1", "A1")
+                                        .distributionType(PARTITIONED)
+                                        .left(values(ImmutableMap.of("B1", 0)))
+                                        .right(values(ImmutableMap.of("A1", 0))))));
     }
 
     @Test
@@ -212,11 +216,12 @@ public class TestReorderJoins
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(
-                        join(INNER, builder -> builder
-                                .equiCriteria("A1", "B1")
-                                .distributionType(PARTITIONED)
-                                .left(values(ImmutableMap.of("A1", 0)))
-                                .right(values(ImmutableMap.of("B1", 0)))));
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("A1", "B1")
+                                        .distributionType(PARTITIONED)
+                                        .left(values(ImmutableMap.of("A1", 0)))
+                                        .right(values(ImmutableMap.of("B1", 0))))));
     }
 
     @Test
@@ -243,21 +248,23 @@ public class TestReorderJoins
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(
-                        join(INNER, builder -> builder
-                                .equiCriteria("A1", "B1")
-                                .distributionType(REPLICATED)
-                                .left(values(ImmutableMap.of("A1", 0)))
-                                .right(values(ImmutableMap.of("B1", 0)))));
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("A1", "B1")
+                                        .distributionType(REPLICATED)
+                                        .left(values(ImmutableMap.of("A1", 0)))
+                                        .right(values(ImmutableMap.of("B1", 0))))));
     }
 
     @Test
     public void testReplicatedScalarJoinEvenWhereSessionRequiresRepartitioned()
     {
-        PlanMatchPattern expectedPlan = join(INNER, builder -> builder
-                .equiCriteria("A1", "B1")
-                .distributionType(REPLICATED)
-                .left(values(ImmutableMap.of("A1", 0)))
-                .right(values(ImmutableMap.of("B1", 0))));
+        PlanMatchPattern expectedPlan = project(
+                join(INNER, builder -> builder
+                        .equiCriteria("A1", "B1")
+                        .distributionType(REPLICATED)
+                        .left(values(ImmutableMap.of("A1", 0)))
+                        .right(values(ImmutableMap.of("B1", 0)))));
 
         PlanNodeStatsEstimate valuesA = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(10000)
@@ -395,14 +402,15 @@ public class TestReorderJoins
                                 ImmutableList.of(),
                                 Optional.of(new Comparison(EQUAL, p.symbol("A1", BIGINT).toSymbolReference(), p.symbol("B1", BIGINT).toSymbolReference()))))
                 .matches(
-                        join(INNER, builder -> builder
-                                .equiCriteria("C1", "B2")
-                                .left(values("C1"))
-                                .right(
-                                        join(INNER, rightJoinBuilder -> rightJoinBuilder
-                                                .equiCriteria("A1", "B1")
-                                                .left(values("A1"))
-                                                .right(values("B1", "B2"))))));
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("C1", "B2")
+                                        .left(values("C1"))
+                                        .right(
+                                                join(INNER, rightJoinBuilder -> rightJoinBuilder
+                                                        .equiCriteria("A1", "B1")
+                                                        .left(values("A1"))
+                                                        .right(values("B1", "B2")))))));
     }
 
     @Test
@@ -443,20 +451,21 @@ public class TestReorderJoins
                                 ImmutableList.of(),
                                 Optional.of(new Comparison(EQUAL, p.symbol("P2", BIGINT).toSymbolReference(), p.symbol("C1", BIGINT).toSymbolReference()))))
                 .matches(
-                        join(INNER, builder -> builder
-                                .equiCriteria("C1", "P1")
-                                .left(values("C1"))
-                                .right(
-                                        join(INNER, rightJoinBuilder -> rightJoinBuilder
-                                                .equiCriteria("P2", "P1")
-                                                .left(
-                                                        strictProject(
-                                                                ImmutableMap.of("P2", expression(new Reference(BIGINT, "A1"))),
-                                                                values("A1")))
-                                                .right(
-                                                        strictProject(
-                                                                ImmutableMap.of("P1", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "B1"))))),
-                                                                values("B1")))))));
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("C1", "P1")
+                                        .left(values("C1"))
+                                        .right(
+                                                join(INNER, rightJoinBuilder -> rightJoinBuilder
+                                                        .equiCriteria("P2", "P1")
+                                                        .left(
+                                                                strictProject(
+                                                                        ImmutableMap.of("P2", expression(new Reference(BIGINT, "A1"))),
+                                                                        values("A1")))
+                                                        .right(
+                                                                strictProject(
+                                                                        ImmutableMap.of("P1", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "B1"))))),
+                                                                        values("B1"))))))));
     }
 
     @Test
@@ -496,16 +505,17 @@ public class TestReorderJoins
                                 ImmutableList.of(),
                                 Optional.empty()))
                 .matches(
-                        join(INNER, builder -> builder
-                                .equiCriteria("C1", "P1")
-                                .left(values("C1"))
-                                .right(
-                                        strictProject(
-                                                ImmutableMap.of("P1", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "B1"))))),
-                                                join(INNER, rightJoinBuilder -> rightJoinBuilder
-                                                        .equiCriteria("A1", "B1")
-                                                        .left(values("A1"))
-                                                        .right(values("B1")))))));
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("C1", "P1")
+                                        .left(values("C1"))
+                                        .right(
+                                                strictProject(
+                                                        ImmutableMap.of("P1", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "B1"))))),
+                                                        join(INNER, rightJoinBuilder -> rightJoinBuilder
+                                                                .equiCriteria("A1", "B1")
+                                                                .left(values("A1"))
+                                                                .right(values("B1"))))))));
     }
 
     @Test
@@ -544,14 +554,14 @@ public class TestReorderJoins
                                 ImmutableList.of(),
                                 Optional.of(new Comparison(EQUAL, p.symbol("A1", BIGINT).toSymbolReference(), p.symbol("B1", BIGINT).toSymbolReference()))))
                 .matches(
-                        join(INNER, builder -> builder
+                        project(join(INNER, builder -> builder
                                 .equiCriteria("A1", "B1")
                                 .left(values("A1"))
                                 .right(
                                         join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                 .equiCriteria("C1", "B2")
                                                 .left(values("C1"))
-                                                .right(values("B1", "B2"))))));
+                                                .right(values("B1", "B2")))))));
     }
 
     @Test
@@ -589,11 +599,12 @@ public class TestReorderJoins
                             Optional.empty());
                 })
                 .matches(
-                        join(INNER, builder -> builder
-                                .equiCriteria("A1", "B1")
-                                .distributionType(REPLICATED)
-                                .left(values(ImmutableMap.of("A1", 0)))
-                                .right(values(ImmutableMap.of("B1", 0)))));
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("A1", "B1")
+                                        .distributionType(REPLICATED)
+                                        .left(values(ImmutableMap.of("A1", 0)))
+                                        .right(values(ImmutableMap.of("B1", 0))))));
 
         probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
@@ -623,11 +634,12 @@ public class TestReorderJoins
                             Optional.empty());
                 })
                 .matches(
-                        join(INNER, builder -> builder
-                                .equiCriteria("A1", "B1")
-                                .distributionType(PARTITIONED)
-                                .left(values(ImmutableMap.of("A1", 0)))
-                                .right(values(ImmutableMap.of("B1", 0)))));
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("A1", "B1")
+                                        .distributionType(PARTITIONED)
+                                        .left(values(ImmutableMap.of("A1", 0)))
+                                        .right(values(ImmutableMap.of("B1", 0))))));
     }
 
     @Test
@@ -666,15 +678,16 @@ public class TestReorderJoins
                             Optional.empty());
                 })
                 .matches(
-                        join(INNER, builder -> builder
-                                .equiCriteria("B1", "A1")
-                                .distributionType(REPLICATED)
-                                .left(values(ImmutableMap.of("B1", 0)))
-                                .right(values(ImmutableMap.of("A1", 0)))));
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("B1", "A1")
+                                        .distributionType(REPLICATED)
+                                        .left(values(ImmutableMap.of("B1", 0)))
+                                        .right(values(ImmutableMap.of("A1", 0))))));
     }
 
     private RuleBuilder assertReorderJoins()
     {
-        return tester.assertThat(new ReorderJoins(new CostComparator(1, 1, 1)));
+        return tester.assertThat(new ReorderJoins(tester.getPlannerContext(), new CostComparator(1, 1, 1)));
     }
 }

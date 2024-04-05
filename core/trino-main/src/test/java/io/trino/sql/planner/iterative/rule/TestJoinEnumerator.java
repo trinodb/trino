@@ -106,8 +106,9 @@ public class TestJoinEnumerator
         JoinEnumerator joinEnumerator = new JoinEnumerator(
                 new CostComparator(1, 1, 1),
                 multiJoinNode.getFilter(),
-                createContext());
-        JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
+                createContext(),
+                planTester.getPlannerContext());
+        JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), ImmutableSet.copyOf(multiJoinNode.getOutputSymbols()), ImmutableSet.of(0));
         assertThat(actual.getPlanNode().isPresent()).isFalse();
         assertThat(actual.getCost()).isEqualTo(PlanCostEstimate.infinite());
     }
