@@ -121,6 +121,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -414,7 +415,7 @@ public class PlanBuilder
     public class AggregationBuilder
     {
         private PlanNode source;
-        private final Map<Symbol, Aggregation> assignments = new HashMap<>();
+        private final Map<Symbol, Aggregation> assignments = new LinkedHashMap<>();
         private AggregationNode.GroupingSetDescriptor groupingSets;
         private List<Symbol> preGroupedSymbols = new ArrayList<>();
         private Step step = Step.SINGLE;
