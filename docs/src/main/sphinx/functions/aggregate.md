@@ -332,6 +332,11 @@ Returns the bitwise AND of all input values in 2's complement representation.
 Returns the bitwise OR of all input values in 2's complement representation.
 :::
 
+:::{function} bitwise_xor_agg(x) -> bigint
+Returns the bitwise XOR of all input non-NULL values in 2's complement representation.
+If all records inside the group are NULL, or if the group is empty, the function returns NULL.
+:::
+
 ## Map aggregate functions
 
 :::{function} histogram(x) -> map<K,bigint>
