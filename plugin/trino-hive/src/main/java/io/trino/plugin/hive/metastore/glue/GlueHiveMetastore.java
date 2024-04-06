@@ -140,7 +140,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.function.Predicate.not;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toCollection;
@@ -199,7 +199,7 @@ public class GlueHiveMetastore
                 config.getPartitionSegments(),
                 config.isAssumeCanonicalPartitionKeys(),
                 visibleTableKinds,
-                taskWrapping(newThreadPerTaskExecutor(Thread.ofVirtual().name("glue-", 0L).factory())));
+                newFixedThreadPool(config.getThreads(), Thread.ofPlatform().name("glue-", 0L).factory()));
     }
 
     public GlueHiveMetastore(
@@ -219,7 +219,7 @@ public class GlueHiveMetastore
         this.partitionSegments = partitionSegments;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         this.tableVisibilityFilter = createTablePredicate(visibleTableKinds);
-        this.executor = requireNonNull(executor, "executor is null");
+        this.executor = taskWrapping(requireNonNull(executor, "executor is null"));
     }
 
     @Managed
