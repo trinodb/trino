@@ -29,6 +29,7 @@ import io.trino.operator.aggregation.ArbitraryAggregationFunction;
 import io.trino.operator.aggregation.BigintApproximateMostFrequent;
 import io.trino.operator.aggregation.BitwiseAndAggregation;
 import io.trino.operator.aggregation.BitwiseOrAggregation;
+import io.trino.operator.aggregation.BitwiseXorAggregation;
 import io.trino.operator.aggregation.BooleanAndAggregation;
 import io.trino.operator.aggregation.BooleanApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.BooleanDefaultApproximateCountDistinctAggregation;
@@ -417,6 +418,7 @@ public final class SystemFunctionBundle
                 .aggregates(RealCorrelationAggregation.class)
                 .aggregates(BitwiseOrAggregation.class)
                 .aggregates(BitwiseAndAggregation.class)
+                .aggregates(BitwiseXorAggregation.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(SessionFunctions.class)
