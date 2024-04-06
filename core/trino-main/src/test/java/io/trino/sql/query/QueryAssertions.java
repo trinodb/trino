@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.errorprone.annotations.CheckReturnValue;
 import io.trino.Session;
+import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Plugin;
@@ -78,6 +79,7 @@ import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -533,22 +535,28 @@ public class QueryAssertions
 
         /**
          * Verifies join query is not fully pushed down by containing JOIN node.
-         *
-         * @deprecated because the method is not tested in BaseQueryAssertionsTest yet
          */
-        @Deprecated
         @CanIgnoreReturnValue
         public QueryAssert joinIsNotFullyPushedDown()
         {
-            return verifyPlan(plan -> {
-                if (PlanNodeSearcher.searchFrom(plan.getRoot())
-                        .whereIsInstanceOfAny(JoinNode.class)
-                        .findFirst()
-                        .isEmpty()) {
-                    // TODO show then plan when assertions fails (like hasPlan()) and add negative test coverage in BaseQueryAssertionsTest
-                    throw new IllegalStateException("Join node should be present in explain plan, when pushdown is not applied");
-                }
-            });
+            transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
+                    .execute(session, session -> {
+                        Plan plan = runner.createPlan(session, query());
+                        if (PlanNodeSearcher.searchFrom(plan.getRoot())
+                                .whereIsInstanceOfAny(JoinNode.class)
+                                .findFirst()
+                                .isEmpty()) {
+                            throw new IllegalStateException("Join node should be present in explain plan, when pushdown is not applied:\n" +
+                                    textLogicalPlan(plan.getRoot(), runner.getPlannerContext().getMetadata(), runner.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false));
+                        }
+                    });
+
+            if (!skipResultsCorrectnessCheckForPushdown) {
+                // Compare the results with pushdown disabled, so that explicit matches() call is not needed
+                hasCorrectResultsRegardlessOfPushdown();
+            }
+
+            return this;
         }
 
         /**
@@ -583,12 +591,16 @@ public class QueryAssertions
             return this;
         }
 
-        private QueryAssert verifyPlan(Consumer<Plan> planVerification)
+        record PlanAndSession(Plan plan, Session session)
+        {
+        }
+
+        private QueryAssert verifyPlan(Consumer<PlanAndSession> planVerification)
         {
             transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query());
-                        planVerification.accept(plan);
+                        planVerification.accept(new PlanAndSession(plan, session));
                     });
 
             if (!skipResultsCorrectnessCheckForPushdown) {
