@@ -377,10 +377,10 @@ public class IcebergPageSourceProvider
                 .orElse(requiredColumns);
 
         Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> deleteManager.getDeletePredicate(
-                tableSchema,
-                deletes,
                 path,
+                deletes,
                 readColumns,
+                tableSchema,
                 readerPageSourceWithRowPositions,
                 (deleteFile, deleteColumns, tupleDomain) -> openDeletes(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
 

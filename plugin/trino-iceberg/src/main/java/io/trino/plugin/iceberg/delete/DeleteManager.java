@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg.delete;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergPageSourceProvider.ReaderPageSourceWithRowPositions;
@@ -41,7 +40,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -64,23 +62,39 @@ public class DeleteManager
     }
 
     public Optional<RowPredicate> getDeletePredicate(
-            Schema tableSchema,
-            List<DeleteFile> deletes,
-            String path,
+            String dataFilePath,
+            List<DeleteFile> deleteFiles,
             List<IcebergColumnHandle> readColumns,
+            Schema tableSchema,
             ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions,
             DeletePageSourceProvider deletePageSourceProvider)
     {
-        List<DeleteFilter> deleteFilters = readDeletes(
-                tableSchema,
-                path,
-                deletes,
-                readerPageSourceWithRowPositions.getStartRowPosition(),
-                readerPageSourceWithRowPositions.getEndRowPosition(),
-                deletePageSourceProvider);
-        return deleteFilters.stream()
+        if (deleteFiles.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<DeleteFile> positionDeleteFiles = new ArrayList<>();
+        List<DeleteFile> equalityDeleteFiles = new ArrayList<>();
+        for (DeleteFile deleteFile : deleteFiles) {
+            switch (deleteFile.content()) {
+                case POSITION_DELETES -> positionDeleteFiles.add(deleteFile);
+                case EQUALITY_DELETES -> equalityDeleteFiles.add(deleteFile);
+                case DATA -> throw new VerifyException("DATA is not delete file type");
+            }
+        }
+
+        Optional<RowPredicate> positionDeletes = createPositionDeleteFilter(dataFilePath, positionDeleteFiles, readerPageSourceWithRowPositions, deletePageSourceProvider)
+                .map(filter -> filter.createPredicate(readColumns));
+        Optional<RowPredicate> equalityDeletes = createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider).stream()
                 .map(filter -> filter.createPredicate(readColumns))
                 .reduce(RowPredicate::and);
+
+        if (positionDeletes.isEmpty()) {
+            return equalityDeletes;
+        }
+        return equalityDeletes
+                .map(rowPredicate -> positionDeletes.get().and(rowPredicate))
+                .or(() -> positionDeletes);
     }
 
     public interface DeletePageSourceProvider
@@ -91,21 +105,21 @@ public class DeleteManager
                 TupleDomain<IcebergColumnHandle> tupleDomain);
     }
 
-    private List<DeleteFilter> readDeletes(
-            Schema schema,
+    private Optional<DeleteFilter> createPositionDeleteFilter(
             String dataFilePath,
-            List<DeleteFile> deleteFiles,
-            Optional<Long> startRowPosition,
-            Optional<Long> endRowPosition,
+            List<DeleteFile> positionDeleteFiles,
+            ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions,
             DeletePageSourceProvider deletePageSourceProvider)
     {
-        verify(startRowPosition.isPresent() == endRowPosition.isPresent(), "startRowPosition and endRowPosition must be specified together");
+        if (positionDeleteFiles.isEmpty()) {
+            return Optional.empty();
+        }
 
         Slice targetPath = utf8Slice(dataFilePath);
-        List<DeleteFilter> filters = new ArrayList<>();
-        LongBitmapDataProvider deletedRows = new Roaring64Bitmap();
-        Map<Set<Integer>, EqualityDeleteFilterBuilder> deletesSetByFieldIds = new HashMap<>();
 
+        Optional<Long> startRowPosition = readerPageSourceWithRowPositions.getStartRowPosition();
+        Optional<Long> endRowPosition = readerPageSourceWithRowPositions.getEndRowPosition();
+        verify(startRowPosition.isPresent() == endRowPosition.isPresent(), "startRowPosition and endRowPosition must be specified together");
         IcebergColumnHandle deleteFilePath = getColumnHandle(DELETE_FILE_PATH, typeManager);
         IcebergColumnHandle deleteFilePos = getColumnHandle(DELETE_FILE_POS, typeManager);
         List<IcebergColumnHandle> deleteColumns = ImmutableList.of(deleteFilePath, deleteFilePos);
@@ -116,58 +130,67 @@ public class DeleteManager
             deleteDomain = deleteDomain.intersect(positionDomain);
         }
 
-        for (DeleteFile delete : deleteFiles) {
-            switch (delete.content()) {
-                case POSITION_DELETES -> {
-                    if (startRowPosition.isPresent()) {
-                        byte[] lowerBoundBytes = delete.getLowerBounds().get(DELETE_FILE_POS.fieldId());
-                        Optional<Long> positionLowerBound = Optional.ofNullable(lowerBoundBytes)
-                                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
-
-                        byte[] upperBoundBytes = delete.getUpperBounds().get(DELETE_FILE_POS.fieldId());
-                        Optional<Long> positionUpperBound = Optional.ofNullable(upperBoundBytes)
-                                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
-
-                        if ((positionLowerBound.isPresent() && positionLowerBound.get() > endRowPosition.get()) ||
-                                (positionUpperBound.isPresent() && positionUpperBound.get() < startRowPosition.get())) {
-                            continue;
-                        }
-                    }
-
-                    try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(delete, deleteColumns, deleteDomain)) {
-                        readPositionDeletes(pageSource, targetPath, deletedRows);
-                    }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
+        LongBitmapDataProvider deletedRows = new Roaring64Bitmap();
+        for (DeleteFile deleteFile : positionDeleteFiles) {
+            if (shouldLoadPositionDeleteFile(deleteFile, startRowPosition, endRowPosition)) {
+                try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, deleteDomain)) {
+                    readPositionDeletes(pageSource, targetPath, deletedRows);
                 }
-                case EQUALITY_DELETES -> {
-                    Set<Integer> fieldIds = ImmutableSet.copyOf(delete.equalityFieldIds());
-                    verify(!fieldIds.isEmpty(), "equality field IDs are missing");
-                    List<IcebergColumnHandle> columns = fieldIds.stream()
-                            .map(id -> getColumnHandle(schema.findField(id), typeManager))
-                            .collect(toImmutableList());
-
-                    EqualityDeleteFilterBuilder builder = deletesSetByFieldIds.computeIfAbsent(fieldIds, _ -> EqualityDeleteFilter.builder(schemaFromHandles(columns)));
-                    try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(delete, columns, TupleDomain.all())) {
-                        builder.readEqualityDeletes(pageSource, columns);
-                    }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
                 }
-                case DATA -> throw new VerifyException("DATA is not delete file type");
             }
         }
 
-        if (!deletedRows.isEmpty()) {
-            filters.add(new PositionDeleteFilter(deletedRows));
+        if (deletedRows.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new PositionDeleteFilter(deletedRows));
+    }
+
+    private static boolean shouldLoadPositionDeleteFile(DeleteFile deleteFile, Optional<Long> startRowPosition, Optional<Long> endRowPosition)
+    {
+        if (startRowPosition.isEmpty()) {
+            return true;
         }
 
-        for (EqualityDeleteFilterBuilder builder : deletesSetByFieldIds.values()) {
-            filters.add(builder.build());
+        byte[] lowerBoundBytes = deleteFile.getLowerBounds().get(DELETE_FILE_POS.fieldId());
+        Optional<Long> positionLowerBound = Optional.ofNullable(lowerBoundBytes)
+                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
+
+        byte[] upperBoundBytes = deleteFile.getUpperBounds().get(DELETE_FILE_POS.fieldId());
+        Optional<Long> positionUpperBound = Optional.ofNullable(upperBoundBytes)
+                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
+
+        return (positionLowerBound.isEmpty() || positionLowerBound.get() <= endRowPosition.orElseThrow()) &&
+                (positionUpperBound.isEmpty() || positionUpperBound.get() >= startRowPosition.get());
+    }
+
+    private List<EqualityDeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
+    {
+        if (equalityDeleteFiles.isEmpty()) {
+            return List.of();
         }
 
-        return filters;
+        Map<List<Integer>, EqualityDeleteFilterBuilder> equalityDeleteFiltersBySchema = new HashMap<>();
+        for (DeleteFile deleteFile : equalityDeleteFiles) {
+            List<Integer> fieldIds = deleteFile.equalityFieldIds();
+            verify(!fieldIds.isEmpty(), "equality field IDs are missing");
+            List<IcebergColumnHandle> deleteColumns = fieldIds.stream()
+                    .map(id -> getColumnHandle(schema.findField(id), typeManager))
+                    .collect(toImmutableList());
+
+            EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns)));
+            try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, TupleDomain.all())) {
+                builder.readEqualityDeletes(pageSource, deleteColumns);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        return equalityDeleteFiltersBySchema.values().stream()
+                .map(EqualityDeleteFilterBuilder::build)
+                .toList();
     }
 }
