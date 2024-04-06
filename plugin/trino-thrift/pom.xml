@@ -61,12 +61,6 @@
         <dependency>
             <groupId>io.airlift.drift</groupId>
             <artifactId>drift-client</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>javax.validation</groupId>
-                    <artifactId>validation-api</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
