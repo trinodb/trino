@@ -46,6 +46,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> awsSecretKey = Optional.empty();
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
+    private int threads = 40;
     private boolean assumeCanonicalPartitionKeys;
 
     public Optional<String> getGlueRegion()
@@ -232,6 +233,20 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setPartitionSegments(int partitionSegments)
     {
         this.partitionSegments = partitionSegments;
+        return this;
+    }
+
+    @Min(1)
+    public int getThreads()
+    {
+        return threads;
+    }
+
+    @Config("hive.metastore.glue.threads")
+    @ConfigDescription("Number of threads for parallel operations")
+    public GlueHiveMetastoreConfig setThreads(int threads)
+    {
+        this.threads = threads;
         return this;
     }
 
