@@ -144,10 +144,6 @@
                     <groupId>org.apache.htrace</groupId>
                     <artifactId>htrace-core</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>org.hdrhistogram</groupId>
-                    <artifactId>HdrHistogram</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 

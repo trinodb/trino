@@ -15,8 +15,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.parent.basedir}</air.main.basedir>
-        <dep.jersey.version>3.1.5</dep.jersey.version>
-        <dep.org.eclipse.jetty.version>12.0.7</dep.org.eclipse.jetty.version>
+        <dep.jersey.version>3.1.6</dep.jersey.version>
+        <dep.org.eclipse.jetty.version>12.0.8</dep.org.eclipse.jetty.version>
     </properties>
 
     <dependencies>
