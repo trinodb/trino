@@ -80,10 +80,6 @@
                     <groupId>javax.annotation</groupId>
                     <artifactId>javax.annotation-api</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>org.threeten</groupId>
-                    <artifactId>threetenbp</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 
