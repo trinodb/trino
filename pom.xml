@@ -461,24 +461,12 @@
                 <groupId>com.datastax.oss</groupId>
                 <artifactId>java-driver-core</artifactId>
                 <version>${dep.cassandra.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.ow2.asm</groupId>
-                        <artifactId>asm-analysis</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.esri.geometry</groupId>
                 <artifactId>esri-geometry-api</artifactId>
                 <version>2.2.4</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-core</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -788,14 +776,6 @@
                         <groupId>org.apache.kafka</groupId>
                         <artifactId>kafka-clients</artifactId>
                     </exclusion>
-                    <!--
-                        This library depends on:
-                         - org.glassfish.hk2.external:jakarta.inject that conflicts with javax.inject:javax.inject
-                    -->
-                    <exclusion>
-                        <groupId>org.glassfish.hk2.external</groupId>
-                        <artifactId>jakarta.inject</artifactId>
-                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -814,20 +794,8 @@
                         <artifactId>jakarta.activation</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>jakarta.activation</groupId>
-                        <artifactId>jakarta.activation-api</artifactId>
-                    </exclusion>
-                    <exclusion>
                         <groupId>org.apache.kafka</groupId>
                         <artifactId>kafka-clients</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.glassfish</groupId>
-                        <artifactId>jakarta.el</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.glassfish.hk2.external</groupId>
-                        <artifactId>jakarta.inject</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
