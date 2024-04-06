@@ -65,5 +65,7 @@ public class TestBitwiseOrAggregation
     {
         testAggregation(1L, createLongsBlock(1L, null));
         testAggregation(1L, createLongsBlock(null, 1L));
+        testAggregation(null, createLongsBlock(ImmutableList.of()));
+        testAggregation(null, createLongsBlock(null, null, null));
     }
 }
