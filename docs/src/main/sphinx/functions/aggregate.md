@@ -325,11 +325,13 @@ Returns the sum of all input values.
 ## Bitwise aggregate functions
 
 :::{function} bitwise_and_agg(x) -> bigint
-Returns the bitwise AND of all input values in 2's complement representation.
+Returns the bitwise AND of all input non-NULL values in 2's complement representation.
+If all records inside the group are NULL, or if the group is empty, the function returns NULL.
 :::
 
 :::{function} bitwise_or_agg(x) -> bigint
-Returns the bitwise OR of all input values in 2's complement representation.
+Returns the bitwise OR of all input non-NULL values in 2's complement representation.
+If all records inside the group are NULL, or if the group is empty, the function returns NULL.
 :::
 
 :::{function} bitwise_xor_agg(x) -> bigint
