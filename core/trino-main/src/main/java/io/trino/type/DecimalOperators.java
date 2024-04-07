@@ -58,7 +58,8 @@ public final class DecimalOperators
     public static final SqlScalarFunction DECIMAL_ADD_OPERATOR = decimalAddOperator();
     public static final SqlScalarFunction DECIMAL_SUBTRACT_OPERATOR = decimalSubtractOperator();
     public static final SqlScalarFunction DECIMAL_MULTIPLY_OPERATOR = decimalMultiplyOperator();
-    public static final SqlScalarFunction DECIMAL_DIVIDE_OPERATOR = decimalDivideOperator();
+    public static final SqlScalarFunction DECIMAL_DIVIDE_OPERATOR = decimalDivideOperator(false);
+    public static final SqlScalarFunction DECIMAL_DIVIDE_RESCALING_OPERATOR = decimalDivideOperator(true);
     public static final SqlScalarFunction DECIMAL_MODULUS_OPERATOR = decimalModulusOperator();
 
     private DecimalOperators() {}
@@ -303,23 +304,36 @@ public final class DecimalOperators
         }
     }
 
-    private static SqlScalarFunction decimalDivideOperator()
+    private static SqlScalarFunction decimalDivideOperator(boolean rescale)
     {
         TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
         TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
         TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
 
-        // we extend target precision by b_scale. This is upper bound on how much division result will grow.
-        // pessimistic case is a / 0.0000001
-        // if scale of divisor is greater than scale of dividend we extend scale further as we
-        // want result scale to be maximum of scales of divisor and dividend.
-        Signature signature = Signature.builder()
-                .longVariable("r_precision", "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))")
-                .longVariable("r_scale", "max(a_scale, b_scale)")
+        Signature.Builder signatureBuilder = Signature.builder()
                 .argumentType(decimalLeftSignature)
                 .argumentType(decimalRightSignature)
-                .returnType(decimalResultSignature)
-                .build();
+                .returnType(decimalResultSignature);
+
+        if (rescale) {
+            // Modeled after SQL Server: https://learn.microsoft.com/en-us/sql/t-sql/data-types/precision-scale-and-length-transact-sql?view=sql-server-ver16#remarks
+            signatureBuilder
+                    .longVariable("r_precision_raw", "a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1)")
+                    .longVariable("r_scale_raw", "max(6, a_scale + b_precision + 1)")
+                    .longVariable("r_precision", "normalize_decimal_divide_precision(r_precision_raw, r_scale_raw)")
+                    .longVariable("r_scale", "normalize_decimal_divide_scale(r_precision_raw, r_scale_raw)");
+        }
+        else {
+            // We extend target precision by b_scale. This is upper bound on how much division result will grow.
+            // pessimistic case is a / 0.0000001
+            // if scale of divisor is greater than scale of dividend we extend scale further as we
+            // want result scale to be maximum of scales of divisor and dividend.
+            signatureBuilder
+                    .longVariable("r_precision", "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))")
+                    .longVariable("r_scale", "max(a_scale, b_scale)");
+        }
+
+        Signature signature = signatureBuilder.build();
         return new PolymorphicScalarFunctionBuilder(DIVIDE, DecimalOperators.class)
                 .signature(signature)
                 .deterministic(true)

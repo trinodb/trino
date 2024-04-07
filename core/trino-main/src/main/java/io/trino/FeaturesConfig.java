@@ -123,6 +123,8 @@ public class FeaturesConfig
 
     private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
 
+    private boolean decimalRescalingEnabled;
+
     public enum DataIntegrityVerification
     {
         NONE,
@@ -516,6 +518,19 @@ public class FeaturesConfig
     public FeaturesConfig setFaultTolerantExecutionExchangeEncryptionEnabled(boolean faultTolerantExecutionExchangeEncryptionEnabled)
     {
         this.faultTolerantExecutionExchangeEncryptionEnabled = faultTolerantExecutionExchangeEncryptionEnabled;
+        return this;
+    }
+
+    public boolean isDecimalRescalingEnabled()
+    {
+        return decimalRescalingEnabled;
+    }
+
+    @Config("decimal-rescaling-enabled")
+    @ConfigDescription("Enables rescaling of decimal types during division operations")
+    public FeaturesConfig setDecimalRescalingEnabled(boolean decimalRescalingEnabled)
+    {
+        this.decimalRescalingEnabled = decimalRescalingEnabled;
         return this;
     }
 
