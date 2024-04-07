@@ -46,7 +46,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
-            <version>3.15.0</version>
+            <version>3.15.1</version>
         </dependency>
 
         <!-- Trino SPI -->
