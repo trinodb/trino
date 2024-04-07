@@ -24,6 +24,7 @@ public class MySqlConfig
 {
     private boolean autoReconnect = true;
     private int maxReconnects = 3;
+    private int datetimeColumnSize = 0;
     private Duration connectionTimeout = new Duration(10, TimeUnit.SECONDS);
 
     // Using `useInformationSchema=true` prevents race condition inside MySQL driver's java.sql.DatabaseMetaData.getColumns
@@ -65,6 +66,19 @@ public class MySqlConfig
     public MySqlConfig setConnectionTimeout(Duration connectionTimeout)
     {
         this.connectionTimeout = connectionTimeout;
+        return this;
+    }
+
+    public int getDatetimeColumnSize()
+    {
+        return datetimeColumnSize;
+    }
+
+    @Config("mysql.datetime-column-size")
+    @ConfigDescription("Value of datetime columnSize for special db like doris")
+    public MySqlConfig setDatetimeColumnSize(int datetimeColumnSize)
+    {
+        this.datetimeColumnSize = datetimeColumnSize;
         return this;
     }
 
