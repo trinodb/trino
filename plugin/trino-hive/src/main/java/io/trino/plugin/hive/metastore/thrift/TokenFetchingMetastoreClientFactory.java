@@ -13,10 +13,14 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeExecutor;
+import dev.failsafe.RetryPolicy;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.plugin.base.security.UserNameProvider;
 import io.trino.plugin.hive.ForHiveMetastore;
@@ -27,11 +31,14 @@ import org.apache.thrift.TException;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static java.time.temporal.ChronoUnit.MILLIS;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -121,19 +128,24 @@ public class TokenFetchingMetastoreClientFactory
     {
         try {
             // added retry and stats for the thrift delegation token
-            return retry()
-                    .stopOnIllegalExceptions()
-                    .run("getDelegationToken", stats.getThriftDelegationToken().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return new DelegationToken(System.nanoTime(), client.getDelegationToken(username));
-                        }
-                    }));
-        }
-        catch (TException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+            final AtomicReference<DelegationToken> delegationToken = new AtomicReference<>();
+
+            failSafeExecutor()
+                .run(() -> stats.getThriftDelegationToken().wrap(() -> {
+                    try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        delegationToken.set(new DelegationToken(System.nanoTime(), client.getDelegationToken(username)));
+                    }
+                    return delegationToken;
+                }));
+
+            return delegationToken.get();
         }
         catch (Exception e) {
-            throw propagate(e);
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -145,20 +157,15 @@ public class TokenFetchingMetastoreClientFactory
         }
     }
 
-    private RetryDriver retry()
+    private FailsafeExecutor failSafeExecutor()
     {
-        return RetryDriver.retry()
-                .exponentialBackoff(minBackoffDelay, maxBackoffDelay, maxRetryTime, backoffScaleFactor)
-                .maxAttempts(maxRetries + 1)
-                .stopOn(TrinoException.class);
-    }
 
-    private static RuntimeException propagate(Throwable throwable)
-    {
-        if (throwable instanceof InterruptedException) {
-            Thread.currentThread().interrupt();
-        }
-        throwIfUnchecked(throwable);
-        throw new RuntimeException(throwable);
+        RetryPolicy retryPolicy = RetryPolicy.builder()
+                .withMaxDuration(java.time.Duration.of(30, SECONDS))
+                .withMaxAttempts(maxRetries + 1)
+                .withBackoff(minBackoffDelay.toMillis(), maxBackoffDelay.toMillis(), MILLIS, backoffScaleFactor)
+                .abortOn(throwable -> Throwables.getCausalChain(throwable).stream().anyMatch(TrinoException.class::isInstance))
+                .build();
+        return Failsafe.with(retryPolicy);
     }
 }
