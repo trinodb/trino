@@ -13,16 +13,19 @@
  */
 package io.trino.plugin.iceberg.delete;
 
+import com.amazonaws.annotation.ThreadSafe;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.util.StructLikeMap;
+import org.apache.iceberg.util.StructLikeWrapper;
 import org.apache.iceberg.util.StructProjection;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
@@ -32,9 +35,9 @@ public final class EqualityDeleteFilter
         implements DeleteFilter
 {
     private final Schema deleteSchema;
-    private final StructLikeMap<DataSequenceNumber> deletedRows;
+    private final Map<StructLikeWrapper, DataSequenceNumber> deletedRows;
 
-    private EqualityDeleteFilter(Schema deleteSchema, StructLikeMap<DataSequenceNumber> deletedRows)
+    private EqualityDeleteFilter(Schema deleteSchema, Map<StructLikeWrapper, DataSequenceNumber> deletedRows)
     {
         this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
         this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
@@ -48,6 +51,7 @@ public final class EqualityDeleteFilter
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "columns list doesn't contain all equality delete columns");
         }
 
+        StructLikeWrapper structLikeWrapper = StructLikeWrapper.forType(deleteSchema.asStruct());
         StructProjection projection = StructProjection.create(fileSchema, deleteSchema);
         Type[] types = columns.stream()
                 .map(IcebergColumnHandle::getType)
@@ -55,7 +59,9 @@ public final class EqualityDeleteFilter
 
         return (page, position) -> {
             StructProjection row = projection.wrap(new LazyTrinoRow(types, page, position));
-            DataSequenceNumber maxDeleteVersion = deletedRows.get(row);
+            DataSequenceNumber maxDeleteVersion = deletedRows.get(structLikeWrapper.set(row));
+            // clear reference to avoid memory leak
+            structLikeWrapper.set(null);
             return maxDeleteVersion == null || maxDeleteVersion.dataSequenceNumber() <= splitDataSequenceNumber;
         };
     }
@@ -65,15 +71,16 @@ public final class EqualityDeleteFilter
         return new EqualityDeleteFilterBuilder(deleteSchema);
     }
 
+    @ThreadSafe
     public static class EqualityDeleteFilterBuilder
     {
         private final Schema deleteSchema;
-        private final StructLikeMap<DataSequenceNumber> deletedRows;
+        private final Map<StructLikeWrapper, DataSequenceNumber> deletedRows;
 
         private EqualityDeleteFilterBuilder(Schema deleteSchema)
         {
             this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
-            this.deletedRows = StructLikeMap.create(deleteSchema.asStruct());
+            this.deletedRows = new ConcurrentHashMap<>();
         }
 
         public void readEqualityDeletes(ConnectorPageSource pageSource, List<IcebergColumnHandle> columns, long dataSequenceNumber)
@@ -83,6 +90,7 @@ public final class EqualityDeleteFilter
                     .toArray(Type[]::new);
 
             DataSequenceNumber sequenceNumber = new DataSequenceNumber(dataSequenceNumber);
+            StructLikeWrapper wrapper = StructLikeWrapper.forType(deleteSchema.asStruct());
             while (!pageSource.isFinished()) {
                 Page page = pageSource.getNextPage();
                 if (page == null) {
@@ -90,7 +98,8 @@ public final class EqualityDeleteFilter
                 }
 
                 for (int position = 0; position < page.getPositionCount(); position++) {
-                    deletedRows.merge(new TrinoRow(types, page, position), sequenceNumber, (existing, newValue) -> {
+                    TrinoRow row = new TrinoRow(types, page, position);
+                    deletedRows.merge(wrapper.copyFor(row), sequenceNumber, (existing, newValue) -> {
                         if (existing.dataSequenceNumber() > newValue.dataSequenceNumber()) {
                             return existing;
                         }
@@ -100,6 +109,10 @@ public final class EqualityDeleteFilter
             }
         }
 
+        /**
+         * Builds the EqualityDeleteFilter.
+         * After building the EqualityDeleteFilter, additional rows can be added to this builder, and the filter can be rebuilt.
+         */
         public EqualityDeleteFilter build()
         {
             return new EqualityDeleteFilter(deleteSchema, deletedRows);
