@@ -15,54 +15,87 @@ package io.trino.plugin.iceberg.delete;
 
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.Type;
-import org.apache.iceberg.StructLike;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.util.StructLikeSet;
+import org.apache.iceberg.util.StructProjection;
 
 import java.util.List;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
+import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static java.util.Objects.requireNonNull;
 
 public final class EqualityDeleteFilter
         implements DeleteFilter
 {
-    private final Predicate<StructLike> deletedRows;
+    private final Schema deleteSchema;
+    private final StructLikeSet deletedRows;
 
-    public EqualityDeleteFilter(Predicate<StructLike> deletedRows)
+    private EqualityDeleteFilter(Schema deleteSchema, StructLikeSet deletedRows)
     {
+        this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
         this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
     }
 
     @Override
     public RowPredicate createPredicate(List<IcebergColumnHandle> columns)
     {
+        Schema fileSchema = schemaFromHandles(columns);
+        if (deleteSchema.columns().stream().anyMatch(column -> fileSchema.findField(column.fieldId()) == null)) {
+            throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "columns list doesn't contain all equality delete columns");
+        }
+
+        StructProjection projection = StructProjection.create(fileSchema, deleteSchema);
         Type[] types = columns.stream()
                 .map(IcebergColumnHandle::getType)
                 .toArray(Type[]::new);
 
         return (page, position) -> {
-            StructLike row = new LazyTrinoRow(types, page, position);
-            return !deletedRows.test(row);
+            StructProjection row = projection.wrap(new LazyTrinoRow(types, page, position));
+            return deletedRows.contains(row);
         };
     }
 
-    public static void readEqualityDeletes(ConnectorPageSource pageSource, List<IcebergColumnHandle> columns, Consumer<StructLike> deletedRows)
+    public static EqualityDeleteFilterBuilder builder(Schema deleteSchema)
     {
-        Type[] types = columns.stream()
-                .map(IcebergColumnHandle::getType)
-                .toArray(Type[]::new);
+        return new EqualityDeleteFilterBuilder(deleteSchema);
+    }
 
-        while (!pageSource.isFinished()) {
-            Page page = pageSource.getNextPage();
-            if (page == null) {
-                continue;
-            }
+    public static class EqualityDeleteFilterBuilder
+    {
+        private final Schema deleteSchema;
+        private final StructLikeSet deletedRows;
 
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                deletedRows.accept(new TrinoRow(types, page, position));
+        private EqualityDeleteFilterBuilder(Schema deleteSchema)
+        {
+            this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
+            this.deletedRows = StructLikeSet.create(deleteSchema.asStruct());
+        }
+
+        public void readEqualityDeletes(ConnectorPageSource pageSource, List<IcebergColumnHandle> columns)
+        {
+            Type[] types = columns.stream()
+                    .map(IcebergColumnHandle::getType)
+                    .toArray(Type[]::new);
+
+            while (!pageSource.isFinished()) {
+                Page page = pageSource.getNextPage();
+                if (page == null) {
+                    continue;
+                }
+
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    deletedRows.add(new TrinoRow(types, page, position));
+                }
             }
+        }
+
+        public EqualityDeleteFilter build()
+        {
+            return new EqualityDeleteFilter(deleteSchema, deletedRows);
         }
     }
 }
