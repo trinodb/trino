@@ -259,6 +259,7 @@ public class IcebergPageSourceProvider
                 split.getPartitionDataJson(),
                 split.getFileFormat(),
                 split.getFileIoProperties(),
+                split.getDataSequenceNumber(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
     }
 
@@ -280,6 +281,7 @@ public class IcebergPageSourceProvider
             String partitionDataJson,
             IcebergFileFormat fileFormat,
             Map<String, String> fileIoProperties,
+            long dataSequenceNumber,
             Optional<NameMapping> nameMapping)
     {
         Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, deletes);
@@ -378,6 +380,7 @@ public class IcebergPageSourceProvider
 
         Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> deleteManager.getDeletePredicate(
                 path,
+                dataSequenceNumber,
                 deletes,
                 readColumns,
                 tableSchema,

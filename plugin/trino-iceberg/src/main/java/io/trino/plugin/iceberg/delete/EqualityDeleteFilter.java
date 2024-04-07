@@ -19,7 +19,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.util.StructLikeSet;
+import org.apache.iceberg.util.StructLikeMap;
 import org.apache.iceberg.util.StructProjection;
 
 import java.util.List;
@@ -32,16 +32,16 @@ public final class EqualityDeleteFilter
         implements DeleteFilter
 {
     private final Schema deleteSchema;
-    private final StructLikeSet deletedRows;
+    private final StructLikeMap<DataSequenceNumber> deletedRows;
 
-    private EqualityDeleteFilter(Schema deleteSchema, StructLikeSet deletedRows)
+    private EqualityDeleteFilter(Schema deleteSchema, StructLikeMap<DataSequenceNumber> deletedRows)
     {
         this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
         this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
     }
 
     @Override
-    public RowPredicate createPredicate(List<IcebergColumnHandle> columns)
+    public RowPredicate createPredicate(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
     {
         Schema fileSchema = schemaFromHandles(columns);
         if (deleteSchema.columns().stream().anyMatch(column -> fileSchema.findField(column.fieldId()) == null)) {
@@ -55,7 +55,8 @@ public final class EqualityDeleteFilter
 
         return (page, position) -> {
             StructProjection row = projection.wrap(new LazyTrinoRow(types, page, position));
-            return deletedRows.contains(row);
+            DataSequenceNumber maxDeleteVersion = deletedRows.get(row);
+            return maxDeleteVersion == null || maxDeleteVersion.dataSequenceNumber() <= splitDataSequenceNumber;
         };
     }
 
@@ -67,20 +68,21 @@ public final class EqualityDeleteFilter
     public static class EqualityDeleteFilterBuilder
     {
         private final Schema deleteSchema;
-        private final StructLikeSet deletedRows;
+        private final StructLikeMap<DataSequenceNumber> deletedRows;
 
         private EqualityDeleteFilterBuilder(Schema deleteSchema)
         {
             this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
-            this.deletedRows = StructLikeSet.create(deleteSchema.asStruct());
+            this.deletedRows = StructLikeMap.create(deleteSchema.asStruct());
         }
 
-        public void readEqualityDeletes(ConnectorPageSource pageSource, List<IcebergColumnHandle> columns)
+        public void readEqualityDeletes(ConnectorPageSource pageSource, List<IcebergColumnHandle> columns, long dataSequenceNumber)
         {
             Type[] types = columns.stream()
                     .map(IcebergColumnHandle::getType)
                     .toArray(Type[]::new);
 
+            DataSequenceNumber sequenceNumber = new DataSequenceNumber(dataSequenceNumber);
             while (!pageSource.isFinished()) {
                 Page page = pageSource.getNextPage();
                 if (page == null) {
@@ -88,7 +90,12 @@ public final class EqualityDeleteFilter
                 }
 
                 for (int position = 0; position < page.getPositionCount(); position++) {
-                    deletedRows.add(new TrinoRow(types, page, position));
+                    deletedRows.merge(new TrinoRow(types, page, position), sequenceNumber, (existing, newValue) -> {
+                        if (existing.dataSequenceNumber() > newValue.dataSequenceNumber()) {
+                            return existing;
+                        }
+                        return newValue;
+                    });
                 }
             }
         }
@@ -98,4 +105,6 @@ public final class EqualityDeleteFilter
             return new EqualityDeleteFilter(deleteSchema, deletedRows);
         }
     }
+
+    private record DataSequenceNumber(long dataSequenceNumber) {}
 }
