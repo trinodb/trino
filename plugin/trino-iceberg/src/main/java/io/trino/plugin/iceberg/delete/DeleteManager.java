@@ -63,6 +63,7 @@ public class DeleteManager
 
     public Optional<RowPredicate> getDeletePredicate(
             String dataFilePath,
+            long dataSequenceNumber,
             List<DeleteFile> deleteFiles,
             List<IcebergColumnHandle> readColumns,
             Schema tableSchema,
@@ -84,9 +85,9 @@ public class DeleteManager
         }
 
         Optional<RowPredicate> positionDeletes = createPositionDeleteFilter(dataFilePath, positionDeleteFiles, readerPageSourceWithRowPositions, deletePageSourceProvider)
-                .map(filter -> filter.createPredicate(readColumns));
+                .map(filter -> filter.createPredicate(readColumns, dataSequenceNumber));
         Optional<RowPredicate> equalityDeletes = createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider).stream()
-                .map(filter -> filter.createPredicate(readColumns))
+                .map(filter -> filter.createPredicate(readColumns, dataSequenceNumber))
                 .reduce(RowPredicate::and);
 
         if (positionDeletes.isEmpty()) {
@@ -182,7 +183,7 @@ public class DeleteManager
 
             EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns)));
             try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, TupleDomain.all())) {
-                builder.readEqualityDeletes(pageSource, deleteColumns);
+                builder.readEqualityDeletes(pageSource, deleteColumns, deleteFile.getDataSequenceNumber());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
