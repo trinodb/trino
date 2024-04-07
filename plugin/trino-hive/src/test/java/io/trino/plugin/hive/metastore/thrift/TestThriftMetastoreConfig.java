@@ -44,7 +44,7 @@ public class TestThriftMetastoreConfig
                 .setMaxRetries(9)
                 .setBackoffScaleFactor(2.0)
                 .setMinBackoffDelay(new Duration(1, SECONDS))
-                .setMaxBackoffDelay(new Duration(1, SECONDS))
+                .setMaxBackoffDelay(new Duration(2, SECONDS))
                 .setMaxRetryTime(new Duration(30, SECONDS))
                 .setTlsEnabled(false)
                 .setKeystorePath(null)

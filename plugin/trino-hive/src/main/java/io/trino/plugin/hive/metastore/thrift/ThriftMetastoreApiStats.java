@@ -17,7 +17,6 @@ import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
 import io.trino.hive.thrift.metastore.MetaException;
-import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.weakref.jmx.Managed;
@@ -65,68 +64,6 @@ public class ThriftMetastoreApiStats
                 throw e;
             }
         };
-    }
-
-    public void wrap2(Callable callable) throws Exception {
-
-            try (TimeStat.BlockTimer ignored = time.time()) {
-                callable.call();
-            }
-            catch (Exception e) {
-                if (e instanceof MetaException) {
-                    metastoreExceptions.update(1);
-                    // Need to throw here instead of falling through due to JDK-8059299
-                    totalFailures.update(1);
-                    throw e;
-                }
-
-                if (e instanceof TException) {
-                    if (e instanceof TBase) {
-                        // This exception is an API response and not a server error
-                        throw e;
-                    }
-
-                    thriftExceptions.update(1);
-                    // Need to throw here instead of falling through due to JDK-8059299
-                    totalFailures.update(1);
-                    throw e;
-                }
-
-                totalFailures.update(1);
-                throw e;
-            }
-//        };
-    }
-
-    public <V, E extends Exception> V call(AwsApiCallStats.ThrowingCallable<V, E> callable)
-            throws E
-    {
-        try (TimeStat.BlockTimer ignored = time.time()) {
-            return callable.call();
-        }
-        catch (Exception e) {
-            if (e instanceof MetaException) {
-                metastoreExceptions.update(1);
-                // Need to throw here instead of falling through due to JDK-8059299
-                totalFailures.update(1);
-                throw e;
-            }
-
-            if (e instanceof TException) {
-                if (e instanceof TBase) {
-                    // This exception is an API response and not a server error
-                    throw e;
-                }
-
-                thriftExceptions.update(1);
-                // Need to throw here instead of falling through due to JDK-8059299
-                totalFailures.update(1);
-                throw e;
-            }
-
-            totalFailures.update(1);
-            throw e;
-        }
     }
 
     @Managed
