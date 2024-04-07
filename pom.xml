@@ -223,7 +223,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.36.0</version>
+                <version>26.37.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
