@@ -24,11 +24,15 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class OutputColumn
 {
+    private static final long INSTANCE_SIZE = instanceSize(OutputColumn.class);
+
     private final Column column;
     private final Set<SourceColumn> sourceColumns;
 
@@ -78,5 +82,12 @@ public final class OutputColumn
                 .add("column", column)
                 .add("sourceColumns", sourceColumns)
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + column.getRetainedSizeInBytes()
+                + estimatedSizeOf(sourceColumns, SourceColumn::getRetainedSizeInBytes);
     }
 }

@@ -20,11 +20,15 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.util.List;
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class QueryId
 {
+    private static final int INSTANCE_SIZE = instanceSize(QueryId.class);
+
     @JsonCreator
     public static QueryId valueOf(String queryId)
     {
@@ -115,5 +119,10 @@ public final class QueryId
         if (!condition) {
             throw new IllegalArgumentException(format(message, messageArgs));
         }
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(id);
     }
 }

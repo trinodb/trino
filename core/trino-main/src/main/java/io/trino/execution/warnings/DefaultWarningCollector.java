@@ -22,12 +22,16 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class DefaultWarningCollector
         implements WarningCollector
 {
+    private static final long INSTANCE_SIZE = instanceSize(DefaultWarningCollector.class);
+
     @GuardedBy("this")
     private final Set<TrinoWarning> warnings = new LinkedHashSet<>();
     private final int maxWarnings;
@@ -50,5 +54,13 @@ public class DefaultWarningCollector
     public synchronized List<TrinoWarning> getWarnings()
     {
         return ImmutableList.copyOf(warnings);
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // do not synchronize on purpose
+        return INSTANCE_SIZE
+                + estimatedSizeOf(warnings, TrinoWarning::getRetainedSizeInBytes);
     }
 }

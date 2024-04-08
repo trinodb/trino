@@ -13,6 +13,8 @@
  */
 package io.trino.spi.eventlistener;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -21,11 +23,23 @@ import static java.util.Objects.requireNonNull;
 public record RowFilterReferenceInfo(@Override String expression, @Override String targetCatalogName, @Override String targetSchemaName, @Override String targetTableName)
         implements FilterMaskReferenceInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(RowFilterReferenceInfo.class);
+
     public RowFilterReferenceInfo
     {
         requireNonNull(expression, "expression is null");
         requireNonNull(targetCatalogName, "targetCatalogName is null");
         requireNonNull(targetSchemaName, "targetSchemaName is null");
         requireNonNull(targetTableName, "targetTableName is null");
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(expression)
+                + estimatedSizeOf(targetCatalogName)
+                + estimatedSizeOf(targetSchemaName)
+                + estimatedSizeOf(targetTableName);
     }
 }

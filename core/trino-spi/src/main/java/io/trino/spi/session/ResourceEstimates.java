@@ -15,10 +15,14 @@ package io.trino.spi.session;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.SizeOf;
+import io.trino.spi.MoreSizeOf;
 
 import java.time.Duration;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -28,6 +32,8 @@ import static java.util.Objects.requireNonNull;
  */
 public final class ResourceEstimates
 {
+    private static final int INSTANCE_SIZE = instanceSize(ResourceEstimates.class);
+
     public static final String EXECUTION_TIME = "EXECUTION_TIME";
     public static final String CPU_TIME = "CPU_TIME";
     public static final String PEAK_MEMORY = "PEAK_MEMORY";
@@ -74,5 +80,13 @@ public final class ResourceEstimates
         sb.append(", peakMemoryBytes=").append(peakMemoryBytes);
         sb.append('}');
         return sb.toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(executionTime, MoreSizeOf::sizeOf)
+                + sizeOf(cpuTime, MoreSizeOf::sizeOf)
+                + sizeOf(peakMemoryBytes, SizeOf::sizeOf);
     }
 }

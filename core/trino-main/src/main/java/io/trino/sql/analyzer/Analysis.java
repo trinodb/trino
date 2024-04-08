@@ -34,6 +34,7 @@ import io.trino.metadata.TableLayout;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ColumnHandle;
@@ -118,6 +119,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
@@ -2128,6 +2131,8 @@ public class Analysis
 
     public static class SourceColumn
     {
+        private static final long INSTANCE_SIZE = instanceSize(TrinoWarning.class);
+
         private final QualifiedObjectName tableName;
         private final String columnName;
 
@@ -2182,6 +2187,13 @@ public class Analysis
                     .add("tableName", tableName)
                     .add("columnName", columnName)
                     .toString();
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + tableName.getRetainedSizeInBytes()
+                    + estimatedSizeOf(columnName);
         }
     }
 

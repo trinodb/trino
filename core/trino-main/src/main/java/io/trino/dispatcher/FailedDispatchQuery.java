@@ -39,6 +39,7 @@ import java.util.OptionalDouble;
 import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +48,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class FailedDispatchQuery
         implements DispatchQuery
 {
+    private static final long INSTANCE_SIZE = instanceSize(FailedDispatchQuery.class);
+
     private final QueryInfo fullQueryInfo;
     private final BasicQueryInfo basicQueryInfo;
     private final Session session;
@@ -208,6 +211,16 @@ public class FailedDispatchQuery
     public DataSize getUserMemoryReservation()
     {
         return DataSize.ofBytes(0);
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + fullQueryInfo.getRetainedSizeInBytes()
+                + basicQueryInfo.getRetainedSizeInBytes()
+                + session.getRetainedSizeInBytes()
+                + dispatchInfo.getRetainedSizeInBytes();
     }
 
     private static QueryInfo immediateFailureQueryInfo(

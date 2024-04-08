@@ -38,11 +38,14 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class PlanFragment
 {
+    private static final int INSTANCE_SIZE = instanceSize(PlanFragment.class);
+
     private final PlanFragmentId id;
     private final PlanNode root;
     private final Set<Symbol> symbols;
@@ -334,5 +337,11 @@ public class PlanFragment
     public boolean containsTableScanNode()
     {
         return containsTableScanNode;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // TODO: simplistic estimation. Being percise requires handling all PlanNode types
+        return INSTANCE_SIZE;
     }
 }

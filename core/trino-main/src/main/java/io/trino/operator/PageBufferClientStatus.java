@@ -15,6 +15,8 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.MoreSizeOfMain;
+import io.trino.spi.MoreSizeOf;
 import org.joda.time.DateTime;
 
 import java.net.URI;
@@ -22,10 +24,16 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.OPTIONAL_INT_INSTANCE_SIZE;
+import static io.airlift.slice.SizeOf.OPTIONAL_LONG_INSTANCE_SIZE;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class PageBufferClientStatus
 {
+    private static final long INSTANCE_SIZE = instanceSize(PageBufferClientStatus.class);
+
     private final URI uri;
     private final String state;
     private final DateTime lastUpdate;
@@ -151,5 +159,16 @@ public class PageBufferClientStatus
                 .add("pagesReceived", pagesReceived)
                 .add("httpRequestState", httpRequestState)
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + MoreSizeOf.sizeOf(uri)
+                + estimatedSizeOf(state)
+                + MoreSizeOfMain.sizeOf(lastUpdate)
+                + OPTIONAL_LONG_INSTANCE_SIZE
+                + OPTIONAL_INT_INSTANCE_SIZE
+                + estimatedSizeOf(httpRequestState);
     }
 }

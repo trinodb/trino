@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
+import io.airlift.slice.SizeOf;
 import io.trino.client.ErrorInfo;
 import io.trino.client.ErrorLocation;
 import io.trino.client.FailureInfo;
@@ -27,11 +28,16 @@ import jakarta.annotation.Nullable;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class ExecutionFailureInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(ExecutionFailureInfo.class);
+    private static final int ERROR_LOCATION_INSTANCE_SIZE = instanceSize(ErrorLocation.class);
+
     private final String type;
     private final String message;
     private final ExecutionFailureInfo cause;
@@ -136,5 +142,18 @@ public class ExecutionFailureInfo
     public RuntimeException toException()
     {
         return new Failure(this);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(type)
+                + estimatedSizeOf(message)
+                + cause.getRetainedSizeInBytes()
+                + estimatedSizeOf(suppressed, ExecutionFailureInfo::getRetainedSizeInBytes)
+                + estimatedSizeOf(stack, SizeOf::estimatedSizeOf)
+                + (errorLocation == null ? 0 : ERROR_LOCATION_INSTANCE_SIZE)
+                + (errorCode == null ? 0 : errorCode.getRetainedSizeInBytes())
+                + (remoteHost == null ? 0 : remoteHost.getRetainedSizeInBytes());
     }
 }

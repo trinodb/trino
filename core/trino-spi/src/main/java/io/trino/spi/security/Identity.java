@@ -13,6 +13,8 @@
  */
 package io.trino.spi.security;
 
+import io.airlift.slice.SizeOf;
+
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,11 +26,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
 public class Identity
 {
+    private static final long INSTANCE_SIZE = instanceSize(Identity.class);
+
     private final String user;
     private final Set<String> groups;
     private final Optional<Principal> principal;
@@ -190,6 +196,17 @@ public class Identity
                 .withEnabledRoles(identity.enabledRoles)
                 .withConnectorRoles(identity.getCatalogRoles())
                 .withExtraCredentials(identity.getExtraCredentials());
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // todo account for principal
+        return INSTANCE_SIZE
+                + estimatedSizeOf(user)
+                + estimatedSizeOf(groups, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(enabledRoles, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(catalogRoles, SizeOf::estimatedSizeOf, SelectedRole::getRetainedSizeInBytes)
+                + estimatedSizeOf(extraCredentials, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
     }
 
     public static class Builder

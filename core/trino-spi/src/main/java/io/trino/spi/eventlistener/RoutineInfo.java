@@ -48,4 +48,9 @@ public class RoutineInfo
     {
         return authorization;
     }
+
+    public long getRetainedSizeInBytes()
+    {
+        return 0;
+    }
 }

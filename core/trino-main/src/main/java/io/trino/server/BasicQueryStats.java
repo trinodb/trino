@@ -17,8 +17,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
+import io.airlift.slice.SizeOf;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.MoreSizeOfMain;
 import io.trino.execution.QueryStats;
 import io.trino.operator.BlockedReason;
 import org.joda.time.DateTime;
@@ -27,6 +29,8 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -37,6 +41,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Immutable
 public class BasicQueryStats
 {
+    private static final long INSTANCE_SIZE = instanceSize(BasicQueryStats.class);
+
     private final DateTime createTime;
     private final DateTime endTime;
 
@@ -400,5 +406,30 @@ public class BasicQueryStats
     public OptionalDouble getRunningPercentage()
     {
         return runningPercentage;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + MoreSizeOfMain.sizeOf(createTime)
+                + MoreSizeOfMain.sizeOf(endTime)
+                + MoreSizeOfMain.sizeOf(queuedTime)
+                + MoreSizeOfMain.sizeOf(elapsedTime)
+                + MoreSizeOfMain.sizeOf(executionTime)
+                + MoreSizeOfMain.sizeOf(rawInputDataSize)
+                + MoreSizeOfMain.sizeOf(spilledDataSize)
+                + MoreSizeOfMain.sizeOf(physicalInputDataSize)
+                + MoreSizeOfMain.sizeOf(physicalWrittenDataSize)
+                + MoreSizeOfMain.sizeOf(userMemoryReservation)
+                + MoreSizeOfMain.sizeOf(totalMemoryReservation)
+                + MoreSizeOfMain.sizeOf(peakUserMemoryReservation)
+                + MoreSizeOfMain.sizeOf(peakTotalMemoryReservation)
+                + MoreSizeOfMain.sizeOf(totalScheduledTime)
+                + MoreSizeOfMain.sizeOf(failedScheduledTime)
+                + MoreSizeOfMain.sizeOf(totalCpuTime)
+                + MoreSizeOfMain.sizeOf(failedCpuTime)
+                + estimatedSizeOf(blockedReasons, value -> 0) // values are enums
+                + SizeOf.sizeOf(progressPercentage)
+                + SizeOf.sizeOf(runningPercentage);
     }
 }

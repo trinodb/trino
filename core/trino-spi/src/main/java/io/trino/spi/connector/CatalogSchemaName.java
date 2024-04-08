@@ -18,10 +18,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Locale.ENGLISH;
 
 public final class CatalogSchemaName
 {
+    private static final int INSTANCE_SIZE = instanceSize(CatalogSchemaName.class);
+
     private final String catalogName;
     private final String schemaName;
 
@@ -70,5 +74,12 @@ public final class CatalogSchemaName
     public String toString()
     {
         return catalogName + '.' + schemaName;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(catalogName)
+                + estimatedSizeOf(schemaName);
     }
 }

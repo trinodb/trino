@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.MoreSizeOfMain;
 import io.trino.Session;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.OperationTimer.OperationTiming;
@@ -55,6 +56,7 @@ import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.SystemSessionProperties.getCloseIdleWritersTriggerDuration;
 import static io.trino.SystemSessionProperties.getIdleWriterMinDataSizeThreshold;
 import static io.trino.SystemSessionProperties.isStatisticsCpuTimerEnabled;
@@ -444,6 +446,8 @@ public class TableWriterOperator
     public static class TableWriterInfo
             implements Mergeable<TableWriterInfo>, OperatorInfo
     {
+        private static final long INSTANCE_SIZE = instanceSize(TableWriterInfo.class);
+
         private final long pageSinkPeakMemoryUsage;
         private final Duration statisticsWallTime;
         private final Duration statisticsCpuTime;
@@ -500,6 +504,15 @@ public class TableWriterOperator
         public boolean isFinal()
         {
             return true;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + MoreSizeOfMain.sizeOf(statisticsWallTime)
+                    + MoreSizeOfMain.sizeOf(statisticsCpuTime)
+                    + MoreSizeOfMain.sizeOf(validationCpuTime);
         }
 
         @Override

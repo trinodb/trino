@@ -41,4 +41,6 @@ public interface OperatorInfo
     {
         return false;
     }
+
+    long getRetainedSizeInBytes();
 }

@@ -24,11 +24,16 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class Output
 {
+    private static final long INSTANCE_SIZE = instanceSize(Output.class);
+
     private final String catalogName;
     private final CatalogVersion catalogVersion;
     private final String schema;
@@ -113,5 +118,24 @@ public final class Output
                 .add("table", table)
                 .add("columns", columns)
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        /*
+    private final String catalogName;
+    private final CatalogVersion catalogVersion;
+    private final String schema;
+    private final String table;
+    private final Optional<List<OutputColumn>> columns;
+
+         */
+
+        return INSTANCE_SIZE
+                + estimatedSizeOf(catalogName)
+                + catalogVersion.getRetainedSizeInBytes()
+                + estimatedSizeOf(schema)
+                + estimatedSizeOf(table)
+                + sizeOf(columns, columns -> estimatedSizeOf(columns, OutputColumn::getRetainedSizeInBytes));
     }
 }

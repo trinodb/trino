@@ -15,6 +15,8 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -27,8 +29,15 @@ public record QueryPlanOptimizerStatistics(
         @JsonProperty("totalTime") long totalTime,
         @JsonProperty("failures") long failures)
 {
+    private static final long INSTANCE_SIZE = instanceSize(QueryPlanOptimizerStatistics.class);
+
     public QueryPlanOptimizerStatistics
     {
         requireNonNull(rule, "rule is null");
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(rule);
     }
 }

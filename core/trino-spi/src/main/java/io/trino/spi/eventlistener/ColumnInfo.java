@@ -15,15 +15,22 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.Unstable;
 
 import java.util.Optional;
+
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 /**
  * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
  */
 public class ColumnInfo
 {
+    private static final long INSTANCE_SIZE = instanceSize(ColumnInfo.class);
+
     private final String column;
     private final Optional<String> mask;
 
@@ -45,5 +52,12 @@ public class ColumnInfo
     public Optional<String> getMask()
     {
         return mask;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(column)
+                + sizeOf(mask, SizeOf::estimatedSizeOf);
     }
 }

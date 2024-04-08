@@ -17,11 +17,15 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Unstable;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+
 /**
  * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
  */
 public class StageGcStatistics
 {
+    private static final long INSTANCE_SIZE = instanceSize(StageGcStatistics.class);
+
     private final int stageId;
     private final int tasks;
 
@@ -92,5 +96,10 @@ public class StageGcStatistics
     public int getAverageFullGcSec()
     {
         return averageFullGcSec;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE;
     }
 }

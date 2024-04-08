@@ -92,6 +92,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
@@ -110,6 +111,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class SqlQueryExecution
         implements QueryExecution
 {
+    private static final int INSTANCE_SIZE = instanceSize(SqlQueryExecution.class);
+
     private final QueryStateMachine stateMachine;
     private final Slug slug;
     private final Tracer tracer;
@@ -754,6 +757,15 @@ public class SqlQueryExecution
                     .allMatch(catalogName -> catalogName.getType().isInternal());
         }
         return true;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // todo account for slug, tracer, queryPlan
+        return INSTANCE_SIZE
+                + stateMachine.getRetainedSizeInBytes()
+                + nodeTaskMap.getRetainedSizeInBytes();
     }
 
     private static class PlanRoot

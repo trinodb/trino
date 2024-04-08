@@ -16,12 +16,14 @@ package io.trino.server;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.Immutable;
+import io.airlift.slice.SizeOf;
 import io.trino.SessionRepresentation;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
+import io.trino.spi.MoreSizeOf;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -31,6 +33,9 @@ import java.net.URI;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -40,6 +45,8 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class BasicQueryInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(BasicQueryInfo.class);
+
     private final QueryId queryId;
     private final SessionRepresentation session;
     private final Optional<ResourceGroupId> resourceGroupId;
@@ -199,5 +206,18 @@ public class BasicQueryInfo
                 .add("queryId", queryId)
                 .add("state", state)
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + queryId.getRetainedSizeInBytes()
+                + session.getRetainedSizeInBytes()
+                + sizeOf(resourceGroupId, ResourceGroupId::getRetainedSizeInBytes)
+                + MoreSizeOf.sizeOf(self)
+                + estimatedSizeOf(query)
+                + sizeOf(updateType, SizeOf::estimatedSizeOf)
+                + sizeOf(preparedQuery, SizeOf::estimatedSizeOf)
+                + queryStats.getRetainedSizeInBytes();
     }
 }

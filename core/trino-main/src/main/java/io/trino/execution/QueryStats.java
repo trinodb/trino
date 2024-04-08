@@ -17,8 +17,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.SizeOf;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.MoreSizeOfMain;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
@@ -32,12 +34,16 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.Objects.requireNonNull;
 
 public class QueryStats
 {
+    private static final int INSTANCE_SIZE = instanceSize(QueryStats.class);
+
     private final DateTime createTime;
 
     private final DateTime executionStartTime;
@@ -812,5 +818,62 @@ public class QueryStats
         return succinctBytes(operatorSummaries.stream()
                 .mapToLong(stats -> stats.getSpilledDataSize().toBytes())
                 .sum());
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + MoreSizeOfMain.sizeOf(createTime)
+                + MoreSizeOfMain.sizeOf(executionStartTime)
+                + MoreSizeOfMain.sizeOf(lastHeartbeat)
+                + MoreSizeOfMain.sizeOf(endTime)
+                + MoreSizeOfMain.sizeOf(elapsedTime)
+                + MoreSizeOfMain.sizeOf(queuedTime)
+                + MoreSizeOfMain.sizeOf(resourceWaitingTime)
+                + MoreSizeOfMain.sizeOf(dispatchingTime)
+                + MoreSizeOfMain.sizeOf(executionTime)
+                + MoreSizeOfMain.sizeOf(analysisTime)
+                + MoreSizeOfMain.sizeOf(planningTime)
+                + MoreSizeOfMain.sizeOf(planningCpuTime)
+                + MoreSizeOfMain.sizeOf(finishingTime)
+                + MoreSizeOfMain.sizeOf(userMemoryReservation)
+                + MoreSizeOfMain.sizeOf(revocableMemoryReservation)
+                + MoreSizeOfMain.sizeOf(totalMemoryReservation)
+                + MoreSizeOfMain.sizeOf(peakUserMemoryReservation)
+                + MoreSizeOfMain.sizeOf(peakRevocableMemoryReservation)
+                + MoreSizeOfMain.sizeOf(peakTotalMemoryReservation)
+                + MoreSizeOfMain.sizeOf(peakTaskUserMemory)
+                + MoreSizeOfMain.sizeOf(peakTaskRevocableMemory)
+                + MoreSizeOfMain.sizeOf(peakTaskTotalMemory)
+                + SizeOf.sizeOf(progressPercentage)
+                + SizeOf.sizeOf(runningPercentage)
+                + MoreSizeOfMain.sizeOf(totalScheduledTime)
+                + MoreSizeOfMain.sizeOf(failedScheduledTime)
+                + MoreSizeOfMain.sizeOf(totalCpuTime)
+                + MoreSizeOfMain.sizeOf(failedCpuTime)
+                + MoreSizeOfMain.sizeOf(totalBlockedTime)
+                + estimatedSizeOf(blockedReasons, value -> 0) // values are enums
+                + MoreSizeOfMain.sizeOf(physicalInputDataSize)
+                + MoreSizeOfMain.sizeOf(failedPhysicalInputDataSize)
+                + MoreSizeOfMain.sizeOf(physicalInputReadTime)
+                + MoreSizeOfMain.sizeOf(failedPhysicalInputReadTime)
+                + MoreSizeOfMain.sizeOf(internalNetworkInputDataSize)
+                + MoreSizeOfMain.sizeOf(failedInternalNetworkInputDataSize)
+                + MoreSizeOfMain.sizeOf(rawInputDataSize)
+                + MoreSizeOfMain.sizeOf(failedRawInputDataSize)
+                + MoreSizeOfMain.sizeOf(processedInputDataSize)
+                + MoreSizeOfMain.sizeOf(failedProcessedInputDataSize)
+                + MoreSizeOfMain.sizeOf(inputBlockedTime)
+                + MoreSizeOfMain.sizeOf(failedInputBlockedTime)
+                + MoreSizeOfMain.sizeOf(outputDataSize)
+                + MoreSizeOfMain.sizeOf(failedOutputDataSize)
+                + MoreSizeOfMain.sizeOf(outputBlockedTime)
+                + MoreSizeOfMain.sizeOf(failedOutputBlockedTime)
+                + MoreSizeOfMain.sizeOf(physicalWrittenDataSize)
+                + MoreSizeOfMain.sizeOf(failedPhysicalWrittenDataSize)
+                + estimatedSizeOf(stageGcStatistics, StageGcStatistics::getRetainedSizeInBytes)
+                + dynamicFiltersStats.getRetainedSizeInBytes()
+                + estimatedSizeOf(operatorSummaries, OperatorStats::getRetainedSizeInBytes)
+                + estimatedSizeOf(optimizerRulesSummaries, QueryPlanOptimizerStatistics::getRetainedSizeInBytes);
     }
 }

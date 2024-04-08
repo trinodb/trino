@@ -19,10 +19,14 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Objects;
 import java.util.UUID;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public final class TransactionId
 {
+    private static final int INSTANCE_SIZE = instanceSize(TransactionId.class);
+    private static final int UUID_INSTANCE_SIZE = instanceSize(UUID.class);
+
     private final UUID uuid;
 
     private TransactionId(UUID uuid)
@@ -65,5 +69,10 @@ public final class TransactionId
     public String toString()
     {
         return uuid.toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + UUID_INSTANCE_SIZE;
     }
 }

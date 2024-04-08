@@ -17,9 +17,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.spi.MoreSizeOf;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
@@ -36,12 +38,17 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public final class SessionRepresentation
 {
+    private static final int INSTANCE_SIZE = instanceSize(SessionRepresentation.class);
+
     private final String queryId;
     private final Span querySpan;
     private final Optional<TransactionId> transactionId;
@@ -379,5 +386,34 @@ public final class SessionRepresentation
                 preparedStatements,
                 createProtocolHeaders(protocolName),
                 exchangeEncryptionKey);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // todo querySpan
+        return INSTANCE_SIZE
+                + estimatedSizeOf(queryId)
+                + estimatedSizeOf(user)
+                + estimatedSizeOf(originalUser)
+                + estimatedSizeOf(groups, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(originalUserGroups, SizeOf::estimatedSizeOf)
+                + sizeOf(principal, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(enabledRoles, SizeOf::estimatedSizeOf)
+                + sizeOf(source, SizeOf::estimatedSizeOf)
+                + sizeOf(catalog, SizeOf::estimatedSizeOf)
+                + sizeOf(schema, SizeOf::estimatedSizeOf)
+                + path.getRetainedSizeInBytes()
+                + sizeOf(remoteUserAddress, SizeOf::estimatedSizeOf)
+                + sizeOf(userAgent, SizeOf::estimatedSizeOf)
+                + sizeOf(clientInfo, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(clientTags, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(clientCapabilities, SizeOf::estimatedSizeOf)
+                + MoreSizeOf.sizeOf(start)
+                + resourceEstimates.getRetainedSizeInBytes()
+                + estimatedSizeOf(systemProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(catalogProperties, SizeOf::estimatedSizeOf, value -> estimatedSizeOf(value, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf))
+                + estimatedSizeOf(catalogRoles, SizeOf::estimatedSizeOf, SelectedRole::getRetainedSizeInBytes)
+                + estimatedSizeOf(preparedStatements, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(protocolName);
     }
 }

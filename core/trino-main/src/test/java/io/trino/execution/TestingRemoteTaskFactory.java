@@ -326,5 +326,11 @@ public class TestingRemoteTaskFactory
         {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return 0;
+        }
     }
 }

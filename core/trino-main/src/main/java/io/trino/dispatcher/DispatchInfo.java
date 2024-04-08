@@ -13,15 +13,20 @@
  */
 package io.trino.dispatcher;
 
+import io.airlift.slice.SizeOf;
 import io.airlift.units.Duration;
+import io.trino.MoreSizeOfMain;
 import io.trino.execution.ExecutionFailureInfo;
 
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class DispatchInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(DispatchInfo.class);
+
     private final Optional<CoordinatorLocation> coordinatorLocation;
     private final Optional<ExecutionFailureInfo> failureInfo;
     private final Duration elapsedTime;
@@ -70,5 +75,13 @@ public class DispatchInfo
     public Duration getQueuedTime()
     {
         return queuedTime;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + SizeOf.sizeOf(failureInfo, ExecutionFailureInfo::getRetainedSizeInBytes)
+                + MoreSizeOfMain.sizeOf(elapsedTime)
+                + MoreSizeOfMain.sizeOf(queuedTime);
     }
 }

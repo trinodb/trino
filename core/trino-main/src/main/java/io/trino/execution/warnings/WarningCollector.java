@@ -31,9 +31,17 @@ public interface WarningCollector
                 {
                     return ImmutableList.of();
                 }
+
+                @Override
+                public long getRetainedSizeInBytes()
+                {
+                    return 0;
+                }
             };
 
     void add(TrinoWarning warning);
 
     List<TrinoWarning> getWarnings();
+
+    long getRetainedSizeInBytes();
 }

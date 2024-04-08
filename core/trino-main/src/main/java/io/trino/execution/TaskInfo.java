@@ -161,4 +161,9 @@ public class TaskInfo
     {
         return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, Optional.of(estimatedMemory), needsPlan);
     }
+
+    public long getRetainedSizeInBytes()
+    {
+        return 0;
+    }
 }

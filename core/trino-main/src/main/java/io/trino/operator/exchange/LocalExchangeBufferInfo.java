@@ -18,9 +18,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.operator.OperatorInfo;
 import io.trino.spi.Mergeable;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+
 public class LocalExchangeBufferInfo
         implements Mergeable<LocalExchangeBufferInfo>, OperatorInfo
 {
+    private static final long INSTANCE_SIZE = instanceSize(LocalExchangeBufferInfo.class);
+
     private final long bufferedBytes;
     private final int bufferedPages;
 
@@ -49,5 +53,11 @@ public class LocalExchangeBufferInfo
     public LocalExchangeBufferInfo mergeWith(LocalExchangeBufferInfo other)
     {
         return new LocalExchangeBufferInfo(bufferedBytes + other.getBufferedBytes(), bufferedPages + other.getBufferedPages());
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE;
     }
 }

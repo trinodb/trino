@@ -89,4 +89,6 @@ public interface RemoteTask
      * @return spooling output statistics
      */
     SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats();
+
+    long getRetainedSizeInBytes();
 }

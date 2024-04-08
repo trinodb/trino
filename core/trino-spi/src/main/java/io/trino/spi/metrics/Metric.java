@@ -20,4 +20,5 @@ import io.trino.spi.Mergeable;
 public interface Metric<T>
         extends Mergeable<T>
 {
+    long getRetainedSizeInBytes();
 }

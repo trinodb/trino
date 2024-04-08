@@ -29,11 +29,14 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlPath
 {
+    private static final int INSTANCE_SIZE = instanceSize(SqlPath.class);
     public static final SqlPath EMPTY_PATH = buildPath("", Optional.empty());
 
     private final List<CatalogSchemaName> path;
@@ -121,5 +124,12 @@ public final class SqlPath
                 .addAll(storedPath)
                 .build();
         return new SqlPath(viewPath, rawPath);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(path, CatalogSchemaName::getRetainedSizeInBytes)
+                + estimatedSizeOf(rawPath);
     }
 }

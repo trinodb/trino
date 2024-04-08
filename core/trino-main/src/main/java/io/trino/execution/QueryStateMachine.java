@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
+import io.airlift.slice.SizeOf;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
@@ -86,6 +87,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.BasicStageStats.EMPTY_STAGE_STATS;
@@ -102,6 +106,9 @@ import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import static io.trino.spi.MoreSizeOf.ATOMIC_BOOLEAN_INSTANCE_SIZE;
+import static io.trino.spi.MoreSizeOf.ATOMIC_LONG_INSTANCE_SIZE;
+import static io.trino.spi.MoreSizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
@@ -115,6 +122,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 @ThreadSafe
 public class QueryStateMachine
 {
+    private static final long INSTANCE_SIZE = instanceSize(QueryStateMachine.class);
     private static final Logger QUERY_STATE_LOG = Logger.get(QueryStateMachine.class);
 
     private final QueryId queryId;
@@ -1505,6 +1513,53 @@ public class QueryStateMachine
     private QueryOutputManager getOutputManager()
     {
         return outputManager;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + queryId.getRetainedSizeInBytes()
+                + estimatedSizeOf(query)
+                + sizeOf(preparedQuery, SizeOf::estimatedSizeOf)
+                + session.getRetainedSizeInBytes()
+                + sizeOf(self)
+                + resourceGroup.getRetainedSizeInBytes()
+                + ATOMIC_LONG_INSTANCE_SIZE // currentUserMemory
+                + ATOMIC_LONG_INSTANCE_SIZE // peakUserMemory
+                + ATOMIC_LONG_INSTANCE_SIZE // currentRevocableMemory
+                + ATOMIC_LONG_INSTANCE_SIZE // peakRevocableMemory
+                + ATOMIC_LONG_INSTANCE_SIZE // currentTotalMemory
+                + ATOMIC_LONG_INSTANCE_SIZE // peakTotalMemory
+                + ATOMIC_LONG_INSTANCE_SIZE // peakTaskUserMemory
+                + ATOMIC_LONG_INSTANCE_SIZE // peakTaskRevocableMemory
+                + ATOMIC_LONG_INSTANCE_SIZE // peakTaskTotalMemory
+                + queryStateTimer.geRetainedSizeInBytes()
+                + ATOMIC_BOOLEAN_INSTANCE_SIZE // queryCleanedUp
+                + sizeOf(setCatalog, SizeOf::estimatedSizeOf)
+                + sizeOf(setSchema, SizeOf::estimatedSizeOf)
+                + sizeOf(setPath, SizeOf::estimatedSizeOf)
+                + sizeOf(setAuthorizationUser, SizeOf::estimatedSizeOf)
+                + ATOMIC_BOOLEAN_INSTANCE_SIZE // resetAuthorizationUser
+                + estimatedSizeOf(setSessionProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(resetSessionProperties, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(setRoles, SizeOf::estimatedSizeOf, SelectedRole::getRetainedSizeInBytes)
+                + estimatedSizeOf(addedPreparedStatements, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(deallocatedPreparedStatements, SizeOf::estimatedSizeOf)
+                + sizeOf(startedTransactionId, TransactionId::getRetainedSizeInBytes)
+                + ATOMIC_BOOLEAN_INSTANCE_SIZE // clearTransactionId
+                + sizeOf(updateType, SizeOf::estimatedSizeOf)
+                + sizeOf(failureCause, ExecutionFailureInfo::getRetainedSizeInBytes)
+                + sizeOf(inputs, inputs -> SizeOf.estimatedSizeOf(inputs, Input::getRetainedSizeInBytes))
+                + sizeOf(output, output -> SizeOf.sizeOf(output, Output::getRetainedSizeInBytes))
+                + sizeOf(referencedTables, referencedTables -> SizeOf.estimatedSizeOf(referencedTables, TableInfo::getRetainedSizeInBytes))
+                + sizeOf(routines, routines -> SizeOf.estimatedSizeOf(routines, RoutineInfo::getRetainedSizeInBytes))
+                + sizeOf(finalQueryInfo.get(), QueryInfo::getRetainedSizeInBytes) // todo account for StateMachine itself
+                + warningCollector.getRetainedSizeInBytes()
+                + planOptimizersStatsCollector.getRetainedSizeInBytes()
+                + sizeOf(queryType, value -> 0)
+                // todo account for dynamicFiltersStatsSupplier, dynamicFiltersStatsSupplierLock?
+                + ATOMIC_BOOLEAN_INSTANCE_SIZE // committed
+                + ATOMIC_BOOLEAN_INSTANCE_SIZE; // consumed
     }
 
     public static class QueryOutputManager

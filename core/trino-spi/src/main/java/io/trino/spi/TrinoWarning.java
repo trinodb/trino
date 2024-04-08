@@ -18,11 +18,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class TrinoWarning
 {
+    private static final long INSTANCE_SIZE = instanceSize(TrinoWarning.class);
+
     private final WarningCode warningCode;
     private final String message;
 
@@ -75,5 +79,12 @@ public final class TrinoWarning
     public String toString()
     {
         return format("%s, %s", warningCode, message);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + warningCode.getRetainedSizeInBytes()
+                + estimatedSizeOf(message);
     }
 }

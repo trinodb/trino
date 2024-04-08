@@ -26,11 +26,15 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class Input
 {
+    private static final int INSTANCE_SIZE = instanceSize(Input.class);
+
     private final String catalogName;
     private final CatalogVersion catalogVersion;
     private final String schema;
@@ -147,5 +151,18 @@ public final class Input
                 .addValue(fragmentId)
                 .addValue(planNodeId)
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(catalogName)
+                + catalogVersion.getRetainedSizeInBytes()
+                + estimatedSizeOf(schema)
+                + estimatedSizeOf(table)
+                + estimatedSizeOf(columns, Column::getRetainedSizeInBytes)
+                // + todo connectorInfo
+                + fragmentId.getRetainedSizeInBytes()
+                + planNodeId.getRetainedSizeInBytes();
     }
 }

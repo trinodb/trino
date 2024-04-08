@@ -15,16 +15,21 @@ package io.trino.spi.security;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.SizeOf;
 
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class SelectedRole
 {
+    private static final int INSTANCE_SIZE = instanceSize(SelectedRole.class);
+
     public enum Type
     {
         ROLE, ALL, NONE
@@ -95,5 +100,10 @@ public class SelectedRole
             return new SelectedRole(type, role);
         }
         throw new IllegalArgumentException("Could not parse selected role: " + value);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(role, SizeOf::estimatedSizeOf);
     }
 }

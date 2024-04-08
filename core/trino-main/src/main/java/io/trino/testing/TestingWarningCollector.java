@@ -70,6 +70,12 @@ public class TestingWarningCollector
         return ImmutableList.copyOf(warnings.values());
     }
 
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return 0;
+    }
+
     @VisibleForTesting
     public static TrinoWarning createTestWarning(int code)
     {

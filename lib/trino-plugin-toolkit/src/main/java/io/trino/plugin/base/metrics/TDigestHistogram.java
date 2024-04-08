@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.util.StdConverter;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.stats.TDigest;
 import io.trino.spi.metrics.Distribution;
@@ -30,12 +31,16 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 
 public class TDigestHistogram
         implements Distribution<TDigestHistogram>
 {
+    private static final long TDIGEST_HISTOGRAM_INSTANCE_SIZE = instanceSize(TDigestHistogram.class);
+    private static final long TDIGEST_INSTANCE_SIZE = instanceSize(TDigest.class);
+
     @JsonSerialize(converter = TDigestToBase64Converter.class)
     @JsonDeserialize(converter = Base64ToTDigestConverter.class)
     private final TDigest digest;
@@ -203,6 +208,16 @@ public class TDigestHistogram
     private static String formatDouble(double value)
     {
         return format(Locale.US, "%.2f", value);
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // TODO add TDigest.getRetainedSizeInBytes and use it here
+        return TDIGEST_INSTANCE_SIZE
+                + TDIGEST_HISTOGRAM_INSTANCE_SIZE
+                + SizeOf.sizeOfIntArray(1) // TDigest.indexes
+                + SizeOf.sizeOfDoubleArray(1) * 4; // TDigest.means/weights/tempMeans/tempWeights
     }
 
     public static class TDigestToBase64Converter

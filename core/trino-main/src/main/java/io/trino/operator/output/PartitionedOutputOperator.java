@@ -42,6 +42,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputOperator
@@ -380,6 +381,8 @@ public class PartitionedOutputOperator
     public static class PartitionedOutputInfo
             implements Mergeable<PartitionedOutputInfo>, OperatorInfo
     {
+        private static final long INSTANCE_SIZE = instanceSize(PartitionedOutputInfo.class);
+
         private final long outputBufferPeakMemoryUsage;
 
         @JsonCreator
@@ -404,6 +407,12 @@ public class PartitionedOutputOperator
         public boolean isFinal()
         {
             return true;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
         }
 
         @Override

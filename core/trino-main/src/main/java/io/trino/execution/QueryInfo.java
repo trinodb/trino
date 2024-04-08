@@ -19,11 +19,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
+import io.airlift.slice.SizeOf;
 import io.trino.SessionRepresentation;
 import io.trino.client.NodeVersion;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
+import io.trino.spi.MoreSizeOf;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.eventlistener.RoutineInfo;
@@ -44,11 +46,16 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QueryInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(QueryInfo.class);
+
     private final QueryId queryId;
     private final SessionRepresentation session;
     private final QueryState state;
@@ -437,5 +444,36 @@ public class QueryInfo
                 .add("state", state)
                 .add("fieldNames", fieldNames)
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + queryId.getRetainedSizeInBytes()
+                + session.getRetainedSizeInBytes()
+                + MoreSizeOf.sizeOf(self)
+                + estimatedSizeOf(fieldNames, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(query)
+                + sizeOf(preparedQuery, SizeOf::estimatedSizeOf)
+                + queryStats.getRetainedSizeInBytes()
+                + sizeOf(setCatalog, SizeOf::estimatedSizeOf)
+                + sizeOf(setSchema, SizeOf::estimatedSizeOf)
+                + sizeOf(setPath, SizeOf::estimatedSizeOf)
+                + sizeOf(setAuthorizationUser, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(setSessionProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(resetSessionProperties, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(setRoles, SizeOf::estimatedSizeOf, SelectedRole::getRetainedSizeInBytes)
+                + estimatedSizeOf(addedPreparedStatements, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(deallocatedPreparedStatements, SizeOf::estimatedSizeOf)
+                + sizeOf(startedTransactionId, TransactionId::getRetainedSizeInBytes)
+                + estimatedSizeOf(updateType)
+                + sizeOf(outputStage, StageInfo::getRetainedSizeInBytes)
+                + estimatedSizeOf(referencedTables, TableInfo::getRetainedSizeInBytes)
+                + estimatedSizeOf(routines, RoutineInfo::getRetainedSizeInBytes)
+                + failureInfo.getRetainedSizeInBytes()
+                + estimatedSizeOf(referencedTables, TableInfo::getRetainedSizeInBytes)
+                + estimatedSizeOf(inputs, Input::getRetainedSizeInBytes)
+                + sizeOf(output, Output::getRetainedSizeInBytes)
+                + sizeOf(resourceGroupId, ResourceGroupId::getRetainedSizeInBytes);
     }
 }

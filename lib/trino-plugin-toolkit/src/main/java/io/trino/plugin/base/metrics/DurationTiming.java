@@ -21,12 +21,16 @@ import io.trino.spi.metrics.Timing;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class DurationTiming
         implements Timing<DurationTiming>
 {
+    private static final long INSTANCE_SIZE = instanceSize(DurationTiming.class);
+    private static final long DURATION_INSTANCE_SIZE = instanceSize(Duration.class);
+
     // use Airlift duration for more human-friendly serialization format
     // and to match duration serialization in other JSON objects
     private final Duration duration;
@@ -82,5 +86,11 @@ public class DurationTiming
         return toStringHelper("")
                 .add("duration", duration.convertToMostSuccinctTimeUnit())
                 .toString();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + DURATION_INSTANCE_SIZE;
     }
 }

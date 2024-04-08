@@ -14,6 +14,7 @@
 package io.trino.execution.querystats;
 
 import com.google.errorprone.annotations.ThreadSafe;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -24,10 +25,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 @ThreadSafe
 public class PlanOptimizersStatsCollector
 {
+    private static final long INSTANCE_SIZE = instanceSize(PlanOptimizersStatsCollector.class);
+
     private final Map<Class<?>, QueryPlanOptimizerStats> stats = new ConcurrentHashMap<>();
     private final int queryReportedRuleStatsLimit;
 
@@ -89,5 +93,11 @@ public class PlanOptimizersStatsCollector
     public static PlanOptimizersStatsCollector createPlanOptimizersStatsCollector()
     {
         return new PlanOptimizersStatsCollector(Integer.MAX_VALUE);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + SizeOf.estimatedSizeOf(stats, key -> 0, QueryPlanOptimizerStats::getRetainedSizeInBytes);
     }
 }

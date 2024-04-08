@@ -27,11 +27,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.spi.MoreSizeOf.ATOMIC_INTEGER_INSTANCE_SIZE;
+import static io.trino.spi.MoreSizeOf.ATOMIC_LONG_INSTANCE_SIZE;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class NodeTaskMap
 {
+    private static final int INSTANCE_SIZE = instanceSize(NodeTaskMap.class);
+
     private static final Logger log = Logger.get(NodeTaskMap.class);
     private final ConcurrentHashMap<InternalNode, NodeTasks> nodeTasksMap = new ConcurrentHashMap<>();
     private final FinalizerService finalizerService;
@@ -76,8 +82,16 @@ public class NodeTaskMap
         return nodeTasks;
     }
 
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(nodeTasksMap, InternalNode::getRetainedSizeInBytes, NodeTasks::getRetainedSizeInBytes);
+    }
+
     private static class NodeTasks
     {
+        private static final long INSTANCE_SIZE = instanceSize(NodeTasks.class);
+
         private final Set<RemoteTask> remoteTasks = Sets.newConcurrentHashSet();
         private final AtomicInteger nodeTotalPartitionedSplitCount = new AtomicInteger();
         private final AtomicLong nodeTotalPartitionedSplitWeight = new AtomicLong();
@@ -122,6 +136,14 @@ public class NodeTaskMap
             finalizerService.addFinalizer(partitionedSplitCountTracker, tracker::cleanup);
 
             return partitionedSplitCountTracker;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + estimatedSizeOf(remoteTasks, RemoteTask::getRetainedSizeInBytes)
+                    + ATOMIC_INTEGER_INSTANCE_SIZE // nodeTotalPartitionedSplitCount
+                    + ATOMIC_LONG_INSTANCE_SIZE; // nodeTotalPartitionedSplitWeight
         }
 
         @ThreadSafe

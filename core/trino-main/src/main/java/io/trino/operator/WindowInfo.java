@@ -24,10 +24,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class WindowInfo
         implements Mergeable<WindowInfo>, OperatorInfo
 {
+    private static final long INSTANCE_SIZE = instanceSize(WindowInfo.class);
     private static final WindowInfo EMPTY_INFO = new WindowInfo(ImmutableList.of());
 
     public static WindowInfo emptyInfo()
@@ -64,6 +67,13 @@ public class WindowInfo
                 .addAll(windowInfos)
                 .addAll(other.windowInfos)
                 .build());
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(windowInfos, DriverWindowInfo::getRetainedSizeInBytes);
     }
 
     static class DriverWindowInfoBuilder
@@ -132,6 +142,8 @@ public class WindowInfo
     @Immutable
     public static class DriverWindowInfo
     {
+        private static final long INSTANCE_SIZE = instanceSize(DriverWindowInfo.class);
+
         private final double sumSquaredDifferencesPositionsOfIndex; // sum of (indexPositions - averageIndexPositions) ^ 2 for all indexes
         private final double sumSquaredDifferencesSizeOfIndex; // sum of (indexSize - averageIndexSize) ^ 2 for all indexes
         private final double sumSquaredDifferencesSizeInPartition; // sum of (partitionSize - averagePartitionSize)^2 for each partition
@@ -190,6 +202,11 @@ public class WindowInfo
         public long getNumberOfIndexes()
         {
             return numberOfIndexes;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
         }
     }
 

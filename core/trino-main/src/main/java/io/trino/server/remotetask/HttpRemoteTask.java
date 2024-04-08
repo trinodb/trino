@@ -38,6 +38,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
+import io.trino.MoreSizeOfMain;
 import io.trino.Session;
 import io.trino.execution.DynamicFiltersCollector;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
@@ -45,6 +46,7 @@ import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.FutureStateChange;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.PartitionedSplitsInfo;
+import io.trino.execution.QueryInfo;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
@@ -64,6 +66,7 @@ import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
 import io.trino.server.FailTaskRequest;
 import io.trino.server.TaskUpdateRequest;
+import io.trino.spi.MoreSizeOf;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
@@ -107,6 +110,10 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.airlift.slice.SizeOf.BOOLEAN_INSTANCE_SIZE;
+import static io.airlift.slice.SizeOf.OPTIONAL_LONG_INSTANCE_SIZE;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.getMaxRemoteTaskRequestSize;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
@@ -132,6 +139,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public final class HttpRemoteTask
         implements RemoteTask
 {
+    private static final int INSTANCE_SIZE = instanceSize(QueryInfo.class);
+
     private static final Logger log = Logger.get(HttpRemoteTask.class);
 
     private final TaskId taskId;
@@ -560,6 +569,105 @@ public final class HttpRemoteTask
     public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
     {
         return taskInfoFetcher.retrieveAndDropSpoolingOutputStats();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+/*
+    private final String nodeId;
+    private final AtomicBoolean speculative;
+    private final PlanFragment planFragment;
+
+    private final AtomicLong nextSplitId = new AtomicLong();
+
+    private final RemoteTaskStats stats;
+    private final Tracer tracer;
+    private final Span span;
+    private final TaskInfoFetcher taskInfoFetcher;
+    private final ContinuousTaskStatusFetcher taskStatusFetcher;
+    private final DynamicFiltersFetcher dynamicFiltersFetcher;
+
+    private final DynamicFiltersCollector outboundDynamicFiltersCollector;
+    // The version of dynamic filters that has been successfully sent to the worker
+    private final AtomicLong sentDynamicFiltersVersion = new AtomicLong(INITIAL_DYNAMIC_FILTERS_VERSION);
+    private final AtomicLong terminationStartedNanos = new AtomicLong();
+
+    private final AtomicReference<Future<?>> currentRequest = new AtomicReference<>();
+
+    @GuardedBy("this")
+    private final SetMultimap<PlanNodeId, ScheduledSplit> pendingSplits = HashMultimap.create();
+    private final int maxUnacknowledgedSplits;
+    @GuardedBy("this")
+    private volatile int pendingSourceSplitCount;
+    @GuardedBy("this")
+    private volatile long pendingSourceSplitsWeight;
+    @GuardedBy("this")
+    // The keys of this map represent all plan nodes that have "no more splits".
+    // The boolean value of each entry represents whether the "no more splits" notification is pending delivery to workers.
+    private final Map<PlanNodeId, Boolean> noMoreSplits = new HashMap<>();
+    private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
+    private final FutureStateChange<Void> whenSplitQueueHasSpace = new FutureStateChange<>();
+    @GuardedBy("this")
+    private boolean splitQueueHasSpace = true;
+    @GuardedBy("this")
+    private OptionalLong whenSplitQueueHasSpaceThreshold = OptionalLong.empty();
+
+    @VisibleForTesting
+    final AtomicInteger splitBatchSize;
+
+    private final boolean summarizeTaskInfo;
+
+    private final HttpClient httpClient;
+    private final Executor executor;
+    private final ScheduledExecutorService errorScheduledExecutor;
+    private final Duration maxErrorDuration;
+    private final Duration taskTerminationTimeout;
+
+    private final JsonCodec<TaskInfo> taskInfoCodec;
+    private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final JsonCodec<FailTaskRequest> failTaskRequestCodec;
+
+    private final RequestErrorTracker updateErrorTracker;
+
+    private final AtomicInteger pendingRequestsCounter = new AtomicInteger(0);
+    private final AtomicBoolean sendPlan = new AtomicBoolean(true);
+
+    private final PartitionedSplitCountTracker partitionedSplitCountTracker;
+
+    private final AtomicBoolean started = new AtomicBoolean(false);
+    private final AtomicBoolean terminating = new AtomicBoolean(false);
+    private final AtomicBoolean cleanedUp = new AtomicBoolean(false);
+
+    private final int guaranteedSplitsPerRequest;
+    private final long maxRequestSizeInBytes;
+    private final long requestSizeHeadroomInBytes;
+    private final boolean adaptiveUpdateRequestSizeEnabled;
+
+ */
+        // non-synchronized - best effort result is ok
+
+        return INSTANCE_SIZE
+                + taskId.getRetainedSizeInBytes()
+                // ignore session - assume it is shared between tasks and already covered elsewhere
+                + estimatedSizeOf(nodeId)
+                + MoreSizeOf.ATOMIC_BOOLEAN_INSTANCE_SIZE // speculative
+                // ignore PlanFragment
+                + MoreSizeOf.ATOMIC_LONG_INSTANCE_SIZE // nextSplitId
+                // todo account for TaskInfoFetcher, ContinuousTaskStatusFetcher, DynamicFiltersFetcher, DynamicFiltersCollector, RemoteTaskStats, OutputBuffers
+                + MoreSizeOf.ATOMIC_LONG_INSTANCE_SIZE // sentDynamicFiltersVersion
+                + MoreSizeOf.ATOMIC_LONG_INSTANCE_SIZE // terminationStartedNanos
+                + MoreSizeOfMain.estimatedSizeOf(pendingSplits, PlanNodeId::getRetainedSizeInBytes, ScheduledSplit::getRetainedSizeInBytes)
+                + estimatedSizeOf(noMoreSplits, PlanNodeId::getRetainedSizeInBytes, ignore -> BOOLEAN_INSTANCE_SIZE)
+                + OPTIONAL_LONG_INSTANCE_SIZE // whenSplitQueueHasSpaceThreshold
+                + MoreSizeOf.ATOMIC_INTEGER_INSTANCE_SIZE // splitBatchSize
+                + MoreSizeOfMain.sizeOf(maxErrorDuration)
+                + MoreSizeOfMain.sizeOf(taskTerminationTimeout)
+                + MoreSizeOf.ATOMIC_INTEGER_INSTANCE_SIZE // pendingRequestsCounter
+                + MoreSizeOf.ATOMIC_BOOLEAN_INSTANCE_SIZE // sendPlan
+                + MoreSizeOf.ATOMIC_BOOLEAN_INSTANCE_SIZE // started
+                + MoreSizeOf.ATOMIC_BOOLEAN_INSTANCE_SIZE // terminating
+                + MoreSizeOf.ATOMIC_BOOLEAN_INSTANCE_SIZE; // cleanedUp
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")

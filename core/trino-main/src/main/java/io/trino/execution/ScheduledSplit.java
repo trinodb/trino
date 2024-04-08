@@ -20,10 +20,13 @@ import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class ScheduledSplit
 {
+    private static final int INSTANCE_SIZE = instanceSize(ScheduledSplit.class);
+
     private final long sequenceId;
     private final PlanNodeId planNodeId;
     private final Split split;
@@ -84,5 +87,12 @@ public class ScheduledSplit
                 .add("planNodeId", planNodeId)
                 .add("split", split)
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + planNodeId.getRetainedSizeInBytes()
+                + split.getRetainedSizeInBytes();
     }
 }

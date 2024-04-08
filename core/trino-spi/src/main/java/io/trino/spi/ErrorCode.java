@@ -18,10 +18,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public final class ErrorCode
 {
+    private static final int INSTANCE_SIZE = instanceSize(ErrorCode.class);
+
     private final int code;
     private final String name;
     private final ErrorType type;
@@ -82,5 +86,10 @@ public final class ErrorCode
     public int hashCode()
     {
         return Objects.hash(code);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(name);
     }
 }

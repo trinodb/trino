@@ -15,18 +15,23 @@ package io.trino.spi.resourcegroups;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.airlift.slice.SizeOf;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public final class ResourceGroupId
 {
+    private static final long INSTANCE_SIZE = instanceSize(ResourceGroupId.class);
+
     private final List<String> segments;
 
     public ResourceGroupId(String name)
@@ -117,5 +122,10 @@ public final class ResourceGroupId
     public int hashCode()
     {
         return Objects.hash(segments);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(segments, SizeOf::estimatedSizeOf);
     }
 }

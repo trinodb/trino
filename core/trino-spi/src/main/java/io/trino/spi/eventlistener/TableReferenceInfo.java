@@ -32,4 +32,5 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 public sealed interface TableReferenceInfo
         permits BaseViewReferenceInfo, FilterMaskReferenceInfo
 {
+    long getRetainedSizeInBytes();
 }

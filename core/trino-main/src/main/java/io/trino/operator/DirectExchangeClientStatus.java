@@ -22,11 +22,15 @@ import io.trino.spi.Mergeable;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class DirectExchangeClientStatus
         implements Mergeable<DirectExchangeClientStatus>, OperatorInfo
 {
+    private static final long INSTANCE_SIZE = instanceSize(DirectExchangeClientStatus.class);
+
     private final long bufferedBytes;
     private final long maxBufferedBytes;
     private final long averageBytesPerRequest;
@@ -127,6 +131,14 @@ public class DirectExchangeClientStatus
     public boolean isFinal()
     {
         return true;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(pageBufferClientStatuses, PageBufferClientStatus::getRetainedSizeInBytes)
+                + requestDuration.getRetainedSizeInBytes();
     }
 
     @Override

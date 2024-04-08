@@ -19,11 +19,16 @@ import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.spi.MoreSizeOf.ATOMIC_LONG_INSTANCE_SIZE;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class QueryPlanOptimizerStats
 {
+    private static final long INSTANCE_SIZE = instanceSize(QueryPlanOptimizerStats.class);
+
     private final String rule;
     private final AtomicLong invocations = new AtomicLong();
     private final AtomicLong applied = new AtomicLong();
@@ -90,5 +95,15 @@ public class QueryPlanOptimizerStats
         totalTime.addAndGet(other.getTotalTime());
 
         return this;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE +
+                estimatedSizeOf(rule)
+                + ATOMIC_LONG_INSTANCE_SIZE // invocations
+                + ATOMIC_LONG_INSTANCE_SIZE // applied
+                + ATOMIC_LONG_INSTANCE_SIZE // totalTime
+                + ATOMIC_LONG_INSTANCE_SIZE; // failures
     }
 }

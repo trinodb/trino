@@ -29,6 +29,7 @@ import io.trino.execution.QueryStateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.MoreSizeOf;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import org.joda.time.DateTime;
@@ -42,6 +43,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.SystemSessionProperties.getRequiredWorkers;
 import static io.trino.SystemSessionProperties.getRequiredWorkersMaxWait;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -52,6 +54,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class LocalDispatchQuery
         implements DispatchQuery
 {
+    private static final long INSTANCE_SIZE = instanceSize(LocalDispatchQuery.class);
+
     private static final Logger log = Logger.get(LocalDispatchQuery.class);
     private final QueryStateMachine stateMachine;
     private final ListenableFuture<QueryExecution> queryExecutionFuture;
@@ -305,6 +309,14 @@ public class LocalDispatchQuery
     public boolean isInfoPruned()
     {
         return stateMachine.isQueryInfoPruned();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + stateMachine.getRetainedSizeInBytes()
+                + MoreSizeOf.ATOMIC_BOOLEAN_INSTANCE_SIZE; // notificationSentOrGuaranteed
     }
 
     @Override

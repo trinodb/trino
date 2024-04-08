@@ -20,10 +20,13 @@ import io.trino.spi.metrics.Count;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class LongCount
         implements Count<LongCount>
 {
+    private static final long INSTANCE_SIZE = instanceSize(LongCount.class);
+
     private final long total;
 
     @JsonCreator
@@ -70,5 +73,11 @@ public class LongCount
         return toStringHelper(this)
                 .add("total", total)
                 .toString();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE;
     }
 }

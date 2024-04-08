@@ -311,6 +311,38 @@ public class QueryTracker<T extends TrackedQuery>
         return prunedQueriesCount.get();
     }
 
+    @Managed
+    long getAllQueriesRetainedSize()
+    {
+        long result = 0;
+        for (T query : queries.values()) {
+            result += query.getRetainedSizeInBytes();
+        }
+        return result;
+    }
+
+    @Managed
+    long getExpiredQueriesRetainedSize()
+    {
+        long result = 0;
+        for (T query : expirationQueue) {
+            result += query.getRetainedSizeInBytes();
+        }
+        return result;
+    }
+
+    @Managed
+    long getPrunedQueriesRetainedSize()
+    {
+        long result = 0;
+        for (T query : expirationQueue) {
+            if (query.isInfoPruned()) {
+                result += query.getRetainedSizeInBytes();
+            }
+        }
+        return result;
+    }
+
     public interface TrackedQuery
     {
         QueryId getQueryId();
@@ -335,5 +367,7 @@ public class QueryTracker<T extends TrackedQuery>
         void pruneInfo();
 
         boolean isInfoPruned();
+
+        long getRetainedSizeInBytes();
     }
 }

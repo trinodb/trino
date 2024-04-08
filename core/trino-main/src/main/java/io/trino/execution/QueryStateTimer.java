@@ -15,6 +15,8 @@ package io.trino.execution;
 
 import com.google.common.base.Ticker;
 import io.airlift.units.Duration;
+import io.trino.MoreSizeOfMain;
+import io.trino.spi.MoreSizeOf;
 import org.joda.time.DateTime;
 
 import java.lang.management.ManagementFactory;
@@ -22,6 +24,8 @@ import java.lang.management.ThreadMXBean;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static io.airlift.slice.SizeOf.LONG_INSTANCE_SIZE;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -30,6 +34,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 class QueryStateTimer
 {
+    private static final long INSTANCE_SIZE = instanceSize(QueryStateTimer.class);
+
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
     private final Ticker ticker;
 
@@ -319,5 +325,29 @@ class QueryStateTimer
     private static long currentThreadCpuTime()
     {
         return THREAD_MX_BEAN.getCurrentThreadCpuTime();
+    }
+
+    public long geRetainedSizeInBytes()
+    {
+        // todo account for ticker
+        return INSTANCE_SIZE
+                + MoreSizeOfMain.sizeOf(createTime)
+                + MoreSizeOf.sizeOf(beginResourceWaitingNanos, value -> LONG_INSTANCE_SIZE)
+                + MoreSizeOf.sizeOf(beginResourceWaitingNanos, value -> LONG_INSTANCE_SIZE)
+                + MoreSizeOf.sizeOf(beginDispatchingNanos, value -> LONG_INSTANCE_SIZE)
+                + MoreSizeOf.sizeOf(beginPlanningNanos, value -> LONG_INSTANCE_SIZE)
+                + MoreSizeOf.sizeOf(beginPlanningCpuNanos, value -> LONG_INSTANCE_SIZE)
+                + MoreSizeOf.sizeOf(beginFinishingNanos, value -> LONG_INSTANCE_SIZE)
+                + MoreSizeOf.sizeOf(endNanos, value -> LONG_INSTANCE_SIZE)
+                + MoreSizeOf.sizeOf(queuedTime, MoreSizeOfMain::sizeOf)
+                + MoreSizeOf.sizeOf(resourceWaitingTime, MoreSizeOfMain::sizeOf)
+                + MoreSizeOf.sizeOf(dispatchingTime, MoreSizeOfMain::sizeOf)
+                + MoreSizeOf.sizeOf(executionTime, MoreSizeOfMain::sizeOf)
+                + MoreSizeOf.sizeOf(planningTime, MoreSizeOfMain::sizeOf)
+                + MoreSizeOf.sizeOf(planningCpuTime, MoreSizeOfMain::sizeOf)
+                + MoreSizeOf.sizeOf(finishingTime, MoreSizeOfMain::sizeOf)
+                + MoreSizeOf.sizeOf(beginAnalysisNanos, value -> LONG_INSTANCE_SIZE)
+                + MoreSizeOf.sizeOf(analysisTime, MoreSizeOfMain::sizeOf)
+                + MoreSizeOf.sizeOf(lastHeartbeatNanos, value -> LONG_INSTANCE_SIZE);
     }
 }

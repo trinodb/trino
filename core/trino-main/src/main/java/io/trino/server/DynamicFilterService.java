@@ -27,6 +27,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.MoreSizeOfMain;
 import io.trino.Session;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.SqlQueryExecution;
@@ -89,6 +90,9 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
@@ -523,6 +527,8 @@ public class DynamicFilterService
 
     public static class DynamicFiltersStats
     {
+        private static final int INSTANCE_SIZE = instanceSize(DynamicFiltersStats.class);
+
         public static final DynamicFiltersStats EMPTY = new DynamicFiltersStats(ImmutableList.of(), 0, 0, 0, 0);
 
         private final List<DynamicFilterDomainStats> dynamicFilterDomainStats;
@@ -598,10 +604,17 @@ public class DynamicFilterService
         {
             return Objects.hash(dynamicFilterDomainStats, lazyDynamicFilters, replicatedDynamicFilters, totalDynamicFilters, dynamicFiltersCompleted);
         }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + estimatedSizeOf(dynamicFilterDomainStats, DynamicFilterDomainStats::getRetainedSizeInBytes);
+        }
     }
 
     public static class DynamicFilterDomainStats
     {
+        private static final int INSTANCE_SIZE = instanceSize(DynamicFilterDomainStats.class);
+
         private final DynamicFilterId dynamicFilterId;
         private final String simplifiedDomain;
         private final Optional<Duration> collectionDuration;
@@ -669,6 +682,14 @@ public class DynamicFilterService
                     .add("simplifiedDomain", simplifiedDomain)
                     .add("collectionDuration", collectionDuration)
                     .toString();
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + dynamicFilterId.getRetainedSizeInBytes()
+                    + estimatedSizeOf(simplifiedDomain)
+                    + sizeOf(collectionDuration, MoreSizeOfMain::sizeOf);
         }
     }
 

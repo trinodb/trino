@@ -18,10 +18,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
+import io.airlift.slice.SizeOf;
 import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.MoreSizeOfMain;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.base.metrics.TDigestHistogram;
@@ -34,6 +36,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.StageState.RUNNING;
@@ -44,6 +47,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Immutable
 public class StageStats
 {
+    private static final long INSTANCE_SIZE = instanceSize(StageStats.class);
+
     private final DateTime schedulingComplete;
 
     private final DistributionSnapshot getSplitDistribution;
@@ -739,5 +744,45 @@ public class StageStats
                         0,
                         0),
                 ImmutableList.of());
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + MoreSizeOfMain.sizeOf(schedulingComplete)
+                + MoreSizeOfMain.sizeOf(getSplitDistribution)
+                + MoreSizeOfMain.sizeOf(userMemoryReservation)
+                + MoreSizeOfMain.sizeOf(revocableMemoryReservation)
+                + MoreSizeOfMain.sizeOf(totalMemoryReservation)
+                + MoreSizeOfMain.sizeOf(peakUserMemoryReservation)
+                + MoreSizeOfMain.sizeOf(peakRevocableMemoryReservation)
+                + MoreSizeOfMain.sizeOf(totalScheduledTime)
+                + MoreSizeOfMain.sizeOf(failedScheduledTime)
+                + MoreSizeOfMain.sizeOf(totalCpuTime)
+                + MoreSizeOfMain.sizeOf(failedCpuTime)
+                + MoreSizeOfMain.sizeOf(totalBlockedTime)
+                + SizeOf.estimatedSizeOf(blockedReasons, blockedReason -> 0)
+                + MoreSizeOfMain.sizeOf(physicalInputDataSize)
+                + MoreSizeOfMain.sizeOf(failedPhysicalInputDataSize)
+                + MoreSizeOfMain.sizeOf(physicalInputReadTime)
+                + MoreSizeOfMain.sizeOf(failedPhysicalInputReadTime)
+                + MoreSizeOfMain.sizeOf(internalNetworkInputDataSize)
+                + MoreSizeOfMain.sizeOf(failedInternalNetworkInputDataSize)
+                + MoreSizeOfMain.sizeOf(rawInputDataSize)
+                + MoreSizeOfMain.sizeOf(failedRawInputDataSize)
+                + MoreSizeOfMain.sizeOf(processedInputDataSize)
+                + MoreSizeOfMain.sizeOf(failedProcessedInputDataSize)
+                + MoreSizeOfMain.sizeOf(inputBlockedTime)
+                + MoreSizeOfMain.sizeOf(failedInputBlockedTime)
+                + MoreSizeOfMain.sizeOf(bufferedDataSize)
+                + SizeOf.sizeOf(outputBufferUtilization, TDigestHistogram::getRetainedSizeInBytes)
+                + MoreSizeOfMain.sizeOf(outputDataSize)
+                + MoreSizeOfMain.sizeOf(failedOutputDataSize)
+                + MoreSizeOfMain.sizeOf(outputBlockedTime)
+                + MoreSizeOfMain.sizeOf(failedOutputBlockedTime)
+                + MoreSizeOfMain.sizeOf(physicalWrittenDataSize)
+                + MoreSizeOfMain.sizeOf(failedPhysicalWrittenDataSize)
+                + gcInfo.getRetainedSizeInBytes()
+                + SizeOf.estimatedSizeOf(operatorSummaries, OperatorStats::getRetainedSizeInBytes);
     }
 }

@@ -15,11 +15,15 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.Unstable;
 
 import java.util.List;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -27,6 +31,8 @@ import static java.util.Objects.requireNonNull;
  */
 public class TableInfo
 {
+    private static final long INSTANCE_SIZE = instanceSize(TableInfo.class);
+
     private final String catalog;
     private final String schema;
     private final String table;
@@ -145,5 +151,18 @@ public class TableInfo
     public List<TableReferenceInfo> getReferenceChain()
     {
         return referenceChain;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(catalog)
+                + estimatedSizeOf(schema)
+                + estimatedSizeOf(table)
+                + estimatedSizeOf(authorization)
+                + estimatedSizeOf(filters, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(columns, ColumnInfo::getRetainedSizeInBytes)
+                + sizeOf(viewText, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(referenceChain, TableReferenceInfo::getRetainedSizeInBytes);
     }
 }

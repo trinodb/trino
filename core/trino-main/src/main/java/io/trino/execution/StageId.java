@@ -22,11 +22,14 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
 public class StageId
 {
+    private static final int INSTANCE_SIZE = instanceSize(StageId.class);
+
     @JsonCreator
     public static StageId valueOf(String stageId)
     {
@@ -95,5 +98,10 @@ public class StageId
         StageId other = (StageId) obj;
         return Objects.equals(this.id, other.id) &&
                 Objects.equals(this.queryId, other.queryId);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + queryId.getRetainedSizeInBytes();
     }
 }

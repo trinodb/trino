@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import io.trino.client.NodeVersion;
 import io.trino.spi.HostAddress;
+import io.trino.spi.MoreSizeOf;
 import io.trino.spi.Node;
 
 import java.net.InetAddress;
@@ -26,6 +27,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.node.AddressToHostname.tryDecodeHostnameToAddress;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -34,6 +37,8 @@ import static java.util.Objects.requireNonNull;
 public class InternalNode
         implements Node
 {
+    private static final long INSTANCE_SIZE = instanceSize(InternalNode.class);
+
     private final String nodeIdentifier;
     private final URI internalUri;
     private final NodeVersion nodeVersion;
@@ -125,5 +130,12 @@ public class InternalNode
                 .add("internalUri", internalUri)
                 .add("nodeVersion", nodeVersion)
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(nodeIdentifier)
+                + MoreSizeOf.sizeOf(internalUri);
     }
 }

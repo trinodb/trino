@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
@@ -27,13 +28,18 @@ import jakarta.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class StageInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(StageInfo.class);
+
     private final StageId stageId;
     private final StageState state;
     private final PlanFragment plan;
@@ -44,6 +50,7 @@ public class StageInfo
     private final List<StageInfo> subStages;
     private final ExecutionFailureInfo failureCause;
     private final Map<PlanNodeId, TableInfo> tables;
+    private final Supplier<Long> retainedSizeInBytes;
 
     @JsonCreator
     public StageInfo(
@@ -75,6 +82,16 @@ public class StageInfo
         this.subStages = subStages;
         this.failureCause = failureCause;
         this.tables = ImmutableMap.copyOf(tables);
+        this.retainedSizeInBytes = Suppliers.memoize(() ->
+                INSTANCE_SIZE
+                        + stageId.getRetainedSizeInBytes()
+                        + (plan == null ? 0 : plan.getRetainedSizeInBytes())
+                        + estimatedSizeOf(types, ignored -> 0) // assume type object are reused
+                        + stageStats.getRetainedSizeInBytes()
+                        + estimatedSizeOf(tasks, TaskInfo::getRetainedSizeInBytes)
+                        + estimatedSizeOf(subStages, StageInfo::getRetainedSizeInBytes)
+                        + failureCause.getRetainedSizeInBytes()
+                        + estimatedSizeOf(tables, PlanNodeId::getRetainedSizeInBytes, TableInfo::getRetainedSizeInBytes));
     }
 
     @JsonProperty
@@ -200,5 +217,10 @@ public class StageInfo
                 addAllStages(subStage, collector);
             }
         }
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return retainedSizeInBytes.get();
     }
 }

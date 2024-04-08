@@ -42,12 +42,15 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class DataDefinitionExecution<T extends Statement>
         implements QueryExecution
 {
+    private static final long INSTANCE_SIZE = instanceSize(DataDefinitionExecution.class);
+
     private final DataDefinitionTask<T> task;
     private final T statement;
     private final Slug slug;
@@ -253,6 +256,14 @@ public class DataDefinitionExecution<T extends Statement>
     public boolean isInfoPruned()
     {
         return false;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // todo account for task, statement, slug, expression, warningCollector
+        return INSTANCE_SIZE
+                + stateMachine.getRetainedSizeInBytes();
     }
 
     @Override

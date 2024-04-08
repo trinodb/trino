@@ -73,4 +73,9 @@ public enum QueryState
     {
         return doneState;
     }
+
+    public long geRetainedSizeInBytes()
+    {
+        return 0;
+    }
 }

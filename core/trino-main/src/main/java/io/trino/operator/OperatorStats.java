@@ -17,8 +17,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
+import io.airlift.slice.SizeOf;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.MoreSizeOfMain;
 import io.trino.spi.Mergeable;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -29,6 +31,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -36,6 +40,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 @Immutable
 public class OperatorStats
 {
+    private static final long INSTANCE_SIZE = instanceSize(OperatorStats.class);
+
     private final int stageId;
     private final int pipelineId;
     private final int operatorId;
@@ -661,5 +667,36 @@ public class OperatorStats
                 spilledDataSize,
                 blockedReason,
                 info);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + planNodeId.getRetainedSizeInBytes()
+                + estimatedSizeOf(operatorType)
+                + MoreSizeOfMain.sizeOf(addInputWall)
+                + MoreSizeOfMain.sizeOf(addInputCpu)
+                + MoreSizeOfMain.sizeOf(physicalInputDataSize)
+                + MoreSizeOfMain.sizeOf(physicalInputReadTime)
+                + MoreSizeOfMain.sizeOf(internalNetworkInputDataSize)
+                + MoreSizeOfMain.sizeOf(rawInputDataSize)
+                + MoreSizeOfMain.sizeOf(inputDataSize)
+                + MoreSizeOfMain.sizeOf(getOutputWall)
+                + MoreSizeOfMain.sizeOf(getOutputCpu)
+                + MoreSizeOfMain.sizeOf(outputDataSize)
+                + metrics.getRetainedSizeInBytes()
+                + connectorMetrics.getRetainedSizeInBytes()
+                + MoreSizeOfMain.sizeOf(physicalWrittenDataSize)
+                + MoreSizeOfMain.sizeOf(blockedWall)
+                + MoreSizeOfMain.sizeOf(finishWall)
+                + MoreSizeOfMain.sizeOf(finishCpu)
+                + MoreSizeOfMain.sizeOf(userMemoryReservation)
+                + MoreSizeOfMain.sizeOf(revocableMemoryReservation)
+                + MoreSizeOfMain.sizeOf(peakUserMemoryReservation)
+                + MoreSizeOfMain.sizeOf(peakRevocableMemoryReservation)
+                + MoreSizeOfMain.sizeOf(peakTotalMemoryReservation)
+                + MoreSizeOfMain.sizeOf(spilledDataSize)
+                + SizeOf.sizeOf(blockedReason, ignore -> 0)
+                + (info == null ? 0 : info.getRetainedSizeInBytes());
     }
 }

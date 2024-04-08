@@ -15,6 +15,7 @@ package io.trino.spi.metrics;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.Mergeable;
 import io.trino.spi.Unstable;
 
@@ -25,11 +26,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.StringJoiner;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class Metrics
         implements Mergeable<Metrics>
 {
+    private static final long INSTANCE_SIZE = instanceSize(Metrics.class);
+
     public static final Metrics EMPTY = new Metrics(Map.of());
 
     private final Map<String, Metric<?>> metrics;
@@ -83,6 +88,11 @@ public class Metrics
         return new StringJoiner(", ", Metrics.class.getSimpleName() + "[", "]")
                 .add(metrics.toString())
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(metrics, SizeOf::estimatedSizeOf, Metric::getRetainedSizeInBytes);
     }
 
     public static class Accumulator

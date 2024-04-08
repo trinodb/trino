@@ -20,11 +20,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.MoreSizeOfMain;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 
 import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -32,6 +35,8 @@ import static java.util.Objects.requireNonNull;
 public class TableFinishInfo
         implements OperatorInfo
 {
+    private static final long INSTANCE_SIZE = instanceSize(TableFinishInfo.class);
+
     private static final int JSON_LENGTH_LIMIT = toIntExact(DataSize.of(10, MEGABYTE).toBytes());
     private static final JsonCodec<Object> INFO_CODEC = jsonCodec(Object.class);
     private static final JsonCodec<JsonNode> JSON_NODE_CODEC = jsonCodec(JsonNode.class);
@@ -104,5 +109,14 @@ public class TableFinishInfo
     public boolean isFinal()
     {
         return true;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(connectorOutputMetadata)
+                + MoreSizeOfMain.sizeOf(statisticsWallTime)
+                + MoreSizeOfMain.sizeOf(statisticsCpuTime);
     }
 }

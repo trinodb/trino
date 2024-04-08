@@ -28,12 +28,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.metadata.MetadataUtil.checkObjectName;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QualifiedObjectName
 {
+    private static final long INSTANCE_SIZE = instanceSize(QualifiedObjectName.class);
+
     private static final Pattern UNQUOTED_COMPONENT = Pattern.compile("[a-zA-Z0-9_]+");
     private static final String COMPONENT = UNQUOTED_COMPONENT.pattern() + "|\"([^\"]|\"\")*\"";
     private static final Pattern PATTERN = Pattern.compile("(?<catalog>" + COMPONENT + ")\\.(?<schema>" + COMPONENT + ")\\.(?<table>" + COMPONENT + ")");
@@ -152,5 +156,13 @@ public class QualifiedObjectName
             return name;
         }
         return "\"" + name.replace("\"", "\"\"") + "\"";
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(catalogName)
+                + estimatedSizeOf(schemaName)
+                + estimatedSizeOf(objectName);
     }
 }

@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.Immutable;
+import io.airlift.slice.SizeOf;
 import io.trino.Session;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.Metadata;
@@ -34,12 +35,16 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TableInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(TableInfo.class);
+
     private final Optional<String> connectorName;
     private final QualifiedObjectName tableName;
     private final TupleDomain<ColumnHandle> predicate;
@@ -94,5 +99,10 @@ public class TableInfo
                 .findFirst();
         QualifiedObjectName objectName = new QualifiedObjectName(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName(), tableName.getSchemaTableName().getTableName());
         return new TableInfo(connectorName, objectName, tableProperties.getPredicate());
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(connectorName, SizeOf::estimatedSizeOf);
     }
 }

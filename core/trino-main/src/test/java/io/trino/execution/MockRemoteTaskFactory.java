@@ -525,5 +525,11 @@ public class MockRemoteTaskFactory
         {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return 0;
+        }
     }
 }

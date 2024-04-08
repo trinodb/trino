@@ -24,11 +24,16 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.LONG_INSTANCE_SIZE;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.join.JoinStatisticsCounter.HISTOGRAM_BUCKETS;
 
 public class JoinOperatorInfo
         implements Mergeable<JoinOperatorInfo>, OperatorInfo
 {
+    private static final long INSTANCE_SIZE = instanceSize(JoinOperatorInfo.class);
+
     private final JoinType joinType;
     private final long[] logHistogramProbes;
     private final long[] logHistogramOutput;
@@ -141,5 +146,14 @@ public class JoinOperatorInfo
     public boolean isFinal()
     {
         return true;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(logHistogramProbes)
+                + sizeOf(logHistogramOutput)
+                + sizeOf(lookupSourcePositions, ignore -> LONG_INSTANCE_SIZE);
     }
 }

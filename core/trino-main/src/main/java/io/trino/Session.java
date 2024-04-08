@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -26,6 +27,7 @@ import io.trino.client.ProtocolHeaders;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
+import io.trino.spi.MoreSizeOf;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
@@ -55,6 +57,9 @@ import java.util.stream.Collectors;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -64,6 +69,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class Session
 {
+    private static final long INSTANCE_SIZE = instanceSize(Session.class);
+
     private final QueryId queryId;
     private final Span querySpan;
     private final Optional<TransactionId> transactionId;
@@ -626,6 +633,32 @@ public final class Session
     public SecurityContext toSecurityContext()
     {
         return new SecurityContext(getRequiredTransactionId(), getIdentity(), queryId, start);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // todo account for querySpan
+        return INSTANCE_SIZE
+                + queryId.getRetainedSizeInBytes()
+                + sizeOf(transactionId, TransactionId::getRetainedSizeInBytes)
+                + identity.getRetainedSizeInBytes()
+                + originalIdentity.getRetainedSizeInBytes()
+                + sizeOf(source, SizeOf::estimatedSizeOf)
+                + sizeOf(catalog, SizeOf::estimatedSizeOf)
+                + sizeOf(schema, SizeOf::estimatedSizeOf)
+                + path.getRetainedSizeInBytes()
+                + sizeOf(remoteUserAddress, SizeOf::estimatedSizeOf)
+                + sizeOf(userAgent, SizeOf::estimatedSizeOf)
+                + sizeOf(clientInfo, SizeOf::estimatedSizeOf)
+                + sizeOf(traceToken, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(clientTags, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(clientCapabilities, SizeOf::estimatedSizeOf)
+                + resourceEstimates.getRetainedSizeInBytes()
+                + MoreSizeOf.sizeOf(start)
+                + estimatedSizeOf(systemProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(catalogProperties, SizeOf::estimatedSizeOf, value -> estimatedSizeOf(value, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf))
+                + estimatedSizeOf(preparedStatements, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + sizeOf(exchangeEncryptionKey, Slice::getRetainedSize);
     }
 
     public static class SessionBuilder

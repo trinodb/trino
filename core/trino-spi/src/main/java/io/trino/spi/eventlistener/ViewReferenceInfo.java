@@ -13,6 +13,8 @@
  */
 package io.trino.spi.eventlistener;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -21,10 +23,21 @@ import static java.util.Objects.requireNonNull;
 public record ViewReferenceInfo(@Override String catalogName, @Override String schemaName, @Override String viewName)
         implements BaseViewReferenceInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(ViewReferenceInfo.class);
+
     public ViewReferenceInfo
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(schemaName, "schemaName is null");
         requireNonNull(viewName, "viewName is null");
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(catalogName)
+                + estimatedSizeOf(schemaName)
+                + estimatedSizeOf(viewName);
     }
 }
