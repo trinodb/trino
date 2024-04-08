@@ -359,6 +359,18 @@ public class TestSnowflakeConnectorTest
     }
 
     @Test
+    @Override // Override to specify the schema name in WHERE condition because listing tables in all schemas is too slow
+    public void testInformationSchemaFiltering()
+    {
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'tpch' AND table_name = 'orders' LIMIT 1",
+                "SELECT 'orders' table_name");
+        assertQuery(
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_schema = 'tpch' AND table_name = 'nation' and column_name = 'nationkey' LIMIT 1",
+                "SELECT 'nation' table_name");
+    }
+
+    @Test
     @Disabled
     @Override
     public void testSelectInformationSchemaColumns()
