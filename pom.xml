@@ -2405,7 +2405,6 @@
                 <plugin>
                     <groupId>io.github.git-commit-id</groupId>
                     <artifactId>git-commit-id-maven-plugin</artifactId>
-                    <version>8.0.0</version>
                     <configuration>
                         <runOnlyOnce>true</runOnlyOnce>
                         <injectAllReactorProjects>true</injectAllReactorProjects>
