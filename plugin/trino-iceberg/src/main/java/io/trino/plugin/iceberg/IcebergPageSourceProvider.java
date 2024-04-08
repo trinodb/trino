@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.filesystem.Location;
@@ -55,9 +54,7 @@ import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.ReaderProjectionsAdapter;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
-import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
-import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteFilter;
@@ -227,18 +224,17 @@ public class IcebergPageSourceProvider
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
 
-    @Inject
     public IcebergPageSourceProvider(
             IcebergFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            OrcReaderConfig orcReaderConfig,
-            ParquetReaderConfig parquetReaderConfig,
+            OrcReaderOptions orcReaderOptions,
+            ParquetReaderOptions parquetReaderOptions,
             TypeManager typeManager)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.orcReaderOptions = orcReaderConfig.toOrcReaderOptions();
-        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
+        this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
+        this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
