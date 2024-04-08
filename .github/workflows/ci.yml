@@ -500,7 +500,7 @@ jobs:
         uses: archive/github-actions-slack@v2.9.0
         with:
           slack-bot-user-oauth-access-token: ${{ env.SLACK_TOKEN }}
-          slack-channel: C025B1USH89 # team-sep-connectors channel ID
+          slack-channel: C06RV3N6N1E # team-connectors channel ID
           slack-text: |
             :boom: Salesforce connector tests failed on branch: ${{ steps.should_notify.outputs.branch }} (<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|see CI job for details>) (:thumbsup: this message if you take care of this)
       - name: Slack notify failed tests to Galaxy team
