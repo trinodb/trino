@@ -36,13 +36,14 @@ import static java.math.BigDecimal.TWO;
 
 @DefunctConfig({
         "experimental.big-query-max-task-memory",
-        "task.max-memory",
+        "sink.new-implementation",
         "task.http-notification-threads",
         "task.info-refresh-max-wait",
-        "task.operator-pre-allocated-memory",
-        "sink.new-implementation",
         "task.legacy-scheduling-behavior",
-        "task.level-absolute-priority"})
+        "task.level-absolute-priority",
+        "task.max-memory",
+        "task.operator-pre-allocated-memory",
+})
 public class TaskManagerConfig
 {
     // TODO (https://starburstdata.atlassian.net/browse/SEP-13195) re-enable the new scheduler. It is temporarily disabled for Starburst

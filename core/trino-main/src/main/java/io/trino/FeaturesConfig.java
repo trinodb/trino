@@ -55,20 +55,20 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "deprecated.legacy-unnest-array-rows",
         "deprecated.legacy-update-delete-implementation",
         "experimental-syntax-enabled",
+        "experimental.late-materialization.enabled",
         "experimental.resource-groups-enabled",
+        "experimental.spill-order-by",
+        "experimental.spill-window-operator",
         "fast-inequality-joins",
         "histogram.implementation",
+        "legacy.allow-set-view-authorization",
         "multimapagg.implementation",
         "optimizer.iterative-rule-based-column-pruning",
         "optimizer.processing-optimization",
+        "parse-decimal-literals-as-double",
         "resource-group-manager",
         "spill-order-by",
-        "experimental.spill-order-by",
         "spill-window-operator",
-        "experimental.spill-window-operator",
-        "legacy.allow-set-view-authorization",
-        "parse-decimal-literals-as-double",
-        "experimental.late-materialization.enabled"
 })
 public class FeaturesConfig
 {

@@ -37,16 +37,16 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
-        "query.max-pending-splits-per-node",
-        "query.queue-config-file",
         "experimental.big-query-initial-hash-partitions",
         "experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled",
         "experimental.max-concurrent-big-queries",
         "experimental.max-queued-big-queries",
+        "fault-tolerant-execution-target-task-input-size",
+        "fault-tolerant-execution-target-task-split-count",
         "query-manager.initialization-required-workers",
         "query-manager.initialization-timeout",
-        "fault-tolerant-execution-target-task-split-count",
-        "fault-tolerant-execution-target-task-input-size",
+        "query.max-pending-splits-per-node",
+        "query.queue-config-file",
         "query.remote-task.max-consecutive-error-count",
         "query.remote-task.min-error-duration",
 })
