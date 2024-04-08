@@ -285,20 +285,16 @@ public class TestPostgreSqlClient
             switch (operator) {
                 case EQUAL:
                 case NOT_EQUAL:
-                    assertThat(converted).isPresent();
-                    assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
-                    assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
-                    return;
                 case LESS_THAN:
                 case LESS_THAN_OR_EQUAL:
                 case GREATER_THAN:
                 case GREATER_THAN_OR_EQUAL:
                 case IS_DISTINCT_FROM:
-                    // Not supported yet, even for bigint
-                    assertThat(converted).isEmpty();
-                    return;
+                    assertThat(converted).isPresent();
+                    assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
+                    assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
+                    break;
             }
-            throw new UnsupportedOperationException("Unsupported operator: " + operator);
         }
     }
 
