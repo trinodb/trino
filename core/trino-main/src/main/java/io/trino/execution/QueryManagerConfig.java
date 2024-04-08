@@ -45,10 +45,13 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "fault-tolerant-execution-target-task-split-count",
         "query-manager.initialization-required-workers",
         "query-manager.initialization-timeout",
+        "query.initial-hash-partitions",
+        "query.max-age",
         "query.max-pending-splits-per-node",
         "query.queue-config-file",
         "query.remote-task.max-consecutive-error-count",
         "query.remote-task.min-error-duration",
+        "retry-attempts",
 })
 public class QueryManagerConfig
 {
@@ -223,7 +226,7 @@ public class QueryManagerConfig
     }
 
     @Config("query.max-hash-partition-count")
-    @LegacyConfig({"query.initial-hash-partitions", "query.hash-partition-count"})
+    @LegacyConfig("query.hash-partition-count")
     @ConfigDescription("Maximum number of partitions for distributed joins and aggregations")
     public QueryManagerConfig setMaxHashPartitionCount(int maxHashPartitionCount)
     {
@@ -279,7 +282,6 @@ public class QueryManagerConfig
         return minQueryExpireAge;
     }
 
-    @LegacyConfig("query.max-age")
     @Config("query.min-expire-age")
     public QueryManagerConfig setMinQueryExpireAge(Duration minQueryExpireAge)
     {
@@ -576,7 +578,6 @@ public class QueryManagerConfig
     }
 
     @Config("query-retry-attempts")
-    @LegacyConfig("retry-attempts")
     public QueryManagerConfig setQueryRetryAttempts(int queryRetryAttempts)
     {
         this.queryRetryAttempts = queryRetryAttempts;
