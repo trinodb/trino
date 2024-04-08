@@ -27,12 +27,12 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @DefunctConfig({
         "dynamic-filtering-max-per-driver-row-count",
-        "experimental.dynamic-filtering-max-per-driver-row-count",
         "dynamic-filtering-max-per-driver-size",
-        "experimental.dynamic-filtering-max-per-driver-size",
         "dynamic-filtering-range-row-limit-per-driver",
+        "dynamic-filtering.service-thread-count",
+        "experimental.dynamic-filtering-max-per-driver-row-count",
+        "experimental.dynamic-filtering-max-per-driver-size",
         "experimental.dynamic-filtering-refresh-interval",
-        "dynamic-filtering.service-thread-count"
 })
 public class DynamicFilterConfig
 {
