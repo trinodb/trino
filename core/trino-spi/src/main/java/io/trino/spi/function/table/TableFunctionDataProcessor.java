@@ -14,6 +14,7 @@
 package io.trino.spi.function.table;
 
 import io.trino.spi.Page;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,5 +32,5 @@ public interface TableFunctionDataProcessor
      * @return {@link TableFunctionProcessorState} including the processor's state and optionally a portion of result.
      * After the returned state is {@code FINISHED}, the method will not be called again.
      */
-    TableFunctionProcessorState process(List<Optional<Page>> input);
+    TableFunctionProcessorState process(@Nullable List<Optional<Page>> input);
 }
