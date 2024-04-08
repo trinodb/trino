@@ -497,7 +497,7 @@ jobs:
         id: should_notify
       - name: Slack notify failed tests to SEP team
         if: always() && steps.tests.outcome == 'failure' && steps.should_notify.outputs.result == 'true'
-        uses: archive/github-actions-slack@v2.6.0
+        uses: archive/github-actions-slack@v2.9.0
         with:
           slack-bot-user-oauth-access-token: ${{ env.SLACK_TOKEN }}
           slack-channel: C025B1USH89 # team-sep-connectors channel ID
@@ -505,7 +505,7 @@ jobs:
             :boom: Salesforce connector tests failed on branch: ${{ steps.should_notify.outputs.branch }} (<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|see CI job for details>) (:thumbsup: this message if you take care of this)
       - name: Slack notify failed tests to Galaxy team
         if: always() && steps.tests.outcome == 'failure' && steps.should_notify.outputs.result == 'true'
-        uses: archive/github-actions-slack@v2.6.0
+        uses: archive/github-actions-slack@v2.9.0
         with:
           slack-bot-user-oauth-access-token: ${{ env.SLACK_TOKEN }}
           slack-channel: C04QTKJFWKT # galaxy-data-management channel ID
