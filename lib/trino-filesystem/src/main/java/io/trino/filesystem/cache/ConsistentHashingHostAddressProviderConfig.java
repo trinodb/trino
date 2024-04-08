@@ -16,13 +16,13 @@ package io.trino.filesystem.cache;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
-public class ConsistentHashingHostAddressProviderConfiguration
+public class ConsistentHashingHostAddressProviderConfig
 {
     private int preferredHostsCount = 2;
 
     @Config("fs.cache.preferred-hosts-count")
     @ConfigDescription("The number of preferred nodes for caching a file. Defaults to 2.")
-    public ConsistentHashingHostAddressProviderConfiguration setPreferredHostsCount(int preferredHostsCount)
+    public ConsistentHashingHostAddressProviderConfig setPreferredHostsCount(int preferredHostsCount)
     {
         this.preferredHostsCount = preferredHostsCount;
         return this;

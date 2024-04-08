@@ -19,7 +19,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
-public class StaticOAuth2ServerConfiguration
+public class StaticOAuth2ServerConfig
 {
     public static final String ACCESS_TOKEN_ISSUER = "http-server.authentication.oauth2.access-token-issuer";
     public static final String AUTH_URL = "http-server.authentication.oauth2.auth-url";
@@ -43,7 +43,7 @@ public class StaticOAuth2ServerConfiguration
 
     @Config(ACCESS_TOKEN_ISSUER)
     @ConfigDescription("The required issuer for access tokens")
-    public StaticOAuth2ServerConfiguration setAccessTokenIssuer(String accessTokenIssuer)
+    public StaticOAuth2ServerConfig setAccessTokenIssuer(String accessTokenIssuer)
     {
         this.accessTokenIssuer = Optional.ofNullable(accessTokenIssuer);
         return this;
@@ -57,7 +57,7 @@ public class StaticOAuth2ServerConfiguration
 
     @Config(AUTH_URL)
     @ConfigDescription("URL of the authorization server's authorization endpoint")
-    public StaticOAuth2ServerConfiguration setAuthUrl(String authUrl)
+    public StaticOAuth2ServerConfig setAuthUrl(String authUrl)
     {
         this.authUrl = authUrl;
         return this;
@@ -71,7 +71,7 @@ public class StaticOAuth2ServerConfiguration
 
     @Config(TOKEN_URL)
     @ConfigDescription("URL of the authorization server's token endpoint")
-    public StaticOAuth2ServerConfiguration setTokenUrl(String tokenUrl)
+    public StaticOAuth2ServerConfig setTokenUrl(String tokenUrl)
     {
         this.tokenUrl = tokenUrl;
         return this;
@@ -85,7 +85,7 @@ public class StaticOAuth2ServerConfiguration
 
     @Config(JWKS_URL)
     @ConfigDescription("URL of the authorization server's JWKS (JSON Web Key Set) endpoint")
-    public StaticOAuth2ServerConfiguration setJwksUrl(String jwksUrl)
+    public StaticOAuth2ServerConfig setJwksUrl(String jwksUrl)
     {
         this.jwksUrl = jwksUrl;
         return this;
@@ -98,7 +98,7 @@ public class StaticOAuth2ServerConfiguration
 
     @Config(USERINFO_URL)
     @ConfigDescription("URL of the userinfo endpoint")
-    public StaticOAuth2ServerConfiguration setUserinfoUrl(String userinfoUrl)
+    public StaticOAuth2ServerConfig setUserinfoUrl(String userinfoUrl)
     {
         this.userinfoUrl = Optional.ofNullable(userinfoUrl);
         return this;
@@ -111,7 +111,7 @@ public class StaticOAuth2ServerConfiguration
 
     @Config(END_SESSION_URL)
     @ConfigDescription("URL of the end session endpoint")
-    public StaticOAuth2ServerConfiguration setEndSessionUrl(String endSessionUrl)
+    public StaticOAuth2ServerConfig setEndSessionUrl(String endSessionUrl)
     {
         this.endSessionUrl = Optional.ofNullable(endSessionUrl);
         return this;

@@ -80,7 +80,7 @@ public class OAuth2ServiceModule
 
     private void bindStaticConfiguration(Binder binder)
     {
-        configBinder(binder).bindConfig(StaticOAuth2ServerConfiguration.class);
+        configBinder(binder).bindConfig(StaticOAuth2ServerConfig.class);
         binder.bind(OAuth2ServerConfigProvider.class).to(StaticConfigurationProvider.class).in(Scopes.SINGLETON);
     }
 

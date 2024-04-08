@@ -35,12 +35,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpStatus.REQUEST_TIMEOUT;
 import static io.airlift.http.client.HttpStatus.TOO_MANY_REQUESTS;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.ACCESS_TOKEN_ISSUER;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.AUTH_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.END_SESSION_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.JWKS_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.TOKEN_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.USERINFO_URL;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.ACCESS_TOKEN_ISSUER;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.AUTH_URL;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.END_SESSION_URL;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.JWKS_URL;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.TOKEN_URL;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.USERINFO_URL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
