@@ -18,7 +18,7 @@ string and hash types are supported.
 Requirements for using the connector in a catalog to connect to a Redis data
 source are:
 
-- Redis 2.8.0 or higher (Redis Cluster is not supported)
+- Redis 5.0.14 or higher (Redis Cluster is not supported)
 - Network access, by default on port 6379, from the Trino coordinator and
   workers to Redis.
 
