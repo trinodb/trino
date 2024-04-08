@@ -33,6 +33,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
         "experimental.dynamic-filtering-max-per-driver-row-count",
         "experimental.dynamic-filtering-max-per-driver-size",
         "experimental.dynamic-filtering-refresh-interval",
+        "experimental.enable-dynamic-filtering",
 })
 public class DynamicFilterConfig
 {
@@ -78,7 +79,6 @@ public class DynamicFilterConfig
     }
 
     @Config("enable-dynamic-filtering")
-    @LegacyConfig("experimental.enable-dynamic-filtering")
     public DynamicFilterConfig setEnableDynamicFiltering(boolean enableDynamicFiltering)
     {
         this.enableDynamicFiltering = enableDynamicFiltering;
