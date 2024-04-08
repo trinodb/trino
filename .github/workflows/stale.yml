@@ -19,6 +19,7 @@ jobs:
           days-before-pr-close: 21
           close-pr-message: 'Closing this pull request, as it has been stale for six weeks. Feel free to re-open at any time.'
           stale-pr-label: 'stale'
+          exempt-pr-labels: 'stale-ignore'
           start-date: '2023-01-01T00:00:00Z'
           exempt-draft-pr: true
           operations-per-run: 200
