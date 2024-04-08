@@ -526,14 +526,20 @@ public class TestDeltaLakeDeleteCompatibility
                 "TBLPROPERTIES ('delta.enableDeletionVectors' = true)");
         try {
             onDelta().executeQuery("INSERT INTO default." + baseTableName + " VALUES (1,11), (2,22), (3,33), (4,44)");
+            // Ensure that the content of the table is coalesced in a larger file
+            onDelta().executeQuery("OPTIMIZE default." + baseTableName);
             onDelta().executeQuery("DELETE FROM default." + baseTableName + " WHERE a = 1 OR a = 3");
+
+            List<Row> expected = ImmutableList.of(row(2, 22), row(4, 44));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTableName)).contains(expected);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + baseTableName)).contains(expected);
 
             // The cloned table has 'p' (absolute path) storageType for deletion vector
             onDelta().executeQuery("CREATE TABLE default." + tableName + " SHALLOW CLONE " + baseTableName);
 
-            List<Row> expected = ImmutableList.of(row(2, 22), row(4, 44));
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).contains(expected);
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .hasMessageContaining("Unsupported storage type for deletion vector: p");
         }
         finally {
             dropDeltaTableWithRetry("default." + baseTableName);
