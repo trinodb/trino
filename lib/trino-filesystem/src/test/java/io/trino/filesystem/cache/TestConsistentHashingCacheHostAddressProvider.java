@@ -42,7 +42,7 @@ public class TestConsistentHashingCacheHostAddressProvider
         nodeManager.addNode(node("test-3"));
         ConsistentHashingHostAddressProvider provider = new ConsistentHashingHostAddressProvider(
                 nodeManager,
-                new ConsistentHashingHostAddressProviderConfiguration().setPreferredHostsCount(1));
+                new ConsistentHashingHostAddressProviderConfig().setPreferredHostsCount(1));
         provider.refreshHashRing();
         assertFairDistribution(provider, nodeManager.getWorkerNodes());
         nodeManager.removeNode(node("test-2"));
@@ -63,7 +63,7 @@ public class TestConsistentHashingCacheHostAddressProvider
         nodeManager.addNode(node("test-3"));
         ConsistentHashingHostAddressProvider provider = new ConsistentHashingHostAddressProvider(
                 nodeManager,
-                new ConsistentHashingHostAddressProviderConfiguration().setPreferredHostsCount(1));
+                new ConsistentHashingHostAddressProviderConfig().setPreferredHostsCount(1));
         provider.refreshHashRing();
         Map<String, Set<Integer>> distribution = getDistribution(provider);
         nodeManager.removeNode(node("test-1"));
