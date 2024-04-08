@@ -79,5 +79,6 @@ runs:
           --argjson addObj '{"branch":"${{ github.head_ref || github.ref_name }}","git_sha":"${{ github.sha }}","workflow_run":"${{ github.run_id }}","workflow_job":"","workflow_run_attempt":"${{ github.run_attempt }}","timestamp":""}' \
           '. + $addObj | .workflow_job=$workflow_job_name | .timestamp=$timestamp' surefire.ndjson | gzip -c > "$artifact_id"
 
-        aws s3 cp --no-progress "$artifact_id" "s3://${{ env.BUILD_ARTIFACTS_BUCKET }}/tests/results/surefire_reports/repo=cork/date_created=$(date -u '+%Y-%m-%d')/$artifact_id"
+        REPOSITORY_NAME=${GITHUB_REPOSITORY#*/}
+        aws s3 cp --no-progress "$artifact_id" "s3://${{ env.BUILD_ARTIFACTS_BUCKET }}/tests/results/surefire_reports/repo=${REPOSITORY_NAME}/date_created=$(date -u '+%Y-%m-%d')/$artifact_id"
       fi
