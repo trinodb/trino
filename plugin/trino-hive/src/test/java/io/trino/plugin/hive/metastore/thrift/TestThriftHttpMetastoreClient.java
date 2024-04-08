@@ -57,8 +57,8 @@ public class TestThriftHttpMetastoreClient
             public Database getDatabase(String databaseName)
                     throws NoSuchObjectException
             {
-                if (databaseName.equals("testDbName")) {
-                    return new Database(databaseName, "testOwner", "testLocation", Map.of("key", "value"));
+                if (databaseName.equals("@hive#testDbName")) {
+                    return new Database("testDbName", "testOwner", "testLocation", Map.of("key", "value"));
                 }
                 throw new NoSuchObjectException("Database does not exist");
             }

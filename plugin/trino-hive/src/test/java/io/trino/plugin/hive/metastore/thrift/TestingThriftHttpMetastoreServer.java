@@ -75,7 +75,7 @@ public class TestingThriftHttpMetastoreServer
     private static <T> T proxyHandler(ThriftMetastore delegate, Class<T> iface)
     {
         return newProxy(iface, (proxy, method, args) -> switch (method.getName()) {
-            case "getAllDatabases" -> delegate.getAllDatabases();
+            case "getDatabases" -> delegate.getAllDatabases();
             case "getDatabase" -> {
                 Optional<Database> optionalDatabase = delegate.getDatabase(args[0].toString());
                 yield optionalDatabase.orElseThrow(() -> new NoSuchObjectException(""));
