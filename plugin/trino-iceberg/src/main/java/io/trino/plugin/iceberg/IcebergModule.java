@@ -88,7 +88,6 @@ public class IcebergModule
         binder.bind(IcebergAnalyzeProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorCacheMetadata.class).to(IcebergCacheMetadata.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
@@ -108,10 +107,17 @@ public class IcebergModule
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
+        binder.bind(ConnectorCacheMetadata.class).to(IcebergCacheMetadata.class).in(Scopes.SINGLETON);
+
         // for table handle, column handle and split ids
         jsonCodecBinder(binder).bindJsonCodec(IcebergCacheTableId.class);
         jsonCodecBinder(binder).bindJsonCodec(IcebergCacheSplitId.class);
         jsonCodecBinder(binder).bindJsonCodec(IcebergColumnHandle.class);
+
+        // bind block serializers for the purpose of TupleDomain serde
+        binder.bind(HiveBlockEncodingSerde.class).in(Scopes.SINGLETON);
+        jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
+        jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
         binder.bind(IcebergFileWriterFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(IcebergFileWriterFactory.class).withGeneratedName();
@@ -131,10 +137,6 @@ public class IcebergModule
         binder.bind(FunctionProvider.class).to(IcebergFunctionProvider.class).in(Scopes.SINGLETON);
         binder.bind(TableChangesFunctionProcessorProvider.class).in(Scopes.SINGLETON);
 
-        // bind block serializers for the purpose of TupleDomain serde
-        binder.bind(HiveBlockEncodingSerde.class).in(Scopes.SINGLETON);
-        jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
-        jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
         newOptionalBinder(binder, IcebergFileSystemFactory.class).setDefault().to(DefaultIcebergFileSystemFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CacheKeyProvider.class).setBinding().to(IcebergCacheKeyProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(boolean.class, AllowFilesystemCacheOnCoordinator.class)).setBinding().toInstance(true);

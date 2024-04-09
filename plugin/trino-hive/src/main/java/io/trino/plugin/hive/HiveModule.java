@@ -115,7 +115,6 @@ public class HiveModule
         binder.bind(TransactionScopeCachingDirectoryListerFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorCacheMetadata.class).to(HiveCacheMetadata.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
         newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
@@ -138,10 +137,17 @@ public class HiveModule
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(AvroPageSourceFactory.class).in(Scopes.SINGLETON);
 
+        binder.bind(ConnectorCacheMetadata.class).to(HiveCacheMetadata.class).in(Scopes.SINGLETON);
+
         // for table handle, column handle and split ids
         jsonCodecBinder(binder).bindJsonCodec(HiveCacheTableId.class);
         jsonCodecBinder(binder).bindJsonCodec(HiveCacheSplitId.class);
         jsonCodecBinder(binder).bindJsonCodec(HiveColumnHandle.class);
+
+        // bind block serializers for the purpose of TupleDomain serde
+        binder.bind(HiveBlockEncodingSerde.class).in(Scopes.SINGLETON);
+        jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
+        jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
         Multibinder<HiveFileWriterFactory> fileWriterFactoryBinder = newSetBinder(binder, HiveFileWriterFactory.class);
         binder.bind(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
@@ -164,11 +170,6 @@ public class HiveModule
 
         newOptionalBinder(binder, FunctionProvider.class).setDefault().to(HiveFunctionProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Unload.class).in(Scopes.SINGLETON);
-
-        // bind block serializers for the purpose of TupleDomain serde
-        binder.bind(HiveBlockEncodingSerde.class).in(Scopes.SINGLETON);
-        jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
-        jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
     }
 
     @Singleton

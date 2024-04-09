@@ -109,7 +109,6 @@ public class DeltaLakeModule
 
         binder.bind(DeltaLakeTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(DeltaLakeSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorCacheMetadata.class).to(DeltaLakeCacheMetadata.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSourceProvider.class)
                 .setDefault().to(DeltaLakePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(DeltaLakePageSinkProvider.class).in(Scopes.SINGLETON);
@@ -143,10 +142,17 @@ public class DeltaLakeModule
         newExporter(binder).export(FileFormatDataSourceStats.class)
                 .as(generator -> generator.generatedNameOf(FileFormatDataSourceStats.class, catalogName.get().toString()));
 
+        binder.bind(ConnectorCacheMetadata.class).to(DeltaLakeCacheMetadata.class).in(Scopes.SINGLETON);
+
         // for table handle, column handle and split ids
         jsonCodecBinder(binder).bindJsonCodec(DeltaLakeCacheTableId.class);
         jsonCodecBinder(binder).bindJsonCodec(DeltaLakeCacheSplitId.class);
         jsonCodecBinder(binder).bindJsonCodec(DeltaLakeColumnHandle.class);
+
+        // bind block serializers for the purpose of TupleDomain serde
+        binder.bind(HiveBlockEncodingSerde.class).in(Scopes.SINGLETON);
+        jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
+        jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(DropExtendedStatsProcedure.class).in(Scopes.SINGLETON);
@@ -161,11 +167,6 @@ public class DeltaLakeModule
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(TableChangesFunctionProvider.class).in(Scopes.SINGLETON);
         binder.bind(FunctionProvider.class).to(DeltaLakeFunctionProvider.class).in(Scopes.SINGLETON);
         binder.bind(TableChangesProcessorProvider.class).in(Scopes.SINGLETON);
-
-        // bind block serializers for the purpose of TupleDomain serde
-        binder.bind(HiveBlockEncodingSerde.class).in(Scopes.SINGLETON);
-        jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
-        jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
         newOptionalBinder(binder, CacheKeyProvider.class).setBinding().to(DeltaLakeCacheKeyProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(boolean.class, AllowFilesystemCacheOnCoordinator.class)).setBinding().toInstance(true);
