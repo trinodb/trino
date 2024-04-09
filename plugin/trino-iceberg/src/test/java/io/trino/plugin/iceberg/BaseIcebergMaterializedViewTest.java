@@ -1026,13 +1026,10 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         private static final int INSTANCE_SIZE = instanceSize(SequenceConnectorSplit.class);
 
-        @JsonIgnore
         @Override
-        public Object getInfo()
+        public Map<String, String> getSplitInfo()
         {
-            return ImmutableMap.builder()
-                    .put("ignored", "ignored")
-                    .buildOrThrow();
+            return ImmutableMap.of();
         }
 
         @JsonIgnore

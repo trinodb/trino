@@ -15,15 +15,17 @@ package io.trino.plugin.blackhole;
 
 import io.trino.spi.connector.ConnectorSplit;
 
+import java.util.Map;
+
 public enum BlackHoleSplit
         implements ConnectorSplit
 {
     INSTANCE;
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return this;
+        return Map.of();
     }
 
     @Override

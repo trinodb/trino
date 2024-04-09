@@ -15,11 +15,13 @@ package io.trino.plugin.opensearch;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -51,9 +53,9 @@ public record OpenSearchSplit(
 
     @JsonIgnore
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return this;
+        return ImmutableMap.of("index", index, "shard", String.valueOf(shard), "address", address.orElse(""));
     }
 
     @JsonIgnore

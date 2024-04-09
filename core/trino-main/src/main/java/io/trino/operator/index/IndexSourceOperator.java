@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordSet;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.util.Map;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -127,8 +128,8 @@ public class IndexSourceOperator
         ConnectorPageSource result = index.lookup(normalizedRecordSet);
         source = new PageSourceOperator(result, operatorContext);
 
-        Object splitInfo = split.getInfo();
-        if (splitInfo != null) {
+        Map<String, String> splitInfo = split.getInfo();
+        if (!splitInfo.isEmpty()) {
             operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogHandle(), splitInfo)));
         }
     }

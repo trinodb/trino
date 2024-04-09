@@ -23,12 +23,14 @@ import io.trino.spi.HostAddress;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class PhoenixSplit
         extends JdbcSplit
@@ -77,8 +79,8 @@ public class PhoenixSplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return ImmutableMap.of("addresses", addresses);
+        return ImmutableMap.of("addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")));
     }
 }

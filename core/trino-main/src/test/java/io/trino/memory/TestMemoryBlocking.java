@@ -47,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
@@ -162,9 +163,9 @@ public class TestMemoryBlocking
             implements ConnectorSplit
     {
         @Override
-        public Object getInfo()
+        public Map<String, String> getSplitInfo()
         {
-            return null;
+            return Map.of();
         }
 
         @Override

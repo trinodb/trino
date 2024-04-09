@@ -16,11 +16,13 @@ package io.trino.plugin.raptor.legacy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
@@ -30,6 +32,7 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class RaptorSplit
         implements ConnectorSplit
@@ -91,9 +94,12 @@ public class RaptorSplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return this;
+        return ImmutableMap.of(
+                "addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")),
+                "bucketNumber", bucketNumber.isPresent() ? String.valueOf(bucketNumber.getAsInt()) : "",
+                "shardUuids", shardUuids.stream().map(UUID::toString).collect(joining(",")));
     }
 
     @Override
