@@ -45,6 +45,9 @@ export PATH="/usr/local/opt/findutils/libexec/gnubin:$PATH"
 ### update your local repository
 
 ```shell
+# Set remote for `trino` oss repo
+git remote add oss https://github.com/trinodb/trino.git
+
 # Fetch recent release tags from OSS 
 git fetch --jobs 8 --all --prune --tags
 
