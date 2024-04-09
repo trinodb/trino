@@ -1993,16 +1993,39 @@ public class DeltaLakeMetadata
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         long currentVersion = getMandatoryCurrentVersion(fileSystem, handle.location(), readVersion.get());
 
-        List<DeltaLakeTableHandle> sameAsTargetSourceTableHandles = sourceTableHandles.stream()
+        List<DeltaLakeTableHandle> sameAsTargetSourceTableHandles = getSameAsTargetSourceTableHandles(sourceTableHandles, handle.tableName());
+        checkForConcurrentTransactionConflicts(session, fileSystem, sameAsTargetSourceTableHandles, isolationLevel, currentVersion, readVersion, handle.location(), attemptCount);
+        long commitVersion = currentVersion + 1;
+        writeTransactionLogForInsertOperation(session, handle, sameAsTargetSourceTableHandles.isEmpty(), isolationLevel, dataFileInfos, commitVersion, currentVersion);
+        return commitVersion;
+    }
+
+    private List<DeltaLakeTableHandle> getSameAsTargetSourceTableHandles(
+            List<ConnectorTableHandle> sourceTableHandles,
+            SchemaTableName schemaTableName)
+    {
+        return sourceTableHandles.stream()
                 .filter(sourceTableHandle -> sourceTableHandle instanceof DeltaLakeTableHandle)
                 .map(DeltaLakeTableHandle.class::cast)
-                .filter(tableHandle -> handle.tableName().equals(tableHandle.getSchemaTableName())
+                .filter(tableHandle -> schemaTableName.equals(tableHandle.getSchemaTableName())
                         // disregard time travel table handles
                         && !tableHandle.isTimeTravel())
                 .collect(toImmutableList());
+    }
+
+    private void checkForConcurrentTransactionConflicts(
+            ConnectorSession session,
+            TrinoFileSystem fileSystem,
+            List<DeltaLakeTableHandle> sameAsTargetSourceTableHandles,
+            IsolationLevel isolationLevel,
+            long currentVersion,
+            AtomicReference<Long> readVersion,
+            String tableLocation,
+            int attemptCount)
+    {
         long readVersionValue = readVersion.get();
         if (currentVersion > readVersionValue) {
-            String transactionLogDirectory = getTransactionLogDir(handle.location());
+            String transactionLogDirectory = getTransactionLogDir(tableLocation);
             for (long version = readVersionValue + 1; version <= currentVersion; version++) {
                 List<DeltaLakeTransactionLogEntry> transactionLogEntries;
                 try {
@@ -2013,43 +2036,30 @@ public class DeltaLakeMetadata
                 catch (IOException e) {
                     throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to access table metadata", e);
                 }
-                checkForInsertTransactionConflicts(session.getQueryId(), sameAsTargetSourceTableHandles, isolationLevel, new DeltaLakeCommitSummary(version, transactionLogEntries), attemptCount);
+                DeltaLakeCommitSummary commitSummary = new DeltaLakeCommitSummary(version, transactionLogEntries);
+                checkNoMetadataUpdates(commitSummary);
+                checkNoProtocolUpdates(commitSummary);
+
+                switch (isolationLevel) {
+                    case WRITESERIALIZABLE -> {
+                        if (!sameAsTargetSourceTableHandles.isEmpty()) {
+                            List<TupleDomain<DeltaLakeColumnHandle>> enforcedSourcePartitionConstraints = sameAsTargetSourceTableHandles.stream()
+                                    .map(DeltaLakeTableHandle::getEnforcedPartitionConstraint)
+                                    .collect(toImmutableList());
+
+                            checkIfCommittedAddedFilesConflictWithCurrentOperation(TupleDomain.columnWiseUnion(enforcedSourcePartitionConstraints), commitSummary);
+                            checkIfCommittedRemovedFilesConflictWithCurrentOperation(commitSummary);
+                        }
+                    }
+                    case SERIALIZABLE -> throw new TransactionFailedException("Conflicting concurrent writes with the current operation on Serializable isolation level");
+                }
+
+                LOG.debug("Completed checking for conflicts in the query %s for target table version: %s Attempt: %s ", session.getQueryId(), commitSummary.getVersion(), attemptCount);
             }
 
             // Avoid re-reading already processed transaction log entries in case of retries
             readVersion.set(currentVersion);
         }
-        long commitVersion = currentVersion + 1;
-        writeTransactionLogForInsertOperation(session, handle, sameAsTargetSourceTableHandles.isEmpty(), isolationLevel, dataFileInfos, commitVersion, currentVersion);
-        return commitVersion;
-    }
-
-    private void checkForInsertTransactionConflicts(
-            String queryId,
-            List<DeltaLakeTableHandle> sameAsTargetSourceTableHandles,
-            IsolationLevel isolationLevel,
-            DeltaLakeCommitSummary commitSummary,
-            int attemptCount)
-    {
-        checkNoMetadataUpdates(commitSummary);
-        checkNoProtocolUpdates(commitSummary);
-
-        switch (isolationLevel) {
-            case WRITESERIALIZABLE -> {
-                if (!sameAsTargetSourceTableHandles.isEmpty()) {
-                    // INSERT operations that contain sub-queries reading the same table support the same concurrency as MERGE.
-                    List<TupleDomain<DeltaLakeColumnHandle>> enforcedSourcePartitionConstraints = sameAsTargetSourceTableHandles.stream()
-                            .map(DeltaLakeTableHandle::getEnforcedPartitionConstraint)
-                            .collect(toImmutableList());
-
-                    checkIfCommittedAddedFilesConflictWithCurrentOperation(TupleDomain.columnWiseUnion(enforcedSourcePartitionConstraints), commitSummary);
-                    checkIfCommittedRemovedFilesConflictWithCurrentOperation(commitSummary);
-                }
-            }
-            case SERIALIZABLE -> throw new TransactionFailedException("Conflicting concurrent writes with the current INSERT operation on Serializable isolation level");
-        }
-
-        LOG.debug("Completed checking for conflicts in the query %s for target table version: %s Attempt: %s ", queryId, commitSummary.getVersion(), attemptCount);
     }
 
     private static void checkNoProtocolUpdates(DeltaLakeCommitSummary commitSummary)
