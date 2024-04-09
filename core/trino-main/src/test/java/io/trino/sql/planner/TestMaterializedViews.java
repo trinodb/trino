@@ -16,7 +16,6 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.SystemSessionProperties;
 import io.trino.connector.StaticConnectorFactory;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
@@ -282,9 +281,6 @@ public class TestMaterializedViews
     public void testNotFreshMaterializedView()
     {
         Session defaultSession = getPlanTester().getDefaultSession();
-        Session legacyGracePeriod = Session.builder(defaultSession)
-                .setSystemProperty(SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
-                .build();
         Session futureSession = Session.builder(defaultSession)
                 .setStart(Instant.now().plus(1, ChronoUnit.DAYS))
                 .build();
@@ -295,11 +291,6 @@ public class TestMaterializedViews
                 anyTree(
                         tableScan("storage_table")));
 
-        assertPlan(
-                "SELECT * FROM not_fresh_materialized_view",
-                legacyGracePeriod,
-                anyTree(
-                        tableScan("test_table")));
         assertPlan(
                 "SELECT * FROM not_fresh_materialized_view",
                 futureSession,
