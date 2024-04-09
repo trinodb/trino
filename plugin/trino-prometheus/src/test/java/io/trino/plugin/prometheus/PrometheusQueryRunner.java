@@ -77,7 +77,6 @@ public final class PrometheusQueryRunner
             throws Exception
     {
         QueryRunner queryRunner = createPrometheusQueryRunner(new PrometheusServer(), ImmutableMap.of("http-server.http.port", "8080"), ImmutableMap.of());
-        Thread.sleep(10);
         Logger log = Logger.get(PrometheusQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
