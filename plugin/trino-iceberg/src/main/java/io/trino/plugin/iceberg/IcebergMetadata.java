@@ -1415,7 +1415,7 @@ public class IcebergMetadata
 
         return new BeginTableExecuteResult<>(
                 executeHandle,
-                table.forOptimize(true, optimizeHandle.getMaxScannedFileSize()));
+                table.forOptimize(true, optimizeHandle.maxScannedFileSize()));
     }
 
     @Override
@@ -1465,7 +1465,7 @@ public class IcebergMetadata
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
-                    .withFormat(optimizeHandle.getFileFormat().toIceberg())
+                    .withFormat(optimizeHandle.fileFormat().toIceberg())
                     .withMetrics(task.metrics().metrics());
 
             if (!icebergTable.spec().fields().isEmpty()) {
@@ -1477,14 +1477,14 @@ public class IcebergMetadata
             newFiles.add(builder.build());
         }
 
-        if (optimizeHandle.getSnapshotId().isEmpty() || scannedDataFiles.isEmpty() && fullyAppliedDeleteFiles.isEmpty() && newFiles.isEmpty()) {
+        if (optimizeHandle.snapshotId().isEmpty() || scannedDataFiles.isEmpty() && fullyAppliedDeleteFiles.isEmpty() && newFiles.isEmpty()) {
             // Either the table is empty, or the table scan turned out to be empty, nothing to commit
             transaction = null;
             return;
         }
 
         // try to leave as little garbage as possible behind
-        if (optimizeHandle.isRetriesEnabled()) {
+        if (optimizeHandle.retriesEnabled()) {
             cleanExtraOutputFiles(
                     session,
                     newFiles.stream()
@@ -1495,7 +1495,7 @@ public class IcebergMetadata
         RewriteFiles rewriteFiles = transaction.newRewrite();
         rewriteFiles.rewriteFiles(scannedDataFiles, fullyAppliedDeleteFiles, newFiles, ImmutableSet.of());
         // Table.snapshot method returns null if there is no matching snapshot
-        Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.getSnapshotId().get()), "snapshot is null");
+        Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.snapshotId().get()), "snapshot is null");
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         commit(rewriteFiles, session);
         transaction.commitTransaction();
@@ -1565,7 +1565,7 @@ public class IcebergMetadata
         IcebergExpireSnapshotsHandle expireSnapshotsHandle = (IcebergExpireSnapshotsHandle) executeHandle.getProcedureHandle();
 
         Table table = catalog.loadTable(session, executeHandle.getSchemaTableName());
-        Duration retention = requireNonNull(expireSnapshotsHandle.getRetentionThreshold(), "retention is null");
+        Duration retention = requireNonNull(expireSnapshotsHandle.retentionThreshold(), "retention is null");
         validateTableExecuteParameters(
                 table,
                 executeHandle.getSchemaTableName(),
@@ -1646,7 +1646,7 @@ public class IcebergMetadata
         IcebergRemoveOrphanFilesHandle removeOrphanFilesHandle = (IcebergRemoveOrphanFilesHandle) executeHandle.getProcedureHandle();
 
         Table table = catalog.loadTable(session, executeHandle.getSchemaTableName());
-        Duration retention = requireNonNull(removeOrphanFilesHandle.getRetentionThreshold(), "retention is null");
+        Duration retention = requireNonNull(removeOrphanFilesHandle.retentionThreshold(), "retention is null");
         validateTableExecuteParameters(
                 table,
                 executeHandle.getSchemaTableName(),
