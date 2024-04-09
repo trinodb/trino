@@ -145,16 +145,6 @@ public final class DecimalConversions
         return low;
     }
 
-    /**
-     * @deprecated Use {@link #realToLongDecimal(float, long, long)} instead
-     */
-    @Deprecated(forRemoval = true)
-    public static Int128 realToLongDecimal(long value, long precision, long scale)
-    {
-        float floatValue = intBitsToFloat(intScale(value));
-        return realToLongDecimal(floatValue, precision, scale);
-    }
-
     public static Int128 realToLongDecimal(float floatValue, long precision, long scale)
     {
         if (Float.isInfinite(floatValue) || Float.isNaN(floatValue)) {
