@@ -34,6 +34,7 @@ import io.trino.spi.type.Type;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -107,6 +108,7 @@ public class DefaultQueryBuilder
         }
 
         sql += getGroupBy(client, groupingSets);
+        setClientInfo(connection, "ApplicationName", "Trino-" + session.getQueryId());
 
         return new PreparedQuery(sql, accumulator.build());
     }
@@ -147,6 +149,8 @@ public class DefaultQueryBuilder
                         .flatMap(expression -> expression.parameters().stream())
                         .iterator())
                 .build();
+        setClientInfo(connection, "ApplicationName", "Trino-" + session.getQueryId());
+
         return new PreparedQuery(query, parameters);
     }
 
@@ -187,6 +191,8 @@ public class DefaultQueryBuilder
                 .addAll(leftSource.getParameters())
                 .addAll(rightSource.getParameters())
                 .build();
+        setClientInfo(connection, "ApplicationName", "Trino-" + session.getQueryId());
+
         return new PreparedQuery(query, parameters);
     }
 
@@ -213,6 +219,8 @@ public class DefaultQueryBuilder
         if (!clauses.isEmpty()) {
             sql += " WHERE " + Joiner.on(" AND ").join(clauses);
         }
+        setClientInfo(connection, "ApplicationName", "Trino-" + session.getQueryId());
+
         return new PreparedQuery(sql, accumulator.build());
     }
 
@@ -264,6 +272,8 @@ public class DefaultQueryBuilder
         if (!clauses.isEmpty()) {
             sql += " WHERE " + Joiner.on(" AND ").join(clauses);
         }
+        setClientInfo(connection, "ApplicationName", "Trino-" + session.getQueryId());
+
         return new PreparedQuery(sql, accumulator.build());
     }
 
@@ -309,6 +319,7 @@ public class DefaultQueryBuilder
                 ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, value);
             }
         }
+        setClientInfo(connection, "ApplicationName", "Trino-" + session.getQueryId());
 
         return statement;
     }
@@ -317,7 +328,18 @@ public class DefaultQueryBuilder
     public CallableStatement callProcedure(JdbcClient client, ConnectorSession session, Connection connection, ProcedureQuery procedureQuery)
             throws SQLException
     {
+        setClientInfo(connection, "ApplicationName", "Trino-" + session.getQueryId());
         return connection.prepareCall(procedureQuery.query());
+    }
+
+    private void setClientInfo(Connection connection, String key, String value)
+    {
+        try {
+            connection.setClientInfo(key, value);
+        }
+        catch (SQLClientInfoException e) {
+            log.warn("Failed to set client info: %s", e.getMessage());
+        }
     }
 
     protected String formatJoinCondition(JdbcClient client, String leftRelationAlias, String rightRelationAlias, JdbcJoinCondition condition)
