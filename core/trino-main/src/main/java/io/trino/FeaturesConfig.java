@@ -229,13 +229,13 @@ public class FeaturesConfig
         return this;
     }
 
-    @Deprecated(forRemoval = true)
+    @Deprecated
     public RegexLibrary getRegexLibrary()
     {
         return regexLibrary;
     }
 
-    @Deprecated(forRemoval = true)
+    @Deprecated
     @Config("deprecated.regex-library")
     @LegacyConfig("regex-library")
     public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
