@@ -76,16 +76,6 @@ public class IcebergTableExecuteHandle
         return fileIoProperties;
     }
 
-    public IcebergTableExecuteHandle withProcedureHandle(IcebergProcedureHandle procedureHandle)
-    {
-        return new IcebergTableExecuteHandle(
-                schemaTableName,
-                procedureId,
-                procedureHandle,
-                tableLocation,
-                fileIoProperties);
-    }
-
     @Override
     public String toString()
     {
