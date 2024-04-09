@@ -62,7 +62,6 @@ public class TestFeaturesConfig
                 .setOmitDateTimeTypePrecision(false)
                 .setLegacyCatalogRoles(false)
                 .setIncrementalHashArrayLoadFactorEnabled(true)
-                .setLegacyMaterializedViewGracePeriod(false)
                 .setHideInaccessibleColumns(false)
                 .setForceSpillingJoin(false)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
@@ -96,7 +95,6 @@ public class TestFeaturesConfig
                 .put("deprecated.omit-datetime-type-precision", "true")
                 .put("deprecated.legacy-catalog-roles", "true")
                 .put("incremental-hash-array-load-factor.enabled", "false")
-                .put("legacy.materialized-view-grace-period", "true")
                 .put("hide-inaccessible-columns", "true")
                 .put("force-spilling-join-operator", "true")
                 .put("fault-tolerant-execution.exchange-encryption-enabled", "false")
@@ -127,7 +125,6 @@ public class TestFeaturesConfig
                 .setOmitDateTimeTypePrecision(true)
                 .setLegacyCatalogRoles(true)
                 .setIncrementalHashArrayLoadFactorEnabled(false)
-                .setLegacyMaterializedViewGracePeriod(true)
                 .setHideInaccessibleColumns(true)
                 .setForceSpillingJoin(true)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
