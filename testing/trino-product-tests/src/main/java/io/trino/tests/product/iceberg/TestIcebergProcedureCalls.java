@@ -16,9 +16,12 @@ package io.trino.tests.product.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
+import io.trino.tests.product.hive.HiveVersion;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.function.Consumer;
@@ -77,10 +80,6 @@ public class TestIcebergProcedureCalls
         Timestamp expectedTimestamp = Timestamp.valueOf("2021-01-01 10:11:12.123");
         assertThat(onTrino().executeQuery("SELECT x FROM " + icebergTableName))
                 .containsOnly(row(expectedTimestamp));
-        // It occurs that we need to set this property in the Spark version we use.
-        // https://github.com/apache/iceberg/blob/efd257a742944d901c6758790fbf4e5e42087a39/spark/v3.1/spark/src/main/java/org/apache/iceberg/spark/SparkSQLProperties.java#L29
-        // https://github.com/apache/iceberg/pull/2757/files
-        onSpark().executeQuery("SET `spark.sql.iceberg.handle-timestamp-without-timezone` = TRUE");
         assertThat(onSpark().executeQuery("SELECT x FROM " + sparkTableName))
                 .containsOnly(row(expectedTimestamp));
 
@@ -105,31 +104,47 @@ public class TestIcebergProcedureCalls
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testMigrateTimestampMillisHiveTableWithParquet()
+            throws SQLException
     {
         String tableName = "test_migrate_timestampPar_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
         String sparkTableName = "iceberg_test.default." + tableName;
 
-        onTrino().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
+        onHive().executeQuery("DROP TABLE IF EXISTS default." + tableName);
         onTrino().executeQuery("CREATE TABLE " + hiveTableName + " (x timestamp(3)) WITH (format='PARQUET')");
-        onTrino().executeQuery("INSERT INTO " + hiveTableName + " VALUES timestamp '2021-01-01 10:11:12.123'");
+        onHive().executeQuery("INSERT INTO default." + tableName + " VALUES ('2021-01-01 10:11:12.123')");
 
-        onTrino().executeQuery("CALL iceberg.system.migrate('default', '" + tableName + "')");
-        assertThat(onTrino().executeQuery("SELECT * FROM " + icebergTableName))
-                .containsOnly(row(Timestamp.valueOf("2021-01-01 10:11:12.123"))); // Test run within TZ Asia/Kathmandu UTC+5:45
-        // It occurs that we need to set this property in the Spark version we use.
-        // https://github.com/apache/iceberg/blob/efd257a742944d901c6758790fbf4e5e42087a39/spark/v3.1/spark/src/main/java/org/apache/iceberg/spark/SparkSQLProperties.java#L29:wq
-        // https://github.com/apache/iceberg/pull/2757/files
-        onSpark().executeQuery("SET `spark.sql.iceberg.handle-timestamp-without-timezone` = TRUE");
-        // the current version of Spark can not read imported data of timestamp type with vectorized reader, the batch reader needs to be used instead
-        // https://github.com/apache/iceberg/pull/6962
-        // https://github.com/apache/iceberg/pull/1184
-        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " SET TBLPROPERTIES ('read.parquet.vectorization.enabled'='false')");
-        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
-                .containsOnly(row(Timestamp.valueOf("2021-01-01 10:11:12.123"))); // Test run within TZ Asia/Kathmandu UTC+5:45
+        if (hiveVersionBelow_3_1_2()) {
+            assertThatThrownBy(() -> onTrino().executeQuery("CALL iceberg.system.migrate('default', '" + tableName + "')"))
+                    .hasMessageContaining("Failed to migrate table")
+                    .rootCause()
+                    .hasMessageContaining("Migration data with type 'timestamp without timezone' is supported only for the data written by Hive v3.1.2 or later");
+            onTrino().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
+        }
+        else {
+            onTrino().executeQuery("CALL iceberg.system.migrate('default', '" + tableName + "')");
 
-        onTrino().executeQuery("DROP TABLE IF EXISTS " + icebergTableName);
+            assertThat(onTrino().executeQuery("SELECT * FROM " + icebergTableName))
+                    .containsOnly(row(Timestamp.valueOf("2021-01-01 10:11:12.123"))); // Test run within TZ Asia/Kathmandu UTC+5:45
+            // the current version of Spark can not read imported data of timestamp type with vectorized reader, the batch reader needs to be used instead
+            // https://github.com/apache/iceberg/pull/6962
+            // https://github.com/apache/iceberg/pull/1184
+            onSpark().executeQuery("ALTER TABLE " + sparkTableName + " SET TBLPROPERTIES ('read.parquet.vectorization.enabled'='false')");
+            assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
+                    .containsOnly(row(Timestamp.valueOf("2021-01-01 10:11:12.123"))); // Test run within TZ Asia/Kathmandu UTC+5:45
+            onTrino().executeQuery("DROP TABLE IF EXISTS " + icebergTableName);
+        }
+    }
+
+    private boolean hiveVersionBelow_3_1_2()
+            throws SQLException
+    {
+        DatabaseMetaData metaData = onHive().getConnection().getMetaData();
+        HiveVersion hiveVersion = HiveVersion.createFromString(metaData.getDatabaseProductVersion());
+        return hiveVersion.getMajorVersion() < 3 ||
+               (hiveVersion.getMajorVersion() == 3 && hiveVersion.getMinorVersion() < 1) ||
+               (hiveVersion.getMajorVersion() == 3 && hiveVersion.getMinorVersion() == 1 && hiveVersion.getPatchVersion() < 2);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "fileFormats")
