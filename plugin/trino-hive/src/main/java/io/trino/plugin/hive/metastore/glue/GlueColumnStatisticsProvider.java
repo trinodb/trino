@@ -15,13 +15,10 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.type.Type;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
@@ -29,11 +26,13 @@ import static java.util.Objects.requireNonNull;
 
 public interface GlueColumnStatisticsProvider
 {
-    Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type);
+    Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames);
 
-    Map<String, HiveColumnStatistics> getTableColumnStatistics(Table table);
-
-    Map<Partition, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(Collection<Partition> partitions);
+    Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
+            String databaseName,
+            String tableName,
+            Set<String> partitionNames,
+            Set<String> columns);
 
     void updateTableColumnStatistics(Table table, Map<String, HiveColumnStatistics> columnStatistics);
 

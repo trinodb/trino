@@ -358,9 +358,8 @@ public class SliceDictionaryColumnWriter
         int[] sortedDictionaryIndexes = getSortedDictionaryNullsLast(dictionaryElements);
         for (int sortedDictionaryIndex : sortedDictionaryIndexes) {
             if (!dictionaryElements.isNull(sortedDictionaryIndex)) {
-                int length = dictionaryElements.getSliceLength(sortedDictionaryIndex);
-                dictionaryLengthStream.writeLong(length);
-                Slice value = dictionaryElements.getSlice(sortedDictionaryIndex, 0, length);
+                Slice value = dictionaryElements.getSlice(sortedDictionaryIndex);
+                dictionaryLengthStream.writeLong(value.length());
                 dictionaryDataStream.writeSlice(value);
             }
         }

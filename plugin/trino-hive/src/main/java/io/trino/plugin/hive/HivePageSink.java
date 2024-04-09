@@ -22,7 +22,9 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.plugin.hive.HiveWritableTableHandle.BucketInfo;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
 import io.trino.spi.PageIndexerFactory;
@@ -97,13 +99,13 @@ public class HivePageSink
     private long writtenBytes;
     private long memoryUsage;
     private long validationCpuNanos;
+    private long currentOpenWriters;
 
     public HivePageSink(
-            HiveWritableTableHandle tableHandle,
             HiveWriterFactory writerFactory,
             List<HiveColumnHandle> inputColumns,
-            boolean isTransactional,
-            Optional<HiveBucketProperty> bucketProperty,
+            AcidTransaction acidTransaction,
+            Optional<BucketInfo> bucketInfo,
             PageIndexerFactory pageIndexerFactory,
             int maxOpenWriters,
             ListeningExecutorService writeVerificationExecutor,
@@ -116,16 +118,16 @@ public class HivePageSink
 
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
-        this.isTransactional = isTransactional;
+        this.isTransactional = acidTransaction.isTransactional();
         this.maxOpenWriters = maxOpenWriters;
         this.writeVerificationExecutor = requireNonNull(writeVerificationExecutor, "writeVerificationExecutor is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
-        this.isMergeSink = tableHandle.getTransaction().isMerge();
-        requireNonNull(bucketProperty, "bucketProperty is null");
+        this.isMergeSink = acidTransaction.isMerge();
+        requireNonNull(bucketInfo, "bucketInfo is null");
         this.pagePartitioner = new HiveWriterPagePartitioner(
                 inputColumns,
-                bucketProperty.isPresent(),
+                bucketInfo.isPresent(),
                 pageIndexerFactory);
 
         // determine the input index of the partition columns and data columns
@@ -148,13 +150,13 @@ public class HivePageSink
         this.partitionColumnsInputIndex = Ints.toArray(partitionColumns.build());
         this.dataColumnInputIndex = Ints.toArray(dataColumnsInputIndex.build());
 
-        if (bucketProperty.isPresent()) {
-            BucketingVersion bucketingVersion = bucketProperty.get().getBucketingVersion();
-            int bucketCount = bucketProperty.get().getBucketCount();
-            bucketColumns = bucketProperty.get().getBucketedBy().stream()
-                    .mapToInt(dataColumnNameToIdMap::get)
+        if (bucketInfo.isPresent()) {
+            HiveBucketing.BucketingVersion bucketingVersion = bucketInfo.get().bucketingVersion();
+            int bucketCount = bucketInfo.get().bucketCount();
+            bucketColumns = bucketInfo.get().bucketedBy().stream()
+                    .mapToInt(dataColumnNameToIdMap::getInt)
                     .toArray();
-            List<HiveType> bucketColumnTypes = bucketProperty.get().getBucketedBy().stream()
+            List<HiveType> bucketColumnTypes = bucketInfo.get().bucketedBy().stream()
                     .map(dataColumnNameToTypeMap::get)
                     .collect(toList());
             bucketFunction = new HiveBucketFunction(bucketingVersion, bucketCount, bucketColumnTypes);
@@ -348,6 +350,7 @@ public class HivePageSink
         validationCpuNanos += writer.getValidationCpuNanos();
 
         writers.set(writerIndex, null);
+        currentOpenWriters--;
 
         PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
         partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
@@ -378,9 +381,6 @@ public class HivePageSink
         Page partitionColumns = extractColumns(page, partitionColumnsInputIndex);
         Block bucketBlock = buildBucketBlock(page);
         int[] writerIndexes = pagePartitioner.partitionPage(partitionColumns, bucketBlock);
-        if (pagePartitioner.getMaxIndex() >= maxOpenWriters) {
-            throw new TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions/buckets", maxOpenWriters));
-        }
 
         // expand writers list to new size
         while (writers.size() <= pagePartitioner.getMaxIndex()) {
@@ -411,9 +411,14 @@ public class HivePageSink
             writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
 
             writers.set(writerIndex, writer);
+            currentOpenWriters++;
             memoryUsage += writer.getMemoryUsage();
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
+
+        if (currentOpenWriters > maxOpenWriters) {
+            throw new TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions/buckets", maxOpenWriters));
+        }
 
         return writerIndexes;
     }

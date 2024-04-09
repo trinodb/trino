@@ -26,6 +26,7 @@ import com.google.common.collect.Streams;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
+import io.trino.plugin.deltalake.DeltaLakeTable;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.Location;
@@ -91,6 +92,7 @@ public final class DeltaLakeSchemaSupport
     public static final String COLUMN_MAPPING_MODE_CONFIGURATION_KEY = "delta.columnMapping.mode";
     public static final String COLUMN_MAPPING_PHYSICAL_NAME_CONFIGURATION_KEY = "delta.columnMapping.physicalName";
     public static final String MAX_COLUMN_ID_CONFIGURATION_KEY = "delta.columnMapping.maxColumnId";
+    public static final String ISOLATION_LEVEL_CONFIGURATION_KEY = "delta.isolationLevel";
     private static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
 
     // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#valid-feature-names-in-table-features
@@ -102,11 +104,13 @@ public final class DeltaLakeSchemaSupport
     private static final String IDENTITY_COLUMNS_FEATURE_NAME = "identityColumns";
     private static final String INVARIANTS_FEATURE_NAME = "invariants";
     public static final String TIMESTAMP_NTZ_FEATURE_NAME = "timestampNtz";
+    public static final String V2_CHECKPOINT_FEATURE_NAME = "v2Checkpoint";
 
     private static final Set<String> SUPPORTED_READER_FEATURES = ImmutableSet.<String>builder()
             .add(COLUMN_MAPPING_FEATURE_NAME)
             .add(TIMESTAMP_NTZ_FEATURE_NAME)
             .add(DELETION_VECTORS_FEATURE_NAME)
+            .add(V2_CHECKPOINT_FEATURE_NAME)
             .build();
     private static final Set<String> SUPPORTED_WRITER_FEATURES = ImmutableSet.<String>builder()
             .add(APPEND_ONLY_FEATURE_NAME)
@@ -124,6 +128,24 @@ public final class DeltaLakeSchemaSupport
         NONE,
         UNKNOWN,
         /**/;
+    }
+
+    public enum IsolationLevel
+    {
+        WRITESERIALIZABLE("WriteSerializable"),
+        SERIALIZABLE("Serializable");
+
+        private final String value;
+
+        IsolationLevel(String value)
+        {
+            this.value = value;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
     }
 
     // only non-parametrized types are stored here
@@ -174,6 +196,13 @@ public final class DeltaLakeSchemaSupport
         return Enums.getIfPresent(ColumnMappingMode.class, columnMappingMode.toUpperCase(ENGLISH)).or(ColumnMappingMode.UNKNOWN);
     }
 
+    public static IsolationLevel getIsolationLevel(MetadataEntry metadata)
+    {
+        // WriteSerializable isolation level provides the best balance between data consistency and availability
+        String isolationLevel = metadata.getConfiguration().getOrDefault(ISOLATION_LEVEL_CONFIGURATION_KEY, IsolationLevel.WRITESERIALIZABLE.getValue());
+        return Enums.getIfPresent(IsolationLevel.class, isolationLevel.toUpperCase(ENGLISH)).toJavaUtil().orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Unsupported isolation level '%s'".formatted(isolationLevel)));
+    }
+
     public static int getMaxColumnId(MetadataEntry metadata)
     {
         String maxColumnId = metadata.getConfiguration().get(MAX_COLUMN_ID_CONFIGURATION_KEY);
@@ -197,52 +226,42 @@ public final class DeltaLakeSchemaSupport
                 .collect(toImmutableList());
     }
 
-    public static String serializeSchemaAsJson(
-            List<String> columnNames,
-            Map<String, Object> columnTypes,
-            Map<String, String> columnComments,
-            Map<String, Boolean> columnNullability,
-            Map<String, Map<String, Object>> columnMetadata)
+    public static String serializeSchemaAsJson(DeltaLakeTable deltaTable)
     {
         try {
-            return OBJECT_MAPPER.writeValueAsString(serializeStructType(columnNames, columnTypes, columnComments, columnNullability, columnMetadata));
+            return OBJECT_MAPPER.writeValueAsString(serializeStructType(deltaTable));
         }
         catch (JsonProcessingException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to encode Delta Lake schema", e);
         }
     }
 
-    private static Map<String, Object> serializeStructType(
-            List<String> columnNames,
-            Map<String, Object> columnTypes,
-            Map<String, String> columnComments,
-            Map<String, Boolean> columnNullability,
-            Map<String, Map<String, Object>> columnMetadata)
+    private static Map<String, Object> serializeStructType(DeltaLakeTable deltaTable)
     {
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#struct-type
         ImmutableMap.Builder<String, Object> schema = ImmutableMap.builder();
 
         schema.put("type", "struct");
-        schema.put("fields", columnNames.stream()
-                .map(columnName -> serializeStructField(
-                        columnName,
-                        columnTypes.get(columnName),
-                        columnComments.get(columnName),
-                        columnNullability.get(columnName),
-                        columnMetadata.get(columnName)))
+        schema.put("fields", deltaTable.columns().stream()
+                .map(column -> serializeStructField(
+                        column.name(),
+                        column.type(),
+                        column.comment(),
+                        column.nullable(),
+                        column.metadata()))
                 .collect(toImmutableList()));
 
         return schema.buildOrThrow();
     }
 
-    private static Map<String, Object> serializeStructField(String name, Object type, @Nullable String comment, @Nullable Boolean nullable, @Nullable Map<String, Object> metadata)
+    private static Map<String, Object> serializeStructField(String name, Object type, @Nullable String comment, boolean nullable, @Nullable Map<String, Object> metadata)
     {
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#struct-field
         ImmutableMap.Builder<String, Object> fieldContents = ImmutableMap.builder();
 
         fieldContents.put("name", name);
         fieldContents.put("type", type);
-        fieldContents.put("nullable", nullable != null ? nullable : true);
+        fieldContents.put("nullable", nullable);
 
         ImmutableMap.Builder<String, Object> columnMetadata = ImmutableMap.builder();
         if (comment != null) {
@@ -306,7 +325,7 @@ public final class DeltaLakeSchemaSupport
                 .map(field -> {
                     Object fieldType = serializeColumnType(columnMappingMode, maxColumnId, field.getType());
                     Map<String, Object> metadata = generateColumnMetadata(columnMappingMode, maxColumnId);
-                    return serializeStructField(field.getName().orElse(null), fieldType, null, null, metadata);
+                    return serializeStructField(field.getName().orElse(null), fieldType, null, true, metadata);
                 })
                 .collect(toImmutableList()));
 

@@ -21,42 +21,31 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.LiteralEncoder;
-import io.trino.sql.planner.NoOpSymbolResolver;
-import io.trino.sql.planner.TypeAnalyzer;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.In;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Not;
+import io.trino.sql.planner.IrExpressionInterpreter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.trino.sql.ExpressionUtils.or;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.scaleFactor;
 import static java.lang.Math.multiplyExact;
@@ -82,75 +71,64 @@ import static java.util.Objects.requireNonNull;
 public class UnwrapYearInComparison
         extends ExpressionRewriteRuleSet
 {
-    public UnwrapYearInComparison(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public UnwrapYearInComparison(PlannerContext plannerContext)
     {
-        super(createRewrite(plannerContext, typeAnalyzer));
+        super(createRewrite(plannerContext));
     }
 
-    private static ExpressionRewriter createRewrite(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(PlannerContext plannerContext)
     {
         requireNonNull(plannerContext, "plannerContext is null");
-        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> unwrapYear(context.getSession(), plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
+        return (expression, context) -> unwrapYear(context.getSession(), plannerContext, expression);
     }
 
     private static Expression unwrapYear(Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, session, types), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session), expression);
     }
 
     private static class Visitor
-            extends io.trino.sql.tree.ExpressionRewriter<Void>
+            extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final PlannerContext plannerContext;
-        private final TypeAnalyzer typeAnalyzer;
         private final Session session;
-        private final TypeProvider types;
-        private final LiteralEncoder literalEncoder;
 
-        public Visitor(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
+        public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
-            this.types = requireNonNull(types, "types is null");
-            this.literalEncoder = new LiteralEncoder(plannerContext);
         }
 
         @Override
-        public Expression rewriteComparisonExpression(ComparisonExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteComparison(Comparison node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            ComparisonExpression expression = treeRewriter.defaultRewrite(node, null);
+            Comparison expression = treeRewriter.defaultRewrite(node, null);
             return unwrapYear(expression);
         }
 
         @Override
-        public Expression rewriteInPredicate(InPredicate node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteIn(In node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            InPredicate inPredicate = treeRewriter.defaultRewrite(node, null);
-            Expression value = inPredicate.getValue();
-            Expression valueList = inPredicate.getValueList();
+            In in = treeRewriter.defaultRewrite(node, null);
+            Expression value = in.value();
 
-            if (!(value instanceof FunctionCall call) ||
-                    !extractFunctionName(call.getName()).equals(builtinFunctionName("year")) ||
-                    call.getArguments().size() != 1 ||
-                    !(valueList instanceof InListExpression inListExpression)) {
-                return inPredicate;
+            if (!(value instanceof Call call) ||
+                    !call.function().getName().equals(builtinFunctionName("year")) ||
+                    call.arguments().size() != 1) {
+                return in;
             }
 
             // Convert each value to a comparison expression and try to unwrap it.
             // unwrap the InPredicate only in case we manage to unwrap the entire value list
-            ImmutableList.Builder<Expression> comparisonExpressions = ImmutableList.builderWithExpectedSize(inListExpression.getValues().size());
-            for (Expression rightExpression : inListExpression.getValues()) {
-                ComparisonExpression comparisonExpression = new ComparisonExpression(EQUAL, value, rightExpression);
-                Expression unwrappedExpression = unwrapYear(comparisonExpression);
-                if (unwrappedExpression == comparisonExpression) {
-                    return inPredicate;
+            ImmutableList.Builder<Expression> comparisonExpressions = ImmutableList.builderWithExpectedSize(node.valueList().size());
+            for (Expression rightExpression : node.valueList()) {
+                Comparison comparison = new Comparison(EQUAL, value, rightExpression);
+                Expression unwrappedExpression = unwrapYear(comparison);
+                if (unwrappedExpression == comparison) {
+                    return in;
                 }
                 comparisonExpressions.add(unwrappedExpression);
             }
@@ -159,32 +137,29 @@ public class UnwrapYearInComparison
         }
 
         // Simplify `year(d) ? value`
-        private Expression unwrapYear(ComparisonExpression expression)
+        private Expression unwrapYear(Comparison expression)
         {
             // Expect year on the left side and value on the right side of the comparison.
             // This is provided by CanonicalizeExpressionRewriter.
-            if (!(expression.getLeft() instanceof FunctionCall call) ||
-                    !extractFunctionName(call.getName()).equals(builtinFunctionName("year")) ||
-                    call.getArguments().size() != 1) {
+            if (!(expression.left() instanceof Call call) ||
+                    !call.function().getName().equals(builtinFunctionName("year")) ||
+                    call.arguments().size() != 1) {
                 return expression;
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
+            Expression argument = getOnlyElement(call.arguments());
+            Type argumentType = argument.type();
 
-            Expression argument = getOnlyElement(call.getArguments());
-            Type argumentType = expressionTypes.get(NodeRef.of(argument));
+            Expression right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
 
-            Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, expressionTypes)
-                    .optimize(NoOpSymbolResolver.INSTANCE);
-
-            if (right == null || right instanceof NullLiteral) {
-                return switch (expression.getOperator()) {
-                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Cast(new NullLiteral(), toSqlType(BOOLEAN));
-                    case IS_DISTINCT_FROM -> new IsNotNullPredicate(argument);
+            if (right instanceof Constant constant && constant.value() == null) {
+                return switch (expression.operator()) {
+                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
+                    case IS_DISTINCT_FROM -> new Not(new IsNull(argument));
                 };
             }
 
-            if (right instanceof Expression) {
+            if (!(right instanceof Constant(Type rightType, Object rightValue))) {
                 return expression;
             }
             if (argumentType instanceof TimestampWithTimeZoneType) {
@@ -197,31 +172,38 @@ public class UnwrapYearInComparison
                 return expression;
             }
 
-            int year = toIntExact((Long) right);
-            return switch (expression.getOperator()) {
+            int year = toIntExact((Long) rightValue);
+            return switch (expression.operator()) {
                 case EQUAL -> between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType));
-                case NOT_EQUAL -> new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
+                case NOT_EQUAL -> new Not(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
                 case IS_DISTINCT_FROM -> or(
-                        new IsNullPredicate(argument),
-                        new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType))));
-                case LESS_THAN -> new ComparisonExpression(LESS_THAN, argument, toExpression(calculateRangeStartInclusive(year, argumentType), argumentType));
-                case LESS_THAN_OR_EQUAL -> new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(calculateRangeEndInclusive(year, argumentType), argumentType));
-                case GREATER_THAN -> new ComparisonExpression(GREATER_THAN, argument, toExpression(calculateRangeEndInclusive(year, argumentType), argumentType));
-                case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, toExpression(calculateRangeStartInclusive(year, argumentType), argumentType));
+                        new IsNull(argument),
+                        new Not(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType))));
+                case LESS_THAN -> {
+                    Object value = calculateRangeStartInclusive(year, argumentType);
+                    yield new Comparison(LESS_THAN, argument, new Constant(argumentType, value));
+                }
+                case LESS_THAN_OR_EQUAL -> {
+                    Object value = calculateRangeEndInclusive(year, argumentType);
+                    yield new Comparison(LESS_THAN_OR_EQUAL, argument, new Constant(argumentType, value));
+                }
+                case GREATER_THAN -> {
+                    Object value = calculateRangeEndInclusive(year, argumentType);
+                    yield new Comparison(GREATER_THAN, argument, new Constant(argumentType, value));
+                }
+                case GREATER_THAN_OR_EQUAL -> {
+                    Object value = calculateRangeStartInclusive(year, argumentType);
+                    yield new Comparison(GREATER_THAN_OR_EQUAL, argument, new Constant(argumentType, value));
+                }
             };
         }
 
-        private BetweenPredicate between(Expression argument, Type type, Object minInclusive, Object maxInclusive)
+        private Between between(Expression argument, Type type, Object minInclusive, Object maxInclusive)
         {
-            return new BetweenPredicate(
+            return new Between(
                     argument,
-                    toExpression(minInclusive, type),
-                    toExpression(maxInclusive, type));
-        }
-
-        private Expression toExpression(Object value, Type type)
-        {
-            return literalEncoder.toExpression(value, type);
+                    new Constant(type, minInclusive),
+                    new Constant(type, maxInclusive));
         }
     }
 

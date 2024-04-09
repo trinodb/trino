@@ -73,6 +73,7 @@ import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_DOMAINS;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskState.FAILING;
+import static io.trino.execution.TaskState.FINISHED;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.util.Failures.toFailures;
 import static java.lang.String.format;
@@ -217,12 +218,9 @@ public class SqlTask
                     switch (newState) {
                         // don't close buffers for a failed query
                         // closed buffers signal to upstream tasks that everything finished cleanly
-                        case FAILED, FAILING, ABORTED, ABORTING ->
-                                outputBuffer.abort();
-                        case FINISHED, CANCELED, CANCELING ->
-                                outputBuffer.destroy();
-                        default ->
-                                throw new IllegalStateException(format("Invalid state for output buffer destruction: %s", newState));
+                        case FAILED, FAILING, ABORTED, ABORTING -> outputBuffer.abort();
+                        case FINISHED, CANCELED, CANCELING -> outputBuffer.destroy();
+                        default -> throw new IllegalStateException(format("Invalid state for output buffer destruction: %s", newState));
                     }
                 }
             }
@@ -370,6 +368,14 @@ public class SqlTask
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
             dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
+        }
+        else if (state == FINISHED) {
+            // if task FINISHED successfully but taskHolder is not yet updated with SqlTaskExecution or FinalTaskInfo
+            // we are masking the state and return RUNNING. This is important so coordinator would not consider incomplete
+            // task information (e.g. missing proper dynamicFiltersVersion as final).
+            // This covers only short time window between call to SqlTaskExecution.start() and updating taskHolder reference in tryCreateSqlTaskExecution,
+            // so it will not add any noticable delays.
+            state = RUNNING;
         }
 
         return new TaskStatus(
@@ -519,13 +525,14 @@ public class SqlTask
     @Nullable
     private SqlTaskExecution tryCreateSqlTaskExecution(Session session, Span stageSpan, PlanFragment fragment)
     {
+        SqlTaskExecution execution;
         synchronized (taskHolderLock) {
             // Recheck holder for task execution after acquiring the lock
             TaskHolder taskHolder = taskHolderReference.get();
             if (taskHolder.isFinished()) {
                 return null;
             }
-            SqlTaskExecution execution = taskHolder.getTaskExecution();
+            execution = taskHolder.getTaskExecution();
             if (execution != null) {
                 return execution;
             }
@@ -555,8 +562,14 @@ public class SqlTask
             // this must happen after taskExecution.start(), otherwise it could become visible to a
             // concurrent update without being fully initialized
             checkState(taskHolderReference.compareAndSet(taskHolder, new TaskHolder(execution)), "unsynchronized concurrent task holder update");
-            return execution;
         }
+        if (taskStateMachine.getState() == FINISHED) {
+            // Bump task status version as otherwise it could not be observed by coordinator due to
+            // status masking logic in createTaskStatus for case when neither SqlExecution nor
+            // FinalTaskInfo is set in TaskHolder.
+            notifyStatusChanged();
+        }
+        return execution;
     }
 
     public ListenableFuture<BufferResult> getTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)

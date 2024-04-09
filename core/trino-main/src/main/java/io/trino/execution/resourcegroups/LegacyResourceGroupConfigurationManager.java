@@ -67,4 +67,7 @@ public class LegacyResourceGroupConfigurationManager
                 context.getResourceGroupId().getParent().orElseThrow(() -> new IllegalArgumentException("Group has no parent group: " + context.getResourceGroupId())),
                 VoidContext.NONE);
     }
+
+    @Override
+    public void shutdown() {}
 }

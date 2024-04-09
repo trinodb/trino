@@ -26,7 +26,6 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -71,13 +70,12 @@ public class BenchmarkGroupByHash
     private static final int GROUP_COUNT = Integer.parseInt(GROUP_COUNT_STRING);
     private static final int EXPECTED_SIZE = 10_000;
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
     public Object addPages(MultiChannelBenchmarkData data)
     {
-        GroupByHash groupByHash = new FlatGroupByHash(data.getTypes(), data.isHashEnabled(), EXPECTED_SIZE, false, JOIN_COMPILER, NOOP);
+        GroupByHash groupByHash = new FlatGroupByHash(data.getTypes(), data.isHashEnabled(), EXPECTED_SIZE, false, new FlatHashStrategyCompiler(TYPE_OPERATORS), NOOP);
         addInputPagesToHash(groupByHash, data.getPages());
         return groupByHash;
     }
@@ -264,7 +262,7 @@ public class BenchmarkGroupByHash
         @Setup
         public void setup(MultiChannelBenchmarkData data)
         {
-            prefilledHash = new FlatGroupByHash(data.getTypes(), data.isHashEnabled(), EXPECTED_SIZE, false, JOIN_COMPILER, NOOP);
+            prefilledHash = new FlatGroupByHash(data.getTypes(), data.isHashEnabled(), EXPECTED_SIZE, false, new FlatHashStrategyCompiler(new TypeOperators()), NOOP);
             addInputPagesToHash(prefilledHash, data.getPages());
 
             Integer[] groupIds = new Integer[prefilledHash.getGroupCount()];

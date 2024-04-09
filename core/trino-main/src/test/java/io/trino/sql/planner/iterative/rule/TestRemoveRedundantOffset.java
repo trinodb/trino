@@ -14,11 +14,12 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestRemoveRedundantOffset
         extends BaseRuleTest
@@ -48,14 +49,14 @@ public class TestRemoveRedundantOffset
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(
-                                        ImmutableList.of(expression("1")),
-                                        ImmutableList.of(expression("2"))))))
+                                        ImmutableList.of(new Constant(INTEGER, 1L)),
+                                        ImmutableList.of(new Constant(INTEGER, 2L))))))
                 .matches(
                         values(
                                 ImmutableList.of("a"),
                                 ImmutableList.of(
-                                        ImmutableList.of(expression("1")),
-                                        ImmutableList.of(expression("2")))));
+                                        ImmutableList.of(new Constant(INTEGER, 1L)),
+                                        ImmutableList.of(new Constant(INTEGER, 2L)))));
     }
 
     @Test

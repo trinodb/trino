@@ -65,6 +65,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertContainsEventually;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
@@ -176,7 +177,7 @@ public class TestCassandraConnectorTest
     @Override
     public void testShowColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
+        assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
     }
 
     @Override
@@ -449,9 +450,9 @@ public class TestCassandraConnectorTest
                 columnsValue(9, ImmutableList.of(
                         rowNumber -> format("'key %d'", rowNumber),
                         rowNumber -> format("00000000-0000-0000-0000-%012d", rowNumber),
-                        rowNumber -> String.valueOf(rowNumber),
-                        rowNumber -> String.valueOf(rowNumber),
-                        rowNumber -> String.valueOf(rowNumber),
+                        String::valueOf,
+                        String::valueOf,
+                        String::valueOf,
                         rowNumber -> String.valueOf(rowNumber + 1000),
                         rowNumber -> toHexString(ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer()),
                         rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
@@ -498,9 +499,9 @@ public class TestCassandraConnectorTest
                 columnsValue(9, ImmutableList.of(
                         rowNumber -> format("'key %d'", rowNumber),
                         rowNumber -> format("00000000-0000-0000-0000-%012d", rowNumber),
-                        rowNumber -> String.valueOf(rowNumber),
-                        rowNumber -> String.valueOf(rowNumber),
-                        rowNumber -> String.valueOf(rowNumber),
+                        String::valueOf,
+                        String::valueOf,
+                        String::valueOf,
                         rowNumber -> String.valueOf(rowNumber + 1000),
                         rowNumber -> toHexString(ByteBuffer.wrap(Ints.toByteArray(rowNumber))),
                         rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
@@ -561,9 +562,9 @@ public class TestCassandraConnectorTest
                 columnsValue(9, ImmutableList.of(
                         rowNumber -> format("'key %d'", rowNumber),
                         rowNumber -> format("00000000-0000-0000-0000-%012d", rowNumber),
-                        rowNumber -> String.valueOf(rowNumber),
-                        rowNumber -> String.valueOf(rowNumber),
-                        rowNumber -> String.valueOf(rowNumber),
+                        String::valueOf,
+                        String::valueOf,
+                        String::valueOf,
                         rowNumber -> String.valueOf(rowNumber + 1000),
                         rowNumber -> toHexString(ByteBuffer.wrap(Ints.toByteArray(rowNumber))),
                         rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
@@ -826,6 +827,49 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    public void testSelectWithSecondaryIndex()
+    {
+        testSelectWithSecondaryIndex(true);
+        testSelectWithSecondaryIndex(false);
+    }
+
+    private void testSelectWithSecondaryIndex(boolean withClusteringKey)
+    {
+        String table = "test_cluster_key_" + randomNameSuffix();
+
+        if (withClusteringKey) {
+            onCassandra("CREATE TABLE tpch." + table + "(pk1_col text, pk2_col text, idx1_col text, idx2_col text, cluster_col tinyint, PRIMARY KEY ((pk1_col, pk2_col), cluster_col)) WITH CLUSTERING ORDER BY (cluster_col ASC)");
+        }
+        else {
+            onCassandra("CREATE TABLE tpch." + table + "(pk1_col text, pk2_col text, idx1_col text, idx2_col text, cluster_col tinyint, PRIMARY KEY ((pk1_col, pk2_col)))");
+        }
+
+        onCassandra("CREATE INDEX ON tpch." + table + " (idx1_col)");
+        onCassandra("CREATE INDEX ON tpch." + table + " (idx2_col)");
+
+        onCassandra("INSERT INTO tpch." + table + "(pk1_col, pk2_col, cluster_col, idx1_col, idx2_col) VALUES('v11', 'v21', 1, 'value1', 'value21')");
+        onCassandra("INSERT INTO tpch." + table + "(pk1_col, pk2_col, cluster_col, idx1_col, idx2_col) VALUES('v11', 'v22', 2, 'value1', 'value22')");
+        onCassandra("INSERT INTO tpch." + table + "(pk1_col, pk2_col, cluster_col, idx1_col, idx2_col) VALUES('v12', 'v23', 1, 'value2', 'value23')");
+
+        assertQuery("SELECT * FROM tpch." + table, "VALUES ('v11', 'v21', 1, 'value1', 'value21'), ('v11', 'v22', 2, 'value1', 'value22'), ('v12', 'v23', 1, 'value2', 'value23')");
+
+        assertEventually(() -> {
+            // Wait for indexes to be created successfully.
+            assertThat(query("SELECT * FROM tpch." + table + " WHERE idx2_col = 'value1'")).isFullyPushedDown(); // Verify single indexed column predicate is pushed down.
+        });
+
+        // Execute a query on Trino with where clause having all the secondary key columns and another column (potentially a cluster key column)
+        assertQuery("SELECT * FROM tpch." + table + " WHERE idx1_col = 'value1' AND idx2_col = 'value21' AND cluster_col = 1", "VALUES ('v11', 'v21', 1, 'value1', 'value21')");
+        // Execute a query on Trino with where clause not having all the secondary key columns and another column (potentially a cluster key column)
+        assertQuery("SELECT * FROM tpch." + table + " WHERE idx1_col = 'value1' AND cluster_col = 1", "VALUES ('v11', 'v21', 1, 'value1', 'value21')");
+
+        onCassandra("DROP INDEX tpch." + table + "_idx1_col_idx");
+        onCassandra("DROP INDEX tpch." + table + "_idx2_col_idx");
+
+        onCassandra("DROP TABLE tpch." + table);
+    }
+
+    @Test
     public void testUpperCaseNameUnescapedInCassandra()
     {
         /*
@@ -888,25 +932,28 @@ public class TestCassandraConnectorTest
     @Test
     public void testKeyspaceNameAmbiguity()
     {
-        // Identifiers enclosed in double quotes are stored in Cassandra verbatim. It is possible to create 2 keyspaces with names
-        // that have differences only in letters case.
-        session.execute("CREATE KEYSPACE \"KeYsPaCe_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
-        session.execute("CREATE KEYSPACE \"kEySpAcE_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+        // Run exclusively as the test temporarily creates unsupported state (name conflict)
+        executeExclusively(() -> {
+            // Identifiers enclosed in double quotes are stored in Cassandra verbatim. It is possible to create 2 keyspaces with names
+            // that have differences only in letters case.
+            session.execute("CREATE KEYSPACE \"KeYsPaCe_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+            session.execute("CREATE KEYSPACE \"kEySpAcE_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
 
-        // Although in Trino all the schema and table names are always displayed as lowercase
-        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_3")
-                .row("keyspace_3")
-                .build(), new Duration(1, MINUTES));
+            // Although in Trino all the schema and table names are always displayed as lowercase
+            assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("keyspace_3")
+                    .row("keyspace_3")
+                    .build(), new Duration(1, MINUTES));
 
-        // There is no way to figure out what the exactly keyspace we want to retrieve tables from
-        assertQueryFailsEventually(
-                "SHOW TABLES FROM cassandra.keyspace_3",
-                "Error listing tables for catalog cassandra: More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
-                new Duration(1, MINUTES));
+            // There is no way to figure out what the exactly keyspace we want to retrieve tables from
+            assertQueryFailsEventually(
+                    "SHOW TABLES FROM cassandra.keyspace_3",
+                    "Error listing tables for catalog cassandra: More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
+                    new Duration(1, MINUTES));
 
-        session.execute("DROP KEYSPACE \"KeYsPaCe_3\"");
-        session.execute("DROP KEYSPACE \"kEySpAcE_3\"");
+            session.execute("DROP KEYSPACE \"KeYsPaCe_3\"");
+            session.execute("DROP KEYSPACE \"kEySpAcE_3\"");
+        });
     }
 
     @Test
@@ -1262,20 +1309,20 @@ public class TestCassandraConnectorTest
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             // error
-            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable))
-                    .isInstanceOf(RuntimeException.class);
+            assertThat(query("DELETE FROM " + keyspaceAndTable))
+                    .failure().hasMessage("Deleting without partition key is not supported");
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             String whereClusteringKeyOnly = " WHERE clust_one='clust_one_2'";
-            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereClusteringKeyOnly))
-                    .isInstanceOf(RuntimeException.class);
+            assertThat(query("DELETE FROM " + keyspaceAndTable + whereClusteringKeyOnly))
+                    .failure().hasMessage("Delete without primary key or partition key is not supported");
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             String whereMultiplePartitionKeyWithClusteringKey = " WHERE " +
                     " (partition_one=1 AND partition_two=1 AND clust_one='clust_one_1') OR " +
                     " (partition_one=1 AND partition_two=2 AND clust_one='clust_one_2') ";
-            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKeyWithClusteringKey))
-                    .isInstanceOf(RuntimeException.class);
+            assertThat(query("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKeyWithClusteringKey))
+                    .failure().hasMessage("Delete without primary key or partition key is not supported");
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             // success
@@ -1435,8 +1482,8 @@ public class TestCassandraConnectorTest
     {
         String tableName = "test_create" + randomNameSuffix();
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'CREATE TABLE tpch." + tableName + "(col INT PRIMARY KEY)'))"))
-                .hasMessage("Handle doesn't have columns info");
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'CREATE TABLE tpch." + tableName + "(col INT PRIMARY KEY)'))"))
+                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
@@ -1445,7 +1492,8 @@ public class TestCassandraConnectorTest
     {
         String tableName = "test_insert" + randomNameSuffix();
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
+                .failure()
                 .hasMessage("Cannot get column definition")
                 .hasStackTraceContaining("unconfigured table");
     }
@@ -1460,10 +1508,10 @@ public class TestCassandraConnectorTest
                 .row(tableName)
                 .build(), new Duration(1, MINUTES));
 
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (3)'))"))
-                .hasMessage("Handle doesn't have columns info");
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'DELETE FROM tpch." + tableName + " WHERE col = 1'))"))
-                .hasMessage("Handle doesn't have columns info");
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (3)'))"))
+                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'DELETE FROM tpch." + tableName + " WHERE col = 1'))"))
+                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 1");
 
@@ -1473,7 +1521,8 @@ public class TestCassandraConnectorTest
     @Test
     public void testNativeQueryIncorrectSyntax()
     {
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure()
                 .hasMessage("Cannot get column definition")
                 .hasStackTraceContaining("no viable alternative at input 'some'");
     }

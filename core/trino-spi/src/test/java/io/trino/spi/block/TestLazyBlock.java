@@ -54,9 +54,9 @@ public class TestLazyBlock
     {
         List<Block> actualNotifications = new ArrayList<>();
         LazyBlock lazyBlock = new LazyBlock(1, TestLazyBlock::createInfiniteRecursiveRowBlock);
-        Block nestedRowBlock = lazyBlock.getBlock();
+        RowBlock nestedRowBlock = (RowBlock) lazyBlock.getBlock();
         LazyBlock.listenForLoads(lazyBlock, actualNotifications::add);
-        Block loadedBlock = ((LazyBlock) nestedRowBlock.getChildren().get(0)).getBlock();
+        Block loadedBlock = ((LazyBlock) nestedRowBlock.getFieldBlock(0)).getBlock();
         assertThat(actualNotifications).isEqualTo(ImmutableList.of(loadedBlock));
     }
 
@@ -66,7 +66,7 @@ public class TestLazyBlock
         List<Block> actualNotifications = new ArrayList<>();
         Block arrayBlock = new IntArrayBlock(2, Optional.empty(), new int[] {0, 1});
         LazyBlock lazyArrayBlock = new LazyBlock(2, () -> arrayBlock);
-        Block rowBlock = RowBlock.fromFieldBlocks(2, new Block[]{lazyArrayBlock});
+        Block rowBlock = RowBlock.fromFieldBlocks(2, new Block[] {lazyArrayBlock});
         LazyBlock lazyBlock = new LazyBlock(2, () -> rowBlock);
         LazyBlock.listenForLoads(lazyBlock, actualNotifications::add);
 
@@ -90,11 +90,11 @@ public class TestLazyBlock
         expectedNotifications.add(loadedBlock);
         assertThat(actualNotifications).isEqualTo(expectedNotifications);
 
-        if (loadedBlock instanceof ArrayBlock) {
+        if (loadedBlock instanceof ArrayBlock arrayBlock) {
             long expectedSize = (long) (Integer.BYTES + Byte.BYTES) * loadedBlock.getPositionCount();
             assertThat(loadedBlock.getSizeInBytes()).isEqualTo(expectedSize);
 
-            Block elementsBlock = loadedBlock.getChildren().get(0);
+            Block elementsBlock = arrayBlock.getRawElementBlock();
             if (depth > 0) {
                 assertNotificationsRecursive(depth - 1, elementsBlock, actualNotifications, expectedNotifications);
             }
@@ -103,18 +103,18 @@ public class TestLazyBlock
             assertThat(loadedBlock.getSizeInBytes()).isEqualTo(expectedSize);
             return;
         }
-        if (loadedBlock instanceof RowBlock) {
-            long expectedSize = (long) Byte.BYTES * loadedBlock.getPositionCount();
-            assertThat(loadedBlock.getSizeInBytes()).isEqualTo(expectedSize);
+        if (loadedBlock instanceof RowBlock rowBlock) {
+            long expectedSizeInBytes = loadedBlock.getPositionCount();
+            assertThat(loadedBlock.getSizeInBytes()).isEqualTo(expectedSizeInBytes);
 
-            for (Block fieldBlock : loadedBlock.getChildren()) {
+            for (Block fieldBlock : rowBlock.getFieldBlocks()) {
                 if (depth > 0) {
                     assertNotificationsRecursive(depth - 1, fieldBlock, actualNotifications, expectedNotifications);
                 }
 
                 long fieldBlockSize = fieldBlock.getSizeInBytes();
-                expectedSize += fieldBlockSize;
-                assertThat(loadedBlock.getSizeInBytes()).isEqualTo(expectedSize);
+                expectedSizeInBytes += fieldBlockSize;
+                assertThat(loadedBlock.getSizeInBytes()).isEqualTo(expectedSizeInBytes);
             }
             return;
         }

@@ -19,7 +19,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -85,13 +84,13 @@ public class TestDistinctWithOrderBy
     @Test
     public void testColumnAliasing()
     {
-        assertThatThrownBy(() -> assertions.query("SELECT DISTINCT 1 AS a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
-                .hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+        assertThat(assertions.query("SELECT DISTINCT 1 AS a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
+                .failure().hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
 
-        assertThatThrownBy(() -> assertions.query("SELECT DISTINCT -a AS a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
-                .hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+        assertThat(assertions.query("SELECT DISTINCT -a AS a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
+                .failure().hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
 
-        assertThatThrownBy(() -> assertions.query("SELECT DISTINCT a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
-                .hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+        assertThat(assertions.query("SELECT DISTINCT a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
+                .failure().hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
     }
 }

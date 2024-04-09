@@ -13,8 +13,8 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.iterative.Rule;
-import io.trino.sql.tree.Expression;
 
 public class DesugarLambdaExpression
         extends ExpressionRewriteRuleSet
@@ -26,6 +26,6 @@ public class DesugarLambdaExpression
 
     private static Expression rewrite(Expression expression, Rule.Context context)
     {
-        return LambdaCaptureDesugaringRewriter.rewrite(expression, context.getSymbolAllocator().getTypes(), context.getSymbolAllocator());
+        return LambdaCaptureDesugaringRewriter.rewrite(expression, context.getSymbolAllocator());
     }
 }

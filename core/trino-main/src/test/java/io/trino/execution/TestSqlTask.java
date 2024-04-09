@@ -21,8 +21,10 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TestingGcMonitor;
+import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.buffer.BufferResult;
@@ -73,7 +75,6 @@ import static io.trino.execution.TaskTestUtils.updateTask;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -423,7 +424,7 @@ public class TestSqlTask
         });
         VersionedDynamicFilterDomains versionedDynamicFilters = sqlTask.acknowledgeAndGetNewDynamicFilterDomains(INITIAL_DYNAMIC_FILTERS_VERSION);
         assertThat(versionedDynamicFilters.getVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION + 1);
-        assertThat(versionedDynamicFilters.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, Domain.none(VARCHAR)));
+        assertThat(versionedDynamicFilters.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, Domain.none(BIGINT)));
     }
 
     private SqlTask createInitialTask()
@@ -454,7 +455,7 @@ public class TestSqlTask
                 sqlTask -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
-                new ExchangeManagerRegistry(),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
                 new CounterStat());
     }
 }

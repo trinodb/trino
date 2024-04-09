@@ -507,7 +507,7 @@ public interface ConnectorMetadata
     /**
      * Creates a table using the specified table metadata.
      *
-     * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@code ignoreExisting} is not set
      * @deprecated use {@link #createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)}
      */
     @Deprecated
@@ -645,6 +645,14 @@ public interface ConnectorMetadata
     default void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, Type type)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting field types");
+    }
+
+    /**
+     * Drop a not null constraint on the specified column
+     */
+    default void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
     }
 
     /**
@@ -842,10 +850,27 @@ public interface ConnectorMetadata
 
     /**
      * Finish insert query
+     *
+     * @deprecated use {@link #finishInsert(ConnectorSession, ConnectorInsertTableHandle, List, Collection, Collection)}
      */
+    @Deprecated
     default Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without finishInsert()");
+    }
+
+    /**
+     * Finish insert query
+     */
+    default Optional<ConnectorOutputMetadata> finishInsert(
+            ConnectorSession session,
+            ConnectorInsertTableHandle insertHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        // Delegate to deprecated SPI to not break existing connectors
+        return finishInsert(session, insertHandle, fragments, computedStatistics);
     }
 
     /**
@@ -887,7 +912,8 @@ public interface ConnectorMetadata
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
-            List<ConnectorTableHandle> sourceTableHandles)
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<String> sourceTableFunctions)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
     }
@@ -1659,7 +1685,7 @@ public interface ConnectorMetadata
      * Create the specified materialized view. The view definition is intended to
      * be serialized by the connector for permanent storage.
      *
-     * @throws TrinoException with {@code ALREADY_EXISTS} if the object already exists and {@param ignoreExisting} is not set
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the object already exists and {@code ignoreExisting} is not set
      */
     default void createMaterializedView(
             ConnectorSession session,

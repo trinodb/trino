@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -38,16 +39,16 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * This rule finds correlated UnnestNode in CorrelatedJoinNode's subquery and folds
@@ -100,8 +101,8 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
 {
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(nonEmpty(correlation()))
-            .with(filter().equalTo(TRUE_LITERAL))
-            .matching(node -> node.getType() == CorrelatedJoinNode.Type.INNER || node.getType() == CorrelatedJoinNode.Type.LEFT);
+            .with(filter().equalTo(TRUE))
+            .matching(node -> node.getType() == JoinType.INNER || node.getType() == JoinType.LEFT);
 
     @Override
     public Pattern<CorrelatedJoinNode> getPattern()
@@ -113,7 +114,7 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
     public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
         // find global aggregation in subquery
-        Optional<AggregationNode> globalAggregation = PlanNodeSearcher.searchFrom(correlatedJoinNode.getSubquery(), context.getLookup())
+        Optional<PlanNode> globalAggregation = PlanNodeSearcher.searchFrom(correlatedJoinNode.getSubquery(), context.getLookup())
                 .where(DecorrelateLeftUnnestWithGlobalAggregation::isGlobalAggregation)
                 .recurseOnlyWhen(node -> node instanceof ProjectNode || isGroupedAggregation(node))
                 .findFirst();
@@ -123,7 +124,7 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
         }
 
         // find unnest in subquery
-        Optional<UnnestNode> subqueryUnnest = PlanNodeSearcher.searchFrom(correlatedJoinNode.getSubquery(), context.getLookup())
+        Optional<PlanNode> subqueryUnnest = PlanNodeSearcher.searchFrom(correlatedJoinNode.getSubquery(), context.getLookup())
                 .where(node -> isSupportedUnnest(node, correlatedJoinNode.getCorrelation(), context.getLookup()))
                 .recurseOnlyWhen(node -> node instanceof ProjectNode || isGlobalAggregation(node) || isGroupedAggregation(node))
                 .findFirst();
@@ -132,7 +133,7 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
             return Result.empty();
         }
 
-        UnnestNode unnestNode = subqueryUnnest.get();
+        UnnestNode unnestNode = (UnnestNode) subqueryUnnest.get();
 
         // assign unique id to input rows to restore semantics of aggregations after rewrite
         PlanNode input = new AssignUniqueId(
@@ -162,8 +163,7 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
                 input.getOutputSymbols(),
                 unnestNode.getMappings(),
                 unnestNode.getOrdinalitySymbol(),
-                LEFT,
-                Optional.empty());
+                LEFT);
 
         // restore all projections, grouped aggregations and global aggregations from the subquery
         PlanNode result = rewriteNodeSequence(
@@ -222,8 +222,7 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
         return isScalar(unnestNode.getSource(), lookup) &&
                 unnestNode.getReplicateSymbols().isEmpty() &&
                 basedOnCorrelation &&
-                unnestNode.getJoinType() == LEFT &&
-                (unnestNode.getFilter().isEmpty() || unnestNode.getFilter().get().equals(TRUE_LITERAL));
+                unnestNode.getJoinType() == LEFT;
     }
 
     private static PlanNode rewriteNodeSequence(PlanNode root, List<Symbol> leftOutputs, PlanNode sequenceSource, PlanNodeId correlatedUnnestId, Lookup lookup)

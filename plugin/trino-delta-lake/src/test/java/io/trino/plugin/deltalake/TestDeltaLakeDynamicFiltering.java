@@ -23,7 +23,6 @@ import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
-import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
@@ -33,8 +32,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
@@ -46,10 +45,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
-import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
@@ -60,6 +57,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Isolated
@@ -102,13 +100,13 @@ public class TestDeltaLakeDynamicFiltering
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             String query = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice > 59995 AND orders.totalprice < 60000";
-            MaterializedResultWithQueryId filteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(true, joinDistributionType), query);
-            MaterializedResultWithQueryId unfilteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(false, joinDistributionType), query);
-            assertEqualsIgnoreOrder(filteredResult.getResult().getMaterializedRows(), unfilteredResult.getResult().getMaterializedRows());
+            MaterializedResultWithPlan filteredResult = getDistributedQueryRunner().executeWithPlan(sessionWithDynamicFiltering(true, joinDistributionType), query);
+            MaterializedResultWithPlan unfilteredResult = getDistributedQueryRunner().executeWithPlan(sessionWithDynamicFiltering(false, joinDistributionType), query);
+            assertEqualsIgnoreOrder(filteredResult.result().getMaterializedRows(), unfilteredResult.result().getMaterializedRows());
 
-            QueryInputStats filteredStats = getQueryInputStats(filteredResult.getQueryId());
-            QueryInputStats unfilteredStats = getQueryInputStats(unfilteredResult.getQueryId());
-            assertGreaterThan(unfilteredStats.inputPositions, filteredStats.inputPositions);
+            QueryStats filteredStats = getQueryStats(filteredResult.queryId());
+            QueryStats unfilteredStats = getQueryStats(unfilteredResult.queryId());
+            assertGreaterThan(unfilteredStats.getPhysicalInputPositions(), filteredStats.getPhysicalInputPositions());
         }
     }
 
@@ -125,16 +123,22 @@ public class TestDeltaLakeDynamicFiltering
                 .build()
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
         QualifiedObjectName tableName = new QualifiedObjectName(DELTA_CATALOG, "default", "orders");
-        Optional<TableHandle> tableHandle = runner.getMetadata().getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = runner.getPlannerContext().getMetadata().getTableHandle(session, tableName);
         assertThat(tableHandle.isPresent()).isTrue();
-        SplitSource splitSource = runner.getSplitManager()
-                .getSplits(session, Span.getInvalid(), tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
-        List<Split> splits = new ArrayList<>();
-        while (!splitSource.isFinished()) {
-            splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
+        CompletableFuture<Void> dynamicFilterBlocked = new CompletableFuture<>();
+        try {
+            SplitSource splitSource = runner.getSplitManager()
+                    .getSplits(session, Span.getInvalid(), tableHandle.get(), new BlockedDynamicFilter(dynamicFilterBlocked), alwaysTrue());
+            List<Split> splits = new ArrayList<>();
+            while (!splitSource.isFinished()) {
+                splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
+            }
+            splitSource.close();
+            assertThat(splits.isEmpty()).isFalse();
         }
-        splitSource.close();
-        assertThat(splits.isEmpty()).isFalse();
+        finally {
+            dynamicFilterBlocked.complete(null);
+        }
     }
 
     private Session sessionWithDynamicFiltering(boolean enabled, JoinDistributionType joinDistributionType)
@@ -145,21 +149,21 @@ public class TestDeltaLakeDynamicFiltering
                 .build();
     }
 
-    private QueryInputStats getQueryInputStats(QueryId queryId)
+    private QueryStats getQueryStats(QueryId queryId)
     {
-        QueryStats stats = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
-        long numberOfSplits = stats.getOperatorSummaries()
-                .stream()
-                .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
-                .mapToLong(OperatorStats::getTotalDrivers)
-                .sum();
-        long inputPositions = stats.getPhysicalInputPositions();
-        return new QueryInputStats(numberOfSplits, inputPositions);
+        return getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
     }
 
-    private static class IncompleteDynamicFilter
+    private static class BlockedDynamicFilter
             implements DynamicFilter
     {
+        private final CompletableFuture<?> isBlocked;
+
+        public BlockedDynamicFilter(CompletableFuture<?> isBlocked)
+        {
+            this.isBlocked = requireNonNull(isBlocked, "isBlocked is null");
+        }
+
         @Override
         public Set<ColumnHandle> getColumnsCovered()
         {
@@ -169,14 +173,7 @@ public class TestDeltaLakeDynamicFiltering
         @Override
         public CompletableFuture<?> isBlocked()
         {
-            return unmodifiableFuture(CompletableFuture.runAsync(() -> {
-                try {
-                    TimeUnit.HOURS.sleep(1);
-                }
-                catch (InterruptedException e) {
-                    throw new IllegalStateException(e);
-                }
-            }));
+            return isBlocked;
         }
 
         @Override
@@ -195,18 +192,6 @@ public class TestDeltaLakeDynamicFiltering
         public TupleDomain<ColumnHandle> getCurrentPredicate()
         {
             return TupleDomain.all();
-        }
-    }
-
-    private static class QueryInputStats
-    {
-        final long numberOfSplits;
-        final long inputPositions;
-
-        QueryInputStats(long numberOfSplits, long inputPositions)
-        {
-            this.numberOfSplits = numberOfSplits;
-            this.inputPositions = inputPositions;
         }
     }
 }

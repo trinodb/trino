@@ -4,18 +4,17 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>435</version>
+        <version>444</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-cassandra</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Cassandra Connector</description>
+    <description>Trino - Cassandra connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.native-protocol.version>1.5.1</dep.native-protocol.version>
-        <air.test.parallel>instances</air.test.parallel>
     </properties>
 
     <dependencies>
@@ -249,12 +248,6 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

@@ -14,12 +14,14 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -43,7 +45,7 @@ public class TestPruneAssignUniqueIdColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", PlanMatchPattern.expression("a")),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new Reference(BIGINT, "a"))),
                                 values("a", "b")));
     }
 
@@ -63,11 +65,11 @@ public class TestPruneAssignUniqueIdColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", PlanMatchPattern.expression("a"), "unique_id", PlanMatchPattern.expression("unique_id")),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new Reference(BIGINT, "a")), "unique_id", PlanMatchPattern.expression(new Reference(BIGINT, "unique_id"))),
                                 assignUniqueId(
                                         "unique_id",
                                         strictProject(
-                                                ImmutableMap.of("a", PlanMatchPattern.expression("a")),
+                                                ImmutableMap.of("a", PlanMatchPattern.expression(new Reference(BIGINT, "a"))),
                                                 values("a", "b")))));
     }
 

@@ -16,31 +16,30 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.trino.metadata.Metadata;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.planner.DeterminismEvaluator;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.ExpressionUtils.combinePredicates;
-import static io.trino.sql.ExpressionUtils.extractPredicates;
+import static io.trino.sql.ir.IrUtils.combinePredicates;
+import static io.trino.sql.ir.IrUtils.extractPredicates;
+import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 import static java.util.Collections.emptySet;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public final class ExtractCommonPredicatesExpressionRewriter
 {
-    public static Expression extractCommonPredicates(Metadata metadata, Expression expression)
+    public static Expression extractCommonPredicates(Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata), expression, NodeContext.ROOT_NODE);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression, NodeContext.ROOT_NODE);
     }
 
     private ExtractCommonPredicatesExpressionRewriter() {}
@@ -48,13 +47,6 @@ public final class ExtractCommonPredicatesExpressionRewriter
     private static class Visitor
             extends ExpressionRewriter<NodeContext>
     {
-        private final Metadata metadata;
-
-        public Visitor(Metadata metadata)
-        {
-            this.metadata = requireNonNull(metadata, "metadata is null");
-        }
-
         @Override
         protected Expression rewriteExpression(Expression node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
         {
@@ -66,30 +58,29 @@ public final class ExtractCommonPredicatesExpressionRewriter
         }
 
         @Override
-        public Expression rewriteLogicalExpression(LogicalExpression node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
+        public Expression rewriteLogical(Logical node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
         {
             Expression expression = combinePredicates(
-                    metadata,
-                    node.getOperator(),
-                    extractPredicates(node.getOperator(), node).stream()
+                    node.operator(),
+                    extractPredicates(node.operator(), node).stream()
                             .map(subExpression -> treeRewriter.rewrite(subExpression, NodeContext.NOT_ROOT_NODE))
                             .collect(toImmutableList()));
 
-            if (!(expression instanceof LogicalExpression)) {
+            if (!(expression instanceof Logical)) {
                 return expression;
             }
 
-            Expression simplified = extractCommonPredicates((LogicalExpression) expression);
+            Expression simplified = extractCommonPredicates((Logical) expression);
 
             // Prefer AND LogicalBinaryExpression at the root if possible
-            if (context.isRootNode() && simplified instanceof LogicalExpression && ((LogicalExpression) simplified).getOperator() == OR) {
-                return distributeIfPossible((LogicalExpression) simplified);
+            if (context.isRootNode() && simplified instanceof Logical && ((Logical) simplified).operator() == OR) {
+                return distributeIfPossible((Logical) simplified);
             }
 
             return simplified;
         }
 
-        private Expression extractCommonPredicates(LogicalExpression node)
+        private Expression extractCommonPredicates(Logical node)
         {
             List<List<Expression>> subPredicates = getSubPredicates(node);
 
@@ -102,24 +93,24 @@ public final class ExtractCommonPredicatesExpressionRewriter
                     .map(predicateList -> removeAll(predicateList, commonPredicates))
                     .collect(toImmutableList());
 
-            LogicalExpression.Operator flippedOperator = node.getOperator().flip();
+            Logical.Operator flippedOperator = node.operator().flip();
 
             List<Expression> uncorrelatedPredicates = uncorrelatedSubPredicates.stream()
-                    .map(predicate -> combinePredicates(metadata, flippedOperator, predicate))
+                    .map(predicate -> combinePredicates(flippedOperator, predicate))
                     .collect(toImmutableList());
-            Expression combinedUncorrelatedPredicates = combinePredicates(metadata, node.getOperator(), uncorrelatedPredicates);
+            Expression combinedUncorrelatedPredicates = combinePredicates(node.operator(), uncorrelatedPredicates);
 
-            return combinePredicates(metadata, flippedOperator, ImmutableList.<Expression>builder()
+            return combinePredicates(flippedOperator, ImmutableList.<Expression>builder()
                     .addAll(commonPredicates)
                     .add(combinedUncorrelatedPredicates)
                     .build());
         }
 
-        private static List<List<Expression>> getSubPredicates(LogicalExpression expression)
+        private static List<List<Expression>> getSubPredicates(Logical expression)
         {
-            return extractPredicates(expression.getOperator(), expression).stream()
-                    .map(predicate -> predicate instanceof LogicalExpression ?
-                            extractPredicates((LogicalExpression) predicate) : ImmutableList.of(predicate))
+            return extractPredicates(expression.operator(), expression).stream()
+                    .map(predicate -> predicate instanceof Logical ?
+                            extractPredicates((Logical) predicate) : ImmutableList.of(predicate))
                     .collect(toImmutableList());
         }
 
@@ -132,9 +123,9 @@ public final class ExtractCommonPredicatesExpressionRewriter
          * Returns the original expression if the expression is non-deterministic or if the distribution will
          * expand the expression by too much.
          */
-        private Expression distributeIfPossible(LogicalExpression expression)
+        private Expression distributeIfPossible(Logical expression)
         {
-            if (!isDeterministic(expression, metadata)) {
+            if (!isDeterministic(expression)) {
                 // Do not distribute boolean expressions if there are any non-deterministic elements
                 // TODO: This can be optimized further if non-deterministic elements are not repeated
                 return expression;
@@ -169,17 +160,16 @@ public final class ExtractCommonPredicatesExpressionRewriter
             Set<List<Expression>> crossProduct = Sets.cartesianProduct(subPredicates);
 
             return combinePredicates(
-                    metadata,
-                    expression.getOperator().flip(),
+                    expression.operator().flip(),
                     crossProduct.stream()
-                            .map(expressions -> combinePredicates(metadata, expression.getOperator(), expressions))
+                            .map(expressions -> combinePredicates(expression.operator(), expressions))
                             .collect(toImmutableList()));
         }
 
         private Set<Expression> filterDeterministicPredicates(List<Expression> predicates)
         {
             return predicates.stream()
-                    .filter(expression -> isDeterministic(expression, metadata))
+                    .filter(DeterminismEvaluator::isDeterministic)
                     .collect(toSet());
         }
 

@@ -32,9 +32,9 @@ import io.trino.plugin.hudi.HudiConnector;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchColumnType;
 import io.trino.tpch.TpchColumnTypes;
@@ -52,7 +52,6 @@ import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieAvroRecord;
 import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecord;
-import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.marker.MarkerType;
 import org.apache.hudi.common.util.Option;
@@ -79,6 +78,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.hive.formats.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
+import static io.trino.hive.formats.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_DATE;
 import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
@@ -86,9 +88,6 @@ import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
-import static io.trino.plugin.hive.util.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
-import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
@@ -111,17 +110,15 @@ public class TpchHudiTablesInitializer
             new Column("_hoodie_file_name", HIVE_STRING, Optional.empty(), Map.of()));
     private static final HdfsContext CONTEXT = new HdfsContext(SESSION);
 
-    private final HoodieTableType tableType;
     private final List<TpchTable<?>> tpchTables;
 
-    public TpchHudiTablesInitializer(HoodieTableType tableType, List<TpchTable<?>> tpchTables)
+    public TpchHudiTablesInitializer(List<TpchTable<?>> tpchTables)
     {
-        this.tableType = requireNonNull(tableType, "tableType is null");
         this.tpchTables = requireNonNull(tpchTables, "tpchTables is null");
     }
 
     @Override
-    public void initializeTables(DistributedQueryRunner queryRunner, Location externalLocation, String schemaName)
+    public void initializeTables(QueryRunner queryRunner, Location externalLocation, String schemaName)
             throws Exception
     {
         queryRunner.installPlugin(new TpchPlugin());
@@ -153,7 +150,7 @@ public class TpchHudiTablesInitializer
         }
     }
 
-    public void load(TpchTable<?> tpchTables, DistributedQueryRunner queryRunner, java.nio.file.Path tableDirectory)
+    public void load(TpchTable<?> tpchTables, QueryRunner queryRunner, java.nio.file.Path tableDirectory)
     {
         try (HoodieJavaWriteClient<HoodieAvroPayload> writeClient = createWriteClient(tpchTables, HDFS_ENVIRONMENT, new Path(tableDirectory.toUri()))) {
             RecordConverter recordConverter = createRecordConverter(tpchTables);

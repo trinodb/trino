@@ -59,24 +59,19 @@ public class LocalOutputFile
     }
 
     @Override
-    public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
+    public void createOrOverwrite(byte[] data)
             throws IOException
     {
         try {
             Files.createDirectories(path.getParent());
             OutputStream stream = Files.newOutputStream(path);
-            return new LocalOutputStream(location, stream);
+            try (OutputStream out = new LocalOutputStream(location, stream)) {
+                out.write(data);
+            }
         }
         catch (IOException e) {
             throw handleException(location, e);
         }
-    }
-
-    @Override
-    public OutputStream createExclusive(AggregatedMemoryContext memoryContext)
-            throws IOException
-    {
-        return create(memoryContext);
     }
 
     @Override

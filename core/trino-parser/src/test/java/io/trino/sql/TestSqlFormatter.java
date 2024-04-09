@@ -232,9 +232,9 @@ public class TestSqlFormatter
         String createTableSql = "CREATE TABLE %s (\n   %s VARCHAR\n)";
 
         assertThat(formatSql(createTable.apply("table_name", "column_name")))
-                .isEqualTo(String.format(createTableSql, "table_name", "column_name"));
+                .isEqualTo(createTableSql.formatted("table_name", "column_name"));
         assertThat(formatSql(createTable.apply("exists", "exists")))
-                .isEqualTo(String.format(createTableSql, "\"exists\"", "\"exists\""));
+                .isEqualTo(createTableSql.formatted("\"exists\"", "\"exists\""));
 
         // Create a table with table comment
         assertThat(formatSql(
@@ -289,9 +289,9 @@ public class TestSqlFormatter
         String createTableSql = "CREATE TABLE %s( %s ) AS SELECT *\nFROM\n  t\n";
 
         assertThat(formatSql(createTableAsSelect.apply("table_name", "column_name")))
-                .isEqualTo(String.format(createTableSql, "table_name", "column_name"));
+                .isEqualTo(createTableSql.formatted("table_name", "column_name"));
         assertThat(formatSql(createTableAsSelect.apply("exists", "exists")))
-                .isEqualTo(String.format(createTableSql, "\"exists\"", "\"exists\""));
+                .isEqualTo(createTableSql.formatted("\"exists\"", "\"exists\""));
 
         assertThat(formatSql(
                 new CreateTableAsSelect(

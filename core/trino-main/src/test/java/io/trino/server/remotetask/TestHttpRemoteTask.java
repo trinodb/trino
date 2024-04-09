@@ -75,11 +75,12 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSplit;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
@@ -229,8 +230,8 @@ public class TestHttpRemoteTask
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         Symbol symbol2 = symbolAllocator.newSymbol("DF_SYMBOL2", BIGINT);
-        SymbolReference df1 = symbol1.toSymbolReference();
-        SymbolReference df2 = symbol2.toSymbolReference();
+        Reference df1 = symbol1.toSymbolReference();
+        Reference df2 = symbol2.toSymbolReference();
         ColumnHandle handle1 = new TestingColumnHandle("column1");
         ColumnHandle handle2 = new TestingColumnHandle("column2");
         QueryId queryId = new QueryId("test");
@@ -264,8 +265,7 @@ public class TestHttpRemoteTask
                         new DynamicFilters.Descriptor(filterId2, df2)),
                 ImmutableMap.of(
                         symbol1, handle1,
-                        symbol2, handle2),
-                symbolAllocator.getTypes());
+                        symbol2, handle2));
 
         // make sure initial dynamic filters are collected
         CompletableFuture<?> future = dynamicFilter.isBlocked();
@@ -310,8 +310,8 @@ public class TestHttpRemoteTask
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         Symbol symbol2 = symbolAllocator.newSymbol("DF_SYMBOL2", BIGINT);
-        SymbolReference df1 = symbol1.toSymbolReference();
-        SymbolReference df2 = symbol2.toSymbolReference();
+        Reference df1 = symbol1.toSymbolReference();
+        Reference df2 = symbol2.toSymbolReference();
         ColumnHandle handle1 = new TestingColumnHandle("column1");
         ColumnHandle handle2 = new TestingColumnHandle("column2");
         QueryId queryId = new QueryId("test");
@@ -337,8 +337,7 @@ public class TestHttpRemoteTask
                         new DynamicFilters.Descriptor(filterId2, df2)),
                 ImmutableMap.of(
                         symbol1, handle1,
-                        symbol2, handle2),
-                symbolAllocator.getTypes());
+                        symbol2, handle2));
 
         // make sure initial dynamic filter is collected
         CompletableFuture<?> future = dynamicFilter.isBlocked();
@@ -557,6 +556,7 @@ public class TestHttpRemoteTask
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
                         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
                         jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
+                        jsonBinder(binder).addKeyDeserializerBinding(Symbol.class).to(SymbolKeyDeserializer.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
                         jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
                         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);

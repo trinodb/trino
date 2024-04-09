@@ -56,6 +56,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -762,49 +763,13 @@ public class TestMariaDbTypeMapping
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
-
-        SqlDataTypeTest.create()
-                // after epoch (MariaDb's timestamp type doesn't support values <= epoch)
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2019-03-18 10:01:17.987'", createTimestampType(3), "TIMESTAMP '2019-03-18 10:01:17.987'")
-                // time doubled in JVM zone
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:33:17.456'")
-                // time double in Vilnius
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 03:33:33.333'", createTimestampType(3), "TIMESTAMP '2018-10-28 03:33:33.333'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:13:42.000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:13:42.000'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-04-01 02:13:55.123'", createTimestampType(3), "TIMESTAMP '2018-04-01 02:13:55.123'")
-                // time gap in Vilnius
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-03-25 03:17:17.000'", createTimestampType(3), "TIMESTAMP '2018-03-25 03:17:17.000'")
-                // time gap in Kathmandu
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1986-01-01 00:13:07.000'", createTimestampType(3), "TIMESTAMP '1986-01-01 00:13:07.000'")
+        timestampRoundTrips("timestamp")
                 // max value 2038-01-19 03:14:07
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2038-01-19 03:14:07.000'", createTimestampType(3), "TIMESTAMP '2038-01-19 03:14:07.000'")
-
-                // same as above but with higher precision
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2019-03-18 10:01:17.987654'", createTimestampType(6), "TIMESTAMP '2019-03-18 10:01:17.987654'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-10-28 01:33:17.456789'", createTimestampType(6), "TIMESTAMP '2018-10-28 01:33:17.456789'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-10-28 03:33:33.333333'", createTimestampType(6), "TIMESTAMP '2018-10-28 03:33:33.333333'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '1970-01-01 00:13:42.000000'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:13:42.000000'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-04-01 02:13:55.123456'", createTimestampType(6), "TIMESTAMP '2018-04-01 02:13:55.123456'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-03-25 03:17:17.000000'", createTimestampType(6), "TIMESTAMP '2018-03-25 03:17:17.000000'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '1986-01-01 00:13:07.000000'", createTimestampType(6), "TIMESTAMP '1986-01-01 00:13:07.000000'")
-                // max value 2038-01-19 03:14:07
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '2038-01-19 03:14:07.000000'", createTimestampType(6), "TIMESTAMP '2038-01-19 03:14:07.000000'")
-
-                // test arbitrary time for all supported precisions
-                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01 00:00:01'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:01'")
-                .addRoundTrip("timestamp(1)", "TIMESTAMP '1970-01-01 00:00:01.1'", createTimestampType(1), "TIMESTAMP '1970-01-01 00:00:01.1'")
-                .addRoundTrip("timestamp(1)", "TIMESTAMP '1970-01-01 00:00:01.9'", createTimestampType(1), "TIMESTAMP '1970-01-01 00:00:01.9'")
-                .addRoundTrip("timestamp(2)", "TIMESTAMP '1970-01-01 00:00:01.12'", createTimestampType(2), "TIMESTAMP '1970-01-01 00:00:01.12'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:01.123'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:01.123'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:01.999'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:01.999'")
-                .addRoundTrip("timestamp(4)", "TIMESTAMP '1970-01-01 00:00:01.1234'", createTimestampType(4), "TIMESTAMP '1970-01-01 00:00:01.1234'")
-                .addRoundTrip("timestamp(5)", "TIMESTAMP '1970-01-01 00:00:01.12345'", createTimestampType(5), "TIMESTAMP '1970-01-01 00:00:01.12345'")
-                .addRoundTrip("timestamp(1)", "TIMESTAMP '2020-09-27 12:34:56.1'", createTimestampType(1), "TIMESTAMP '2020-09-27 12:34:56.1'")
-                .addRoundTrip("timestamp(1)", "TIMESTAMP '2020-09-27 12:34:56.9'", createTimestampType(1), "TIMESTAMP '2020-09-27 12:34:56.9'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2020-09-27 12:34:56.123'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.123'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2020-09-27 12:34:56.999'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.999'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'", createTimestampType(6), "TIMESTAMP '2020-09-27 12:34:56.123456'")
-
+                // min value 1970-01-01 00:00:01
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:01.000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:01.000'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1970-01-01 00:00:01.000000'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:01.000000'")
                 .execute(getQueryRunner(), session, mariaDbCreateAndInsert("tpch.test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
@@ -874,6 +839,99 @@ public class TestMariaDbTypeMapping
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp_coercion"))
                 // INSERT with Trino, where the coercion is done by the engine
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_coercion"));
+    }
+
+    @Test
+    public void testDatetime()
+    {
+        testDatetime(UTC);
+        testDatetime(jvmZone);
+        testDatetime(vilnius);
+        testDatetime(kathmandu);
+        testDatetime(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDatetime(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
+                .build();
+        timestampRoundTrips("datetime")
+                // max value 9999-12-31 23:59:59
+                .addRoundTrip("datetime(3)", "TIMESTAMP '9999-12-31 23:59:59.999'", createTimestampType(3), "TIMESTAMP '9999-12-31 23:59:59.999'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '9999-12-31 23:59:59.999999'", createTimestampType(6), "TIMESTAMP '9999-12-31 23:59:59.999999'")
+                // min value 0001-01-01 00:00:00
+                .addRoundTrip("datetime(3)", "TIMESTAMP '0001-01-01 00:00:00.000'", createTimestampType(3), "TIMESTAMP '0001-01-01 00:00:00.000'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '0001-01-01 00:00:00.000000'", createTimestampType(6), "TIMESTAMP '0001-01-01 00:00:00.000000'")
+                // before epoch
+                .addRoundTrip("datetime(3)", "TIMESTAMP '1958-01-01 13:18:03.123'", createTimestampType(3), "TIMESTAMP '1958-01-01 13:18:03.123'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999995'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999995'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999949'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999949'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999994'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999994'")
+
+                // exceeds max epoch
+                .addRoundTrip("datetime(3)", "TIMESTAMP '3555-01-01 13:18:03.123'", createTimestampType(3), "TIMESTAMP '3555-01-01 13:18:03.123'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '5555-12-31 23:59:59.999995'", createTimestampType(6), "TIMESTAMP '5555-12-31 23:59:59.999995'")
+
+                .execute(getQueryRunner(), session, mariaDbCreateAndInsert("tpch.test_datetime"));
+    }
+
+    @Test
+    public void testIncorrectDateTime()
+    {
+        // MariaDB supports any valid TIMESTAMP literal of type YYYY-MM-DD hh:mm:ss.S(up to 6 digits), fails otherwise
+        try (TestTable table = new TestTable(server::execute, "test_incorrect_datetime", "(dt DATETIME)")) {
+            assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '999-01-01 00:00:00.000')", table.getName()), ".*not a valid TIMESTAMP literal.*");
+            assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '10000-01-19 03:14:08.000')", table.getName()), ".*Failed to insert data.*");
+        }
+    }
+
+    private SqlDataTypeTest timestampRoundTrips(String inputType)
+    {
+        return SqlDataTypeTest.create()
+                // after epoch (MariaDb's timestamp type doesn't support values <= epoch)
+                .addRoundTrip(inputType + "(3)", "TIMESTAMP '2019-03-18 10:01:17.987'", createTimestampType(3), "TIMESTAMP '2019-03-18 10:01:17.987'")
+                // time doubled in JVM zone
+                .addRoundTrip(inputType + "(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:33:17.456'")
+                // time double in Vilnius
+                .addRoundTrip(inputType + "(3)", "TIMESTAMP '2018-10-28 03:33:33.333'", createTimestampType(3), "TIMESTAMP '2018-10-28 03:33:33.333'")
+                .addRoundTrip(inputType + "(3)", "TIMESTAMP '1970-01-01 00:13:42.000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:13:42.000'")
+                .addRoundTrip(inputType + "(3)", "TIMESTAMP '2018-04-01 02:13:55.123'", createTimestampType(3), "TIMESTAMP '2018-04-01 02:13:55.123'")
+                // time gap in Vilnius
+                .addRoundTrip(inputType + "(3)", "TIMESTAMP '2018-03-25 03:17:17.000'", createTimestampType(3), "TIMESTAMP '2018-03-25 03:17:17.000'")
+                // time gap in Kathmandu
+                .addRoundTrip(inputType + "(3)", "TIMESTAMP '1986-01-01 00:13:07.000'", createTimestampType(3), "TIMESTAMP '1986-01-01 00:13:07.000'")
+                // same as above but with higher precision
+                .addRoundTrip(inputType + "(6)", "TIMESTAMP '2019-03-18 10:01:17.987654'", createTimestampType(6), "TIMESTAMP '2019-03-18 10:01:17.987654'")
+                .addRoundTrip(inputType + "(6)", "TIMESTAMP '2018-10-28 01:33:17.456789'", createTimestampType(6), "TIMESTAMP '2018-10-28 01:33:17.456789'")
+                .addRoundTrip(inputType + "(6)", "TIMESTAMP '2018-10-28 03:33:33.333333'", createTimestampType(6), "TIMESTAMP '2018-10-28 03:33:33.333333'")
+                .addRoundTrip(inputType + "(6)", "TIMESTAMP '1970-01-01 00:13:42.000000'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:13:42.000000'")
+                .addRoundTrip(inputType + "(6)", "TIMESTAMP '2018-04-01 02:13:55.123456'", createTimestampType(6), "TIMESTAMP '2018-04-01 02:13:55.123456'")
+                .addRoundTrip(inputType + "(6)", "TIMESTAMP '2018-03-25 03:17:17.000000'", createTimestampType(6), "TIMESTAMP '2018-03-25 03:17:17.000000'")
+                .addRoundTrip(inputType + "(6)", "TIMESTAMP '1986-01-01 00:13:07.000000'", createTimestampType(6), "TIMESTAMP '1986-01-01 00:13:07.000000'")
+
+                // test arbitrary time for all supported precisions
+                .addRoundTrip(inputType + "(0)", "TIMESTAMP '1970-01-01 00:00:01'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:01'")
+                .addRoundTrip(inputType + "(1)", "TIMESTAMP '1970-01-01 00:00:01.1'", createTimestampType(1), "TIMESTAMP '1970-01-01 00:00:01.1'")
+                .addRoundTrip(inputType + "(1)", "TIMESTAMP '1970-01-01 00:00:01.9'", createTimestampType(1), "TIMESTAMP '1970-01-01 00:00:01.9'")
+                .addRoundTrip(inputType + "(2)", "TIMESTAMP '1970-01-01 00:00:01.12'", createTimestampType(2), "TIMESTAMP '1970-01-01 00:00:01.12'")
+                .addRoundTrip(inputType + "(3)", "TIMESTAMP '1970-01-01 00:00:01.123'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:01.123'")
+                .addRoundTrip(inputType + "(3)", "TIMESTAMP '1970-01-01 00:00:01.999'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:01.999'")
+                .addRoundTrip(inputType + "(4)", "TIMESTAMP '1970-01-01 00:00:01.1234'", createTimestampType(4), "TIMESTAMP '1970-01-01 00:00:01.1234'")
+                .addRoundTrip(inputType + "(5)", "TIMESTAMP '1970-01-01 00:00:01.12345'", createTimestampType(5), "TIMESTAMP '1970-01-01 00:00:01.12345'")
+                .addRoundTrip(inputType + "(1)", "TIMESTAMP '2020-09-27 12:34:56.1'", createTimestampType(1), "TIMESTAMP '2020-09-27 12:34:56.1'")
+                .addRoundTrip(inputType + "(1)", "TIMESTAMP '2020-09-27 12:34:56.9'", createTimestampType(1), "TIMESTAMP '2020-09-27 12:34:56.9'")
+                .addRoundTrip(inputType + "(3)", "TIMESTAMP '2020-09-27 12:34:56.123'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.123'")
+                .addRoundTrip(inputType + "(3)", "TIMESTAMP '2020-09-27 12:34:56.999'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.999'")
+                .addRoundTrip(inputType + "(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'", createTimestampType(6), "TIMESTAMP '2020-09-27 12:34:56.123456'")
+                // null
+                .addRoundTrip(inputType + "(0)", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
+                .addRoundTrip(inputType + "(1)", "NULL", createTimestampType(1), "CAST(NULL AS TIMESTAMP(1))")
+                .addRoundTrip(inputType + "(2)", "NULL", createTimestampType(2), "CAST(NULL AS TIMESTAMP(2))")
+                .addRoundTrip(inputType + "(3)", "NULL", createTimestampType(3), "CAST(NULL AS TIMESTAMP(3))")
+                .addRoundTrip(inputType + "(4)", "NULL", createTimestampType(4), "CAST(NULL AS TIMESTAMP(4))")
+                .addRoundTrip(inputType + "(5)", "NULL", createTimestampType(5), "CAST(NULL AS TIMESTAMP(5))")
+                .addRoundTrip(inputType + "(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))");
     }
 
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)

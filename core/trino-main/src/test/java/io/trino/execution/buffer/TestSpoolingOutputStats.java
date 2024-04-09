@@ -32,7 +32,7 @@ public class TestSpoolingOutputStats
         long[] expectedValues = new long[numberOfPartitions];
         long value = 1;
         for (int partition = 0; partition < numberOfPartitions; partition++) {
-            spoolingOutputStats.update(partition, value);
+            spoolingOutputStats.updatePartitionDataSize(partition, value);
             expectedValues[partition] = value;
             value *= 31;
         }
@@ -41,7 +41,7 @@ public class TestSpoolingOutputStats
         assertThat(spoolingOutputStats.getFinalSnapshot()).isPresent();
 
         // update is allowed to be called after finish, the invocation is ignored
-        spoolingOutputStats.update(0, value);
+        spoolingOutputStats.updatePartitionDataSize(0, value);
         // finish is allowed to be called multiple times, the invocation is ignored
         spoolingOutputStats.finish();
         assertThat(spoolingOutputStats.getFinalSnapshot()).isPresent();

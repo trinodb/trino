@@ -25,6 +25,7 @@ import io.trino.plugin.hudi.testing.HudiTablesInitializer;
 import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.Map;
@@ -34,7 +35,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
-import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
 public final class S3HudiQueryRunner
 {
@@ -42,14 +42,14 @@ public final class S3HudiQueryRunner
 
     private S3HudiQueryRunner() {}
 
-    public static DistributedQueryRunner create(
+    public static QueryRunner create(
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             HudiTablesInitializer dataLoader,
             HiveMinioDataLake hiveMinioDataLake)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new TestingHudiPlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hudi_data")));
@@ -99,10 +99,10 @@ public final class S3HudiQueryRunner
         String bucketName = "test-bucket";
         HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
         hiveMinioDataLake.start();
-        DistributedQueryRunner queryRunner = create(
+        QueryRunner queryRunner = create(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
-                new TpchHudiTablesInitializer(COPY_ON_WRITE, TpchTable.getTables()),
+                new TpchHudiTablesInitializer(TpchTable.getTables()),
                 hiveMinioDataLake);
 
         log.info("======== SERVER STARTED ========");

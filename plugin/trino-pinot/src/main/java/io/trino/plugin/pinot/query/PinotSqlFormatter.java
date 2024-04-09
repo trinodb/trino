@@ -642,7 +642,7 @@ public class PinotSqlFormatter
 
             if (arguments.size() % 2 != 0) {
                 builder.append(" ELSE ")
-                        .append(arguments.get(arguments.size() - 1));
+                        .append(arguments.getLast());
             }
             return builder.append(" END").toString();
         }

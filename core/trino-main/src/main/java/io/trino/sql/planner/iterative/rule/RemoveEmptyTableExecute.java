@@ -16,6 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -23,15 +25,11 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Row;
 
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.Patterns.Values.rowCount;
 import static io.trino.sql.planner.plan.Patterns.tableFinish;
 import static io.trino.sql.planner.plan.Patterns.values;
@@ -89,7 +87,7 @@ public class RemoveEmptyTableExecute
                 new ValuesNode(
                         finishNode.getId(),
                         finishNode.getOutputSymbols(),
-                        ImmutableList.of(new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)))))));
+                        ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, null))))));
     }
 
     private Optional<PlanNode> getSingleSourceSkipExchange(PlanNode node, Lookup lookup)

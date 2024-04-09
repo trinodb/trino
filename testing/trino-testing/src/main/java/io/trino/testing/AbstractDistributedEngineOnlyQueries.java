@@ -68,8 +68,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     }
 
     /**
-     * Ensure the tests are run with {@link io.trino.testing.DistributedQueryRunner}. E.g. {@link io.trino.testing.LocalQueryRunner} takes some
-     * shortcuts, not exercising certain aspects.
+     * Ensure the tests are run with {@link io.trino.testing.DistributedQueryRunner} with multiple workers.
      */
     @Test
     public void ensureDistributedQueryRunner()
@@ -97,7 +96,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     @Test
     public void testUse()
     {
-        assertQueryFails("USE invalid.xyz", "Catalog does not exist: invalid");
+        assertQueryFails("USE invalid.xyz", "Catalog 'invalid' not found");
         assertQueryFails("USE tpch.invalid", "Schema does not exist: tpch.invalid");
     }
 
@@ -112,11 +111,11 @@ public abstract class AbstractDistributedEngineOnlyQueries
         assertQueryFails(invalid, "REVOKE test FROM USER foo", "line 1:1: Role 'test' does not exist");
         assertQueryFails(invalid, "SET ROLE test", "line 1:1: Role 'test' does not exist");
 
-        assertQueryFails(invalid, "CREATE ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "DROP ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "GRANT test TO USER foo IN invalid", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "REVOKE test FROM USER foo IN invalid", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "SET ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
+        assertQueryFails(invalid, "CREATE ROLE test IN invalid", "line 1:1: Catalog 'invalid' not found");
+        assertQueryFails(invalid, "DROP ROLE test IN invalid", "line 1:1: Catalog 'invalid' not found");
+        assertQueryFails(invalid, "GRANT test TO USER foo IN invalid", "line 1:1: Catalog 'invalid' not found");
+        assertQueryFails(invalid, "REVOKE test FROM USER foo IN invalid", "line 1:1: Catalog 'invalid' not found");
+        assertQueryFails(invalid, "SET ROLE test IN invalid", "line 1:1: Catalog 'invalid' not found");
     }
 
     @Test
@@ -179,7 +178,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertExplain(
                 "explain select name from nation where abs(nationkey) = 22",
-                Pattern.quote("abs(\"nationkey\")"),
+                Pattern.quote("abs(nationkey)"),
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
                 "Trino version: .*");
     }
@@ -189,7 +188,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertExplain(
                 "explain (type distributed) select name from nation where abs(nationkey) = 22",
-                Pattern.quote("abs(\"nationkey\")"),
+                Pattern.quote("abs(nationkey)"),
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
                 "Trino version: .*");
     }
@@ -306,8 +305,8 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 .matches("SELECT * FROM tpch.tiny.nation");
 
         // Verify that hidden column is not present in the created table
-        assertThatThrownBy(() -> query("SELECT min(row_number) FROM n"))
-                .hasMessage("line 1:12: Column 'row_number' cannot be resolved");
+        assertThat(query("SELECT min(row_number) FROM n"))
+                .failure().hasMessage("line 1:12: Column 'row_number' cannot be resolved");
         assertUpdate(getSession(), "DROP TABLE n");
     }
 
@@ -328,8 +327,8 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 .matches("SELECT * FROM tpch.tiny.nation LIMIT 0");
 
         // Verify that the hidden column is not present in the created table
-        assertThatThrownBy(() -> query("SELECT row_number FROM n"))
-                .hasMessage("line 1:8: Column 'row_number' cannot be resolved");
+        assertThat(query("SELECT row_number FROM n"))
+                .failure().hasMessage("line 1:8: Column 'row_number' cannot be resolved");
 
         // Insert values from the original table into the created table
         assertUpdate(getSession(), "INSERT INTO n TABLE tpch.tiny.nation", 25);
@@ -363,7 +362,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 // use random marker in query for unique matching below
                 "SELECT count(*) c_%s FROM lineitem CROSS JOIN lineitem CROSS JOIN lineitem",
                 randomNameSuffix());
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        QueryRunner queryRunner = getDistributedQueryRunner();
         ListenableFuture<?> queryFuture = Futures.submit(
                 () -> queryRunner.execute(getSession(), query), executorService);
 

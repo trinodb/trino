@@ -21,7 +21,8 @@ import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResultWithQueryId;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -48,7 +49,7 @@ public class TestMinWorkerRequirement
     public void testInsufficientWorkerNodes()
     {
         assertThatThrownBy(() -> {
-            try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+            try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
                     .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                             .put("query-manager.required-workers", "5")
                             .put("query-manager.required-workers-max-wait", "1ns")
@@ -67,7 +68,7 @@ public class TestMinWorkerRequirement
     public void testInsufficientWorkerNodesWithCoordinatorExcluded()
     {
         assertThatThrownBy(() -> {
-            try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+            try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
                     .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                             .put("node-scheduler.include-coordinator", "false")
                             .put("query-manager.required-workers", "4")
@@ -87,7 +88,7 @@ public class TestMinWorkerRequirement
     public void testInsufficientWorkerNodesInternalSystemQuery()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "5")
                         .put("query-manager.required-workers-max-wait", "1ns")
@@ -131,7 +132,7 @@ public class TestMinWorkerRequirement
     public void testRequiredNodesMaxWaitSessionOverride()
     {
         assertThatThrownBy(() -> {
-            try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+            try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
                     .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                             .put("query-manager.required-workers", "3")
                             .put("query-manager.required-workers-max-wait", "1ns")
@@ -197,17 +198,17 @@ public class TestMinWorkerRequirement
                     .setCatalog("tpch")
                     .setSchema("tiny")
                     .build();
-            ListenableFuture<MaterializedResultWithQueryId> queryFuture1 = service.submit(() -> queryRunner.executeWithQueryId(session1, "SELECT COUNT(*) from lineitem"));
+            ListenableFuture<MaterializedResultWithPlan> queryFuture1 = service.submit(() -> queryRunner.executeWithPlan(session1, "SELECT COUNT(*) from lineitem"));
 
             Session session2 = Session.builder(session1)
                     .setSystemProperty(REQUIRED_WORKERS_COUNT, "3")
                     .build();
-            ListenableFuture<MaterializedResultWithQueryId> queryFuture2 = service.submit(() -> queryRunner.executeWithQueryId(session2, "SELECT COUNT(*) from lineitem"));
+            ListenableFuture<MaterializedResultWithPlan> queryFuture2 = service.submit(() -> queryRunner.executeWithPlan(session2, "SELECT COUNT(*) from lineitem"));
 
             Session session3 = Session.builder(session1)
                     .setSystemProperty(REQUIRED_WORKERS_COUNT, "4")
                     .build();
-            ListenableFuture<MaterializedResultWithQueryId> queryFuture3 = service.submit(() -> queryRunner.executeWithQueryId(session3, "SELECT COUNT(*) from lineitem"));
+            ListenableFuture<MaterializedResultWithPlan> queryFuture3 = service.submit(() -> queryRunner.executeWithPlan(session3, "SELECT COUNT(*) from lineitem"));
 
             MILLISECONDS.sleep(1000);
             // None of the queries should run
@@ -219,9 +220,9 @@ public class TestMinWorkerRequirement
             assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size()).isEqualTo(2);
             // After adding 1 node, only 1st query should run
             MILLISECONDS.sleep(1000);
-            assertThat(queryFuture1.get().getResult().getRowCount() > 0).isTrue();
+            assertThat(queryFuture1.get().result().getRowCount() > 0).isTrue();
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-            QueryInfo completedQueryInfo = queryManager.getFullQueryInfo(queryFuture1.get().getQueryId());
+            QueryInfo completedQueryInfo = queryManager.getFullQueryInfo(queryFuture1.get().queryId());
             assertThat(completedQueryInfo.getQueryStats().getResourceWaitingTime().roundTo(SECONDS) >= 1).isTrue();
 
             assertThat(queryFuture2.isDone()).isFalse();
@@ -230,12 +231,12 @@ public class TestMinWorkerRequirement
             // After adding 2 nodes, 2nd and 3rd query should also run
             queryRunner.addServers(2);
             assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size()).isEqualTo(4);
-            assertThat(queryFuture2.get().getResult().getRowCount() > 0).isTrue();
-            completedQueryInfo = queryManager.getFullQueryInfo(queryFuture2.get().getQueryId());
+            assertThat(queryFuture2.get().result().getRowCount() > 0).isTrue();
+            completedQueryInfo = queryManager.getFullQueryInfo(queryFuture2.get().queryId());
             assertThat(completedQueryInfo.getQueryStats().getResourceWaitingTime().roundTo(SECONDS) >= 2).isTrue();
 
-            assertThat(queryFuture3.get().getResult().getRowCount() > 0).isTrue();
-            completedQueryInfo = queryManager.getFullQueryInfo(queryFuture3.get().getQueryId());
+            assertThat(queryFuture3.get().result().getRowCount() > 0).isTrue();
+            completedQueryInfo = queryManager.getFullQueryInfo(queryFuture3.get().queryId());
             assertThat(completedQueryInfo.getQueryStats().getResourceWaitingTime().roundTo(SECONDS) >= 2).isTrue();
         }
         finally {

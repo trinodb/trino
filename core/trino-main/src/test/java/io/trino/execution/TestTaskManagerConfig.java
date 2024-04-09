@@ -28,19 +28,18 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit;
 import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
+import static java.lang.Math.clamp;
 
 public class TestTaskManagerConfig
 {
-    private static final int DEFAULT_PROCESSOR_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32);
-    private static final int DEFAULT_MAX_WRITER_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2), 64);
+    private static final int DEFAULT_PROCESSOR_COUNT = clamp(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2, 32);
+    private static final int DEFAULT_MAX_WRITER_COUNT = clamp(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2, 64);
 
     @Test
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
-                .setThreadPerDriverSchedulerEnabled(false)
+                .setThreadPerDriverSchedulerEnabled(true)
                 .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 2)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(100, TimeUnit.MILLISECONDS))
                 .setStatusRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
@@ -48,7 +47,7 @@ public class TestTaskManagerConfig
                 .setTaskTerminationTimeout(new Duration(1, TimeUnit.MINUTES))
                 .setPerOperatorCpuTimerEnabled(true)
                 .setTaskCpuTimerEnabled(true)
-                .setMaxWorkerThreads(Runtime.getRuntime().availableProcessors() * 2)
+                .setMaxWorkerThreads("2C")
                 .setMinDrivers(Runtime.getRuntime().availableProcessors() * 2 * 2)
                 .setMinDriversPerTask(3)
                 .setMaxDriversPerTask(Integer.MAX_VALUE)
@@ -86,7 +85,7 @@ public class TestTaskManagerConfig
         int processorCount = DEFAULT_PROCESSOR_COUNT == 32 ? 16 : 32;
         int maxWriterCount = DEFAULT_MAX_WRITER_COUNT == 32 ? 16 : 32;
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.thread-per-driver-scheduler-enabled", "true")
+                .put("experimental.thread-per-driver-scheduler-enabled", "false")
                 .put("task.initial-splits-per-node", "1")
                 .put("task.split-concurrency-adjustment-interval", "3s")
                 .put("task.status-refresh-max-wait", "2s")
@@ -127,7 +126,7 @@ public class TestTaskManagerConfig
                 .buildOrThrow();
 
         TaskManagerConfig expected = new TaskManagerConfig()
-                .setThreadPerDriverSchedulerEnabled(true)
+                .setThreadPerDriverSchedulerEnabled(false)
                 .setInitialSplitsPerNode(1)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(3, TimeUnit.SECONDS))
                 .setStatusRefreshMaxWait(new Duration(2, TimeUnit.SECONDS))
@@ -140,7 +139,7 @@ public class TestTaskManagerConfig
                 .setMaxPartialAggregationMemoryUsage(DataSize.of(32, Unit.MEGABYTE))
                 .setMaxPartialTopNMemory(DataSize.of(32, Unit.MEGABYTE))
                 .setMaxLocalExchangeBufferSize(DataSize.of(33, Unit.MEGABYTE))
-                .setMaxWorkerThreads(3)
+                .setMaxWorkerThreads("3")
                 .setMinDrivers(2)
                 .setMinDriversPerTask(5)
                 .setMaxDriversPerTask(13)

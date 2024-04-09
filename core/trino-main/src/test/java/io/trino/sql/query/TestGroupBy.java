@@ -19,7 +19,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -67,11 +66,11 @@ public class TestGroupBy
                 .matches("SELECT CAST(row(BIGINT '42') AS row(\"A\" bigint))");
 
         // ROW field name in a different case, delimited
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT CAST(row(x) AS row(\"a\" bigint)) " +
                         "FROM (VALUES 42) t(x) " +
                         "GROUP BY CAST(row(x) AS row(\"A\" bigint))"))
-                .hasMessage("line 1:8: 'CAST(ROW (x) AS ROW(\"a\" bigint))' must be an aggregate expression or appear in GROUP BY clause");
+                .failure().hasMessage("line 1:8: 'CAST(ROW (x) AS ROW(\"a\" bigint))' must be an aggregate expression or appear in GROUP BY clause");
     }
 
     @Test

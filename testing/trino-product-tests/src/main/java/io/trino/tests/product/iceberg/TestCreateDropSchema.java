@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.ICEBERG;
+import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +45,7 @@ public class TestCreateDropSchema
         onTrino().executeQuery("USE iceberg.default");
     }
 
-    @Test(groups = ICEBERG)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testDropSchemaFiles()
     {
         String schemaName = "schema_without_location_" + randomNameSuffix();
@@ -56,7 +57,7 @@ public class TestCreateDropSchema
         assertFileExistence(schemaDir, false, "schema directory exists after dropping schema");
     }
 
-    @Test(groups = ICEBERG)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testDropSchemaFilesWithLocation()
     {
         String schemaName = "schema_with_empty_location_" + randomNameSuffix();
@@ -68,7 +69,7 @@ public class TestCreateDropSchema
         assertFileExistence(schemaDir, false, "schema directory exists after dropping schema");
     }
 
-    @Test(groups = ICEBERG) // specified location, external file in subdir
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}) // specified location, external file in subdir
     public void testDropWithExternalFilesInSubdirectory()
     {
         String schemaName = "schema_with_nonempty_location_" + randomNameSuffix();
@@ -89,7 +90,7 @@ public class TestCreateDropSchema
         hdfsClient.delete(schemaDir);
     }
 
-    @Test(groups = ICEBERG) // default location, external file at top level
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}) // default location, external file at top level
     public void testDropWithExternalFiles()
     {
         String schemaName = "schema_with_files_in_default_location_" + randomNameSuffix();

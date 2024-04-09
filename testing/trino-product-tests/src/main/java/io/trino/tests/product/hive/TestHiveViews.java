@@ -27,7 +27,6 @@ import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -54,7 +53,7 @@ public class TestHiveViews
                 row("a_string", "varchar"));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFailingHiveViewsWithMetadataListing()
     {
@@ -154,7 +153,7 @@ public class TestHiveViews
         onTrino().executeQuery("DROP TABLE test_list_failing_views.table_dropped");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testLateralViewExplode()
     {
@@ -190,7 +189,7 @@ public class TestHiveViews
                         row("zero", null)));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testLateralViewExplodeArrayOfStructs()
     {
@@ -227,7 +226,7 @@ public class TestHiveViews
                         row("zero", null, null)));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testLateralViewJsonTupleAs()
     {
@@ -246,7 +245,7 @@ public class TestHiveViews
                 queryAssert -> queryAssert.containsOnly(row(3, "Mateusz", "Gajewski", "true", "1000", null, null)));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFromUtcTimestamp()
     {
@@ -353,7 +352,7 @@ public class TestHiveViews
                         "1970-01-29 16:00:00"));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFromUtcTimestampInvalidTimeZone()
     {
@@ -379,7 +378,7 @@ public class TestHiveViews
         onTrino().executeQuery("DROP TABLE test_from_utc_timestamp_invalid_time_zone_source");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedFieldWithReservedKeyNames()
     {
@@ -413,7 +412,7 @@ public class TestHiveViews
         onHive().executeQuery("DROP TABLE test_nested_field_with_reserved_key_names_source");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFromUtcTimestampCornerCases()
     {
@@ -453,7 +452,7 @@ public class TestHiveViews
                         row("2128-06-11 01:53:20.001"));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCastTimestampAsDecimal()
     {
@@ -470,7 +469,7 @@ public class TestHiveViews
         onHive().executeQuery("DROP TABLE cast_timestamp_as_decimal");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnionBetweenCharAndVarchar()
     {

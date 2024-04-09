@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestVerifyOnlyOneOutputNode
@@ -43,7 +44,7 @@ public class TestVerifyOnlyOneOutputNode
                                         idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
                                 Assignments.of()
                         ), ImmutableList.of(), ImmutableList.of());
-        new VerifyOnlyOneOutputNode().validate(root, null, PLANNER_CONTEXT, null, null, WarningCollector.NOOP);
+        new VerifyOnlyOneOutputNode().validate(root, null, PLANNER_CONTEXT, WarningCollector.NOOP);
     }
 
     @Test
@@ -59,11 +60,11 @@ public class TestVerifyOnlyOneOutputNode
                                                         idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
                                                 Assignments.of()
                                         ), ImmutableList.of(), ImmutableList.of()
-                                ), new Symbol("a"),
+                                ), new Symbol(UNKNOWN, "a"),
                                 ImmutableList.of(),
                                 false),
                         ImmutableList.of(), ImmutableList.of());
-        assertThatThrownBy(() -> new VerifyOnlyOneOutputNode().validate(root, null, PLANNER_CONTEXT, null, null, WarningCollector.NOOP))
+        assertThatThrownBy(() -> new VerifyOnlyOneOutputNode().validate(root, null, PLANNER_CONTEXT, WarningCollector.NOOP))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Expected plan to have single instance of OutputNode");
     }

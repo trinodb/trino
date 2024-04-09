@@ -117,7 +117,7 @@ public class DeltaLakeHistoryTable
             SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
             TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, baseTableName, tableLocation);
             snapshotVersion = tableSnapshot.getVersion();
-            transactionLogAccess.getMetadataEntry(tableSnapshot, session);
+            transactionLogAccess.getMetadataEntry(session, tableSnapshot);
         }
         catch (IOException e) {
             throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + tableLocation, e);
@@ -221,20 +221,20 @@ public class DeltaLakeHistoryTable
         commitInfoEntries.forEach(commitInfoEntry -> {
             pagesBuilder.beginRow();
 
-            pagesBuilder.appendBigint(commitInfoEntry.getVersion());
-            pagesBuilder.appendTimestampTzMillis(commitInfoEntry.getTimestamp(), timeZoneKey);
-            write(commitInfoEntry.getUserId(), pagesBuilder);
-            write(commitInfoEntry.getUserName(), pagesBuilder);
-            write(commitInfoEntry.getOperation(), pagesBuilder);
-            if (commitInfoEntry.getOperationParameters() == null) {
+            pagesBuilder.appendBigint(commitInfoEntry.version());
+            pagesBuilder.appendTimestampTzMillis(commitInfoEntry.timestamp(), timeZoneKey);
+            write(commitInfoEntry.userId(), pagesBuilder);
+            write(commitInfoEntry.userName(), pagesBuilder);
+            write(commitInfoEntry.operation(), pagesBuilder);
+            if (commitInfoEntry.operationParameters() == null) {
                 pagesBuilder.appendNull();
             }
             else {
-                pagesBuilder.appendVarcharVarcharMap(commitInfoEntry.getOperationParameters());
+                pagesBuilder.appendVarcharVarcharMap(commitInfoEntry.operationParameters());
             }
-            write(commitInfoEntry.getClusterId(), pagesBuilder);
-            pagesBuilder.appendBigint(commitInfoEntry.getReadVersion());
-            write(commitInfoEntry.getIsolationLevel(), pagesBuilder);
+            write(commitInfoEntry.clusterId(), pagesBuilder);
+            pagesBuilder.appendBigint(commitInfoEntry.readVersion());
+            write(commitInfoEntry.isolationLevel(), pagesBuilder);
             commitInfoEntry.isBlindAppend().ifPresentOrElse(pagesBuilder::appendBoolean, pagesBuilder::appendNull);
 
             pagesBuilder.endRow();

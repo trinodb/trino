@@ -64,7 +64,7 @@ public final class BooleanType
     public static Block createBlockForSingleNonNullValue(boolean value)
     {
         byte byteValue = value ? (byte) 1 : 0;
-        return new ByteArrayBlock(1, Optional.empty(), new byte[]{byteValue});
+        return new ByteArrayBlock(1, Optional.empty(), new byte[] {byteValue});
     }
 
     private BooleanType()

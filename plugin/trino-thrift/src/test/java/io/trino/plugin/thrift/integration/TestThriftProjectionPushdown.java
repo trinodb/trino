@@ -28,13 +28,13 @@ import io.trino.plugin.thrift.ThriftTransactionHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -47,6 +47,7 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.driftServerPort;
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.startThriftServers;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -69,7 +70,7 @@ public class TestThriftProjectionPushdown
             .build();
 
     @Override
-    protected Optional<LocalQueryRunner> createLocalQueryRunner()
+    protected Optional<PlanTester> createPlanTester()
     {
         try {
             servers = startThriftServers(1, false);
@@ -95,7 +96,7 @@ public class TestThriftProjectionPushdown
                 .put("trino-thrift.lookup-requests-concurrency", "2")
                 .buildOrThrow();
 
-        LocalQueryRunner runner = LocalQueryRunner.create(SESSION);
+        PlanTester runner = PlanTester.create(SESSION);
         runner.createCatalog(TEST_CATALOG_NAME, getOnlyElement(new ThriftPlugin().getConnectorFactories()), connectorProperties);
 
         return Optional.of(runner);
@@ -123,8 +124,7 @@ public class TestThriftProjectionPushdown
     {
         PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
                 tester().getPlannerContext(),
-                tester().getTypeAnalyzer(),
-                new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
+                new ScalarStatsCalculator(tester().getPlannerContext()));
 
         String columnName = "orderstatus";
         ColumnHandle columnHandle = new ThriftColumnHandle(columnName, VARCHAR, "", false);
@@ -158,8 +158,7 @@ public class TestThriftProjectionPushdown
     {
         PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
                 tester().getPlannerContext(),
-                tester().getTypeAnalyzer(),
-                new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
+                new ScalarStatsCalculator(tester().getPlannerContext()));
 
         String columnName = "orderstatus";
 
@@ -185,7 +184,7 @@ public class TestThriftProjectionPushdown
                                     ImmutableMap.of(orderStatusSymbol, columnHandle)));
                 })
                 .matches(project(
-                        ImmutableMap.of("expr_2", expression(new SymbolReference(columnName))),
+                        ImmutableMap.of("expr_2", expression(new Reference(VARCHAR, columnName))),
                         tableScan(
                                 projectedThriftHandle::equals,
                                 TupleDomain.all(),
@@ -218,7 +217,7 @@ public class TestThriftProjectionPushdown
                                             .buildOrThrow()));
                 })
                 .matches(project(
-                        ImmutableMap.of("expr", expression(new SymbolReference(nationKeyColumn.getColumnName()))),
+                        ImmutableMap.of("expr", expression(new Reference(BIGINT, nationKeyColumn.getColumnName()))),
                         tableScan(
                                 new ThriftTableHandle(
                                         TINY_SCHEMA,

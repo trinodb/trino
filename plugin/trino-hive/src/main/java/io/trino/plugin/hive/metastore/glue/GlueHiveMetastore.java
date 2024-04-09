@@ -77,7 +77,7 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.hive.HiveColumnStatisticType;
+import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -94,14 +94,15 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter;
 import io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter;
 import io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.GluePartitionConverter;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -109,14 +110,12 @@ import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -131,13 +130,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -148,19 +146,18 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
-import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertFunction;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertPartition;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.metastoreFunctionName;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -185,8 +182,10 @@ public class GlueHiveMetastore
     private static final int BATCH_CREATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
+    private static final int AWS_GLUE_GET_DATABASES_MAX_RESULTS = 100;
+    private static final int AWS_GLUE_GET_FUNCTIONS_MAX_RESULTS = 100;
+    private static final int AWS_GLUE_GET_TABLES_MAX_RESULTS = 100;
     private static final Comparator<Iterable<String>> PARTITION_VALUE_COMPARATOR = lexicographical(String.CASE_INSENSITIVE_ORDER);
-    private static final Predicate<com.amazonaws.services.glue.model.Table> SOME_KIND_OF_VIEW_FILTER = table -> VIRTUAL_VIEW.name().equals(getTableTypeNullable(table));
     private static final RetryPolicy<?> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.builder()
             .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof ConcurrentModificationException)
             .withDelay(Duration.ofMillis(100))
@@ -253,7 +252,8 @@ public class GlueHiveMetastore
         try {
             List<String> databaseNames = getPaginatedResults(
                     glueClient::getDatabases,
-                    new GetDatabasesRequest(),
+                    new GetDatabasesRequest()
+                            .withMaxResults(AWS_GLUE_GET_DATABASES_MAX_RESULTS),
                     GetDatabasesRequest::setNextToken,
                     GetDatabasesResult::getNextToken,
                     stats.getGetDatabases())
@@ -286,12 +286,6 @@ public class GlueHiveMetastore
         }
     }
 
-    @Override
-    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
-    {
-        return columnStatisticsProvider.getSupportedColumnStatistics(type);
-    }
-
     private Table getExistingTable(String databaseName, String tableName)
     {
         return getTable(databaseName, tableName)
@@ -299,51 +293,45 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(Table table)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
-        return new PartitionStatistics(getHiveBasicStatistics(table.getParameters()), columnStatisticsProvider.getTableColumnStatistics(table));
+        checkArgument(!columnNames.isEmpty(), "columnNames is empty");
+        return columnStatisticsProvider.getTableColumnStatistics(databaseName, tableName, columnNames);
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
+            String databaseName,
+            String tableName,
+            Set<String> partitionNames,
+            Set<String> columnNames)
     {
-        Map<String, PartitionStatistics> partitionBasicStatistics = columnStatisticsProvider.getPartitionColumnStatistics(partitions).entrySet().stream()
-                .collect(toImmutableMap(
-                        entry -> makePartitionName(table, entry.getKey()),
-                        entry -> new PartitionStatistics(getHiveBasicStatistics(entry.getKey().getParameters()), entry.getValue())));
-
-        long tableRowCount = partitionBasicStatistics.values().stream()
-                .mapToLong(partitionStatistics -> partitionStatistics.getBasicStatistics().getRowCount().orElse(0))
-                .sum();
-        if (!partitionBasicStatistics.isEmpty() && tableRowCount == 0) {
-            // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
-            // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
-            // used to ingest data into partitioned hive tables.
-            partitionBasicStatistics = partitionBasicStatistics.entrySet().stream()
-                    .map(entry -> new SimpleEntry<>(
-                                entry.getKey(),
-                                entry.getValue().withBasicStatistics(entry.getValue().getBasicStatistics().withEmptyRowCount())))
-                    .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue));
-        }
-
-        return partitionBasicStatistics;
+        checkArgument(!columnNames.isEmpty(), "columnNames is empty");
+        return columnStatisticsProvider.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames);
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                .run(() -> updateTableStatisticsInternal(databaseName, tableName, transaction, update));
+                .run(() -> updateTableStatisticsInternal(databaseName, tableName, transaction, mode, statisticsUpdate));
     }
 
-    private void updateTableStatisticsInternal(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    private void updateTableStatisticsInternal(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Table table = getExistingTable(databaseName, tableName);
         if (transaction.isAcidTransactionRunning()) {
             table = Table.builder(table).setWriteId(OptionalLong.of(transaction.getWriteId())).build();
         }
-        PartitionStatistics currentStatistics = getTableStatistics(table);
-        PartitionStatistics updatedStatistics = update.apply(currentStatistics);
+        // load current statistics
+        HiveBasicStatistics currentBasicStatistics = getHiveBasicStatistics(table.getParameters());
+        Map<String, HiveColumnStatistics> currentColumnStatistics = getTableColumnStatistics(
+                databaseName,
+                tableName,
+                Stream.concat(table.getDataColumns().stream(), table.getPartitionColumns().stream()).map(Column::getName).collect(toImmutableSet()));
+        PartitionStatistics currentStatistics = new PartitionStatistics(currentBasicStatistics, currentColumnStatistics);
+
+        PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, statisticsUpdate);
 
         try {
             TableInput tableInput = GlueInputConverter.convertTable(table);
@@ -364,35 +352,38 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
-        Iterables.partition(updates.entrySet(), BATCH_CREATE_PARTITION_MAX_PAGE_SIZE).forEach(partitionUpdates ->
-                updatePartitionStatisticsBatch(table, partitionUpdates.stream().collect(toImmutableMap(Entry::getKey, Entry::getValue))));
+        Iterables.partition(partitionUpdates.entrySet(), BATCH_CREATE_PARTITION_MAX_PAGE_SIZE)
+                .forEach(batch -> updatePartitionStatisticsBatch(table, mode, batch.stream().collect(toImmutableMap(Entry::getKey, Entry::getValue))));
     }
 
-    private void updatePartitionStatisticsBatch(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    private void updatePartitionStatisticsBatch(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
+        // Missing partitions are ignored
+        Map<String, Partition> partitions = getPartitionsByNamesInternal(table, partitionUpdates.keySet()).entrySet().stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
+        Map<String, Map<String, HiveColumnStatistics>> currentColumnStats = columnStatisticsProvider.getPartitionColumnStatistics(
+                table.getDatabaseName(),
+                table.getTableName(),
+                partitionUpdates.keySet(),
+                table.getDataColumns().stream().map(Column::getName).collect(toImmutableSet()));
+
         ImmutableList.Builder<BatchUpdatePartitionRequestEntry> partitionUpdateRequests = ImmutableList.builder();
         ImmutableSet.Builder<GlueColumnStatisticsProvider.PartitionStatisticsUpdate> columnStatisticsUpdates = ImmutableSet.builder();
+        partitions.forEach((partitionName, partition) -> {
+            PartitionStatistics update = partitionUpdates.get(partitionName);
 
-        Map<List<String>, String> partitionValuesToName = updates.keySet().stream()
-                .collect(toImmutableMap(HiveUtil::toPartitionValues, identity()));
-
-        List<Partition> partitions = batchGetPartition(table, ImmutableList.copyOf(updates.keySet()));
-        Map<String, PartitionStatistics> partitionsStatistics = getPartitionStatistics(table, partitions);
-
-        partitions.forEach(partition -> {
-            Function<PartitionStatistics, PartitionStatistics> update = updates.get(partitionValuesToName.get(partition.getValues()));
-
-            PartitionStatistics currentStatistics = partitionsStatistics.get(makePartitionName(table, partition));
-            PartitionStatistics updatedStatistics = update.apply(currentStatistics);
+            PartitionStatistics currentStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), currentColumnStats.get(partitionName));
+            PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, update);
 
             Map<String, String> updatedStatisticsParameters = updateStatisticsParameters(partition.getParameters(), updatedStatistics.getBasicStatistics());
 
             partition = Partition.builder(partition).setParameters(updatedStatisticsParameters).build();
             Map<String, HiveColumnStatistics> updatedColumnStatistics = updatedStatistics.getColumnStatistics();
 
-            PartitionInput partitionInput = GlueInputConverter.convertPartition(partition);
+            PartitionInput partitionInput = convertPartition(partition);
             partitionInput.setParameters(partition.getParameters());
 
             partitionUpdateRequests.add(new BatchUpdatePartitionRequestEntry()
@@ -424,74 +415,15 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public List<String> getTables(String databaseName)
-    {
-        return getTableNames(databaseName, tableFilter);
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllTables()
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public Map<String, RelationType> getRelationTypes(String databaseName)
+    public List<TableInfo> getTables(String databaseName)
     {
         try {
             return getGlueTables(databaseName)
-                    .filter(tableFilter.or(SOME_KIND_OF_VIEW_FILTER))
-                    .collect(toImmutableMap(
-                            com.amazonaws.services.glue.model.Table::getName,
-                            table -> {
-                                // GlueHiveMetastore currently does not distinguish views and materialized views, see getAllViews().
-                                if (SOME_KIND_OF_VIEW_FILTER.test(table)) {
-                                    return RelationType.VIEW;
-                                }
-                                return RelationType.TABLE;
-                            }));
-        }
-        catch (EntityNotFoundException | AccessDeniedException e) {
-            // database does not exist or permission denied
-            return ImmutableMap.of();
-        }
-        catch (AmazonServiceException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-    }
-
-    @Override
-    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-    {
-        return getTableNames(databaseName, table -> parameterValue.equals(getTableParameters(table).get(parameterKey)));
-    }
-
-    @Override
-    public List<String> getViews(String databaseName)
-    {
-        return getTableNames(databaseName, SOME_KIND_OF_VIEW_FILTER);
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
-    {
-        return Optional.empty();
-    }
-
-    private List<String> getTableNames(String databaseName, Predicate<com.amazonaws.services.glue.model.Table> filter)
-    {
-        try {
-            List<String> tableNames = getGlueTables(databaseName)
-                    .filter(filter)
-                    .map(com.amazonaws.services.glue.model.Table::getName)
+                    .filter(tableFilter)
+                    .map(table -> new TableInfo(
+                            new SchemaTableName(databaseName, table.getName()),
+                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(getTableType(table), getTableParameters(table).get(TABLE_COMMENT))))
                     .collect(toImmutableList());
-            return tableNames;
         }
         catch (EntityNotFoundException | AccessDeniedException e) {
             // database does not exist or permission denied
@@ -520,7 +452,7 @@ public class GlueHiveMetastore
         }
         catch (AlreadyExistsException e) {
             // Do not throw SchemaAlreadyExistsException if this query has already created the database.
-            // This may happen when an actually successful metastore create call is retried,
+            // This may happen when an actually successful metastore create call is retried
             // because of a timeout on our side.
             String expectedQueryId = database.getParameters().get(TRINO_QUERY_ID_NAME);
             if (expectedQueryId != null) {
@@ -609,7 +541,7 @@ public class GlueHiveMetastore
         }
         catch (AlreadyExistsException e) {
             // Do not throw TableAlreadyExistsException if this query has already created the table.
-            // This may happen when an actually successful metastore create call is retried,
+            // This may happen when an actually successful metastore create call is retried
             // because of a timeout on our side.
             String expectedQueryId = table.getParameters().get(TRINO_QUERY_ID_NAME);
             if (expectedQueryId != null) {
@@ -722,7 +654,7 @@ public class GlueHiveMetastore
         }
     }
 
-    private TableInput convertGlueTableToTableInput(com.amazonaws.services.glue.model.Table glueTable, String newTableName)
+    private static TableInput convertGlueTableToTableInput(com.amazonaws.services.glue.model.Table glueTable, String newTableName)
     {
         return new TableInput()
                 .withName(newTableName)
@@ -896,7 +828,7 @@ public class GlueHiveMetastore
                             .withDatabaseName(table.getDatabaseName())
                             .withTableName(table.getTableName())
                             .withPartitionValues(partitionValues)));
-            return Optional.of(new GluePartitionConverter(table).apply(result.getPartition()));
+            return Optional.of(new GluePartitionConverter(table.getDatabaseName(), table.getTableName()).apply(result.getPartition()));
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
@@ -969,8 +901,7 @@ public class GlueHiveMetastore
                             .withTableName(tableName)
                             .withExpression(expression)
                             .withSegment(segment)
-                            // We are interested in the partition values and excluding column schema
-                            // avoids the problem of a large response.
+                            // We need the partition values, and not column schema which is very large
                             .withExcludeColumnSchema(true)
                             .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS),
                     GetPartitionsRequest::setNextToken,
@@ -998,7 +929,7 @@ public class GlueHiveMetastore
      * </pre>
      *
      * @param partitionNames List of full partition names
-     * @return Mapping of partition name to partition object
+     * @return Mapping of partition name to the partition object
      */
     @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
@@ -1006,7 +937,7 @@ public class GlueHiveMetastore
         return stats.getGetPartitionByName().call(() -> getPartitionsByNamesInternal(table, partitionNames));
     }
 
-    private Map<String, Optional<Partition>> getPartitionsByNamesInternal(Table table, List<String> partitionNames)
+    private Map<String, Optional<Partition>> getPartitionsByNamesInternal(Table table, Collection<String> partitionNames)
     {
         requireNonNull(partitionNames, "partitionNames is null");
         if (partitionNames.isEmpty()) {
@@ -1028,7 +959,7 @@ public class GlueHiveMetastore
         return resultBuilder.buildOrThrow();
     }
 
-    private List<Partition> batchGetPartition(Table table, List<String> partitionNames)
+    private List<Partition> batchGetPartition(Table table, Collection<String> partitionNames)
     {
         List<Future<BatchGetPartitionResult>> batchGetPartitionFutures = new ArrayList<>();
         try {
@@ -1039,7 +970,7 @@ public class GlueHiveMetastore
             ImmutableList.Builder<Partition> resultsBuilder = ImmutableList.builderWithExpectedSize(partitionNames.size());
 
             // Reuse immutable field instances opportunistically between partitions
-            GluePartitionConverter converter = new GluePartitionConverter(table);
+            GluePartitionConverter converter = new GluePartitionConverter(table.getDatabaseName(), table.getTableName());
 
             while (!pendingPartitions.isEmpty()) {
                 for (List<PartitionValueList> partitions : Lists.partition(pendingPartitions, BATCH_GET_PARTITION_MAX_PAGE_SIZE)) {
@@ -1057,8 +988,8 @@ public class GlueHiveMetastore
                     List<PartitionValueList> unprocessedKeys = batchGetPartitionResult.getUnprocessedKeys();
 
                     // In the unlikely scenario where batchGetPartition call cannot make progress on retrieving partitions, avoid infinite loop
-                    if (partitions.isEmpty()) {
-                        verify(!unprocessedKeys.isEmpty(), "Empty unprocessedKeys for non-empty BatchGetPartitionRequest and empty partitions result");
+                    // We fail only in case there are still unprocessedKeys. Case with empty partitions and empty unprocessedKeys is correct in case partitions from request are not found.
+                    if (partitions.isEmpty() && !unprocessedKeys.isEmpty()) {
                         throw new TrinoException(HIVE_METASTORE_ERROR, "Cannot make progress retrieving partitions. Unable to retrieve partitions: " + unprocessedKeys);
                     }
 
@@ -1130,7 +1061,7 @@ public class GlueHiveMetastore
     private static void propagatePartitionErrorToTrinoException(String databaseName, String tableName, List<PartitionError> partitionErrors)
     {
         if (partitionErrors != null && !partitionErrors.isEmpty()) {
-            ErrorDetail errorDetail = partitionErrors.get(0).getErrorDetail();
+            ErrorDetail errorDetail = partitionErrors.getFirst().getErrorDetail();
             String glueExceptionCode = errorDetail.getErrorCode();
 
             switch (glueExceptionCode) {
@@ -1291,7 +1222,8 @@ public class GlueHiveMetastore
                     glueClient::getUserDefinedFunctions,
                     new GetUserDefinedFunctionsRequest()
                             .withDatabaseName(databaseName)
-                            .withPattern(functionNamePattern),
+                            .withPattern(functionNamePattern)
+                            .withMaxResults(AWS_GLUE_GET_FUNCTIONS_MAX_RESULTS),
                     GetUserDefinedFunctionsRequest::setNextToken,
                     GetUserDefinedFunctionsResult::getNextToken,
                     stats.getGetUserDefinedFunctions())
@@ -1370,7 +1302,8 @@ public class GlueHiveMetastore
         return getPaginatedResults(
                 glueClient::getTables,
                 new GetTablesRequest()
-                        .withDatabaseName(databaseName),
+                        .withDatabaseName(databaseName)
+                        .withMaxResults(AWS_GLUE_GET_TABLES_MAX_RESULTS),
                 GetTablesRequest::setNextToken,
                 GetTablesResult::getNextToken,
                 stats.getGetTables())

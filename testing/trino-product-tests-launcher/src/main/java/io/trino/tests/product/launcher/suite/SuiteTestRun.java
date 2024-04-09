@@ -26,8 +26,10 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.tests.product.TestGroups.Introspection.validateGroupIdentityReferences;
 import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
 import static java.lang.System.getenv;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class SuiteTestRun
@@ -195,12 +197,14 @@ public class SuiteTestRun
 
         public Builder withGroups(String... groups)
         {
+            validateGroupIdentityReferences(asList(groups));
             this.groups = ImmutableList.copyOf(groups);
             return this;
         }
 
         public Builder withExcludedGroups(String... groups)
         {
+            validateGroupIdentityReferences(asList(groups));
             this.excludedGroups = ImmutableList.copyOf(groups);
             return this;
         }

@@ -4,13 +4,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>435</version>
+        <version>444</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-kinesis</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Kinesis Connector</description>
+    <description>Trino - Kinesis connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

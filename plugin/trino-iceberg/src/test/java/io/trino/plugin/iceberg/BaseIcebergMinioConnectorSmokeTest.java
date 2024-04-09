@@ -71,7 +71,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
-                                .put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                                .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
                                 .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                                 .put("fs.hadoop.enabled", "false")
                                 .put("fs.native-s3.enabled", "true")
@@ -84,6 +84,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                                 .put("s3.max-connections", "2") // verify no leaks
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
+                                .putAll(getAdditionalIcebergProperties())
                                 .buildOrThrow())
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
@@ -92,6 +93,11 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                                 .withSchemaProperties(Map.of("location", "'s3://" + bucketName + "/" + schemaName + "'"))
                                 .build())
                 .build();
+    }
+
+    public ImmutableMap<String, String> getAdditionalIcebergProperties()
+    {
+        return ImmutableMap.of();
     }
 
     @Override

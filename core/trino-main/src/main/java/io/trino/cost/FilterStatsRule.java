@@ -13,10 +13,8 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.FilterNode;
 
 import java.util.Optional;
@@ -45,11 +43,11 @@ public class FilterStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    public Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, Context context)
     {
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
-        PlanNodeStatsEstimate estimate = filterStatsCalculator.filterStats(sourceStats, node.getPredicate(), session, types);
-        if (isDefaultFilterFactorEnabled(session) && estimate.isOutputRowCountUnknown()) {
+        PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(node.getSource());
+        PlanNodeStatsEstimate estimate = filterStatsCalculator.filterStats(sourceStats, node.getPredicate(), context.session());
+        if (isDefaultFilterFactorEnabled(context.session()) && estimate.isOutputRowCountUnknown()) {
             estimate = sourceStats.mapOutputRowCount(sourceRowCount -> sourceStats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT);
         }
         return Optional.of(estimate);

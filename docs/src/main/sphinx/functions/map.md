@@ -2,7 +2,9 @@
 
 ## Subscript operator: \[\]
 
-The `[]` operator is used to retrieve the value corresponding to a given key from a map:
+The `[]` operator is used to retrieve the value corresponding to a given key from a map.
+This operator throws an error if the key is not contained in the map.
+See also `element_at` function that returns `NULL` in such case.
 
 ```
 SELECT name_to_age_map['Bob'] AS bob_age;

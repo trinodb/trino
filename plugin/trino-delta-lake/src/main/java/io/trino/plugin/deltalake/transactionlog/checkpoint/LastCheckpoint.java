@@ -13,79 +13,17 @@
  */
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.plugin.deltalake.transactionlog.V2Checkpoint;
 
-import java.math.BigInteger;
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class LastCheckpoint
+public record LastCheckpoint(long version, long size, Optional<Integer> parts, Optional<V2Checkpoint> v2Checkpoint)
 {
-    private final long version;
-    private final BigInteger size;
-    private final Optional<Integer> parts;
-
-    @JsonCreator
-    public LastCheckpoint(
-            @JsonProperty("version") long version,
-            @JsonProperty("size") BigInteger size,
-            @JsonProperty("parts") Optional<Integer> parts)
+    public LastCheckpoint
     {
-        this.version = version;
-        this.size = requireNonNull(size, "size is null");
-        this.parts = requireNonNull(parts, "parts is null");
-    }
-
-    @JsonProperty
-    public long getVersion()
-    {
-        return version;
-    }
-
-    @JsonProperty
-    public BigInteger getSize()
-    {
-        return size;
-    }
-
-    @JsonProperty
-    public Optional<Integer> getParts()
-    {
-        return parts;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        LastCheckpoint that = (LastCheckpoint) o;
-        return version == that.version &&
-                size.equals(that.size) &&
-                parts.equals(that.parts);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(version, size, parts);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .addValue(version)
-                .add("size", size)
-                .add("parts", parts)
-                .toString();
+        requireNonNull(parts, "parts is null");
+        requireNonNull(v2Checkpoint, "v2Checkpoint is null");
     }
 }

@@ -13,33 +13,63 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.spi.Page;
 import io.trino.spi.QueryId;
+import io.trino.spi.SplitWeight;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.function.FunctionProvider;
+import io.trino.spi.function.table.AbstractConnectorTableFunction;
+import io.trino.spi.function.table.Argument;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.Descriptor;
+import io.trino.spi.function.table.TableFunctionAnalysis;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.TableFunctionProcessorState;
+import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.assertj.core.api.Condition;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.parallel.Execution;
 
+import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD;
+import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
+import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.REFRESH_MATERIALIZED_VIEW;
@@ -50,11 +80,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.anyOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
 public abstract class BaseIcebergMaterializedViewTest
         extends AbstractTestQueryFramework
 {
@@ -71,6 +97,29 @@ public abstract class BaseIcebergMaterializedViewTest
 
         assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
+
+        QueryRunner queryRunner = getDistributedQueryRunner();
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withTableFunctions(ImmutableSet.of(new SequenceTableFunction()))
+                .withFunctionProvider(Optional.of(new FunctionProvider()
+                {
+                    @Override
+                    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
+                    {
+                        if (functionHandle instanceof SequenceTableFunctionHandle) {
+                            return new SequenceTableFunctionProcessorProvider();
+                        }
+                        throw new IllegalArgumentException("This ConnectorTableFunctionHandle is not supported");
+                    }
+                }))
+                .withTableFunctionSplitSources(functionHandle -> {
+                    if (functionHandle instanceof SequenceTableFunctionHandle) {
+                        return new FixedSplitSource(ImmutableList.of(new SequenceConnectorSplit()));
+                    }
+                    throw new IllegalArgumentException("This ConnectorTableFunctionHandle is not supported");
+                })
+                .build()));
+        queryRunner.createCatalog("mock", "mock");
     }
 
     @Test
@@ -102,8 +151,6 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testMaterializedViewsMetadata()
     {
-        String catalogName = getSession().getCatalog().orElseThrow();
-        String schemaName = getSession().getSchema().orElseThrow();
         String materializedViewName = "test_materialized_view_" + randomNameSuffix();
 
         computeActual("CREATE TABLE small_region AS SELECT * FROM tpch.tiny.region LIMIT 1");
@@ -112,14 +159,14 @@ public abstract class BaseIcebergMaterializedViewTest
         // test freshness update
         assertQuery(
                 // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
-                format("SELECT freshness FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
+                format("SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '%s'", materializedViewName),
                 "VALUES 'STALE'");
 
         computeActual(format("REFRESH MATERIALIZED VIEW %s", materializedViewName));
 
         assertQuery(
                 // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
-                format("SELECT freshness FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
+                format("SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '%s'", materializedViewName),
                 "VALUES 'FRESH'");
 
         assertUpdate("DROP TABLE small_region");
@@ -543,10 +590,10 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE TABLE test_create_materialized_view_when_table_exists (a INT, b INT)");
-        assertThatThrownBy(() -> query("CREATE OR REPLACE MATERIALIZED VIEW test_create_materialized_view_when_table_exists AS SELECT sum(1) AS num_rows FROM base_table2"))
-                .hasMessage("Existing table is not a Materialized View: " + schema + ".test_create_materialized_view_when_table_exists");
-        assertThatThrownBy(() -> query("CREATE MATERIALIZED VIEW IF NOT EXISTS test_create_materialized_view_when_table_exists AS SELECT sum(1) AS num_rows FROM base_table2"))
-                .hasMessage("Existing table is not a Materialized View: " + schema + ".test_create_materialized_view_when_table_exists");
+        assertThat(query("CREATE OR REPLACE MATERIALIZED VIEW test_create_materialized_view_when_table_exists AS SELECT sum(1) AS num_rows FROM base_table2"))
+                .failure().hasMessage("Existing table is not a Materialized View: " + schema + ".test_create_materialized_view_when_table_exists");
+        assertThat(query("CREATE MATERIALIZED VIEW IF NOT EXISTS test_create_materialized_view_when_table_exists AS SELECT sum(1) AS num_rows FROM base_table2"))
+                .failure().hasMessage("Existing table is not a Materialized View: " + schema + ".test_create_materialized_view_when_table_exists");
         assertUpdate("DROP TABLE test_create_materialized_view_when_table_exists");
     }
 
@@ -555,8 +602,8 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE TABLE test_drop_materialized_view_cannot_drop_table (a INT, b INT)");
-        assertThatThrownBy(() -> query("DROP MATERIALIZED VIEW test_drop_materialized_view_cannot_drop_table"))
-                .hasMessageContaining("Materialized view 'iceberg." + schema + ".test_drop_materialized_view_cannot_drop_table' does not exist, but a table with that name exists");
+        assertThat(query("DROP MATERIALIZED VIEW test_drop_materialized_view_cannot_drop_table"))
+                .failure().hasMessageContaining("Materialized view 'iceberg." + schema + ".test_drop_materialized_view_cannot_drop_table' does not exist, but a table with that name exists");
         assertUpdate("DROP TABLE test_drop_materialized_view_cannot_drop_table");
     }
 
@@ -565,8 +612,8 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE TABLE test_rename_materialized_view_cannot_rename_table (a INT, b INT)");
-        assertThatThrownBy(() -> query("ALTER MATERIALIZED VIEW test_rename_materialized_view_cannot_rename_table RENAME TO new_materialized_view_name"))
-                .hasMessageContaining("Materialized View 'iceberg." + schema + ".test_rename_materialized_view_cannot_rename_table' does not exist, but a table with that name exists");
+        assertThat(query("ALTER MATERIALIZED VIEW test_rename_materialized_view_cannot_rename_table RENAME TO new_materialized_view_name"))
+                .failure().hasMessageContaining("Materialized View 'iceberg." + schema + ".test_rename_materialized_view_cannot_rename_table' does not exist, but a table with that name exists");
         assertUpdate("DROP TABLE test_rename_materialized_view_cannot_rename_table");
     }
 
@@ -629,7 +676,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE MATERIALIZED VIEW test_bucket_partitioning WITH (partitioning=ARRAY['bucket(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
                 .formatted(dataType, exampleValue));
         try {
-            TableMetadata storageMetadata = getStorageTableMetadata( "test_bucket_partitioning");
+            TableMetadata storageMetadata = getStorageTableMetadata("test_bucket_partitioning");
             assertThat(storageMetadata.spec().fields()).hasSize(1);
             PartitionField bucketPartitionField = getOnlyElement(storageMetadata.spec().fields());
             assertThat(bucketPartitionField.name()).isEqualTo("col_bucket");
@@ -721,16 +768,14 @@ public abstract class BaseIcebergMaterializedViewTest
         String materializedViewName = "test_materialized_view_snapshot_query_ids" + randomNameSuffix();
         String sourceTableName = "test_source_table_for_mat_view" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
-        QueryId matViewCreateQueryId = getDistributedQueryRunner()
-                .executeWithQueryId(getSession(), format("CREATE MATERIALIZED VIEW %s WITH (partitioning = ARRAY['a']) AS SELECT * FROM %s", materializedViewName, sourceTableName))
-                .getQueryId();
+        assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioning = ARRAY['a']) AS SELECT * FROM %s", materializedViewName, sourceTableName));
 
         try {
             assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);
 
             QueryId refreshQueryId = getDistributedQueryRunner()
-                    .executeWithQueryId(getSession(), format("REFRESH MATERIALIZED VIEW %s", materializedViewName))
-                    .getQueryId();
+                    .executeWithPlan(getSession(), format("REFRESH MATERIALIZED VIEW %s", materializedViewName))
+                    .queryId();
             String savedQueryId = getStorageTableMetadata(materializedViewName).currentSnapshot().summary().get("trino_query_id");
             assertThat(savedQueryId).isEqualTo(refreshQueryId.getId());
         }
@@ -740,6 +785,174 @@ public abstract class BaseIcebergMaterializedViewTest
         }
     }
 
+    @Test
+    public void testMaterializedViewStorageTypeCoercions()
+    {
+        String materializedViewName = "test_materialized_view_storage_type_coercion" + randomNameSuffix();
+        String sourceTableName = "test_materialized_view_storage" + randomNameSuffix();
+
+        assertUpdate(format("""
+                CREATE TABLE %s (
+                    t_3 time(3),
+                    t_9 time(9),
+                    ts_3 timestamp(3),
+                    ts_9 timestamp(9),
+                    tswtz_3 timestamp(3) with time zone,
+                    tswtz_9 timestamp(9) with time zone
+                )
+                """, sourceTableName));
+        assertUpdate(format("INSERT INTO %s VALUES (localtime, localtime, localtimestamp, localtimestamp, current_timestamp, current_timestamp)", sourceTableName), 1);
+
+        assertUpdate(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM %s", materializedViewName, sourceTableName));
+
+        assertThat(query(format("SELECT * FROM %s WHERE t_3 < localtime", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE t_9 < localtime", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE ts_3 < localtimestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE ts_9 < localtimestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE tswtz_3 < current_timestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE tswtz_9 < current_timestamp", materializedViewName))).succeeds();
+
+        assertUpdate(format("REFRESH MATERIALIZED VIEW %s", materializedViewName), 1);
+
+        assertThat(query(format("SELECT * FROM %s WHERE t_3 < localtime", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE t_9 < localtime", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE ts_3 < localtimestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE ts_9 < localtimestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE tswtz_3 < current_timestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE tswtz_9 < current_timestamp", materializedViewName))).succeeds();
+    }
+
+    @Test
+    public void testDropLegacyMaterializedView()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        String materializedViewName = "test_drop_legacy_materialized_view" + randomNameSuffix();
+        String sourceTableName = "test_source_table_for_mat_view" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
+        assertUpdate(format("CREATE MATERIALIZED VIEW iceberg_legacy_mv.%s.%s AS SELECT * FROM %s", schemaName, materializedViewName, sourceTableName));
+
+        try {
+            // Refresh with legacy enabled
+            assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), 3);
+
+            // Refresh with legacy disabled
+            assertUpdate(format("INSERT INTO %s VALUES (10, 10), (10, 40), (20, 20)", sourceTableName), 3);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 6);
+
+            String storageTableName = (String) computeScalar("SELECT storage_table FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + materializedViewName + "'");
+            assertThat(storageTableName)
+                    .isEqualTo(computeScalar("SELECT storage_table FROM system.metadata.materialized_views WHERE catalog_name = 'iceberg_legacy_mv' AND schema_name = CURRENT_SCHEMA AND name = '" + materializedViewName + "'"))
+                    .startsWith("st_");
+
+            assertThat(query("TABLE " + materializedViewName)).matches("TABLE " + sourceTableName);
+            assertThat(query("TABLE " + storageTableName)).matches("TABLE " + sourceTableName);
+            assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+            assertThat(query("TABLE " + materializedViewName)).failure().hasMessageMatching(".* does not exist");
+            assertThat(query("TABLE " + storageTableName)).failure().hasMessageMatching(".* does not exist");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + sourceTableName);
+            assertUpdate(format("DROP MATERIALIZED VIEW IF EXISTS iceberg_legacy_mv.%s.%s", schemaName, materializedViewName));
+        }
+    }
+
+    @Test
+    public void testMaterializedViewCreatedFromTableFunction()
+    {
+        String viewName = "materialized_view_for_ptf_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM TABLE(mock.system.sequence_function())");
+
+        assertFreshness(viewName, "STALE");
+        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue()).isNull();
+        int result1 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
+
+        int result2 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
+        assertThat(result2).isNotEqualTo(result1); // differs because PTF sequence_function is called directly as mv is considered stale
+        assertFreshness(viewName, "STALE");
+        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue()).isNull();
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+        assertFreshness(viewName, "UNKNOWN");
+        ZonedDateTime lastFreshTime = (ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue();
+        assertThat(lastFreshTime).isNotNull();
+        int result3 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
+        assertThat(result3).isNotEqualTo(result2);  // mv is not stale anymore so all selects until next refresh returns same result
+        int result4 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
+        int result5 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
+        assertThat(result4).isEqualTo(result3);
+        assertThat(result4).isEqualTo(result5);
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+        assertThat((ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue()).isAfter(lastFreshTime);
+        assertFreshness(viewName, "UNKNOWN");
+        int result6 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
+        assertThat(result6).isNotEqualTo(result5);
+    }
+
+    @Test
+    public void testMaterializedViewCreatedFromTableFunctionAndTable()
+    {
+        String sourceTableName = "source_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " (VALUE INTEGER)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES 2", 1);
+        String viewName = "materialized_view_for_ptf_adn_table_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM TABLE(mock.system.sequence_function()) CROSS JOIN " + sourceTableName);
+
+        List<MaterializedRow> materializedRows = computeActual("SELECT * FROM " + viewName).getMaterializedRows();
+        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat(materializedRows.get(0).getField(1)).isEqualTo(2);
+        int valueFromPtf1 = (int) materializedRows.get(0).getField(0);
+        assertFreshness(viewName, "STALE");
+        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue()).isNull();
+
+        materializedRows = computeActual("SELECT * FROM " + viewName).getMaterializedRows();
+        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat(materializedRows.get(0).getField(1)).isEqualTo(2);
+        int valueFromPtf2 = (int) materializedRows.get(0).getField(0);
+        assertThat(valueFromPtf2).isNotEqualTo(valueFromPtf1); // differs because PTF sequence_function is called directly as mv is considered stale
+        assertFreshness(viewName, "STALE");
+        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue()).isNull();
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+        assertFreshness(viewName, "UNKNOWN");
+        ZonedDateTime lastFreshTime = (ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue();
+        assertThat(lastFreshTime).isNotNull();
+        materializedRows = computeActual("SELECT * FROM " + viewName).getMaterializedRows();
+        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat(materializedRows.get(0).getField(1)).isEqualTo(2);
+        int valueFromPtf3 = (int) materializedRows.get(0).getField(0);
+        assertThat(valueFromPtf3).isNotEqualTo(valueFromPtf1);
+        assertThat(valueFromPtf3).isNotEqualTo(valueFromPtf2);
+
+        materializedRows = computeActual("SELECT * FROM " + viewName).getMaterializedRows();
+        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat(materializedRows.get(0).getField(1)).isEqualTo(2);
+        int valueFromPtf4 = (int) materializedRows.get(0).getField(0);
+        assertThat(valueFromPtf4).isNotEqualTo(valueFromPtf1);
+        assertThat(valueFromPtf4).isNotEqualTo(valueFromPtf2);
+        assertThat(valueFromPtf4).isEqualTo(valueFromPtf3); // mv is not stale anymore so all selects until next refresh returns same result
+    }
+
+    @Test
+    public void testMaterializedViewCreatedFromTableFunctionWithGracePeriod()
+            throws InterruptedException
+    {
+        String viewName = "materialized_view_for_ptf_with_grace_period_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " GRACE PERIOD INTERVAL '1' SECOND AS SELECT * FROM TABLE(mock.system.sequence_function())");
+
+        int result1 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
+        int result2 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
+        assertThat(result2).isNotEqualTo(result1);
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+        int result3 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
+        assertThat(result3).isNotEqualTo(result2);
+        Thread.sleep(1001);
+        int result4 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
+        assertThat(result4).isNotEqualTo(result3);
+    }
+
     protected String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
@@ -747,7 +960,7 @@ public abstract class BaseIcebergMaterializedViewTest
 
     private TableMetadata getStorageTableMetadata(String materializedViewName)
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        QueryRunner queryRunner = getQueryRunner();
         TrinoFileSystem fileSystemFactory = ((IcebergConnector) queryRunner.getCoordinator().getConnector("iceberg")).getInjector()
                 .getInstance(TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
@@ -758,5 +971,96 @@ public abstract class BaseIcebergMaterializedViewTest
     private long getLatestSnapshotId(String tableName)
     {
         return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
+    }
+
+    private void assertFreshness(String viewName, String expected)
+    {
+        assertThat((String) computeScalar("SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'")).isEqualTo(expected);
+    }
+
+    public static class SequenceTableFunction
+            extends AbstractConnectorTableFunction
+    {
+        public SequenceTableFunction()
+        {
+            super("system", "sequence_function", List.of(), GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments, ConnectorAccessControl accessControl)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(new SequenceTableFunctionHandle())
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field("next_value", Optional.of(INTEGER)))))
+                    .build();
+        }
+    }
+
+    public static class SequenceTableFunctionHandle
+            implements ConnectorTableFunctionHandle {}
+
+    public static class SequenceTableFunctionProcessorProvider
+            implements TableFunctionProcessorProvider
+    {
+        private final SequenceFunctionProcessor sequenceFunctionProcessor = new SequenceFunctionProcessor();
+
+        @Override
+        public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+        {
+            sequenceFunctionProcessor.reset();
+            return sequenceFunctionProcessor;
+        }
+    }
+
+    public static class SequenceFunctionProcessor
+            implements TableFunctionSplitProcessor
+    {
+        private static final AtomicInteger generator = new AtomicInteger(10);
+        private final AtomicBoolean finished = new AtomicBoolean(false);
+
+        @Override
+        public TableFunctionProcessorState process()
+        {
+            if (finished.get()) {
+                return FINISHED;
+            }
+            BlockBuilder builder = INTEGER.createBlockBuilder(null, 1);
+            INTEGER.writeInt(builder, generator.getAndIncrement());
+            finished.set(true);
+            return produced(new Page(builder.build()));
+        }
+
+        public void reset()
+        {
+            finished.set(false);
+        }
+    }
+
+    public record SequenceConnectorSplit()
+            implements ConnectorSplit
+    {
+        private static final int INSTANCE_SIZE = instanceSize(SequenceConnectorSplit.class);
+
+        @JsonIgnore
+        @Override
+        public Object getInfo()
+        {
+            return ImmutableMap.builder()
+                    .put("ignored", "ignored")
+                    .buildOrThrow();
+        }
+
+        @JsonIgnore
+        @Override
+        public SplitWeight getSplitWeight()
+        {
+            return SplitWeight.standard();
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
+        }
     }
 }

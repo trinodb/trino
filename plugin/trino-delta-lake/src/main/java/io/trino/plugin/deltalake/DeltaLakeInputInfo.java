@@ -21,17 +21,25 @@ import java.util.Objects;
 public class DeltaLakeInputInfo
 {
     private final boolean partitioned;
+    private final long version;
 
     @JsonCreator
-    public DeltaLakeInputInfo(@JsonProperty("partitioned") boolean partitioned)
+    public DeltaLakeInputInfo(@JsonProperty("partitioned") boolean partitioned, @JsonProperty("version") long version)
     {
         this.partitioned = partitioned;
+        this.version = version;
     }
 
     @JsonProperty
     public boolean isPartitioned()
     {
         return partitioned;
+    }
+
+    @JsonProperty
+    public long getVersion()
+    {
+        return version;
     }
 
     @Override
@@ -43,12 +51,12 @@ public class DeltaLakeInputInfo
         if (!(o instanceof DeltaLakeInputInfo that)) {
             return false;
         }
-        return partitioned == that.partitioned;
+        return partitioned == that.partitioned && version == that.version;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitioned);
+        return Objects.hash(partitioned, version);
     }
 }

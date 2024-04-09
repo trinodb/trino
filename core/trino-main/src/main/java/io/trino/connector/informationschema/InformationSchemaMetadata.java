@@ -42,7 +42,6 @@ import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -338,9 +337,8 @@ public class InformationSchemaMetadata
         if (domain.isSingleValue()) {
             return Optional.of(ImmutableSet.of(((Slice) domain.getSingleValue()).toStringUtf8()));
         }
-        if (domain.getValues() instanceof EquatableValueSet) {
-            Collection<Object> values = ((EquatableValueSet) domain.getValues()).getValues();
-            return Optional.of(values.stream()
+        if (domain.getValues() instanceof EquatableValueSet set) {
+            return Optional.of(set.getValues().stream()
                     .map(Slice.class::cast)
                     .map(Slice::toStringUtf8)
                     .collect(toImmutableSet()));

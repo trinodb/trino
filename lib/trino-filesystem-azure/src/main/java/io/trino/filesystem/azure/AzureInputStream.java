@@ -23,8 +23,8 @@ import java.io.EOFException;
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.primitives.Longs.constrainToRange;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
+import static java.lang.Math.clamp;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
@@ -129,7 +129,7 @@ class AzureInputStream
     {
         ensureOpen();
 
-        long skipSize = constrainToRange(n, 0, fileSize - nextPosition);
+        long skipSize = clamp(n, 0, fileSize - nextPosition);
         nextPosition += skipSize;
         return skipSize;
     }

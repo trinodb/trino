@@ -815,6 +815,7 @@ public class TestRealOperators
             throws Throwable
     {
         MethodHandle hashCodeOperator = assertions.getQueryRunner()
+                .getPlannerContext()
                 .getTypeManager()
                 .getTypeOperators()
                 .getHashCodeOperator(REAL, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
@@ -826,6 +827,7 @@ public class TestRealOperators
             throws Throwable
     {
         MethodHandle xxHash64Operator = assertions.getQueryRunner()
+                .getPlannerContext()
                 .getTypeManager()
                 .getTypeOperators()
                 .getXxHash64Operator(REAL, simpleConvention(FAIL_ON_NULL, NEVER_NULL));

@@ -17,7 +17,7 @@ import io.airlift.units.DataSize;
 import io.trino.spi.SplitWeight;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.primitives.Doubles.constrainToRange;
+import static java.lang.Math.clamp;
 import static java.util.Objects.requireNonNull;
 
 public class SizeBasedSplitWeightProvider
@@ -42,6 +42,6 @@ public class SizeBasedSplitWeightProvider
     {
         double computedWeight = splitSizeInBytes / standardSplitSizeInBytes;
         // Clamp the value between the minimum weight and 1.0 (standard weight)
-        return SplitWeight.fromProportion(constrainToRange(computedWeight, minimumWeight, 1.0));
+        return SplitWeight.fromProportion(clamp(computedWeight, minimumWeight, 1.0));
     }
 }

@@ -15,13 +15,17 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
-import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -31,7 +35,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 
 public class TestTransformCorrelatedDistinctAggregationWithoutProjection
         extends BaseRuleTest
@@ -67,29 +71,29 @@ public class TestTransformCorrelatedDistinctAggregationWithoutProjection
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
-                        PlanBuilder.expression("true"),
+                        JoinType.LEFT,
+                        TRUE,
                         p.aggregation(innerBuilder -> innerBuilder
                                 .singleGroupingSet(p.symbol("a"))
                                 .source(p.filter(
-                                        PlanBuilder.expression("b > corr"),
+                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")),
                                         p.values(p.symbol("a"), p.symbol("b")))))))
                 .matches(
-                        project(ImmutableMap.of("corr", expression("corr"), "a", expression("a")),
+                        project(ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")), "a", expression(new Reference(BIGINT, "a"))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,
                                         join(LEFT, builder -> builder
-                                                .filter("b > corr")
+                                                .filter(new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")))
                                                 .left(
                                                         assignUniqueId(
                                                                 "unique",
                                                                 values("corr")))
                                                 .right(
                                                         filter(
-                                                                "true",
+                                                                TRUE,
                                                                 values("a", "b")))))));
     }
 }

@@ -31,8 +31,6 @@ import io.trino.plugin.hive.metastore.SortingColumn.Order;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.util.HiveBucketing;
-import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
@@ -170,7 +168,7 @@ public final class GlueToTrinoConverter
                 tableBuilder.setPartitionColumns(ImmutableList.of());
             }
             // No benefit to memoizing here, just reusing the implementation
-            new StorageConverter().setStorageBuilder(sd, tableBuilder.getStorageBuilder(), tableParameters);
+            new StorageConverter().setStorageBuilder(sd, tableBuilder.getStorageBuilder());
         }
 
         return tableBuilder.build();
@@ -220,15 +218,12 @@ public final class GlueToTrinoConverter
         private final StorageConverter storageConverter = new StorageConverter();
         private final String databaseName;
         private final String tableName;
-        private final Map<String, String> tableParameters;
 
-        public GluePartitionConverter(Table table)
+        public GluePartitionConverter(String databaseName, String tableName)
         {
-            requireNonNull(table, "table is null");
-            this.databaseName = requireNonNull(table.getDatabaseName(), "databaseName is null");
-            this.tableName = requireNonNull(table.getTableName(), "tableName is null");
-            this.tableParameters = table.getParameters();
-            this.dataColumnsConverter = memoizeLast((glueColumns, isCsv) -> convertColumns(table.getSchemaTableName(), glueColumns, ColumnType.DATA, isCsv));
+            this.databaseName = requireNonNull(databaseName, "databaseName is null");
+            this.tableName = requireNonNull(tableName, "tableName is null");
+            this.dataColumnsConverter = memoizeLast((glueColumns, isCsv) -> convertColumns(new SchemaTableName(databaseName, tableName), glueColumns, ColumnType.DATA, isCsv));
         }
 
         @Override
@@ -251,7 +246,7 @@ public final class GlueToTrinoConverter
                     .setColumns(dataColumnsConverter.apply(sd.getColumns(), isCsv))
                     .setParameters(parametersConverter.apply(getPartitionParameters(gluePartition)));
 
-            storageConverter.setStorageBuilder(sd, partitionBuilder.getStorageBuilder(), tableParameters);
+            storageConverter.setStorageBuilder(sd, partitionBuilder.getStorageBuilder());
 
             return partitionBuilder.build();
         }
@@ -265,20 +260,20 @@ public final class GlueToTrinoConverter
         private final Function<Map<String, String>, Map<String, String>> serdeParametersConverter = parametersConverter();
         private final StorageFormatConverter storageFormatConverter = new StorageFormatConverter();
 
-        public void setStorageBuilder(StorageDescriptor sd, Storage.Builder storageBuilder, Map<String, String> tableParameters)
+        public void setStorageBuilder(StorageDescriptor sd, Storage.Builder storageBuilder)
         {
             requireNonNull(sd.getSerdeInfo(), "StorageDescriptor SerDeInfo is null");
             SerDeInfo serdeInfo = sd.getSerdeInfo();
 
             storageBuilder.setStorageFormat(storageFormatConverter.createStorageFormat(serdeInfo, sd))
                     .setLocation(nullToEmpty(sd.getLocation()))
-                    .setBucketProperty(convertToBucketProperty(tableParameters, sd))
+                    .setBucketProperty(convertToBucketProperty(sd))
                     .setSkewed(sd.getSkewedInfo() != null && !isNullOrEmpty(sd.getSkewedInfo().getSkewedColumnNames()))
                     .setSerdeParameters(serdeParametersConverter.apply(getSerDeInfoParameters(serdeInfo)))
                     .build();
         }
 
-        private Optional<HiveBucketProperty> convertToBucketProperty(Map<String, String> tableParameters, StorageDescriptor sd)
+        private Optional<HiveBucketProperty> convertToBucketProperty(StorageDescriptor sd)
         {
             if (sd.getNumberOfBuckets() > 0) {
                 if (isNullOrEmpty(sd.getBucketColumns())) {
@@ -286,8 +281,7 @@ public final class GlueToTrinoConverter
                 }
                 List<String> bucketColumns = this.bucketColumns.apply(sd.getBucketColumns());
                 List<SortingColumn> sortedBy = this.sortColumns.apply(sd.getSortColumns());
-                BucketingVersion bucketingVersion = HiveBucketing.getBucketingVersion(tableParameters);
-                return bucketProperty.apply(Optional.of(new HiveBucketProperty(bucketColumns, bucketingVersion, sd.getNumberOfBuckets(), sortedBy)));
+                return bucketProperty.apply(Optional.of(new HiveBucketProperty(bucketColumns, sd.getNumberOfBuckets(), sortedBy)));
             }
             return Optional.empty();
         }

@@ -86,21 +86,15 @@ public final class PinotQueryBuilder
 
     private static String getTableName(PinotTableHandle tableHandle, Optional<String> tableNameSuffix)
     {
-        if (tableNameSuffix.isPresent()) {
-            return new StringBuilder(tableHandle.getTableName())
-                    .append(tableNameSuffix.get())
-                    .toString();
-        }
-        return tableHandle.getTableName();
+        return tableNameSuffix
+                .map(suffix -> tableHandle.getTableName() + suffix)
+                .orElseGet(tableHandle::getTableName);
     }
 
     private static void generateFilterPql(StringBuilder pqlBuilder, PinotTableHandle tableHandle, Optional<String> timePredicate)
     {
-        Optional<String> filterClause = getFilterClause(tableHandle.getConstraint(), timePredicate, false);
-        if (filterClause.isPresent()) {
-            pqlBuilder.append(" WHERE ")
-                    .append(filterClause.get());
-        }
+        getFilterClause(tableHandle.getConstraint(), timePredicate, false)
+                .ifPresent(filterClause -> pqlBuilder.append(" WHERE ").append(filterClause));
     }
 
     public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate, boolean forHavingClause)

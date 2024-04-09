@@ -70,7 +70,7 @@ public class TestIcebergInputInfo
     private void assertInputInfo(String tableName, boolean expectedPartition, String expectedFileFormat)
     {
         inTransaction(session -> {
-            Metadata metadata = getQueryRunner().getMetadata();
+            Metadata metadata = getQueryRunner().getPlannerContext().getMetadata();
             QualifiedObjectName qualifiedObjectName = new QualifiedObjectName(
                     session.getCatalog().orElse(ICEBERG_CATALOG),
                     session.getSchema().orElse("tpch"),

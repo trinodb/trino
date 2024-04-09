@@ -14,9 +14,8 @@ To use the Hudi connector, you need:
 - Network access from the Trino coordinator and workers to the Hudi storage.
 - Access to a Hive metastore service (HMS).
 - Network access from the Trino coordinator to the HMS.
-- Data files stored in the Parquet file format. These can be configured using
-  {ref}`file format configuration properties <hive-parquet-configuration>` per
-  catalog.
+- Data files stored in the [Parquet file format](hive-parquet-configuration) on
+  a [supported file system](hudi-file-system-configuration).
 
 ## General configuration
 
@@ -82,8 +81,32 @@ Additionally, following configuration properties can be set depending on the use
   - Maximum number of metastore data objects per transaction in the Hive
     metastore cache.
   - `2000`
+* - `hudi.query-partition-filter-required`
+  - Set to `true` to force a query to use a partition column in the filter condition.
+    The equivalent catalog session property is `query_partition_filter_required`.
+    Enabling this property causes query failures if the partition column used
+    in the filter condition doesn't effectively reduce the number of data files read.
+    Example: Complex filter expressions such as `id = 1 OR part_key = '100'`
+    or `CAST(part_key AS INTEGER) % 2 = 0` are not recognized as partition filters,
+    and queries using such expressions fail if the property is set to `true`.
+  - `false`
 
 :::
+
+(hudi-file-system-configuration)=
+## File system access configuration
+
+The connector supports native, high-performance file system access to object
+storage systems:
+
+* [](/object-storage)
+* [](/object-storage/file-system-azure)
+* [](/object-storage/file-system-gcs)
+* [](/object-storage/file-system-s3)
+
+You must enable and configure the specific native file system access. If none is
+activated, the [legacy support](file-system-legacy) is used and must be
+configured.
 
 ## SQL support
 

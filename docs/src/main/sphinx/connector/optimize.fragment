@@ -13,10 +13,10 @@ ALTER TABLE test_table EXECUTE optimize
 ```
 
 The following statement merges files in a table that are
-under 10 megabytes in size:
+under 128 megabytes in size:
 
 ```sql
-ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
+ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '128MB')
 ```
 
 You can use a `WHERE` clause with the columns used to partition the table
@@ -25,4 +25,14 @@ to filter which partitions are optimized:
 ```sql
 ALTER TABLE test_partitioned_table EXECUTE optimize
 WHERE partition_key = 1
+```
+
+You can use a more complex `WHERE` clause to narrow down the scope of the
+`optimize` procedure. The following example casts the timestamp values to
+dates, and uses a comparison to only optimize partitions with data from the year
+2022 or newer:
+
+```
+ALTER TABLE test_table EXECUTE optimize
+WHERE CAST(timestamp_tz AS DATE) > DATE '2021-12-31'
 ```

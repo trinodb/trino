@@ -22,7 +22,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.trino.plugin.hive.security.HiveSecurityModule.LEGACY;
+import static io.trino.plugin.hive.security.HiveSecurityModule.HiveSecurity.ALLOW_ALL;
+import static io.trino.plugin.hive.security.HiveSecurityModule.HiveSecurity.READ_ONLY;
 
 public class TestSecurityConfig
 {
@@ -30,7 +31,7 @@ public class TestSecurityConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SecurityConfig.class)
-                .setSecuritySystem(LEGACY));
+                .setSecuritySystem(ALLOW_ALL));
     }
 
     @Test
@@ -38,11 +39,11 @@ public class TestSecurityConfig
             throws IOException
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.security", "something")
+                .put("hive.security", "read-only")
                 .buildOrThrow();
 
         SecurityConfig expected = new SecurityConfig()
-                .setSecuritySystem("something");
+                .setSecuritySystem(READ_ONLY);
 
         assertFullMapping(properties, expected);
     }

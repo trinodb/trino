@@ -30,22 +30,22 @@ final class TestFileHiveMetastore
         extends AbstractTestHiveMetastore
 {
     private final Path tempDir;
+    private final HiveMetastore metastore;
 
     TestFileHiveMetastore()
             throws IOException
     {
         tempDir = createTempDirectory("test");
-        tempDir.toFile().mkdirs();
         LocalFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(tempDir);
 
-        setMetastore(new FileHiveMetastore(
+        metastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),
                 fileSystemFactory,
                 false,
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory("local:///")
                         .setMetastoreUser("test")
-                        .setDisableLocationChecks(true)));
+                        .setDisableLocationChecks(true));
     }
 
     @AfterAll
@@ -53,5 +53,11 @@ final class TestFileHiveMetastore
             throws IOException
     {
         deleteRecursively(tempDir, ALLOW_INSECURE);
+    }
+
+    @Override
+    protected HiveMetastore getMetastore()
+    {
+        return metastore;
     }
 }

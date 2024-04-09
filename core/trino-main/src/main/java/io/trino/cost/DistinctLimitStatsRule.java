@@ -14,10 +14,8 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 
 import java.util.Optional;
@@ -42,14 +40,14 @@ public class DistinctLimitStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(DistinctLimitNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(DistinctLimitNode node, Context context)
     {
         if (node.isPartial()) {
             return Optional.empty();
         }
 
         PlanNodeStatsEstimate distinctStats = AggregationStatsRule.groupBy(
-                statsProvider.getStats(node.getSource()),
+                context.statsProvider().getStats(node.getSource()),
                 node.getDistinctSymbols(),
                 ImmutableMap.of());
         PlanNodeStatsEstimate distinctLimitStats = distinctStats.mapOutputRowCount(rowCount -> min(rowCount, node.getLimit()));

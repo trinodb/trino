@@ -45,8 +45,6 @@ import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_EN
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
-import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
-import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.util.Objects.requireNonNull;
 
@@ -125,7 +123,7 @@ public class OAuth2WebUiAuthenticationFilter
     private Optional<TokenPair> getTokenPair(ContainerRequestContext request)
     {
         try {
-            return OAuthWebUiCookie.read(request.getCookies().get(OAUTH2_COOKIE))
+            return OAuthWebUiCookie.read(request.getCookies())
                     .map(tokenPairSerializer::deserialize);
         }
         catch (Exception e) {
@@ -168,7 +166,7 @@ public class OAuth2WebUiAuthenticationFilter
         Response.ResponseBuilder builder = Response.temporaryRedirect(request.getUriInfo().getRequestUri())
                 .cookie(OAuthWebUiCookie.create(serializedToken, newExpirationTime));
 
-        OAuthIdTokenCookie.read(request.getCookies().get(ID_TOKEN_COOKIE))
+        OAuthIdTokenCookie.read(request.getCookies())
                 .ifPresent(idToken -> builder.cookie(OAuthIdTokenCookie.create(idToken, newExpirationTime)));
 
         request.abortWith(builder.build());

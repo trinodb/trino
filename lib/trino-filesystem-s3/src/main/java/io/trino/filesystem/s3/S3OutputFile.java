@@ -39,23 +39,18 @@ final class S3OutputFile
     }
 
     @Override
-    public OutputStream create(AggregatedMemoryContext memoryContext)
-    {
-        // always overwrite since Trino usually creates unique file names
-        return createOrOverwrite(memoryContext);
-    }
-
-    @Override
-    public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
-    {
-        return new S3OutputStream(memoryContext, client, context, location);
-    }
-
-    @Override
-    public OutputStream createExclusive(AggregatedMemoryContext memoryContext)
+    public void createOrOverwrite(byte[] data)
             throws IOException
     {
-        throw new IOException("S3 does not support exclusive create");
+        try (OutputStream out = create()) {
+            out.write(data);
+        }
+    }
+
+    @Override
+    public OutputStream create(AggregatedMemoryContext memoryContext)
+    {
+        return new S3OutputStream(memoryContext, client, context, location);
     }
 
     @Override

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
-import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.connector.Connector;
@@ -29,9 +28,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.hive.InternalHiveConnectorFactory.createConnector;
+import static io.trino.plugin.hive.HiveConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
 public class TestingHiveConnectorFactory
@@ -39,31 +37,23 @@ public class TestingHiveConnectorFactory
 {
     private final Optional<HiveMetastore> metastore;
     private final Module module;
-    private final Optional<DirectoryLister> directoryLister;
 
     public TestingHiveConnectorFactory(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty(), EMPTY_MODULE, Optional.empty());
+        this(localFileSystemRootPath, Optional.empty());
     }
 
     @Deprecated
-    public TestingHiveConnectorFactory(
-            Path localFileSystemRootPath,
-            Optional<HiveMetastore> metastore,
-            Module module,
-            Optional<DirectoryLister> directoryLister)
+    public TestingHiveConnectorFactory(Path localFileSystemRootPath, Optional<HiveMetastore> metastore)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
 
-        localFileSystemRootPath.toFile().mkdirs();
+        boolean ignored = localFileSystemRootPath.toFile().mkdirs();
         this.module = binder -> {
-            binder.install(module);
             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
                     .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
             configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
         };
-
-        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
     }
 
     @Override
@@ -81,8 +71,6 @@ public class TestingHiveConnectorFactory
         if (metastore.isEmpty() && !config.containsKey("hive.metastore")) {
             configBuilder.put("hive.metastore", "file");
         }
-        return createConnector(catalogName, configBuilder.buildOrThrow(), context, module, metastore,
-                Optional.empty(),
-                directoryLister);
+        return createConnector(catalogName, configBuilder.buildOrThrow(), context, module, metastore, Optional.empty());
     }
 }

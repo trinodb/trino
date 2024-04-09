@@ -13,12 +13,29 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.plan.ExchangeNode;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -26,11 +43,14 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestPredicatePushdown
         extends AbstractPredicatePushdownTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes(INTEGER));
+
     public TestPredicatePushdown()
     {
         super(true);
@@ -54,17 +74,17 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("t_k", "u_k")
-                                .dynamicFilter("t_k", "u_k")
+                                .dynamicFilter(BIGINT, "t_k", "u_k")
                                 .left(
                                         project(
                                                 filter(
-                                                        "CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))",
+                                                        new Comparison(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(4), "t_v"), createVarcharType(4))),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
                                                         filter(
-                                                                "CAST('x' AS varchar(4)) = CAST(u_v AS varchar(4))",
+                                                                new Comparison(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(4), "u_v"), createVarcharType(4))),
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
 
         // values have different types (varchar(4) vs varchar(5)) in each table
@@ -78,24 +98,24 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("t_k", "u_k")
-                                .dynamicFilter("t_k", "u_k")
+                                .dynamicFilter(BIGINT, "t_k", "u_k")
                                 .left(
                                         project(
                                                 filter(
-                                                        "CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))",
+                                                        new Comparison(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(4), "t_v"), createVarcharType(4))),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
                                                         filter(
-                                                                "CAST('x' AS varchar(5)) = CAST(u_v AS varchar(5))",
+                                                                new Comparison(EQUAL, new Constant(createVarcharType(5), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(5), "u_v"), createVarcharType(5))),
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
     }
 
     @Test
     public void testNormalizeOuterJoinToInner()
     {
-        Session disableJoinReordering = Session.builder(getQueryRunner().getDefaultSession())
+        Session disableJoinReordering = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
                 .build();
 
@@ -115,7 +135,7 @@ public class TestPredicatePushdown
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        "NOT (c_name IS NULL)",
+                                                        new Not(new IsNull(new Reference(VARCHAR, "c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
 
         // nested joins
@@ -142,7 +162,7 @@ public class TestPredicatePushdown
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        "NOT (c_name IS NULL)",
+                                                        new Not(new IsNull(new Reference(VARCHAR, "c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
     }
 
@@ -155,9 +175,10 @@ public class TestPredicatePushdown
                         semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", true,
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of(
-                                        "LINE_ORDER_KEY", "orderkey"))),
+                                                "LINE_ORDER_KEY", "orderkey"))),
                                 node(ExchangeNode.class,
-                                        filter("ORDERS_ORDER_KEY = CAST(random(5) AS bigint)",
+                                        filter(
+                                                new Comparison(EQUAL, new Reference(BIGINT, "ORDERS_ORDER_KEY"), new Cast(new Call(RANDOM, ImmutableList.of(new Constant(INTEGER, 5L))), BIGINT)),
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
@@ -168,15 +189,15 @@ public class TestPredicatePushdown
                 "SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
                 anyTree(
                         join(INNER, builder -> builder
-                                .equiCriteria("ORDERS_OK", "LINEITEM_OK")
+                                .equiCriteria("LINEITEM_OK", "ORDERS_OK")
                                 .left(
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
+                                        filter(
+                                                new Comparison(EQUAL, new Cast(new Reference(INTEGER, "LINEITEM_LINENUMBER"), VARCHAR), new Constant(VARCHAR, Slices.utf8Slice("2"))),
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINEITEM_OK", "orderkey",
+                                                        "LINEITEM_LINENUMBER", "linenumber"))))
                                 .right(
                                         anyTree(
-                                                filter("cast(LINEITEM_LINENUMBER as varchar) = VARCHAR '2'",
-                                                        tableScan("lineitem", ImmutableMap.of(
-                                                                "LINEITEM_OK", "orderkey",
-                                                                "LINEITEM_LINENUMBER", "linenumber"))))))));
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))));
     }
 }

@@ -14,16 +14,15 @@
 package io.trino.util;
 
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Expression;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 
 public final class SpatialJoinUtils
 {
@@ -42,18 +41,18 @@ public final class SpatialJoinUtils
      * <p>
      * Doesn't check or guarantee anything about function arguments.
      */
-    public static List<FunctionCall> extractSupportedSpatialFunctions(Expression filterExpression)
+    public static List<Call> extractSupportedSpatialFunctions(Expression filterExpression)
     {
         return extractConjuncts(filterExpression).stream()
-                .filter(FunctionCall.class::isInstance)
-                .map(FunctionCall.class::cast)
+                .filter(Call.class::isInstance)
+                .map(Call.class::cast)
                 .filter(SpatialJoinUtils::isSupportedSpatialFunction)
                 .collect(toImmutableList());
     }
 
-    private static boolean isSupportedSpatialFunction(FunctionCall functionCall)
+    private static boolean isSupportedSpatialFunction(Call call)
     {
-        CatalogSchemaFunctionName functionName = extractFunctionName(functionCall.getName());
+        CatalogSchemaFunctionName functionName = call.function().getName();
         return functionName.equals(builtinFunctionName(ST_CONTAINS)) ||
                 functionName.equals(builtinFunctionName(ST_WITHIN)) ||
                 functionName.equals(builtinFunctionName(ST_INTERSECTS));
@@ -69,24 +68,24 @@ public final class SpatialJoinUtils
      * Doesn't check or guarantee anything about ST_Distance functions arguments
      * or the other side of the comparison.
      */
-    public static List<ComparisonExpression> extractSupportedSpatialComparisons(Expression filterExpression)
+    public static List<Comparison> extractSupportedSpatialComparisons(Expression filterExpression)
     {
         return extractConjuncts(filterExpression).stream()
-                .filter(ComparisonExpression.class::isInstance)
-                .map(ComparisonExpression.class::cast)
+                .filter(Comparison.class::isInstance)
+                .map(Comparison.class::cast)
                 .filter(SpatialJoinUtils::isSupportedSpatialComparison)
                 .collect(toImmutableList());
     }
 
-    private static boolean isSupportedSpatialComparison(ComparisonExpression expression)
+    private static boolean isSupportedSpatialComparison(Comparison expression)
     {
-        switch (expression.getOperator()) {
+        switch (expression.operator()) {
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
-                return isSTDistance(expression.getLeft());
+                return isSTDistance(expression.left());
             case GREATER_THAN:
             case GREATER_THAN_OR_EQUAL:
-                return isSTDistance(expression.getRight());
+                return isSTDistance(expression.right());
             default:
                 return false;
         }
@@ -94,8 +93,8 @@ public final class SpatialJoinUtils
 
     private static boolean isSTDistance(Expression expression)
     {
-        if (expression instanceof FunctionCall) {
-            return extractFunctionName(((FunctionCall) expression).getName()).equals(builtinFunctionName(ST_DISTANCE));
+        if (expression instanceof Call call) {
+            return call.function().getName().equals(builtinFunctionName(ST_DISTANCE));
         }
 
         return false;

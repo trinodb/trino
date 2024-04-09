@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule.test;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Plugin;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
@@ -43,11 +43,11 @@ public abstract class BaseRuleTest
     @BeforeAll
     public final void setUp()
     {
-        Optional<LocalQueryRunner> localQueryRunner = createLocalQueryRunner();
+        Optional<PlanTester> planTester = createPlanTester();
 
-        if (localQueryRunner.isPresent()) {
-            plugins.forEach(plugin -> localQueryRunner.get().installPlugin(plugin));
-            tester = new RuleTester(localQueryRunner.get());
+        if (planTester.isPresent()) {
+            plugins.forEach(plugin -> planTester.get().installPlugin(plugin));
+            tester = new RuleTester(planTester.get());
         }
         else {
             tester = RuleTester.builder()
@@ -56,7 +56,7 @@ public abstract class BaseRuleTest
         }
     }
 
-    protected Optional<LocalQueryRunner> createLocalQueryRunner()
+    protected Optional<PlanTester> createPlanTester()
     {
         return Optional.empty();
     }

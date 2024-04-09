@@ -43,9 +43,9 @@ public class TestInCodeGenerator
     public void testInteger()
     {
         List<RowExpression> values = new ArrayList<>();
-        values.add(constant(Integer.MIN_VALUE, INTEGER));
-        values.add(constant(Integer.MAX_VALUE, INTEGER));
-        values.add(constant(3, INTEGER));
+        values.add(constant((long) Integer.MIN_VALUE, INTEGER));
+        values.add(constant((long) Integer.MAX_VALUE, INTEGER));
+        values.add(constant(3L, INTEGER));
         assertThat(checkSwitchGenerationCase(INTEGER, values)).isEqualTo(DIRECT_SWITCH);
 
         values.add(constant(null, INTEGER));
@@ -55,11 +55,11 @@ public class TestInCodeGenerator
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertThat(checkSwitchGenerationCase(INTEGER, values)).isEqualTo(DIRECT_SWITCH);
 
-        values.add(constant(6, BIGINT));
-        values.add(constant(7, BIGINT));
+        values.add(constant(6L, BIGINT));
+        values.add(constant(7L, BIGINT));
         assertThat(checkSwitchGenerationCase(INTEGER, values)).isEqualTo(DIRECT_SWITCH);
 
-        values.add(constant(8, INTEGER));
+        values.add(constant(8L, INTEGER));
         assertThat(checkSwitchGenerationCase(INTEGER, values)).isEqualTo(SET_CONTAINS);
     }
 
@@ -130,9 +130,9 @@ public class TestInCodeGenerator
     public void testVarchar()
     {
         List<RowExpression> values = new ArrayList<>();
-        values.add(constant(Slices.utf8Slice("1"), DOUBLE));
-        values.add(constant(Slices.utf8Slice("2"), DOUBLE));
-        values.add(constant(Slices.utf8Slice("3"), DOUBLE));
+        values.add(constant(Slices.utf8Slice("1"), VARCHAR));
+        values.add(constant(Slices.utf8Slice("2"), VARCHAR));
+        values.add(constant(Slices.utf8Slice("3"), VARCHAR));
         assertThat(checkSwitchGenerationCase(VARCHAR, values)).isEqualTo(HASH_SWITCH);
 
         values.add(constant(null, VARCHAR));

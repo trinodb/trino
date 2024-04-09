@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -22,6 +23,7 @@ import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableFunctionProcessor;
@@ -123,7 +125,7 @@ public class TestPruneTableFunctionProcessorColumns
                                             .source(p.values(a, b))));
                 })
                 .matches(project(
-                        ImmutableMap.of("y", expression("y"), "b", expression("b")),
+                        ImmutableMap.of("y", expression(new Reference(BIGINT, "y")), "b", expression(new Reference(BIGINT, "b"))),
                         tableFunctionProcessor(builder -> builder
                                         .name("test_function")
                                         .properOutputs(ImmutableList.of("x", "y"))
@@ -211,7 +213,7 @@ public class TestPruneTableFunctionProcessorColumns
                                             .source(p.values(a, b, c, d))));
                 })
                 .matches(project(
-                        ImmutableMap.of("b", expression("b")),
+                        ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                         tableFunctionProcessor(builder -> builder
                                         .name("test_function")
                                         .properOutputs(ImmutableList.of("proper"))

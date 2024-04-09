@@ -25,8 +25,12 @@ import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.catalog.CatalogProperties;
+import io.trino.spi.catalog.CatalogStore;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.ConnectorName;
 import jakarta.annotation.PreDestroy;
 
 import java.util.ArrayList;
@@ -45,12 +49,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metadata.Catalog.failedCatalog;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.util.Executors.executeUntilFailure;
 import static java.lang.String.format;
@@ -73,7 +78,7 @@ public class CoordinatorDynamicCatalogManager
     /**
      * Active catalogs that have been created and not dropped.
      */
-    private final ConcurrentMap<String, Catalog> activeCatalogs = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, Catalog> activeCatalogs = new ConcurrentHashMap<>();
 
     /**
      * All catalogs including those that have been dropped.
@@ -134,16 +139,17 @@ public class CoordinatorDynamicCatalogManager
                                 CatalogProperties catalog = null;
                                 try {
                                     catalog = storedCatalog.loadProperties();
+                                    verify(catalog.catalogHandle().getCatalogName().equals(storedCatalog.name()), "Catalog name does not match catalog handle");
                                     CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
-                                    activeCatalogs.put(catalog.getCatalogHandle().getCatalogName(), newCatalog.getCatalog());
-                                    allCatalogs.put(catalog.getCatalogHandle(), newCatalog);
-                                    log.info("-- Added catalog %s using connector %s --", storedCatalog.getName(), catalog.getConnectorName());
+                                    activeCatalogs.put(storedCatalog.name(), newCatalog.getCatalog());
+                                    allCatalogs.put(catalog.catalogHandle(), newCatalog);
+                                    log.debug("-- Added catalog %s using connector %s --", storedCatalog.name(), catalog.connectorName());
                                 }
                                 catch (Throwable e) {
-                                    CatalogHandle catalogHandle = catalog != null ? catalog.getCatalogHandle() : createRootCatalogHandle(storedCatalog.getName(), new CatalogVersion("failed"));
-                                    ConnectorName connectorName = catalog != null ? catalog.getConnectorName() : new ConnectorName("unknown");
-                                    activeCatalogs.put(storedCatalog.getName(), failedCatalog(storedCatalog.getName(), catalogHandle, connectorName));
-                                    log.error(e, "-- Failed to load catalog %s using connector %s --", storedCatalog.getName(), connectorName);
+                                    CatalogHandle catalogHandle = catalog != null ? catalog.catalogHandle() : createRootCatalogHandle(storedCatalog.name(), new CatalogVersion("failed"));
+                                    ConnectorName connectorName = catalog != null ? catalog.connectorName() : new ConnectorName("unknown");
+                                    activeCatalogs.put(storedCatalog.name(), failedCatalog(storedCatalog.name(), catalogHandle, connectorName));
+                                    log.error(e, "-- Failed to load catalog %s using connector %s --", storedCatalog.name(), connectorName);
                                 }
                                 return null;
                             })
@@ -155,13 +161,13 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public Set<String> getCatalogNames()
+    public Set<CatalogName> getCatalogNames()
     {
         return ImmutableSet.copyOf(activeCatalogs.keySet());
     }
 
     @Override
-    public Optional<Catalog> getCatalog(String catalogName)
+    public Optional<Catalog> getCatalog(CatalogName catalogName)
     {
         return Optional.ofNullable(activeCatalogs.get(catalogName));
     }
@@ -178,7 +184,7 @@ public class CoordinatorDynamicCatalogManager
     public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs)
     {
         List<CatalogProperties> missingCatalogs = catalogs.stream()
-                .filter(catalog -> !allCatalogs.containsKey(catalog.getCatalogHandle()))
+                .filter(catalog -> !allCatalogs.containsKey(catalog.catalogHandle()))
                 .collect(toImmutableList());
 
         if (!missingCatalogs.isEmpty()) {
@@ -227,7 +233,7 @@ public class CoordinatorDynamicCatalogManager
 
         if (!removedCatalogs.isEmpty()) {
             List<String> sortedHandles = removedCatalogs.stream().map(connector -> connector.getCatalogHandle().toString()).sorted().toList();
-            log.info("Pruned catalogs: %s", sortedHandles);
+            log.debug("Pruned catalogs: %s", sortedHandles);
         }
     }
 
@@ -247,7 +253,7 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
+    public void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(connectorName, "connectorName is null");
@@ -268,12 +274,12 @@ public class CoordinatorDynamicCatalogManager
 
             // get or create catalog for the handle
             CatalogConnector catalog = allCatalogs.computeIfAbsent(
-                    catalogProperties.getCatalogHandle(),
+                    catalogProperties.catalogHandle(),
                     handle -> catalogFactory.createCatalog(catalogProperties));
             activeCatalogs.put(catalogName, catalog.getCatalog());
             catalogStore.addOrReplaceCatalog(catalogProperties);
 
-            log.info("Added catalog: %s", catalog.getCatalogHandle());
+            log.debug("Added catalog: %s", catalog.getCatalogHandle());
         }
         finally {
             catalogsUpdateLock.unlock();
@@ -291,7 +297,7 @@ public class CoordinatorDynamicCatalogManager
             }
 
             CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, new ConnectorName(GlobalSystemConnector.NAME), connector);
-            if (activeCatalogs.putIfAbsent(GlobalSystemConnector.NAME, catalog.getCatalog()) != null) {
+            if (activeCatalogs.putIfAbsent(new CatalogName(GlobalSystemConnector.NAME), catalog.getCatalog()) != null) {
                 throw new IllegalStateException("Global system catalog already registered");
             }
             allCatalogs.put(GlobalSystemConnector.CATALOG_HANDLE, catalog);
@@ -302,7 +308,7 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public void dropCatalog(String catalogName, boolean exists)
+    public void dropCatalog(CatalogName catalogName, boolean exists)
     {
         requireNonNull(catalogName, "catalogName is null");
 
@@ -319,7 +325,7 @@ public class CoordinatorDynamicCatalogManager
         }
 
         if (!removed && !exists) {
-            throw new TrinoException(NOT_FOUND, format("Catalog '%s' does not exist", catalogName));
+            throw new TrinoException(CATALOG_NOT_FOUND, format("Catalog '%s' not found", catalogName));
         }
         // Do not shut down the catalog, because there may still be running queries using this catalog.
         // Catalog shutdown logic will be added later.

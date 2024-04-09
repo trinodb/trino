@@ -32,7 +32,7 @@ import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -62,18 +62,18 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestPlannerWarnings
 {
-    private LocalQueryRunner queryRunner;
+    private PlanTester planTester;
 
     @BeforeAll
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(testSessionBuilder()
+        planTester = PlanTester.create(testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("tiny")
                 .build());
 
-        queryRunner.createCatalog(
-                queryRunner.getDefaultSession().getCatalog().get(),
+        planTester.createCatalog(
+                planTester.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
     }
@@ -81,8 +81,8 @@ public class TestPlannerWarnings
     @AfterAll
     public void tearDown()
     {
-        queryRunner.close();
-        queryRunner = null;
+        planTester.close();
+        planTester = null;
     }
 
     @Test
@@ -92,33 +92,33 @@ public class TestPlannerWarnings
         List<WarningCode> warningCodes = warnings.stream()
                 .map(TrinoWarning::getWarningCode)
                 .collect(toImmutableList());
-        assertPlannerWarnings(queryRunner, "SELECT * FROM NATION", ImmutableMap.of(), warningCodes, Optional.of(ImmutableList.of(new TestWarningsRule(warnings))));
+        assertPlannerWarnings(planTester, "SELECT * FROM NATION", ImmutableMap.of(), warningCodes, Optional.of(ImmutableList.of(new TestWarningsRule(warnings))));
     }
 
-    public static void assertPlannerWarnings(LocalQueryRunner queryRunner, @Language("SQL") String sql, Map<String, String> sessionProperties, List<WarningCode> expectedWarnings, Optional<List<Rule<?>>> rules)
+    public static void assertPlannerWarnings(PlanTester planTester, @Language("SQL") String sql, Map<String, String> sessionProperties, List<WarningCode> expectedWarnings, Optional<List<Rule<?>>> rules)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                .setCatalog(queryRunner.getDefaultSession().getCatalog())
-                .setSchema(queryRunner.getDefaultSession().getSchema());
+                .setCatalog(planTester.getDefaultSession().getCatalog())
+                .setSchema(planTester.getDefaultSession().getSchema());
         sessionProperties.forEach(sessionBuilder::setSystemProperty);
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig());
         PlanOptimizersStatsCollector planOptimizersStatsCollector = new PlanOptimizersStatsCollector(5);
         try {
-            queryRunner.inTransaction(sessionBuilder.build(), transactionSession -> {
+            planTester.inTransaction(sessionBuilder.build(), transactionSession -> {
                 List<PlanOptimizer> planOptimizers;
                 if (rules.isPresent()) {
                     // Warnings from testing rules will be added
                     planOptimizers = ImmutableList.of(new IterativeOptimizer(
-                            queryRunner.getPlannerContext(),
+                            planTester.getPlannerContext(),
                             new RuleStatsRecorder(),
-                            queryRunner.getStatsCalculator(),
-                            queryRunner.getCostCalculator(),
+                            planTester.getStatsCalculator(),
+                            planTester.getCostCalculator(),
                             ImmutableSet.copyOf(rules.get())));
                 }
                 else {
-                    planOptimizers = queryRunner.getPlanOptimizers(false);
+                    planOptimizers = planTester.getPlanOptimizers(false);
                 }
-                queryRunner.createPlan(transactionSession, sql, planOptimizers, OPTIMIZED, warningCollector, planOptimizersStatsCollector);
+                planTester.createPlan(transactionSession, sql, planOptimizers, OPTIMIZED, warningCollector, planOptimizersStatsCollector);
                 return null;
             });
         }

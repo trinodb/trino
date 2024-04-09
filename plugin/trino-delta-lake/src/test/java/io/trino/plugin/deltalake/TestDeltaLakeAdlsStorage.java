@@ -62,10 +62,10 @@ public class TestDeltaLakeAdlsStorage
 
     public TestDeltaLakeAdlsStorage()
     {
-        String container = System.getProperty("hive.hadoop2.azure-abfs-container");
+        String container = System.getProperty("testing.azure-abfs-container");
         requireNonNull(container, "container is null");
-        this.account = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-account"), "account is null");
-        this.accessKey = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-access-key"), "accessKey is null");
+        this.account = requireNonNull(System.getProperty("testing.azure-abfs-account"), "account is null");
+        this.accessKey = requireNonNull(System.getProperty("testing.azure-abfs-access-key"), "accessKey is null");
 
         String directoryBase = format("abfs://%s@%s.dfs.core.windows.net", container, account);
         adlsDirectory = format("%s/tpch-tiny-%s/", directoryBase, randomUUID());

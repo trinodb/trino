@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ConsoleTable
 {
-    private ImmutableList.Builder<TableElement> builder = ImmutableList.builder();
+    private final ImmutableList.Builder<TableElement> builder = ImmutableList.builder();
 
     public void addSeparator()
     {

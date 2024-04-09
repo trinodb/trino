@@ -87,6 +87,8 @@ statement
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER COLUMN columnName=qualifiedName SET DATA TYPE type       #setColumnType
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER COLUMN columnName=identifier DROP NOT NULL               #dropNotNullConstraint
     | ALTER TABLE tableName=qualifiedName SET AUTHORIZATION principal  #setTableAuthorization
     | ALTER TABLE tableName=qualifiedName
         SET PROPERTIES propertyAssignments                             #setTableProperties
@@ -120,34 +122,34 @@ statement
         (IN catalog=identifier)?                                       #createRole
     | DROP ROLE name=identifier (IN catalog=identifier)?               #dropRole
     | GRANT
-        roles
+        privilegeOrRole (',' privilegeOrRole)*
         TO principal (',' principal)*
         (WITH ADMIN OPTION)?
         (GRANTED BY grantor)?
         (IN catalog=identifier)?                                       #grantRoles
+    | GRANT
+        ((privilegeOrRole (',' privilegeOrRole)*) | ALL PRIVILEGES)
+        ON grantObject
+        TO principal
+        (WITH GRANT OPTION)?                                           #grantPrivileges
     | REVOKE
         (ADMIN OPTION FOR)?
-        roles
+        privilegeOrRole (',' privilegeOrRole)*
         FROM principal (',' principal)*
         (GRANTED BY grantor)?
         (IN catalog=identifier)?                                       #revokeRoles
-    | SET ROLE (ALL | NONE | role=identifier)
-        (IN catalog=identifier)?                                       #setRole
-    | GRANT
-        (privilege (',' privilege)* | ALL PRIVILEGES)
-        ON (SCHEMA | TABLE)? qualifiedName
-        TO grantee=principal
-        (WITH GRANT OPTION)?                                           #grant
-    | DENY
-        (privilege (',' privilege)* | ALL PRIVILEGES)
-        ON (SCHEMA | TABLE)? qualifiedName
-        TO grantee=principal                                           #deny
     | REVOKE
         (GRANT OPTION FOR)?
+        ((privilegeOrRole (',' privilegeOrRole)*) | ALL PRIVILEGES)
+        ON grantObject
+        FROM grantee=principal                                         #revokePrivileges
+    | DENY
         (privilege (',' privilege)* | ALL PRIVILEGES)
-        ON (SCHEMA | TABLE)? qualifiedName
-        FROM grantee=principal                                         #revoke
-    | SHOW GRANTS (ON TABLE? qualifiedName)?                           #showGrants
+        ON grantObject
+        TO grantee=principal                                           #deny
+    | SET ROLE (ALL | NONE | role=identifier)
+        (IN catalog=identifier)?                                       #setRole
+    | SHOW GRANTS (ON grantObject)?                                    #showGrants
     | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
     | EXPLAIN ANALYZE VERBOSE? statement                               #explainAnalyze
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
@@ -160,7 +162,7 @@ statement
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSchemas
     | SHOW CATALOGS
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showCatalogs
-    | SHOW COLUMNS (FROM | IN) qualifiedName?
+    | SHOW COLUMNS (FROM | IN) qualifiedName
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showColumns
     | SHOW STATS FOR qualifiedName                                     #showStats
     | SHOW STATS FOR '(' rootQuery ')'                                 #showStatsForQuery
@@ -586,11 +588,11 @@ primaryExpression
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
     | identifier                                                                          #columnReference
     | base=primaryExpression '.' fieldName=identifier                                     #dereference
-    | name=CURRENT_DATE                                                                   #specialDateTimeFunction
-    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #specialDateTimeFunction
-    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #specialDateTimeFunction
-    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #specialDateTimeFunction
-    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #specialDateTimeFunction
+    | name=CURRENT_DATE                                                                   #currentDate
+    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #currentTime
+    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #currentTimestamp
+    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #localTime
+    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #localTimestamp
     | name=CURRENT_USER                                                                   #currentUser
     | name=CURRENT_CATALOG                                                                #currentCatalog
     | name=CURRENT_SCHEMA                                                                 #currentSchema
@@ -916,7 +918,15 @@ sqlStatementList
     ;
 
 privilege
-    : CREATE | SELECT | DELETE | INSERT | UPDATE
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
+    ;
+
+entityKind
+    : TABLE | SCHEMA | identifier
+    ;
+
+grantObject
+    : entityKind? qualifiedName
     ;
 
 qualifiedName
@@ -946,6 +956,10 @@ principal
 
 roles
     : identifier (',' identifier)*
+    ;
+
+privilegeOrRole
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
     ;
 
 identifier

@@ -18,16 +18,15 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Set;
@@ -39,7 +38,6 @@ import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractRow
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
@@ -69,12 +67,6 @@ public class ExtractDereferencesFromFilterAboveScan
         implements Rule<FilterNode>
 {
     private static final Capture<TableScanNode> CHILD = newCapture();
-    private final TypeAnalyzer typeAnalyzer;
-
-    public ExtractDereferencesFromFilterAboveScan(TypeAnalyzer typeAnalyzer)
-    {
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-    }
 
     @Override
     public Pattern<FilterNode> getPattern()
@@ -86,13 +78,13 @@ public class ExtractDereferencesFromFilterAboveScan
     @Override
     public Result apply(FilterNode node, Captures captures, Context context)
     {
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(ImmutableList.of(node.getPredicate()), true, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
+        Set<FieldReference> dereferences = extractRowSubscripts(ImmutableList.of(node.getPredicate()), true);
         if (dereferences.isEmpty()) {
             return Result.empty();
         }
 
-        Assignments assignments = Assignments.of(dereferences, context.getSession(), context.getSymbolAllocator(), typeAnalyzer);
-        Map<Expression, SymbolReference> mappings = HashBiMap.create(assignments.getMap())
+        Assignments assignments = Assignments.of(dereferences, context.getSymbolAllocator());
+        Map<Expression, Reference> mappings = HashBiMap.create(assignments.getMap())
                 .inverse()
                 .entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));

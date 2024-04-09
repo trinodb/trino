@@ -20,15 +20,14 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashSet;
 import java.util.List;
@@ -47,7 +46,6 @@ import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.values;
 import static java.util.Collections.nCopies;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
@@ -88,13 +86,6 @@ public class MergeProjectWithValues
             .with(source().matching(values()
                     .matching(MergeProjectWithValues::isSupportedValues)
                     .capturedAs(VALUES)));
-
-    private final Metadata metadata;
-
-    public MergeProjectWithValues(Metadata metadata)
-    {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-    }
 
     @Override
     public Pattern<ProjectNode> getPattern()
@@ -140,7 +131,7 @@ public class MergeProjectWithValues
         for (Expression rowExpression : valuesNode.getRows().get()) {
             Row row = (Row) rowExpression;
             for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
-                if (!isDeterministic(row.getItems().get(i), metadata)) {
+                if (!isDeterministic(row.items().get(i))) {
                     nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
                 }
             }
@@ -159,7 +150,7 @@ public class MergeProjectWithValues
         // inline values expressions into projection's assignments
         ImmutableList.Builder<Expression> projectedRows = ImmutableList.builder();
         for (Expression rowExpression : valuesNode.getRows().get()) {
-            Map<SymbolReference, Expression> mapping = buildMappings(valuesNode.getOutputSymbols(), (Row) rowExpression);
+            Map<Reference, Expression> mapping = buildMappings(valuesNode.getOutputSymbols(), (Row) rowExpression);
             Row projectedRow = new Row(expressions.stream()
                     .map(expression -> replaceExpression(expression, mapping))
                     .collect(toImmutableList()));
@@ -173,11 +164,11 @@ public class MergeProjectWithValues
         return valuesNode.getRows().isEmpty() || valuesNode.getRows().get().stream().allMatch(Row.class::isInstance);
     }
 
-    private Map<SymbolReference, Expression> buildMappings(List<Symbol> symbols, Row row)
+    private Map<Reference, Expression> buildMappings(List<Symbol> symbols, Row row)
     {
-        ImmutableMap.Builder<SymbolReference, Expression> mappingBuilder = ImmutableMap.builder();
-        for (int i = 0; i < row.getItems().size(); i++) {
-            mappingBuilder.put(symbols.get(i).toSymbolReference(), row.getItems().get(i));
+        ImmutableMap.Builder<Reference, Expression> mappingBuilder = ImmutableMap.builder();
+        for (int i = 0; i < row.items().size(); i++) {
+            mappingBuilder.put(symbols.get(i).toSymbolReference(), row.items().get(i));
         }
         return mappingBuilder.buildOrThrow();
     }

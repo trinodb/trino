@@ -191,7 +191,7 @@ public class SyncPartitionMetadataProcedure
     private static String listedDirectoryName(Location directory, Location location)
     {
         String prefix = directory.path();
-        if (!prefix.endsWith("/")) {
+        if (!prefix.isEmpty() && !prefix.endsWith("/")) {
             prefix += "/";
         }
         String path = location.path();
@@ -216,11 +216,11 @@ public class SyncPartitionMetadataProcedure
             ConnectorSession session,
             Table table)
     {
-        if (syncMode == SyncMode.ADD || syncMode == SyncMode.FULL) {
-            addPartitions(metastore, session, table, partitionsToAdd);
-        }
         if (syncMode == SyncMode.DROP || syncMode == SyncMode.FULL) {
             dropPartitions(metastore, session, table, partitionsToDrop);
+        }
+        if (syncMode == SyncMode.ADD || syncMode == SyncMode.FULL) {
+            addPartitions(metastore, session, table, partitionsToAdd);
         }
         metastore.commit();
     }

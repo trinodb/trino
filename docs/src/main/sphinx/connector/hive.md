@@ -8,15 +8,7 @@
 :hidden: true
 :maxdepth: 1
 
-Metastores <metastores>
 Security <hive-security>
-Amazon S3 <hive-s3>
-Azure Storage <hive-azure>
-Google Cloud Storage <hive-gcs-tutorial>
-IBM Cloud Object Storage <hive-cos>
-Storage Caching <hive-caching>
-Alluxio <hive-alluxio>
-Object storage file formats <object-storage-file-formats>
 ```
 
 The Hive connector allows querying data stored in an
@@ -44,12 +36,8 @@ implementation of the Hive metastore, such as
 
 Apache Hadoop HDFS 2.x and 3.x are supported.
 
-Many distributed storage systems including HDFS,
-{doc}`Amazon S3 <hive-s3>` or S3-compatible systems,
-[Google Cloud Storage](hive-gcs-tutorial),
-{doc}`Azure Storage <hive-azure>`, and
-{doc}`IBM Cloud Object Storage<hive-cos>` can be queried with the Hive
-connector.
+Many [distributed storage systems](hive-file-system-configuration) can be
+queried with the Hive connector.
 
 The coordinator and all workers must have network access to the Hive metastore
 and the storage system. Hive metastore access with the Thrift protocol defaults
@@ -68,6 +56,7 @@ configured using file format configuration properties per catalog:
 - CSV (using org.apache.hadoop.hive.serde2.OpenCSVSerde)
 - TextFile
 
+(hive-configuration)=
 ## General configuration
 
 To configure the Hive connector, create a catalog properties file
@@ -236,7 +225,7 @@ Hive connector documentation.
   - Hadoop file system replication factor.
   -
 * - `hive.security`
-  - See [](/connector/hive-security).
+  - See [](#hive-security).
   -
 * - `security.config-file`
   - Path of config file to use when `hive.security=file`. See
@@ -342,21 +331,82 @@ Hive connector documentation.
   - `false`
 :::
 
-## Storage
+(hive-file-system-configuration)=
+### File system access configuration
 
-The Hive connector supports the following storage options:
+The connector supports native, high-performance file system access to object
+storage systems:
 
-- {doc}`Amazon S3 <hive-s3>`
-- {doc}`Azure Storage <hive-azure>`
-- {doc}`Google Cloud Storage <hive-gcs-tutorial>`
-- {doc}`IBM Cloud Object Storage <hive-cos>`
+* [](/object-storage)
+* [](/object-storage/file-system-azure)
+* [](/object-storage/file-system-gcs)
+* [](/object-storage/file-system-s3)
 
-The Hive connector also supports {doc}`storage caching <hive-caching>`.
+You must enable and configure the specific native file system access. If none is
+activated, the [legacy support](file-system-legacy) is used and must be
+configured.
 
+(hive-security)=
 ## Security
 
-Please see the {doc}`/connector/hive-security` section for information on the
-security options available for the Hive connector.
+The connector supports different means of authentication for the used [file
+system](hive-file-system-configuration) and [metastore](hive-configuration).
+
+In addition, the following security-related features are supported.
+
+(hive-authorization)=
+## Authorization
+
+You can enable authorization checks by setting the `hive.security` property in
+the catalog properties file. This property must be one of the following values:
+
+:::{list-table} `hive.security` property values
+:widths: 30, 60
+:header-rows: 1
+
+* - Property value
+  - Description
+* - `allow-all` (default value)
+  - No authorization checks are enforced.
+* - `read-only`
+  - Operations that read data or metadata, such as `SELECT`, are permitted, but
+    none of the operations that write data or metadata, such as `CREATE`,
+    `INSERT` or `DELETE`, are allowed.
+* - `file`
+  - Authorization checks are enforced using a catalog-level access control
+    configuration file whose path is specified in the `security.config-file`
+    catalog configuration property. See [](catalog-file-based-access-control)
+    for details.
+* - `sql-standard`
+  - Users are permitted to perform the operations as long as they have the
+    required privileges as per the SQL standard. In this mode, Trino enforces
+    the authorization checks for queries based on the privileges defined in Hive
+    metastore. To alter these privileges, use the [](/sql/grant) and
+    [](/sql/revoke) commands.
+
+    See the [](hive-sql-standard-based-authorization) section for details.
+:::
+
+(hive-sql-standard-based-authorization)=
+### SQL standard based authorization
+
+When `sql-standard` security is enabled, Trino enforces the same SQLuyrity
+standard-based authorization as Hive does.
+
+Since Trino's `ROLE` syntax support matches the SQL standard, and
+Hive does not exactly follow the SQL standard, there are the following
+limitations and differences:
+
+- `CREATE ROLE role WITH ADMIN` is not supported.
+- The `admin` role must be enabled to execute `CREATE ROLE`, `DROP ROLE` or `CREATE SCHEMA`.
+- `GRANT role TO user GRANTED BY someone` is not supported.
+- `REVOKE role FROM user GRANTED BY someone` is not supported.
+- By default, all a user's roles, except `admin`, are enabled in a new user session.
+- One particular role can be selected by executing `SET ROLE role`.
+- `SET ROLE ALL` enables all of a user's roles except `admin`.
+- The `admin` role must be enabled explicitly by executing `SET ROLE admin`.
+- `GRANT privilege ON SCHEMA schema` is not supported. Schema ownership can be
+  changed with `ALTER SCHEMA schema SET AUTHORIZATION user`
 
 (hive-sql-support)=
 
@@ -639,7 +689,7 @@ type conversions.
 * - `BOOLEAN`
   - `VARCHAR`
 * - `VARCHAR`
-  - `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, `DOUBLE`, `TIMESTAMP`, `DATE`, as well as
+  - `BOOLEAN`, `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, `REAL`, `DOUBLE`, `TIMESTAMP`, `DATE`, `CHAR` as well as
     narrowing conversions for `VARCHAR`
 * - `CHAR`
   - narrowing conversions for `CHAR`
@@ -1282,6 +1332,11 @@ and Delta Lake tables with the following catalog configuration properties:
 
 - `hive.iceberg-catalog-name` for redirecting the query to {doc}`/connector/iceberg`
 - `hive.delta-lake-catalog-name` for redirecting the query to {doc}`/connector/delta-lake`
+
+### File system cache
+
+The connector supports configuring and using [file system
+caching](/object-storage/file-system-cache).
 
 (hive-performance-tuning-configuration)=
 

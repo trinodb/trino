@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -28,6 +29,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
@@ -46,11 +48,11 @@ public class TestPruneLimitColumns
                 .on(p -> buildProjectedLimit(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression("b")),
+                                ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                 limit(
                                         1,
                                         strictProject(
-                                                ImmutableMap.of("b", expression("b")),
+                                                ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                                 values("a", "b")))));
     }
 
@@ -80,7 +82,7 @@ public class TestPruneLimitColumns
                                         1,
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),
                                         strictProject(
-                                                ImmutableMap.of("a", expression("a")),
+                                                ImmutableMap.of("a", expression(new Reference(BIGINT, "a"))),
                                                 values("a", "b")))));
     }
 
@@ -105,7 +107,7 @@ public class TestPruneLimitColumns
                                         false,
                                         ImmutableList.of("a"),
                                         strictProject(
-                                                ImmutableMap.of("a", expression("a")),
+                                                ImmutableMap.of("a", expression(new Reference(BIGINT, "a"))),
                                                 values("a", "b")))));
     }
 

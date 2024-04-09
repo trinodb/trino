@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -30,6 +32,7 @@ import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -48,9 +51,16 @@ import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.type.TypeDeserializer;
+import io.trino.type.TypeSignatureKeyDeserializer;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -73,8 +83,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static io.trino.common.assertions.TrinoAssertions.assertThat;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.execution.TestQueues.createResourceGroupId;
@@ -83,7 +93,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
-import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol.typedSymbol;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
 import static java.lang.String.format;
@@ -98,7 +107,6 @@ public class TestEventListenerBasic
         extends AbstractTestQueryFramework
 {
     private static final JsonCodec<Map<String, JsonRenderedNode>> ANONYMIZED_PLAN_JSON_CODEC = mapJsonCodec(String.class, JsonRenderedNode.class);
-    private static final JsonCodec<StatsAndCosts> STATS_AND_COSTS_JSON_CODEC = jsonCodec(StatsAndCosts.class);
     private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
     private static final String VARCHAR_TYPE = "varchar(15)";
     private static final String BIGINT_TYPE = BIGINT.getDisplayName();
@@ -119,7 +127,7 @@ public class TestEventListenerBasic
 
         EventsCollector generatedEvents = new EventsCollector();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
@@ -138,8 +146,11 @@ public class TestEventListenerBasic
                             };
                         })
                         .withGetColumns(schemaTableName -> {
-                            if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
+                            if (schemaTableName.equals(new SchemaTableName("tiny", "nation")) || schemaTableName.equals(new SchemaTableName("tiny", "nation_storage"))) {
                                 return TPCH_NATION_SCHEMA;
+                            }
+                            if (schemaTableName.equals(new SchemaTableName("default", "test_materialized_view_stale$materialized_view_storage"))) {
+                                return ImmutableList.of(new ColumnMetadata("test_column", BIGINT));
                             }
                             return ImmutableList.of(
                                     new ColumnMetadata("test_varchar", createVarcharType(15)),
@@ -157,35 +168,74 @@ public class TestEventListenerBasic
                             }
                             return Optional.empty();
                         })
-                        .withGetViews((connectorSession, prefix) -> {
-                            ConnectorViewDefinition definition = new ConnectorViewDefinition(
-                                    "SELECT nationkey AS test_column FROM tpch.tiny.nation",
-                                    Optional.empty(),
-                                    Optional.empty(),
-                                    ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
-                                    Optional.empty(),
-                                    Optional.empty(),
-                                    true,
-                                    ImmutableList.of());
-                            SchemaTableName viewName = new SchemaTableName("default", "test_view");
-                            return ImmutableMap.of(viewName, definition);
-                        })
+                        .withGetViews((connectorSession, prefix) ->
+                            ImmutableMap.of(
+                                    new SchemaTableName("default", "test_view"), new ConnectorViewDefinition(
+                                            "SELECT nationkey AS test_column FROM tpch.tiny.nation",
+                                            Optional.empty(),
+                                            Optional.empty(),
+                                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
+                                            Optional.empty(),
+                                            Optional.empty(),
+                                            true,
+                                            ImmutableList.of()),
+                                    new SchemaTableName("default", "test_view_nesting"), new ConnectorViewDefinition(
+                                            "SELECT test_column FROM mock.default.test_view",
+                                            Optional.empty(),
+                                            Optional.empty(),
+                                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
+                                            Optional.empty(),
+                                            Optional.empty(),
+                                            true,
+                                            ImmutableList.of()),
+                                    new SchemaTableName("default", "test_view_with_row_filter"), new ConnectorViewDefinition(
+                                            "SELECT test_varchar AS test_column FROM mock.default.test_table_with_row_filter",
+                                            Optional.empty(),
+                                            Optional.empty(),
+                                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", createVarcharType(15).getTypeId(), Optional.empty())),
+                                            Optional.empty(),
+                                            Optional.empty(),
+                                            true,
+                                            ImmutableList.of()),
+                                    new SchemaTableName("default", "test_view_with_redirect"), new ConnectorViewDefinition(
+                                            "SELECT nationkey AS test_column FROM mock.default.nation_redirect",
+                                            Optional.empty(),
+                                            Optional.empty(),
+                                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
+                                            Optional.empty(),
+                                            Optional.empty(),
+                                            true,
+                                            ImmutableList.of())))
                         .withGetMaterializedViews((connectorSession, prefix) -> {
-                            ConnectorMaterializedViewDefinition definition = new ConnectorMaterializedViewDefinition(
+                            ConnectorMaterializedViewDefinition definitionStale = new ConnectorMaterializedViewDefinition(
                                     "SELECT nationkey AS test_column FROM tpch.tiny.nation",
-                                    Optional.empty(),
-                                    Optional.empty(),
-                                    Optional.empty(),
+                                    Optional.of(new CatalogSchemaTableName("mock", "default", "test_materialized_view_stale$materialized_view_storage")),
+                                    Optional.of("mock"),
+                                    Optional.of("default"),
                                     ImmutableList.of(new Column("test_column", BIGINT.getTypeId(), Optional.empty())),
                                     Optional.of(Duration.ZERO),
                                     Optional.empty(),
                                     Optional.of("alice"),
                                     ImmutableList.of());
-                            SchemaTableName materializedViewName = new SchemaTableName("default", "test_materialized_view");
-                            return ImmutableMap.of(materializedViewName, definition);
+                            ConnectorMaterializedViewDefinition definitionFresh = new ConnectorMaterializedViewDefinition(
+                                    "SELECT * FROM tpch.tiny.nation",
+                                    Optional.of(new CatalogSchemaTableName("mock", "tiny", "nation")),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    TPCH_NATION_SCHEMA
+                                            .stream()
+                                            .map(column -> new Column(column.getName(), column.getType().getTypeId(), Optional.empty()))
+                                            .collect(toImmutableList()),
+                                    Optional.of(Duration.ofDays(1)),
+                                    Optional.empty(),
+                                    Optional.of("alice"),
+                                    ImmutableList.of());
+                            return ImmutableMap.of(
+                                    new SchemaTableName("default", "test_materialized_view_stale"), definitionStale,
+                                    new SchemaTableName("default", "test_materialized_view_fresh"), definitionFresh);
                         })
                         .withData(schemaTableName -> {
-                            if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
+                            if (schemaTableName.equals(new SchemaTableName("tiny", "nation")) || schemaTableName.equals(new SchemaTableName("tiny", "nation_storage"))) {
                                 return TPCH_NATION_DATA;
                             }
                             return ImmutableList.of();
@@ -217,6 +267,12 @@ public class TestEventListenerBasic
                                         .build();
                             }
                             return null;
+                        })
+                        .withRedirectTable((session, schemaTableName) -> {
+                            if (schemaTableName.getTableName().equals("nation_redirect")) {
+                                return Optional.of(new CatalogSchemaTableName("tpch", "tiny", "nation"));
+                            }
+                            return Optional.empty();
                         })
                         .build();
                 return ImmutableList.of(connectorFactory);
@@ -361,25 +417,16 @@ public class TestEventListenerBasic
 
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
 
-        List<TableInfo> tables = event.getMetadata().getTables();
-        assertThat(tables.size()).isEqualTo(1);
+        TableInfo table = getOnlyElement(event.getMetadata().getTables());
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "lineitem")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("linenumber")
+                .hasNoRowFilters()
+                .hasNoTableReferences();
 
-        TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("lineitem");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.getFilters().isEmpty()).isTrue();
-        assertThat(table.getColumns().size()).isEqualTo(1);
-
-        ColumnInfo column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("linenumber");
-        assertThat(column.getMask().isEmpty()).isTrue();
-
-        List<RoutineInfo> routines = event.getMetadata().getRoutines();
-        assertThat(tables.size()).isEqualTo(1);
-
-        RoutineInfo routine = routines.get(0);
+        RoutineInfo routine = getOnlyElement(event.getMetadata().getRoutines());
         assertThat(routine.getRoutine()).isEqualTo("sum");
         assertThat(routine.getAuthorization()).isEqualTo("user");
     }
@@ -396,67 +443,114 @@ public class TestEventListenerBasic
         assertThat(tables).hasSize(2);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        ColumnInfo column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("nationkey");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey")
+                .hasNoRowFilters()
+                .hasTableReferencesSatisfying(tableRef -> assertThat(tableRef).asViewInfo().hasCatalogSchemaView("mock", "default", "test_view"));
 
         table = tables.get(1);
-        assertThat(table.getCatalog()).isEqualTo("mock");
-        assertThat(table.getSchema()).isEqualTo("default");
-        assertThat(table.getTable()).isEqualTo("test_view");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("test_column");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_view")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("test_column")
+                .hasNoRowFilters()
+                .hasNoTableReferences();
     }
 
     @Test
-    public void testReferencedTablesWithMaterializedViews()
+    public void testReferencedTablesWithMaterializedViewsStale()
             throws Exception
     {
-        QueryEvents queryEvents = runQueryAndWaitForEvents("SELECT test_column FROM mock.default.test_materialized_view").getQueryEvents();
+        QueryEvents queryEvents = runQueryAndWaitForEvents("SELECT test_column FROM mock.default.test_materialized_view_stale").getQueryEvents();
 
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(2);
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("alice");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        ColumnInfo column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("nationkey");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("alice")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey")
+                .hasNoRowFilters()
+                .hasTableReferencesSatisfying(tableRef -> assertThat(tableRef).asMaterializedViewInfo().hasCatalogSchemaView("mock", "default", "test_materialized_view_stale"));
 
         table = tables.get(1);
-        assertThat(table.getCatalog()).isEqualTo("mock");
-        assertThat(table.getSchema()).isEqualTo("default");
-        assertThat(table.getTable()).isEqualTo("test_materialized_view");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_materialized_view_stale")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("test_column")
+                .hasNoRowFilters()
+                .hasNoTableReferences()
+                .hasViewText("SELECT nationkey AS test_column FROM tpch.tiny.nation");
+    }
 
-        column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("test_column");
-        assertThat(column.getMask()).isEmpty();
+    // Currently, the storage table for a materialized view is not included anywhere in the set of `tables` in the query event.
+    // See for more details: https://github.com/trinodb/trino/pull/18871#discussion_r1412247513
+    @Test
+    public void testReferencedTablesWithMaterializedViewsFresh()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("SELECT nationkey FROM mock.default.test_materialized_view_fresh").getQueryEvents();
+
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(tables).hasSize(2);
+        TableInfo table = tables.get(0);
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("alice")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey", "regionkey", "name", "comment")
+                .hasNoRowFilters()
+                .hasTableReferencesSatisfying(tableRef -> assertThat(tableRef).asMaterializedViewInfo().hasCatalogSchemaView("mock", "default", "test_materialized_view_fresh"));
+
+        table = tables.get(1);
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_materialized_view_fresh")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey")
+                .hasNoRowFilters()
+                .hasNoTableReferences()
+                .hasViewText("SELECT * FROM tpch.tiny.nation");
+    }
+
+    @Test
+    public void testReferencedTablesWithViewsAndRedirection()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("SELECT test_column FROM mock.default.test_view_with_redirect").getQueryEvents();
+
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(tables).hasSize(2);
+
+        TableInfo table = tables.get(0);
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey")
+                .hasNoRowFilters()
+                .hasTableReferencesSatisfying(tableRef -> assertThat(tableRef).asViewInfo().hasCatalogSchemaView("mock", "default", "test_view_with_redirect"));
+
+        table = tables.get(1);
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_view_with_redirect")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("test_column")
+                .hasNoRowFilters()
+                .hasNoTableReferences();
     }
 
     @Test
@@ -478,16 +572,13 @@ public class TestEventListenerBasic
                         new OutputColumnMetadata("comment", "varchar(152)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
-        assertThat(tables).hasSize(1);
-
-        TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(4);
+        assertThat(getOnlyElement(tables))
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey", "regionkey", "name", "comment")
+                .hasNoRowFilters()
+                .hasNoTableReferences();
     }
 
     @Test
@@ -509,16 +600,39 @@ public class TestEventListenerBasic
                         new OutputColumnMetadata("comment", "varchar(152)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(getOnlyElement(tables))
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey", "regionkey", "name", "comment")
+                .hasNoRowFilters()
+                .hasNoTableReferences();
+    }
+
+    @Test
+    public void testReferencedTablesInRefreshMaterializedView()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("REFRESH MATERIALIZED VIEW mock.default.test_materialized_view_stale").getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_materialized_view_stale");
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+
+        List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(1);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(4);
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey")
+                .hasNoRowFilters()
+                .hasNoTableReferences();
     }
 
     @Test
@@ -533,30 +647,111 @@ public class TestEventListenerBasic
         assertThat(tables).hasSize(2);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        ColumnInfo column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("name");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("name")
+                .hasNoRowFilters()
+                .hasTableReferencesSatisfying(tableRef ->
+                        assertThat(tableRef)
+                                .asRowFilterInfo()
+                                .hasTargetCatalogSchemaTable("mock", "default", "test_table_with_row_filter")
+                                .hasExpression("(EXISTS (SELECT 1 FROM nation WHERE (name = test_varchar)))"));
 
         table = tables.get(1);
-        assertThat(table.getCatalog()).isEqualTo("mock");
-        assertThat(table.getSchema()).isEqualTo("default");
-        assertThat(table.getTable()).isEqualTo("test_table_with_row_filter");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).hasSize(1);
-        assertThat(table.getColumns()).hasSize(1);
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_table_with_row_filter")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("test_varchar")
+                .hasRowFilters("(EXISTS (SELECT 1 FROM nation WHERE (name = test_varchar)))")
+                .hasNoTableReferences();
+    }
 
-        column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("test_varchar");
-        assertThat(column.getMask()).isEmpty();
+    @Test
+    public void testReferencedTablesWithNestedView()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("SELECT 1 FROM mock.default.test_view_nesting").getQueryEvents();
+
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(tables).hasSize(3);
+
+        TableInfo table = tables.get(0);
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey")
+                .hasNoRowFilters()
+                .hasTableReferencesSatisfying(
+                        tableRef -> assertThat(tableRef).asViewInfo().hasCatalogSchemaView("mock", "default", "test_view"),
+                        tableRef -> assertThat(tableRef).asViewInfo().hasCatalogSchemaView("mock", "default", "test_view_nesting"));
+
+        table = tables.get(1);
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_view")
+                .hasAuthorization("user")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("test_column")
+                .hasNoRowFilters()
+                .hasTableReferencesSatisfying(tableRef -> assertThat(tableRef).asViewInfo().hasCatalogSchemaView("mock", "default", "test_view_nesting"));
+
+        table = tables.get(2);
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_view_nesting")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking()
+                .hasNoRowFilters()
+                .hasNoTableReferences();
+    }
+
+    @Test
+    public void testReferencedTablesWithRowFilterAndView()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("SELECT 1 FROM mock.default.test_view_with_row_filter").getQueryEvents();
+
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(tables).hasSize(3);
+
+        TableInfo table = tables.get(0);
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("name")
+                .hasNoRowFilters()
+                .hasTableReferencesSatisfying(
+                        tableRef -> assertThat(tableRef)
+                                .asRowFilterInfo()
+                                .hasTargetCatalogSchemaTable("mock", "default", "test_table_with_row_filter")
+                                .hasExpression("(EXISTS (SELECT 1 FROM nation WHERE (name = test_varchar)))"),
+                        tableRef -> assertThat(tableRef).asViewInfo().hasCatalogSchemaView("mock", "default", "test_view_with_row_filter"));
+
+        table = tables.get(1);
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_table_with_row_filter")
+                .hasAuthorization("user")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("test_varchar")
+                .hasRowFilters("(EXISTS (SELECT 1 FROM nation WHERE (name = test_varchar)))")
+                .hasTableReferencesSatisfying(tableRef -> assertThat(tableRef).asViewInfo().hasCatalogSchemaView("mock", "default", "test_view_with_row_filter"));
+
+        table = tables.get(2);
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_view_with_row_filter")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking()
+                .hasNoRowFilters()
+                .hasNoTableReferences();
     }
 
     @Test
@@ -581,34 +776,28 @@ public class TestEventListenerBasic
         assertThat(tables).hasSize(2);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("orders");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        ColumnInfo column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("orderkey");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "orders")
+                .hasAuthorization("user")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("orderkey")
+                .hasNoRowFilters()
+                .hasTableReferencesSatisfying(tableRef ->
+                        assertThat(tableRef)
+                                .asColumnMaskInfo()
+                                .hasTargetCatalogSchemaTable("mock", "default", "test_table_with_column_mask")
+                                .hasExpression("(SELECT CAST(max(orderkey) AS varchar(15)) FROM orders)")
+                                .hasTargetColumn("test_varchar"));
 
         table = tables.get(1);
-        assertThat(table.getCatalog()).isEqualTo("mock");
-        assertThat(table.getSchema()).isEqualTo("default");
-        assertThat(table.getTable()).isEqualTo("test_table_with_column_mask");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(2);
-
-        column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("test_varchar");
-        assertThat(column.getMask()).isPresent();
-
-        column = table.getColumns().get(1);
-        assertThat(column.getColumn()).isEqualTo("test_bigint");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_table_with_column_mask")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnNames("test_varchar", "test_bigint")
+                .hasColumnMasks("(SELECT CAST(max(orderkey) AS varchar(15)) FROM orders)", null)
+                .hasNoRowFilters()
+                .hasNoTableReferences();
     }
 
     @Test
@@ -801,11 +990,11 @@ public class TestEventListenerBasic
     public void testOutputColumnsForCreateTableAsSelectAllFromMaterializedView()
             throws Exception
     {
-        QueryEvents queryEvents = runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table AS SELECT * FROM mock.default.test_materialized_view").getQueryEvents();
+        QueryEvents queryEvents = runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table AS SELECT * FROM mock.default.test_materialized_view_stale").getQueryEvents();
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "test_materialized_view", "test_column"))));
+                        new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "test_materialized_view_stale", "test_column"))));
     }
 
     @Test
@@ -1231,7 +1420,19 @@ public class TestEventListenerBasic
         QueryEvents queryEvents = queries.runQueryAndWaitForEvents("SELECT l.name FROM nation l, nation r WHERE l.nationkey = r.nationkey", getSession(), true).getQueryEvents();
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
         assertThat(event.getStatistics().getPlanNodeStatsAndCosts()).isPresent();
-        StatsAndCosts statsAndCosts = STATS_AND_COSTS_JSON_CODEC.fromJson(event.getStatistics().getPlanNodeStatsAndCosts().get());
+
+        TypeManager typeManager = getQueryRunner().getPlannerContext().getTypeManager();
+        ObjectMapperProvider provider = new ObjectMapperProvider();
+        provider.setKeyDeserializers(ImmutableMap.of(
+                Symbol.class, new SymbolKeyDeserializer(typeManager),
+                TypeSignature.class, new TypeSignatureKeyDeserializer()));
+
+        provider.setJsonDeserializers(ImmutableMap.of(
+                Type.class, new TypeDeserializer(typeManager::getType)));
+
+        JsonCodec<StatsAndCosts> codec = new JsonCodecFactory(provider).jsonCodec(StatsAndCosts.class);
+
+        StatsAndCosts statsAndCosts = codec.fromJson(event.getStatistics().getPlanNodeStatsAndCosts().get());
         assertThat(statsAndCosts.getStats().values()).allMatch(stats -> stats.getOutputRowCount() == 25.0);
     }
 
@@ -1246,14 +1447,14 @@ public class TestEventListenerBasic
                         "6",
                         "Output",
                         ImmutableMap.of("columnNames", "[column_1]"),
-                        ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
+                        ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 0., 0., 0.)),
                         ImmutableList.of(new JsonRenderedNode(
                                 "100",
                                 "Limit",
                                 ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
-                                ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
+                                ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 90., 0., 0.)),
                                 ImmutableList.of(new JsonRenderedNode(
@@ -1264,14 +1465,14 @@ public class TestEventListenerBasic
                                                 "isReplicateNullsAndAny", "",
                                                 "hashColumn", "[]",
                                                 "arguments", "[]"),
-                                        ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
+                                        ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
                                         ImmutableList.of(),
                                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 0., 0., 0.)),
                                         ImmutableList.of(new JsonRenderedNode(
                                                 "140",
                                                 "RemoteSource",
                                                 ImmutableMap.of("sourceFragmentIds", "[1]"),
-                                                ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
+                                                ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
                                                 ImmutableList.of(),
                                                 ImmutableList.of(),
                                                 ImmutableList.of()))))))),
@@ -1282,7 +1483,7 @@ public class TestEventListenerBasic
                                 "count", "10",
                                 "withTies", "",
                                 "inputPreSortedBy", "[]"),
-                        ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
+                        ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 90., 0., 0.)),
                         ImmutableList.of(new JsonRenderedNode(
@@ -1290,7 +1491,7 @@ public class TestEventListenerBasic
                                 "TableScan",
                                 ImmutableMap.of(
                                         "table", "[table = catalog_1.schema_1.table_1, connector = tpch]"),
-                                ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
+                                ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
                                 ImmutableList.of("symbol_1 := column_2"),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(NaN, NaN, NaN, 0., 0.)),
                                 ImmutableList.of()))));

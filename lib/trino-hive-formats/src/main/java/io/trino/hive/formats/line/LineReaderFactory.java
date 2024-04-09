@@ -16,10 +16,11 @@ package io.trino.hive.formats.line;
 import io.trino.filesystem.TrinoInputFile;
 
 import java.io.IOException;
+import java.util.Set;
 
 public interface LineReaderFactory
 {
-    String getHiveOutputFormatClassName();
+    Set<String> getHiveInputFormatClassNames();
 
     LineBuffer createLineBuffer();
 

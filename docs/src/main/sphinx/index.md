@@ -10,6 +10,7 @@ security
 admin
 optimizer
 connector
+object-storage
 functions
 language
 sql

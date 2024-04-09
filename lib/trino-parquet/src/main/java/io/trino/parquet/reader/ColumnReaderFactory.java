@@ -303,7 +303,7 @@ public final class ColumnReaderFactory
 
     private static boolean isFlatColumn(PrimitiveField field)
     {
-        return field.getDescriptor().getPath().length == 1;
+        return field.getDescriptor().getPath().length == 1 && field.getRepetitionLevel() == 0;
     }
 
     private static boolean isLogicalUuid(LogicalTypeAnnotation annotation)

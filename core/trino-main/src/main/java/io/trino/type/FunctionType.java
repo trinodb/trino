@@ -26,6 +26,8 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -226,5 +228,34 @@ public class FunctionType
     public int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        FunctionType that = (FunctionType) o;
+        return Objects.equals(returnType, that.returnType) && Objects.equals(argumentTypes, that.argumentTypes);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(returnType, argumentTypes);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "(" +
+                argumentTypes.stream()
+                .map(Type::toString)
+                .collect(Collectors.joining(", ")) +
+                ") -> " + returnType;
     }
 }

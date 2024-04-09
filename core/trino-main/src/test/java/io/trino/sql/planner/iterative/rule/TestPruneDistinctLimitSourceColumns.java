@@ -15,12 +15,14 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.distinctLimit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -46,7 +48,7 @@ public class TestPruneDistinctLimitSourceColumns
                                 5,
                                 ImmutableList.of("a"),
                                 strictProject(
-                                        ImmutableMap.of("a", expression("a")),
+                                        ImmutableMap.of("a", expression(new Reference(BIGINT, "a"))),
                                         values("a", "b"))));
 
         tester().assertThat(new PruneDistinctLimitSourceColumns())
@@ -66,7 +68,7 @@ public class TestPruneDistinctLimitSourceColumns
                                 ImmutableList.of("a"),
                                 "hash_symbol",
                                 strictProject(
-                                        ImmutableMap.of("a", expression("a"), "hash_symbol", expression("hash_symbol")),
+                                        ImmutableMap.of("a", expression(new Reference(BIGINT, "a")), "hash_symbol", expression(new Reference(BIGINT, "hash_symbol"))),
                                         values("a", "b", "hash_symbol"))));
     }
 

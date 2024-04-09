@@ -825,6 +825,6 @@ public abstract class BaseBigQueryTypeMapping
 
     private SqlExecutor getBigQuerySqlExecutor()
     {
-        return sql -> bigQuerySqlExecutor.execute(sql);
+        return bigQuerySqlExecutor;
     }
 }

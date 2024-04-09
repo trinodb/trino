@@ -20,7 +20,7 @@ import static java.util.Arrays.asList;
 public class Exchange
         implements RelNode
 {
-    private List<RelNode> sources;
+    private final List<RelNode> sources;
 
     public Exchange(RelNode... sources)
     {

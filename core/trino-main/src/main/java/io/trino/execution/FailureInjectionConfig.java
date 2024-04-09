@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigHidden;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.NotNull;
 
@@ -31,6 +32,7 @@ public class FailureInjectionConfig
         return expirationPeriod;
     }
 
+    @ConfigHidden // not supposed to be used outside of tests
     @Config("failure-injection.expiration-period")
     @ConfigDescription("Period after which an injected failure is considered expired and will no longer be triggering a failure")
     public FailureInjectionConfig setExpirationPeriod(Duration expirationPeriod)
@@ -45,6 +47,7 @@ public class FailureInjectionConfig
         return requestTimeout;
     }
 
+    @ConfigHidden // not supposed to be used outside of tests
     @Config("failure-injection.request-timeout")
     @ConfigDescription("Period after which requests blocked to emulate a timeout are released")
     public FailureInjectionConfig setRequestTimeout(Duration requestTimeout)

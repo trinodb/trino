@@ -87,6 +87,9 @@ public final class ConnectorExpressionRewriter<Result>
             ConnectorExpression expression,
             RewriteContext<Result> context)
     {
+        if (!rule.isEnabled(context.getSession())) {
+            return Optional.empty();
+        }
         Capture<ExpressionType> expressionCapture = newCapture();
         Pattern<ExpressionType> pattern = rule.getPattern().capturedAs(expressionCapture);
         Iterator<Match> matches = pattern.match(expression, context).iterator();

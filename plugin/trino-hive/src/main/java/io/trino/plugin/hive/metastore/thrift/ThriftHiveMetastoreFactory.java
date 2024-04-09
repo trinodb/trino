@@ -40,10 +40,8 @@ public class ThriftHiveMetastoreFactory
     private final int maxRetries;
     private final boolean impersonationEnabled;
     private final boolean deleteFilesOnDrop;
-    private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
     private final boolean useSparkTableStatisticsFallback;
-    private final boolean batchMetadataFetchEnabled;
     private final ExecutorService writeStatisticsExecutor;
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
 
@@ -51,7 +49,6 @@ public class ThriftHiveMetastoreFactory
     public ThriftHiveMetastoreFactory(
             IdentityAwareMetastoreClientFactory metastoreClientFactory,
             @HideDeltaLakeTables boolean hideDeltaLakeTables,
-            @TranslateHiveViews boolean translateHiveViews,
             ThriftMetastoreConfig thriftConfig,
             TrinoFileSystemFactory fileSystemFactory,
             @ThriftHiveWriteStatisticsExecutor ExecutorService writeStatisticsExecutor)
@@ -65,13 +62,11 @@ public class ThriftHiveMetastoreFactory
         this.maxRetries = thriftConfig.getMaxRetries();
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
         this.deleteFilesOnDrop = thriftConfig.isDeleteFilesOnDrop();
-        this.translateHiveViews = translateHiveViews;
         checkArgument(!hideDeltaLakeTables, "Hiding Delta Lake tables is not supported"); // TODO
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
 
         this.assumeCanonicalPartitionKeys = thriftConfig.isAssumeCanonicalPartitionKeys();
         this.useSparkTableStatisticsFallback = thriftConfig.isUseSparkTableStatisticsFallback();
-        this.batchMetadataFetchEnabled = thriftConfig.isBatchMetadataFetchEnabled();
         this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
     }
 
@@ -102,10 +97,8 @@ public class ThriftHiveMetastoreFactory
                 maxWaitForLock,
                 maxRetries,
                 deleteFilesOnDrop,
-                translateHiveViews,
                 assumeCanonicalPartitionKeys,
                 useSparkTableStatisticsFallback,
-                batchMetadataFetchEnabled,
                 stats,
                 writeStatisticsExecutor);
     }

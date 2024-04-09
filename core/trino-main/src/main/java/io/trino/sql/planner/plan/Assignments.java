@@ -18,15 +18,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.trino.Session;
-import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -39,6 +34,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -82,13 +78,12 @@ public class Assignments
         return builder().put(symbol1, expression1).put(symbol2, expression2).build();
     }
 
-    public static Assignments of(Collection<? extends Expression> expressions, Session session, SymbolAllocator symbolAllocator, TypeAnalyzer typeAnalyzer)
+    public static Assignments of(Collection<? extends Expression> expressions, SymbolAllocator symbolAllocator)
     {
         Assignments.Builder assignments = Assignments.builder();
 
         for (Expression expression : expressions) {
-            Type type = typeAnalyzer.getType(session, symbolAllocator.getTypes(), expression);
-            assignments.put(symbolAllocator.newSymbol(expression, type), expression);
+            assignments.put(symbolAllocator.newSymbol(expression), expression);
         }
 
         return assignments.build();
@@ -111,11 +106,6 @@ public class Assignments
     public Map<Symbol, Expression> getMap()
     {
         return assignments;
-    }
-
-    public Assignments rewrite(ExpressionRewriter<Void> rewriter)
-    {
-        return rewrite(expression -> ExpressionTreeRewriter.rewriteWith(rewriter, expression));
     }
 
     public Assignments rewrite(Function<Expression, Expression> rewrite)
@@ -141,7 +131,7 @@ public class Assignments
     {
         Expression expression = assignments.get(output);
 
-        return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
+        return expression instanceof Reference && ((Reference) expression).name().equals(output.getName());
     }
 
     public boolean isIdentity()
@@ -149,7 +139,7 @@ public class Assignments
         for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
             Expression expression = entry.getValue();
             Symbol symbol = entry.getKey();
-            if (!(expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName()))) {
+            if (!(expression instanceof Reference && ((Reference) expression).name().equals(symbol.getName()))) {
                 return false;
             }
         }
@@ -265,12 +255,14 @@ public class Assignments
 
         public Builder put(Symbol symbol, Expression expression)
         {
+            checkArgument(symbol.getType().equals(expression.type()), "Types don't match: %s vs %s, for %s and %s", symbol.getType(), expression.type(), symbol, expression);
+
             if (assignments.containsKey(symbol)) {
                 Expression assignment = assignments.get(symbol);
                 checkState(
                         assignment.equals(expression),
                         "Symbol %s already has assignment %s, while adding %s",
-                        symbol,
+                        symbol.getName(),
                         assignment,
                         expression);
             }

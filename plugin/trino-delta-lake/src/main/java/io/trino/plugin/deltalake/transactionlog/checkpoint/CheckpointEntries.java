@@ -20,98 +20,29 @@ import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 
-import java.math.BigInteger;
-import java.util.Objects;
 import java.util.Set;
-import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
 
-public class CheckpointEntries
+public record CheckpointEntries(
+        MetadataEntry metadataEntry,
+        ProtocolEntry protocolEntry,
+        Set<TransactionEntry> transactionEntries,
+        Set<AddFileEntry> addFileEntries,
+        Set<RemoveFileEntry> removeFileEntries)
 {
-    private final MetadataEntry metadataEntry;
-    private final ProtocolEntry protocolEntry;
-    private final Set<TransactionEntry> transactionEntries;
-    private final Set<AddFileEntry> addFileEntries;
-    private final Set<RemoveFileEntry> removeFileEntries;
-
-    CheckpointEntries(
-            MetadataEntry metadataEntry,
-            ProtocolEntry protocolEntry,
-            Set<TransactionEntry> transactionEntries,
-            Set<AddFileEntry> addFileEntries,
-            Set<RemoveFileEntry> removeFileEntries)
+    public CheckpointEntries
     {
-        this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
-        this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
-        this.transactionEntries = ImmutableSet.copyOf(transactionEntries);
-        this.addFileEntries = ImmutableSet.copyOf(addFileEntries);
-        this.removeFileEntries = ImmutableSet.copyOf(removeFileEntries);
+        requireNonNull(metadataEntry, "metadataEntry is null");
+        requireNonNull(protocolEntry, "protocolEntry is null");
+        transactionEntries = ImmutableSet.copyOf(requireNonNull(transactionEntries, "transactionEntries is null"));
+        addFileEntries = ImmutableSet.copyOf(requireNonNull(addFileEntries, "addFileEntries is null"));
+        removeFileEntries = ImmutableSet.copyOf(requireNonNull(removeFileEntries, "removeFileEntries is null"));
     }
 
-    public MetadataEntry getMetadataEntry()
-    {
-        return metadataEntry;
-    }
-
-    public ProtocolEntry getProtocolEntry()
-    {
-        return protocolEntry;
-    }
-
-    public Set<TransactionEntry> getTransactionEntries()
-    {
-        return transactionEntries;
-    }
-
-    public Set<AddFileEntry> getAddFileEntries()
-    {
-        return addFileEntries;
-    }
-
-    public Set<RemoveFileEntry> getRemoveFileEntries()
-    {
-        return removeFileEntries;
-    }
-
-    public BigInteger size()
+    public long size()
     {
         // The additional 2 are for the MetadataEntry and ProtocolEntry
-        return BigInteger.valueOf(transactionEntries.size() + addFileEntries.size() + removeFileEntries.size() + 2);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        CheckpointEntries that = (CheckpointEntries) o;
-        return Objects.equals(metadataEntry, that.metadataEntry)
-                && Objects.equals(protocolEntry, that.protocolEntry)
-                && Objects.equals(transactionEntries, that.transactionEntries)
-                && Objects.equals(addFileEntries, that.addFileEntries)
-                && Objects.equals(removeFileEntries, that.removeFileEntries);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(metadataEntry, protocolEntry, transactionEntries, addFileEntries, removeFileEntries);
-    }
-
-    @Override
-    public String toString()
-    {
-        return new StringJoiner(", ", CheckpointEntries.class.getSimpleName() + "[", "]")
-                .add("metadataEntry=" + metadataEntry)
-                .add("protocolEntry=" + protocolEntry)
-                .add("transactionEntries=" + transactionEntries)
-                .add("addFileEntries=" + addFileEntries)
-                .add("removeFileEntries=" + removeFileEntries)
-                .toString();
+        return transactionEntries.size() + addFileEntries.size() + removeFileEntries.size() + 2;
     }
 }

@@ -43,7 +43,7 @@ public final class MySqlQueryRunner
         return createMySqlQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.copyOf(tables));
     }
 
-    public static DistributedQueryRunner createMySqlQueryRunner(
+    public static QueryRunner createMySqlQueryRunner(
             TestingMySqlServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
@@ -53,7 +53,7 @@ public final class MySqlQueryRunner
         return createMySqlQueryRunner(server, extraProperties, ImmutableMap.of(), connectorProperties, tables, runner -> {});
     }
 
-    public static DistributedQueryRunner createMySqlQueryRunner(
+    public static QueryRunner createMySqlQueryRunner(
             TestingMySqlServer server,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
@@ -62,7 +62,7 @@ public final class MySqlQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setAdditionalSetup(moreSetup)
@@ -101,7 +101,7 @@ public final class MySqlQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createMySqlQueryRunner(
+        QueryRunner queryRunner = createMySqlQueryRunner(
                 new TestingMySqlServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),

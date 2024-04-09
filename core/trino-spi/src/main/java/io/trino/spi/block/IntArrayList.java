@@ -16,6 +16,7 @@ package io.trino.spi.block;
 import java.util.Arrays;
 
 import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
+import static java.lang.Math.clamp;
 import static java.lang.String.format;
 
 /**
@@ -52,7 +53,7 @@ class IntArrayList
         }
 
         if (newCapacity > array.length) {
-            int newLength = (int) Math.min(Math.max(2L * array.length, newCapacity), MAX_ARRAY_SIZE);
+            int newLength = clamp(array.length * 2L, newCapacity, MAX_ARRAY_SIZE);
             array = Arrays.copyOf(array, newLength);
         }
     }

@@ -5,12 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>435</version>
+        <version>444</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-server</artifactId>
     <packaging>provisio</packaging>
+    <description>Trino - Server package</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -23,6 +24,10 @@
         <!-- Launcher properties -->
         <main-class>io.trino.server.TrinoServer</main-class>
         <process-name>${project.artifactId}</process-name>
+
+        <!-- Special consideration for Takari Lifecycle -->
+        <!-- This works as trino-server have no sources (is just provisio packaged) -->
+        <takari.skip>false</takari.skip>
     </properties>
 
     <dependencies>
@@ -32,6 +37,17 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <!-- Needed for provisio to resolve transitive dependencies for server assembly -->
+    <repositories>
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>confluent</id>
+            <url>https://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
 
     <build>
         <plugins>
@@ -64,6 +80,7 @@
                 <version>${dep.takari.version}</version>
                 <configuration>
                     <proc>none</proc>
+                    <skip>${takari.skip}</skip>
                 </configuration>
             </plugin>
         </plugins>

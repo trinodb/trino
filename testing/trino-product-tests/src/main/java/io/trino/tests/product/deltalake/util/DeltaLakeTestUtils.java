@@ -49,9 +49,11 @@ public final class DeltaLakeTestUtils
     public static final String DATABRICKS_COMMUNICATION_FAILURE_ISSUE = "https://github.com/trinodb/trino/issues/14391";
     @Language("RegExp")
     public static final String DATABRICKS_COMMUNICATION_FAILURE_MATCH =
-            "\\Q[Databricks][DatabricksJDBCDriver](500593) Communication link failure. Failed to connect to server. Reason: \\E" +
-            "(HTTP retry after response received with no Retry-After header, error: HTTP Response code: 503|HTTP Response code: 504)" +
-            ", Error message: Unknown.";
+            "\\Q[Databricks][\\E(DatabricksJDBCDriver|JDBCDriver)\\Q](500593) Communication link failure. Failed to connect to server. Reason: \\E" +
+            "(" +
+            "(HTTP retry after response received with no Retry-After header, error: HTTP Response code: 503|HTTP Response code: 504), Error message: Unknown." +
+            "|java.net.SocketTimeoutException: Read timed out." +
+            ")";
     private static final RetryPolicy<QueryResult> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.<QueryResult>builder()
             .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof ConcurrentModificationException)
             .handleIf(throwable -> throwable.getMessage() != null && throwable.getMessage().contains("Table being modified concurrently"))

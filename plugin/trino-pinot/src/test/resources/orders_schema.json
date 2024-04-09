@@ -1,0 +1,54 @@
+{
+    "schemaName": "orders",
+    "dimensionFieldSpecs": [
+        {
+            "name": "orderkey",
+            "dataType": "LONG"
+        },
+        {
+            "name": "custkey",
+            "dataType": "LONG"
+        },
+        {
+            "name": "orderstatus",
+            "dataType": "STRING"
+        },
+        {
+            "name": "totalprice",
+            "dataType": "DOUBLE"
+        },
+        {
+            "name": "orderpriority",
+            "dataType": "STRING"
+        },
+        {
+            "name": "clerk",
+            "dataType": "STRING"
+        },
+        {
+            "name": "shippriority",
+            "dataType": "INT"
+        },
+        {
+            "name": "comment",
+            "dataType": "STRING"
+        }
+    ],
+    "dateTimeFieldSpecs": [
+        {
+            "name": "orderdate",
+            "dataType": "LONG",
+            "defaultNullValue": 0,
+            "format": "1:DAYS:EPOCH",
+            "granularity": "1:DAYS"
+        },
+        {
+            "name": "updated_at_seconds",
+            "dataType": "LONG",
+            "defaultNullValue" : 0,
+            "transformFunction": "toEpochSeconds(updated_at)",
+            "format": "1:SECONDS:EPOCH",
+            "granularity" : "1:SECONDS"
+        }
+    ]
+}

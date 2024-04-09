@@ -19,7 +19,6 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -74,9 +73,9 @@ public class CostCalculatorUsingExchanges
     }
 
     @Override
-    public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider sourcesCosts, Session session, TypeProvider types)
+    public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider sourcesCosts, Session session)
     {
-        CostEstimator costEstimator = new CostEstimator(stats, sourcesCosts, types, taskCountEstimator, session);
+        CostEstimator costEstimator = new CostEstimator(stats, sourcesCosts, taskCountEstimator, session);
         return node.accept(costEstimator, null);
     }
 
@@ -85,15 +84,13 @@ public class CostCalculatorUsingExchanges
     {
         private final StatsProvider stats;
         private final CostProvider sourcesCosts;
-        private final TypeProvider types;
         private final TaskCountEstimator taskCountEstimator;
         private final Session session;
 
-        CostEstimator(StatsProvider stats, CostProvider sourcesCosts, TypeProvider types, TaskCountEstimator taskCountEstimator, Session session)
+        CostEstimator(StatsProvider stats, CostProvider sourcesCosts, TaskCountEstimator taskCountEstimator, Session session)
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.sourcesCosts = requireNonNull(sourcesCosts, "sourcesCosts is null");
-            this.types = requireNonNull(types, "types is null");
             this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
             this.session = requireNonNull(session, "session is null");
         }
@@ -114,7 +111,7 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanCostEstimate visitAssignUniqueId(AssignUniqueId node, Void context)
         {
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(ImmutableList.of(node.getIdColumn()), types));
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(ImmutableList.of(node.getIdColumn())));
             return costForStreaming(node, localCost);
         }
 
@@ -131,8 +128,8 @@ public class CostCalculatorUsingExchanges
                         .build();
             }
             PlanNodeStatsEstimate stats = getStats(node);
-            double cpuCost = stats.getOutputSizeInBytes(symbols, types);
-            double memoryCost = node.getPartitionBy().isEmpty() ? 0 : stats.getOutputSizeInBytes(node.getSource().getOutputSymbols(), types);
+            double cpuCost = stats.getOutputSizeInBytes(symbols);
+            double memoryCost = node.getPartitionBy().isEmpty() ? 0 : stats.getOutputSizeInBytes(node.getSource().getOutputSymbols());
             LocalCostEstimate localCost = LocalCostEstimate.of(cpuCost, memoryCost, 0);
             return costForStreaming(node, localCost);
         }
@@ -147,21 +144,21 @@ public class CostCalculatorUsingExchanges
         public PlanCostEstimate visitTableScan(TableScanNode node, Void context)
         {
             // TODO: add network cost, based on input size in bytes? Or let connector provide this cost?
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
             return costForSource(node, localCost);
         }
 
         @Override
         public PlanCostEstimate visitFilter(FilterNode node, Void context)
         {
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node.getSource()).getOutputSizeInBytes(node.getOutputSymbols(), types));
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node.getSource()).getOutputSizeInBytes(node.getOutputSymbols()));
             return costForStreaming(node, localCost);
         }
 
         @Override
         public PlanCostEstimate visitProject(ProjectNode node, Void context)
         {
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
             return costForStreaming(node, localCost);
         }
 
@@ -173,8 +170,8 @@ public class CostCalculatorUsingExchanges
             }
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());
-            double cpuCost = sourceStats.getOutputSizeInBytes(node.getSource().getOutputSymbols(), types);
-            double memoryCost = aggregationStats.getOutputSizeInBytes(node.getOutputSymbols(), types);
+            double cpuCost = sourceStats.getOutputSizeInBytes(node.getSource().getOutputSymbols());
+            double memoryCost = aggregationStats.getOutputSizeInBytes(node.getOutputSymbols());
             LocalCostEstimate localCost = LocalCostEstimate.of(cpuCost, memoryCost, 0);
             return costForAccumulation(node, localCost);
         }
@@ -197,7 +194,6 @@ public class CostCalculatorUsingExchanges
                     probe,
                     build,
                     stats,
-                    types,
                     replicated,
                     estimatedSourceDistributedTaskCount);
             // TODO: Use traits (https://github.com/trinodb/trino/issues/4763) instead, to correctly estimate
@@ -205,7 +201,6 @@ public class CostCalculatorUsingExchanges
             LocalCostEstimate adjustedLocalExchangeCost = adjustReplicatedJoinLocalExchangeCost(
                     build,
                     stats,
-                    types,
                     replicated,
                     estimatedSourceDistributedTaskCount);
             LocalCostEstimate joinOutputCost = calculateJoinOutputCost(join);
@@ -215,7 +210,7 @@ public class CostCalculatorUsingExchanges
         private LocalCostEstimate calculateJoinOutputCost(PlanNode join)
         {
             PlanNodeStatsEstimate outputStats = getStats(join);
-            double joinOutputSize = outputStats.getOutputSizeInBytes(join.getOutputSymbols(), types);
+            double joinOutputSize = outputStats.getOutputSizeInBytes(join.getOutputSymbols());
             return LocalCostEstimate.ofCpu(joinOutputSize);
         }
 
@@ -227,7 +222,7 @@ public class CostCalculatorUsingExchanges
 
         private LocalCostEstimate calculateExchangeCost(ExchangeNode node)
         {
-            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types);
+            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputSymbols());
             switch (node.getScope()) {
                 case LOCAL:
                     switch (node.getType()) {
@@ -297,7 +292,7 @@ public class CostCalculatorUsingExchanges
             // so proper cost estimation is not that important. Second, since LimitNode can lead to incomplete evaluation
             // of the source, true cost estimation should be implemented as a "constraint" enforced on a sub-tree and
             // evaluated in context of actual source node type (and their sources).
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
             return costForStreaming(node, localCost);
         }
 

@@ -20,6 +20,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.trino.block.BlockJsonSerde;
 import io.trino.json.ir.IrJsonPath;
+import io.trino.server.SliceSerialization;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -48,7 +49,13 @@ public class JsonPath2016Type
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        throw new UnsupportedOperationException();
+        if (block.isNull(position)) {
+            return null;
+        }
+
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return valueBlock.getSlice(valuePosition).toStringUtf8();
     }
 
     @Override
@@ -75,7 +82,9 @@ public class JsonPath2016Type
     private static JsonCodec<IrJsonPath> getCodec(TypeDeserializer typeDeserializer, BlockEncodingSerde blockEncodingSerde)
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde)));
+        provider.setJsonSerializers(ImmutableMap.of(
+                Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde),
+                Slice.class, new SliceSerialization.SliceSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
                 Type.class, typeDeserializer,
                 Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde)));

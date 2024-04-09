@@ -25,11 +25,11 @@ import io.airlift.log.Logger;
 public class KinesisShardCheckpointer
 {
     private static final Logger log = Logger.get(KinesisShardCheckpointer.class);
-    private KinesisClientLeaseManager leaseManager;
-    private KinesisSplit kinesisSplit;
-    private String logicalProcessName;
-    private int currentIterationNumber;
-    private KinesisClientLease kinesisClientLease;
+    private final KinesisClientLeaseManager leaseManager;
+    private final KinesisSplit kinesisSplit;
+    private final String logicalProcessName;
+    private final int currentIterationNumber;
+    private final KinesisClientLease kinesisClientLease;
 
     public KinesisShardCheckpointer(
             AmazonDynamoDB dynamoDBClient,
@@ -80,14 +80,11 @@ public class KinesisShardCheckpointer
 
     private String createCheckpointKey(int iterationNo)
     {
-        return new StringBuilder(this.logicalProcessName)
-                .append("_")
-                .append(this.kinesisSplit.getStreamName())
-                .append("_")
-                .append(this.kinesisSplit.getShardId())
-                .append("_")
-                .append(String.valueOf(iterationNo))
-                .toString();
+        return "%s_%s_%s_%d".formatted(
+                this.logicalProcessName,
+                this.kinesisSplit.getStreamName(),
+                this.kinesisSplit.getShardId(),
+                iterationNo);
     }
 
     // storing last read sequence no. in dynamodb table

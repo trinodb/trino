@@ -24,6 +24,13 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.AUTHORIZATION;
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
+import static io.trino.tests.product.TestGroups.HIVE_ALLUXIO_CACHING;
+import static io.trino.tests.product.TestGroups.HIVE_KERBEROS;
+import static io.trino.tests.product.TestGroups.ICEBERG;
+import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class Suite5
@@ -34,17 +41,17 @@ public class Suite5
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeHiveImpersonation.class)
-                        .withGroups("configured_features", "storage_formats", "hdfs_impersonation")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, HDFS_IMPERSONATION)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHiveImpersonation.class)
-                        .withGroups("configured_features", "storage_formats", "hdfs_impersonation", "authorization", "hive_kerberos")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, HDFS_IMPERSONATION, AUTHORIZATION, HIVE_KERBEROS)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHiveImpersonationWithCredentialCache.class)
-                        .withGroups("configured_features", "storage_formats", "hdfs_impersonation", "authorization")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, HDFS_IMPERSONATION, AUTHORIZATION)
                         .build(),
                 testOnEnvironment(EnvMultinodeHiveCaching.class)
-                        .withGroups("configured_features", "hive_caching", "storage_formats")
-                        .withExcludedGroups("iceberg")
+                        .withGroups(CONFIGURED_FEATURES, HIVE_ALLUXIO_CACHING, STORAGE_FORMATS)
+                        .withExcludedGroups(ICEBERG)
                         .build());
     }
 }

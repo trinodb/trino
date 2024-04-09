@@ -16,6 +16,7 @@ package io.trino.execution.buffer;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public class TestingPagesSerdeFactory
@@ -26,6 +27,6 @@ public class TestingPagesSerdeFactory
     public TestingPagesSerdeFactory()
     {
         // compression should be enabled in as many tests as possible
-        super(BLOCK_ENCODING_SERDE, true);
+        super(BLOCK_ENCODING_SERDE, LZ4);
     }
 }

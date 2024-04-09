@@ -21,7 +21,6 @@ import org.junit.jupiter.api.TestInstance;
 
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -480,7 +479,7 @@ public class TestJsonTable
                 .returnsEmptyResult();
 
         // error during root path evaluation handled according to top level ERROR ON ERROR clause
-        assertTrinoExceptionThrownBy(() -> assertions.query("""
+        assertThat(assertions.query("""
                  SELECT *
                  FROM JSON_TABLE(
                      '[]',
@@ -488,6 +487,7 @@ public class TestJsonTable
                      COLUMNS(a integer PATH 'lax 1')
                      ERROR ON ERROR)
                 """))
+                .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript for empty array");
     }
@@ -525,7 +525,7 @@ public class TestJsonTable
                 .returnsEmptyResult();
 
         // error during nested path evaluation handled according to top level ERROR ON ERROR clause
-        assertTrinoExceptionThrownBy(() -> assertions.query("""
+        assertThat(assertions.query("""
                  SELECT *
                  FROM JSON_TABLE(
                      '[]',
@@ -537,6 +537,7 @@ public class TestJsonTable
                      PLAN DEFAULT(INNER)
                      ERROR ON ERROR)
                 """))
+                .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript for empty array");
     }
@@ -545,7 +546,7 @@ public class TestJsonTable
     public void testColumnPathErrorHandling()
     {
         // error during column path evaluation handled according to column's ERROR ON ERROR clause
-        assertTrinoExceptionThrownBy(() -> assertions.query("""
+        assertThat(assertions.query("""
                  SELECT *
                  FROM JSON_TABLE(
                      '[]',
@@ -553,6 +554,7 @@ public class TestJsonTable
                      COLUMNS(a integer PATH 'strict $[42]' ERROR ON ERROR)
                      EMPTY ON ERROR)
                 """))
+                .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript for empty array");
 
@@ -568,7 +570,7 @@ public class TestJsonTable
                 .matches("VALUES CAST(null as integer)");
 
         // error during column path evaluation handled according to column's ON ERROR clause which defaults to ERROR ON ERROR because the top level error behavior is ERROR ON ERROR
-        assertTrinoExceptionThrownBy(() -> assertions.query("""
+        assertThat(assertions.query("""
                  SELECT *
                  FROM JSON_TABLE(
                      '[]',
@@ -576,6 +578,7 @@ public class TestJsonTable
                      COLUMNS(a integer PATH 'strict $[42]')
                      ERROR ON ERROR)
                 """))
+                .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript for empty array");
     }
@@ -644,7 +647,7 @@ public class TestJsonTable
     public void testNullPathParameter()
     {
         // null as SQL-value parameter "index" is evaluated to a JSON null, and causes type mismatch
-        assertTrinoExceptionThrownBy(() -> assertions.query("""
+        assertThat(assertions.query("""
                  SELECT *
                  FROM (SELECT '[1, 2, 3]', CAST(null AS integer)) t(json_col, index_col),
                  JSON_TABLE(
@@ -653,11 +656,12 @@ public class TestJsonTable
                      COLUMNS(a integer PATH 'lax 1')
                      ERROR ON ERROR)
                 """))
+                .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
 
         // null as JSON (formatted) parameter "index" evaluates to empty sequence, and causes type mismatch
-        assertTrinoExceptionThrownBy(() -> assertions.query("""
+        assertThat(assertions.query("""
                  SELECT *
                  FROM (SELECT '[1, 2, 3]', CAST(null AS varchar)) t(json_col, index_col),
                  JSON_TABLE(
@@ -666,6 +670,7 @@ public class TestJsonTable
                      COLUMNS(a integer PATH 'lax 1')
                      ERROR ON ERROR)
                 """))
+                .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: array subscript 'from' value must be singleton numeric");
     }

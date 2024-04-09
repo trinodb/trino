@@ -183,7 +183,7 @@ public class TestOrcPageSourceFactory
         assertThat(result.size()).isEqualTo(expected.size());
         int deletedRowKey = 24;
         String deletedRowNameColumn = "UNITED STATES";
-        assertThat(result.stream().anyMatch(acidNationRow -> acidNationRow.getName().equals(deletedRowNameColumn) && acidNationRow.getNationKey() == deletedRowKey))
+        assertThat(result.stream().anyMatch(acidNationRow -> acidNationRow.name().equals(deletedRowNameColumn) && acidNationRow.nationKey() == deletedRowKey))
                 .describedAs("Deleted row shouldn't be present in the result")
                 .isFalse();
     }
@@ -202,10 +202,10 @@ public class TestOrcPageSourceFactory
     {
         List<Nation> expected = new ArrayList<>();
         for (Nation nation : ImmutableList.copyOf(new NationGenerator().iterator())) {
-            if (nationKeyPredicate.isPresent() && nationKeyPredicate.getAsLong() != nation.getNationKey()) {
+            if (nationKeyPredicate.isPresent() && nationKeyPredicate.getAsLong() != nation.nationKey()) {
                 continue;
             }
-            if (deletedRows.test(nation.getNationKey())) {
+            if (deletedRows.test(nation.nationKey())) {
                 continue;
             }
             expected.addAll(nCopies(replicationFactor, nation));
@@ -344,10 +344,10 @@ public class TestOrcPageSourceFactory
         for (int i = 0; i < actualRows.size(); i++) {
             Nation actual = actualRows.get(i);
             Nation expected = expectedRows.get(i);
-            assertThat(actual.getNationKey()).isEqualTo(columns.contains(NATION_KEY) ? expected.getNationKey() : -42);
-            assertThat(actual.getName()).isEqualTo(columns.contains(NAME) ? expected.getName() : "<not read>");
-            assertThat(actual.getRegionKey()).isEqualTo(columns.contains(REGION_KEY) ? expected.getRegionKey() : -42);
-            assertThat(actual.getComment()).isEqualTo(columns.contains(COMMENT) ? expected.getComment() : "<not read>");
+            assertThat(actual.nationKey()).isEqualTo(columns.contains(NATION_KEY) ? expected.nationKey() : -42);
+            assertThat(actual.name()).isEqualTo(columns.contains(NAME) ? expected.name() : "<not read>");
+            assertThat(actual.regionKey()).isEqualTo(columns.contains(REGION_KEY) ? expected.regionKey() : -42);
+            assertThat(actual.comment()).isEqualTo(columns.contains(COMMENT) ? expected.comment() : "<not read>");
         }
     }
 

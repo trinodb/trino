@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
@@ -80,12 +82,12 @@ public class TestPruneTableFunctionProcessorSourceColumns
                                 .hashSymbol("hash"),
                         project(
                                 ImmutableMap.of(
-                                        "a", expression("a"),
-                                        "b", expression("b"),
-                                        "c", expression("c"),
-                                        "d", expression("d"),
-                                        "hash", expression("hash"),
-                                        "marker", expression("marker")),
+                                        "a", expression(new Reference(BIGINT, "a")),
+                                        "b", expression(new Reference(BIGINT, "b")),
+                                        "c", expression(new Reference(BIGINT, "c")),
+                                        "d", expression(new Reference(BIGINT, "d")),
+                                        "hash", expression(new Reference(BIGINT, "hash")),
+                                        "marker", expression(new Reference(BIGINT, "marker"))),
                                 values("a", "b", "c", "d", "unreferenced", "hash", "marker"))));
     }
 
@@ -166,15 +168,15 @@ public class TestPruneTableFunctionProcessorSourceColumns
                                         "f", "marker3")),
                         project(
                                 ImmutableMap.of(
-                                        "a", expression("a"),
-                                        "b", expression("b"),
-                                        "c", expression("c"),
-                                        "d", expression("d"),
-                                        "e", expression("e"),
-                                        "f", expression("f"),
-                                        "marker1", expression("marker1"),
-                                        "marker2", expression("marker2"),
-                                        "marker3", expression("marker3")),
+                                        "a", expression(new Reference(BIGINT, "a")),
+                                        "b", expression(new Reference(BIGINT, "b")),
+                                        "c", expression(new Reference(BIGINT, "c")),
+                                        "d", expression(new Reference(BIGINT, "d")),
+                                        "e", expression(new Reference(BIGINT, "e")),
+                                        "f", expression(new Reference(BIGINT, "f")),
+                                        "marker1", expression(new Reference(BIGINT, "marker1")),
+                                        "marker2", expression(new Reference(BIGINT, "marker2")),
+                                        "marker3", expression(new Reference(BIGINT, "marker3"))),
                                 values("a", "b", "c", "d", "e", "f", "marker1", "marker2", "marker3", "unreferenced"))));
     }
 

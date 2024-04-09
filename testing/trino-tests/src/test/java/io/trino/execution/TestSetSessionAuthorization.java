@@ -47,7 +47,7 @@ public class TestSetSessionAuthorization
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
                 .setSystemAccessControl("file", Map.of("security.config-file", new File(getResource("set_session_authorization_permissions.json").toURI()).getPath()))
                 .build();
         return queryRunner;

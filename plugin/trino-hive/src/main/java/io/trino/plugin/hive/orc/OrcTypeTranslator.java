@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
 import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
+import io.trino.plugin.hive.coercions.BooleanCoercer.OrcVarcharToBooleanCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.DateToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
 import io.trino.plugin.hive.coercions.DoubleToVarcharCoercer;
@@ -25,10 +26,18 @@ import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoe
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.coercions.VarcharToDoubleCoercer;
+import io.trino.plugin.hive.coercions.VarcharToFloatCoercer;
+import io.trino.plugin.hive.coercions.VarcharToIntegralNumericCoercers.OrcVarcharToIntegralNumericCoercer;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -71,6 +80,9 @@ public final class OrcTypeTranslator
             return Optional.of(new DateToVarcharCoercer(varcharType));
         }
         if (isVarcharType(fromOrcType)) {
+            if (toTrinoType instanceof BooleanType) {
+                return Optional.of(new OrcVarcharToBooleanCoercer(createUnboundedVarcharType()));
+            }
             if (toTrinoType instanceof TimestampType timestampType) {
                 if (timestampType.isShort()) {
                     return Optional.of(new VarcharToShortTimestampCoercer(createUnboundedVarcharType(), timestampType));
@@ -80,8 +92,23 @@ public final class OrcTypeTranslator
             if (toTrinoType instanceof DateType toDateType) {
                 return Optional.of(new VarcharToDateCoercer(createUnboundedVarcharType(), toDateType));
             }
+            if (toTrinoType instanceof RealType) {
+                return Optional.of(new VarcharToFloatCoercer(createUnboundedVarcharType(), true));
+            }
             if (toTrinoType instanceof DoubleType) {
                 return Optional.of(new VarcharToDoubleCoercer(createUnboundedVarcharType(), true));
+            }
+            if (toTrinoType instanceof TinyintType tinyintType) {
+                return Optional.of(new OrcVarcharToIntegralNumericCoercer<>(createUnboundedVarcharType(), tinyintType));
+            }
+            if (toTrinoType instanceof SmallintType smallintType) {
+                return Optional.of(new OrcVarcharToIntegralNumericCoercer<>(createUnboundedVarcharType(), smallintType));
+            }
+            if (toTrinoType instanceof IntegerType integerType) {
+                return Optional.of(new OrcVarcharToIntegralNumericCoercer<>(createUnboundedVarcharType(), integerType));
+            }
+            if (toTrinoType instanceof BigintType bigintType) {
+                return Optional.of(new OrcVarcharToIntegralNumericCoercer<>(createUnboundedVarcharType(), bigintType));
             }
             return Optional.empty();
         }

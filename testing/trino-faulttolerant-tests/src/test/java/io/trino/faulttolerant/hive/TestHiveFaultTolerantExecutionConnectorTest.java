@@ -23,6 +23,7 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT;
@@ -32,6 +33,7 @@ import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtr
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@Isolated
 @TestInstance(PER_CLASS)
 public class TestHiveFaultTolerantExecutionConnectorTest
         extends BaseHiveConnectorTest
@@ -45,7 +47,7 @@ public class TestHiveFaultTolerantExecutionConnectorTest
         this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
         minioStorage.start();
 
-        return BaseHiveConnectorTest.createHiveQueryRunner(HiveQueryRunner.builder()
+        return createHiveQueryRunner(HiveQueryRunner.builder()
                 .setExtraProperties(getExtraProperties())
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
@@ -74,7 +76,7 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     @Override
     public void testTaskWritersDoesNotScaleWithLargeMinWriterSize()
     {
-        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false, DataSize.of(64, GIGABYTE))
+        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, DataSize.of(64, GIGABYTE))
                 .isEqualTo(1);
     }
 
@@ -95,13 +97,6 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     @Test
     @Override
     public void testWriterTaskCountLimitPartitionedScaleWritersEnabled()
-    {
-        // Not applicable for fault-tolerant mode.
-    }
-
-    @Test
-    @Override
-    public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
     {
         // Not applicable for fault-tolerant mode.
     }

@@ -14,11 +14,10 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import io.trino.Session;
-import io.trino.connector.CatalogProperties;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
@@ -26,15 +25,17 @@ import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.LanguageFunctionManager;
-import io.trino.metadata.LanguageScalarFunctionData;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties.TablePartitioning;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
+import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
-import io.trino.spi.type.Type;
+import io.trino.spi.function.FunctionId;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -56,6 +57,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.routine.ir.IrRoutine;
 import io.trino.transaction.TransactionManager;
 
 import java.util.ArrayList;
@@ -64,16 +66,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getQueryMaxStageCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.trino.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
+import static io.trino.sql.planner.AdaptivePlanner.ExchangeSourceId;
 import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -120,14 +123,40 @@ public class PlanFragmenter
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, WarningCollector warningCollector)
     {
+        return createSubPlans(
+                session,
+                plan,
+                forceSingleNode,
+                warningCollector,
+                new PlanFragmentIdAllocator(0),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()),
+                ImmutableMap.of());
+    }
+
+    public SubPlan createSubPlans(
+            Session session,
+            Plan plan,
+            boolean forceSingleNode,
+            WarningCollector warningCollector,
+            PlanFragmentIdAllocator idAllocator,
+            PartitioningScheme outputPartitioningScheme,
+            Map<ExchangeSourceId, SubPlan> unchangedSubPlans)
+    {
         List<CatalogProperties> activeCatalogs = transactionManager.getActiveCatalogs(session.getTransactionId().orElseThrow()).stream()
                 .map(CatalogInfo::getCatalogHandle)
                 .flatMap(catalogHandle -> catalogManager.getCatalogProperties(catalogHandle).stream())
                 .collect(toImmutableList());
-        List<LanguageScalarFunctionData> languageScalarFunctions = languageFunctionManager.serializeFunctionsForWorkers(session);
-        Fragmenter fragmenter = new Fragmenter(session, metadata, functionManager, plan.getTypes(), plan.getStatsAndCosts(), activeCatalogs, languageScalarFunctions);
-
-        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
+        Map<FunctionId, IrRoutine> languageScalarFunctions = languageFunctionManager.serializeFunctionsForWorkers(session);
+        Fragmenter fragmenter = new Fragmenter(
+                session,
+                metadata,
+                functionManager,
+                plan.getStatsAndCosts(),
+                activeCatalogs,
+                languageScalarFunctions,
+                idAllocator,
+                unchangedSubPlans);
+        FragmentProperties properties = new FragmentProperties(outputPartitioningScheme);
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
@@ -214,38 +243,40 @@ public class PlanFragmenter
     private static class Fragmenter
             extends SimplePlanRewriter<FragmentProperties>
     {
-        private static final int ROOT_FRAGMENT_ID = 0;
-
         private final Session session;
         private final Metadata metadata;
         private final FunctionManager functionManager;
-        private final TypeProvider types;
         private final StatsAndCosts statsAndCosts;
         private final List<CatalogProperties> activeCatalogs;
-        private final List<LanguageScalarFunctionData> languageFunctions;
-        private final PlanFragmentIdAllocator idAllocator = new PlanFragmentIdAllocator(ROOT_FRAGMENT_ID + 1);
+        private final Map<FunctionId, IrRoutine> languageFunctions;
+        private final PlanFragmentIdAllocator idAllocator;
+        private final Map<ExchangeSourceId, SubPlan> unchangedSubPlans;
+        private final PlanFragmentId rootFragmentID;
 
         public Fragmenter(
                 Session session,
                 Metadata metadata,
                 FunctionManager functionManager,
-                TypeProvider types,
                 StatsAndCosts statsAndCosts,
                 List<CatalogProperties> activeCatalogs,
-                List<LanguageScalarFunctionData> languageFunctions)
+                Map<FunctionId, IrRoutine> languageFunctions,
+                PlanFragmentIdAllocator idAllocator,
+                Map<ExchangeSourceId, SubPlan> unchangedSubPlans)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.functionManager = requireNonNull(functionManager, "functionManager is null");
-            this.types = requireNonNull(types, "types is null");
             this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
             this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
-            this.languageFunctions = requireNonNull(languageFunctions, "languageFunctions is null");
+            this.languageFunctions = ImmutableMap.copyOf(languageFunctions);
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.unchangedSubPlans = ImmutableMap.copyOf(requireNonNull(unchangedSubPlans, "unchangedSubPlans is null"));
+            this.rootFragmentID = idAllocator.getNextId();
         }
 
         public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
         {
-            return buildFragment(root, properties, new PlanFragmentId(String.valueOf(ROOT_FRAGMENT_ID)));
+            return buildFragment(root, properties, rootFragmentID);
         }
 
         private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
@@ -256,12 +287,10 @@ public class PlanFragmenter
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));
             checkArgument(equals, "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)", schedulingOrder, properties.getPartitionedSources());
 
-            Map<Symbol, Type> symbols = Maps.filterKeys(types.allTypes(), in(dependencies));
-
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
-                    symbols,
+                    dependencies,
                     properties.getPartitioningHandle(),
                     properties.getPartitionCount(),
                     schedulingOrder,
@@ -269,7 +298,7 @@ public class PlanFragmenter
                     statsAndCosts.getForSubplan(root),
                     activeCatalogs,
                     languageFunctions,
-                    Optional.of(jsonFragmentPlan(root, symbols, metadata, functionManager, session)));
+                    Optional.of(jsonFragmentPlan(root, metadata, functionManager, session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -407,6 +436,66 @@ public class PlanFragmenter
         }
 
         @Override
+        public PlanNode visitAdaptivePlanNode(AdaptivePlanNode node, RewriteContext<FragmentProperties> context)
+        {
+            // This is needed to make the initial plan more concise by replacing the exchange nodes with
+            // remote source nodes for stages that are not being changed by the adaptive planner in the
+            // case of FTE. This is a cosmetic change and does not affect the execution of the plan. This is
+            // useful for easier debugging and understanding of the plan.
+            // Example:
+            //   - Before:
+            //     - AdaptivePlan
+            //       - InitialPlan
+            //         - SomeInitialPlanNode
+            //           - Exchange
+            //             - TableScan
+            //       - CurrentPlan
+            //         - NewPlanNode
+            //           - RemoteSourceNode(1)
+            //    - After:
+            //      - AdaptivePlan
+            //        - InitialPlan
+            //          - SomeInitialPlanNode
+            //            - RemoteSourceNode(1)
+            //        - CurrentPlan
+            //          - NewPlanNode
+            //            - RemoteSourceNode(1)
+            // As shown in the example, the exchange node is replaced with a remote source node in the initial plan.
+
+            AdaptivePlanNode adaptivePlan = (AdaptivePlanNode) context.defaultRewrite(node, context.get());
+            List<PlanNode> remoteSourceNodes = getAllRemoteSourceNodes(adaptivePlan.getCurrentPlan(), context.get().getChildren());
+            ExchangeNodeToRemoteSourceRewriter rewriter = new ExchangeNodeToRemoteSourceRewriter(remoteSourceNodes, unchangedSubPlans.keySet());
+            PlanNode newInitialPlan = SimplePlanRewriter.rewriteWith(rewriter, adaptivePlan.getInitialPlan());
+            Set<Symbol> dependencies = SymbolsExtractor.extractOutputSymbols(newInitialPlan);
+            return new AdaptivePlanNode(adaptivePlan.getId(), newInitialPlan, dependencies, adaptivePlan.getCurrentPlan());
+        }
+
+        @Override
+        public PlanNode visitRemoteSource(RemoteSourceNode node, RewriteContext<FragmentProperties> context)
+        {
+            List<SubPlan> completedChildren = unchangedSubPlans.values().stream()
+                    .filter(subPlan -> node.getSourceFragmentIds().contains(subPlan.getFragment().getId()))
+                    .collect(toImmutableList());
+            checkState(completedChildren.size() == node.getSourceFragmentIds().size(), "completedSubPlans should contain all remote source children");
+
+            if (node.getExchangeType() == ExchangeNode.Type.GATHER) {
+                context.get().setSingleNodeDistribution();
+            }
+            else if (node.getExchangeType() == ExchangeNode.Type.REPARTITION) {
+                for (SubPlan child : completedChildren) {
+                    PartitioningScheme partitioningScheme = child.getFragment().getOutputPartitioningScheme();
+                    context.get().setDistribution(
+                            partitioningScheme.getPartitioning().getHandle(),
+                            partitioningScheme.getPartitionCount(),
+                            metadata,
+                            session);
+                }
+            }
+            context.get().addChildren(completedChildren);
+            return node;
+        }
+
+        @Override
         public PlanNode visitExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
         {
             if (exchange.getScope() != REMOTE) {
@@ -431,7 +520,11 @@ public class PlanFragmenter
             for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
                 FragmentProperties childProperties = new FragmentProperties(partitioningScheme.translateOutputLayout(exchange.getInputs().get(sourceIndex)));
                 childrenProperties.add(childProperties);
-                childrenBuilder.add(buildSubPlan(exchange.getSources().get(sourceIndex), childProperties, context));
+                childrenBuilder.add(buildSubPlan(
+                        exchange.getSources().get(sourceIndex),
+                        new ExchangeSourceId(exchange.getId(), exchange.getSources().get(sourceIndex).getId()),
+                        childProperties,
+                        context));
             }
 
             List<SubPlan> children = childrenBuilder.build();
@@ -451,11 +544,27 @@ public class PlanFragmenter
                     isWorkerCoordinatorBoundary(context.get(), childrenProperties.build()) ? getRetryPolicy(session) : RetryPolicy.NONE);
         }
 
-        private SubPlan buildSubPlan(PlanNode node, FragmentProperties properties, RewriteContext<FragmentProperties> context)
+        private SubPlan buildSubPlan(PlanNode node, ExchangeSourceId exchangeSourceId, FragmentProperties properties, RewriteContext<FragmentProperties> context)
         {
+            SubPlan subPlan = unchangedSubPlans.get(exchangeSourceId);
+            if (subPlan != null) {
+                return subPlan;
+            }
             PlanFragmentId planFragmentId = idAllocator.getNextId();
             PlanNode child = context.rewrite(node, properties);
             return buildFragment(child, properties, planFragmentId);
+        }
+
+        private List<PlanNode> getAllRemoteSourceNodes(PlanNode node, List<SubPlan> children)
+        {
+            return Stream.concat(
+                            children.stream()
+                                    .map(SubPlan::getFragment)
+                                    .flatMap(fragment -> fragment.getRemoteSourceNodes().stream()),
+                            PlanNodeSearcher.searchFrom(node)
+                                    .whereIsInstanceOfAny(RemoteSourceNode.class)
+                                    .findAll().stream())
+                    .collect(toImmutableList());
         }
 
         private static boolean isWorkerCoordinatorBoundary(FragmentProperties fragmentProperties, List<FragmentProperties> childFragmentsProperties)
@@ -709,6 +818,36 @@ public class PlanFragmenter
                     // plan was already fragmented with scan node's partitioning
                     // and new partitioning is compatible with previous one
                     node.getUseConnectorNodePartitioning());
+        }
+    }
+
+    private static final class ExchangeNodeToRemoteSourceRewriter
+            extends SimplePlanRewriter<Void>
+    {
+        private final List<PlanNode> remoteSourceNodes;
+        private final Set<ExchangeSourceId> unchangedRemoteExchanges;
+
+        public ExchangeNodeToRemoteSourceRewriter(List<PlanNode> remoteSourceNodes, Set<ExchangeSourceId> unchangedRemoteExchanges)
+        {
+            this.remoteSourceNodes = requireNonNull(remoteSourceNodes, "remoteSourceNodes is null");
+            this.unchangedRemoteExchanges = requireNonNull(unchangedRemoteExchanges, "unchangedRemoteExchanges is null");
+        }
+
+        @Override
+        public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> context)
+        {
+            if (node.getScope() != REMOTE || !isUnchangedFragment(node.getId())) {
+                return context.defaultRewrite(node, context.get());
+            }
+            return remoteSourceNodes.stream()
+                    .filter(remoteSource -> remoteSource.getId().equals(node.getId()))
+                    .findFirst()
+                    .orElse(node);
+        }
+
+        private boolean isUnchangedFragment(PlanNodeId exchangeID)
+        {
+            return unchangedRemoteExchanges.stream().anyMatch(fragment -> fragment.exchangeId().equals(exchangeID));
         }
     }
 }

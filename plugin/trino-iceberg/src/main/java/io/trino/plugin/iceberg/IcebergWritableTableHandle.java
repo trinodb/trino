@@ -41,19 +41,21 @@ public class IcebergWritableTableHandle
     private final IcebergFileFormat fileFormat;
     private final Map<String, String> storageProperties;
     private final RetryMode retryMode;
+    private final Map<String, String> fileIoProperties;
 
     @JsonCreator
     public IcebergWritableTableHandle(
             @JsonProperty("name") SchemaTableName name,
             @JsonProperty("schemaAsJson") String schemaAsJson,
-            @JsonProperty("partitionSpecsAsJson") Map<Integer, String> partitionsSpecsAsJson,
+            @JsonProperty("partitionsSpecsAsJson") Map<Integer, String> partitionsSpecsAsJson,
             @JsonProperty("partitionSpecId") int partitionSpecId,
             @JsonProperty("sortOrder") List<TrinoSortField> sortOrder,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
-            @JsonProperty("properties") Map<String, String> storageProperties,
-            @JsonProperty("retryMode") RetryMode retryMode)
+            @JsonProperty("storageProperties") Map<String, String> storageProperties,
+            @JsonProperty("retryMode") RetryMode retryMode,
+            @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties)
     {
         this.name = requireNonNull(name, "name is null");
         this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
@@ -66,6 +68,7 @@ public class IcebergWritableTableHandle
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         this.retryMode = requireNonNull(retryMode, "retryMode is null");
         checkArgument(partitionsSpecsAsJson.containsKey(partitionSpecId), "partitionSpecId missing from partitionSpecs");
+        this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
     }
 
     @JsonProperty
@@ -126,6 +129,12 @@ public class IcebergWritableTableHandle
     public RetryMode getRetryMode()
     {
         return retryMode;
+    }
+
+    @JsonProperty
+    public Map<String, String> getFileIoProperties()
+    {
+        return fileIoProperties;
     }
 
     @Override

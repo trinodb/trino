@@ -23,6 +23,8 @@ import static java.util.Objects.requireNonNull;
 
 public class LogicalIndexNavigation
 {
+    public static final LogicalIndexNavigation NO_OP = new LogicalIndexNavigation(Set.of(), true, true, 0, 0);
+
     // a set of labels to navigate over:
     // LAST(A.price, 3) => this is a navigation over rows with label A, so labels = {A}
     // LAST(Union.price, 3) => this is a navigation over rows matching a union variable Union, so for SUBSET Union = (A, B, C), we have labels = {A, B, C}

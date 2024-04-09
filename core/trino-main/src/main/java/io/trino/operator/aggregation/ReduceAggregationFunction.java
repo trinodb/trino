@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.state.GenericBooleanState;
 import io.trino.operator.aggregation.state.GenericBooleanStateSerializer;
@@ -21,6 +22,8 @@ import io.trino.operator.aggregation.state.GenericDoubleState;
 import io.trino.operator.aggregation.state.GenericDoubleStateSerializer;
 import io.trino.operator.aggregation.state.GenericLongState;
 import io.trino.operator.aggregation.state.GenericLongStateSerializer;
+import io.trino.operator.aggregation.state.GenericSliceState;
+import io.trino.operator.aggregation.state.GenericSliceStateSerializer;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
@@ -51,14 +54,17 @@ public class ReduceAggregationFunction
     private static final MethodHandle LONG_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", GenericLongState.class, Object.class, long.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
     private static final MethodHandle DOUBLE_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", GenericDoubleState.class, Object.class, double.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
     private static final MethodHandle BOOLEAN_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", GenericBooleanState.class, Object.class, boolean.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
+    private static final MethodHandle SLICE_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", GenericSliceState.class, Object.class, Slice.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
 
     private static final MethodHandle LONG_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", GenericLongState.class, GenericLongState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
     private static final MethodHandle DOUBLE_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", GenericDoubleState.class, GenericDoubleState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
     private static final MethodHandle BOOLEAN_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", GenericBooleanState.class, GenericBooleanState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
+    private static final MethodHandle SLICE_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", GenericSliceState.class, GenericSliceState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
 
     private static final MethodHandle LONG_STATE_OUTPUT_FUNCTION = methodHandle(GenericLongState.class, "write", Type.class, GenericLongState.class, BlockBuilder.class);
     private static final MethodHandle DOUBLE_STATE_OUTPUT_FUNCTION = methodHandle(GenericDoubleState.class, "write", Type.class, GenericDoubleState.class, BlockBuilder.class);
     private static final MethodHandle BOOLEAN_STATE_OUTPUT_FUNCTION = methodHandle(GenericBooleanState.class, "write", Type.class, GenericBooleanState.class, BlockBuilder.class);
+    private static final MethodHandle SLICE_STATE_OUTPUT_FUNCTION = methodHandle(GenericSliceState.class, "write", Type.class, GenericSliceState.class, BlockBuilder.class);
 
     public ReduceAggregationFunction()
     {
@@ -122,7 +128,21 @@ public class ReduceAggregationFunction
                     .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
                     .build();
         }
-        // State with Slice or Block as native container type is intentionally not supported yet,
+
+        if (stateType.getJavaType() == Slice.class) {
+            return AggregationImplementation.builder()
+                    .inputFunction(normalizeInputMethod(boundSignature, inputType, SLICE_STATE_INPUT_FUNCTION))
+                    .combineFunction(SLICE_STATE_COMBINE_FUNCTION)
+                    .outputFunction(SLICE_STATE_OUTPUT_FUNCTION.bindTo(stateType))
+                    .accumulatorStateDescriptor(
+                            GenericSliceState.class,
+                            new GenericSliceStateSerializer(stateType),
+                            StateCompiler.generateStateFactory(GenericSliceState.class))
+                    .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
+                    .build();
+        }
+
+        // State with Block as native container type is intentionally not supported yet,
         // as it may result in excessive JVM memory usage of remembered set.
         // See JDK-8017163.
         throw new TrinoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
@@ -162,6 +182,15 @@ public class ReduceAggregationFunction
         state.setValue((boolean) inputFunction.apply(state.getValue(), value));
     }
 
+    public static void input(GenericSliceState state, Object value, Slice initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
+    {
+        if (state.isNull()) {
+            state.setNull(false);
+            state.setValue(initialStateValue);
+        }
+        state.setValue((Slice) inputFunction.apply(state.getValue(), value));
+    }
+
     public static void combine(GenericLongState state, GenericLongState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
@@ -187,5 +216,14 @@ public class ReduceAggregationFunction
             return;
         }
         state.setValue((boolean) combineFunction.apply(state.getValue(), otherState.getValue()));
+    }
+
+    public static void combine(GenericSliceState state, GenericSliceState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
+    {
+        if (state.isNull()) {
+            state.set(otherState);
+            return;
+        }
+        state.setValue((Slice) combineFunction.apply(state.getValue(), otherState.getValue()));
     }
 }

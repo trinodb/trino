@@ -13,8 +13,9 @@
  */
 package io.trino.operator.window;
 
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -31,12 +32,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public abstract class AbstractTestWindowFunction
 {
-    protected LocalQueryRunner queryRunner;
+    protected QueryRunner queryRunner;
 
     @BeforeAll
     public final void initTestWindowFunction()
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
     }
 
     @AfterAll
@@ -64,6 +65,16 @@ public abstract class AbstractTestWindowFunction
     protected MaterializedResult executeWindowQueryWithNulls(@Language("SQL") String sql)
     {
         return WindowAssertions.executeWindowQueryWithNulls(sql, queryRunner);
+    }
+
+    protected void assertWindowQueryWithNan(@Language("SQL") String sql, MaterializedResult expected)
+    {
+        WindowAssertions.assertWindowQueryWithNan(sql, expected, queryRunner);
+    }
+
+    protected void assertWindowQueryWithInfinity(@Language("SQL") String sql, MaterializedResult expected)
+    {
+        WindowAssertions.assertWindowQueryWithInfinity(sql, expected, queryRunner);
     }
 
     protected void assertUnboundedWindowQueryWithNulls(@Language("SQL") String sql, MaterializedResult expected)

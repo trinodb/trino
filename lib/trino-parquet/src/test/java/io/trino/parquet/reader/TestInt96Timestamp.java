@@ -21,6 +21,7 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.PrimitiveField;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Timestamps;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
@@ -134,12 +135,17 @@ public class TestInt96Timestamp
     @DataProvider(name = "testVariousTimestampsDataProvider")
     public Object[][] testVariousTimestampsDataProvider()
     {
-        BiFunction<Block, Integer, DecodedTimestamp> shortTimestamp = (block, i) ->
-                new DecodedTimestamp(floorDiv(block.getLong(i, 0), MICROSECONDS_PER_SECOND), floorMod(block.getLong(i, 0), MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND);
+        BiFunction<Block, Integer, DecodedTimestamp> shortTimestamp = (block, i) -> {
+            long value = TIMESTAMP_MICROS.getLong(block, i);
+            return new DecodedTimestamp(floorDiv(value, MICROSECONDS_PER_SECOND), floorMod(value, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND);
+        };
         BiFunction<Block, Integer, DecodedTimestamp> longTimestamp = (block, i) ->
-                new DecodedTimestamp(
-                        floorDiv(block.getLong(i, 0), MICROSECONDS_PER_SECOND),
-                        floorMod(block.getLong(i, 0), MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND + block.getInt(i, 8) / PICOSECONDS_PER_NANOSECOND);
+        {
+            Fixed12Block fixed12Block = (Fixed12Block) block;
+            return new DecodedTimestamp(
+                    floorDiv(fixed12Block.getFixed12First(i), MICROSECONDS_PER_SECOND),
+                    floorMod(fixed12Block.getFixed12First(i), MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND + fixed12Block.getFixed12Second(i) / PICOSECONDS_PER_NANOSECOND);
+        };
 
         return new Object[][] {
                 new Object[] {TIMESTAMP_MILLIS, shortTimestamp},

@@ -13,15 +13,15 @@
  */
 package io.trino.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ByteArrayBlockBuilder;
+import io.trino.spi.block.ShortArrayBlockBuilder;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,7 +31,7 @@ public class TestByteArrayBlock
     @Test
     public void test()
     {
-        Slice[] expectedValues = createTestValue(17);
+        Byte[] expectedValues = createTestValue(17);
         assertFixedWithValues(expectedValues);
         assertFixedWithValues(alternatingNullValues(expectedValues));
     }
@@ -39,7 +39,7 @@ public class TestByteArrayBlock
     @Test
     public void testCopyPositions()
     {
-        Slice[] expectedValues = alternatingNullValues(createTestValue(17));
+        Byte[] expectedValues = alternatingNullValues(createTestValue(17));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 2, 4, 6, 7, 9, 10, 16);
     }
@@ -47,7 +47,7 @@ public class TestByteArrayBlock
     @Test
     public void testLazyBlockBuilderInitialization()
     {
-        Slice[] expectedValues = createTestValue(100);
+        Byte[] expectedValues = createTestValue(100);
         BlockBuilder emptyBlockBuilder = new ByteArrayBlockBuilder(null, 0);
 
         ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, expectedValues.length);
@@ -66,8 +66,13 @@ public class TestByteArrayBlock
     @Test
     public void testEstimatedDataSizeForStats()
     {
-        Slice[] expectedValues = createTestValue(100);
-        assertEstimatedDataSizeForStats(createBlockBuilderWithValues(expectedValues), expectedValues);
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(createTestValue(100));
+        Block block = blockBuilder.build();
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            assertThat(block.getEstimatedDataSizeForStats(i)).isEqualTo(Byte.BYTES);
+        }
+
+        assertThat(new ShortArrayBlockBuilder(null, 22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
     }
 
     @Test
@@ -78,64 +83,53 @@ public class TestByteArrayBlock
 
         testCompactBlock(new ByteArrayBlock(0, Optional.empty(), new byte[0]));
         testCompactBlock(new ByteArrayBlock(byteArray.length, Optional.of(valueIsNull), byteArray));
-        testIncompactBlock(new ByteArrayBlock(byteArray.length - 1, Optional.of(valueIsNull), byteArray));
+        testNotCompactBlock(new ByteArrayBlock(byteArray.length - 1, Optional.of(valueIsNull), byteArray));
     }
 
-    private void assertFixedWithValues(Slice[] expectedValues)
+    private void assertFixedWithValues(Byte[] expectedValues)
     {
         Block block = createBlockBuilderWithValues(expectedValues).build();
         assertBlock(block, expectedValues);
     }
 
-    private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
+    private static BlockBuilder createBlockBuilderWithValues(Byte[] expectedValues)
     {
         ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }
 
-    private static void writeValues(Slice[] expectedValues, ByteArrayBlockBuilder blockBuilder)
+    private static void writeValues(Byte[] expectedValues, ByteArrayBlockBuilder blockBuilder)
     {
-        for (Slice expectedValue : expectedValues) {
+        for (Byte expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeByte(expectedValue.getByte(0));
+                blockBuilder.writeByte(expectedValue);
             }
         }
     }
 
-    private static Slice[] createTestValue(int positionCount)
+    private static Byte[] createTestValue(int positionCount)
     {
-        Slice[] expectedValues = new Slice[positionCount];
+        Byte[] expectedValues = new Byte[positionCount];
+        Random random = new Random(0);
         for (int position = 0; position < positionCount; position++) {
-            expectedValues[position] = Slices.wrappedBuffer((byte) position);
+            expectedValues[position] = (byte) random.nextInt();
         }
         return expectedValues;
     }
 
     @Override
-    protected boolean isShortAccessSupported()
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
-        return false;
-    }
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
 
-    @Override
-    protected boolean isIntAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isLongAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isSliceAccessSupported()
-    {
-        return false;
+        assertThat(block.isNull(position)).isFalse();
+        assertThat(((ByteArrayBlock) block).getByte(position)).isEqualTo(((Byte) expectedValue).byteValue());
     }
 }

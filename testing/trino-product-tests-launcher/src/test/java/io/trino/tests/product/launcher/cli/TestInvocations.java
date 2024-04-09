@@ -14,7 +14,8 @@
 package io.trino.tests.product.launcher.cli;
 
 import com.google.common.base.Splitter;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -24,8 +25,9 @@ import java.util.List;
 import static io.trino.tests.product.launcher.cli.Launcher.execute;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestInvocations
 {
     @Test

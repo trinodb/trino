@@ -16,12 +16,17 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -55,15 +60,15 @@ public class TestImplementIntersectDistinctAsUnion
                                                 union(
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "leftValue", expression("a"),
-                                                                        "left_marker_1", expression("true"),
-                                                                        "left_marker_2", expression("CAST(null as boolean)")),
+                                                                        "leftValue", expression(new Reference(BIGINT, "a")),
+                                                                        "left_marker_1", expression(TRUE),
+                                                                        "left_marker_2", expression(new Constant(BOOLEAN, null))),
                                                                 values("a")),
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "rightValue", expression("b"),
-                                                                        "right_marker_1", expression("CAST(null as boolean)"),
-                                                                        "right_marker_2", expression("true")),
+                                                                        "rightValue", expression(new Reference(BIGINT, "b")),
+                                                                        "right_marker_1", expression(new Constant(BOOLEAN, null)),
+                                                                        "right_marker_2", expression(TRUE)),
                                                                 values("b")))))));
     }
 }

@@ -27,6 +27,7 @@ import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.CatalogMetadata;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
@@ -59,14 +60,13 @@ import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static io.trino.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.READ_ONLY_VIOLATION;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 @ThreadSafe
 public class InMemoryTransactionManager
@@ -201,14 +201,14 @@ public class InMemoryTransactionManager
     @Override
     public Optional<CatalogHandle> getCatalogHandle(TransactionId transactionId, String catalogName)
     {
-        return getTransactionMetadata(transactionId).tryRegisterCatalog(catalogName);
+        return getTransactionMetadata(transactionId).tryRegisterCatalog(new CatalogName(catalogName));
     }
 
     @Override
     public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
-        return transactionMetadata.tryRegisterCatalog(catalogName)
+        return transactionMetadata.tryRegisterCatalog(new CatalogName(catalogName))
                 .map(transactionMetadata::getTransactionCatalogMetadata);
     }
 
@@ -231,8 +231,8 @@ public class InMemoryTransactionManager
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
 
-        CatalogHandle catalogHandle = transactionMetadata.tryRegisterCatalog(catalogName)
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
+        CatalogHandle catalogHandle = transactionMetadata.tryRegisterCatalog(new CatalogName(catalogName))
+                .orElseThrow(() -> new TrinoException(CATALOG_NOT_FOUND, "Catalog '%s' not found".formatted(catalogName)));
 
         return getCatalogMetadataForWrite(transactionId, catalogHandle);
     }
@@ -242,8 +242,8 @@ public class InMemoryTransactionManager
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
 
-        CatalogHandle catalogHandle = transactionMetadata.tryRegisterCatalog(catalogName)
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
+        CatalogHandle catalogHandle = transactionMetadata.tryRegisterCatalog(new CatalogName(catalogName))
+                .orElseThrow(() -> new TrinoException(CATALOG_NOT_FOUND, "Catalog '%s' not found".formatted(catalogName)));
 
         return transactionMetadata.getTransactionCatalogMetadata(catalogHandle).getTransactionHandleFor(catalogHandle);
     }
@@ -323,7 +323,7 @@ public class InMemoryTransactionManager
     @Override
     public void fail(TransactionId transactionId)
     {
-        // Mark transaction as failed, but don't remove it.
+        // Mark the transaction as failed, but don't remove it.
         tryGetTransactionMetadata(transactionId).ifPresent(TransactionMetadata::asyncAbort);
     }
 
@@ -348,7 +348,7 @@ public class InMemoryTransactionManager
         private final AtomicReference<Long> idleStartTime = new AtomicReference<>();
 
         @GuardedBy("this")
-        private final Map<String, Optional<Catalog>> registeredCatalogs = new ConcurrentHashMap<>();
+        private final Map<CatalogName, Optional<Catalog>> registeredCatalogs = new ConcurrentHashMap<>();
         @GuardedBy("this")
         private final Map<CatalogHandle, CatalogMetadata> activeCatalogs = new ConcurrentHashMap<>();
         @GuardedBy("this")
@@ -423,7 +423,7 @@ public class InMemoryTransactionManager
                     .distinct()
                     .map(key -> registeredCatalogs.getOrDefault(key, Optional.empty()))
                     .flatMap(Optional::stream)
-                    .map(catalog -> new CatalogInfo(catalog.getCatalogName(), catalog.getCatalogHandle(), catalog.getConnectorName()))
+                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName()))
                     .collect(toImmutableList());
         }
 
@@ -436,11 +436,11 @@ public class InMemoryTransactionManager
             return registeredCatalogs.values().stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(catalog -> new CatalogInfo(catalog.getCatalogName(), catalog.getCatalogHandle(), catalog.getConnectorName()))
+                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName()))
                     .collect(toImmutableList());
         }
 
-        private synchronized Optional<CatalogHandle> tryRegisterCatalog(String catalogName)
+        private synchronized Optional<CatalogHandle> tryRegisterCatalog(CatalogName catalogName)
         {
             Optional<Catalog> catalog = registeredCatalogs.computeIfAbsent(catalogName, catalogManager::getCatalog);
             catalog.ifPresent(Catalog::verify);
@@ -475,7 +475,7 @@ public class InMemoryTransactionManager
                 throw new TrinoException(READ_ONLY_VIOLATION, "Cannot execute write in a read-only transaction");
             }
             if (!writtenCatalog.compareAndSet(null, catalogHandle) && !writtenCatalog.get().equals(catalogHandle)) {
-                String writtenCatalogName = activeCatalogs.get(writtenCatalog.get()).getCatalogName();
+                CatalogName writtenCatalogName = activeCatalogs.get(writtenCatalog.get()).getCatalogName();
                 throw new TrinoException(MULTI_CATALOG_WRITE_CONFLICT, "Multi-catalog writes not supported in a single transaction. Already wrote to catalog " + writtenCatalogName);
             }
             if (catalogMetadata.isSingleStatementWritesOnly() && !autoCommitContext) {
@@ -566,13 +566,13 @@ public class InMemoryTransactionManager
             // dereferencing this field is safe because the field is atomic, and activeCatalogs is a concurrent map
             @SuppressWarnings("FieldAccessNotGuarded") Optional<String> writtenCatalogName = Optional.ofNullable(this.writtenCatalog.get())
                     .map(activeCatalogs::get)
-                    .map(CatalogMetadata::getCatalogName);
+                    .map(catalogMetadata -> catalogMetadata.getCatalogName().toString());
 
             // access here is safe here because the map is concurrent
             @SuppressWarnings("FieldAccessNotGuarded") List<String> catalogNames = activeCatalogs.values().stream()
-                    .map(CatalogMetadata::getCatalogName)
+                    .map(catalogMetadata -> catalogMetadata.getCatalogName().toString())
                     .sorted()
-                    .collect(toUnmodifiableList());
+                    .toList();
 
             return new TransactionInfo(
                     transactionId,

@@ -39,10 +39,12 @@ import io.airlift.node.NodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.tracing.TracingModule;
+import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogManagerConfig;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
+import io.trino.connector.CatalogStoreManager;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.eventlistener.EventListenerManager;
@@ -72,6 +74,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -93,6 +96,11 @@ public class Server
 
     private void doStart(String trinoVersion)
     {
+        // Trino server behavior does not depend on locale settings.
+        // Use en_US as this is what Trino is tested with.
+        Locale.setDefault(Locale.US);
+
+        long startTime = System.nanoTime();
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
 
@@ -140,6 +148,11 @@ public class Server
 
             injector.getInstance(PluginInstaller.class).loadPlugins();
 
+            var catalogStoreManager = injector.getInstance(optionalKey(CatalogStoreManager.class));
+            if (catalogStoreManager.isPresent()) {
+                catalogStoreManager.get().loadConfiguredCatalogStore();
+            }
+
             ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
             connectorServicesProvider.loadInitialCatalogs();
 
@@ -175,6 +188,7 @@ public class Server
 
             injector.getInstance(StartupStatus.class).startupComplete();
 
+            log.info("Server startup completed in %s", Duration.nanosSince(startTime).convertToMostSuccinctTimeUnit());
             log.info("======== SERVER STARTED ========");
         }
         catch (ApplicationConfigurationException e) {

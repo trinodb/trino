@@ -15,8 +15,13 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 import io.trino.cost.StatsAndCosts;
 import io.trino.operator.RetryPolicy;
+import io.trino.sql.ir.Booleans;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -26,9 +31,6 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -40,7 +42,8 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.TopologicalOrderSubPlanVisitor.sortPlanInTopologicalOrder;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTopologicalOrderSubPlanVisitor
@@ -107,7 +110,7 @@ public class TestTopologicalOrderSubPlanVisitor
         return new RemoteSourceNode(
                 new PlanNodeId(fragmentIds.get(0)),
                 fragmentIds.stream().map(PlanFragmentId::new).collect(toImmutableList()),
-                ImmutableList.of(new Symbol("blah")),
+                ImmutableList.of(new Symbol(UNKNOWN, "blah")),
                 Optional.empty(),
                 REPARTITION,
                 RetryPolicy.TASK);
@@ -141,7 +144,7 @@ public class TestTopologicalOrderSubPlanVisitor
                 right,
                 left.getOutputSymbols().get(0),
                 right.getOutputSymbols().get(0),
-                new Symbol(id),
+                new Symbol(UNKNOWN, id),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -168,7 +171,7 @@ public class TestTopologicalOrderSubPlanVisitor
                 left,
                 right,
                 left.getOutputSymbols(),
-                BooleanLiteral.TRUE_LITERAL,
+                Booleans.TRUE,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -176,10 +179,10 @@ public class TestTopologicalOrderSubPlanVisitor
 
     private static SubPlan valuesSubPlan(String fragmentId)
     {
-        Symbol symbol = new Symbol("column");
+        Symbol symbol = new Symbol(UNKNOWN, "column");
         return createSubPlan(fragmentId, new ValuesNode(new PlanNodeId(fragmentId + "Values"),
                         ImmutableList.of(symbol),
-                        ImmutableList.of(new Row(ImmutableList.of(new StringLiteral("foo"))))),
+                        ImmutableList.of(new Row(ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("foo")))))),
                 ImmutableList.of());
     }
 
@@ -190,14 +193,14 @@ public class TestTopologicalOrderSubPlanVisitor
         PlanFragment planFragment = new PlanFragment(
                 new PlanFragmentId(fragmentId),
                 plan,
-                ImmutableMap.of(symbol, VARCHAR),
+                ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,
                 Optional.empty(),
                 ImmutableList.of(valuesNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 Optional.empty());
         return new SubPlan(planFragment, children);
     }

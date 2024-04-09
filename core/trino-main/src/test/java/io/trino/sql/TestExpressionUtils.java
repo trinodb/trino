@@ -14,36 +14,30 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.ir.Logical.Operator.AND;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionUtils
 {
-    private final Metadata metadata = createTestMetadataManager();
-
     @Test
     public void testAnd()
     {
-        Expression a = name("a");
-        Expression b = name("b");
-        Expression c = name("c");
-        Expression d = name("d");
-        Expression e = name("e");
+        Expression a = new Reference(BOOLEAN, "a");
+        Expression b = new Reference(BOOLEAN, "b");
+        Expression c = new Reference(BOOLEAN, "c");
+        Expression d = new Reference(BOOLEAN, "d");
+        Expression e = new Reference(BOOLEAN, "e");
 
-        assertThat(ExpressionUtils.and(a, b, c, d, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
+        assertThat(and(a, b, c, d, e)).isEqualTo(new Logical(AND, ImmutableList.of(a, b, c, d, e)));
 
-        assertThat(ExpressionUtils.combineConjuncts(metadata, a, b, a, c, d, c, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
-    }
-
-    private static Identifier name(String name)
-    {
-        return new Identifier(name);
+        assertThat(combineConjuncts(a, b, a, c, d, c, e)).isEqualTo(new Logical(AND, ImmutableList.of(a, b, c, d, e)));
     }
 }

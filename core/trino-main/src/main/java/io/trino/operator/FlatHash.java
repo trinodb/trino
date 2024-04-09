@@ -342,7 +342,7 @@ public final class FlatHash
 
         // we incrementally allocate the record groups to smooth out memory allocation
         if (capacity <= RECORDS_PER_GROUP) {
-            recordGroups = new byte[][]{new byte[multiplyExact(capacity, recordSize)]};
+            recordGroups = new byte[][] {new byte[multiplyExact(capacity, recordSize)]};
         }
         else {
             recordGroups = new byte[(capacity + 1) >> RECORDS_PER_GROUP_SHIFT][];

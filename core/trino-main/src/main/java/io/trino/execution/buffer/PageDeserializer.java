@@ -61,7 +61,7 @@ public class PageDeserializer
 
     public PageDeserializer(
             BlockEncodingSerde blockEncodingSerde,
-            boolean compressionEnabled,
+            Optional<Decompressor> decompressor,
             Optional<SecretKey> encryptionKey,
             int blockSizeInBytes)
     {
@@ -69,7 +69,7 @@ public class PageDeserializer
         requireNonNull(encryptionKey, "encryptionKey is null");
         encryptionKey.ifPresent(secretKey -> checkArgument(is256BitSecretKeySpec(secretKey), "encryptionKey is expected to be an instance of SecretKeySpec containing a 256bit key"));
         input = new SerializedPageInput(
-                compressionEnabled ? Optional.of(new Lz4Decompressor()) : Optional.empty(),
+                requireNonNull(decompressor, "decompressor is null"),
                 encryptionKey,
                 blockSizeInBytes);
     }
@@ -95,13 +95,13 @@ public class PageDeserializer
         private static final int DECOMPRESSOR_RETAINED_SIZE = instanceSize(Lz4Decompressor.class);
         private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(instanceSize(SecretKeySpec.class) + sizeOfByteArray(256 / 8));
 
-        private final Optional<Lz4Decompressor> decompressor;
+        private final Optional<Decompressor> decompressor;
         private final Optional<SecretKey> encryptionKey;
         private final Optional<Cipher> cipher;
 
         private final ReadBuffer[] buffers;
 
-        private SerializedPageInput(Optional<Lz4Decompressor> decompressor, Optional<SecretKey> encryptionKey, int blockSizeInBytes)
+        private SerializedPageInput(Optional<Decompressor> decompressor, Optional<SecretKey> encryptionKey, int blockSizeInBytes)
         {
             this.decompressor = requireNonNull(decompressor, "decompressor is null");
             this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");

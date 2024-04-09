@@ -26,11 +26,11 @@ import io.trino.cost.TaskCountEstimator;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnnestNode;
@@ -47,10 +47,10 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.AUTOMATI
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
@@ -99,18 +99,18 @@ public class DetermineJoinDistributionType
 
         PlanNode buildSide = joinNode.getRight();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
-        double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputSymbols(), context.getSymbolAllocator().getTypes());
+        double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputSymbols());
         return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes()
                 || getSourceTablesSizeInBytes(buildSide, context) <= joinMaxBroadcastTableSize.toBytes();
     }
 
     public static double getSourceTablesSizeInBytes(PlanNode node, Context context)
     {
-        return getSourceTablesSizeInBytes(node, context.getLookup(), context.getStatsProvider(), context.getSymbolAllocator().getTypes());
+        return getSourceTablesSizeInBytes(node, context.getLookup(), context.getStatsProvider());
     }
 
     @VisibleForTesting
-    static double getSourceTablesSizeInBytes(PlanNode node, Lookup lookup, StatsProvider statsProvider, TypeProvider typeProvider)
+    static double getSourceTablesSizeInBytes(PlanNode node, Lookup lookup, StatsProvider statsProvider)
     {
         boolean hasExpandingNodes = PlanNodeSearcher.searchFrom(node, lookup)
                 .whereIsInstanceOfAny(EXPANDING_NODE_CLASSES)
@@ -124,13 +124,13 @@ public class DetermineJoinDistributionType
                 .findAll();
 
         return sourceNodes.stream()
-                .mapToDouble(sourceNode -> statsProvider.getStats(sourceNode).getOutputSizeInBytes(sourceNode.getOutputSymbols(), typeProvider))
+                .mapToDouble(sourceNode -> statsProvider.getStats(sourceNode).getOutputSizeInBytes(sourceNode.getOutputSymbols()))
                 .sum();
     }
 
     private static double getFirstKnownOutputSizeInBytes(PlanNode node, Context context)
     {
-        return getFirstKnownOutputSizeInBytes(node, context.getLookup(), context.getStatsProvider(), context.getSymbolAllocator().getTypes());
+        return getFirstKnownOutputSizeInBytes(node, context.getLookup(), context.getStatsProvider());
     }
 
     /**
@@ -141,14 +141,13 @@ public class DetermineJoinDistributionType
      * we find a large difference in output size of both sides.
      */
     @VisibleForTesting
-    static double getFirstKnownOutputSizeInBytes(PlanNode node, Lookup lookup, StatsProvider statsProvider, TypeProvider typeProvider)
+    static double getFirstKnownOutputSizeInBytes(PlanNode node, Lookup lookup, StatsProvider statsProvider)
     {
         return Stream.of(node)
                 .map(lookup::resolve)
                 .mapToDouble(resolvedNode -> {
                     double outputSizeInBytes = statsProvider.getStats(resolvedNode).getOutputSizeInBytes(
-                            resolvedNode.getOutputSymbols(),
-                            typeProvider);
+                            resolvedNode.getOutputSymbols());
                     if (!isNaN(outputSizeInBytes)) {
                         return outputSizeInBytes;
                     }
@@ -164,7 +163,7 @@ public class DetermineJoinDistributionType
 
                     double sourcesOutputSizeInBytes = 0;
                     for (PlanNode sourceNode : sourceNodes) {
-                        double firstKnownOutputSizeInBytes = getFirstKnownOutputSizeInBytes(sourceNode, lookup, statsProvider, typeProvider);
+                        double firstKnownOutputSizeInBytes = getFirstKnownOutputSizeInBytes(sourceNode, lookup, statsProvider);
                         if (isNaN(firstKnownOutputSizeInBytes)) {
                             return NaN;
                         }
@@ -264,14 +263,14 @@ public class DetermineJoinDistributionType
 
     private static boolean mustPartition(JoinNode joinNode)
     {
-        JoinNode.Type type = joinNode.getType();
+        JoinType type = joinNode.getType();
         // With REPLICATED, the unmatched rows from right-side would be duplicated.
         return type == RIGHT || type == FULL;
     }
 
     private static boolean mustReplicate(JoinNode joinNode, Context context)
     {
-        JoinNode.Type type = joinNode.getType();
+        JoinType type = joinNode.getType();
         if (joinNode.getCriteria().isEmpty() && (type == INNER || type == LEFT)) {
             // There is nothing to partition on
             return true;
@@ -281,7 +280,6 @@ public class DetermineJoinDistributionType
 
     private PlanNodeWithCost getJoinNodeWithCost(Context context, JoinNode possibleJoinNode)
     {
-        TypeProvider types = context.getSymbolAllocator().getTypes();
         StatsProvider stats = context.getStatsProvider();
         boolean replicated = possibleJoinNode.getDistributionType().get() == REPLICATED;
         /*
@@ -312,7 +310,6 @@ public class DetermineJoinDistributionType
                 possibleJoinNode.getLeft(),
                 possibleJoinNode.getRight(),
                 stats,
-                types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
         return new PlanNodeWithCost(cost.toPlanCost(), possibleJoinNode);

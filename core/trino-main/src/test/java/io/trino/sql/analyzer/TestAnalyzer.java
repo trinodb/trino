@@ -88,7 +88,7 @@ import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Statement;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
@@ -934,7 +934,7 @@ public class TestAnalyzer
     {
         assertFails("SELECT * FROM foo.bar.t")
                 .hasErrorCode(CATALOG_NOT_FOUND)
-                .hasMessage("line 1:15: Catalog 'foo' does not exist");
+                .hasMessage("line 1:15: Catalog 'foo' not found");
         assertFails("SELECT * FROM foo.t")
                 .hasErrorCode(SCHEMA_NOT_FOUND)
                 .hasMessage("line 1:15: Schema 'foo' does not exist");
@@ -2452,6 +2452,13 @@ public class TestAnalyzer
                 "   b(y) AS (SELECT x + 1 FROM a)," +
                 "   c(z) AS (SELECT y * 10 FROM b)" +
                 "SELECT * FROM a, b, c");
+
+        analyze("""
+                WITH
+                    a(x) AS (SELECT ARRAY[1, 2, 3]),
+                    b AS (SELECT * FROM (VALUES 4), UNNEST ((SELECT x FROM a)))
+                SELECT * FROM b
+                """);
 
         analyze("WITH RECURSIVE a(x) AS (SELECT 1)," +
                 "   b(y) AS (" +
@@ -5420,7 +5427,7 @@ public class TestAnalyzer
         // navigation function must column reference or CLASSIFIER()
         assertFails(format(query, "PREV(LAST('no_column'))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Pattern navigation function last must contain at least one column reference or CLASSIFIER()");
+                .hasMessage("line 1:200: Pattern navigation function 'LAST' must contain at least one column reference or CLASSIFIER()");
 
         analyze(format(query, "PREV(LAST(Tradeday + 1))"));
         analyze(format(query, "PREV(LAST(lower(CLASSIFIER())))"));
@@ -5433,31 +5440,31 @@ public class TestAnalyzer
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:205: Column references inside argument of function last must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + B.Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:205: Column references inside argument of function last must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: CLASSIFIER() calls inside argument of function last must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: CLASSIFIER() calls inside argument of function last must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
     }
 
     @Test
@@ -5620,19 +5627,19 @@ public class TestAnalyzer
         // inconsistent labels inside argument
         assertFails(format(query, "count(B.Price < 5 OR Price > 5)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:164: Column references inside argument of function count must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
         assertFails(format(query, "count(B.Price < 5 OR A.Price > 5)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:164: Column references inside argument of function count must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
         assertFails(format(query, "count(CLASSIFIER(A) < 'X' OR CLASSIFIER(B) > 'Y')"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:158: CLASSIFIER() calls inside argument of function count must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
         assertFails(format(query, "count(Price < 5 OR CLASSIFIER(B) > 'Y')"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:158: Column references inside argument of function count must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
         assertFails(format(query, "count(A.Price < 5 OR CLASSIFIER(B) > 'Y')"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:158: Column references inside argument of function count must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
 
         // multiple aggregation arguments
         analyze(format(query, "max_by(Price, Symbol)"));
@@ -5649,12 +5656,12 @@ public class TestAnalyzer
 
         assertFails(format(query, "max_by(U.Price, A.Price)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:158: All aggregate function arguments must apply to rows matched with the same label");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'max_by' must match");
 
         // inconsistent labels in second argument
         assertFails(format(query, "max_by(A.Symbol, A.Price + B.price)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:175: Column references inside argument of function max_by must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'max_by' must match");
     }
 
     @Test
@@ -7290,9 +7297,9 @@ public class TestAnalyzer
     public void setup()
     {
         closer = Closer.create();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        closer.register(queryRunner);
-        transactionManager = queryRunner.getTransactionManager();
+        PlanTester planTester = PlanTester.create(TEST_SESSION);
+        closer.register(planTester);
+        transactionManager = planTester.getTransactionManager();
 
         AccessControlManager accessControlManager = new AccessControlManager(
                 NodeVersion.UNKNOWN,
@@ -7304,19 +7311,19 @@ public class TestAnalyzer
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
-        queryRunner.addFunctions(InternalFunctionBundle.builder().functions(APPLY_FUNCTION).build());
-        plannerContext = queryRunner.getPlannerContext();
+        planTester.addFunctions(InternalFunctionBundle.builder().functions(APPLY_FUNCTION).build());
+        plannerContext = planTester.getPlannerContext();
         Metadata metadata = plannerContext.getMetadata();
 
         TestingMetadata testingConnectorMetadata = new TestingMetadata();
         TestingConnector connector = new TestingConnector(testingConnectorMetadata);
-        queryRunner.createCatalog(TPCH_CATALOG, new StaticConnectorFactory("main", connector), ImmutableMap.of());
+        planTester.createCatalog(TPCH_CATALOG, new StaticConnectorFactory("main", connector), ImmutableMap.of());
 
-        tablePropertyManager = queryRunner.getTablePropertyManager();
-        analyzePropertyManager = queryRunner.getAnalyzePropertyManager();
+        tablePropertyManager = planTester.getTablePropertyManager();
+        analyzePropertyManager = planTester.getAnalyzePropertyManager();
 
-        queryRunner.createCatalog(SECOND_CATALOG, MockConnectorFactory.create("second"), ImmutableMap.of());
-        queryRunner.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
+        planTester.createCatalog(SECOND_CATALOG, MockConnectorFactory.create("second"), ImmutableMap.of());
+        planTester.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
@@ -7452,7 +7459,7 @@ public class TestAnalyzer
                 FAIL));
 
         // for identifier chain resolving tests
-        queryRunner.createCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, new StaticConnectorFactory("chain", new TestingConnector(new TestingMetadata())), ImmutableMap.of());
+        planTester.createCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, new StaticConnectorFactory("chain", new TestingConnector(new TestingMetadata())), ImmutableMap.of());
         Type singleFieldRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint)");
         Type rowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint, f2 bigint)");
         Type nestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");

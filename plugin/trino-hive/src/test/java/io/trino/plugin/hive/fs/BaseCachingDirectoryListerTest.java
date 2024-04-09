@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -22,7 +21,6 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -37,37 +35,26 @@ import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
+public abstract class BaseCachingDirectoryListerTest
         extends AbstractTestQueryFramework
 {
-    private C directoryLister;
+    private CachingDirectoryLister directoryLister;
     private HiveMetastore metastore;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createQueryRunner(ImmutableMap.of("hive.allow-register-partition-procedure", "true"));
-    }
 
     protected QueryRunner createQueryRunner(Map<String, String> properties)
             throws Exception
     {
-        directoryLister = createDirectoryLister();
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
+        QueryRunner queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(properties)
-                .setDirectoryLister(directoryLister)
                 .build();
+
+        directoryLister = getConnectorService(queryRunner, CachingDirectoryLister.class);
 
         metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
 
         return queryRunner;
     }
-
-    protected abstract C createDirectoryLister();
-
-    protected abstract boolean isCached(C directoryLister, Location location);
 
     @Test
     public void testCacheInvalidationIsAppliedSpecificallyOnTheNonPartitionedTableBeingChanged()
@@ -367,6 +354,6 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
 
     protected boolean isCached(String path)
     {
-        return isCached(directoryLister, Location.of(path));
+        return directoryLister.isCached(Location.of(path));
     }
 }

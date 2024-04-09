@@ -25,6 +25,18 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.AUTHORIZATION;
+import static io.trino.tests.product.TestGroups.AZURE;
+import static io.trino.tests.product.TestGroups.CLI;
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.GROUP_BY;
+import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
+import static io.trino.tests.product.TestGroups.JDBC;
+import static io.trino.tests.product.TestGroups.JDBC_KERBEROS_CONSTRAINED_DELEGATION;
+import static io.trino.tests.product.TestGroups.JOIN;
+import static io.trino.tests.product.TestGroups.SMOKE;
+import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.product.TestGroups.TLS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class Suite3
@@ -35,21 +47,21 @@ public class Suite3
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeTls.class)
-                        .withGroups("configured_features", "smoke", "cli", "group-by", "join", "tls")
-                        .withExcludedGroups("azure")
+                        .withGroups(CONFIGURED_FEATURES, SMOKE, CLI, GROUP_BY, JOIN, TLS)
+                        .withExcludedGroups(AZURE)
                         .build(),
                 testOnEnvironment(EnvMultinodeTlsKerberos.class)
-                        .withGroups("configured_features", "cli", "group-by", "join", "tls")
+                        .withGroups(CONFIGURED_FEATURES, CLI, GROUP_BY, JOIN, TLS)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationWithWireEncryption.class)
-                        .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation", "authorization")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, CLI, HDFS_IMPERSONATION, AUTHORIZATION)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationWithDataProtection.class)
-                        .withGroups("configured_features")
+                        .withGroups(CONFIGURED_FEATURES)
                         .withTests("TestHiveStorageFormats.testOrcTableCreatedInTrino", "TestHiveCreateTable.testCreateTable")
                         .build(),
                 testOnEnvironment(EnvMultinodeTlsKerberosDelegation.class)
-                        .withGroups("configured_features", "jdbc", "jdbc_kerberos_constrained_delegation")
+                        .withGroups(CONFIGURED_FEATURES, JDBC, JDBC_KERBEROS_CONSTRAINED_DELEGATION)
                         .build());
     }
 }

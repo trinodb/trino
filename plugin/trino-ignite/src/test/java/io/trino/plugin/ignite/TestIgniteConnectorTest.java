@@ -23,6 +23,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.List;
 import java.util.Locale;
@@ -37,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
+@Isolated
 public class TestIgniteConnectorTest
         extends BaseJdbcConnectorTest
 {
@@ -78,6 +80,7 @@ public class TestIgniteConnectorTest
                     SUPPORTS_ARRAY,
                     SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_COMMENT_ON_TABLE,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_CREATE_SCHEMA,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                     SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
@@ -391,13 +394,47 @@ public class TestIgniteConnectorTest
     public void testDropAndAddColumnWithSameName()
     {
         // Override because Ignite can access old data after dropping and adding a column with same name
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
-            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
+        executeExclusively(() -> {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
+                assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
+                assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
 
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, 2)");
-        }
+                assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+                assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, 2)");
+            }
+        });
+    }
+
+    @Test
+    @Override
+    public void testAddColumn()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/16671
+        executeExclusively(super::testAddColumn);
+    }
+
+    @Test
+    @Override
+    public void testDropColumn()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/16671
+        executeExclusively(super::testDropColumn);
+    }
+
+    @Test
+    @Override
+    public void testAlterTableAddLongColumnName()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/16671
+        executeExclusively(super::testAlterTableAddLongColumnName);
+    }
+
+    @Test
+    @Override
+    public void testAddAndDropColumnName()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/16671
+        executeExclusively(super::testAddAndDropColumnName);
     }
 
     @Override
@@ -476,5 +513,13 @@ public class TestIgniteConnectorTest
     private String errorMessageForDateOutOfRange(String date)
     {
         return "Date must be between 1970-01-01 and 9999-12-31 in Ignite: " + date;
+    }
+
+    @Test
+    @Override
+    public void testSelectInformationSchemaColumns()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/16671
+        executeExclusively(super::testSelectInformationSchemaColumns);
     }
 }

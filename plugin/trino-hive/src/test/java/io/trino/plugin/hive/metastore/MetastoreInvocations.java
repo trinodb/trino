@@ -16,7 +16,7 @@ package io.trino.plugin.hive.metastore;
 import com.google.common.collect.Multiset;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
@@ -29,7 +29,7 @@ public final class MetastoreInvocations
     private MetastoreInvocations() {}
 
     public static void assertMetastoreInvocationsForQuery(
-            DistributedQueryRunner queryRunner,
+            QueryRunner queryRunner,
             Session session,
             @Language("SQL") String query,
             Multiset<MetastoreMethod> expectedInvocations)

@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
@@ -30,7 +31,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,16 +39,16 @@ import java.util.function.Predicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isRewriteFilteringSemiJoinToInnerJoin;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.semiJoin;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.function.Predicate.not;
 
 /**
@@ -116,12 +116,12 @@ public class TransformFilteringSemiJoinToInnerJoin
 
         Expression simplifiedPredicate = inlineSymbols(symbol -> {
             if (symbol.equals(semiJoinSymbol)) {
-                return TRUE_LITERAL;
+                return TRUE;
             }
             return symbol.toSymbolReference();
         }, filteredPredicate);
 
-        Optional<Expression> joinFilter = simplifiedPredicate.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(simplifiedPredicate);
+        Optional<Expression> joinFilter = simplifiedPredicate.equals(TRUE) ? Optional.empty() : Optional.of(simplifiedPredicate);
 
         PlanNode filteringSourceDistinct = singleAggregation(
                 context.getIdAllocator().getNextId(),
@@ -153,7 +153,7 @@ public class TransformFilteringSemiJoinToInnerJoin
                 innerJoin,
                 Assignments.builder()
                         .putIdentities(innerJoin.getOutputSymbols())
-                        .put(semiJoinSymbol, TRUE_LITERAL)
+                        .put(semiJoinSymbol, TRUE)
                         .build());
 
         return Result.ofPlanNode(project);

@@ -13,6 +13,12 @@
  */
 package io.trino.cost;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -22,7 +28,10 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestSimpleFilterProjectSemiJoinStatsRule
         extends BaseStatsCalculatorTest
@@ -94,12 +103,12 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
         })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addSymbolStatistics(new Symbol("a"), aStats)
-                        .addSymbolStatistics(new Symbol("b"), bStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "a"), aStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "b"), bStats)
                         .build())
                 .withSourceStats(RIGHT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(2000)
-                        .addSymbolStatistics(new Symbol("c"), cStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "c"), cStats)
                         .build())
                 .check(check -> {
                     check.outputRowsCount(180)
@@ -119,7 +128,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
             Symbol c = pb.symbol("c", BIGINT);
             Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
             return pb.filter(
-                    expression("sjo"),
+                    new Reference(BOOLEAN, "sjo"),
                     pb.project(Assignments.identity(semiJoinOutput, a),
                             pb.semiJoin(
                                     pb.values(LEFT_SOURCE_ID, a, b),
@@ -133,12 +142,12 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
         })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addSymbolStatistics(new Symbol("a"), aStats)
-                        .addSymbolStatistics(new Symbol("b"), bStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "a"), aStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "b"), bStats)
                         .build())
                 .withSourceStats(RIGHT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(2000)
-                        .addSymbolStatistics(new Symbol("c"), cStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "c"), cStats)
                         .build())
                 .check(check -> {
                     check.outputRowsCount(180)
@@ -158,7 +167,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
             Symbol c = pb.symbol("c", BIGINT);
             Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
             return pb.filter(
-                    expression("sjo AND a < 8"),
+                    new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "sjo"), new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 8L)))),
                     pb.semiJoin(
                             pb.values(LEFT_SOURCE_ID, a, b),
                             pb.values(RIGHT_SOURCE_ID, c),
@@ -171,12 +180,12 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
         })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addSymbolStatistics(new Symbol("a"), aStats)
-                        .addSymbolStatistics(new Symbol("b"), bStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "a"), aStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "b"), bStats)
                         .build())
                 .withSourceStats(RIGHT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(2000)
-                        .addSymbolStatistics(new Symbol("c"), cStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "c"), cStats)
                         .build())
                 .check(check -> {
                     check.outputRowsCount(144)
@@ -196,7 +205,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
             Symbol c = pb.symbol("c", BIGINT);
             Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
             return pb.filter(
-                    expression("NOT sjo"),
+                    new Not(new Reference(BOOLEAN, "sjo")),
                     pb.semiJoin(
                             pb.values(LEFT_SOURCE_ID, a, b),
                             pb.values(RIGHT_SOURCE_ID, c),
@@ -209,12 +218,12 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
         })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addSymbolStatistics(new Symbol("a"), aStats)
-                        .addSymbolStatistics(new Symbol("b"), bStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "a"), aStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "b"), bStats)
                         .build())
                 .withSourceStats(RIGHT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(2000)
-                        .addSymbolStatistics(new Symbol("c"), cStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "c"), cStats)
                         .build())
                 .check(check -> {
                     check.outputRowsCount(720)

@@ -216,9 +216,9 @@ final class LongDecimalType
         return xxHash64(block.getInt128High(position), block.getInt128Low(position));
     }
 
-    private static long xxHash64(long low, long high)
+    private static long xxHash64(long high, long low)
     {
-        return XxHash64.hash(low) ^ XxHash64.hash(high);
+        return XxHash64.hash(high) ^ XxHash64.hash(low);
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

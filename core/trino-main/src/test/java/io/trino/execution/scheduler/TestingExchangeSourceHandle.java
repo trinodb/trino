@@ -13,6 +13,8 @@
  */
 package io.trino.execution.scheduler;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 
 import java.util.Objects;
@@ -29,25 +31,32 @@ public class TestingExchangeSourceHandle
     private final int partitionId;
     private final long sizeInBytes;
 
-    public TestingExchangeSourceHandle(int id, int partitionId, long sizeInBytes)
+    @JsonCreator
+    public TestingExchangeSourceHandle(
+            @JsonProperty("id") int id,
+            @JsonProperty("partitionId") int partitionId,
+            @JsonProperty("sizeInBytes") long sizeInBytes)
     {
         this.id = id;
         this.partitionId = partitionId;
         this.sizeInBytes = sizeInBytes;
     }
 
+    @JsonProperty
     public int getId()
     {
         return id;
     }
 
     @Override
+    @JsonProperty
     public int getPartitionId()
     {
         return partitionId;
     }
 
     @Override
+    @JsonProperty("sizeInBytes")
     public long getDataSizeInBytes()
     {
         return sizeInBytes;

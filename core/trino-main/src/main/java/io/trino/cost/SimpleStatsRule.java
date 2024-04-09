@@ -13,10 +13,8 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
@@ -34,11 +32,11 @@ public abstract class SimpleStatsRule<T extends PlanNode>
     }
 
     @Override
-    public final Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    public final Optional<PlanNodeStatsEstimate> calculate(T node, Context context)
     {
-        return doCalculate(node, sourceStats, lookup, session, types, tableStatsProvider)
-                .map(estimate -> normalizer.normalize(estimate, node.getOutputSymbols(), types));
+        return doCalculate(node, context)
+                .map(estimate -> normalizer.normalize(estimate, node.getOutputSymbols()));
     }
 
-    protected abstract Optional<PlanNodeStatsEstimate> doCalculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider);
+    protected abstract Optional<PlanNodeStatsEstimate> doCalculate(T node, Context context);
 }

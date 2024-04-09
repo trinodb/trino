@@ -13,10 +13,8 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 
 import java.util.Optional;
@@ -40,9 +38,9 @@ public class EnforceSingleRowStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(EnforceSingleRowNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(EnforceSingleRowNode node, Context context)
     {
-        return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats.getStats(node.getSource()))
+        return Optional.of(PlanNodeStatsEstimate.buildFrom(context.statsProvider().getStats(node.getSource()))
                 .setOutputRowCount(1)
                 .build());
     }

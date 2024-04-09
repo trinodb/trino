@@ -71,7 +71,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractTestEngineOnlyQueries
         extends AbstractTestQueryFramework
@@ -1366,8 +1365,9 @@ public abstract class AbstractTestEngineOnlyQueries
                 .addPreparedStatement("my_query", "SELECT * FROM nation")
                 .build();
         assertThat(query(session, "DESCRIBE INPUT my_query"))
-                .hasOutputTypes(List.of(BIGINT, VARCHAR))
-                .returnsEmptyResult();
+                .result()
+                .hasTypes(List.of(BIGINT, VARCHAR))
+                .isEmpty();
     }
 
     @Test
@@ -2219,6 +2219,11 @@ public abstract class AbstractTestEngineOnlyQueries
                         "FROM (VALUES (1, CAST(5 AS DOUBLE)), (1, 6), (1, 7), (2, 8), (2, 9), (3, 10)) AS t(x, y) " +
                         "GROUP BY x",
                 "VALUES (1, CAST(5 AS DOUBLE) + 6 + 7), (2, 8 + 9), (3, 10)");
+        assertQuery(
+                "SELECT x, reduce_agg(y, '', (a, b) -> a || b, (a, b) -> a || b) " +
+                        "FROM (VALUES ('1', '5'), ('1', '6'), ('1', '7'), ('2', '8'), ('2', '9'), ('3', '10')) AS t(x, y) " +
+                        "GROUP BY x",
+                "VALUES ('1', '567'), ('2', '89'), ('3', '10')");
     }
 
     @Test
@@ -5418,7 +5423,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(result.getOnlyColumnAsSet()).containsAll(expectedTables);
 
         assertQueryFails("SHOW TABLES FROM UNKNOWN", "line 1:1: Schema 'unknown' does not exist");
-        assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'unknowncatalog' does not exist");
+        assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'unknowncatalog' not found");
     }
 
     @Test
@@ -6642,6 +6647,15 @@ public abstract class AbstractTestEngineOnlyQueries
                 """))
                 .matches("VALUES 256");
 
+        // function with dereference
+        assertThat(query("""
+                WITH FUNCTION get(input row(varchar))
+                    RETURNS varchar
+                    RETURN input[1]
+                SELECT get(ROW('abc'))
+                """))
+                .matches("VALUES VARCHAR 'abc'");
+
         // validations for inline functions
         assertQueryFails("WITH FUNCTION a.b() RETURNS int RETURN 42 SELECT a.b()",
                 "line 1:6: Inline function names cannot be qualified: a.b");
@@ -6677,21 +6691,21 @@ public abstract class AbstractTestEngineOnlyQueries
                 .matches("VALUES 'cba'");
 
         // inline functions must be declared before they are used
-        assertThatThrownBy(() -> query("""
+        assertThat(query("""
                 WITH
                   FUNCTION a(x integer) RETURNS integer RETURN b(x),
                   FUNCTION b(x integer) RETURNS integer RETURN x * 2
                 SELECT a(10)
                 """))
-                .hasMessage("line 3:8: Function 'b' not registered");
+                .failure().hasMessage("line 3:8: Function 'b' not registered");
 
         // inline function cannot be recursive
         // note: mutual recursion is not supported either, but it is not tested due to the forward declaration limitation above
-        assertThatThrownBy(() -> query("""
+        assertThat(query("""
                 WITH FUNCTION a(x integer) RETURNS integer RETURN a(x)
                 SELECT a(10)
                 """))
-                .hasMessage("line 3:8: Recursive language functions are not supported: a(integer):integer");
+                .failure().hasMessage("line 3:8: Recursive language functions are not supported: a(integer):integer");
     }
 
     private static ZonedDateTime zonedDateTime(String value)

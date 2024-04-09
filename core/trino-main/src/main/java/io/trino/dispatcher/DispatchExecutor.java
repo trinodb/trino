@@ -25,13 +25,13 @@ import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.util.Executors.decorateWithVersion;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -51,22 +51,7 @@ public class DispatchExecutor
     {
         ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("dispatcher-query-%s"));
         closer.register(coreExecutor::shutdownNow);
-        executor = new DecoratingListeningExecutorService(
-                listeningDecorator(coreExecutor),
-                new DecoratingListeningExecutorService.TaskDecorator()
-                {
-                    @Override
-                    public Runnable decorate(Runnable command)
-                    {
-                        return versionEmbedder.embedVersion(command);
-                    }
-
-                    @Override
-                    public <T> Callable<T> decorate(Callable<T> task)
-                    {
-                        return versionEmbedder.embedVersion(task);
-                    }
-                });
+        executor = decorateWithVersion(coreExecutor, versionEmbedder);
 
         ScheduledExecutorService coreScheduledExecutor = newScheduledThreadPool(config.getQueryManagerExecutorPoolSize(), daemonThreadsNamed("dispatch-executor-%s"));
         closer.register(coreScheduledExecutor::shutdownNow);

@@ -15,6 +15,10 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -23,14 +27,19 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestTransformFilteringSemiJoinToInnerJoin
         extends BaseRuleTest
@@ -40,11 +49,11 @@ public class TestTransformFilteringSemiJoinToInnerJoin
     {
         tester().assertThat(new TransformFilteringSemiJoinToInnerJoin())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol aInB = p.symbol("a_in_b");
+                    Symbol a = p.symbol("a", BIGINT);
+                    Symbol b = p.symbol("b", BIGINT);
+                    Symbol aInB = p.symbol("a_in_b", BOOLEAN);
                     return p.filter(
-                            expression("a_in_b AND a > 5"),
+                            new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a_in_b"), new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)))),
                             p.semiJoin(
                                     p.values(a),
                                     p.values(b),
@@ -56,10 +65,12 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                                     Optional.empty()));
                 })
                 .matches(project(
-                        ImmutableMap.of("a", PlanMatchPattern.expression("a"), "a_in_b", PlanMatchPattern.expression("true")),
+                        ImmutableMap.of(
+                                "a", PlanMatchPattern.expression(new Reference(BIGINT, "a")),
+                                "a_in_b", PlanMatchPattern.expression(TRUE)),
                         join(INNER, builder -> builder
                                 .equiCriteria("a", "b")
-                                .filter("a > 5")
+                                .filter(new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)))
                                 .left(values("a"))
                                 .right(
                                         aggregation(
@@ -75,11 +86,11 @@ public class TestTransformFilteringSemiJoinToInnerJoin
     {
         tester().assertThat(new TransformFilteringSemiJoinToInnerJoin())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol aInB = p.symbol("a_in_b");
+                    Symbol a = p.symbol("a", BIGINT);
+                    Symbol b = p.symbol("b", BIGINT);
+                    Symbol aInB = p.symbol("a_in_b", BOOLEAN);
                     return p.filter(
-                            expression("a_in_b"),
+                            new Reference(BOOLEAN, "a_in_b"),
                             p.semiJoin(
                                     p.values(a),
                                     p.values(b),
@@ -91,7 +102,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                                     Optional.empty()));
                 })
                 .matches(project(
-                        ImmutableMap.of("a", PlanMatchPattern.expression("a"), "a_in_b", PlanMatchPattern.expression("true")),
+                        ImmutableMap.of("a", PlanMatchPattern.expression(new Reference(BIGINT, "a")), "a_in_b", PlanMatchPattern.expression(TRUE)),
                         join(INNER, builder -> builder
                                 .equiCriteria("a", "b")
                                 .left(values("a"))
@@ -113,7 +124,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                     Symbol b = p.symbol("b");
                     Symbol aInB = p.symbol("a_in_b");
                     return p.filter(
-                            expression("a > 5"),
+                            new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                             p.semiJoin(
                                     p.values(a),
                                     p.values(b),
@@ -136,7 +147,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                     Symbol b = p.symbol("b");
                     Symbol aInB = p.symbol("a_in_b");
                     return p.filter(
-                            expression("a_in_b"),
+                            new Reference(BOOLEAN, "a_in_b"),
                             p.semiJoin(
                                     p.tableScan(
                                             ImmutableList.of(a),
@@ -158,10 +169,10 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                     Symbol c = p.symbol("c");
                     Symbol aInB = p.symbol("a_in_b");
                     return p.filter(
-                            expression("a_in_b"),
+                            new Reference(BOOLEAN, "a_in_b"),
                             p.semiJoin(
                                     p.project(
-                                            Assignments.of(a, expression("c")),
+                                            Assignments.of(a, new Reference(BIGINT, "c")),
                                             p.tableScan(
                                                     ImmutableList.of(c),
                                                     true)),

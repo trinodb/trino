@@ -13,11 +13,12 @@
  */
 package io.trino.metadata;
 
-import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServices;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.transaction.InternalConnector;
@@ -31,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Catalog
 {
-    private final String catalogName;
+    private final CatalogName catalogName;
     private final CatalogHandle catalogHandle;
     private final ConnectorName connectorName;
     private final ConnectorServices catalogConnector;
@@ -39,7 +40,7 @@ public class Catalog
     private final ConnectorServices systemConnector;
 
     public Catalog(
-            String catalogName,
+            CatalogName catalogName,
             CatalogHandle catalogHandle,
             ConnectorName connectorName,
             ConnectorServices catalogConnector,
@@ -55,12 +56,12 @@ public class Catalog
         this.systemConnector = requireNonNull(systemConnector, "systemConnector is null");
     }
 
-    public static Catalog failedCatalog(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+    public static Catalog failedCatalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
     {
         return new Catalog(catalogName, catalogHandle, connectorName);
     }
 
-    private Catalog(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+    private Catalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
     {
         this.catalogName = catalogName;
         this.catalogHandle = catalogHandle;
@@ -70,7 +71,7 @@ public class Catalog
         this.systemConnector = null;
     }
 
-    public String getCatalogName()
+    public CatalogName getCatalogName()
     {
         return catalogName;
     }
@@ -127,8 +128,8 @@ public class Catalog
     {
         Connector connector = connectorServices.getConnector();
         ConnectorTransactionHandle transactionHandle;
-        if (connector instanceof InternalConnector) {
-            transactionHandle = ((InternalConnector) connector).beginTransaction(transactionId, isolationLevel, readOnly);
+        if (connector instanceof InternalConnector internalConnector) {
+            transactionHandle = internalConnector.beginTransaction(transactionId, isolationLevel, readOnly);
         }
         else {
             transactionHandle = connector.beginTransaction(isolationLevel, readOnly, autoCommitContext);

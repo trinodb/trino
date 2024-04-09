@@ -15,12 +15,14 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,8 +41,9 @@ public class TestIssue16101
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        LocalQueryRunner runner = LocalQueryRunner.builder(session).build();
-        runner.createCatalog("local", new TpchConnectorFactory(1), ImmutableMap.of());
+        QueryRunner runner = new StandaloneQueryRunner(session);
+        runner.installPlugin(new TpchPlugin());
+        runner.createCatalog("local", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
 
         try (QueryAssertions assertions = new QueryAssertions(runner)) {
             assertThat(assertions.query("""

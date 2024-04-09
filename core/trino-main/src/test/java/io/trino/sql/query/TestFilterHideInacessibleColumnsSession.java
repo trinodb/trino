@@ -25,7 +25,6 @@ import io.trino.metadata.SessionPropertyManager;
 import io.trino.sql.planner.OptimizerConfig;
 import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestFilterHideInacessibleColumnsSession
@@ -46,7 +45,7 @@ public class TestFilterHideInacessibleColumnsSession
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setHideInaccessibleColumns(true);
         SessionPropertyManager sessionPropertyManager = createSessionPropertyManager(featuresConfig);
-        assertThatNoException().isThrownBy(() -> sessionPropertyManager.validateSystemSessionProperty(SystemSessionProperties.HIDE_INACCESSIBLE_COLUMNS, "true"));
+        sessionPropertyManager.validateSystemSessionProperty(SystemSessionProperties.HIDE_INACCESSIBLE_COLUMNS, "true");
     }
 
     @Test
@@ -54,7 +53,7 @@ public class TestFilterHideInacessibleColumnsSession
     {
         FeaturesConfig featuresConfig = new FeaturesConfig();
         SessionPropertyManager sessionPropertyManager = createSessionPropertyManager(featuresConfig);
-        assertThatNoException().isThrownBy(() -> sessionPropertyManager.validateSystemSessionProperty(SystemSessionProperties.HIDE_INACCESSIBLE_COLUMNS, "false"));
+        sessionPropertyManager.validateSystemSessionProperty(SystemSessionProperties.HIDE_INACCESSIBLE_COLUMNS, "false");
     }
 
     @Test
@@ -62,7 +61,7 @@ public class TestFilterHideInacessibleColumnsSession
     {
         FeaturesConfig featuresConfig = new FeaturesConfig();
         SessionPropertyManager sessionPropertyManager = createSessionPropertyManager(featuresConfig);
-        assertThatNoException().isThrownBy(() -> sessionPropertyManager.validateSystemSessionProperty(SystemSessionProperties.HIDE_INACCESSIBLE_COLUMNS, "true"));
+        sessionPropertyManager.validateSystemSessionProperty(SystemSessionProperties.HIDE_INACCESSIBLE_COLUMNS, "true");
     }
 
     private SessionPropertyManager createSessionPropertyManager(FeaturesConfig featuresConfig)

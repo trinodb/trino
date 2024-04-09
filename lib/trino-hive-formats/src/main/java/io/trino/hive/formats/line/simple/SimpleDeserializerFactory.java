@@ -21,6 +21,7 @@ import io.trino.hive.formats.line.LineDeserializerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static io.trino.hive.formats.line.simple.SimpleConstants.HIVE_SERDE_CLASS_NAMES;
 
@@ -31,7 +32,7 @@ public class SimpleDeserializerFactory
     private static final String LIST_COLUMNS = "columns";
 
     @Override
-    public List<String> getHiveSerDeClassNames()
+    public Set<String> getHiveSerDeClassNames()
     {
         return HIVE_SERDE_CLASS_NAMES;
     }

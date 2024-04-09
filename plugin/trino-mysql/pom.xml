@@ -5,13 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>435</version>
+        <version>444</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-mysql</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - MySQL Connector</description>
+    <description>Trino - MySQL connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

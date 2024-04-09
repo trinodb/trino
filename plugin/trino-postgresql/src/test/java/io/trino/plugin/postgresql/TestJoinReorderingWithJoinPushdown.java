@@ -17,7 +17,6 @@ import io.trino.Session;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +31,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,7 +44,7 @@ public class TestJoinReorderingWithJoinPushdown
             throws Exception
     {
         TestingPostgreSqlServer postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
-        DistributedQueryRunner distributedQueryRunner = createPostgreSqlQueryRunner(
+        QueryRunner queryRunner = createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 Map.of(),
                 Map.of(),
@@ -54,7 +53,7 @@ public class TestJoinReorderingWithJoinPushdown
         postgreSqlServer.execute("ANALYZE " + CUSTOMER.getTableName());
         postgreSqlServer.execute("ANALYZE " + NATION.getTableName());
 
-        return distributedQueryRunner;
+        return queryRunner;
     }
 
     @Test

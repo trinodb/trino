@@ -15,7 +15,6 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
@@ -62,9 +61,9 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.http.client.utils.URLEncodedUtils.parse;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.data.Offset.offset;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -210,7 +209,7 @@ public class TestPrometheusSplit
         assertThat(paramsMap1).containsEntry("query", "up[1d]");
         assertThat(paramsMap2).containsEntry("query", "up[1d]");
         long diff = Double.valueOf(paramsMap2.get("time")).longValue() - Double.valueOf(paramsMap1.get("time")).longValue();
-        assertEquals(config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS), diff, 0.0001);
+        assertThat(config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS)).isCloseTo(diff, offset(0.0001));
     }
 
     @Test
@@ -358,9 +357,9 @@ public class TestPrometheusSplit
 
         TemporalAmount expectedMaxQueryAsTime = java.time.Duration.ofMillis(maxQueryRangeDuration.toMillis() +
                 ((splitTimes.size() - 1) * OFFSET_MILLIS));
-        String lastSplit = splitTimes.get(splitTimes.size() - 1);
+        String lastSplit = splitTimes.getLast();
         Instant lastSplitAsTime = ofEpochMilli(longFromDecimalSecondString(lastSplit));
-        String earliestSplit = splitTimes.get(0);
+        String earliestSplit = splitTimes.getFirst();
         Instant earliestSplitAsTime = ofEpochMilli(longFromDecimalSecondString(earliestSplit));
         TemporalAmount queryChunkAsTime = java.time.Duration.ofMillis(queryChunkSizeDuration.toMillis());
         java.time.Duration actualMaxDuration = Duration.between(earliestSplitAsTime
@@ -392,9 +391,9 @@ public class TestPrometheusSplit
 
         TemporalAmount expectedMaxQueryAsTime = java.time.Duration.ofMillis(new io.airlift.units.Duration(10, TimeUnit.MINUTES).toMillis() +
                 ((splitTimes.size() - 1) * OFFSET_MILLIS));
-        String lastSplit = splitTimes.get(splitTimes.size() - 1);
+        String lastSplit = splitTimes.getLast();
         Instant lastSplitAsTime = ofEpochMilli(longFromDecimalSecondString(lastSplit));
-        String earliestSplit = splitTimes.get(0);
+        String earliestSplit = splitTimes.getFirst();
         Instant earliestSplitAsTime = ofEpochMilli(longFromDecimalSecondString(earliestSplit));
         TemporalAmount queryChunkAsTime = java.time.Duration.ofMillis(queryChunkSizeDuration.toMillis());
         java.time.Duration actualMaxDuration = Duration.between(earliestSplitAsTime
@@ -433,7 +432,7 @@ public class TestPrometheusSplit
      */
     private static List<String> mockPrometheusResponseToChunkedQueries(io.airlift.units.Duration queryChunkDuration, List<String> splitTimes)
     {
-        return Lists.reverse(splitTimes).stream()
+        return splitTimes.reversed().stream()
                 .map(endTime -> mockPrometheusResponseToQuery(queryChunkDuration, endTime))
                 .flatMap(Collection::stream)
                 .sorted()

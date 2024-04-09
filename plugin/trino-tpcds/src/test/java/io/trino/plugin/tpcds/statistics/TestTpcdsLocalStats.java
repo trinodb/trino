@@ -14,8 +14,9 @@
 package io.trino.plugin.tpcds.statistics;
 
 import io.trino.Session;
-import io.trino.plugin.tpcds.TpcdsConnectorFactory;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.plugin.tpcds.TpcdsPlugin;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.statistics.StatisticsAssertion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -51,8 +52,9 @@ public class TestTpcdsLocalStats
                 .setSystemProperty(COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES, "true")
                 .build();
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(defaultSession);
-        queryRunner.createCatalog("tpcds", new TpcdsConnectorFactory(), emptyMap());
+        QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
+        queryRunner.installPlugin(new TpcdsPlugin());
+        queryRunner.createCatalog("tpcds", "tpcds", emptyMap());
         statisticsAssertion = new StatisticsAssertion(queryRunner);
     }
 

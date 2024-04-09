@@ -23,7 +23,6 @@ public class MemoryConfig
     private DataSize maxDataPerNode = DataSize.of(128, DataSize.Unit.MEGABYTE);
     private boolean enableLazyDynamicFiltering = true;
 
-    @NotNull
     public int getSplitsPerNode()
     {
         return splitsPerNode;

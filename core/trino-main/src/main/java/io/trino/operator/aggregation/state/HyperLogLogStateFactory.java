@@ -44,7 +44,7 @@ public class HyperLogLogStateFactory
         private long size;
 
         @Override
-        public void ensureCapacity(long size)
+        public void ensureCapacity(int size)
         {
             hlls.ensureCapacity(size);
         }

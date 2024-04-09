@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.node.NodeInfo;
+import io.airlift.tracing.Tracing;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.FeaturesConfig;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -94,7 +96,7 @@ public class TestMergeOperator
                 new DirectExchangeClientConfig(),
                 httpClient,
                 executor,
-                new ExchangeManagerRegistry());
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()));
         orderingCompiler = new OrderingCompiler(new TypeOperators());
     }
 

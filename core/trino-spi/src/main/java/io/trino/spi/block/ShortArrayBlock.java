@@ -123,15 +123,6 @@ public final class ShortArrayBlock
         return positionCount;
     }
 
-    @Override
-    public short getShort(int position, int offset)
-    {
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-        return getShort(position);
-    }
-
     public short getShort(int position)
     {
         checkReadablePosition(this, position);
@@ -229,10 +220,7 @@ public final class ShortArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("ShortArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return "ShortArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
     int getRawValuesOffset()

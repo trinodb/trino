@@ -175,7 +175,7 @@ public final class UtcConstraintExtractor
         ColumnHandle column = resolve(sourceVariable, assignments);
         if (sourceVariable.getType() instanceof TimestampWithTimeZoneType columnType) {
             if (constant.getType() == DateType.DATE) {
-                return unwrapTimestampTzToDateCast(column, columnType, functionName, (long) constant.getValue())
+                return unwrapTimestampTzToDateCast(columnType, functionName, (long) constant.getValue())
                         .map(domain -> TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)));
             }
             // TODO support timestamp constant
@@ -184,7 +184,7 @@ public final class UtcConstraintExtractor
         return Optional.empty();
     }
 
-    private static Optional<Domain> unwrapTimestampTzToDateCast(ColumnHandle column, Type columnType, FunctionName functionName, long date)
+    private static Optional<Domain> unwrapTimestampTzToDateCast(Type columnType, FunctionName functionName, long date)
     {
         // Verify no overflow. Date values must be in integer range.
         verify(date <= Integer.MAX_VALUE, "Date value out of range: %s", date);

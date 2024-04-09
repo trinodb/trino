@@ -31,7 +31,7 @@ WHEN NOT MATCHED [ AND condition ]
 Conditionally update and/or delete rows of a table and/or insert new
 rows into a table.
 
-`MERGE`changes data in the `target_table` based on the contents of the
+`MERGE` changes data in the `target_table` based on the contents of the
 `source_table`. The `search_condition` defines a condition, such as a relation
 from identical columns, to associate the source and target data.
 

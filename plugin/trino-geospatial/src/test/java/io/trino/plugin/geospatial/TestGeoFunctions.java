@@ -14,10 +14,12 @@
 package io.trino.plugin.geospatial;
 
 import com.esri.core.geometry.Point;
+import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.google.common.collect.ImmutableList;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
+import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
@@ -35,6 +37,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.geospatial.KdbTree.buildKdbTree;
+import static io.trino.plugin.geospatial.GeoFunctions.stCentroid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -42,6 +45,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -259,6 +263,19 @@ public class TestGeoFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("ST_Buffer", "ST_Point(0, 0)", "nan()")::evaluate)
                 .hasMessage("distance is NaN");
+
+        // For small polygons, there was a bug in ESRI that throw an NPE.  This
+        // was fixed (https://github.com/Esri/geometry-api-java/pull/243) to
+        // return an empty geometry instead. Ideally, these would return
+        // something approximately like `ST_Buffer(ST_Centroid(geometry))`.
+        assertThat(assertions.function("ST_IsEmpty", "ST_Buffer(ST_Buffer(ST_Point(177.50102959662, 64.726807421691), 0.0000000001), 0.00005)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.function("ST_IsEmpty", "ST_Buffer(ST_GeometryFromText(" +
+                "'POLYGON ((177.0 64.0, 177.0000000001 64.0, 177.0000000001 64.0000000001, 177.0 64.0000000001, 177.0 64.0))'), 0.01)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
     }
 
     @Test
@@ -299,6 +316,33 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_AsText", "ST_Centroid(ST_GeometryFromText('POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0), (1 1, 1 2, 2 2, 2 1, 1 1))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("POINT (2.5416666666666665 2.5416666666666665)");
+
+        assertApproximateCentroid("MULTIPOLYGON (((4.903234300000006 52.08474289999999, 4.903234265193165 52.084742934806826, 4.903234299999999 52.08474289999999, 4.903234300000006 52.08474289999999)))", new Point(4.9032343, 52.0847429), 1e-7);
+
+        // Numerical stability tests
+        assertApproximateCentroid(
+                "MULTIPOLYGON (((153.492818 -28.13729, 153.492821 -28.137291, 153.492816 -28.137289, 153.492818 -28.13729)))",
+                new Point(153.49282, -28.13729), 1e-5);
+        assertApproximateCentroid(
+                "MULTIPOLYGON (((153.112475 -28.360526, 153.1124759 -28.360527, 153.1124759 -28.360526, 153.112475 -28.360526)))",
+                new Point(153.112475, -28.360526), 1e-5);
+        assertApproximateCentroid(
+                "POLYGON ((4.903234300000006 52.08474289999999, 4.903234265193165 52.084742934806826, 4.903234299999999 52.08474289999999, 4.903234300000006 52.08474289999999))",
+                new Point(4.9032343, 52.0847429), 1e-6);
+        assertApproximateCentroid(
+                "MULTIPOLYGON (((4.903234300000006 52.08474289999999, 4.903234265193165 52.084742934806826, 4.903234299999999 52.08474289999999, 4.903234300000006 52.08474289999999)))",
+                new Point(4.9032343, 52.0847429), 1e-6);
+        assertApproximateCentroid(
+                "POLYGON ((-81.0387349 29.20822, -81.039974 29.210597, -81.0410331 29.2101579, -81.0404758 29.2090879, -81.0404618 29.2090609, -81.040433 29.209005, -81.0404269 29.208993, -81.0404161 29.2089729, -81.0398001 29.20779, -81.0387349 29.20822), (-81.0404229 29.208986, -81.04042 29.2089809, -81.0404269 29.208993, -81.0404229 29.208986))",
+                new Point(-81.039885, 29.209191), 1e-6);
+    }
+
+    private void assertApproximateCentroid(String wkt, Point expectedCentroid, double epsilon)
+    {
+        OGCPoint actualCentroid = (OGCPoint) GeometrySerde.deserialize(
+                stCentroid(GeometrySerde.serialize(OGCGeometry.fromText(wkt))));
+        assertEquals(actualCentroid.X(), expectedCentroid.getX(), epsilon);
+        assertEquals(actualCentroid.Y(), expectedCentroid.getY(), epsilon);
     }
 
     @Test

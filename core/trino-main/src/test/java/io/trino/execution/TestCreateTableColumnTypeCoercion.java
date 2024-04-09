@@ -16,8 +16,10 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.spi.type.TimestampType;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -39,19 +41,17 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestCreateTableColumnTypeCoercion
 {
     private static final String catalogName = "mock";
-    private LocalQueryRunner queryRunner;
+    private QueryRunner queryRunner;
 
-    private LocalQueryRunner createLocalQueryRunner()
+    private QueryRunner createQueryRunner()
     {
         Session session = testSessionBuilder()
                 .setCatalog(catalogName)
                 .setSchema("default")
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-        queryRunner.createCatalog(
-                catalogName,
-                prepareConnectorFactory(catalogName),
-                ImmutableMap.of());
+        QueryRunner queryRunner = new StandaloneQueryRunner(session);
+        queryRunner.installPlugin(new MockConnectorPlugin(prepareConnectorFactory(catalogName)));
+        queryRunner.createCatalog(catalogName, "mock", ImmutableMap.of());
         return queryRunner;
     }
 
@@ -88,7 +88,7 @@ public class TestCreateTableColumnTypeCoercion
     @BeforeAll
     public final void initQueryRunner()
     {
-        this.queryRunner = createLocalQueryRunner();
+        this.queryRunner = createQueryRunner();
     }
 
     @AfterAll

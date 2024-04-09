@@ -18,17 +18,14 @@ import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
-import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaFaultTolerantExecutionTest
         extends BaseFaultTolerantExecutionTest
@@ -51,7 +48,7 @@ public class TestDeltaFaultTolerantExecutionTest
         MinioStorage minioStorage = closeAfterClass(new MinioStorage(bucketName));
         minioStorage.start();
 
-        DistributedQueryRunner runner = createS3DeltaLakeQueryRunner(
+        QueryRunner runner = createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 FaultTolerantExecutionConnectorTestHelper.getExtraProperties(),
@@ -65,13 +62,5 @@ public class TestDeltaFaultTolerantExecutionTest
                 });
         runner.execute(format("CREATE SCHEMA %s WITH (location = 's3://%s/%s')", SCHEMA, bucketName, SCHEMA));
         return runner;
-    }
-
-    @Test
-    @Override
-    public void testExecutePreferredWritePartitioningSkewMitigation()
-    {
-        assertThatThrownBy(super::testExecutePreferredWritePartitioningSkewMitigation)
-                .hasMessage("optimize is expected to generate more than a single file per partition");
     }
 }

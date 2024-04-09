@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -27,9 +28,10 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -45,12 +47,12 @@ public class TestPruneAggregationColumns
                 .on(p -> buildProjectedAggregation(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression("b")),
+                                ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                 aggregation(
                                         singleGroupingSet("key"),
                                         ImmutableMap.of(
                                                 Optional.of("b"),
-                                                functionCall("count", false, ImmutableList.of())),
+                                                aggregationFunction("count", false, ImmutableList.of())),
                                         Optional.empty(),
                                         SINGLE,
                                         values("key"))));
@@ -74,7 +76,7 @@ public class TestPruneAggregationColumns
                 planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                         .source(planBuilder.values(key))
                         .singleGroupingSet(key)
-                        .addAggregation(a, PlanBuilder.expression("count()"), ImmutableList.of())
-                        .addAggregation(b, PlanBuilder.expression("count()"), ImmutableList.of())));
+                        .addAggregation(a, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
+                        .addAggregation(b, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())));
     }
 }

@@ -47,8 +47,13 @@ class TestAzureAuthOAuthConfig
         AzureAuthOAuthConfig expected = new AzureAuthOAuthConfig()
                 .setClientEndpoint("endpoint")
                 .setClientId("clientId")
+<<<<<<< HEAD
                 .setClientSecret("secret")
                 .setTenantId("tenantId");
+=======
+                .setTenantId("tenantId")
+                .setClientSecret("secret");
+>>>>>>> 444
 
         assertFullMapping(properties, expected);
     }

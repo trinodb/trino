@@ -62,7 +62,7 @@ public class PinotSplitManager
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
     }
 
-    protected ConnectorSplitSource generateSplitForBrokerBasedScan(PinotTableHandle pinotTableHandle)
+    protected ConnectorSplitSource generateSplitForBrokerBasedScan()
     {
         return new FixedSplitSource(createBrokerSplit());
     }
@@ -73,7 +73,7 @@ public class PinotSplitManager
     {
         String tableName = tableHandle.getTableName();
         Map<String, Map<String, List<String>>> routingTable = pinotClient.getRoutingTableForTable(tableName);
-        LOG.info("Got routing table for %s: %s", tableName, routingTable);
+        LOG.debug("Got routing table for %s: %s", tableName, routingTable);
         List<ConnectorSplit> splits = new ArrayList<>();
         if (!routingTable.isEmpty()) {
             PinotClient.TimeBoundary timeBoundary = new PinotClient.TimeBoundary(null, null);
@@ -172,7 +172,7 @@ public class PinotSplitManager
             }
             return generateSplitsForSegmentBasedScan(pinotTableHandle, session);
         }
-        return generateSplitForBrokerBasedScan(pinotTableHandle);
+        return generateSplitForBrokerBasedScan();
     }
 
     private static boolean isBrokerQuery(ConnectorSession session, PinotTableHandle tableHandle)

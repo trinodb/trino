@@ -178,7 +178,7 @@ public class ExpressionOptimizer
         @Override
         public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
-            return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, context));
+            return new LambdaDefinitionExpression(lambda.getArguments(), lambda.getBody().accept(this, context));
         }
 
         @Override

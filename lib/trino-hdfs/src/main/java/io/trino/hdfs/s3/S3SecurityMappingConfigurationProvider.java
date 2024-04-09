@@ -35,6 +35,7 @@ import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_IAM_ROLE;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_KMS_KEY_ID;
+import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_REGION;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_ROLE_SESSION_NAME;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_SECRET_KEY;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -123,6 +124,11 @@ public class S3SecurityMappingConfigurationProvider
         mapping.getRoleSessionName().ifPresent(roleSessionName -> {
             configuration.set(S3_ROLE_SESSION_NAME, roleSessionName.replace("${USER}", context.getIdentity().getUser()));
             hasher.putString(roleSessionName, UTF_8);
+        });
+
+        mapping.getRegion().ifPresent(region -> {
+            configuration.set(S3_REGION, region);
+            hasher.putString(region, UTF_8);
         });
 
         setCacheKey(configuration, hasher.hash().toString());

@@ -50,7 +50,7 @@ public class KinesisSplitManager
 
     private final KinesisClientProvider clientManager;
 
-    private Map<String, InternalStreamDescription> streamMap = Collections.synchronizedMap(new HashMap<>());
+    private final Map<String, InternalStreamDescription> streamMap = Collections.synchronizedMap(new HashMap<>());
 
     /**
      * Cache the result of a Kinesis describe stream call so we don't need to retrieve
@@ -151,7 +151,7 @@ public class KinesisSplitManager
                 internalStreamDescription.addAllShards(describeStreamResult.getStreamDescription().getShards());
 
                 if (describeStreamResult.getStreamDescription().getHasMoreShards() && (shards.size() > 0)) {
-                    exclusiveStartShardId = shards.get(shards.size() - 1).getShardId();
+                    exclusiveStartShardId = shards.getLast().getShardId();
                 }
                 else {
                     exclusiveStartShardId = null;

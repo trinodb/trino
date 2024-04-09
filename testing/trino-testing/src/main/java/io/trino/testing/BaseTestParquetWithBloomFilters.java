@@ -38,7 +38,7 @@ public abstract class BaseTestParquetWithBloomFilters
     public void verifyBloomFilterEnabled()
     {
         assertThat(query(format("SHOW SESSION LIKE '%s.parquet_use_bloom_filter'", getSession().getCatalog().orElseThrow())))
-                .skippingTypesCheck()
+                .result()
                 .matches(result -> result.getRowCount() == 1)
                 .matches(result -> {
                     String value = (String) result.getMaterializedRows().get(0).getField(1);

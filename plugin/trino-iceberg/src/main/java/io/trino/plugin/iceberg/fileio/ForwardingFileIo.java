@@ -13,9 +13,13 @@
  */
 package io.trino.plugin.iceberg.fileio;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DeleteFile;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.io.BulkDeletionFailureException;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
@@ -24,8 +28,10 @@ import org.apache.iceberg.io.SupportsBulkOperations;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -36,10 +42,17 @@ public class ForwardingFileIo
     private static final int BATCH_DELETE_PATHS_MESSAGE_LIMIT = 5;
 
     private final TrinoFileSystem fileSystem;
+    private final Map<String, String> properties;
 
     public ForwardingFileIo(TrinoFileSystem fileSystem)
     {
+        this(fileSystem, ImmutableMap.of());
+    }
+
+    public ForwardingFileIo(TrinoFileSystem fileSystem, Map<String, String> properties)
+    {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
     }
 
     @Override
@@ -72,11 +85,54 @@ public class ForwardingFileIo
     }
 
     @Override
+    public void deleteFile(InputFile file)
+    {
+        SupportsBulkOperations.super.deleteFile(file);
+    }
+
+    @Override
+    public void deleteFile(OutputFile file)
+    {
+        SupportsBulkOperations.super.deleteFile(file);
+    }
+
+    @Override
     public void deleteFiles(Iterable<String> pathsToDelete)
             throws BulkDeletionFailureException
     {
         Iterable<List<String>> partitions = Iterables.partition(pathsToDelete, DELETE_BATCH_SIZE);
         partitions.forEach(this::deleteBatch);
+    }
+
+    // TODO: remove below workarounds after https://github.com/apache/iceberg/pull/9953
+    @Override
+    public InputFile newInputFile(ManifestFile manifest)
+    {
+        checkArgument(
+                manifest.keyMetadata() == null,
+                "Cannot decrypt manifest: %s (use EncryptingFileIO)",
+                manifest.path());
+        return newInputFile(manifest.path(), manifest.length());
+    }
+
+    @Override
+    public InputFile newInputFile(DataFile file)
+    {
+        checkArgument(
+                file.keyMetadata() == null,
+                "Cannot decrypt data file: %s (use EncryptingFileIO)",
+                file.path());
+        return newInputFile(file.path().toString(), file.fileSizeInBytes());
+    }
+
+    @Override
+    public InputFile newInputFile(DeleteFile file)
+    {
+        checkArgument(
+                file.keyMetadata() == null,
+                "Cannot decrypt delete file: %s (use EncryptingFileIO)",
+                file.path());
+        return newInputFile(file.path().toString(), file.fileSizeInBytes());
     }
 
     private void deleteBatch(List<String> filesToDelete)
@@ -95,4 +151,19 @@ public class ForwardingFileIo
                     e);
         }
     }
+
+    @Override
+    public Map<String, String> properties()
+    {
+        return properties;
+    }
+
+    @Override
+    public void initialize(Map<String, String> properties)
+    {
+        throw new UnsupportedOperationException("ForwardingFileIO does not support initialization by properties");
+    }
+
+    @Override
+    public void close() {}
 }

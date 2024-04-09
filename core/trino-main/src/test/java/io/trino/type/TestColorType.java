@@ -47,7 +47,7 @@ public class TestColorType
 
         Block block = builder.build();
         for (int position = 0; position < block.getPositionCount(); position++) {
-            int value = block.getInt(position, 0);
+            int value = COLOR.getInt(block, position);
             assertThat(COLOR.getObjectValue(null, block, position)).isEqualTo(format("#%02x%02x%02x", (value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF));
         }
     }

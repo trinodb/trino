@@ -238,6 +238,25 @@ public class TestIcebergPlugin
     }
 
     @Test
+    public void testRestCatalogValidations()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "rest",
+                                "iceberg.register-table-procedure.enabled", "true",
+                                "iceberg.rest-catalog.uri", "https://foo:1234",
+                                "iceberg.rest-catalog.vended-credentials-enabled", "true",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Using the `register_table` procedure with vended credentials is currently not supported");
+    }
+
+    @Test
     public void testJdbcCatalog()
     {
         ConnectorFactory factory = getConnectorFactory();

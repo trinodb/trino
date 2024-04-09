@@ -23,7 +23,6 @@ benchmark_outputs
 *.class
 .checkstyle
 .mvn/timing.properties
-.mvn/maven.config
 node_modules
 product-test-reports
 .vscode/

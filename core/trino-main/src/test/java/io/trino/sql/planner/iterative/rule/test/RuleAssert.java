@@ -20,6 +20,7 @@ import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
+import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
@@ -29,16 +30,18 @@ import io.trino.matching.Match;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Memo;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 
+import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -52,25 +55,25 @@ import static org.assertj.core.api.Fail.fail;
 public class RuleAssert
 {
     private final Rule<?> rule;
-    private final LocalQueryRunner queryRunner;
+    private final PlanTester planTester;
     private final StatsCalculator statsCalculator;
     private final Session session;
     private final PlanNode plan;
-    private final TypeProvider types;
+    private final Set<Symbol> symbols;
 
     private final PlanNodeIdAllocator idAllocator;
 
-    RuleAssert(Rule<?> rule, LocalQueryRunner queryRunner, StatsCalculator statsCalculator, Session session, PlanNodeIdAllocator idAllocator, PlanNode plan, TypeProvider types)
+    RuleAssert(Rule<?> rule, PlanTester planTester, StatsCalculator statsCalculator, Session session, PlanNodeIdAllocator idAllocator, PlanNode plan, Collection<Symbol> symbols)
     {
         this.rule = requireNonNull(rule, "rule is null");
-        this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
+        this.planTester = requireNonNull(planTester, "planTester is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         // verify session is in a transaction
         session.getRequiredTransactionId();
         this.session = session;
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.plan = requireNonNull(plan, "plan is null");
-        this.types = requireNonNull(types, "types is null");
+        this.symbols = ImmutableSet.copyOf(symbols);
     }
 
     public void doesNotFire()
@@ -80,14 +83,23 @@ public class RuleAssert
 
             if (ruleApplication.wasRuleApplied()) {
                 fail(format(
-                        "Expected %s to not fire for:\n%s",
+                        """
+                        Expected %s to not fire for:
+
+                        %s
+
+                        ==>
+
+                        %s
+                        """,
                         rule,
-                        textLogicalPlan(plan, ruleApplication.types(), queryRunner.getMetadata(), queryRunner.getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
+                        textLogicalPlan(plan, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false),
+                        textLogicalPlan(ruleApplication.result.getTransformedPlan().get(), planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
             }
         }
         finally {
-            queryRunner.getMetadata().cleanupQuery(session);
-            queryRunner.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
+            planTester.getPlannerContext().getMetadata().cleanupQuery(session);
+            planTester.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
         }
     }
 
@@ -100,7 +112,7 @@ public class RuleAssert
                 fail(format(
                         "%s did not fire for:\n%s",
                         rule,
-                        formatPlan(plan, ruleApplication.types())));
+                        formatPlan(plan)));
             }
 
             PlanNode actual = ruleApplication.getTransformedPlan();
@@ -112,7 +124,7 @@ public class RuleAssert
                         %s
                         """,
                         rule,
-                        formatPlan(plan, ruleApplication.types())));
+                        formatPlan(plan)));
             }
 
             if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
@@ -127,23 +139,23 @@ public class RuleAssert
                         actual.getOutputSymbols()));
             }
 
-            assertPlan(session, queryRunner.getMetadata(), queryRunner.getFunctionManager(), ruleApplication.statsProvider(), new Plan(actual, ruleApplication.types(), StatsAndCosts.empty()), ruleApplication.lookup(), pattern);
+            assertPlan(session, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), ruleApplication.statsProvider(), new Plan(actual, StatsAndCosts.empty()), ruleApplication.lookup(), pattern);
         }
         finally {
-            queryRunner.getMetadata().cleanupQuery(session);
-            queryRunner.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
+            planTester.getPlannerContext().getMetadata().cleanupQuery(session);
+            planTester.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
         }
     }
 
     private RuleApplication applyRule()
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator(types.allTypes());
+        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
-        return applyRule(rule, memoRoot, ruleContext(statsCalculator, queryRunner.getEstimatedExchangesCostCalculator(), symbolAllocator, memo, lookup, session));
+        return applyRule(rule, memoRoot, ruleContext(statsCalculator, planTester.getEstimatedExchangesCostCalculator(), symbolAllocator, memo, lookup, session));
     }
 
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
@@ -161,20 +173,20 @@ public class RuleAssert
             result = rule.apply(match.get().capture(planNodeCapture), match.get().captures(), context);
         }
 
-        return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getSymbolAllocator().getTypes(), result);
+        return new RuleApplication(context.getLookup(), context.getStatsProvider(), result);
     }
 
-    private String formatPlan(PlanNode plan, TypeProvider types)
+    private String formatPlan(PlanNode plan)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, new CachingTableStatsProvider(queryRunner.getMetadata(), session));
-        CostProvider costProvider = new CachingCostProvider(queryRunner.getCostCalculator(), statsProvider, session, types);
-        return textLogicalPlan(plan, types, queryRunner.getMetadata(), queryRunner.getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
+        CostProvider costProvider = new CachingCostProvider(planTester.getCostCalculator(), statsProvider, session);
+        return textLogicalPlan(plan, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
     }
 
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes(), new CachingTableStatsProvider(queryRunner.getMetadata(), session));
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session, symbolAllocator.getTypes());
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session), RuntimeInfoProvider.noImplementation());
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
 
         return new Rule.Context()
         {
@@ -225,13 +237,12 @@ public class RuleAssert
         };
     }
 
-    private record RuleApplication(Lookup lookup, StatsProvider statsProvider, TypeProvider types, Rule.Result result)
+    private record RuleApplication(Lookup lookup, StatsProvider statsProvider, Rule.Result result)
     {
-        private RuleApplication(Lookup lookup, StatsProvider statsProvider, TypeProvider types, Rule.Result result)
+        private RuleApplication(Lookup lookup, StatsProvider statsProvider, Rule.Result result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
-            this.types = requireNonNull(types, "types is null");
             this.result = requireNonNull(result, "result is null");
         }
 

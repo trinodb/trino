@@ -13,10 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-
-import java.util.Collections;
-import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -26,63 +22,6 @@ import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 public sealed interface Block
         permits DictionaryBlock, RunLengthEncodedBlock, LazyBlock, ValueBlock
 {
-    /**
-     * Gets the length of the value at the {@code position}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default int getSliceLength(int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Gets a byte at {@code offset} in the value at {@code position}.
-     */
-    default byte getByte(int position, int offset)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Gets a little endian short at {@code offset} in the value at {@code position}.
-     */
-    default short getShort(int position, int offset)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Gets a little endian int at {@code offset} in the value at {@code position}.
-     */
-    default int getInt(int position, int offset)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Gets a little endian long at {@code offset} in the value at {@code position}.
-     */
-    default long getLong(int position, int offset)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Gets a slice at {@code offset} in the value at {@code position}.
-     */
-    default Slice getSlice(int position, int offset, int length)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Gets an object in the value at {@code position}.
-     */
-    default <T> T getObject(int position, Class<T> clazz)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
     /**
      * Gets the value at the specified position as a single element block.  The method
      * must copy the data into a new block.
@@ -257,14 +196,6 @@ public sealed interface Block
     default Block getLoadedBlock()
     {
         return this;
-    }
-
-    /**
-     * Gets the direct child blocks of this block.
-     */
-    default List<Block> getChildren()
-    {
-        return Collections.emptyList();
     }
 
     /**

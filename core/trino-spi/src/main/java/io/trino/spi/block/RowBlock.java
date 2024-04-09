@@ -255,12 +255,6 @@ public final class RowBlock
     }
 
     @Override
-    public List<Block> getChildren()
-    {
-        return fieldBlocksList;
-    }
-
-    @Override
     public String getEncodingName()
     {
         return RowBlockEncoding.NAME;
@@ -358,15 +352,6 @@ public final class RowBlock
             return this;
         }
         return new RowBlock(length, newRowIsNull, newBlocks, fixedSizePerRow);
-    }
-
-    @Override
-    public <T> T getObject(int position, Class<T> clazz)
-    {
-        if (clazz != SqlRow.class) {
-            throw new IllegalArgumentException("clazz must be SqlRow.class");
-        }
-        return clazz.cast(getRow(position));
     }
 
     public SqlRow getRow(int position)

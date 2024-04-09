@@ -15,10 +15,11 @@ package io.trino.hive.formats.line;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface LineDeserializerFactory
 {
-    List<String> getHiveSerDeClassNames();
+    Set<String> getHiveSerDeClassNames();
 
     LineDeserializer create(List<Column> columns, Map<String, String> serdeProperties);
 }

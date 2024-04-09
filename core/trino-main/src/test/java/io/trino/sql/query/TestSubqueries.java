@@ -16,9 +16,17 @@ package io.trino.sql.query;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.function.OperatorType;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.plan.JoinNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -27,16 +35,19 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -46,12 +57,11 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -59,6 +69,10 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestSubqueries
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
+
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
 
     private final QueryAssertions assertions;
@@ -70,10 +84,9 @@ public class TestSubqueries
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        LocalQueryRunner runner = LocalQueryRunner.builder(session)
-                .build();
-
-        runner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(1), ImmutableMap.of());
+        QueryRunner runner = new StandaloneQueryRunner(session);
+        runner.installPlugin(new TpchPlugin());
+        runner.createCatalog(TEST_CATALOG_NAME, "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
 
         assertions = new QueryAssertions(runner);
     }
@@ -92,13 +105,13 @@ public class TestSubqueries
                 "VALUES true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
                                                 values("y")),
                                         project(
-                                                ImmutableMap.of("NON_NULL", expression("true")),
+                                                ImmutableMap.of("NON_NULL", expression(TRUE)),
                                                 values("x"))))));
 
         assertions.assertQueryAndPlan(
@@ -106,13 +119,13 @@ public class TestSubqueries
                 "VALUES false",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
                                                 values("y")),
                                         project(
-                                                ImmutableMap.of("NON_NULL", expression("true")),
+                                                ImmutableMap.of("NON_NULL", expression(TRUE)),
                                                 values("x"))))));
     }
 
@@ -133,9 +146,9 @@ public class TestSubqueries
                 "SELECT (SELECT count(*) FROM (VALUES 1, 2, 2) t(a) WHERE t.a=t2.b GROUP BY t.a LIMIT 1) FROM (VALUES 1.0) t2(b)"))
                 .matches("VALUES BIGINT '1'");
         // non-injective coercion bigint -> double
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES (BIGINT '1', null)) t(a, b) WHERE t.a=t2.b GROUP BY t.b) FROM (VALUES 1e0, 2e0) t2(b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
@@ -170,9 +183,9 @@ public class TestSubqueries
                 .matches("VALUES 1, 5");
 
         // non-injective coercion bigint -> double
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT t.a FROM (VALUES BIGINT '1', BIGINT '2') t(a) WHERE t.a = t2.b LIMIT 1) FROM (VALUES 1e0, 2e0) t2(b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
@@ -190,9 +203,9 @@ public class TestSubqueries
                 .matches("VALUES 1, 5");
 
         // non-injective coercion bigint -> double
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT t.a FROM (VALUES BIGINT '1', BIGINT '2', BIGINT '3') t(a) WHERE t.a = t2.b LIMIT 2) FROM (VALUES 1e0, 2e0) t2(b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
@@ -208,13 +221,13 @@ public class TestSubqueries
                                 .equiCriteria("cast_b", "cast_a")
                                 .left(
                                         project(
-                                                ImmutableMap.of("cast_b", expression("CAST(b AS decimal(11, 1))")),
+                                                ImmutableMap.of("cast_b", expression(new Cast(new Reference(INTEGER, "b"), createDecimalType(11, 1)))),
                                                 any(
                                                         values("b"))))
                                 .right(
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("cast_a", expression("CAST(a AS decimal(11, 1))")),
+                                                        ImmutableMap.of("cast_a", expression(new Cast(new Reference(INTEGER, "a"), createDecimalType(11, 1)))),
                                                         any(
                                                                 rowNumber(
                                                                         rowBuilder -> rowBuilder
@@ -232,7 +245,7 @@ public class TestSubqueries
                                 .equiCriteria("expr", "a")
                                 .left(
                                         project(
-                                                ImmutableMap.of("expr", expression("b * c - 1")),
+                                                ImmutableMap.of("expr", expression(new Call(SUBTRACT_INTEGER, ImmutableList.of(new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Reference(INTEGER, "c"))), new Constant(INTEGER, 1L))))),
                                                 any(
                                                         values("b", "c"))))
                                 .right(
@@ -245,9 +258,9 @@ public class TestSubqueries
                                                                 values("a"))))))));
 
         // non-injective coercion bigint -> double
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT t.a FROM (VALUES BIGINT '1', BIGINT '2') t(a) WHERE t.a = t2.b ORDER BY a LIMIT 1) FROM (VALUES 1e0, 2e0) t2(b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
@@ -262,28 +275,28 @@ public class TestSubqueries
         assertThat(assertions.query(
                 "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b LIMIT 2) FROM (VALUES 1) t2(b)"))
                 .matches("VALUES 1");
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT t.a FROM (VALUES 1, 1, 2, 3) t(a) WHERE t.a = t2.b LIMIT 2) FROM (VALUES 1) t2(b)"))
-                .hasMessageMatching("Scalar sub-query has returned multiple rows");
+                .failure().hasMessageMatching("Scalar sub-query has returned multiple rows");
         // Limit(1) and non-constant output symbol of the subquery
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT count(*) FROM (VALUES (1, 0), (1, 1)) t(a, b) WHERE a = c GROUP BY b LIMIT 1) FROM (VALUES (1)) t2(c)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         // Limit(1) and non-constant output symbol of the subquery
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT a + b FROM (VALUES (1, 1), (1, 1)) t(a, b) WHERE a = c LIMIT 1) FROM (VALUES (1)) t2(c)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         // Limit and correlated non-equality predicate in the subquery
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT t.b FROM (VALUES (1, 2), (1, 3)) t(a, b) WHERE t.a = t2.a AND t.b > t2.b LIMIT 1) FROM (VALUES (1, 2)) t2(a, b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertThat(assertions.query(
                 "SELECT (SELECT t.a FROM (VALUES (1, 2), (1, 3)) t(a, b) WHERE t.a = t2.a AND t2.b > 1 LIMIT 1) FROM (VALUES (1, 2)) t2(a, b)"))
                 .matches("VALUES 1");
         // TopN and correlated non-equality predicate in the subquery
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT t.b FROM (VALUES (1, 2), (1, 3)) t(a, b) WHERE t.a = t2.a AND t.b > t2.b ORDER BY t.b LIMIT 1) FROM (VALUES (1, 2)) t2(a, b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertThat(assertions.query(
                 "SELECT (SELECT t.b FROM (VALUES (1, 2), (1, 3)) t(a, b) WHERE t.a = t2.a AND t2.b > 1 ORDER BY t.b LIMIT 1) FROM (VALUES (1, 2)) t2(a, b)"))
                 .matches("VALUES 2");
@@ -326,9 +339,9 @@ public class TestSubqueries
                                                                 anyTree(
                                                                         values("u_x", "u_cid")))))))));
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b ORDER BY a FETCH FIRST ROW WITH TIES) FROM (VALUES 1) t2(b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertThat(assertions.query(
                 "SELECT * " +
                         "FROM (VALUES 1, 2, 3, null) outer_relation(id) " +
@@ -399,14 +412,14 @@ public class TestSubqueries
                         "ON TRUE"))
                 .matches("VALUES (1, null), (2, null), (3, 'a'), (3, 'b'), (null, null)");
         // TopN with ordering not decorrelating
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * " +
                         "FROM (VALUES 1, 2, 3, null) outer_relation(id) " +
                         "LEFT JOIN LATERAL " +
                         "(SELECT value FROM (VALUES 'c', 'a', 'b') inner_relation(value) " +
                         "   WHERE outer_relation.id = 3 ORDER BY outer_relation.id LIMIT 2) " +
                         "ON TRUE"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         // TopN with ordering only by constants
         assertThat(assertions.query(
                 "SELECT * " +
@@ -457,9 +470,9 @@ public class TestSubqueries
     public void testCorrelatedSubqueriesWithGroupBy()
     {
         // t.a is not a "constant" column, group by does not guarantee single row per correlated subquery
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT count(*) FROM (VALUES 1, 2, 3, null) t(a) WHERE t.a<t2.b GROUP BY t.a) FROM (VALUES 1, 2, 3) t2(b)"))
-                .hasMessageMatching("Scalar sub-query has returned multiple rows");
+                .failure().hasMessageMatching("Scalar sub-query has returned multiple rows");
         assertThat(assertions.query(
                 "SELECT (SELECT count(*) FROM (VALUES 1, 1, 2, 3, null) t(a) WHERE t.a<t2.b GROUP BY t.a HAVING count(*) > 1) FROM (VALUES 1, 2) t2(b)"))
                 .matches("VALUES null, BIGINT '2'");
@@ -501,14 +514,14 @@ public class TestSubqueries
                 "VALUES false, true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
                                                 values("t2_b")),
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("NON_NULL", expression("true")),
+                                                        ImmutableMap.of("NON_NULL", expression(TRUE)),
                                                         anyTree(
                                                                 aggregation(
                                                                         ImmutableMap.of(),
@@ -517,23 +530,23 @@ public class TestSubqueries
                                                                                 values("t_a", "t_b"))))))))));
 
         // t.b is not a "constant" column, cannot be pushed above aggregation
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES (1, 1), (1, 1), (null, null), (3, 3)) t(a, b) WHERE t.a+t.b<t2.b GROUP BY t.a) FROM (VALUES 1, 2) t2(b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
 
         assertions.assertQueryAndPlan(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES (1, 1), (1, 1), (null, null), (3, 3)) t(a, b) WHERE t.a+t.b<t2.b GROUP BY t.a, t.b) FROM (VALUES 1, 4) t2(b)",
                 "VALUES false, true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
                                                 values("t2_b")),
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("NON_NULL", expression("true")),
+                                                        ImmutableMap.of("NON_NULL", expression(TRUE)),
                                                         aggregation(
                                                                 ImmutableMap.of(),
                                                                 FINAL,
@@ -602,9 +615,9 @@ public class TestSubqueries
                 "SELECT * FROM (VALUES 1, 2) t2(b), LATERAL (SELECT count(*) FROM (VALUES 1, 1, 2, 3) t(a) WHERE t.a=t2.b GROUP BY t.a HAVING count(*) > 1)"))
                 .matches("VALUES (1, BIGINT '2')");
         // correlated subqueries with grouping sets are not supported
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2) t2(b), LATERAL (SELECT t.a, t.b, count(*) FROM (VALUES (1, 1), (1, 2), (2, 2), (3, 3)) t(a, b) WHERE t.a=t2.b GROUP BY GROUPING SETS ((t.a, t.b), (t.a)))"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
@@ -629,9 +642,9 @@ public class TestSubqueries
         assertThat(assertions.query("SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON TRUE")).matches("VALUES (1, 2), (1, null), (null, 2), (null, null)");
         assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 WHERE 0 = 1) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON TRUE");
         assertThat(assertions.query("SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT 1 WHERE 0 = 1) t2(b) ON TRUE")).matches("VALUES (1, CAST(null AS INTEGER)), (null, null)");
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b"))
-                .hasMessageMatching(".* FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
+                .failure().hasMessageMatching(".* FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
     }
 
     @Test
@@ -714,9 +727,9 @@ public class TestSubqueries
         assertThat(assertions.query(
                 "SELECT (SELECT a + b FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)"))
                 .matches("VALUES 3");
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT rank() OVER(partition by b) FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
@@ -810,15 +823,16 @@ public class TestSubqueries
                 .matches("VALUES ROW(ROW(ARRAY[1, 2, 3], CAST(ARRAY[1, 2, 3] AS array(bigint)))), ROW(ROW(ARRAY[4], ARRAY[1])), ROW(ROW(ARRAY[5, 6], ARRAY[1, 2]))");
 
         // correlated grouping key - illegal by AggregationAnalyzer
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT max(count) FROM (SELECT count(v) AS count FROM UNNEST(id, val) u(i, v) GROUP BY id)) " +
                         "FROM (VALUES (ARRAY['a', 'a', 'b'], ARRAY[1, 2, 3])) t(id, val)"))
-                .hasMessageMatching("Grouping field .* should originate from .*");
+                // TODO this should be TrinoException
+                .nonTrinoExceptionFailure().hasMessageMatching("Grouping field .* should originate from .*");
 
         // aggregation with filter: all aggregations have filter, so filter is pushed down and it is not supported by the correlated unnest rewrite
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT array_agg(x) FILTER (WHERE x < 3) FROM UNNEST(a) u(x)) FROM (VALUES ARRAY[1, 2, 3]) t(a)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
 
         // aggregation with filter: no filter pushdown
         assertThat(assertions.query(
@@ -973,22 +987,23 @@ public class TestSubqueries
                 .matches("VALUES ROW(ROW(ARRAY[1, 2, 3], CAST(ARRAY[1, 2, 3] AS array(bigint)))), ROW(ROW(ARRAY[4], ARRAY[1])), ROW(ROW(ARRAY[5, 6], ARRAY[1, 2]))");
 
         // correlated grouping key - illegal by AggregationAnalyzer
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT b FROM " +
                         "(VALUES (ARRAY['a', 'a', 'b'], ARRAY[1, 2, 3])) t(id, val) " +
                         "LEFT JOIN " +
                         "LATERAL (SELECT max(count) FROM (SELECT count(v) AS count FROM (SELECT i, v FROM (VALUES 1) LEFT JOIN UNNEST(id, val) u(i, v) ON TRUE) GROUP BY id)) t2(b) " +
                         "ON TRUE"))
-                .hasMessageMatching("Grouping field .* should originate from .*");
+                // TODO this should be TrinoException
+                .nonTrinoExceptionFailure().hasMessageMatching("Grouping field .* should originate from .*");
 
         // aggregation with filter: all aggregations have filter, so filter is pushed down and it is not supported by the correlated unnest rewrite
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT b FROM " +
                         "(VALUES ARRAY[1, 2, 3]) t(a) " +
                         "LEFT JOIN " +
                         "LATERAL (SELECT array_agg(x) FILTER (WHERE x < 3) FROM (SELECT x FROM (VALUES 1) LEFT JOIN UNNEST(a) u(x) ON TRUE)) t2(b) " +
                         "ON TRUE"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .failure().hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
 
         // aggregation with filter: no filter pushdown
         assertThat(assertions.query(
@@ -1074,10 +1089,10 @@ public class TestSubqueries
                         "FROM (VALUES ARRAY[1], ARRAY[2]) t(a)"))
                 .matches("VALUES 1, 2");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT * FROM UNNEST(a) u(x)) " +
                         "FROM (VALUES ARRAY[1, 2, 3]) t(a)"))
-                .hasMessage("Scalar sub-query has returned multiple rows");
+                .failure().hasMessage("Scalar sub-query has returned multiple rows");
 
         // limit in subquery
         assertThat(assertions.query(
@@ -1698,12 +1713,14 @@ public class TestSubqueries
 
         assertThat(assertions.query(
                 "SELECT (SELECT 'a', 1)"))
-                .hasOutputTypes(List.of(rowType(field(createVarcharType(1)), field(INTEGER))))
+                .result()
+                .hasTypes(List.of(rowType(field(createVarcharType(1)), field(INTEGER))))
                 .matches("SELECT ROW('a', 1)");
 
         assertThat(assertions.query(
                 "SELECT (SELECT 'a' AS x, 1 AS y)"))
-                .hasOutputTypes(List.of(rowType(field("x", createVarcharType(1)), field("y", INTEGER))))
+                .result()
+                .hasTypes(List.of(rowType(field("x", createVarcharType(1)), field("y", INTEGER))))
                 .matches("SELECT CAST(ROW('a', 1) AS row(x varchar(1), y integer))");
 
         assertThat(assertions.query(

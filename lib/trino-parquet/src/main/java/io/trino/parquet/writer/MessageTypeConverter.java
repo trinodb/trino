@@ -17,7 +17,6 @@ import org.apache.parquet.format.ConvertedType;
 import org.apache.parquet.format.FieldRepetitionType;
 import org.apache.parquet.format.SchemaElement;
 import org.apache.parquet.format.Type;
-import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
@@ -27,7 +26,7 @@ import org.apache.parquet.schema.TypeVisitor;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.parquet.format.converter.ParquetMetadataConverterUtil.convertToLogicalType;
+import static io.trino.parquet.ParquetMetadataConverter.convertToLogicalType;
 
 class MessageTypeConverter
 {
@@ -54,7 +53,7 @@ class MessageTypeConverter
                     element.setConverted_type(getConvertedType(primitiveType.getOriginalType()));
                 }
                 if (primitiveType.getLogicalTypeAnnotation() != null) {
-                    element.setLogicalType(convertToLogicalType(new ParquetMetadataConverter(), primitiveType.getLogicalTypeAnnotation()));
+                    element.setLogicalType(convertToLogicalType(primitiveType.getLogicalTypeAnnotation()));
                 }
                 if (primitiveType.getDecimalMetadata() != null) {
                     element.setPrecision(primitiveType.getDecimalMetadata().getPrecision());
@@ -88,7 +87,7 @@ class MessageTypeConverter
                     element.setConverted_type(getConvertedType(groupType.getOriginalType()));
                 }
                 if (groupType.getLogicalTypeAnnotation() != null) {
-                    element.setLogicalType(convertToLogicalType(new ParquetMetadataConverter(), groupType.getLogicalTypeAnnotation()));
+                    element.setLogicalType(convertToLogicalType(groupType.getLogicalTypeAnnotation()));
                 }
                 if (groupType.getId() != null) {
                     element.setField_id(groupType.getId().intValue());

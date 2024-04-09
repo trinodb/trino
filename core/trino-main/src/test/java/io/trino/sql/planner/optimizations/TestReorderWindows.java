@@ -17,6 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
@@ -26,23 +32,25 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
-import io.trino.sql.tree.WindowFrame;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 
 public class TestReorderWindows
         extends BasePlanTest
@@ -58,8 +66,6 @@ public class TestReorderWindows
 
     private static final PlanMatchPattern LINEITEM_TABLESCAN_DOQPRSST;
     private static final PlanMatchPattern LINEITEM_TABLESCAN_DOQRST;
-
-    private static final Optional<WindowFrame> commonFrame;
 
     private static final ExpectedValueProvider<DataOrganizationSpecification> windowA;
     private static final ExpectedValueProvider<DataOrganizationSpecification> windowAp;
@@ -89,8 +95,6 @@ public class TestReorderWindows
         columns.put(SUPPKEY_ALIAS, "suppkey");
         columns.put(TAX_ALIAS, "tax");
         LINEITEM_TABLESCAN_DOQRST = tableScan("lineitem", columns.buildOrThrow());
-
-        commonFrame = Optional.empty();
 
         windowA = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
@@ -141,15 +145,15 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowAp)
-                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                        .addFunction(windowFunction("min", ImmutableList.of(TAX_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                        .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(windowB)
-                                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                                                 anyTree(LINEITEM_TABLESCAN_DOQPRSST)))))));
 
         assertPlan(sql, pattern);
@@ -168,15 +172,15 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowAp)
-                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                        .addFunction(windowFunction("min", ImmutableList.of(TAX_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                        .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(windowB)
-                                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                                                 LINEITEM_TABLESCAN_DOQPRSST)))))));
     }
 
@@ -191,11 +195,11 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowApp)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                        .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 LINEITEM_TABLESCAN_DOQRST)))));
 
         assertUnitPlan(
@@ -206,11 +210,11 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowApp)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                        .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 LINEITEM_TABLESCAN_DOQRST)))));
     }
 
@@ -226,13 +230,13 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowApp)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("lag", commonFrame, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
-                                                project(ImmutableMap.of("ONE", expression("CAST(expr AS bigint)")),
-                                                        project(ImmutableMap.of("expr", expression("1")),
+                                                        .addFunction(windowFunction("lag", ImmutableList.of(QUANTITY_ALIAS, "ONE"), DEFAULT_FRAME)),
+                                                project(ImmutableMap.of("ONE", expression(new Cast(new Reference(INTEGER, "expr"), BIGINT))),
+                                                        project(ImmutableMap.of("expr", expression(new Constant(INTEGER, 1L))),
                                                                 LINEITEM_TABLESCAN_DOQRST)))))));
     }
 
@@ -254,13 +258,14 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowA)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                 project(
-                                        filter("NOT (" + RECEIPTDATE_ALIAS + " IS NULL)",
+                                        filter(
+                                                new Not(new IsNull(new Reference(VARCHAR, RECEIPTDATE_ALIAS))),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(windowApp)
-                                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                                                 LINEITEM_TABLESCAN_DOQRST)))))));
     }
 
@@ -282,12 +287,13 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowApp)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                                filter("SUPPKEY > BIGINT '0'",
+                                                        .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
+                                                filter(
+                                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "SUPPKEY"), new Constant(BIGINT, 0L)),
                                                         LINEITEM_TABLESCAN_DOQRST))))));
     }
 
@@ -316,40 +322,39 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowD)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(windowC)
-                                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                .addFunction(windowFunction("sum", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(windowE)
-                                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                                                        .addFunction(windowFunction("sum", ImmutableList.of(TAX_ALIAS), DEFAULT_FRAME)),
                                                                 LINEITEM_TABLESCAN_DOQRST)))))));
     }
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(),
                 new PredicatePushDown(
-                        getQueryRunner().getPlannerContext(),
-                        createTestingTypeAnalyzer(getQueryRunner().getPlannerContext()),
+                        getPlanTester().getPlannerContext(),
                         false,
                         false),
                 new IterativeOptimizer(
-                        getQueryRunner().getPlannerContext(),
+                        getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
-                        getQueryRunner().getEstimatedExchangesCostCalculator(),
+                        getPlanTester().getStatsCalculator(),
+                        getPlanTester().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(1))
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(2))
-                                .addAll(columnPruningRules(getQueryRunner().getMetadata()))
+                                .addAll(columnPruningRules(getPlanTester().getPlannerContext().getMetadata()))
                                 .build()));
         assertPlan(sql, pattern, optimizers);
     }

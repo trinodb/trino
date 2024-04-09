@@ -16,15 +16,15 @@ package io.trino.plugin.iceberg.catalog.jdbc;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -32,7 +32,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
@@ -49,6 +48,7 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +58,6 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.transformValues;
@@ -74,7 +73,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
 
 public class TrinoJdbcCatalog
@@ -167,30 +165,25 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
+    public List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace)
     {
         List<String> namespaces = listNamespaces(session, namespace);
-        // Build as a set and convert to list for removing duplicate entries due to case difference
-        ImmutableSet.Builder<SchemaTableName> tablesListBuilder = ImmutableSet.builder();
+
+        // Build as a map and convert to list for removing duplicate entries due to case difference
+        Map<SchemaTableName, TableInfo> tablesListBuilder = new HashMap<>();
         for (String schemaName : namespaces) {
             try {
-                jdbcCatalog.listTables(Namespace.of(schemaName)).forEach(table -> tablesListBuilder.add(new SchemaTableName(schemaName, table.name())));
+                for (TableIdentifier table : jdbcCatalog.listTables(Namespace.of(schemaName))) {
+                    SchemaTableName tableName = new SchemaTableName(schemaName, table.name());
+                    // views and materialized views are currently not supported, so everything is a table
+                    tablesListBuilder.put(tableName, new TableInfo(tableName, TableInfo.ExtendedRelationType.TABLE));
+                }
             }
             catch (NoSuchNamespaceException e) {
                 // Namespace may have been deleted
             }
         }
-        return tablesListBuilder.build().asList();
-    }
-
-    @Override
-    public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace)
-    {
-        // views and materialized views are currently not supported
-        verify(listViews(session, namespace).isEmpty(), "Unexpected views support");
-        verify(listMaterializedViews(session, namespace).isEmpty(), "Unexpected views support");
-        return listTables(session, namespace).stream()
-                .collect(toImmutableMap(identity(), ignore -> RelationType.TABLE));
+        return ImmutableList.copyOf(tablesListBuilder.values());
     }
 
     @Override
@@ -409,12 +402,6 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace)
     {
         return ImmutableMap.of();
@@ -424,12 +411,6 @@ public class TrinoJdbcCatalog
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewIdentifier)
     {
         return Optional.empty();
-    }
-
-    @Override
-    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
-    {
-        return ImmutableList.of();
     }
 
     @Override

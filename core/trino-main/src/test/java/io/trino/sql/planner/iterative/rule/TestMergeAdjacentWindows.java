@@ -17,6 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -24,7 +28,6 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -33,13 +36,14 @@ import java.util.stream.Collectors;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 
 public class TestMergeAdjacentWindows
@@ -98,7 +102,7 @@ public class TestMergeAdjacentWindows
                                 newWindowNodeSpecification(p, "a"),
                                 ImmutableMap.of(p.symbol("avg_2"), newWindowNodeFunction(AVG, "a")),
                                 p.filter(
-                                        expression("a > 5"),
+                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                                         p.window(
                                                 newWindowNodeSpecification(p, "a"),
                                                 ImmutableMap.of(p.symbol("avg_1"), newWindowNodeFunction(AVG, "a")),
@@ -142,17 +146,17 @@ public class TestMergeAdjacentWindows
         tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
                 .on(p ->
                         p.window(
-                                newWindowNodeSpecification(p, "a"),
-                                ImmutableMap.of(p.symbol("avg_1"), newWindowNodeFunction(AVG, "a")),
+                                newWindowNodeSpecification(new Symbol(DOUBLE, "a")),
+                                ImmutableMap.of(p.symbol("avg_1", DOUBLE), newWindowNodeFunction(AVG, new Symbol(DOUBLE, "a"))),
                                 p.window(
-                                        newWindowNodeSpecification(p, "a"),
-                                        ImmutableMap.of(p.symbol("sum_1"), newWindowNodeFunction(SUM, "a")),
-                                        p.values(p.symbol("a")))))
+                                        newWindowNodeSpecification(new Symbol(DOUBLE, "a")),
+                                        ImmutableMap.of(p.symbol("sum_1", DOUBLE), newWindowNodeFunction(SUM, new Symbol(DOUBLE, "a"))),
+                                        p.values(p.symbol("a", DOUBLE)))))
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall(AVG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias)))
-                                        .addFunction(functionCall(SUM.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias))),
+                                        .addFunction(windowFunction(AVG.getSignature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME))
+                                        .addFunction(windowFunction(SUM.getSignature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME)),
                                 values(ImmutableMap.of(columnAAlias, 0))));
     }
 
@@ -167,40 +171,45 @@ public class TestMergeAdjacentWindows
         tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(2))
                 .on(p ->
                         p.window(
-                                newWindowNodeSpecification(p, "a"),
-                                ImmutableMap.of(p.symbol("lagOutput"), newWindowNodeFunction(LAG, "a", "one")),
+                                newWindowNodeSpecification(new Symbol(DOUBLE, "a")),
+                                ImmutableMap.of(p.symbol("lagOutput"), newWindowNodeFunction(LAG, new Symbol(DOUBLE, "a"), new Symbol(INTEGER, "one"))),
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.symbol("one"), expression("CAST(1 AS bigint)"))
-                                                .putIdentities(ImmutableList.of(p.symbol("a"), p.symbol("avgOutput")))
+                                                .put(p.symbol("one", INTEGER), new Constant(INTEGER, 1L))
+                                                .putIdentities(ImmutableList.of(new Symbol(DOUBLE, "a"), p.symbol("avgOutput", DOUBLE)))
                                                 .build(),
                                         p.project(
-                                                Assignments.identity(p.symbol("a"), p.symbol("avgOutput"), p.symbol("unused")),
+                                                Assignments.identity(new Symbol(DOUBLE, "a"), p.symbol("avgOutput", DOUBLE), p.symbol("unused")),
                                                 p.window(
-                                                        newWindowNodeSpecification(p, "a"),
-                                                        ImmutableMap.of(p.symbol("avgOutput"), newWindowNodeFunction(AVG, "a")),
-                                                        p.values(p.symbol("a"), p.symbol("unused")))))))
+                                                        newWindowNodeSpecification(new Symbol(DOUBLE, "a")),
+                                                        ImmutableMap.of(p.symbol("avgOutput", DOUBLE), newWindowNodeFunction(AVG, "a")),
+                                                        p.values(p.symbol("a", DOUBLE), p.symbol("unused")))))))
                 .matches(
                         strictProject(
                                 ImmutableMap.of(
-                                        columnAAlias, PlanMatchPattern.expression(columnAAlias),
-                                        oneAlias, PlanMatchPattern.expression(oneAlias),
-                                        lagOutputAlias, PlanMatchPattern.expression(lagOutputAlias),
-                                        avgOutputAlias, PlanMatchPattern.expression(avgOutputAlias)),
+                                        columnAAlias, PlanMatchPattern.expression(new Reference(BIGINT, columnAAlias)),
+                                        oneAlias, PlanMatchPattern.expression(new Reference(BIGINT, oneAlias)),
+                                        lagOutputAlias, PlanMatchPattern.expression(new Reference(DOUBLE, lagOutputAlias)),
+                                        avgOutputAlias, PlanMatchPattern.expression(new Reference(DOUBLE, avgOutputAlias))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationA)
-                                                .addFunction(lagOutputAlias, functionCall(LAG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias, oneAlias)))
-                                                .addFunction(avgOutputAlias, functionCall(AVG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias))),
+                                                .addFunction(lagOutputAlias, windowFunction(LAG.getSignature().getName().getFunctionName(), ImmutableList.of(columnAAlias, oneAlias), DEFAULT_FRAME))
+                                                .addFunction(avgOutputAlias, windowFunction(AVG.getSignature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME)),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        oneAlias, PlanMatchPattern.expression("CAST(1 AS bigint)"),
-                                                        columnAAlias, PlanMatchPattern.expression(columnAAlias),
-                                                        unusedAlias, PlanMatchPattern.expression(unusedAlias)),
+                                                        oneAlias, PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
+                                                        columnAAlias, PlanMatchPattern.expression(new Reference(BIGINT, columnAAlias)),
+                                                        unusedAlias, PlanMatchPattern.expression(new Reference(BIGINT, unusedAlias))),
                                                 strictProject(
                                                         ImmutableMap.of(
-                                                                columnAAlias, PlanMatchPattern.expression(columnAAlias),
-                                                                unusedAlias, PlanMatchPattern.expression(unusedAlias)),
+                                                                columnAAlias, PlanMatchPattern.expression(new Reference(BIGINT, columnAAlias)),
+                                                                unusedAlias, PlanMatchPattern.expression(new Reference(BIGINT, unusedAlias))),
                                                         values(columnAAlias, unusedAlias))))));
+    }
+
+    private static DataOrganizationSpecification newWindowNodeSpecification(Symbol symbol)
+    {
+        return new DataOrganizationSpecification(ImmutableList.of(symbol), Optional.empty());
     }
 
     private static DataOrganizationSpecification newWindowNodeSpecification(PlanBuilder planBuilder, String symbolName)
@@ -208,11 +217,24 @@ public class TestMergeAdjacentWindows
         return new DataOrganizationSpecification(ImmutableList.of(planBuilder.symbol(symbolName, BIGINT)), Optional.empty());
     }
 
+    private static WindowNode.Function newWindowNodeFunction(ResolvedFunction resolvedFunction, Symbol... symbols)
+    {
+        return new WindowNode.Function(
+                resolvedFunction,
+                Arrays.stream(symbols)
+                        .map(Symbol::toSymbolReference)
+                        .collect(Collectors.toList()),
+                DEFAULT_FRAME,
+                false);
+    }
+
     private static WindowNode.Function newWindowNodeFunction(ResolvedFunction resolvedFunction, String... symbols)
     {
         return new WindowNode.Function(
                 resolvedFunction,
-                Arrays.stream(symbols).map(SymbolReference::new).collect(Collectors.toList()),
+                Arrays.stream(symbols)
+                        .map(name -> new Reference(DOUBLE, name))
+                        .collect(Collectors.toList()),
                 DEFAULT_FRAME,
                 false);
     }

@@ -272,6 +272,8 @@ public class TestTupleDomainParquetPredicate
         assertThat(getDomain(columnDescriptor, type, 10, binaryColumnStats(maximum, maximum), ID, UTC)).isEqualTo(singleValue(type, max));
 
         assertThat(getDomain(columnDescriptor, type, 10, binaryColumnStats(0L, 100L), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(type, zero, true, hundred, true)), false));
+        assertThat(getDomain(columnDescriptor, type, 10, intColumnStats(0, 100), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(type, zero, true, hundred, true)), false));
+
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, type, 10, binaryColumnStats(100L, 10L), ID, UTC))
@@ -474,7 +476,7 @@ public class TestTupleDomainParquetPredicate
                 .as(LogicalTypeAnnotation.timestampType(false, timeUnit))
                 .named("TimestampColumn");
 
-        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[]{}, type, 0, 0);
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {}, type, 0, 0);
         TimestampType timestampType = createTimestampType(precision);
         assertThat(getDomain(columnDescriptor, timestampType, 0, null, ID, UTC)).isEqualTo(all(timestampType));
         LocalDateTime maxTime = baseTime.plus(Duration.ofMillis(50));
@@ -719,7 +721,7 @@ public class TestTupleDomainParquetPredicate
 
     private ColumnDescriptor createColumnDescriptor(PrimitiveTypeName typeName, String columnName)
     {
-        return new ColumnDescriptor(new String[]{}, new PrimitiveType(REQUIRED, typeName, columnName), 0, 0);
+        return new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, typeName, columnName), 0, 0);
     }
 
     private TupleDomain<ColumnDescriptor> getEffectivePredicate(ColumnDescriptor column, VarcharType type, Slice value)

@@ -5,13 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>435</version>
+        <version>444</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-singlestore</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - SingleStore Connector</description>
+    <description>Trino - SingleStore connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -31,7 +31,7 @@
         <dependency>
             <groupId>com.singlestore</groupId>
             <artifactId>singlestore-jdbc-client</artifactId>
-            <version>1.2.0</version>
+            <version>1.2.2</version>
         </dependency>
 
         <dependency>

@@ -21,7 +21,6 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testng.services.ManageTestResources;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -43,7 +42,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
-import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -54,7 +52,6 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
 {
     private File warehouseLocation;
 
-    @ManageTestResources.Suppress(because = "Not a TestNG test class")
     private Catalog backend;
 
     public TestIcebergTrinoRestCatalogConnectorSmokeTest()
@@ -153,7 +150,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     @Override
     protected String schemaPath()
     {
-        return format("%s/%s", warehouseLocation, getSession().getSchema());
+        return String.format("%s/%s", warehouseLocation, getSession().getSchema());
     }
 
     @Override
@@ -183,14 +180,6 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingManifestListFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingManifestListFile)
-                .hasMessageContaining("Table location should not exist");
-    }
-
-    @Test
-    @Override
-    public void testDropTableWithMissingDataFile()
-    {
-        assertThatThrownBy(super::testDropTableWithMissingDataFile)
                 .hasMessageContaining("Table location should not exist");
     }
 

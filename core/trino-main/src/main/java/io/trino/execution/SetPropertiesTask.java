@@ -131,7 +131,7 @@ public class SetPropertiesTask
     {
         if (plannerContext.getMetadata().getMaterializedView(session, materializedViewName).isEmpty()) {
             String additionalInformation;
-            if (plannerContext.getMetadata().getView(session, materializedViewName).isPresent()) {
+            if (plannerContext.getMetadata().isView(session, materializedViewName)) {
                 additionalInformation = ", but a view with that name exists.";
             }
             else if (plannerContext.getMetadata().getTableHandle(session, materializedViewName).isPresent()) {

@@ -25,9 +25,12 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.Slice;
+import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.block.BlockAssertions;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -489,8 +492,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 DataSize.of(1, Unit.MEGABYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
                 new QueryId("query"),
+                Span.getInvalid(),
                 createRandomExchangeId());
 
         DirectExchangeClient exchangeClient = new DirectExchangeClient(
@@ -549,8 +553,9 @@ public class TestDirectExchangeClient
                         scheduler,
                         DataSize.of(1, Unit.KILOBYTE),
                         RetryPolicy.QUERY,
-                        new ExchangeManagerRegistry(),
+                        new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
                         new QueryId("query"),
+                        Span.getInvalid(),
                         createRandomExchangeId()),
                 maxResponseSize,
                 1,

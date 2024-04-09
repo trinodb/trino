@@ -284,6 +284,7 @@ public class PartitionedOutputOperator
     public void finish()
     {
         if (!finished) {
+            pagePartitioner.prepareForRelease(operatorContext);
             pagePartitionerPool.release(pagePartitioner);
             finished = true;
         }

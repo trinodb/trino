@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.SampledRelation;
 
 import java.util.List;
 
@@ -38,14 +37,6 @@ public class SampleNode
     {
         BERNOULLI,
         SYSTEM;
-
-        public static Type fromType(SampledRelation.Type sampleType)
-        {
-            return switch (sampleType) {
-                case BERNOULLI -> Type.BERNOULLI;
-                case SYSTEM -> Type.SYSTEM;
-            };
-        }
     }
 
     @JsonCreator

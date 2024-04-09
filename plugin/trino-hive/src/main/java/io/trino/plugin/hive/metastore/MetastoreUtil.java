@@ -15,10 +15,17 @@ package io.trino.plugin.hive.metastore;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
+import io.airlift.compress.Compressor;
+import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.slice.Slice;
+import io.trino.hive.thrift.metastore.ResourceType;
+import io.trino.hive.thrift.metastore.ResourceUri;
+import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.PartitionOfflineException;
 import io.trino.plugin.hive.TableOfflineException;
@@ -42,6 +49,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import jakarta.annotation.Nullable;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -51,12 +59,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.hash.Hashing.sha256;
+import static com.google.common.io.BaseEncoding.base64Url;
+import static io.trino.hive.formats.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.BUCKET_COUNT;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.BUCKET_FIELD_NAME;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -71,8 +84,7 @@ import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
 import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
-import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
+import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.getSparkBasicStatistics;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
@@ -86,9 +98,14 @@ import static java.util.stream.Collectors.toList;
 
 public final class MetastoreUtil
 {
-    private static final String HIVE_PARTITION_VALUE_WILDCARD = "";
-
     private MetastoreUtil() {}
+
+    private static final String HIVE_PARTITION_VALUE_WILDCARD = "";
+    public static final String NUM_ROWS = "numRows";
+    public static final String NUM_FILES = "numFiles";
+    public static final String RAW_DATA_SIZE = "rawDataSize";
+    public static final String TOTAL_SIZE = "totalSize";
+    public static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
 
     public static Map<String, String> getHiveSchema(Table table)
     {
@@ -415,6 +432,26 @@ public final class MetastoreUtil
         return withColumnDomains(domains);
     }
 
+    public static String metastoreFunctionName(String functionName, String signatureToken)
+    {
+        return "trino__%s__%s".formatted(functionName, sha256().hashUnencodedChars(signatureToken));
+    }
+
+    public static List<ResourceUri> toResourceUris(byte[] input)
+    {
+        Compressor compressor = new ZstdCompressor();
+        byte[] compressed = new byte[compressor.maxCompressedLength(input.length)];
+        int outputSize = compressor.compress(input, 0, input.length, compressed, 0, compressed.length);
+
+        ImmutableList.Builder<ResourceUri> resourceUris = ImmutableList.builder();
+        for (int offset = 0; offset < outputSize; offset += 750) {
+            int length = Math.min(750, outputSize - offset);
+            String encoded = base64Url().encode(compressed, offset, length);
+            resourceUris.add(new ResourceUri(ResourceType.FILE, encoded));
+        }
+        return resourceUris.build();
+    }
+
     public static Map<String, String> adjustRowCount(Map<String, String> parameters, String description, long rowCountAdjustment)
     {
         String existingRowCount = parameters.get(NUM_ROWS);
@@ -428,5 +465,64 @@ public final class MetastoreUtil
         Map<String, String> copiedParameters = new HashMap<>(parameters);
         copiedParameters.put(NUM_ROWS, String.valueOf(newRowCount));
         return ImmutableMap.copyOf(copiedParameters);
+    }
+
+    public static HiveBasicStatistics getHiveBasicStatistics(Map<String, String> parameters)
+    {
+        OptionalLong numFiles = toLong(parameters.get(NUM_FILES));
+        OptionalLong numRows = toLong(parameters.get(NUM_ROWS));
+        OptionalLong inMemoryDataSizeInBytes = toLong(parameters.get(RAW_DATA_SIZE));
+        OptionalLong onDiskDataSizeInBytes = toLong(parameters.get(TOTAL_SIZE));
+        return new HiveBasicStatistics(numFiles, numRows, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
+    }
+
+    public static HiveBasicStatistics getBasicStatisticsWithSparkFallback(Map<String, String> parameters)
+    {
+        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(parameters);
+        // Partitioned table without statistics
+        if (basicStatistics.getRowCount().isEmpty() || basicStatistics.getRowCount().getAsLong() == 0L) {
+            HiveBasicStatistics sparkBasicStatistics = getSparkBasicStatistics(parameters);
+            if (sparkBasicStatistics.getRowCount().isPresent()) {
+                return sparkBasicStatistics;
+            }
+        }
+
+        return basicStatistics;
+    }
+
+    public static Map<String, String> updateStatisticsParameters(Map<String, String> parameters, HiveBasicStatistics statistics)
+    {
+        ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
+
+        parameters.forEach((key, value) -> {
+            if (!STATS_PROPERTIES.contains(key)) {
+                result.put(key, value);
+            }
+        });
+
+        statistics.getFileCount().ifPresent(count -> result.put(NUM_FILES, Long.toString(count)));
+        statistics.getRowCount().ifPresent(count -> result.put(NUM_ROWS, Long.toString(count)));
+        statistics.getInMemoryDataSizeInBytes().ifPresent(size -> result.put(RAW_DATA_SIZE, Long.toString(size)));
+        statistics.getOnDiskDataSizeInBytes().ifPresent(size -> result.put(TOTAL_SIZE, Long.toString(size)));
+
+        // CDH 5.16 metastore ignores stats unless STATS_GENERATED_VIA_STATS_TASK is set
+        // https://github.com/cloudera/hive/blob/cdh5.16.2-release/metastore/src/java/org/apache/hadoop/hive/metastore/MetaStoreUtils.java#L227-L231
+        if (!parameters.containsKey("STATS_GENERATED_VIA_STATS_TASK")) {
+            result.put("STATS_GENERATED_VIA_STATS_TASK", "workaround for potential lack of HIVE-12730");
+        }
+
+        return result.buildOrThrow();
+    }
+
+    private static OptionalLong toLong(@Nullable String parameterValue)
+    {
+        if (parameterValue == null) {
+            return OptionalLong.empty();
+        }
+        Long longValue = Longs.tryParse(parameterValue);
+        if (longValue == null || longValue < 0) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(longValue);
     }
 }

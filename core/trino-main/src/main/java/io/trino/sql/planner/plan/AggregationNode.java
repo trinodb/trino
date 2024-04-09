@@ -24,11 +24,11 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.type.FunctionType;
 
 import java.util.HashSet;
@@ -407,7 +407,7 @@ public class AggregationNode
             this.resolvedFunction = requireNonNull(resolvedFunction, "resolvedFunction is null");
             this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
             for (Expression argument : arguments) {
-                checkArgument(argument instanceof SymbolReference || argument instanceof LambdaExpression,
+                checkArgument(argument instanceof Reference || argument instanceof Lambda,
                         "argument must be symbol or lambda expression: %s", argument.getClass().getSimpleName());
             }
             this.distinct = distinct;

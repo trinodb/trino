@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
@@ -111,7 +112,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static java.util.Objects.requireNonNull;
@@ -400,8 +401,7 @@ public class TestMultiSourcePartitionedScheduler
         DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
                 QUERY_ID,
                 ImmutableList.of(new DynamicFilters.Descriptor(DYNAMIC_FILTER_ID, symbol.toSymbolReference())),
-                ImmutableMap.of(symbol, new TestingColumnHandle("probeColumnA")),
-                symbolAllocator.getTypes());
+                ImmutableMap.of(symbol, new TestingColumnHandle("probeColumnA")));
 
         // make sure dynamic filtering collecting task was created immediately
         assertThat(stage.getState()).isEqualTo(PLANNED);
@@ -520,8 +520,8 @@ public class TestMultiSourcePartitionedScheduler
 
     private PlanFragment createFragment(TableHandle firstTableHandle, TableHandle secondTableHandle)
     {
-        Symbol symbol = new Symbol("column");
-        Symbol buildSymbol = new Symbol("buildColumn");
+        Symbol symbol = new Symbol(VARCHAR, "column");
+        Symbol buildSymbol = new Symbol(VARCHAR, "buildColumn");
 
         TableScanNode tableScanOne = TableScanNode.newInstance(
                 TABLE_SCAN_1_NODE_ID,
@@ -577,14 +577,14 @@ public class TestMultiSourcePartitionedScheduler
                         Optional.empty(),
                         ImmutableMap.of(DYNAMIC_FILTER_ID, buildSymbol),
                         Optional.empty()),
-                ImmutableMap.of(symbol, VARCHAR),
+                ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,
                 Optional.empty(),
                 ImmutableList.of(TABLE_SCAN_1_NODE_ID, TABLE_SCAN_2_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 Optional.empty());
     }
 
@@ -624,6 +624,7 @@ public class TestMultiSourcePartitionedScheduler
                 nodeTaskMap,
                 queryExecutor,
                 noopTracer(),
+                Span.getInvalid(),
                 new SplitSchedulerStats());
         ImmutableMap.Builder<PlanFragmentId, PipelinedOutputBufferManager> outputBuffers = ImmutableMap.builder();
         outputBuffers.put(fragment.getId(), new PartitionedPipelinedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 1));

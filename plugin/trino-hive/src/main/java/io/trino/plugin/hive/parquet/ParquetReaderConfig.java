@@ -37,13 +37,11 @@ public class ParquetReaderConfig
 
     private ParquetReaderOptions options = new ParquetReaderOptions();
 
-    @Deprecated
     public boolean isIgnoreStatistics()
     {
         return options.isIgnoreStatistics();
     }
 
-    @Deprecated
     @Config("parquet.ignore-statistics")
     @ConfigDescription("Ignore statistics from Parquet to allow querying files with corrupted or incorrect statistics")
     public ParquetReaderConfig setIgnoreStatistics(boolean ignoreStatistics)

@@ -16,15 +16,16 @@ package io.trino.plugin.hive.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ConnectorIdentity;
@@ -774,11 +775,17 @@ public class SqlStandardAccessControl
             return true;
         }
 
-        Set<HivePrincipal> allowedPrincipals = metastore.listTablePrivileges(context, tableName.getSchemaName(), tableName.getTableName(), Optional.empty()).stream()
-                .map(HivePrivilegeInfo::getGrantee)
-                .collect(toImmutableSet());
+        try {
+            Set<HivePrincipal> allowedPrincipals = metastore.listTablePrivileges(context, tableName.getSchemaName(), tableName.getTableName(), Optional.empty()).stream()
+                    .map(HivePrivilegeInfo::getGrantee)
+                    .collect(toImmutableSet());
 
-        return listEnabledPrincipals(context.getIdentity(), hivePrincipal -> metastore.listRoleGrants(context, hivePrincipal))
-                .anyMatch(allowedPrincipals::contains);
+            return listEnabledPrincipals(context.getIdentity(), hivePrincipal -> metastore.listRoleGrants(context, hivePrincipal))
+                    .anyMatch(allowedPrincipals::contains);
+        }
+        catch (TableNotFoundException e) {
+            // Table could have been deleted concurrently
+            return false;
+        }
     }
 }

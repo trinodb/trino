@@ -15,12 +15,18 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
+import io.trino.plugin.base.util.JsonTypeUtil;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.DecimalParseResult;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -28,32 +34,59 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
+import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
-import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.In;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Switch;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
+import io.trino.sql.tree.BetweenPredicate;
+import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CurrentCatalog;
+import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.CurrentUser;
+import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.Extract;
-import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.IfExpression;
+import io.trino.sql.tree.InListExpression;
+import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IsNotNullPredicate;
+import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
 import io.trino.sql.tree.JsonExists;
@@ -62,23 +95,30 @@ import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
 import io.trino.sql.tree.JsonValue;
-import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.LocalTime;
+import io.trino.sql.tree.LocalTimestamp;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Row;
-import io.trino.sql.tree.RowDataType;
+import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SimpleCaseExpression;
+import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
-import io.trino.sql.util.AstUtils;
 import io.trino.type.FunctionType;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.UnknownType;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -91,28 +131,37 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
+import static io.trino.type.JsonType.JSON;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
+import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
+import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static io.trino.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Keeps mappings of fields and AST expressions to symbols in the current plan within query boundary.
  * <p>
- * AST and IR expressions use the same class hierarchy ({@link io.trino.sql.tree.Expression},
+ * AST and IR expressions use the same class hierarchy ({@link Expression},
  * but differ in the following ways:
  * <li>AST expressions contain Identifiers, while IR expressions contain SymbolReferences</li>
  * <li>FunctionCalls in AST expressions are SQL function names. In IR expressions, they contain an encoded name representing a resolved function</li>
@@ -132,18 +181,28 @@ public class TranslationMap
 
     // current mappings of sub-expressions -> symbol
     private final Map<ScopeAware<Expression>, Symbol> astToSymbols;
+    private final Map<NodeRef<Expression>, Symbol> substitutions;
 
     public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Session session, PlannerContext plannerContext)
     {
-        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of(), session, plannerContext);
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
     }
 
     public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols, Session session, PlannerContext plannerContext)
     {
-        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]), astToSymbols, session, plannerContext);
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]), astToSymbols, ImmutableMap.of(), session, plannerContext);
     }
 
-    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Symbol[] fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols, Session session, PlannerContext plannerContext)
+    public TranslationMap(
+            Optional<TranslationMap> outerContext,
+            Scope scope,
+            Analysis analysis,
+            Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments,
+            Symbol[] fieldSymbols,
+            Map<ScopeAware<Expression>, Symbol> astToSymbols,
+            Map<NodeRef<Expression>, Symbol> substitutions,
+            Session session,
+            PlannerContext plannerContext)
     {
         this.outerContext = requireNonNull(outerContext, "outerContext is null");
         this.scope = requireNonNull(scope, "scope is null");
@@ -151,6 +210,7 @@ public class TranslationMap
         this.lambdaArguments = requireNonNull(lambdaArguments, "lambdaArguments is null");
         this.session = requireNonNull(session, "session is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.substitutions = ImmutableMap.copyOf(substitutions);
 
         requireNonNull(fieldSymbols, "fieldSymbols is null");
         this.fieldSymbols = fieldSymbols.clone();
@@ -162,15 +222,11 @@ public class TranslationMap
                 "scope: %s, fields mappings: %s",
                 scope.getRelationType().getAllFieldCount(),
                 fieldSymbols.length);
-
-        astToSymbols.keySet().stream()
-                .map(ScopeAware::getNode)
-                .forEach(TranslationMap::verifyAstExpression);
     }
 
     public TranslationMap withScope(Scope scope, List<Symbol> fields)
     {
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols, session, plannerContext);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols, substitutions, session, plannerContext);
     }
 
     public TranslationMap withNewMappings(Map<ScopeAware<Expression>, Symbol> mappings, List<Symbol> fields)
@@ -184,7 +240,16 @@ public class TranslationMap
         newMappings.putAll(this.astToSymbols);
         newMappings.putAll(mappings);
 
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, newMappings, session, plannerContext);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, newMappings, substitutions, session, plannerContext);
+    }
+
+    public TranslationMap withAdditionalIdentityMappings(Map<NodeRef<Expression>, Symbol> mappings)
+    {
+        Map<NodeRef<Expression>, Symbol> newMappings = new HashMap<>();
+        newMappings.putAll(this.substitutions);
+        newMappings.putAll(mappings);
+
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, astToSymbols, newMappings, session, plannerContext);
     }
 
     public List<Symbol> getFieldSymbols()
@@ -204,9 +269,9 @@ public class TranslationMap
 
     public boolean canTranslate(Expression expression)
     {
-        verifyAstExpression(expression);
-
-        if (astToSymbols.containsKey(scopeAwareKey(expression, analysis, scope)) || expression instanceof FieldReference) {
+        if (astToSymbols.containsKey(scopeAwareKey(expression, analysis, scope)) ||
+                substitutions.containsKey(NodeRef.of(expression)) ||
+                expression instanceof io.trino.sql.tree.FieldReference) {
             return true;
         }
 
@@ -218,852 +283,968 @@ public class TranslationMap
         return false;
     }
 
-    public Expression rewrite(Expression expression)
+    public io.trino.sql.ir.Expression rewrite(Expression root)
     {
-        verifyAstExpression(expression);
+        verify(analysis.isAnalyzed(root), "Expression is not analyzed (%s): %s", root.getClass().getName(), root);
 
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
-        {
-            @Override
-            protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
-                return coerceIfNecessary(node, rewrittenExpression);
-            }
-
-            @Override
-            public Expression rewriteFieldReference(FieldReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                return getSymbolForColumn(node)
-                        .map(Symbol::toSymbolReference)
-                        .orElseThrow(() -> new IllegalStateException(format("No symbol mapping for node '%s' (%s)", node, node.getFieldIndex())));
-            }
-
-            @Override
-            public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                LambdaArgumentDeclaration referencedLambdaArgumentDeclaration = analysis.getLambdaArgumentReference(node);
-                if (referencedLambdaArgumentDeclaration != null) {
-                    Symbol symbol = lambdaArguments.get(NodeRef.of(referencedLambdaArgumentDeclaration));
-                    return coerceIfNecessary(node, symbol.toSymbolReference());
-                }
-
-                return getSymbolForColumn(node)
-                        .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
-                        .orElseGet(() -> coerceIfNecessary(node, node));
-            }
-
-            @Override
-            public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                if (analysis.isPatternRecognitionFunction(node)) {
-                    ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
-                    if (!node.getArguments().isEmpty()) {
-                        rewrittenArguments.add(treeRewriter.rewrite(node.getArguments().get(0), null));
-                        if (node.getArguments().size() > 1) {
-                            // do not rewrite the offset literal
-                            rewrittenArguments.add(node.getArguments().get(1));
-                        }
-                    }
-                    // Pattern recognition functions are special constructs, passed using the form of FunctionCall.
-                    // They are not resolved like regular function calls. They are processed in LogicalIndexExtractor.
-                    return coerceIfNecessary(node, new FunctionCall(
-                            Optional.empty(),
-                            node.getName(),
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty(),
-                            false,
-                            Optional.empty(),
-                            node.getProcessingMode(),
-                            rewrittenArguments.build()));
-                }
-
-                // Do not use the mapping for aggregate functions in pattern recognition context. They have different semantics
-                // than aggregate functions outside pattern recognition.
-                if (!analysis.isPatternAggregation(node)) {
-                    Optional<SymbolReference> mapped = tryGetMapping(node);
-                    if (mapped.isPresent()) {
-                        return coerceIfNecessary(node, mapped.get());
-                    }
-                }
-
-                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
-                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
-
-                FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-                rewritten = new FunctionCall(
-                        rewritten.getLocation(),
-                        resolvedFunction.toQualifiedName(),
-                        rewritten.getWindow(),
-                        rewritten.getFilter(),
-                        rewritten.getOrderBy(),
-                        rewritten.isDistinct(),
-                        rewritten.getNullTreatment(),
-                        rewritten.getProcessingMode(),
-                        rewritten.getArguments());
-                return coerceIfNecessary(node, rewritten);
-            }
-
-            @Override
-            public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                LabelPrefixedReference labelDereference = analysis.getLabelDereference(node);
-                if (labelDereference != null) {
-                    if (labelDereference.getColumn().isPresent()) {
-                        Expression rewritten = treeRewriter.rewrite(labelDereference.getColumn().get(), null);
-                        checkState(rewritten instanceof SymbolReference, "expected symbol reference, got: " + rewritten);
-                        return coerceIfNecessary(node, new LabelDereference(labelDereference.getLabel(), (SymbolReference) rewritten));
-                    }
-                    return new LabelDereference(labelDereference.getLabel());
-                }
-
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                if (analysis.isColumnReference(node)) {
-                    return coerceIfNecessary(
-                            node,
-                            getSymbolForColumn(node)
-                                    .map(Symbol::toSymbolReference)
-                                    .orElseThrow(() -> new IllegalStateException(format("No mapping for %s", node))));
-                }
-
-                RowType rowType = (RowType) analysis.getType(node.getBase());
-                String fieldName = node.getField().orElseThrow().getValue();
-
-                List<RowType.Field> fields = rowType.getFields();
-                int index = -1;
-                for (int i = 0; i < fields.size(); i++) {
-                    RowType.Field field = fields.get(i);
-                    if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
-                        checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
-                        index = i;
-                    }
-                }
-
-                checkState(index >= 0, "could not find field name: %s", fieldName);
-
-                return coerceIfNecessary(
-                        node,
-                        new SubscriptExpression(
-                                treeRewriter.rewrite(node.getBase(), context),
-                                new LongLiteral(Long.toString(index + 1))));
-            }
-
-            @Override
-            public Expression rewriteArray(Array node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                checkCondition(node.getValues().size() <= 254, TOO_MANY_ARGUMENTS, "Too many arguments for array constructor");
-
-                List<Type> types = node.getValues().stream()
-                        .map(analysis::getType)
-                        .collect(toImmutableList());
-
-                List<Expression> values = node.getValues().stream()
-                        .map(element -> treeRewriter.rewrite(element, context))
-                        .collect(toImmutableList());
-
-                FunctionCall call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                        .setName(ArrayConstructor.NAME)
-                        .setArguments(types, values)
-                        .build();
-
-                return coerceIfNecessary(node, call);
-            }
-
-            @Override
-            public Expression rewriteCurrentCatalog(CurrentCatalog node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                return coerceIfNecessary(node, new FunctionCall(
-                        plannerContext.getMetadata()
-                                .resolveBuiltinFunction("$current_catalog", ImmutableList.of())
-                                .toQualifiedName(),
-                        ImmutableList.of()));
-            }
-
-            @Override
-            public Expression rewriteCurrentSchema(CurrentSchema node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                return coerceIfNecessary(node, new FunctionCall(
-                        plannerContext.getMetadata()
-                                .resolveBuiltinFunction("$current_schema", ImmutableList.of())
-                                .toQualifiedName(),
-                        ImmutableList.of()));
-            }
-
-            @Override
-            public Expression rewriteCurrentPath(CurrentPath node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                return coerceIfNecessary(node, new FunctionCall(
-                        plannerContext.getMetadata()
-                                .resolveBuiltinFunction("$current_path", ImmutableList.of())
-                                .toQualifiedName(),
-                        ImmutableList.of()));
-            }
-
-            @Override
-            public Expression rewriteCurrentUser(CurrentUser node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                return coerceIfNecessary(node, new FunctionCall(
-                        plannerContext.getMetadata()
-                                .resolveBuiltinFunction("$current_user", ImmutableList.of())
-                                .toQualifiedName(),
-                        ImmutableList.of()));
-            }
-
-            @Override
-            public Expression rewriteCurrentTime(CurrentTime node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                FunctionCall call = switch (node.getFunction()) {
-                    case DATE -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("current_date")
-                            .build();
-                    case TIME -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("$current_time")
-                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
-                            .build();
-                    case LOCALTIME -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("$localtime")
-                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
-                            .build();
-                    case TIMESTAMP -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("$current_timestamp")
-                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
-                            .build();
-                    case LOCALTIMESTAMP -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("$localtimestamp")
-                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
-                            .build();
-                };
-
-                return coerceIfNecessary(node, call);
-            }
-
-            @Override
-            public Expression rewriteExtract(Extract node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                Expression value = treeRewriter.rewrite(node.getExpression(), context);
-                Type type = analysis.getType(node.getExpression());
-
-                FunctionCall call = switch (node.getField()) {
-                    case YEAR -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("year")
-                            .addArgument(type, value)
-                            .build();
-                    case QUARTER -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("quarter")
-                            .addArgument(type, value)
-                            .build();
-                    case MONTH -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("month")
-                            .addArgument(type, value)
-                            .build();
-                    case WEEK -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("week")
-                            .addArgument(type, value)
-                            .build();
-                    case DAY, DAY_OF_MONTH -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("day")
-                            .addArgument(type, value)
-                            .build();
-                    case DAY_OF_WEEK, DOW -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("day_of_week")
-                            .addArgument(type, value)
-                            .build();
-                    case DAY_OF_YEAR, DOY -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("day_of_year")
-                            .addArgument(type, value)
-                            .build();
-                    case YEAR_OF_WEEK, YOW -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("year_of_week")
-                            .addArgument(type, value)
-                            .build();
-                    case HOUR -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("hour")
-                            .addArgument(type, value)
-                            .build();
-                    case MINUTE -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("minute")
-                            .addArgument(type, value)
-                            .build();
-                    case SECOND -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("second")
-                            .addArgument(type, value)
-                            .build();
-                    case TIMEZONE_MINUTE -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("timezone_minute")
-                            .addArgument(type, value)
-                            .build();
-                    case TIMEZONE_HOUR -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("timezone_hour")
-                            .addArgument(type, value)
-                            .build();
-                };
-
-                return coerceIfNecessary(node, call);
-            }
-
-            @Override
-            public Expression rewriteAtTimeZone(AtTimeZone node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                Type valueType = analysis.getType(node.getValue());
-                Expression value = treeRewriter.rewrite(node.getValue(), context);
-
-                Type timeZoneType = analysis.getType(node.getTimeZone());
-                Expression timeZone = treeRewriter.rewrite(node.getTimeZone(), context);
-
-                FunctionCall call;
-                if (valueType instanceof TimeType type) {
-                    call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("$at_timezone")
-                            .addArgument(createTimeWithTimeZoneType(type.getPrecision()), new Cast(value, toSqlType(createTimeWithTimeZoneType(((TimeType) valueType).getPrecision()))))
-                            .addArgument(timeZoneType, timeZone)
-                            .build();
-                }
-                else if (valueType instanceof TimeWithTimeZoneType) {
-                    call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("$at_timezone")
-                            .addArgument(valueType, value)
-                            .addArgument(timeZoneType, timeZone)
-                            .build();
-                }
-                else if (valueType instanceof TimestampType type) {
-                    call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("at_timezone")
-                            .addArgument(createTimestampWithTimeZoneType(type.getPrecision()), new Cast(value, toSqlType(createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision()))))
-                            .addArgument(timeZoneType, timeZone)
-                            .build();
-                }
-                else if (valueType instanceof TimestampWithTimeZoneType) {
-                    call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("at_timezone")
-                            .addArgument(valueType, value)
-                            .addArgument(timeZoneType, timeZone)
-                            .build();
-                }
-                else {
-                    throw new IllegalArgumentException("Unexpected type: " + valueType);
-                }
-
-                return coerceIfNecessary(node, call);
-            }
-
-            @Override
-            public Expression rewriteFormat(Format node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                List<Expression> arguments = node.getArguments().stream()
-                        .map(value -> treeRewriter.rewrite(value, context))
-                        .collect(toImmutableList());
-                List<Type> argumentTypes = node.getArguments().stream()
-                        .map(analysis::getType)
-                        .collect(toImmutableList());
-
-                FunctionCall call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                        .setName(FormatFunction.NAME)
-                        .addArgument(VARCHAR, arguments.get(0))
-                        .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new Row(arguments.subList(1, arguments.size())))
-                        .build();
-
-                return coerceIfNecessary(node, call);
-            }
-
-            @Override
-            public Expression rewriteTryExpression(TryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                Type type = analysis.getType(node);
-                Expression expression = treeRewriter.rewrite(node.getInnerExpression(), context);
-
-                FunctionCall call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                        .setName(TryFunction.NAME)
-                        .addArgument(new FunctionType(ImmutableList.of(), type), new LambdaExpression(ImmutableList.of(), expression))
-                        .build();
-
-                return coerceIfNecessary(node, call);
-            }
-
-            @Override
-            public Expression rewriteLikePredicate(LikePredicate node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                Expression value = treeRewriter.rewrite(node.getValue(), context);
-                Expression pattern = treeRewriter.rewrite(node.getPattern(), context);
-                Optional<Expression> escape = node.getEscape().map(e -> treeRewriter.rewrite(e, context));
-
-                FunctionCall patternCall;
-                if (escape.isPresent()) {
-                    patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName(LIKE_PATTERN_FUNCTION_NAME)
-                            .addArgument(analysis.getType(node.getPattern()), pattern)
-                            .addArgument(analysis.getType(node.getEscape().get()), escape.get())
-                            .build();
-                }
-                else {
-                    patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName(LIKE_PATTERN_FUNCTION_NAME)
-                            .addArgument(analysis.getType(node.getPattern()), pattern)
-                            .build();
-                }
-
-                FunctionCall call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                        .setName(LIKE_FUNCTION_NAME)
-                        .addArgument(analysis.getType(node.getValue()), value)
-                        .addArgument(LIKE_PATTERN, patternCall)
-                        .build();
-
-                return coerceIfNecessary(node, call);
-            }
-
-            @Override
-            public Expression rewriteTrim(Trim node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
-                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
-
-                Trim rewritten = treeRewriter.defaultRewrite(node, context);
-
-                ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
-                arguments.add(rewritten.getTrimSource());
-                rewritten.getTrimCharacter().ifPresent(arguments::add);
-
-                FunctionCall functionCall = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
-                return coerceIfNecessary(node, functionCall);
-            }
-
-            @Override
-            public Expression rewriteSubscriptExpression(SubscriptExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                Type baseType = analysis.getType(node.getBase());
-                if (baseType instanceof RowType) {
-                    // Do not rewrite subscript index into symbol. Row subscript index is required to be a literal.
-                    Expression rewrittenBase = treeRewriter.rewrite(node.getBase(), context);
-                    return coerceIfNecessary(node, new SubscriptExpression(rewrittenBase, node.getIndex()));
-                }
-
-                Expression rewritten = treeRewriter.defaultRewrite(node, context);
-                return coerceIfNecessary(node, rewritten);
-            }
-
-            @Override
-            public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                checkState(analysis.getCoercion(node) == null, "cannot coerce a lambda expression");
-
-                ImmutableList.Builder<LambdaArgumentDeclaration> newArguments = ImmutableList.builder();
-                for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                    Symbol symbol = lambdaArguments.get(NodeRef.of(argument));
-                    newArguments.add(new LambdaArgumentDeclaration(new Identifier(symbol.getName())));
-                }
-                Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), null);
-                return new LambdaExpression(newArguments.build(), rewrittenBody);
-            }
-
-            @Override
-            public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                checkState(analysis.getParameters().size() > node.getId(), "Too few parameter values");
-                return coerceIfNecessary(node, treeRewriter.rewrite(analysis.getParameters().get(NodeRef.of(node)), null));
-            }
-
-            @Override
-            public Expression rewriteGenericDataType(GenericDataType node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                // do not rewrite identifiers within type parameters
-                return node;
-            }
-
-            @Override
-            public Expression rewriteRowDataType(RowDataType node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                // do not rewrite identifiers in field names
-                return node;
-            }
-
-            @Override
-            public Expression rewriteJsonExists(JsonExists node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
-                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
-
-                // rewrite the input expression and JSON path parameters
-                // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
-                JsonExists rewritten = treeRewriter.defaultRewrite(node, context);
-
-                // apply the input function to the input expression
-                BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonExists.ErrorBehavior.ERROR ? "true" : "false");
-                ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
-                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
-
-                // apply the input functions to the JSON path parameters having FORMAT,
-                // and collect all JSON path parameters in a Row
-                ParametersRow orderedParameters = getParametersRow(
-                        node.getJsonPathInvocation().getPathParameters(),
-                        rewritten.getJsonPathInvocation().getPathParameters(),
-                        resolvedFunction.getSignature().getArgumentType(2),
-                        failOnError);
-
-                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
-                Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
-
-                ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
-                        .add(input)
-                        .add(pathExpression)
-                        .add(orderedParameters.getParametersRow())
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
-
-                Expression result = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
-
-                return coerceIfNecessary(node, result);
-            }
-
-            @Override
-            public Expression rewriteJsonValue(JsonValue node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
-                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
-
-                // rewrite the input expression, default expressions, and JSON path parameters
-                // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
-                JsonValue rewritten = treeRewriter.defaultRewrite(node, context);
-
-                // apply the input function to the input expression
-                BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonValue.EmptyOrErrorBehavior.ERROR ? "true" : "false");
-                ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
-                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
-
-                // apply the input functions to the JSON path parameters having FORMAT,
-                // and collect all JSON path parameters in a Row
-                ParametersRow orderedParameters = getParametersRow(
-                        node.getJsonPathInvocation().getPathParameters(),
-                        rewritten.getJsonPathInvocation().getPathParameters(),
-                        resolvedFunction.getSignature().getArgumentType(2),
-                        failOnError);
-
-                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
-                Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
-
-                ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
-                        .add(input)
-                        .add(pathExpression)
-                        .add(orderedParameters.getParametersRow())
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
-                        .add(rewritten.getEmptyDefault().orElseGet(() -> new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))))
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())))
-                        .add(rewritten.getErrorDefault().orElseGet(() -> new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))));
-
-                Expression result = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
-
-                return coerceIfNecessary(node, result);
-            }
-
-            @Override
-            public Expression rewriteJsonQuery(JsonQuery node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
-                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
-
-                // rewrite the input expression and JSON path parameters
-                // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
-                JsonQuery rewritten = treeRewriter.defaultRewrite(node, context);
-
-                // apply the input function to the input expression
-                BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonQuery.EmptyOrErrorBehavior.ERROR ? "true" : "false");
-                ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
-                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
-
-                // apply the input functions to the JSON path parameters having FORMAT,
-                // and collect all JSON path parameters in a Row
-                ParametersRow orderedParameters = getParametersRow(
-                        node.getJsonPathInvocation().getPathParameters(),
-                        rewritten.getJsonPathInvocation().getPathParameters(),
-                        resolvedFunction.getSignature().getArgumentType(2),
-                        failOnError);
-
-                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
-                Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
-
-                ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
-                        .add(input)
-                        .add(pathExpression)
-                        .add(orderedParameters.getParametersRow())
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getWrapperBehavior().ordinal())))
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
-
-                Expression function = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
-
-                // apply function to format output
-                GenericLiteral errorBehavior = new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal()));
-                BooleanLiteral omitQuotes = new BooleanLiteral(node.getQuotesBehavior().orElse(KEEP) == OMIT ? "true" : "false");
-                ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
-                Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(function, errorBehavior, omitQuotes));
-
-                // cast to requested returned type
-                Type returnedType = node.getReturnedType()
-                        .map(TypeSignatureTranslator::toTypeSignature)
-                        .map(plannerContext.getTypeManager()::getType)
-                        .orElse(VARCHAR);
-
-                Type resultType = outputFunction.getSignature().getReturnType();
-                if (!resultType.equals(returnedType)) {
-                    result = new Cast(result, toSqlType(returnedType));
-                }
-
-                return coerceIfNecessary(node, result);
-            }
-
-            @Override
-            public Expression rewriteJsonObject(JsonObject node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
-                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
-
-                Expression keysRow;
-                Expression valuesRow;
-
-                // prepare keys and values as rows
-                if (node.getMembers().isEmpty()) {
-                    checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(0)));
-                    checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(1)));
-                    keysRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
-                    valuesRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
-                }
-                else {
-                    ImmutableList.Builder<Expression> keys = ImmutableList.builder();
-                    ImmutableList.Builder<Expression> values = ImmutableList.builder();
-                    for (JsonObjectMember member : node.getMembers()) {
-                        Expression key = member.getKey();
-                        Expression value = member.getValue();
-
-                        Expression rewrittenKey = treeRewriter.rewrite(key, context);
-                        keys.add(rewrittenKey);
-
-                        Expression rewrittenValue = treeRewriter.rewrite(value, context);
-                        ResolvedFunction valueToJson = analysis.getJsonInputFunction(value);
-                        if (valueToJson != null) {
-                            values.add(new FunctionCall(valueToJson.toQualifiedName(), ImmutableList.of(rewrittenValue, TRUE_LITERAL)));
-                        }
-                        else {
-                            values.add(rewrittenValue);
-                        }
-                    }
-                    keysRow = new Row(keys.build());
-                    valuesRow = new Row(values.build());
-                }
-
-                List<Expression> arguments = ImmutableList.<Expression>builder()
-                        .add(keysRow)
-                        .add(valuesRow)
-                        .add(node.isNullOnNull() ? TRUE_LITERAL : FALSE_LITERAL)
-                        .add(node.isUniqueKeys() ? TRUE_LITERAL : FALSE_LITERAL)
-                        .build();
-
-                Expression function = new FunctionCall(resolvedFunction.toQualifiedName(), arguments);
-
-                // apply function to format output
-                ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
-                Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(
-                        function,
-                        new GenericLiteral("tinyint", String.valueOf(JsonQuery.EmptyOrErrorBehavior.ERROR.ordinal())),
-                        FALSE_LITERAL));
-
-                // cast to requested returned type
-                Type returnedType = node.getReturnedType()
-                        .map(TypeSignatureTranslator::toTypeSignature)
-                        .map(plannerContext.getTypeManager()::getType)
-                        .orElse(VARCHAR);
-
-                Type resultType = outputFunction.getSignature().getReturnType();
-                if (!resultType.equals(returnedType)) {
-                    result = new Cast(result, toSqlType(returnedType));
-                }
-
-                return coerceIfNecessary(node, result);
-            }
-
-            @Override
-            public Expression rewriteJsonArray(JsonArray node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Optional<SymbolReference> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
-                }
-
-                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
-                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
-
-                Expression elementsRow;
-
-                // prepare elements as row
-                if (node.getElements().isEmpty()) {
-                    checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(0)));
-                    elementsRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
-                }
-                else {
-                    ImmutableList.Builder<Expression> elements = ImmutableList.builder();
-                    for (JsonArrayElement arrayElement : node.getElements()) {
-                        Expression element = arrayElement.getValue();
-                        Expression rewrittenElement = treeRewriter.rewrite(element, context);
-                        ResolvedFunction elementToJson = analysis.getJsonInputFunction(element);
-                        if (elementToJson != null) {
-                            elements.add(new FunctionCall(elementToJson.toQualifiedName(), ImmutableList.of(rewrittenElement, TRUE_LITERAL)));
-                        }
-                        else {
-                            elements.add(rewrittenElement);
-                        }
-                    }
-                    elementsRow = new Row(elements.build());
-                }
-
-                List<Expression> arguments = ImmutableList.<Expression>builder()
-                        .add(elementsRow)
-                        .add(node.isNullOnNull() ? TRUE_LITERAL : FALSE_LITERAL)
-                        .build();
-
-                Expression function = new FunctionCall(resolvedFunction.toQualifiedName(), arguments);
-
-                // apply function to format output
-                ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
-                Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(
-                        function,
-                        new GenericLiteral("tinyint", String.valueOf(JsonQuery.EmptyOrErrorBehavior.ERROR.ordinal())),
-                        FALSE_LITERAL));
-
-                // cast to requested returned type
-                Type returnedType = node.getReturnedType()
-                        .map(TypeSignatureTranslator::toTypeSignature)
-                        .map(plannerContext.getTypeManager()::getType)
-                        .orElse(VARCHAR);
-
-                Type resultType = outputFunction.getSignature().getReturnType();
-                if (!resultType.equals(returnedType)) {
-                    result = new Cast(result, toSqlType(returnedType));
-                }
-
-                return coerceIfNecessary(node, result);
-            }
-
-            private Expression coerceIfNecessary(Expression original, Expression rewritten)
-            {
-                // Don't add a coercion for the top-level expression. That depends on the context the expression is used and it's the responsibility of the caller.
-                if (original == expression) {
-                    return rewritten;
-                }
-
-                return QueryPlanner.coerceIfNecessary(analysis, original, rewritten);
-            }
-        }, expression, null);
+        return translate(root, true);
     }
 
-    private Optional<SymbolReference> tryGetMapping(Expression expression)
+    private io.trino.sql.ir.Expression translateExpression(Expression expression)
     {
-        return Optional.ofNullable(astToSymbols.get(scopeAwareKey(expression, analysis, scope)))
+        return translate(expression, false);
+    }
+
+    private io.trino.sql.ir.Expression translate(Expression expr, boolean isRoot)
+    {
+        Optional<Reference> mapped = tryGetMapping(expr);
+
+        io.trino.sql.ir.Expression result;
+        if (mapped.isPresent()) {
+            result = mapped.get();
+        }
+        else {
+            result = switch (expr) {
+                case io.trino.sql.tree.FieldReference expression -> translate(expression);
+                case Identifier expression -> translate(expression);
+                case FunctionCall expression -> translate(expression);
+                case DereferenceExpression expression -> translate(expression);
+                case Array expression -> translate(expression);
+                case CurrentCatalog expression -> translate(expression);
+                case CurrentSchema expression -> translate(expression);
+                case CurrentPath expression -> translate(expression);
+                case CurrentUser expression -> translate(expression);
+                case CurrentDate expression -> translate(expression);
+                case CurrentTime expression -> translate(expression);
+                case CurrentTimestamp expression -> translate(expression);
+                case LocalTime expression -> translate(expression);
+                case LocalTimestamp expression -> translate(expression);
+                case Extract expression -> translate(expression);
+                case AtTimeZone expression -> translate(expression);
+                case Format expression -> translate(expression);
+                case TryExpression expression -> translate(expression);
+                case LikePredicate expression -> translate(expression);
+                case Trim expression -> translate(expression);
+                case SubscriptExpression expression -> translate(expression);
+                case LambdaExpression expression -> translate(expression);
+                case Parameter expression -> translate(expression);
+                case JsonExists expression -> translate(expression);
+                case JsonValue expression -> translate(expression);
+                case JsonQuery expression -> translate(expression);
+                case JsonObject expression -> translate(expression);
+                case JsonArray expression -> translate(expression);
+                case LongLiteral expression -> translate(expression);
+                case DoubleLiteral expression -> translate(expression);
+                case StringLiteral expression -> translate(expression);
+                case BooleanLiteral expression -> translate(expression);
+                case DecimalLiteral expression -> translate(expression);
+                case GenericLiteral expression -> translate(expression);
+                case BinaryLiteral expression -> translate(expression);
+                case IntervalLiteral expression -> translate(expression);
+                case ArithmeticBinaryExpression expression -> translate(expression);
+                case ArithmeticUnaryExpression expression -> translate(expression);
+                case ComparisonExpression expression -> translate(expression);
+                case Cast expression -> translate(expression);
+                case Row expression -> translate(expression);
+                case NotExpression expression -> translate(expression);
+                case LogicalExpression expression -> translate(expression);
+                case NullLiteral expression -> new Constant(UnknownType.UNKNOWN, null);
+                case CoalesceExpression expression -> translate(expression);
+                case IsNullPredicate expression -> translate(expression);
+                case IsNotNullPredicate expression -> translate(expression);
+                case BetweenPredicate expression -> translate(expression);
+                case IfExpression expression -> translate(expression);
+                case InPredicate expression -> translate(expression);
+                case SimpleCaseExpression expression -> translate(expression);
+                case SearchedCaseExpression expression -> translate(expression);
+                case NullIfExpression expression -> translate(expression);
+                default -> throw new IllegalArgumentException("Unsupported expression (%s): %s".formatted(expr.getClass().getName(), expr));
+            };
+        }
+
+        // Don't add a coercion for the top-level expression. That depends on the context
+        // the expression is used and it's the responsibility of the caller.
+        return isRoot ? result : QueryPlanner.coerceIfNecessary(analysis, expr, result);
+    }
+
+    private io.trino.sql.ir.Expression translate(NullIfExpression expression)
+    {
+        return new NullIf(
+                translateExpression(expression.getFirst()),
+                translateExpression(expression.getSecond()));
+    }
+
+    private io.trino.sql.ir.Expression translate(ArithmeticUnaryExpression expression)
+    {
+        return switch (expression.getSign()) {
+            case PLUS -> translateExpression(expression.getValue());
+            case MINUS -> new io.trino.sql.ir.Call(
+                    plannerContext.getMetadata().resolveOperator(OperatorType.NEGATION, ImmutableList.of(analysis.getType(expression.getValue()))),
+                    ImmutableList.of(translateExpression(expression.getValue())));
+        };
+    }
+
+    private io.trino.sql.ir.Expression translate(IntervalLiteral expression)
+    {
+        Type type = analysis.getType(expression);
+
+        return new Constant(
+                type,
+                switch (type) {
+                    case IntervalYearMonthType t -> expression.getSign().multiplier() * parseYearMonthInterval(expression.getValue(), expression.getStartField(), expression.getEndField());
+                    case IntervalDayTimeType t -> expression.getSign().multiplier() * parseDayTimeInterval(expression.getValue(), expression.getStartField(), expression.getEndField());
+                    default -> throw new IllegalArgumentException("Unexpected type for IntervalLiteral: %s" + type);
+                });
+    }
+
+    private io.trino.sql.ir.Expression translate(SearchedCaseExpression expression)
+    {
+        return new Case(
+                expression.getWhenClauses().stream()
+                        .map(clause -> new io.trino.sql.ir.WhenClause(
+                                translateExpression(clause.getOperand()),
+                                translateExpression(clause.getResult())))
+                        .collect(toImmutableList()),
+                expression.getDefaultValue()
+                        .map(this::translateExpression)
+                        .orElse(new Constant(analysis.getType(expression), null)));
+    }
+
+    private io.trino.sql.ir.Expression translate(SimpleCaseExpression expression)
+    {
+        return new Switch(
+                translateExpression(expression.getOperand()),
+                expression.getWhenClauses().stream()
+                        .map(clause -> new io.trino.sql.ir.WhenClause(
+                                translateExpression(clause.getOperand()),
+                                translateExpression(clause.getResult())))
+                        .collect(toImmutableList()),
+                expression.getDefaultValue()
+                        .map(this::translateExpression)
+                        .orElse(new Constant(analysis.getType(expression), null)));
+    }
+
+    private io.trino.sql.ir.Expression translate(InPredicate expression)
+    {
+        return new In(
+                translateExpression(expression.getValue()),
+                ((InListExpression) expression.getValueList()).getValues().stream()
+                        .map(this::translateExpression)
+                        .collect(toImmutableList()));
+    }
+
+    private io.trino.sql.ir.Expression translate(IfExpression expression)
+    {
+        if (expression.getFalseValue().isPresent()) {
+            return ifExpression(
+                    translateExpression(expression.getCondition()),
+                    translateExpression(expression.getTrueValue()),
+                    translateExpression(expression.getFalseValue().get()));
+        }
+
+        return ifExpression(
+                translateExpression(expression.getCondition()),
+                translateExpression(expression.getTrueValue()));
+    }
+
+    private io.trino.sql.ir.Expression translate(BinaryLiteral expression)
+    {
+        return new Constant(analysis.getType(expression), Slices.wrappedBuffer(expression.getValue()));
+    }
+
+    private io.trino.sql.ir.Expression translate(BetweenPredicate expression)
+    {
+        return new Between(
+                translateExpression(expression.getValue()),
+                translateExpression(expression.getMin()),
+                translateExpression(expression.getMax()));
+    }
+
+    private io.trino.sql.ir.Expression translate(IsNullPredicate expression)
+    {
+        return new IsNull(translateExpression(expression.getValue()));
+    }
+
+    private io.trino.sql.ir.Expression translate(IsNotNullPredicate expression)
+    {
+        return new Not(
+                new IsNull(
+                        translateExpression(expression.getValue())));
+    }
+
+    private io.trino.sql.ir.Expression translate(CoalesceExpression expression)
+    {
+        return new Coalesce(expression.getOperands().stream()
+                .map(this::translateExpression)
+                .collect(toImmutableList()));
+    }
+
+    private io.trino.sql.ir.Expression translate(GenericLiteral expression)
+    {
+        // TODO: record the parsed values in the analyzer and pull them out here
+        Type type = analysis.getType(expression);
+
+        if (type.equals(JSON)) {
+            return new Constant(type, JsonTypeUtil.jsonParse(utf8Slice(expression.getValue())));
+        }
+
+        InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
+        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
+        Object value = functionInvoker.invoke(resolvedFunction, session.toConnectorSession(), ImmutableList.of(utf8Slice(expression.getValue())));
+
+        return new Constant(type, value);
+    }
+
+    private io.trino.sql.ir.Expression translate(DecimalLiteral expression)
+    {
+        DecimalType type = (DecimalType) analysis.getType(expression);
+
+        // TODO: record the parsed values in the analyzer and pull them out here
+        DecimalParseResult parsed = Decimals.parse(expression.getValue());
+        checkState(parsed.getType().equals(type));
+
+        return new Constant(type, parsed.getObject());
+    }
+
+    private io.trino.sql.ir.Expression translate(LogicalExpression expression)
+    {
+        return new Logical(
+                switch (expression.getOperator()) {
+                    case AND -> Logical.Operator.AND;
+                    case OR -> Logical.Operator.OR;
+                },
+                expression.getTerms().stream()
+                        .map(this::translateExpression)
+                        .collect(toImmutableList()));
+    }
+
+    private io.trino.sql.ir.Expression translate(BooleanLiteral expression)
+    {
+        if (expression.equals(BooleanLiteral.TRUE_LITERAL)) {
+            return TRUE;
+        }
+
+        if (expression.equals(BooleanLiteral.FALSE_LITERAL)) {
+            return FALSE;
+        }
+
+        throw new IllegalArgumentException("Unknown boolean literal: " + expression);
+    }
+
+    private io.trino.sql.ir.Expression translate(NotExpression expression)
+    {
+        return new Not(translateExpression(expression.getValue()));
+    }
+
+    private io.trino.sql.ir.Expression translate(Row expression)
+    {
+        return new io.trino.sql.ir.Row(expression.getItems().stream()
+                .map(this::translateExpression)
+                .collect(toImmutableList()));
+    }
+
+    private io.trino.sql.ir.Expression translate(ComparisonExpression expression)
+    {
+        return new Comparison(
+                switch (expression.getOperator()) {
+                    case EQUAL -> Comparison.Operator.EQUAL;
+                    case NOT_EQUAL -> Comparison.Operator.NOT_EQUAL;
+                    case LESS_THAN -> Comparison.Operator.LESS_THAN;
+                    case LESS_THAN_OR_EQUAL -> Comparison.Operator.LESS_THAN_OR_EQUAL;
+                    case GREATER_THAN -> Comparison.Operator.GREATER_THAN;
+                    case GREATER_THAN_OR_EQUAL -> Comparison.Operator.GREATER_THAN_OR_EQUAL;
+                    case IS_DISTINCT_FROM -> Comparison.Operator.IS_DISTINCT_FROM;
+                },
+                translateExpression(expression.getLeft()),
+                translateExpression(expression.getRight()));
+    }
+
+    private io.trino.sql.ir.Expression translate(Cast expression)
+    {
+        return new io.trino.sql.ir.Cast(
+                translateExpression(expression.getExpression()),
+                analysis.getType(expression),
+                expression.isSafe());
+    }
+
+    private io.trino.sql.ir.Expression translate(DoubleLiteral expression)
+    {
+        return new Constant(DOUBLE, expression.getValue());
+    }
+
+    private io.trino.sql.ir.Expression translate(ArithmeticBinaryExpression expression)
+    {
+        OperatorType operatorType = switch (expression.getOperator()) {
+            case ADD -> OperatorType.ADD;
+            case SUBTRACT -> OperatorType.SUBTRACT;
+            case MULTIPLY -> OperatorType.MULTIPLY;
+            case DIVIDE -> OperatorType.DIVIDE;
+            case MODULUS -> OperatorType.MODULUS;
+        };
+
+        return new Call(
+                plannerContext.getMetadata().resolveOperator(operatorType, ImmutableList.of(getCoercedType(expression.getLeft()), getCoercedType(expression.getRight()))),
+                ImmutableList.of(
+                        translateExpression(expression.getLeft()),
+                        translateExpression(expression.getRight())));
+    }
+
+    private Type getCoercedType(Expression left)
+    {
+        Type leftType = analysis.getCoercion(left);
+        if (leftType == null) {
+            leftType = analysis.getType(left);
+        }
+        return leftType;
+    }
+
+    private io.trino.sql.ir.Expression translate(StringLiteral expression)
+    {
+        return new Constant(analysis.getType(expression), utf8Slice(expression.getValue()));
+    }
+
+    private io.trino.sql.ir.Expression translate(LongLiteral expression)
+    {
+        return new Constant(analysis.getType(expression), expression.getParsedValue());
+    }
+
+    private io.trino.sql.ir.Expression translate(io.trino.sql.tree.FieldReference expression)
+    {
+        return getSymbolForColumn(expression)
+                .map(Symbol::toSymbolReference)
+                .orElseThrow(() -> new IllegalStateException(format("No symbol mapping for node '%s' (%s)", expression, expression.getFieldIndex())));
+    }
+
+    private io.trino.sql.ir.Expression translate(Identifier expression)
+    {
+        LambdaArgumentDeclaration referencedLambdaArgumentDeclaration = analysis.getLambdaArgumentReference(expression);
+        if (referencedLambdaArgumentDeclaration != null) {
+            Symbol symbol = lambdaArguments.get(NodeRef.of(referencedLambdaArgumentDeclaration));
+            return symbol.toSymbolReference();
+        }
+
+        return getSymbolForColumn(expression)
+                .map(Symbol::toSymbolReference)
+                .get();
+    }
+
+    private io.trino.sql.ir.Expression translate(FunctionCall expression)
+    {
+        if (analysis.isPatternNavigationFunction(expression)) {
+            return translate(expression.getArguments().getFirst(), false);
+        }
+
+        ResolvedFunction resolvedFunction = analysis.getResolvedFunction(expression);
+        checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", expression);
+
+        return new Call(
+                resolvedFunction,
+                expression.getArguments().stream()
+                        .map(this::translateExpression)
+                        .collect(toImmutableList()));
+    }
+
+    private io.trino.sql.ir.Expression translate(DereferenceExpression expression)
+    {
+        if (analysis.isColumnReference(expression)) {
+            return getSymbolForColumn(expression)
+                    .map(Symbol::toSymbolReference)
+                    .orElseThrow(() -> new IllegalStateException(format("No mapping for %s", expression)));
+        }
+
+        RowType rowType = (RowType) analysis.getType(expression.getBase());
+        String fieldName = expression.getField().orElseThrow().getValue();
+
+        List<RowType.Field> fields = rowType.getFields();
+        int index = -1;
+        for (int i = 0; i < fields.size(); i++) {
+            RowType.Field field = fields.get(i);
+            if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
+                checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
+                index = i;
+            }
+        }
+
+        checkState(index >= 0, "could not find field name: %s", fieldName);
+
+        return new FieldReference(translateExpression(expression.getBase()), index);
+    }
+
+    private io.trino.sql.ir.Expression translate(Array expression)
+    {
+        checkCondition(expression.getValues().size() <= 254, TOO_MANY_ARGUMENTS, "Too many arguments for array constructor");
+
+        List<Type> types = expression.getValues().stream()
+                .map(analysis::getType)
+                .collect(toImmutableList());
+
+        List<io.trino.sql.ir.Expression> values = expression.getValues().stream()
+                .map(this::translateExpression)
+                .collect(toImmutableList());
+
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName(ArrayConstructor.NAME)
+                .setArguments(types, values)
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(CurrentCatalog unused)
+    {
+        return new Call(
+                plannerContext.getMetadata()
+                        .resolveBuiltinFunction("$current_catalog", ImmutableList.of()),
+                ImmutableList.of());
+    }
+
+    private io.trino.sql.ir.Expression translate(CurrentSchema unused)
+    {
+        return new Call(
+                plannerContext.getMetadata()
+                        .resolveBuiltinFunction("$current_schema", ImmutableList.of()),
+                ImmutableList.of());
+    }
+
+    private io.trino.sql.ir.Expression translate(CurrentPath unused)
+    {
+        return new Call(
+                plannerContext.getMetadata()
+                        .resolveBuiltinFunction("$current_path", ImmutableList.of()),
+                ImmutableList.of());
+    }
+
+    private io.trino.sql.ir.Expression translate(CurrentUser unused)
+    {
+        return new Call(
+                plannerContext.getMetadata()
+                        .resolveBuiltinFunction("$current_user", ImmutableList.of()),
+                ImmutableList.of());
+    }
+
+    private io.trino.sql.ir.Expression translate(CurrentDate unused)
+    {
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("current_date")
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(CurrentTime node)
+    {
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("$current_time")
+                .setArguments(
+                        ImmutableList.of(analysis.getType(node)),
+                        ImmutableList.of(new Constant(analysis.getType(node), null)))
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(CurrentTimestamp node)
+    {
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("$current_timestamp")
+                .setArguments(
+                        ImmutableList.of(analysis.getType(node)),
+                        ImmutableList.of(new Constant(analysis.getType(node), null)))
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(LocalTime node)
+    {
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("$localtime")
+                .setArguments(
+                        ImmutableList.of(analysis.getType(node)),
+                        ImmutableList.of(new Constant(analysis.getType(node), null)))
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(LocalTimestamp node)
+    {
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("$localtimestamp")
+                .setArguments(
+                        ImmutableList.of(analysis.getType(node)),
+                        ImmutableList.of(new Constant(analysis.getType(node), null)))
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(Extract node)
+    {
+        io.trino.sql.ir.Expression value = translateExpression(node.getExpression());
+        Type type = analysis.getType(node.getExpression());
+
+        return switch (node.getField()) {
+            case YEAR -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("year")
+                    .addArgument(type, value)
+                    .build();
+            case QUARTER -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("quarter")
+                    .addArgument(type, value)
+                    .build();
+            case MONTH -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("month")
+                    .addArgument(type, value)
+                    .build();
+            case WEEK -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("week")
+                    .addArgument(type, value)
+                    .build();
+            case DAY, DAY_OF_MONTH -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("day")
+                    .addArgument(type, value)
+                    .build();
+            case DAY_OF_WEEK, DOW -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("day_of_week")
+                    .addArgument(type, value)
+                    .build();
+            case DAY_OF_YEAR, DOY -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("day_of_year")
+                    .addArgument(type, value)
+                    .build();
+            case YEAR_OF_WEEK, YOW -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("year_of_week")
+                    .addArgument(type, value)
+                    .build();
+            case HOUR -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("hour")
+                    .addArgument(type, value)
+                    .build();
+            case MINUTE -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("minute")
+                    .addArgument(type, value)
+                    .build();
+            case SECOND -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("second")
+                    .addArgument(type, value)
+                    .build();
+            case TIMEZONE_MINUTE -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("timezone_minute")
+                    .addArgument(type, value)
+                    .build();
+            case TIMEZONE_HOUR -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("timezone_hour")
+                    .addArgument(type, value)
+                    .build();
+        };
+    }
+
+    private io.trino.sql.ir.Expression translate(AtTimeZone node)
+    {
+        Type valueType = analysis.getType(node.getValue());
+        io.trino.sql.ir.Expression value = translateExpression(node.getValue());
+
+        Type timeZoneType = analysis.getType(node.getTimeZone());
+        io.trino.sql.ir.Expression timeZone = translateExpression(node.getTimeZone());
+
+        Call call;
+        if (valueType instanceof TimeType type) {
+            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("$at_timezone")
+                    .addArgument(createTimeWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimeWithTimeZoneType(((TimeType) valueType).getPrecision())))
+                    .addArgument(timeZoneType, timeZone)
+                    .build();
+        }
+        else if (valueType instanceof TimeWithTimeZoneType) {
+            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("$at_timezone")
+                    .addArgument(valueType, value)
+                    .addArgument(timeZoneType, timeZone)
+                    .build();
+        }
+        else if (valueType instanceof TimestampType type) {
+            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("at_timezone")
+                    .addArgument(createTimestampWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision())))
+                    .addArgument(timeZoneType, timeZone)
+                    .build();
+        }
+        else if (valueType instanceof TimestampWithTimeZoneType) {
+            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("at_timezone")
+                    .addArgument(valueType, value)
+                    .addArgument(timeZoneType, timeZone)
+                    .build();
+        }
+        else {
+            throw new IllegalArgumentException("Unexpected type: " + valueType);
+        }
+
+        return call;
+    }
+
+    private io.trino.sql.ir.Expression translate(Format node)
+    {
+        List<io.trino.sql.ir.Expression> arguments = node.getArguments().stream()
+                .map(this::translateExpression)
+                .collect(toImmutableList());
+        List<Type> argumentTypes = node.getArguments().stream()
+                .map(analysis::getType)
+                .collect(toImmutableList());
+
+        Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName(FormatFunction.NAME)
+                .addArgument(VARCHAR, new io.trino.sql.ir.Cast(arguments.get(0), VARCHAR))
+                .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new io.trino.sql.ir.Row(arguments.subList(1, arguments.size())))
+                .build();
+
+        return call;
+    }
+
+    private io.trino.sql.ir.Expression translate(TryExpression node)
+    {
+        Type type = analysis.getType(node);
+        io.trino.sql.ir.Expression expression = translateExpression(node.getInnerExpression());
+
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName(TryFunction.NAME)
+                .addArgument(new FunctionType(ImmutableList.of(), type), new Lambda(ImmutableList.of(), expression))
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(LikePredicate node)
+    {
+        io.trino.sql.ir.Expression value = translateExpression(node.getValue());
+        io.trino.sql.ir.Expression pattern = translateExpression(node.getPattern());
+        Optional<io.trino.sql.ir.Expression> escape = node.getEscape().map(this::translateExpression);
+
+        Call patternCall;
+        if (escape.isPresent()) {
+            patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName(LIKE_PATTERN_FUNCTION_NAME)
+                    .addArgument(VARCHAR, new io.trino.sql.ir.Cast(pattern, VARCHAR))
+                    .addArgument(VARCHAR, new io.trino.sql.ir.Cast(escape.get(), VARCHAR))
+                    .build();
+        }
+        else {
+            patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName(LIKE_PATTERN_FUNCTION_NAME)
+                    .addArgument(VARCHAR, new io.trino.sql.ir.Cast(pattern, VARCHAR))
+                    .build();
+        }
+
+        Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName(LIKE_FUNCTION_NAME)
+                .addArgument(value.type(), value)
+                .addArgument(LIKE_PATTERN, patternCall)
+                .build();
+
+        return call;
+    }
+
+    private io.trino.sql.ir.Expression translate(Trim node)
+    {
+        ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+        checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+        ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.builder();
+        arguments.add(translateExpression(node.getTrimSource()));
+        node.getTrimCharacter()
+                .map(this::translateExpression)
+                .ifPresent(arguments::add);
+
+        return new Call(resolvedFunction, arguments.build());
+    }
+
+    private io.trino.sql.ir.Expression translate(SubscriptExpression node)
+    {
+        Type baseType = analysis.getType(node.getBase());
+        if (baseType instanceof RowType rowType) {
+            // Do not rewrite subscript index into symbol. Row subscript index is required to be a literal.
+            io.trino.sql.ir.Expression rewrittenBase = translateExpression(node.getBase());
+            LongLiteral index = (LongLiteral) node.getIndex();
+            return new FieldReference(
+                    rewrittenBase, toIntExact(index.getParsedValue() - 1));
+        }
+
+        ResolvedFunction operator = plannerContext.getMetadata()
+                .resolveOperator(OperatorType.SUBSCRIPT, ImmutableList.of(getCoercedType(node.getBase()), getCoercedType(node.getIndex())));
+
+        return new Call(
+                operator,
+                ImmutableList.of(
+                    new io.trino.sql.ir.Cast(translateExpression(node.getBase()), operator.getSignature().getArgumentType(0)),
+                    new io.trino.sql.ir.Cast(translateExpression(node.getIndex()), operator.getSignature().getArgumentType(1))));
+    }
+
+    private io.trino.sql.ir.Expression translate(LambdaExpression node)
+    {
+        checkState(analysis.getCoercion(node) == null, "cannot coerce a lambda expression");
+
+        ImmutableList.Builder<Symbol> newArguments = ImmutableList.builder();
+        for (LambdaArgumentDeclaration argument : node.getArguments()) {
+            newArguments.add(lambdaArguments.get(NodeRef.of(argument)));
+        }
+        io.trino.sql.ir.Expression rewrittenBody = translateExpression(node.getBody());
+        return new Lambda(newArguments.build(), rewrittenBody);
+    }
+
+    private io.trino.sql.ir.Expression translate(Parameter node)
+    {
+        checkState(analysis.getParameters().size() > node.getId(), "Too few parameter values");
+        return translateExpression(analysis.getParameters().get(NodeRef.of(node)));
+    }
+
+    private io.trino.sql.ir.Expression translate(JsonExists node)
+    {
+        ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+        checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+        //  apply the input function to the input expression
+        Constant failOnError = new Constant(BOOLEAN, node.getErrorBehavior() == JsonExists.ErrorBehavior.ERROR);
+        ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
+        io.trino.sql.ir.Expression input = new Call(inputToJson, ImmutableList.of(
+                translateExpression(node.getJsonPathInvocation().getInputExpression()),
+                failOnError));
+
+        // apply the input functions to the JSON path parameters having FORMAT,
+        // and collect all JSON path parameters in a Row
+        ParametersRow orderedParameters = getParametersRow(
+                node.getJsonPathInvocation().getPathParameters(),
+                node.getJsonPathInvocation().getPathParameters().stream()
+                        .map(parameter -> translateExpression(parameter.getParameter()))
+                        .toList(),
+                resolvedFunction.getSignature().getArgumentType(2),
+                failOnError);
+
+        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
+
+        ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
+                .add(input)
+                .add(pathExpression)
+                .add(orderedParameters.getParametersRow())
+                .add(new Constant(TINYINT, (long) node.getErrorBehavior().ordinal()));
+
+        return new Call(resolvedFunction, arguments.build());
+    }
+
+    private io.trino.sql.ir.Expression translate(JsonValue node)
+    {
+        ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+        checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+        //  apply the input function to the input expression
+        Constant failOnError = new Constant(BOOLEAN, node.getErrorBehavior() == JsonValue.EmptyOrErrorBehavior.ERROR);
+        ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
+        io.trino.sql.ir.Expression input = new Call(inputToJson, ImmutableList.of(
+                translateExpression(node.getJsonPathInvocation().getInputExpression()),
+                failOnError));
+
+        // apply the input functions to the JSON path parameters having FORMAT,
+        // and collect all JSON path parameters in a Row
+        ParametersRow orderedParameters = getParametersRow(
+                node.getJsonPathInvocation().getPathParameters(),
+                node.getJsonPathInvocation().getPathParameters().stream()
+                        .map(parameter -> translateExpression(parameter.getParameter()))
+                        .toList(),
+                resolvedFunction.getSignature().getArgumentType(2),
+                failOnError);
+
+        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
+
+        ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
+                .add(input)
+                .add(pathExpression)
+                .add(orderedParameters.getParametersRow())
+                .add(new Constant(TINYINT, (long) node.getEmptyBehavior().ordinal()))
+                .add(node.getEmptyDefault()
+                        .map(this::translateExpression)
+                        .orElseGet(() -> new Constant(resolvedFunction.getSignature().getReturnType(), null)))
+                .add(new Constant(TINYINT, (long) node.getErrorBehavior().ordinal()))
+                .add(node.getErrorDefault()
+                        .map(this::translateExpression)
+                        .orElseGet(() -> new Constant(resolvedFunction.getSignature().getReturnType(), null)));
+
+        return new Call(resolvedFunction, arguments.build());
+    }
+
+    private io.trino.sql.ir.Expression translate(JsonQuery node)
+    {
+        ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+        checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+        //  apply the input function to the input expression
+        Constant failOnError = new Constant(BOOLEAN, node.getErrorBehavior() == ERROR);
+        ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
+        io.trino.sql.ir.Expression input = new Call(inputToJson, ImmutableList.of(
+                translateExpression(node.getJsonPathInvocation().getInputExpression()),
+                failOnError));
+
+        // apply the input functions to the JSON path parameters having FORMAT,
+        // and collect all JSON path parameters in a Row
+        ParametersRow orderedParameters = getParametersRow(
+                node.getJsonPathInvocation().getPathParameters(),
+                node.getJsonPathInvocation().getPathParameters().stream()
+                        .map(parameter -> translateExpression(parameter.getParameter()))
+                        .toList(),
+                resolvedFunction.getSignature().getArgumentType(2),
+                failOnError);
+
+        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
+
+        ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
+                .add(input)
+                .add(pathExpression)
+                .add(orderedParameters.getParametersRow())
+                .add(new Constant(TINYINT, (long) node.getWrapperBehavior().ordinal()))
+                .add(new Constant(TINYINT, (long) node.getEmptyBehavior().ordinal()))
+                .add(new Constant(TINYINT, (long) node.getErrorBehavior().ordinal()));
+
+        io.trino.sql.ir.Expression function = new Call(resolvedFunction, arguments.build());
+
+        // apply function to format output
+        Constant errorBehavior = new Constant(TINYINT, (long) node.getErrorBehavior().ordinal());
+        Constant omitQuotes = new Constant(BOOLEAN, node.getQuotesBehavior().orElse(KEEP) == OMIT);
+        ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
+        io.trino.sql.ir.Expression result = new Call(outputFunction, ImmutableList.of(function, errorBehavior, omitQuotes));
+
+        // cast to requested returned type
+        Type returnedType = node.getReturnedType()
+                .map(TypeSignatureTranslator::toTypeSignature)
+                .map(plannerContext.getTypeManager()::getType)
+                .orElse(VARCHAR);
+
+        Type resultType = outputFunction.getSignature().getReturnType();
+        if (!resultType.equals(returnedType)) {
+            result = new io.trino.sql.ir.Cast(result, returnedType);
+        }
+
+        return result;
+    }
+
+    private io.trino.sql.ir.Expression translate(JsonObject node)
+    {
+        ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+        checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+        io.trino.sql.ir.Expression keysRow;
+        io.trino.sql.ir.Expression valuesRow;
+
+        // prepare keys and values as rows
+        if (node.getMembers().isEmpty()) {
+            checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(0)));
+            checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(1)));
+            keysRow = new Constant(JSON_NO_PARAMETERS_ROW_TYPE, null);
+            valuesRow = new Constant(JSON_NO_PARAMETERS_ROW_TYPE, null);
+        }
+        else {
+            ImmutableList.Builder<io.trino.sql.ir.Expression> keys = ImmutableList.builder();
+            ImmutableList.Builder<io.trino.sql.ir.Expression> values = ImmutableList.builder();
+            for (JsonObjectMember member : node.getMembers()) {
+                Expression value = member.getValue();
+
+                io.trino.sql.ir.Expression rewrittenKey = translateExpression(member.getKey());
+                keys.add(rewrittenKey);
+
+                io.trino.sql.ir.Expression rewrittenValue = translateExpression(value);
+                ResolvedFunction valueToJson = analysis.getJsonInputFunction(value);
+                if (valueToJson != null) {
+                    values.add(new Call(valueToJson, ImmutableList.of(rewrittenValue, TRUE)));
+                }
+                else {
+                    values.add(rewrittenValue);
+                }
+            }
+            keysRow = new io.trino.sql.ir.Row(keys.build());
+            valuesRow = new io.trino.sql.ir.Row(values.build());
+        }
+
+        List<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
+                .add(keysRow)
+                .add(valuesRow)
+                .add(node.isNullOnNull() ? TRUE : FALSE)
+                .add(node.isUniqueKeys() ? TRUE : FALSE)
+                .build();
+
+        io.trino.sql.ir.Expression function = new Call(resolvedFunction, arguments);
+
+        // apply function to format output
+        ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
+        io.trino.sql.ir.Expression result = new Call(outputFunction, ImmutableList.of(
+                function,
+                new Constant(TINYINT, (long) ERROR.ordinal()),
+                FALSE));
+
+        // cast to requested returned type
+        Type returnedType = node.getReturnedType()
+                .map(TypeSignatureTranslator::toTypeSignature)
+                .map(plannerContext.getTypeManager()::getType)
+                .orElse(VARCHAR);
+
+        Type resultType = outputFunction.getSignature().getReturnType();
+        if (!resultType.equals(returnedType)) {
+            result = new io.trino.sql.ir.Cast(result, returnedType);
+        }
+
+        return result;
+    }
+
+    private io.trino.sql.ir.Expression translate(JsonArray node)
+    {
+        ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+        checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+        io.trino.sql.ir.Expression elementsRow;
+
+        // prepare elements as row
+        if (node.getElements().isEmpty()) {
+            checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(0)));
+            elementsRow = new Constant(JSON_NO_PARAMETERS_ROW_TYPE, null);
+        }
+        else {
+            ImmutableList.Builder<io.trino.sql.ir.Expression> elements = ImmutableList.builder();
+            for (JsonArrayElement arrayElement : node.getElements()) {
+                Expression element = arrayElement.getValue();
+                io.trino.sql.ir.Expression rewrittenElement = translateExpression(element);
+                ResolvedFunction elementToJson = analysis.getJsonInputFunction(element);
+                if (elementToJson != null) {
+                    elements.add(new Call(elementToJson, ImmutableList.of(rewrittenElement, TRUE)));
+                }
+                else {
+                    elements.add(rewrittenElement);
+                }
+            }
+            elementsRow = new io.trino.sql.ir.Row(elements.build());
+        }
+
+        List<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
+                .add(elementsRow)
+                .add(node.isNullOnNull() ? TRUE : FALSE)
+                .build();
+
+        io.trino.sql.ir.Expression function = new Call(resolvedFunction, arguments);
+
+        // apply function to format output
+        ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
+        io.trino.sql.ir.Expression result = new Call(outputFunction, ImmutableList.of(
+                function,
+                new Constant(TINYINT, (long) ERROR.ordinal()),
+                FALSE));
+
+        // cast to requested returned type
+        Type returnedType = node.getReturnedType()
+                .map(TypeSignatureTranslator::toTypeSignature)
+                .map(plannerContext.getTypeManager()::getType)
+                .orElse(VARCHAR);
+
+        Type resultType = outputFunction.getSignature().getReturnType();
+        if (!resultType.equals(returnedType)) {
+            result = new io.trino.sql.ir.Cast(result, returnedType);
+        }
+
+        return result;
+    }
+
+    private Optional<Reference> tryGetMapping(Expression expression)
+    {
+        Symbol symbol = substitutions.get(NodeRef.of(expression));
+        if (symbol == null) {
+            symbol = astToSymbols.get(scopeAwareKey(expression, analysis, scope));
+        }
+
+        return Optional.ofNullable(symbol)
                 .map(Symbol::toSymbolReference);
     }
 
@@ -1088,11 +1269,6 @@ public class TranslationMap
         return Optional.empty();
     }
 
-    private static void verifyAstExpression(Expression astExpression)
-    {
-        verify(AstUtils.preOrder(astExpression).noneMatch(expression -> expression instanceof SymbolReference), "symbol references are not allowed");
-    }
-
     public Scope getScope()
     {
         return scope;
@@ -1100,32 +1276,32 @@ public class TranslationMap
 
     public ParametersRow getParametersRow(
             List<JsonPathParameter> pathParameters,
-            List<JsonPathParameter> rewrittenPathParameters,
+            List<io.trino.sql.ir.Expression> rewrittenPathParameters,
             Type parameterRowType,
-            BooleanLiteral failOnError)
+            Constant failOnError)
     {
-        Expression parametersRow;
+        io.trino.sql.ir.Expression parametersRow;
         List<String> parametersOrder;
         if (!pathParameters.isEmpty()) {
-            ImmutableList.Builder<Expression> parameters = ImmutableList.builder();
+            ImmutableList.Builder<io.trino.sql.ir.Expression> parameters = ImmutableList.builder();
             for (int i = 0; i < pathParameters.size(); i++) {
                 ResolvedFunction parameterToJson = analysis.getJsonInputFunction(pathParameters.get(i).getParameter());
-                Expression rewrittenParameter = rewrittenPathParameters.get(i).getParameter();
+                io.trino.sql.ir.Expression rewrittenParameter = rewrittenPathParameters.get(i);
                 if (parameterToJson != null) {
-                    parameters.add(new FunctionCall(parameterToJson.toQualifiedName(), ImmutableList.of(rewrittenParameter, failOnError)));
+                    parameters.add(new Call(parameterToJson, ImmutableList.of(rewrittenParameter, failOnError)));
                 }
                 else {
                     parameters.add(rewrittenParameter);
                 }
             }
-            parametersRow = new Cast(new Row(parameters.build()), toSqlType(parameterRowType));
+            parametersRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.Row(parameters.build()), parameterRowType);
             parametersOrder = pathParameters.stream()
                     .map(parameter -> parameter.getName().getCanonicalValue())
                     .collect(toImmutableList());
         }
         else {
             checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(parameterRowType), "invalid type of parameters row when no parameters are passed");
-            parametersRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+            parametersRow = new Constant(JSON_NO_PARAMETERS_ROW_TYPE, null);
             parametersOrder = ImmutableList.of();
         }
 
@@ -1134,16 +1310,16 @@ public class TranslationMap
 
     public static class ParametersRow
     {
-        private final Expression parametersRow;
+        private final io.trino.sql.ir.Expression parametersRow;
         private final List<String> parametersOrder;
 
-        public ParametersRow(Expression parametersRow, List<String> parametersOrder)
+        public ParametersRow(io.trino.sql.ir.Expression parametersRow, List<String> parametersOrder)
         {
             this.parametersRow = requireNonNull(parametersRow, "parametersRow is null");
             this.parametersOrder = requireNonNull(parametersOrder, "parametersOrder is null");
         }
 
-        public Expression getParametersRow()
+        public io.trino.sql.ir.Expression getParametersRow()
         {
             return parametersRow;
         }

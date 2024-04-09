@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -1240,10 +1239,10 @@ public class OrcTester
         private final JobConf jobConf;
         private final File file;
 
-        private Class<? extends Writable> valueClass = Text.class;
+        private final Class<? extends Writable> valueClass = Text.class;
         private final CompressionKind compression;
-        private Progressable reporter = () -> {};
-        private Properties tableProperties = new Properties();
+        private final Progressable reporter = () -> {};
+        private final Properties tableProperties = new Properties();
 
         private RecordWriterBuilder(File file, Format format, CompressionKind compression)
         {
@@ -1308,7 +1307,7 @@ public class OrcTester
 
     private static <T> List<T> reverse(List<T> iterable)
     {
-        return Lists.reverse(ImmutableList.copyOf(iterable));
+        return ImmutableList.copyOf(iterable).reverse();
     }
 
     private static <T> List<T> insertNullEvery(int n, List<T> iterable)

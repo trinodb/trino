@@ -15,6 +15,7 @@ package io.trino.filesystem.gcs;
 
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageBatch;
@@ -250,7 +251,7 @@ public class GcsFileSystem
         GcsLocation gcsLocation = new GcsLocation(normalizeToDirectory(location));
         try {
             Page<Blob> page = getPage(gcsLocation, currentDirectory(), matchGlob(gcsLocation.path() + "*/"));
-            Iterator<Blob> blobIterator = Iterators.filter(page.iterateAll().iterator(), blob -> blob.isDirectory());
+            Iterator<Blob> blobIterator = Iterators.filter(page.iterateAll().iterator(), BlobInfo::isDirectory);
             ImmutableSet.Builder<Location> locationBuilder = ImmutableSet.builder();
             while (blobIterator.hasNext()) {
                 locationBuilder.add(Location.of(gcsLocation.getBase() + blobIterator.next().getName()));

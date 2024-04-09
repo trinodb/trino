@@ -21,6 +21,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
@@ -49,6 +50,7 @@ import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryExecutionMBean;
+import io.trino.execution.QueryExecutorInternal;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryManagerConfig;
@@ -62,21 +64,23 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
+import io.trino.execution.resourcegroups.ResourceGroupInfoProvider;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.TaskExecutionStats;
 import io.trino.execution.scheduler.faulttolerant.BinPackingNodeAllocatorService;
-import io.trino.execution.scheduler.faulttolerant.ByEagerParentOutputDataSizeEstimator;
-import io.trino.execution.scheduler.faulttolerant.BySmallStageOutputDataSizeEstimator;
-import io.trino.execution.scheduler.faulttolerant.ByTaskProgressOutputDataSizeEstimator;
-import io.trino.execution.scheduler.faulttolerant.CompositeOutputDataSizeEstimator;
+import io.trino.execution.scheduler.faulttolerant.ByEagerParentOutputStatsEstimator;
+import io.trino.execution.scheduler.faulttolerant.BySmallStageOutputStatsEstimator;
+import io.trino.execution.scheduler.faulttolerant.ByTaskProgressOutputStatsEstimator;
+import io.trino.execution.scheduler.faulttolerant.CompositeOutputStatsEstimator;
 import io.trino.execution.scheduler.faulttolerant.EventDrivenTaskSourceFactory;
 import io.trino.execution.scheduler.faulttolerant.ExponentialGrowthPartitionMemoryEstimator;
 import io.trino.execution.scheduler.faulttolerant.NoMemoryAwarePartitionMemoryEstimator;
 import io.trino.execution.scheduler.faulttolerant.NoMemoryAwarePartitionMemoryEstimator.ForNoMemoryAwarePartitionMemoryEstimator;
 import io.trino.execution.scheduler.faulttolerant.NodeAllocatorService;
-import io.trino.execution.scheduler.faulttolerant.OutputDataSizeEstimatorFactory;
+import io.trino.execution.scheduler.faulttolerant.OutputStatsEstimatorFactory;
 import io.trino.execution.scheduler.faulttolerant.PartitionMemoryEstimatorFactory;
+import io.trino.execution.scheduler.faulttolerant.StageExecutionStats;
 import io.trino.execution.scheduler.faulttolerant.TaskDescriptorStorage;
 import io.trino.execution.scheduler.policy.AllAtOnceExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
@@ -105,7 +109,7 @@ import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
-import io.trino.spi.memory.ClusterMemoryPoolManager;
+import io.trino.spi.VersionEmbedder;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainerFactory;
@@ -122,7 +126,6 @@ import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.ShowStatsRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.rewrite.StatementRewrite.Rewrite;
-import jakarta.annotation.PreDestroy;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -140,7 +143,9 @@ import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
+import static io.trino.util.Executors.decorateWithVersion;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -193,7 +198,8 @@ public class CoordinatorModule
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         binder.bind(QueryPreparer.class).in(Scopes.SINGLETON);
-        binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
+        OptionalBinder.newOptionalBinder(binder, SessionSupplier.class).setDefault().to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
+        binder.bind(ResourceGroupInfoProvider.class).to(ResourceGroupManager.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
@@ -211,7 +217,6 @@ public class CoordinatorModule
 
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
-        binder.bind(ClusterMemoryPoolManager.class).to(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         install(internalHttpClientModule("memoryManager", ForMemoryManager.class)
                 .withTracing()
                 .withConfigDefaults(config -> {
@@ -237,25 +242,26 @@ public class CoordinatorModule
                 .to(ExponentialGrowthPartitionMemoryEstimator.Factory.class).in(Scopes.SINGLETON);
 
         // output data size estimator
-        binder.bind(OutputDataSizeEstimatorFactory.class)
-                .to(CompositeOutputDataSizeEstimator.Factory.class)
+        binder.bind(OutputStatsEstimatorFactory.class)
+                .to(CompositeOutputStatsEstimator.Factory.class)
                 .in(Scopes.SINGLETON);
-        binder.bind(ByTaskProgressOutputDataSizeEstimator.Factory.class).in(Scopes.SINGLETON);
-        binder.bind(BySmallStageOutputDataSizeEstimator.Factory.class).in(Scopes.SINGLETON);
-        binder.bind(ByEagerParentOutputDataSizeEstimator.Factory.class).in(Scopes.SINGLETON);
+        binder.bind(ByTaskProgressOutputStatsEstimator.Factory.class).in(Scopes.SINGLETON);
+        binder.bind(BySmallStageOutputStatsEstimator.Factory.class).in(Scopes.SINGLETON);
+        binder.bind(ByEagerParentOutputStatsEstimator.Factory.class).in(Scopes.SINGLETON);
         // use provider method returning list to ensure ordering
         // OutputDataSizeEstimator factories are ordered starting from most accurate
-        install(new AbstractConfigurationAwareModule() {
+        install(new AbstractConfigurationAwareModule()
+        {
             @Override
             protected void setup(Binder binder) {}
 
             @Provides
             @Singleton
-            @CompositeOutputDataSizeEstimator.ForCompositeOutputDataSizeEstimator
-            List<OutputDataSizeEstimatorFactory> getCompositeOutputDataSizeEstimatorDelegateFactories(
-                    ByTaskProgressOutputDataSizeEstimator.Factory byTaskProgressOutputDataSizeEstimatorFactory,
-                    BySmallStageOutputDataSizeEstimator.Factory bySmallStageOutputDataSizeEstimatorFactory,
-                    ByEagerParentOutputDataSizeEstimator.Factory byEagerParentOutputDataSizeEstimatorFactoryy)
+            @CompositeOutputStatsEstimator.ForCompositeOutputDataSizeEstimator
+            List<OutputStatsEstimatorFactory> getCompositeOutputDataSizeEstimatorDelegateFactories(
+                    ByTaskProgressOutputStatsEstimator.Factory byTaskProgressOutputDataSizeEstimatorFactory,
+                    BySmallStageOutputStatsEstimator.Factory bySmallStageOutputDataSizeEstimatorFactory,
+                    ByEagerParentOutputStatsEstimator.Factory byEagerParentOutputDataSizeEstimatorFactoryy)
             {
                 return ImmutableList.of(byTaskProgressOutputDataSizeEstimatorFactory, bySmallStageOutputDataSizeEstimatorFactory, byEagerParentOutputDataSizeEstimatorFactoryy);
             }
@@ -324,8 +330,8 @@ public class CoordinatorModule
                 .withTracing()
                 .withFilter(GenerateTraceTokenRequestFilter.class)
                 .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(30, SECONDS));
-                    config.setRequestTimeout(new Duration(10, SECONDS));
+                    config.setIdleTimeout(new Duration(60, SECONDS));
+                    config.setRequestTimeout(new Duration(20, SECONDS));
                     config.setMaxConnectionsPerServer(250);
                 }).build());
 
@@ -333,15 +339,6 @@ public class CoordinatorModule
                 .toInstance(newSingleThreadScheduledExecutor(threadsNamed("stage-scheduler")));
 
         // query execution
-        QueryManagerConfig queryManagerConfig = buildConfigObject(QueryManagerConfig.class);
-        ThreadPoolExecutor queryExecutor = new ThreadPoolExecutor(
-                queryManagerConfig.getQueryExecutorPoolSize(),
-                queryManagerConfig.getQueryExecutorPoolSize(),
-                60, SECONDS,
-                new LinkedBlockingQueue<>(1000),
-                threadsNamed("query-execution-%s"));
-        queryExecutor.allowCoreThreadTimeOut(true);
-        binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class).toInstance(queryExecutor);
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class)
                 .as(generator -> generator.generatedNameOf(QueryExecution.class));
@@ -357,6 +354,8 @@ public class CoordinatorModule
 
         binder.bind(TaskExecutionStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskExecutionStats.class).withGeneratedName();
+        binder.bind(StageExecutionStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(StageExecutionStats.class).withGeneratedName();
 
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
@@ -365,7 +364,11 @@ public class CoordinatorModule
         install(new QueryExecutionFactoryModule());
 
         // cleanup
-        binder.bind(ExecutorCleanup.class).asEagerSingleton();
+        closingBinder(binder)
+                .registerExecutor(ExecutorService.class, ForStatementResource.class)
+                .registerExecutor(ScheduledExecutorService.class, ForStatementResource.class)
+                .registerExecutor(ExecutorService.class, ForQueryExecution.class)
+                .registerExecutor(ScheduledExecutorService.class, ForScheduler.class);
     }
 
     // working around circular dependency Metadata <-> PlannerContext
@@ -383,6 +386,29 @@ public class CoordinatorModule
     public static ResourceGroupManager<?> getResourceGroupManager(@SuppressWarnings("rawtypes") ResourceGroupManager manager)
     {
         return manager;
+    }
+
+    @Provides
+    @Singleton
+    @QueryExecutorInternal
+    public static ExecutorService createQueryExecutor(QueryManagerConfig queryManagerConfig)
+    {
+        ThreadPoolExecutor queryExecutor = new ThreadPoolExecutor(
+                queryManagerConfig.getQueryExecutorPoolSize(),
+                queryManagerConfig.getQueryExecutorPoolSize(),
+                60, SECONDS,
+                new LinkedBlockingQueue<>(1000),
+                threadsNamed("query-execution-%s"));
+        queryExecutor.allowCoreThreadTimeOut(true);
+        return queryExecutor;
+    }
+
+    @Provides
+    @Singleton
+    @ForQueryExecution
+    public static ExecutorService createQueryExecutor(@QueryExecutorInternal ExecutorService queryExecutor, VersionEmbedder versionEmbedder)
+    {
+        return decorateWithVersion(queryExecutor, versionEmbedder);
     }
 
     @Provides
@@ -438,31 +464,5 @@ public class CoordinatorModule
                         .annotatedWith(ForTaskLowMemoryKiller.class)
                         .to(clazz)
                         .in(Scopes.SINGLETON)));
-    }
-
-    public static class ExecutorCleanup
-    {
-        private final List<ExecutorService> executors;
-
-        @Inject
-        public ExecutorCleanup(
-                @ForStatementResource ExecutorService statementResponseExecutor,
-                @ForStatementResource ScheduledExecutorService statementTimeoutExecutor,
-                @ForQueryExecution ExecutorService queryExecutionExecutor,
-                @ForScheduler ScheduledExecutorService schedulerExecutor)
-        {
-            executors = ImmutableList.<ExecutorService>builder()
-                    .add(statementResponseExecutor)
-                    .add(statementTimeoutExecutor)
-                    .add(queryExecutionExecutor)
-                    .add(schedulerExecutor)
-                    .build();
-        }
-
-        @PreDestroy
-        public void shutdown()
-        {
-            executors.forEach(ExecutorService::shutdownNow);
-        }
     }
 }

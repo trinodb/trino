@@ -18,6 +18,7 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 import java.util.Map;
 
@@ -28,13 +29,13 @@ public final class BlackHoleQueryRunner
 {
     private BlackHoleQueryRunner() {}
 
-    public static DistributedQueryRunner createQueryRunner()
+    public static QueryRunner createQueryRunner()
             throws Exception
     {
         return createQueryRunner(ImmutableMap.of());
     }
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
+    public static QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -42,7 +43,7 @@ public final class BlackHoleQueryRunner
                 .setSchema("default")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(4)
                 .setExtraProperties(extraProperties)
                 .build();
@@ -65,7 +66,7 @@ public final class BlackHoleQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        QueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
         Thread.sleep(10);
         Logger log = Logger.get(BlackHoleQueryRunner.class);
         log.info("======== SERVER STARTED ========");

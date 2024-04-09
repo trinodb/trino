@@ -29,7 +29,7 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
@@ -140,7 +140,7 @@ public final class IcebergTestUtils
         return true;
     }
 
-    public static TrinoFileSystemFactory getFileSystemFactory(DistributedQueryRunner queryRunner)
+    public static TrinoFileSystemFactory getFileSystemFactory(QueryRunner queryRunner)
     {
         return ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG))
                 .getInjector().getInstance(TrinoFileSystemFactory.class);

@@ -26,7 +26,9 @@ public class IcebergMergeTableHandle
     private final IcebergWritableTableHandle insertTableHandle;
 
     @JsonCreator
-    public IcebergMergeTableHandle(IcebergTableHandle tableHandle, IcebergWritableTableHandle insertTableHandle)
+    public IcebergMergeTableHandle(
+            @JsonProperty("tableHandle") IcebergTableHandle tableHandle,
+            @JsonProperty("insertTableHandle") IcebergWritableTableHandle insertTableHandle)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.insertTableHandle = requireNonNull(insertTableHandle, "insertTableHandle is null");

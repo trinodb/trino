@@ -60,6 +60,7 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static java.lang.Math.min;
@@ -108,6 +109,7 @@ public abstract class AbstractDeltaLakePageSink
     private final List<Boolean> activeWriters = new ArrayList<>();
     protected final ImmutableList.Builder<DataFileInfo> dataFileInfos = ImmutableList.builder();
     private final DeltaLakeParquetSchemaMapping parquetSchemaMapping;
+    private long currentOpenWriters;
 
     public AbstractDeltaLakePageSink(
             TypeOperators typeOperators,
@@ -346,9 +348,6 @@ public abstract class AbstractDeltaLakePageSink
     {
         Page partitionColumns = extractColumns(page, partitionColumnsInputIndex);
         int[] writerIndexes = pageIndexer.indexPage(partitionColumns);
-        if (pageIndexer.getMaxIndex() >= maxOpenWriters) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Exceeded limit of %s open writers for partitions", maxOpenWriters));
-        }
 
         // expand writers list to new size
         while (writers.size() <= pageIndexer.getMaxIndex()) {
@@ -391,9 +390,14 @@ public abstract class AbstractDeltaLakePageSink
                     getDataFileType());
 
             writers.set(writerIndex, writer);
+            currentOpenWriters++;
             memoryUsage += writer.getMemoryUsage();
         }
         verify(writers.size() == pageIndexer.getMaxIndex() + 1);
+
+        if (currentOpenWriters > maxOpenWriters) {
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Exceeded limit of %s open writers for partitions", maxOpenWriters));
+        }
 
         return writerIndexes;
     }
@@ -419,6 +423,7 @@ public abstract class AbstractDeltaLakePageSink
         memoryUsage -= currentMemory;
 
         writers.set(writerIndex, null);
+        currentOpenWriters--;
 
         try {
             DataFileInfo dataFileInfo = writer.getDataFileInfo();
@@ -462,8 +467,10 @@ public abstract class AbstractDeltaLakePageSink
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
                 .setMaxPageSize(getParquetWriterPageSize(session))
+                .setMaxPageValueCount(getParquetWriterPageValueCount(session))
                 .build();
-        CompressionCodec compressionCodec = getCompressionCodec(session).getParquetCompressionCodec();
+        CompressionCodec compressionCodec = getCompressionCodec(session).getParquetCompressionCodec()
+                .orElseThrow(); // validated on the session property level
 
         try {
             Closeable rollbackAction = () -> fileSystem.deleteFile(path);

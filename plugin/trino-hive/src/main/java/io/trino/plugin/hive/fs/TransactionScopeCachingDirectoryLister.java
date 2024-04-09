@@ -98,6 +98,13 @@ public class TransactionScopeCachingDirectoryLister
     }
 
     @Override
+    public void invalidate(Location location)
+    {
+        cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, location));
+        delegate.invalidate(location);
+    }
+
+    @Override
     public void invalidate(Table table)
     {
         if (isLocationPresent(table.getStorage())) {
@@ -157,10 +164,10 @@ public class TransactionScopeCachingDirectoryLister
         };
     }
 
-    @VisibleForTesting
-    boolean isCached(Location location)
+    @Override
+    public boolean isCached(Location location)
     {
-        return isCached(new TransactionDirectoryListingCacheKey(transactionId, location));
+        return isCached(new TransactionDirectoryListingCacheKey(transactionId, location)) || delegate.isCached(location);
     }
 
     @VisibleForTesting

@@ -20,10 +20,11 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.node.NodeInfo;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.testing.TestingTicker;
+import io.airlift.tracing.Tracing;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
-import io.trino.connector.CatalogProperties;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -33,6 +34,7 @@ import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.WorkerLanguageFunctionProvider;
+import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
@@ -135,7 +137,7 @@ public class TestTaskExecutorStuckSplits
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 noopTracer(),
-                new ExchangeManagerRegistry(),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
                 stuckSplitStackTracePredicate);
     }
 

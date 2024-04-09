@@ -13,12 +13,10 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
-import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -28,7 +26,6 @@ import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public final class RunLengthEncodedBlock
@@ -93,12 +90,6 @@ public final class RunLengthEncodedBlock
 
         this.value = value;
         this.positionCount = positionCount;
-    }
-
-    @Override
-    public List<Block> getChildren()
-    {
-        return singletonList(value);
     }
 
     public ValueBlock getValue()
@@ -205,55 +196,6 @@ public final class RunLengthEncodedBlock
     }
 
     @Override
-    public int getSliceLength(int position)
-    {
-        checkReadablePosition(this, position);
-        return value.getSliceLength(0);
-    }
-
-    @Override
-    public byte getByte(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        return value.getByte(0, offset);
-    }
-
-    @Override
-    public short getShort(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        return value.getShort(0, offset);
-    }
-
-    @Override
-    public int getInt(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        return value.getInt(0, offset);
-    }
-
-    @Override
-    public long getLong(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        return value.getLong(0, offset);
-    }
-
-    @Override
-    public Slice getSlice(int position, int offset, int length)
-    {
-        checkReadablePosition(this, position);
-        return value.getSlice(0, offset, length);
-    }
-
-    @Override
-    public <T> T getObject(int position, Class<T> clazz)
-    {
-        checkReadablePosition(this, position);
-        return value.getObject(0, clazz);
-    }
-
-    @Override
     public ValueBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
@@ -294,6 +236,23 @@ public final class RunLengthEncodedBlock
         sb.append(", value=").append(value);
         sb.append('}');
         return sb.toString();
+    }
+
+    @Override
+    public boolean isLoaded()
+    {
+        return value.isLoaded();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        Block loadedValueBlock = value.getLoadedBlock();
+
+        if (loadedValueBlock == value) {
+            return this;
+        }
+        return create(loadedValueBlock, positionCount);
     }
 
     @Override

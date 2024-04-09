@@ -19,18 +19,16 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -39,21 +37,21 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.Rule.Context;
 import static io.trino.sql.planner.iterative.Rule.Result;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.partitioningBy;
 
@@ -80,7 +78,7 @@ import static java.util.stream.Collectors.partitioningBy;
  */
 public class PushInequalityFilterExpressionBelowJoinRuleSet
 {
-    private static final Set<ComparisonExpression.Operator> SUPPORTED_COMPARISONS = ImmutableSet.of(
+    private static final Set<Comparison.Operator> SUPPORTED_COMPARISONS = ImmutableSet.of(
             GREATER_THAN,
             GREATER_THAN_OR_EQUAL,
             LESS_THAN,
@@ -89,15 +87,6 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
     private static final Capture<JoinNode> JOIN_CAPTURE = newCapture();
     private static final Pattern<FilterNode> FILTER_PATTERN = filter().with(source().matching(
             join().capturedAs(JOIN_CAPTURE)));
-
-    private final Metadata metadata;
-    private final TypeAnalyzer typeAnalyzer;
-
-    public PushInequalityFilterExpressionBelowJoinRuleSet(Metadata metadata, TypeAnalyzer typeAnalyzer)
-    {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-    }
 
     public Iterable<Rule<?>> rules()
     {
@@ -120,7 +109,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
     {
         JoinNodeContext joinNodeContext = new JoinNodeContext(joinNode);
 
-        Expression parentFilterPredicate = filterNode.map(FilterNode::getPredicate).orElse(TRUE_LITERAL);
+        Expression parentFilterPredicate = filterNode.map(FilterNode::getPredicate).orElse(TRUE);
         Map<Boolean, List<Expression>> parentFilterCandidates;
         if (joinNode.getType() == INNER) {
             parentFilterCandidates = extractPushDownCandidates(joinNodeContext, parentFilterPredicate);
@@ -134,7 +123,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
                     false, extractConjuncts(parentFilterPredicate));
         }
 
-        Map<Boolean, List<Expression>> joinFilterCandidates = extractPushDownCandidates(joinNodeContext, joinNode.getFilter().orElse(TRUE_LITERAL));
+        Map<Boolean, List<Expression>> joinFilterCandidates = extractPushDownCandidates(joinNodeContext, joinNode.getFilter().orElse(TRUE));
 
         if (parentFilterCandidates.get(true).isEmpty() && joinFilterCandidates.get(true).isEmpty()) {
             // no push-down candidates
@@ -171,7 +160,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
 
     private Optional<Expression> conjunctsToFilter(List<Expression> conjuncts)
     {
-        return Optional.of(combineConjuncts(metadata, conjuncts)).filter(expression -> !TRUE_LITERAL.equals(expression));
+        return Optional.of(combineConjuncts(conjuncts)).filter(expression -> !TRUE.equals(expression));
     }
 
     Map<Boolean, List<Expression>> extractPushDownCandidates(JoinNodeContext joinNodeContext, Expression filter)
@@ -182,14 +171,14 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
 
     private boolean isSupportedExpression(JoinNodeContext joinNodeContext, Expression expression)
     {
-        if (!(expression instanceof ComparisonExpression comparison && isDeterministic(expression, metadata))) {
+        if (!(expression instanceof Comparison comparison && isDeterministic(expression))) {
             return false;
         }
-        if (!SUPPORTED_COMPARISONS.contains(comparison.getOperator())) {
+        if (!SUPPORTED_COMPARISONS.contains(comparison.operator())) {
             return false;
         }
-        Set<Symbol> leftComparisonSymbols = extractUnique(comparison.getLeft());
-        Set<Symbol> rightComparisonSymbols = extractUnique(comparison.getRight());
+        Set<Symbol> leftComparisonSymbols = extractUnique(comparison.left());
+        Set<Symbol> rightComparisonSymbols = extractUnique(comparison.right());
         if (leftComparisonSymbols.isEmpty() || rightComparisonSymbols.isEmpty()) {
             return false;
         }
@@ -201,10 +190,10 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
         }
 
         boolean alignedComparison = joinNodeContext.isComparisonAligned(comparison);
-        Expression buildExpression = alignedComparison ? comparison.getRight() : comparison.getLeft();
+        Expression buildExpression = alignedComparison ? comparison.right() : comparison.left();
 
         // if buildExpression is a symbol, and it is available, we don't need to push down anything
-        return !(buildExpression instanceof SymbolReference);
+        return !(buildExpression instanceof Reference);
     }
 
     Map<Symbol, Expression> pushDownRightComplexExpressions(
@@ -225,14 +214,14 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
             ImmutableMap.Builder<Symbol, Expression> newProjections,
             Expression conjunct)
     {
-        checkArgument(conjunct instanceof ComparisonExpression, "conjunct '%s' is not a comparison", conjunct);
-        ComparisonExpression comparison = (ComparisonExpression) conjunct;
+        checkArgument(conjunct instanceof Comparison, "conjunct '%s' is not a comparison", conjunct);
+        Comparison comparison = (Comparison) conjunct;
         boolean alignedComparison = joinNodeContext.isComparisonAligned(comparison);
-        Expression rightExpression = alignedComparison ? comparison.getRight() : comparison.getLeft();
-        Expression leftExpression = alignedComparison ? comparison.getLeft() : comparison.getRight();
+        Expression rightExpression = alignedComparison ? comparison.right() : comparison.left();
+        Expression leftExpression = alignedComparison ? comparison.left() : comparison.right();
         Symbol rightSymbol = symbolForExpression(context, rightExpression);
-        newConjuncts.add(new ComparisonExpression(
-                comparison.getOperator(),
+        newConjuncts.add(new Comparison(
+                comparison.operator(),
                 alignedComparison ? leftExpression : rightSymbol.toSymbolReference(),
                 alignedComparison ? rightSymbol.toSymbolReference() : leftExpression));
         newProjections.put(rightSymbol, rightExpression);
@@ -292,8 +281,8 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
 
     private Symbol symbolForExpression(Context context, Expression expression)
     {
-        checkArgument(!(expression instanceof SymbolReference), "expression '%s' is a SymbolReference", expression);
-        return context.getSymbolAllocator().newSymbol(expression, typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), expression));
+        checkArgument(!(expression instanceof Reference), "expression '%s' is a SymbolReference", expression);
+        return context.getSymbolAllocator().newSymbol(expression);
     }
 
     private class PushFilterExpressionBelowJoinFilterRule
@@ -350,9 +339,9 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
             return rightSymbols;
         }
 
-        public boolean isComparisonAligned(ComparisonExpression comparison)
+        public boolean isComparisonAligned(Comparison comparison)
         {
-            return leftSymbols.containsAll(extractUnique(comparison.getLeft()));
+            return leftSymbols.containsAll(extractUnique(comparison.left()));
         }
     }
 }

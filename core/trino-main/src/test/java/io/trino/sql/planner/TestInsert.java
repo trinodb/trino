@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
@@ -31,7 +32,7 @@ import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -55,16 +56,15 @@ public class TestInsert
         extends BasePlanTest
 {
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("mock")
                 .setSchema("schema");
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
-        queryRunner.createCatalog(
-                "mock",
-                MockConnectorFactory.builder()
+        PlanTester planTester = PlanTester.create(sessionBuilder.build());
+        planTester.installPlugin(
+                new MockConnectorPlugin(MockConnectorFactory.builder()
                         .withGetTableHandle((session, schemaTableName) -> {
                             if (schemaTableName.getTableName().equals("test_table_preferred_partitioning")) {
                                 return new MockConnectorTableHandle(schemaTableName);
@@ -105,9 +105,9 @@ public class TestInsert
 
                             return Optional.empty();
                         })
-                        .build(),
-                ImmutableMap.of());
-        return queryRunner;
+                        .build()));
+        planTester.createCatalog("mock", "mock", ImmutableMap.of());
+        return planTester;
     }
 
     @Test
@@ -251,7 +251,7 @@ public class TestInsert
 
     private Session withForcedPreferredPartitioning()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
@@ -262,7 +262,7 @@ public class TestInsert
 
     private Session withoutPreferredPartitioning()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "false")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                 .setSystemProperty(TASK_MIN_WRITER_COUNT, "16")

@@ -18,8 +18,9 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.Assignments;
@@ -28,8 +29,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +40,6 @@ import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractRow
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.topN;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
@@ -71,12 +69,6 @@ public final class PushTopNThroughProject
                                     .capturedAs(PROJECT_CHILD)
                                     // do not push topN between projection and table scan so that they can be merged into a PageProcessor
                                     .with(source().matching(node -> !(node instanceof TableScanNode)))));
-    private final TypeAnalyzer typeAnalyzer;
-
-    public PushTopNThroughProject(TypeAnalyzer typeAnalyzer)
-    {
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-    }
 
     @Override
     public Pattern<TopNNode> getPattern()
@@ -93,8 +85,8 @@ public final class PushTopNThroughProject
         // undoing of PushDownDereferencesThroughTopN. We still push topN in the case of overlapping dereferences since
         // it enables PushDownDereferencesThroughTopN rule to push optimal dereferences.
         Set<Expression> projections = ImmutableSet.copyOf(projectNode.getAssignments().getExpressions());
-        if (!extractRowSubscripts(projections, false, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes()).isEmpty()
-                && exclusiveDereferences(projections, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes())) {
+        if (!extractRowSubscripts(projections, false).isEmpty()
+                && exclusiveDereferences(projections)) {
             return Result.empty();
         }
 
@@ -121,7 +113,7 @@ public final class PushTopNThroughProject
         SymbolMapper.Builder mapper = SymbolMapper.builder();
         for (Symbol symbol : symbols) {
             Expression expression = assignments.get(symbol);
-            if (!(expression instanceof SymbolReference)) {
+            if (!(expression instanceof Reference)) {
                 return Optional.empty();
             }
             mapper.put(symbol, Symbol.from(expression));

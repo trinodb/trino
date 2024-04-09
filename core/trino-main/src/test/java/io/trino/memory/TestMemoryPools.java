@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
-import io.trino.Session;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
@@ -30,123 +29,88 @@ import io.trino.operator.OperatorContext;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.TableScanOperator;
 import io.trino.operator.TaskContext;
-import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_METHOD)
-public class TestMemoryPools
+@TestInstance(PER_CLASS)
+class TestMemoryPools
 {
     private static final DataSize TEN_MEGABYTES = DataSize.of(10, MEGABYTE);
     private static final DataSize TEN_MEGABYTES_WITHOUT_TWO_BYTES = DataSize.ofBytes(TEN_MEGABYTES.toBytes() - 2);
     private static final DataSize ONE_BYTE = DataSize.ofBytes(1);
 
-    private TaskId fakeTaskId;
-    private LocalQueryRunner localQueryRunner;
-    private MemoryPool userPool;
-    private List<Driver> drivers;
-    private TaskContext taskContext;
+    private final TaskId fakeTaskId = new TaskId(new StageId(new QueryId("fake"), 0), 0, 0);
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
+    private final ScheduledExecutorService scheduler = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
 
-    private void setUp(Supplier<List<Driver>> driversSupplier)
+    @AfterAll
+    void tearDown()
     {
-        checkState(localQueryRunner == null, "Already set up");
+        executor.shutdownNow();
+        scheduler.shutdownNow();
+    }
 
-        Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .build();
+    private record RevocableMemoryDriver(Driver driver, RevocableMemoryOperator operator) {}
 
-        localQueryRunner = LocalQueryRunner.create(session);
-
-        // add tpch
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
-
-        userPool = new MemoryPool(TEN_MEGABYTES);
-        QueryId queryId = new QueryId("fake");
-        fakeTaskId = new TaskId(new StageId(queryId, 0), 0, 0);
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
+    private RevocableMemoryDriver createRevocableMemoryDriver(MemoryPool userPool, DataSize reservedPerPage, long numberOfPages)
+    {
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 TEN_MEGABYTES,
                 userPool,
                 new TestingGcMonitor(),
-                localQueryRunner.getExecutor(),
-                localQueryRunner.getScheduler(),
-                localQueryRunner.getScheduler(),
+                executor,
+                scheduler,
+                scheduler,
                 TEN_MEGABYTES,
-                spillSpaceTracker);
-        taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), localQueryRunner.getDefaultSession());
-        drivers = driversSupplier.get();
-    }
+                new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
 
-    private void setUpCountStarFromOrdersWithJoin()
-    {
-        // query will reserve all memory in the user pool and discard the output
-        setUp(() -> {
-            OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {}));
-            return localQueryRunner.createDrivers("SELECT COUNT(*) FROM orders JOIN lineitem ON CAST(orders.orderkey AS VARCHAR) = CAST(lineitem.orderkey AS VARCHAR)", outputFactory, taskContext);
-        });
-    }
+        TaskContext taskContext = createTaskContext(queryContext, executor, TEST_SESSION);
+        DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
+        OperatorContext revokableOperatorContext = driverContext.addOperatorContext(
+                Integer.MAX_VALUE,
+                new PlanNodeId("revokable_operator"),
+                TableScanOperator.class.getSimpleName());
 
-    private RevocableMemoryOperator setupConsumeRevocableMemory(DataSize reservedPerPage, long numberOfPages)
-    {
-        AtomicReference<RevocableMemoryOperator> createOperator = new AtomicReference<>();
-        setUp(() -> {
-            DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
-            OperatorContext revokableOperatorContext = driverContext.addOperatorContext(
-                    Integer.MAX_VALUE,
-                    new PlanNodeId("revokable_operator"),
-                    TableScanOperator.class.getSimpleName());
+        OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {}));
+        Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), ImmutableList.of(), Function.identity(), new TestingPagesSerdeFactory()).createOperator(driverContext);
+        RevocableMemoryOperator revocableMemoryOperator = new RevocableMemoryOperator(revokableOperatorContext, reservedPerPage, numberOfPages);
 
-            OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {}));
-            Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), ImmutableList.of(), Function.identity(), new TestingPagesSerdeFactory()).createOperator(driverContext);
-            RevocableMemoryOperator revocableMemoryOperator = new RevocableMemoryOperator(revokableOperatorContext, reservedPerPage, numberOfPages);
-            createOperator.set(revocableMemoryOperator);
-
-            Driver driver = Driver.createDriver(driverContext, revocableMemoryOperator, outputOperator);
-            return ImmutableList.of(driver);
-        });
-        return createOperator.get();
-    }
-
-    @AfterEach
-    public void tearDown()
-    {
-        if (localQueryRunner != null) {
-            localQueryRunner.close();
-            localQueryRunner = null;
-        }
+        Driver driver = Driver.createDriver(driverContext, revocableMemoryOperator, outputOperator);
+        return new RevocableMemoryDriver(driver, revocableMemoryOperator);
     }
 
     @Test
-    public void testNotifyListenerOnMemoryReserved()
+    void testNotifyListenerOnMemoryReserved()
     {
-        setupConsumeRevocableMemory(ONE_BYTE, 10);
+        MemoryPool userPool = new MemoryPool(TEN_MEGABYTES);
         AtomicReference<MemoryPool> notifiedPool = new AtomicReference<>();
         AtomicLong notifiedBytes = new AtomicLong();
         userPool.addListener(MemoryPoolListener.onMemoryReserved(pool -> {
@@ -160,64 +124,72 @@ public class TestMemoryPools
     }
 
     @Test
-    public void testMemoryFutureCancellation()
+    void testMemoryFutureCancellation()
     {
-        setUpCountStarFromOrdersWithJoin();
-        ListenableFuture<Void> future = userPool.reserve(fakeTaskId, "test", TEN_MEGABYTES.toBytes());
-        assertThat(!future.isDone()).isTrue();
+        MemoryPool userPool = new MemoryPool(DataSize.of(100, BYTE));
+        TaskId reserveTaskId = new TaskId(new StageId(new QueryId("reserve"), 0), 0, 0);
+        assertThat(userPool.reserve(reserveTaskId, "reserve", 10)).isDone();
+
+        ListenableFuture<Void> future = userPool.reserve(fakeTaskId, "test", 95);
+        assertThat(future.isDone()).isFalse();
+
         assertThatThrownBy(() -> future.cancel(true))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessage("cancellation is not supported");
-        userPool.free(fakeTaskId, "test", TEN_MEGABYTES.toBytes());
+        assertThat(future.isDone()).isFalse();
+
+        userPool.free(reserveTaskId, "reserve", 10);
         assertThat(future.isDone()).isTrue();
     }
 
     @Test
-    public void testBlockingOnRevocableMemoryFreeUser()
+    void testBlockingOnRevocableMemoryFreeUser()
     {
-        setupConsumeRevocableMemory(ONE_BYTE, 10);
+        MemoryPool userPool = new MemoryPool(TEN_MEGABYTES);
+        RevocableMemoryDriver revocableMemoryDriver = createRevocableMemoryDriver(userPool, ONE_BYTE, 10);
         assertThat(userPool.tryReserve(fakeTaskId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes())).isTrue();
 
         // we expect 2 iterations as we have 2 bytes remaining in memory pool and we allocate 1 byte per page
-        assertThat(runDriversUntilBlocked(waitingForRevocableMemory())).isEqualTo(2);
+        assertThat(runDriverUntilBlocked(revocableMemoryDriver.driver(), waitingForRevocableMemory())).isEqualTo(2);
         assertThat(userPool.getFreeBytes() <= 0)
                 .describedAs(format("Expected empty pool but got [%d]", userPool.getFreeBytes()))
                 .isTrue();
 
         // lets free 5 bytes
         userPool.free(fakeTaskId, "test", 5);
-        assertThat(runDriversUntilBlocked(waitingForRevocableMemory())).isEqualTo(5);
+        assertThat(runDriverUntilBlocked(revocableMemoryDriver.driver(), waitingForRevocableMemory())).isEqualTo(5);
         assertThat(userPool.getFreeBytes() <= 0)
                 .describedAs(format("Expected empty pool but got [%d]", userPool.getFreeBytes()))
                 .isTrue();
 
         // 3 more bytes is enough for driver to finish
         userPool.free(fakeTaskId, "test", 3);
-        assertDriversProgress(waitingForRevocableMemory());
+        assertDriverProgress(revocableMemoryDriver.driver(), waitingForRevocableMemory());
         assertThat(userPool.getFreeBytes()).isEqualTo(10);
     }
 
     @Test
-    public void testBlockingOnRevocableMemoryFreeViaRevoke()
+    void testBlockingOnRevocableMemoryFreeViaRevoke()
     {
-        RevocableMemoryOperator revocableMemoryOperator = setupConsumeRevocableMemory(ONE_BYTE, 5);
+        MemoryPool userPool = new MemoryPool(TEN_MEGABYTES);
+        RevocableMemoryDriver revocableMemoryDriver = createRevocableMemoryDriver(userPool, ONE_BYTE, 5);
         assertThat(userPool.tryReserve(fakeTaskId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes())).isTrue();
 
         // we expect 2 iterations as we have 2 bytes remaining in memory pool and we allocate 1 byte per page
-        assertThat(runDriversUntilBlocked(waitingForRevocableMemory())).isEqualTo(2);
-        revocableMemoryOperator.getOperatorContext().requestMemoryRevoking();
+        assertThat(runDriverUntilBlocked(revocableMemoryDriver.driver(), waitingForRevocableMemory())).isEqualTo(2);
+        revocableMemoryDriver.operator().getOperatorContext().requestMemoryRevoking();
 
         // 2 more iterations
-        assertThat(runDriversUntilBlocked(waitingForRevocableMemory())).isEqualTo(2);
-        revocableMemoryOperator.getOperatorContext().requestMemoryRevoking();
+        assertThat(runDriverUntilBlocked(revocableMemoryDriver.driver(), waitingForRevocableMemory())).isEqualTo(2);
+        revocableMemoryDriver.operator().getOperatorContext().requestMemoryRevoking();
 
         // 3 more bytes is enough for driver to finish
-        assertDriversProgress(waitingForRevocableMemory());
+        assertDriverProgress(revocableMemoryDriver.driver(), waitingForRevocableMemory());
         assertThat(userPool.getFreeBytes()).isEqualTo(2);
     }
 
     @Test
-    public void testTaggedAllocations()
+    void testTaggedAllocations()
     {
         TaskId testTask = new TaskId(new StageId(new QueryId("test_query"), 0), 0, 0);
         MemoryPool testPool = new MemoryPool(DataSize.ofBytes(1000));
@@ -244,7 +216,7 @@ public class TestMemoryPools
     }
 
     @Test
-    public void testPerTaskAllocations()
+    void testPerTaskAllocations()
     {
         QueryId query1 = new QueryId("test_query1");
         TaskId q1task1 = new TaskId(new StageId(query1, 0), 0, 0);
@@ -332,7 +304,7 @@ public class TestMemoryPools
     }
 
     @Test
-    public void testGlobalRevocableAllocations()
+    void testGlobalRevocableAllocations()
     {
         MemoryPool testPool = new MemoryPool(DataSize.ofBytes(1000));
 
@@ -359,7 +331,7 @@ public class TestMemoryPools
     }
 
     @Test
-    public void testPerTaskRevocableAllocations()
+    void testPerTaskRevocableAllocations()
     {
         QueryId query1 = new QueryId("test_query1");
         TaskId q1task1 = new TaskId(new StageId(query1, 0), 0, 0);
@@ -446,59 +418,43 @@ public class TestMemoryPools
         assertThat(testPool.getTaskRevocableMemoryReservation(q2task1)).isEqualTo(9L);
     }
 
-    private long runDriversUntilBlocked(Predicate<OperatorContext> reason)
+    private static long runDriverUntilBlocked(Driver driver, Predicate<OperatorContext> reason)
     {
         long iterationsCount = 0;
 
         // run driver, until it blocks
-        while (!isOperatorBlocked(drivers, reason)) {
-            for (Driver driver : drivers) {
-                driver.processForNumberOfIterations(1);
-            }
+        while (!isBlockedFor(driver, reason)) {
+            driver.processForNumberOfIterations(1);
             iterationsCount++;
         }
 
         // driver should be blocked waiting for memory
-        for (Driver driver : drivers) {
-            assertThat(driver.isFinished()).isFalse();
-        }
+        assertThat(driver.isFinished()).isFalse();
         return iterationsCount;
     }
 
-    private void assertDriversProgress(Predicate<OperatorContext> reason)
+    private static void assertDriverProgress(Driver driver, Predicate<OperatorContext> reason)
     {
         do {
-            assertThat(isOperatorBlocked(drivers, reason)).isFalse();
-            boolean progress = false;
-            for (Driver driver : drivers) {
-                ListenableFuture<Void> blocked = driver.processUntilBlocked();
-                progress = progress | blocked.isDone();
-            }
+            assertThat(isBlockedFor(driver, reason)).isFalse();
             // query should not block
-            assertThat(progress).isTrue();
+            assertThat(driver.processUntilBlocked()).isDone();
         }
-        while (!drivers.stream().allMatch(Driver::isFinished));
+        while (!driver.isFinished());
     }
 
-    private Predicate<OperatorContext> waitingForUserMemory()
-    {
-        return (OperatorContext operatorContext) -> !operatorContext.isWaitingForMemory().isDone();
-    }
-
-    private Predicate<OperatorContext> waitingForRevocableMemory()
+    private static Predicate<OperatorContext> waitingForRevocableMemory()
     {
         return (OperatorContext operatorContext) ->
                 !operatorContext.isWaitingForRevocableMemory().isDone() &&
                         !operatorContext.isMemoryRevokingRequested();
     }
 
-    private static boolean isOperatorBlocked(List<Driver> drivers, Predicate<OperatorContext> reason)
+    private static boolean isBlockedFor(Driver driver, Predicate<OperatorContext> reason)
     {
-        for (Driver driver : drivers) {
-            for (OperatorContext operatorContext : driver.getDriverContext().getOperatorContexts()) {
-                if (reason.test(operatorContext)) {
-                    return true;
-                }
+        for (OperatorContext operatorContext : driver.getDriverContext().getOperatorContexts()) {
+            if (reason.test(operatorContext)) {
+                return true;
             }
         }
         return false;

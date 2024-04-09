@@ -16,7 +16,6 @@ package io.trino.server.security.oauth2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
-import com.google.inject.TypeLiteral;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -107,40 +106,40 @@ public class TestOidcDiscovery
 
     @Test
     public void testIssuerCheck()
+            throws Exception
     {
-        assertThatThrownBy(() -> {
-            try (MetadataServer metadataServer = new MetadataServer(
-                    ImmutableMap.<String, String>builder()
-                            .put("/.well-known/openid-configuration", "oidc/openid-configuration-invalid-issuer.json")
-                            .put("/jwks.json", "jwk/jwk-public.json")
-                            .buildOrThrow());
-                    TestingTrinoServer server = createServer(
-                            ImmutableMap.<String, String>builder()
-                                    .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
-                                    .put("http-server.authentication.oauth2.oidc.discovery", "true")
-                                    .buildOrThrow())) {
-                // should throw an exception
-                server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-            }
-        }).hasMessageContaining(
-                "Invalid response from OpenID Metadata endpoint. " +
-                        "The value of the \"issuer\" claim in Metadata document different than the Issuer URL used for the Configuration Request.");
+        try (MetadataServer metadataServer = new MetadataServer(
+                ImmutableMap.<String, String>builder()
+                        .put("/.well-known/openid-configuration", "oidc/openid-configuration-invalid-issuer.json")
+                        .put("/jwks.json", "jwk/jwk-public.json")
+                        .buildOrThrow());
+                TestingTrinoServer server = createServer(
+                        ImmutableMap.<String, String>builder()
+                                .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
+                                .put("http-server.authentication.oauth2.oidc.discovery", "true")
+                                .buildOrThrow())) {
+            OAuth2ServerConfigProvider provider = server.getInstance(Key.get(OAuth2ServerConfigProvider.class));
+            assertThatThrownBy(provider::get)
+                    .hasMessageContaining(
+                            "Invalid response from OpenID Metadata endpoint. " +
+                                    "The value of the \"issuer\" claim in Metadata document different than the Issuer URL used for the Configuration Request.");
+        }
     }
 
     @Test
     public void testStopOnClientError()
+            throws Exception
     {
-        assertThatThrownBy(() -> {
-            try (MetadataServer metadataServer = new MetadataServer(ImmutableMap.of());
-                    TestingTrinoServer server = createServer(
-                            ImmutableMap.<String, String>builder()
-                                    .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
-                                    .put("http-server.authentication.oauth2.oidc.discovery", "true")
-                                    .buildOrThrow())) {
-                // should throw an exception
-                server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-            }
-        }).hasMessageContaining("Invalid response from OpenID Metadata endpoint. Expected response code to be 200, but was 404");
+        try (MetadataServer metadataServer = new MetadataServer(ImmutableMap.of());
+                TestingTrinoServer server = createServer(
+                        ImmutableMap.<String, String>builder()
+                                .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
+                                .put("http-server.authentication.oauth2.oidc.discovery", "true")
+                                .buildOrThrow())) {
+            OAuth2ServerConfigProvider provider = server.getInstance(Key.get(OAuth2ServerConfigProvider.class));
+            assertThatThrownBy(provider::get)
+                    .hasMessageContaining("Invalid response from OpenID Metadata endpoint. Expected response code to be 200, but was 404");
+        }
     }
 
     @Test
@@ -165,23 +164,23 @@ public class TestOidcDiscovery
 
     @Test
     public void testOidcDiscoveryTimesOut()
+            throws Exception
     {
-        assertThatThrownBy(() -> {
-            try (MetadataServer metadataServer = new MetadataServer(new MetadataServletWithStartup(
-                    ImmutableMap.<String, String>builder()
-                            .put("/.well-known/openid-configuration", "oidc/openid-configuration.json")
-                            .put("/jwks.json", "jwk/jwk-public.json")
-                            .buildOrThrow(), 10));
-                    TestingTrinoServer server = createServer(
-                            ImmutableMap.<String, String>builder()
-                                    .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
-                                    .put("http-server.authentication.oauth2.oidc.discovery", "true")
-                                    .put("http-server.authentication.oauth2.oidc.discovery.timeout", "5s")
-                                    .buildOrThrow())) {
-                // should throw an exception
-                server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-            }
-        }).hasMessageContaining("Invalid response from OpenID Metadata endpoint: 429");
+        try (MetadataServer metadataServer = new MetadataServer(new MetadataServletWithStartup(
+                ImmutableMap.<String, String>builder()
+                        .put("/.well-known/openid-configuration", "oidc/openid-configuration.json")
+                        .put("/jwks.json", "jwk/jwk-public.json")
+                        .buildOrThrow(), 60));
+                TestingTrinoServer server = createServer(
+                        ImmutableMap.<String, String>builder()
+                                .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
+                                .put("http-server.authentication.oauth2.oidc.discovery", "true")
+                                .put("http-server.authentication.oauth2.oidc.discovery.timeout", "5s")
+                                .buildOrThrow())) {
+            OAuth2ServerConfigProvider provider = server.getInstance(Key.get(OAuth2ServerConfigProvider.class));
+            assertThatThrownBy(provider::get)
+                    .hasMessageContaining("Invalid response from OpenID Metadata endpoint: 429");
+        }
     }
 
     @Test
@@ -253,7 +252,7 @@ public class TestOidcDiscovery
 
     private static void assertComponents(TestingTrinoServer server)
     {
-        List<Authenticator> authenticators = server.getInstance(Key.get(new TypeLiteral<List<Authenticator>>() {}));
+        List<Authenticator> authenticators = server.getInstance(new Key<>() {});
         assertThat(authenticators).hasSize(1);
         assertThat(authenticators.get(0)).isInstanceOf(OAuth2Authenticator.class);
         assertThat(server.getInstance(Key.get(WebUiAuthenticationFilter.class))).isInstanceOf(OAuth2WebUiAuthenticationFilter.class);

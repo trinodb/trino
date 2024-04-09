@@ -27,13 +27,13 @@ final class TestGlueHiveMetastore
         extends AbstractTestHiveMetastore
 {
     private final Path tempDir;
+    private final HiveMetastore metastore;
 
     TestGlueHiveMetastore()
             throws IOException
     {
         tempDir = createTempDirectory("test");
-        tempDir.toFile().mkdirs();
-        setMetastore(createTestingGlueHiveMetastore(tempDir));
+        metastore = createTestingGlueHiveMetastore(tempDir);
     }
 
     @AfterAll
@@ -41,5 +41,11 @@ final class TestGlueHiveMetastore
             throws IOException
     {
         deleteRecursively(tempDir, ALLOW_INSECURE);
+    }
+
+    @Override
+    protected HiveMetastore getMetastore()
+    {
+        return metastore;
     }
 }

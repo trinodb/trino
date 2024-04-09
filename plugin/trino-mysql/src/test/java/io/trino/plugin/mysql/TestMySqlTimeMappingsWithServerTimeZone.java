@@ -683,7 +683,7 @@ public class TestMySqlTimeMappingsWithServerTimeZone
     {
         String connectionUrl = mySqlServer.getJdbcUrl() + "&zeroDateTimeBehavior=convertToNull";
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(getSession()).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(getSession()).build();
         queryRunner.installPlugin(new MySqlPlugin());
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("connection-url", connectionUrl)

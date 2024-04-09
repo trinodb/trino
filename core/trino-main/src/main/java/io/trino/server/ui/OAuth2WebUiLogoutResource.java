@@ -33,7 +33,6 @@ import java.util.Optional;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
-import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
 import static io.trino.server.ui.OAuthWebUiCookie.delete;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -54,13 +53,14 @@ public class OAuth2WebUiLogoutResource
     public Response logout(@Context HttpHeaders httpHeaders, @Context UriInfo uriInfo, @Context SecurityContext securityContext)
             throws IOException
     {
-        Optional<String> idToken = OAuthIdTokenCookie.read(httpHeaders.getCookies().get(ID_TOKEN_COOKIE));
+        Optional<String> idToken = OAuthIdTokenCookie.read(httpHeaders.getCookies());
         URI callBackUri = UriBuilder.fromUri(uriInfo.getAbsolutePath())
                 .path("logout.html")
                 .build();
 
         return Response.seeOther(auth2Client.getLogoutEndpoint(idToken, callBackUri).orElse(callBackUri))
-                .cookie(delete(), OAuthIdTokenCookie.delete())
+                .cookie(OAuthIdTokenCookie.delete(httpHeaders.getCookies()))
+                .cookie(delete(httpHeaders.getCookies()))
                 .build();
     }
 

@@ -64,6 +64,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -131,6 +132,74 @@ public class TestParquetWriter
             assertThat(dataPage.getValueCount()).isBetween(4500, 5500);
         }
         assertThat(pagesRead).isGreaterThan(10);
+    }
+
+    @Test
+    public void testWrittenPageValueCount()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(INTEGER, BIGINT);
+
+        // Write a file with many small input pages and parquet max page value count of 1000
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxPageValueCount(1000)
+                                .setBatchSize(100)
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, 1000)),
+                new ParquetReaderOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        assertThat(parquetMetadata.getBlocks().size()).isEqualTo(1);
+        assertThat(parquetMetadata.getBlocks().get(0).getRowCount()).isEqualTo(100 * 1000);
+
+        ColumnChunkMetaData columnAMetaData = parquetMetadata.getBlocks().get(0).getColumns().get(0);
+        ColumnChunkMetaData columnBMetaData = parquetMetadata.getBlocks().get(0).getColumns().get(1);
+        Map<Integer, ChunkedInputStream> chunkReader = dataSource.planRead(
+                ImmutableListMultimap.of(
+                        0, new DiskRange(columnAMetaData.getStartingPos(), columnAMetaData.getTotalSize()),
+                        1, new DiskRange(columnBMetaData.getStartingPos(), columnBMetaData.getTotalSize())),
+                newSimpleAggregatedMemoryContext());
+
+        PageReader pageReader = PageReader.createPageReader(
+                new ParquetDataSourceId("test"),
+                chunkReader.get(0),
+                columnAMetaData,
+                new ColumnDescriptor(new String[] {"columna"}, new PrimitiveType(REQUIRED, INT32, "columna"), 0, 0),
+                null,
+                Optional.empty());
+
+        pageReader.readDictionaryPage();
+        assertThat(pageReader.hasNext()).isTrue();
+        int pagesRead = 0;
+        DataPage dataPage;
+        while (pageReader.hasNext()) {
+            dataPage = pageReader.readPage();
+            pagesRead++;
+            assertThat(dataPage.getValueCount()).isEqualTo(1000);
+        }
+        assertThat(pagesRead).isEqualTo(100);
+
+        pageReader = PageReader.createPageReader(
+                new ParquetDataSourceId("test"),
+                chunkReader.get(1),
+                columnAMetaData,
+                new ColumnDescriptor(new String[] {"columnb"}, new PrimitiveType(REQUIRED, INT64, "columnb"), 0, 0),
+                null,
+                Optional.empty());
+
+        pageReader.readDictionaryPage();
+        assertThat(pageReader.hasNext()).isTrue();
+        pagesRead = 0;
+        while (pageReader.hasNext()) {
+            dataPage = pageReader.readPage();
+            pagesRead++;
+            assertThat(dataPage.getValueCount()).isEqualTo(1000);
+        }
+        assertThat(pagesRead).isEqualTo(100);
     }
 
     @Test

@@ -21,7 +21,7 @@ public interface GroupedAccumulator
 {
     long getEstimatedSize();
 
-    void setGroupCount(long groupCount);
+    void setGroupCount(int groupCount);
 
     void addInput(int[] groupIds, Page page, AggregationMask mask);
 

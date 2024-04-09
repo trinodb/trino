@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.operator.table.json.execution.ExecutionPlanner.getExecutionPlan;
@@ -65,7 +66,7 @@ public class JsonTable
      * knows the indexes of its default channels.
      * @param outputTypes types of the proper columns produced by the function
      */
-    public record JsonTableFunctionHandle(JsonTablePlanNode processingPlan, boolean outer, boolean errorOnError, RowType parametersType, Type[] outputTypes)
+    public record JsonTableFunctionHandle(JsonTablePlanNode processingPlan, boolean outer, boolean errorOnError, Type parametersType, Type[] outputTypes)
             implements ConnectorTableFunctionHandle
     {
         public JsonTableFunctionHandle
@@ -73,6 +74,9 @@ public class JsonTable
             requireNonNull(processingPlan, "processingPlan is null");
             requireNonNull(parametersType, "parametersType is null");
             requireNonNull(outputTypes, "outputTypes is null");
+
+            // We can't use RowType in the public interface because it's not directly deserializeable from JSON. See TypeDeserializerModule.
+            checkArgument(parametersType instanceof RowType, "parametersType is not a row type");
         }
     }
 
@@ -94,7 +98,7 @@ public class JsonTable
                         metadata,
                         typeManager,
                         functionManager);
-                return new JsonTableFunctionProcessor(executionPlan, newRow, jsonTableFunctionHandle.outputTypes(), jsonTableFunctionHandle.parametersType(), jsonTableFunctionHandle.outer());
+                return new JsonTableFunctionProcessor(executionPlan, newRow, jsonTableFunctionHandle.outputTypes(), (RowType) jsonTableFunctionHandle.parametersType(), jsonTableFunctionHandle.outer());
             }
         };
     }

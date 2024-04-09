@@ -47,6 +47,16 @@ public class TestWriteToHiveTransactionalTableInTrino
     }
 
     @Test(groups = {HMS_ONLY, PROFILE_SPECIFIC_TESTS})
+    public void testInsertIntoNonPartitionedTable()
+    {
+        String tableName = "non_partitioned_transactional_insert";
+        onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 INT) WITH (transactional = true)", tableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES (11, 12), (111, 121)", tableName));
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName))).containsOnly(row(11, 12), row(111, 121));
+        onTrino().executeQuery(format("DROP TABLE %s", tableName));
+    }
+
+    @Test(groups = {HMS_ONLY, PROFILE_SPECIFIC_TESTS})
     public void testUpdateOnUnpartitionedTable()
     {
         String tableName = "unpartitioned_transactional_update";

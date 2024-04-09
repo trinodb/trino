@@ -13,6 +13,7 @@
  */
 package io.trino.hive.formats.line.text;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
@@ -25,8 +26,11 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hive.formats.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.TEXT_INPUT_FORMAT_CLASS;
 
 public class TextLineReaderFactory
         implements LineReaderFactory
@@ -43,9 +47,9 @@ public class TextLineReaderFactory
     }
 
     @Override
-    public String getHiveOutputFormatClassName()
+    public Set<String> getHiveInputFormatClassNames()
     {
-        return "org.apache.hadoop.mapred.TextInputFormat";
+        return ImmutableSet.of(TEXT_INPUT_FORMAT_CLASS, SYMLINK_TEXT_INPUT_FORMAT_CLASS);
     }
 
     @Override

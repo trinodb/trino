@@ -42,6 +42,7 @@ import io.trino.testing.TestingPageSinkProvider;
 import io.trino.testing.TestingSplitManager;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // TestMetadata is shared mutable state
 public class TestBeginQuery
         extends AbstractTestQueryFramework
 {

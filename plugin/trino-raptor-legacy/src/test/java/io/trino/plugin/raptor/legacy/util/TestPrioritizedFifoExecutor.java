@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 public class TestPrioritizedFifoExecutor
 {
-    private static final Comparator<Runnable> DUMMY_COMPARATOR = (o1, o2) -> 0;
+    private static final Comparator<Runnable> DUMMY_COMPARATOR = (unused, unused2) -> 0;
 
     private ExecutorService executor;
 
@@ -98,7 +98,7 @@ public class TestPrioritizedFifoExecutor
         assertThat(counter.get()).isEqualTo(totalTasks);
         // since this is a fifo executor with one thread and completeLatch is decremented inside the future,
         // the last future may not be done yet, but all the rest must be
-        futures.get(futures.size() - 1).get(1, TimeUnit.MINUTES);
+        futures.getLast().get(1, TimeUnit.MINUTES);
         for (Future<?> future : futures) {
             assertThat(future.isDone()).isTrue();
         }

@@ -18,8 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
@@ -49,7 +49,7 @@ public class SpatialJoinNode
             return joinLabel;
         }
 
-        public static Type fromJoinNodeType(JoinNode.Type joinNodeType)
+        public static Type fromJoinNodeType(JoinType joinNodeType)
         {
             return switch (joinNodeType) {
                 case INNER -> Type.INNER;

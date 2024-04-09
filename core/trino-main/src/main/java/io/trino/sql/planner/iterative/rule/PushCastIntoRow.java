@@ -14,13 +14,12 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.DataType;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.RowDataType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.Row;
 import io.trino.type.UnknownType;
 
 /**
@@ -58,12 +57,12 @@ public class PushCastIntoRow
     }
 
     private static class Rewriter
-            extends io.trino.sql.tree.ExpressionRewriter<Boolean>
+            extends io.trino.sql.ir.ExpressionRewriter<Boolean>
     {
         @Override
         public Expression rewriteCast(Cast node, Boolean inRowCast, ExpressionTreeRewriter<Boolean> treeRewriter)
         {
-            if (!(node.getType() instanceof RowDataType type)) {
+            if (!(node.type() instanceof RowType type)) {
                 return treeRewriter.defaultRewrite(node, false);
             }
 
@@ -71,15 +70,15 @@ public class PushCastIntoRow
             // otherwise, apply recursively with inRowCast == true and don't push this one
 
             if (inRowCast || type.getFields().stream().allMatch(field -> field.getName().isEmpty())) {
-                Expression value = treeRewriter.rewrite(node.getExpression(), true);
+                Expression value = treeRewriter.rewrite(node.expression(), true);
 
                 if (value instanceof Row row) {
                     ImmutableList.Builder<Expression> items = ImmutableList.builder();
-                    for (int i = 0; i < row.getItems().size(); i++) {
-                        Expression item = row.getItems().get(i);
-                        DataType itemType = type.getFields().get(i).getType();
-                        if (!(itemType instanceof GenericDataType) || !((GenericDataType) itemType).getName().getValue().equalsIgnoreCase(UnknownType.NAME)) {
-                            item = new Cast(item, itemType, node.isSafe(), node.isTypeOnly());
+                    for (int i = 0; i < row.items().size(); i++) {
+                        Expression item = row.items().get(i);
+                        Type itemType = type.getFields().get(i).getType();
+                        if (!(itemType instanceof UnknownType)) {
+                            item = new Cast(item, itemType, node.safe());
                         }
                         items.add(item);
                     }

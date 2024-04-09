@@ -10,6 +10,7 @@ ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_typ
 ALTER TABLE [ IF EXISTS ] name DROP COLUMN [ IF EXISTS ] column_name
 ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] old_name TO new_name
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DATA TYPE new_type
+ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name DROP NOT NULL
 ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
 ALTER TABLE name SET PROPERTIES property_name = expression [, ...]
 ALTER TABLE name EXECUTE command [ ( parameter => expression [, ... ] ) ]
@@ -51,10 +52,20 @@ parameters. `ALTER TABLE EXECUTE` supports different commands on a
 per-connector basis.
 
 You can use the `=>` operator for passing named parameter values.
-The left side is the name of the parameter, the right side is the value being passed:
+The left side is the name of the parameter, the right side is the value being passed.
+
+Executable commands are contributed by connectors, such as the `optimize`
+command provided by the [Hive](hive-alter-table-execute), [Delta
+Lake](delta-lake-alter-table-execute), and
+[Iceberg](iceberg-alter-table-execute) connectors. For example, a user observing
+many small files in the storage of a table called `test_table` in the `test`
+schema of the `example` catalog, can use the `optimize` command to merge all
+files below the `file_size_threshold` value. The result is fewer, but larger
+files, which typically results in higher query performance on the data in the
+files:
 
 ```
-ALTER TABLE hive.schema.test_table EXECUTE optimize(file_size_threshold => '10MB')
+ALTER TABLE example.test.test_table EXECUTE optimize(file_size_threshold => '16MB')
 ```
 
 ## Examples
@@ -113,6 +124,12 @@ Change type of column `id` to `bigint` in the `users` table:
 ALTER TABLE users ALTER COLUMN id SET DATA TYPE bigint;
 ```
 
+Drop a not null constraint on `id` column in the `users` table:
+
+```
+ALTER TABLE users ALTER COLUMN id DROP NOT NULL;
+```
+
 Change owner of table `people` to user `alice`:
 
 ```
@@ -144,12 +161,6 @@ Set table property `x` to its default value in table\`\`people\`\`:
 ALTER TABLE people SET PROPERTIES x = DEFAULT;
 ```
 
-Collapse files in a table that are over 10 megabytes in size, as supported by
-the Hive connector:
-
-```
-ALTER TABLE hive.schema.test_table EXECUTE optimize(file_size_threshold => '10MB')
-```
 
 ## See also
 

@@ -16,9 +16,10 @@ package io.trino.transaction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -60,10 +61,11 @@ public class TestTransactionManager
     @Test
     public void testTransactionWorkflow()
     {
-        try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
+        try (QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION)) {
             TransactionManager transactionManager = queryRunner.getTransactionManager();
 
-            queryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog(TEST_CATALOG_NAME, "tpch", ImmutableMap.of());
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -88,10 +90,11 @@ public class TestTransactionManager
     @Test
     public void testAbortedTransactionWorkflow()
     {
-        try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
+        try (QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION)) {
             TransactionManager transactionManager = queryRunner.getTransactionManager();
 
-            queryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog(TEST_CATALOG_NAME, "tpch", ImmutableMap.of());
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -116,10 +119,11 @@ public class TestTransactionManager
     @Test
     public void testFailedTransactionWorkflow()
     {
-        try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
+        try (QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION)) {
             TransactionManager transactionManager = queryRunner.getTransactionManager();
 
-            queryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog(TEST_CATALOG_NAME, "tpch", ImmutableMap.of());
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 

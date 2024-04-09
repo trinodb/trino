@@ -74,6 +74,7 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -109,7 +110,7 @@ public class TestPagePartitioner
     private static final int POSITIONS_PER_PAGE = 8;
     private static final int PARTITION_COUNT = 2;
 
-    private static final PagesSerdeFactory PAGES_SERDE_FACTORY = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false);
+    private static final PagesSerdeFactory PAGES_SERDE_FACTORY = new PagesSerdeFactory(new TestingBlockEncodingSerde(), NONE);
     private static final PageDeserializer PAGE_DESERIALIZER = PAGES_SERDE_FACTORY.createDeserializer(Optional.empty());
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-executor-%s"));
@@ -521,6 +522,33 @@ public class TestPagePartitioner
         testOutputEqualsInput(TimestampType.createTimestampType(9), PartitioningMode.ROW_WISE, PartitioningMode.COLUMNAR);
         testOutputEqualsInput(TimestampType.createTimestampType(3), PartitioningMode.ROW_WISE, PartitioningMode.COLUMNAR);
         testOutputEqualsInput(IPADDRESS, PartitioningMode.ROW_WISE, PartitioningMode.COLUMNAR);
+    }
+
+    @Test
+    public void testOutputBytesWhenReused()
+    {
+        TestOutputBuffer outputBuffer = new TestOutputBuffer();
+        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT).build();
+        OperatorContext operatorContext = operatorContext();
+
+        Page page = new Page(createLongsBlock(1, 1, 1, 1, 1, 1));
+
+        pagePartitioner.partitionPage(page, operatorContext);
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(0);
+        pagePartitioner.prepareForRelease(operatorContext);
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes());
+        // release again with no additional input, size should not change
+        pagePartitioner.prepareForRelease(operatorContext);
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes());
+
+        pagePartitioner.partitionPage(page, operatorContext);
+        pagePartitioner.prepareForRelease(operatorContext);
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes() * 2);
+
+        pagePartitioner.close();
+        List<Slice> output = outputBuffer.getEnqueued();
+        // only a single page was flushed after the partitioner is closed, all output bytes were reported eagerly on release
+        assertThat(output.size()).isEqualTo(1);
     }
 
     @Test
@@ -956,7 +984,7 @@ public class TestPagePartitioner
         {
             long value = 0;
             for (int hashChannel : hashChannels) {
-                value += page.getBlock(hashChannel).getLong(position, 0);
+                value += BIGINT.getLong(page.getBlock(hashChannel), position);
             }
 
             return toIntExact(Math.abs(value) % partitionCount);

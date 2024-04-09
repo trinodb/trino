@@ -11,4 +11,5 @@ INSERT INTO default.uri_test VALUES ('a:colon', 2);
 INSERT INTO default.uri_test VALUES ('a+plus', 3);
 INSERT INTO default.uri_test VALUES ('a space', 4);
 INSERT INTO default.uri_test VALUES ('a%percent', 5);
+INSERT INTO default.uri_test VALUES ('a/forwardslash', 6);
 ```

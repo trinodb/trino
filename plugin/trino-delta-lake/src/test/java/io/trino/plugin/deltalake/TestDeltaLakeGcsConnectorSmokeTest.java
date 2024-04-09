@@ -15,8 +15,6 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteSource;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
@@ -29,7 +27,6 @@ import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.hdfs.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.AfterAll;
@@ -38,7 +35,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -165,7 +161,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     @Override
     protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
-        this.fileSystem = getConnectorService((DistributedQueryRunner) queryRunner, TrinoFileSystemFactory.class)
+        this.fileSystem = getConnectorService(queryRunner, TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
 
         String targetDirectory = bucketUrl() + table;
@@ -178,11 +174,9 @@ public class TestDeltaLakeGcsConnectorSmokeTest
                     .collect(toImmutableList());
             for (ClassPath.ResourceInfo resourceInfo : resources) {
                 String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(targetDirectory));
-                ByteSource byteSource = resourceInfo.asByteSource();
+                byte[] bytes = resourceInfo.asByteSource().read();
                 TrinoOutputFile trinoOutputFile = fileSystem.newOutputFile(Location.of(fileName));
-                try (OutputStream fileStream = trinoOutputFile.createOrOverwrite()) {
-                    ByteStreams.copy(byteSource.openBufferedStream(), fileStream);
-                }
+                trinoOutputFile.createOrOverwrite(bytes);
             }
         }
         catch (IOException e) {

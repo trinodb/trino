@@ -27,35 +27,29 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.iceberg.InternalIcebergConnectorFactory.createConnector;
+import static io.trino.plugin.iceberg.IcebergConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
 public class TestingIcebergConnectorFactory
         implements ConnectorFactory
 {
     private final Optional<Module> icebergCatalogModule;
-    private final Optional<TrinoFileSystemFactory> fileSystemFactory;
     private final Module module;
 
     public TestingIcebergConnectorFactory(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty(), Optional.empty(), EMPTY_MODULE);
+        this(localFileSystemRootPath, Optional.empty());
     }
 
     @Deprecated
     public TestingIcebergConnectorFactory(
             Path localFileSystemRootPath,
-            Optional<Module> icebergCatalogModule,
-            Optional<TrinoFileSystemFactory> fileSystemFactory,
-            Module module)
+            Optional<Module> icebergCatalogModule)
     {
-        localFileSystemRootPath.toFile().mkdirs();
+        boolean ignored = localFileSystemRootPath.toFile().mkdirs();
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.module = binder -> {
-            binder.install(module);
             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
                     .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
             configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
@@ -77,6 +71,6 @@ public class TestingIcebergConnectorFactory
                     .put("iceberg.catalog.type", "TESTING_FILE_METASTORE")
                     .buildOrThrow();
         }
-        return createConnector(catalogName, config, context, module, icebergCatalogModule, fileSystemFactory);
+        return createConnector(catalogName, config, context, module, icebergCatalogModule);
     }
 }

@@ -64,9 +64,9 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
 
     public TestDeltaLakeAdlsConnectorSmokeTest()
     {
-        this.container = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-container"), "container is null");
-        this.account = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-account"), "account is null");
-        this.accessKey = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-access-key"), "accessKey is null");
+        this.container = requireNonNull(System.getProperty("testing.azure-abfs-container"), "container is null");
+        this.account = requireNonNull(System.getProperty("testing.azure-abfs-account"), "account is null");
+        this.accessKey = requireNonNull(System.getProperty("testing.azure-abfs-access-key"), "accessKey is null");
 
         String connectionString = format("DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net", account, accessKey);
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(connectionString).buildClient();
@@ -100,8 +100,8 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     protected Map<String, String> hiveStorageConfiguration()
     {
         return ImmutableMap.<String, String>builder()
-                .put("hive.azure.abfs-storage-account", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-account"))
-                .put("hive.azure.abfs-access-key", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-access-key"))
+                .put("hive.azure.abfs-storage-account", requiredNonEmptySystemProperty("testing.azure-abfs-account"))
+                .put("hive.azure.abfs-access-key", requiredNonEmptySystemProperty("testing.azure-abfs-access-key"))
                 .buildOrThrow();
     }
 
@@ -132,7 +132,11 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
                     .filter(resourceInfo -> resourceInfo.getResourceName().startsWith(resourcePath + "/"))
                     .collect(toImmutableList());
             for (ClassPath.ResourceInfo resourceInfo : resources) {
-                String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(targetDirectory));
+                String fileName = resourceInfo.getResourceName()
+                        .replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(targetDirectory))
+                        // Replace '%' (corresponding to '%' character url encoded) with '%25' in order
+                        // to maintain also after URL decoding from the Azure client the original '%'
+                        .replace("%", "%25");
                 ByteSource byteSource = resourceInfo.asByteSource();
                 azureContainerClient.getBlobClient(fileName).upload(byteSource.openBufferedStream(), byteSource.size());
             }

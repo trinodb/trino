@@ -16,7 +16,6 @@ package io.trino.plugin.elasticsearch;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.net.HostAndPort;
 import io.trino.Session;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.plan.LimitNode;
@@ -26,10 +25,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
-import org.apache.http.HttpHost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.nio.entity.NStringEntity;
-import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -49,6 +45,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -57,28 +54,23 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public abstract class BaseElasticsearchConnectorTest
         extends BaseConnectorTest
 {
-    private final String image;
     private final String catalogName;
-    private ElasticsearchServer elasticsearch;
-    protected RestHighLevelClient client;
+    private ElasticsearchServer server;
+    private RestHighLevelClient client;
 
-    BaseElasticsearchConnectorTest(String image, String catalogName)
+    BaseElasticsearchConnectorTest(ElasticsearchServer server, String catalogName)
     {
-        this.image = image;
+        this.server = requireNonNull(server, "server is null");
         this.catalogName = catalogName;
+        this.client = server.getClient();
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new ElasticsearchServer(image, ImmutableMap.of());
-
-        HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
-
         return createElasticsearchQueryRunner(
-                elasticsearch.getAddress(),
+                server,
                 TpchTable.getTables(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
@@ -90,8 +82,8 @@ public abstract class BaseElasticsearchConnectorTest
     public final void destroy()
             throws IOException
     {
-        elasticsearch.stop();
-        elasticsearch = null;
+        server.stop();
+        server = null;
         client.close();
         client = null;
     }
@@ -123,7 +115,7 @@ public abstract class BaseElasticsearchConnectorTest
 
     /**
      * This method overrides the default values used for the data provider
-     * of the test {@link AbstractTestQueries#testLargeIn(int)} by taking
+     * of the test {@link AbstractTestQueries#testLargeIn()} by taking
      * into account that by default Elasticsearch supports only up to `1024`
      * clauses in query.
      * <p>
@@ -218,7 +210,7 @@ public abstract class BaseElasticsearchConnectorTest
     @Override
     public void testShowColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
+        assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
     }
 
     @Test
@@ -888,6 +880,8 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mapping);
 
+        assertQueryReturnsEmptyResult("SHOW TABLES LIKE '" + indexName + "'");
+
         index(indexName, ImmutableMap.of("array_raw_field", "test"));
 
         assertThatThrownBy(() -> computeActual("SELECT array_raw_field FROM " + indexName))
@@ -1382,7 +1376,7 @@ public abstract class BaseElasticsearchConnectorTest
                 FROM scaled_float_type
                 WHERE scaled_float_column = 123.46
                 """))
-                .matches(resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
+                .result().matches(resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
                         .row("bar", 123.46d)
                         .build());
     }
@@ -1895,12 +1889,12 @@ public abstract class BaseElasticsearchConnectorTest
                 "VALUES '[]'");
 
         // syntax error
-        assertThatThrownBy(() -> query("SELECT * " +
+        assertThat(query("SELECT * " +
                 format("FROM TABLE(%s.system.raw_query(", catalogName) +
                 "schema => 'tpch', " +
                 "index => 'nation', " +
                 "query => 'wrong syntax')) t(result)"))
-                .hasMessageContaining("json_parse_exception");
+                .failure().hasMessageContaining("json_parse_exception");
     }
 
     protected void assertTableDoesNotExist(String name)
@@ -1910,53 +1904,63 @@ public abstract class BaseElasticsearchConnectorTest
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 
-    protected abstract String indexEndpoint(String index, String docId);
+    protected String indexEndpoint(String index, String docId)
+    {
+        return format("/%s/_doc/%s", index, docId);
+    }
 
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
         String json = new ObjectMapper().writeValueAsString(document);
         String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
-        client.getLowLevelClient()
-                .performRequest("PUT", endpoint, ImmutableMap.of(), new NStringEntity(json, ContentType.APPLICATION_JSON));
+
+        Request request = new Request("PUT", endpoint);
+        request.setJsonEntity(json);
+
+        client.getLowLevelClient().performRequest(request);
     }
 
     private void addAlias(String index, String alias)
             throws IOException
     {
         client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+                .performRequest(new Request("PUT", format("/%s/_alias/%s", index, alias)));
 
         refreshIndex(alias);
     }
 
-    protected abstract String indexMapping(@Language("JSON") String properties);
+    protected String indexMapping(@Language("JSON") String properties)
+    {
+        return "{\"mappings\": " + properties + "}";
+    }
 
     private void createIndex(String indexName)
             throws IOException
     {
-        client.getLowLevelClient().performRequest("PUT", "/" + indexName);
+        client.getLowLevelClient().performRequest(new Request("PUT", "/" + indexName));
     }
 
     private void createIndex(String indexName, @Language("JSON") String properties)
             throws IOException
     {
         String mappings = indexMapping(properties);
-        client.getLowLevelClient()
-                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
+
+        Request request = new Request("PUT", "/" + indexName);
+        request.setJsonEntity(mappings);
+
+        client.getLowLevelClient().performRequest(request);
     }
 
     private void refreshIndex(String index)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("GET", format("/%s/_refresh", index));
+        client.getLowLevelClient().performRequest(new Request("GET", format("/%s/_refresh", index)));
     }
 
     private void deleteIndex(String indexName)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("DELETE", "/" + indexName);
+        client.getLowLevelClient().performRequest(new Request("DELETE", "/" + indexName));
     }
 }

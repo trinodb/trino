@@ -15,12 +15,13 @@ package io.trino.plugin.ml;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -35,17 +36,12 @@ public class TestMLQueries
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        LocalQueryRunner localQueryRunner = LocalQueryRunner.create(defaultSession);
+        QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog(defaultSession.getCatalog().get(), "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
 
-        // add the tpch catalog
-        // local queries run directly against the generator
-        localQueryRunner.createCatalog(
-                defaultSession.getCatalog().get(),
-                new TpchConnectorFactory(1),
-                ImmutableMap.of());
-
-        localQueryRunner.installPlugin(new MLPlugin());
-        return localQueryRunner;
+        queryRunner.installPlugin(new MLPlugin());
+        return queryRunner;
     }
 
     @Test

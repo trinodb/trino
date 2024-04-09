@@ -21,6 +21,7 @@ public class FileSystemConfig
     private boolean nativeAzureEnabled;
     private boolean nativeS3Enabled;
     private boolean nativeGcsEnabled;
+    private boolean cacheEnabled;
 
     public boolean isHadoopEnabled()
     {
@@ -67,6 +68,18 @@ public class FileSystemConfig
     public FileSystemConfig setNativeGcsEnabled(boolean nativeGcsEnabled)
     {
         this.nativeGcsEnabled = nativeGcsEnabled;
+        return this;
+    }
+
+    public boolean isCacheEnabled()
+    {
+        return cacheEnabled;
+    }
+
+    @Config("fs.cache.enabled")
+    public FileSystemConfig setCacheEnabled(boolean enabled)
+    {
+        this.cacheEnabled = enabled;
         return this;
     }
 }

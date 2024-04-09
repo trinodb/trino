@@ -138,7 +138,6 @@ public class QueryManagerConfig
     // Currently, initial setup is 5GB of task memory processing 4GB data. Given that we triple the memory in case of
     // task OOM, max task size is set to 12GB such that tasks of stages below threshold will succeed within one retry.
     private DataSize faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize = DataSize.of(12, GIGABYTE);
-    private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
     private double faultTolerantExecutionMinSourceStageProgress = 0.2;
 
     private boolean faultTolerantExecutionSmallStageEstimationEnabled = true;
@@ -146,6 +145,7 @@ public class QueryManagerConfig
     private double faultTolerantExecutionSmallStageSourceSizeMultiplier = 1.2;
     private boolean faultTolerantExecutionSmallStageRequireNoMorePartitions;
     private boolean faultTolerantExecutionStageEstimationForEagerParentEnabled = true;
+    private boolean faultTolerantExecutionAdaptiveQueryPlanningEnabled;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -625,7 +625,6 @@ public class QueryManagerConfig
         return this;
     }
 
-    @NotNull
     public double getRetryDelayScaleFactor()
     {
         return retryDelayScaleFactor;
@@ -1103,6 +1102,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionStageEstimationForEagerParentEnabled(boolean faultTolerantExecutionStageEstimationForEagerParentEnabled)
     {
         this.faultTolerantExecutionStageEstimationForEagerParentEnabled = faultTolerantExecutionStageEstimationForEagerParentEnabled;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionAdaptiveQueryPlanningEnabled()
+    {
+        return faultTolerantExecutionAdaptiveQueryPlanningEnabled;
+    }
+
+    @Config("fault-tolerant-execution-adaptive-query-planning-enabled")
+    @ConfigDescription("Enable adaptive query planning for the fault tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionAdaptiveQueryPlanningEnabled(boolean faultTolerantExecutionSmallStageEstimationEnabled)
+    {
+        this.faultTolerantExecutionAdaptiveQueryPlanningEnabled = faultTolerantExecutionSmallStageEstimationEnabled;
         return this;
     }
 

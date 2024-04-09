@@ -17,13 +17,13 @@ package io.trino.sql.planner.iterative;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Booleans;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.BooleanLiteral;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -52,7 +52,7 @@ public class TestRuleIndex
                 .build();
 
         ProjectNode projectNode = planBuilder.project(Assignments.of(), planBuilder.values());
-        FilterNode filterNode = planBuilder.filter(BooleanLiteral.TRUE_LITERAL, planBuilder.values());
+        FilterNode filterNode = planBuilder.filter(Booleans.TRUE, planBuilder.values());
         ValuesNode valuesNode = planBuilder.values();
 
         assertThat(ruleIndex.getCandidates(projectNode).collect(toSet())).isEqualTo(ImmutableSet.of(projectRule1, projectRule2, anyRule));

@@ -105,6 +105,9 @@ public final class CachingIdentifierMapping
                 return remoteSchema;
             }
         }
+        catch (TrinoException e) {
+            throw e;
+        }
         catch (RuntimeException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to find remote schema name: " + firstNonNull(e.getMessage(), e), e);
         }
@@ -133,6 +136,9 @@ public final class CachingIdentifierMapping
             if (remoteTable != null) {
                 return remoteTable;
             }
+        }
+        catch (TrinoException e) {
+            throw e;
         }
         catch (RuntimeException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to find remote table name: " + firstNonNull(e.getMessage(), e), e);

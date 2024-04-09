@@ -34,12 +34,21 @@ created if it does not exist yet.
 
 Note that `OR REPLACE` and `IF NOT EXISTS` are mutually exclusive clauses.
 
+(mv-grace-period)=
+
 The optional `GRACE PERIOD` clause specifies how long the query materialization
-is used for querying. If the time elapsed since last materialized view refresh
-is greater than the grace period, the materialized view acts as a normal view and
-the materialized data is not used. If not specified, the grace period defaults to
-infinity. See {doc}`refresh-materialized-view` for more about refreshing
-materialized views.
+is used for querying:
+
+* Within the grace period since last refresh, data retrieval is highly
+  performant because the query materialization is used. However, the data may
+  not be up to date with the base tables.
+* After the grace period has elapsed, the data of the materialized view is
+  computed on-the-fly using the `query`. Retrieval is therefore slower, but the
+  data is up to date with the base tables.
+* If not specified, the grace period defaults to infinity, and therefore all
+  queries are within the grace period.
+* Every [](refresh-materialized-view) operation resets the start time for the
+  grace period.
 
 The optional `COMMENT` clause causes a `string` comment to be stored with
 the metadata about the materialized view. The comment is displayed with the

@@ -102,7 +102,7 @@ public class BenchmarkCopyPositions
             else if (type.equals("ROW(BIGINT)")) {
                 Optional<boolean[]> rowIsNull = nullsAllowed ? Optional.of(generateIsNull(POSITIONS)) : Optional.empty();
                 LongArrayBlock randomLongArrayBlock = new LongArrayBlock(POSITIONS, rowIsNull, new Random(SEED).longs().limit(POSITIONS).toArray());
-                block = RowBlock.fromNotNullSuppressedFieldBlocks(POSITIONS, rowIsNull, new Block[]{randomLongArrayBlock});
+                block = RowBlock.fromNotNullSuppressedFieldBlocks(POSITIONS, rowIsNull, new Block[] {randomLongArrayBlock});
             }
         }
 

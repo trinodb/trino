@@ -55,7 +55,9 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
+import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.product.hive.BucketingType.BUCKETED_DEFAULT;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V2;
 import static io.trino.tests.product.hive.BucketingType.NONE;
 import static io.trino.tests.product.hive.TestHiveTransactionalTable.CompactionMode.MAJOR;
@@ -88,30 +90,25 @@ public class TestHiveTransactionalTable
     // Older Trino path ends look like /20210416_190616_00000_fsymd_af6f0a3d-5449-4478-a53d-9f9f99c07ed9
     private static final Pattern ORIGINAL_FILE_MATCHER = Pattern.compile(".*/\\d+_\\d+(_[^/]+)?$");
 
-    private static final String ACID_CORRUPTION_DIRECTORY_ISSUE = "https://github.com/trinodb/trino/issues/16315";
-    private static final String ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition";
-
     @Inject
     private TestHiveMetastoreClientFactory testHiveMetastoreClientFactory;
 
     @Inject
     private HdfsClient hdfsClient;
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testReadFullAcid()
     {
         doTestReadFullAcid(false, BucketingType.NONE);
     }
 
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testReadFullAcidBucketed()
     {
         doTestReadFullAcid(false, BucketingType.BUCKETED_DEFAULT);
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testReadFullAcidPartitioned()
     {
         doTestReadFullAcid(true, BucketingType.NONE);
@@ -119,22 +116,19 @@ public class TestHiveTransactionalTable
 
     // This test is in STORAGE_FORMATS group to ensure test coverage of transactional tables with various
     // metastore and HDFS setups (kerberized or not, impersonation or not).
-    @Test(groups = {HIVE_TRANSACTIONAL, STORAGE_FORMATS}, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, STORAGE_FORMATS, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testReadFullAcidPartitionedBucketed()
     {
         doTestReadFullAcid(true, BucketingType.BUCKETED_DEFAULT);
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testReadFullAcidBucketedV1()
     {
         doTestReadFullAcid(false, BucketingType.BUCKETED_V1);
     }
 
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testReadFullAcidBucketedV2()
     {
         doTestReadFullAcid(false, BucketingType.BUCKETED_V2);
@@ -195,29 +189,48 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
+    public void testTwoMinorCompactions()
+    {
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable("test_two_minor_compactions_" + randomNameSuffix())) {
+            String tableName = table.getName();
+            onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
+                    "STORED AS ORC " +
+                    hiveTableProperties(ACID, NONE));
+
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + " VALUES (22, 2)");
+            String selectFromOnePartitionsSql = "SELECT col, fcol FROM " + tableName + " ORDER BY col";
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsExactlyInOrder(row(22, 2));
+
+            compactTableAndWait(MINOR, tableName, "", new Duration(6, MINUTES));
+            compactTableAndWait(MINOR, tableName, "", new Duration(6, MINUTES));
+            // Second compact on Hive creates duplicated directories like:
+            // ./delta_0000001_0000001/bucket_00000
+            // ./delta_0000001_0000001/delta_0000001_0000001
+            // ./delta_0000001_0000001/delta_0000001_0000001/bucket_00000
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsExactlyInOrder(row(22, 2));
+        }
+    }
+
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     public void testReadInsertOnlyOrc(boolean isPartitioned, BucketingType bucketingType)
     {
         testReadInsertOnly(isPartitioned, bucketingType, "STORED AS ORC");
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeSmokeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "partitioningAndBucketingTypeSmokeDataProvider", timeOut = TEST_TIMEOUT)
     public void testReadInsertOnlyParquet(boolean isPartitioned, BucketingType bucketingType)
     {
         testReadInsertOnly(isPartitioned, bucketingType, "STORED AS PARQUET");
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeSmokeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "partitioningAndBucketingTypeSmokeDataProvider", timeOut = TEST_TIMEOUT)
     public void testReadInsertOnlyText(boolean isPartitioned, BucketingType bucketingType)
     {
         testReadInsertOnly(isPartitioned, bucketingType, "STORED AS TEXTFILE");
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testReadInsertOnlyTextWithCustomFormatProperties()
     {
         testReadInsertOnly(
@@ -272,8 +285,13 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {STORAGE_FORMATS, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
+    public void testReadFullAcidWithOriginalFilesSmoke()
+    {
+        testReadFullAcidWithOriginalFiles(true, BUCKETED_DEFAULT);
+    }
+
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     public void testReadFullAcidWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
     {
         String tableName = "test_full_acid_acid_converted_table_read";
@@ -316,7 +334,7 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUpdateFullAcidWithOriginalFilesTrinoInserting(boolean isPartitioned, BucketingType bucketingType)
     {
@@ -366,7 +384,14 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
+    @Test(groups = {STORAGE_FORMATS, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    public void testUpdateFullAcidWithOriginalFilesTrinoInsertingAndDeletingSmoke()
+    {
+        testUpdateFullAcidWithOriginalFilesTrinoInsertingAndDeleting(true, BUCKETED_DEFAULT);
+    }
+
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUpdateFullAcidWithOriginalFilesTrinoInsertingAndDeleting(boolean isPartitioned, BucketingType bucketingType)
     {
@@ -418,8 +443,7 @@ public class TestHiveTransactionalTable
                 .collect(Collectors.joining(", "));
     }
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     public void testReadInsertOnlyWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
     {
         String tableName = "test_insert_only_acid_converted_table_read";
@@ -473,8 +497,7 @@ public class TestHiveTransactionalTable
         };
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "testCreateAcidTableDataProvider")
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "testCreateAcidTableDataProvider")
     public void testCtasAcidTable(boolean isPartitioned, BucketingType bucketingType)
     {
         try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(format("ctas_transactional_%s", randomNameSuffix()))) {
@@ -493,8 +516,7 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "testCreateAcidTableDataProvider")
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "testCreateAcidTableDataProvider")
     public void testCreateAcidTable(boolean isPartitioned, BucketingType bucketingType)
     {
         withTemporaryTable("create_transactional", isPartitioned, bucketingType, tableName -> {
@@ -506,8 +528,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "acidFormatColumnNames")
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "acidFormatColumnNames")
     public void testAcidTableColumnNameConflict(String columnName)
     {
         withTemporaryTable("acid_column_name_conflict", true, NONE, tableName -> {
@@ -530,8 +551,7 @@ public class TestHiveTransactionalTable
         };
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testSimpleUnpartitionedTransactionalInsert()
     {
         withTemporaryTable("unpartitioned_transactional_insert", false, NONE, tableName -> {
@@ -553,8 +573,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testTransactionalPartitionInsert()
     {
         withTemporaryTable("transactional_partition_insert", true, NONE, tableName -> {
@@ -587,15 +606,13 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testTransactionalBucketedPartitionedInsert()
     {
         testTransactionalBucketedPartitioned(false);
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testTransactionalBucketedPartitionedInsertOnly()
     {
         testTransactionalBucketedPartitioned(true);
@@ -627,8 +644,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testTransactionalUnpartitionedDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("unpartitioned_delete", false, NONE, tableName -> {
@@ -646,8 +662,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testMultiDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("unpartitioned_multi_delete", false, NONE, tableName -> {
@@ -661,8 +676,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testReadAfterMultiInsertAndDelete()
     {
         // Test reading from a table after Hive multi-insert. Multi-insert involves non-zero statement ID, encoded
@@ -691,8 +705,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testTransactionalMetadataDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("metadata_delete", true, NONE, tableName -> {
@@ -707,7 +720,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNonTransactionalMetadataDelete()
     {
@@ -729,8 +742,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testUnpartitionedDeleteAll(Engine inserter, Engine deleter)
     {
         withTemporaryTable("unpartitioned_delete_all", false, NONE, tableName -> {
@@ -741,8 +753,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testMultiColumnDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("multi_column_delete", false, NONE, tableName -> {
@@ -754,8 +765,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testPartitionAndRowsDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("partition_and_rows_delete", true, NONE, tableName -> {
@@ -768,8 +778,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testPartitionedInsertAndRowLevelDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("partitioned_row_level_delete", true, NONE, tableName -> {
@@ -792,7 +801,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testBucketedPartitionedDelete(Engine inserter, Engine deleter)
     {
@@ -823,8 +832,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testDeleteAllRowsInPartition()
     {
         withTemporaryTable("bucketed_partitioned_delete", true, NONE, tableName -> {
@@ -841,8 +849,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testDeleteAfterDelete()
     {
         withTemporaryTable("delete_after_delete", false, NONE, tableName -> {
@@ -860,8 +867,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testDeleteAfterDeleteWithPredicate()
     {
         withTemporaryTable("delete_after_delete_predicate", false, NONE, tableName -> {
@@ -880,8 +886,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testBucketedUnpartitionedDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("bucketed_unpartitioned_delete", true, NONE, tableName -> {
@@ -911,8 +916,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testDeleteOverManySplits()
     {
         withTemporaryTable("delete_select", false, NONE, tableName -> {
@@ -925,8 +929,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testCorrectSelectCountStar(Engine inserter, Engine deleter)
     {
         withTemporaryTable("select_count_star_delete", true, NONE, tableName -> {
@@ -938,8 +941,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "insertersProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "insertersProvider", timeOut = TEST_TIMEOUT)
     public void testInsertOnlyMultipleWriters(boolean bucketed, Engine inserter1, Engine inserter2)
     {
         log.info("testInsertOnlyMultipleWriters bucketed %s, inserter1 %s, inserter2 %s", bucketed, inserter1, inserter2);
@@ -963,8 +965,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testInsertFailsInExplicitTrinoTransaction()
     {
         withTemporaryTable("insert_fail_explicit_transaction", false, NONE, tableName -> {
@@ -975,8 +976,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testUpdateFailsInExplicitTrinoTransaction()
     {
         withTemporaryTable("update_fail_explicit_transaction", false, NONE, tableName -> {
@@ -987,8 +987,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testDeleteFailsInExplicitTrinoTransaction()
     {
         withTemporaryTable("delete_fail_explicit_transaction", false, NONE, tableName -> {
@@ -999,8 +998,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "transactionModeProvider")
     public void testColumnRenamesOrcPartitioned(boolean transactional)
     {
         withTemporaryTable("test_column_renames_partitioned", false, NONE, tableName -> {
@@ -1014,8 +1012,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "transactionModeProvider")
     public void testColumnRenamesOrcNotPartitioned(boolean transactional)
     {
         withTemporaryTable("test_orc_column_renames_not_partitioned", false, NONE, tableName -> {
@@ -1047,8 +1044,7 @@ public class TestHiveTransactionalTable
         verifySelectForTrinoAndHive("SELECT * FROM " + tableName, row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"), row(333, "Joan", 23, "OR"));
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "transactionModeProvider")
     public void testOrcColumnSwap(boolean transactional)
     {
         withTemporaryTable("test_orc_column_renames", false, NONE, tableName -> {
@@ -1064,8 +1060,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testBehaviorOnParquetColumnRenames()
     {
         withTemporaryTable("test_parquet_column_renames", false, NONE, tableName -> {
@@ -1087,8 +1082,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "transactionModeProvider")
     public void testOrcColumnDropAdd(boolean transactional)
     {
         withTemporaryTable("test_orc_add_drop", false, NONE, tableName -> {
@@ -1109,8 +1103,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "transactionModeProvider")
     public void testOrcColumnTypeChange(boolean transactional)
     {
         withTemporaryTable("test_orc_column_type_change", false, NONE, tableName -> {
@@ -1128,8 +1121,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testParquetColumnDropAdd()
     {
         withTemporaryTable("test_parquet_add_drop", false, NONE, tableName -> {
@@ -1164,8 +1156,7 @@ public class TestHiveTransactionalTable
         };
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateFailNonTransactional()
     {
         withTemporaryTable("update_fail_nontransactional", true, NONE, tableName -> {
@@ -1180,8 +1171,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateFailInsertOnlyTable()
     {
         withTemporaryTable("update_fail_insert_only", false, NONE, tableName -> {
@@ -1198,8 +1188,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidDeleteFailNonTransactional()
     {
         withTemporaryTable("delete_fail_nontransactional", true, NONE, tableName -> {
@@ -1214,8 +1203,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidDeleteFailInsertOnlyTable()
     {
         withTemporaryTable("delete_fail_insert_only", false, NONE, tableName -> {
@@ -1232,8 +1220,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateSucceedUpdatingPartitionKey()
     {
         withTemporaryTable("fail_update_partition_key", true, NONE, tableName -> {
@@ -1250,8 +1237,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateSucceedUpdatingBucketColumn()
     {
         withTemporaryTable("fail_update_bucket_column", true, NONE, tableName -> {
@@ -1268,8 +1254,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateFailOnIllegalCast()
     {
         withTemporaryTable("fail_update_on_illegal_cast", true, NONE, tableName -> {
@@ -1284,8 +1269,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateSimple()
     {
         withTemporaryTable("acid_update_simple", true, NONE, tableName -> {
@@ -1299,8 +1283,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateSelectedValues()
     {
         withTemporaryTable("acid_update_simple_selected", true, NONE, tableName -> {
@@ -1314,8 +1297,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateCopyColumn()
     {
         withTemporaryTable("acid_update_copy_column", true, NONE, tableName -> {
@@ -1329,8 +1311,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateSomeLiteralNullColumnValues()
     {
         withTemporaryTable("update_some_literal_null_columns", true, NONE, tableName -> {
@@ -1348,8 +1329,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateSomeComputedNullColumnValues()
     {
         withTemporaryTable("update_some_computed_null_columns", true, NONE, tableName -> {
@@ -1368,8 +1348,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateAllLiteralNullColumnValues()
     {
         withTemporaryTable("update_all_literal_null_columns", true, NONE, tableName -> {
@@ -1383,8 +1362,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateAllComputedNullColumnValues()
     {
         withTemporaryTable("update_all_computed_null_columns", true, NONE, tableName -> {
@@ -1399,8 +1377,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateReversed()
     {
         withTemporaryTable("update_reversed", true, NONE, tableName -> {
@@ -1414,8 +1391,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdatePermuted()
     {
         withTemporaryTable("update_permuted", true, NONE, tableName -> {
@@ -1429,8 +1405,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateAllColumnsSetAndDependencies()
     {
         withTemporaryTable("update_all_columns_set", true, NONE, tableName -> {
@@ -1444,8 +1419,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdatePartitioned()
     {
         withTemporaryTable("update_partitioned", true, NONE, tableName -> {
@@ -1461,8 +1435,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateBucketed()
     {
         withTemporaryTable("update_bucketed", true, NONE, tableName -> {
@@ -1478,8 +1451,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateMajorCompaction()
     {
         withTemporaryTable("schema_evolution_column_addition", false, NONE, tableName -> {
@@ -1500,8 +1472,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateWithSubqueryPredicate()
     {
         withTemporaryTable("test_update_subquery", false, NONE, tableName -> {
@@ -1531,8 +1502,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateWithSubqueryAssignment()
     {
         withTemporaryTable("test_update_subquery", false, NONE, tableName -> {
@@ -1562,8 +1532,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateDuplicateUpdateValue()
     {
         withTemporaryTable("test_update_bug", false, NONE, tableName -> {
@@ -1598,8 +1567,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateMultipleDuplicateValues()
     {
         withTemporaryTable("test_update_multiple", false, NONE, tableName -> {
@@ -1626,7 +1594,7 @@ public class TestHiveTransactionalTable
     }
 
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testInsertDeleteUpdateWithTrinoAndHive()
     {
         withTemporaryTable("update_insert_delete_trino_hive", true, NONE, tableName -> {
@@ -1662,8 +1630,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testDeleteFromOriginalFiles()
     {
         withTemporaryTable("delete_original_files", true, NONE, tableName -> {
@@ -1678,15 +1645,13 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testDeleteWholePartition()
     {
         testDeleteWholePartition(false);
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testDeleteWholePartitionWithOriginalFiles()
     {
         testDeleteWholePartition(true);
@@ -1725,8 +1690,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testUpdateOriginalFilesPartitioned()
     {
         withTemporaryTable("update_original_files", true, NONE, tableName -> {
@@ -1739,8 +1703,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testUpdateOriginalFilesUnpartitioned()
     {
         withTemporaryTable("update_original_files", true, NONE, tableName -> {
@@ -1753,8 +1716,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testInsertRowIdCorrectness()
     {
         withTemporaryTable("test_insert_row_id_correctness", false, NONE, tableName -> {
@@ -1833,7 +1795,7 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = "https://github.com/trinodb/trino/issues/5463", match = "Expected row count to be <4>, but was <6>")
     public void testFilesForAbortedTransactionsIgnored()
             throws Exception
@@ -1889,8 +1851,7 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testDoubleUpdateAndThenReadFromHive()
     {
         withTemporaryTable("test_double_update", false, NONE, tableName -> {
@@ -1910,8 +1871,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testDeleteWithOriginalFiles()
     {
         withTemporaryTable("test_delete_with_original_files", false, NONE, tableName -> {
@@ -1932,8 +1892,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testDeleteWithOriginalFilesWithWhereClause()
     {
         withTemporaryTable("test_delete_with_original_files_with_where_clause", false, NONE, tableName -> {
@@ -1970,8 +1929,7 @@ public class TestHiveTransactionalTable
                         "files in %s are not directly under table location", path));
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testDeleteAfterMajorCompaction()
     {
         withTemporaryTable("test_delete_after_major_compaction", false, NONE, tableName -> {
@@ -1982,15 +1940,13 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testUnbucketedPartitionedTransactionalTableWithTaskWriterCountGreaterThanOne()
     {
         unbucketedTransactionalTableWithTaskWriterCountGreaterThanOne(true);
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testUnbucketedTransactionalTableWithTaskWriterCountGreaterThanOne()
     {
         unbucketedTransactionalTableWithTaskWriterCountGreaterThanOne(false);
@@ -2038,8 +1994,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testLargePartitionedDelete()
     {
         withTemporaryTable("large_delete_" + "stage1", false, NONE, tableStage1 -> {
@@ -2069,8 +2024,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL)
-    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testLargePartitionedUpdate()
     {
         withTemporaryTable("large_update_" + "stage1", false, NONE, tableStage1 -> {

@@ -29,8 +29,7 @@ import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.WindowNode.Function;
-import io.trino.sql.planner.rowpattern.ExpressionAndValuePointersEquivalence;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 
 import java.util.Collection;
@@ -166,11 +165,10 @@ public class MergePatternRecognitionNodes
         return parent.getSpecification().equals(child.getSpecification()) &&
                 parent.getCommonBaseFrame().equals(child.getCommonBaseFrame()) &&
                 parent.getRowsPerMatch() == child.getRowsPerMatch() &&
-                parent.getSkipToLabel().equals(child.getSkipToLabel()) &&
+                parent.getSkipToLabels().equals(child.getSkipToLabels()) &&
                 parent.getSkipToPosition() == child.getSkipToPosition() &&
                 parent.isInitial() == child.isInitial() &&
                 parent.getPattern().equals(child.getPattern()) &&
-                parent.getSubsets().equals(child.getSubsets()) &&
                 equivalent(parent.getVariableDefinitions(), child.getVariableDefinitions());
     }
 
@@ -184,7 +182,7 @@ public class MergePatternRecognitionNodes
             IrLabel label = parentDefinition.getKey();
             ExpressionAndValuePointers parentExpression = parentDefinition.getValue();
             ExpressionAndValuePointers childExpression = childVariableDefinitions.get(label);
-            if (!ExpressionAndValuePointersEquivalence.equivalent(parentExpression, childExpression)) {
+            if (!parentExpression.equals(childExpression)) {
                 return false;
             }
         }
@@ -288,11 +286,10 @@ public class MergePatternRecognitionNodes
                 measures.buildOrThrow(),
                 parent.getCommonBaseFrame(),
                 parent.getRowsPerMatch(),
-                parent.getSkipToLabel(),
+                parent.getSkipToLabels(),
                 parent.getSkipToPosition(),
                 parent.isInitial(),
                 parent.getPattern(),
-                parent.getSubsets(),
                 parent.getVariableDefinitions());
     }
 }

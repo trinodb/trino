@@ -25,6 +25,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
@@ -101,13 +102,13 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testJoinWithEmptyBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -124,13 +125,13 @@ public abstract class BaseDynamicPartitionPruningTest
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
                 "AND supplier.name = 'Supplier#000000001'";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -142,16 +143,39 @@ public abstract class BaseDynamicPartitionPruningTest
 
     @Test
     @Timeout(30)
-    public void testJoinWithNonSelectiveBuildSide()
+    public void testJoinWithComparingSameColumnUnderDifferentConditions()
     {
-        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey >= supplier.suppkey " +
+                "AND partitioned_lineitem.suppkey <= supplier.suppkey " +
+                "AND supplier.name = 'Supplier#000000001'";
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
+
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+    }
+
+    @Test
+    @Timeout(30)
+    public void testJoinWithNonSelectiveBuildSide()
+    {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey";
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
+                getSession(),
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.result(), expected);
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -167,13 +191,13 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testJoinLargeBuildSideRangeDynamicFiltering()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN orders ON partitioned_lineitem.orderkey = orders.orderkey";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -193,13 +217,13 @@ public abstract class BaseDynamicPartitionPruningTest
                 "SELECT supplier.suppkey FROM " +
                 "partitioned_lineitem JOIN tpch.tiny.supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
                 ") t JOIN supplier ON t.suppkey = supplier.suppkey AND supplier.suppkey IN (2, 3)";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(2L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(2L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -223,17 +247,17 @@ public abstract class BaseDynamicPartitionPruningTest
                 "VALUES " + LINEITEM_COUNT);
 
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem_int l JOIN supplier s ON l.suppkey_int = s.suppkey AND s.name = 'Supplier#000000001'";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName("partitioned_lineitem_int"));
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.queryId(), getQualifiedTableName("partitioned_lineitem_int"));
         // Probe-side is partially scanned
         assertThat(probeStats.getInputPositions()).isEqualTo(615L);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -247,13 +271,13 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testSemiJoinWithEmptyBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'abc')";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -268,13 +292,13 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testSemiJoinWithSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'Supplier#000000001')";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -289,13 +313,13 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testSemiJoinWithNonSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier)";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -311,13 +335,13 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testSemiJoinLargeBuildSideRangeDynamicFiltering()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE orderkey IN (SELECT orderkey FROM orders)";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -333,13 +357,13 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testRightJoinWithEmptyBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'abc'";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -354,13 +378,13 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testRightJoinWithSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'Supplier#000000001'";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -375,13 +399,13 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testRightJoinWithNonSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
@@ -463,10 +487,10 @@ public abstract class BaseDynamicPartitionPruningTest
 
     private long getQueryInputPositions(Session session, @Language("SQL") String sql, int expectedRowCount)
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        MaterializedResultWithQueryId result = runner.executeWithQueryId(session, sql);
-        assertThat(result.getResult().getRowCount()).isEqualTo(expectedRowCount);
-        QueryId queryId = result.getQueryId();
+        QueryRunner runner = getQueryRunner();
+        MaterializedResultWithPlan result = runner.executeWithPlan(session, sql);
+        assertThat(result.result().getRowCount()).isEqualTo(expectedRowCount);
+        QueryId queryId = result.queryId();
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getPhysicalInputPositions();
     }

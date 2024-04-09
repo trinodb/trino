@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.block.ValueBlock;
@@ -83,6 +84,10 @@ public class TestBlockAndPositionNullConvention
         assertThat(assertions.function("test_block_position", "true"))
                 .isEqualTo(true);
         assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get()).isTrue();
+
+        assertThat(assertions.function("test_block_position", "ROW(1234)"))
+                .isEqualTo(ImmutableList.of(1234));
+        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionObject.get()).isTrue();
     }
 
     @ScalarFunction("test_block_position")

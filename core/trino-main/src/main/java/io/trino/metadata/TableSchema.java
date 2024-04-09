@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.SchemaTableName;
@@ -24,10 +25,10 @@ import static java.util.Objects.requireNonNull;
 
 public final class TableSchema
 {
-    private final String catalogName;
+    private final CatalogName catalogName;
     private final ConnectorTableSchema tableSchema;
 
-    public TableSchema(String catalogName, ConnectorTableSchema tableSchema)
+    public TableSchema(CatalogName catalogName, ConnectorTableSchema tableSchema)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(tableSchema, "metadata is null");
@@ -38,10 +39,10 @@ public final class TableSchema
 
     public QualifiedObjectName getQualifiedName()
     {
-        return new QualifiedObjectName(catalogName, tableSchema.getTable().getSchemaName(), tableSchema.getTable().getTableName());
+        return new QualifiedObjectName(catalogName.toString(), tableSchema.getTable().getSchemaName(), tableSchema.getTable().getTableName());
     }
 
-    public String getCatalogName()
+    public CatalogName getCatalogName()
     {
         return catalogName;
     }

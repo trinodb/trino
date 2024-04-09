@@ -16,6 +16,8 @@ package io.trino.metadata;
 import io.trino.Session;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
@@ -114,6 +116,44 @@ public interface SystemSecurityMetadata
      */
     Set<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
+    default Set<EntityPrivilege> getAllEntityKindPrivileges(String entityKind)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Grants the specified privilege to the specified user on the specified entity
+     */
+    default void grantEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Deny the specified privilege to the specified principal on the specified entity
+     */
+    default void denyEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Revokes the specified privilege on the specified entity from the specified user
+     */
+    default void revokeEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Throws an exception if the entityKind is not supported, or if the privileges
+     * are not supported for the entityKind
+     */
+    default void validateEntityKindAndPrivileges(Session session, String entityKind, Set<String> privileges)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * Set the owner of the specified schema
      */
@@ -188,4 +228,14 @@ public interface SystemSecurityMetadata
      * A column was dropped
      */
     void columnDropped(Session session, CatalogSchemaTableName table, String column);
+
+    /**
+     * Column type was changed
+     */
+    void columnTypeChanged(Session session, CatalogSchemaTableName table, String column, String oldType, String newType);
+
+    /**
+     * Column's NOT NULL constraint was dropped
+     */
+    void columnNotNullConstraintDropped(Session session, CatalogSchemaTableName table, String column);
 }

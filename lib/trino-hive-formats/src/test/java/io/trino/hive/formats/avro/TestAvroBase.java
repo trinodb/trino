@@ -15,7 +15,6 @@ package io.trino.hive.formats.avro;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slices;
@@ -160,15 +159,15 @@ public abstract class TestAvroBase
 
         ALL_TYPES_GENERIC_RECORD = new GenericData.Record(ALL_TYPES_RECORD_SCHEMA);
         ALL_TYPES_GENERIC_RECORD.put("aBoolean", true);
-        allTypeBlocks.add(new ByteArrayBlock(1, Optional.empty(), new byte[]{1}));
+        allTypeBlocks.add(new ByteArrayBlock(1, Optional.empty(), new byte[] {1}));
         ALL_TYPES_GENERIC_RECORD.put("aInt", 42);
-        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[]{42}));
+        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[] {42}));
         ALL_TYPES_GENERIC_RECORD.put("aLong", 3400L);
-        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[]{3400L}));
+        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[] {3400L}));
         ALL_TYPES_GENERIC_RECORD.put("aFloat", 3.14f);
-        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[]{floatToIntBits(3.14f)}));
+        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[] {floatToIntBits(3.14f)}));
         ALL_TYPES_GENERIC_RECORD.put("aDouble", 9.81);
-        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[]{doubleToLongBits(9.81)}));
+        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[] {doubleToLongBits(9.81)}));
         ALL_TYPES_GENERIC_RECORD.put("aString", A_STRING_VALUE);
         allTypeBlocks.add(new VariableWidthBlock(1, Slices.utf8Slice(A_STRING_VALUE), new int[] {0, Slices.utf8Slice(A_STRING_VALUE).length()}, Optional.empty()));
         ALL_TYPES_GENERIC_RECORD.put("aBytes", A_BYTES_VALUE);
@@ -399,7 +398,7 @@ public abstract class TestAvroBase
             throws IOException
     {
         try (DataFileWriter<GenericRecord> fileWriter = new DataFileWriter<>(new GenericDatumWriter<>())) {
-            fileWriter.create(schema, trinoLocalFilesystem.newOutputFile(location).createOrOverwrite());
+            fileWriter.create(schema, trinoLocalFilesystem.newOutputFile(location).create());
             for (GenericRecord genericRecord : records) {
                 fileWriter.append(genericRecord);
             }
@@ -413,7 +412,7 @@ public abstract class TestAvroBase
         Iterator<Object> randomData = new RandomData(schema, count).iterator();
         Location tempFile = createLocalTempLocation();
         try (DataFileWriter<GenericRecord> fileWriter = new DataFileWriter<>(new GenericDatumWriter<>())) {
-            fileWriter.create(schema, trinoLocalFilesystem.newOutputFile(tempFile).createOrOverwrite());
+            fileWriter.create(schema, trinoLocalFilesystem.newOutputFile(tempFile).create());
             while (randomData.hasNext()) {
                 fileWriter.append((GenericRecord) randomData.next());
             }
@@ -449,7 +448,7 @@ public abstract class TestAvroBase
         for (Schema.Field field : reorder(schema.getFields())) {
             if (field.schema().getType() == Schema.Type.ENUM) {
                 fieldAssembler = fieldAssembler.name(field.name())
-                        .type(Schema.createEnum(field.schema().getName(), field.schema().getDoc(), field.schema().getNamespace(), Lists.reverse(field.schema().getEnumSymbols())))
+                        .type(Schema.createEnum(field.schema().getName(), field.schema().getDoc(), field.schema().getNamespace(), field.schema().getEnumSymbols().reversed()))
                         .noDefault();
             }
             else if (field.schema().getType() == Schema.Type.UNION) {

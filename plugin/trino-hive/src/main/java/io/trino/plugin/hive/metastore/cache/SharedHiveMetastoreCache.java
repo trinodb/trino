@@ -22,11 +22,11 @@ import com.google.common.math.LongMath;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
-import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -243,44 +243,16 @@ public class SharedHiveMetastoreCache
 
         @Managed
         @Nested
-        public AggregateCacheStatsMBean getTableNamesStats()
+        public AggregateCacheStatsMBean getTablesStats()
         {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTableNamesCache);
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTablesCacheNew);
         }
 
         @Managed
         @Nested
-        public AggregateCacheStatsMBean getAllTableNamesStats()
+        public AggregateCacheStatsMBean getTableColumnStatisticsCache()
         {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllTableNamesCache);
-        }
-
-        @Managed
-        @Nested
-        public AggregateCacheStatsMBean getRelationTypesStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getRelationTypesCache);
-        }
-
-        @Managed
-        @Nested
-        public AggregateCacheStatsMBean getAllRelationTypesStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllRelationTypesCache);
-        }
-
-        @Managed
-        @Nested
-        public AggregateCacheStatsMBean getTableWithParameterStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTablesWithParameterCache);
-        }
-
-        @Managed
-        @Nested
-        public AggregateCacheStatsMBean getTableStatisticsStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTableStatisticsCache);
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTableColumnStatisticsCache);
         }
 
         @Managed
@@ -288,20 +260,6 @@ public class SharedHiveMetastoreCache
         public AggregateCacheStatsMBean getPartitionStatisticsStats()
         {
             return new AggregateCacheStatsMBean(CachingHiveMetastore::getPartitionStatisticsCache);
-        }
-
-        @Managed
-        @Nested
-        public AggregateCacheStatsMBean getViewNamesStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getViewNamesCache);
-        }
-
-        @Managed
-        @Nested
-        public AggregateCacheStatsMBean getAllViewNamesStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllViewNamesCache);
         }
 
         @Managed

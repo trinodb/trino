@@ -610,7 +610,7 @@ public final class SortedRangeSet
                 unioned.add(toUnion.get(i).union(toUnion.get(i + 1)));
             }
             if (toUnion.size() % 2 != 0) {
-                unioned.add(toUnion.get(toUnion.size() - 1));
+                unioned.add(toUnion.getLast());
             }
             toUnion = unioned;
         }
@@ -817,8 +817,9 @@ public final class SortedRangeSet
         if (hash == 0) {
             hash = Objects.hash(type, Arrays.hashCode(inclusive));
             for (int position = 0; position < sortedRanges.getPositionCount(); position++) {
-                if (sortedRanges.isNull(position)) {
-                    hash = hash * 31;
+                boolean positionIsNull = sortedRanges.isNull(position);
+                hash = hash * 31 + Boolean.hashCode(positionIsNull);
+                if (positionIsNull) {
                     continue;
                 }
                 try {

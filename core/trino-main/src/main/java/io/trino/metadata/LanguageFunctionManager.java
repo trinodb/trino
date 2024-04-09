@@ -14,6 +14,8 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -25,12 +27,11 @@ import io.trino.security.AccessControl;
 import io.trino.security.ViewAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.spi.function.FunctionDependencies;
-import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
@@ -49,6 +50,7 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.routine.SqlRoutineAnalysis;
 import io.trino.sql.routine.SqlRoutineAnalyzer;
 import io.trino.sql.routine.SqlRoutineCompiler;
+import io.trino.sql.routine.SqlRoutineHash;
 import io.trino.sql.routine.SqlRoutinePlanner;
 import io.trino.sql.routine.ir.IrRoutine;
 import io.trino.sql.tree.FunctionSpecification;
@@ -81,16 +83,18 @@ public class LanguageFunctionManager
     private final SqlParser parser;
     private final TypeManager typeManager;
     private final GroupProvider groupProvider;
+    private final BlockEncodingSerde blockEncodingSerde;
     private SqlRoutineAnalyzer analyzer;
     private SqlRoutinePlanner planner;
     private final Map<QueryId, QueryFunctions> queryFunctions = new ConcurrentHashMap<>();
 
     @Inject
-    public LanguageFunctionManager(SqlParser parser, TypeManager typeManager, GroupProvider groupProvider)
+    public LanguageFunctionManager(SqlParser parser, TypeManager typeManager, GroupProvider groupProvider, BlockEncodingSerde blockEncodingSerde)
     {
         this.parser = requireNonNull(parser, "parser is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
     // There is a circular dependency between LanguageFunctionManager and MetadataManager.
@@ -101,7 +105,7 @@ public class LanguageFunctionManager
     {
         checkState(analyzer == null, "plannerContext already set");
         analyzer = new SqlRoutineAnalyzer(plannerContext, WarningCollector.NOOP);
-        planner = new SqlRoutinePlanner(plannerContext, WarningCollector.NOOP);
+        planner = new SqlRoutinePlanner(plannerContext);
     }
 
     public void tryRegisterQuery(Session session)
@@ -123,7 +127,7 @@ public class LanguageFunctionManager
     }
 
     @Override
-    public void registerTask(TaskId taskId, List<LanguageScalarFunctionData> languageFunctions)
+    public void registerTask(TaskId taskId, Map<FunctionId, IrRoutine> languageFunctions)
     {
         // the functions are already registered in the query, so we don't need to do anything here
     }
@@ -140,11 +144,11 @@ public class LanguageFunctionManager
         return queryFunctions;
     }
 
-    public List<FunctionMetadata> listFunctions(Collection<LanguageFunction> languageFunctions)
+    public List<FunctionMetadata> listFunctions(Session session, Collection<LanguageFunction> languageFunctions)
     {
         return languageFunctions.stream()
                 .map(LanguageFunction::sql)
-                .map(sql -> extractFunctionMetadata(createSqlLanguageFunctionId(sql), parser.createFunctionSpecification(sql)))
+                .map(sql -> extractFunctionMetadata(createSqlLanguageFunctionId(session.getQueryId(), sql), parser.createFunctionSpecification(sql)))
                 .collect(toImmutableList());
     }
 
@@ -158,29 +162,24 @@ public class LanguageFunctionManager
         return getQueryFunctions(session).getFunctionMetadata(functionId);
     }
 
-    public FunctionDependencyDeclaration getDependencies(Session session, FunctionId functionId, AccessControl accessControl)
+    public FunctionId analyzeAndPlan(Session session, FunctionId functionId, AccessControl accessControl)
     {
-        return getQueryFunctions(session).getDependencies(functionId, accessControl);
+        return getQueryFunctions(session).analyzeAndPlan(functionId, accessControl);
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionManager functionManager, ResolvedFunction resolvedFunction, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation specialize(FunctionId functionId, InvocationConvention invocationConvention, FunctionManager functionManager)
     {
         // any resolved function in any query is guaranteed to have the same behavior, so we can use any query to get the implementation
         return queryFunctions.values().stream()
-                .map(queryFunctions -> queryFunctions.specialize(resolvedFunction, functionManager, invocationConvention))
+                .map(queryFunctions -> queryFunctions.specialize(functionId, invocationConvention, functionManager))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Unknown function implementation: " + resolvedFunction.getFunctionId()));
+                .orElseThrow(() -> new IllegalStateException("Unknown function implementation: " + functionId));
     }
 
-    public void registerResolvedFunction(Session session, ResolvedFunction resolvedFunction)
-    {
-        getQueryFunctions(session).registerResolvedFunction(resolvedFunction);
-    }
-
-    public List<LanguageScalarFunctionData> serializeFunctionsForWorkers(Session session)
+    public Map<FunctionId, IrRoutine> serializeFunctionsForWorkers(Session session)
     {
         return getQueryFunctions(session).serializeFunctionsForWorkers();
     }
@@ -215,10 +214,12 @@ public class LanguageFunctionManager
         return functionId.toString().startsWith(SQL_FUNCTION_PREFIX);
     }
 
-    private static FunctionId createSqlLanguageFunctionId(String sql)
+    private static FunctionId createSqlLanguageFunctionId(QueryId queryId, String sql)
     {
+        // QueryId is added to the FunctionID to ensure it is unique across queries.
+        // After the function is analyzed and planned, the FunctionId is replaced with a hash of the IrRoutine.
         String hash = Hashing.sha256().hashUnencodedChars(sql).toString();
-        return new FunctionId(SQL_FUNCTION_PREFIX + hash);
+        return new FunctionId(SQL_FUNCTION_PREFIX + queryId + "_" + hash);
     }
 
     public String getSignatureToken(List<ParameterDeclaration> parameters)
@@ -237,7 +238,7 @@ public class LanguageFunctionManager
         private final Session session;
         private final Map<FunctionKey, FunctionListing> functionListing = new ConcurrentHashMap<>();
         private final Map<FunctionId, LanguageFunctionImplementation> implementationsById = new ConcurrentHashMap<>();
-        private final Map<ResolvedFunction, LanguageFunctionImplementation> implementationsByResolvedFunction = new ConcurrentHashMap<>();
+        private final Map<FunctionId, IrRoutine> usedFunctions = new ConcurrentHashMap<>();
 
         public QueryFunctions(Session session)
         {
@@ -246,12 +247,12 @@ public class LanguageFunctionManager
 
         public void verifyForCreate(String sql, FunctionManager functionManager, AccessControl accessControl)
         {
-            implementationWithoutSecurity(sql).verifyForCreate(functionManager, accessControl);
+            implementationWithoutSecurity(session.getQueryId(), sql).verifyForCreate(functionManager, accessControl);
         }
 
         public void addInlineFunction(String sql, AccessControl accessControl)
         {
-            LanguageFunctionImplementation implementation = implementationWithoutSecurity(sql);
+            LanguageFunctionImplementation implementation = implementationWithoutSecurity(session.getQueryId(), sql);
             FunctionMetadata metadata = implementation.getFunctionMetadata();
             implementationsById.put(metadata.getFunctionId(), implementation);
             SchemaFunctionName name = new SchemaFunctionName(QUERY_LOCAL_SCHEMA, metadata.getCanonicalName());
@@ -266,20 +267,31 @@ public class LanguageFunctionManager
             return getFunctionListing(catalogHandle, name).getFunctions(languageFunctionLoader, identityLoader);
         }
 
-        public FunctionDependencyDeclaration getDependencies(FunctionId functionId, AccessControl accessControl)
+        public FunctionId analyzeAndPlan(FunctionId functionId, AccessControl accessControl)
         {
             LanguageFunctionImplementation function = implementationsById.get(functionId);
             checkArgument(function != null, "Unknown function implementation: %s", functionId);
-            return function.getFunctionDependencies(accessControl);
+
+            // verify the function and check permissions of nexted function calls
+            function.analyzeAndPlan(accessControl);
+
+            IrRoutine routine = function.getRoutine();
+            FunctionId resolvedFunctionId = function.getResolvedFunctionId();
+
+            // mark the function as used, so it is serialized for workers
+            usedFunctions.put(resolvedFunctionId, routine);
+            return resolvedFunctionId;
         }
 
-        public Optional<ScalarFunctionImplementation> specialize(ResolvedFunction resolvedFunction, FunctionManager functionManager, InvocationConvention invocationConvention)
+        public Optional<ScalarFunctionImplementation> specialize(FunctionId functionId, InvocationConvention invocationConvention, FunctionManager functionManager)
         {
-            LanguageFunctionImplementation function = implementationsByResolvedFunction.get(resolvedFunction);
-            if (function == null) {
+            IrRoutine routine = usedFunctions.get(functionId);
+            if (routine == null) {
                 return Optional.empty();
             }
-            return Optional.of(function.specialize(functionManager, invocationConvention));
+
+            SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager).compile(routine);
+            return Optional.of(function.getScalarFunctionImplementation(invocationConvention));
         }
 
         public FunctionMetadata getFunctionMetadata(FunctionId functionId)
@@ -289,22 +301,9 @@ public class LanguageFunctionManager
             return function.getFunctionMetadata();
         }
 
-        public void registerResolvedFunction(ResolvedFunction resolvedFunction)
+        public Map<FunctionId, IrRoutine> serializeFunctionsForWorkers()
         {
-            FunctionId functionId = resolvedFunction.getFunctionId();
-            LanguageFunctionImplementation function = implementationsById.get(functionId);
-            checkArgument(function != null, "Unknown function implementation: %s", functionId);
-            implementationsByResolvedFunction.put(resolvedFunction, function);
-        }
-
-        public List<LanguageScalarFunctionData> serializeFunctionsForWorkers()
-        {
-            return implementationsByResolvedFunction.entrySet().stream()
-                    .map(entry -> new LanguageScalarFunctionData(
-                            entry.getKey(),
-                            entry.getValue().getFunctionDependencies(),
-                            entry.getValue().getRoutine()))
-                    .collect(toImmutableList());
+            return ImmutableMap.copyOf(usedFunctions);
         }
 
         private FunctionListing getFunctionListing(CatalogHandle catalogHandle, SchemaFunctionName name)
@@ -341,7 +340,7 @@ public class LanguageFunctionManager
                 loaded = true;
 
                 List<LanguageFunctionImplementation> implementations = languageFunctionLoader.getLanguageFunction(session.toConnectorSession(), name).stream()
-                        .map(function -> implementationWithSecurity(function.sql(), function.path(), function.owner(), identityLoader))
+                        .map(function -> implementationWithSecurity(session.getQueryId(), function.sql(), function.path(), function.owner(), identityLoader))
                         .collect(toImmutableList());
 
                 // verify all names are correct
@@ -363,16 +362,16 @@ public class LanguageFunctionManager
             }
         }
 
-        private LanguageFunctionImplementation implementationWithoutSecurity(String sql)
+        private LanguageFunctionImplementation implementationWithoutSecurity(QueryId queryId, String sql)
         {
             // use the original path during function creation and for inline functions
-            return new LanguageFunctionImplementation(sql, session.getPath(), Optional.empty(), Optional.empty());
+            return new LanguageFunctionImplementation(queryId, sql, session.getPath(), Optional.empty(), Optional.empty());
         }
 
-        private LanguageFunctionImplementation implementationWithSecurity(String sql, List<CatalogSchemaName> path, Optional<String> owner, RunAsIdentityLoader identityLoader)
+        private LanguageFunctionImplementation implementationWithSecurity(QueryId queryId, String sql, List<CatalogSchemaName> path, Optional<String> owner, RunAsIdentityLoader identityLoader)
         {
             // stored functions cannot see inline functions, so we need to rebuild the path
-            return new LanguageFunctionImplementation(sql, session.getPath().forView(path), owner, Optional.of(identityLoader));
+            return new LanguageFunctionImplementation(queryId, sql, session.getPath().forView(path), owner, Optional.of(identityLoader));
         }
 
         private class LanguageFunctionImplementation
@@ -382,15 +381,14 @@ public class LanguageFunctionManager
             private final SqlPath path;
             private final Optional<String> owner;
             private final Optional<RunAsIdentityLoader> identityLoader;
-            private SqlRoutineAnalysis analysis;
-            private FunctionDependencyDeclaration dependencies;
             private IrRoutine routine;
+            private FunctionId resolvedFunctionId;
             private boolean analyzing;
 
-            private LanguageFunctionImplementation(String sql, SqlPath path, Optional<String> owner, Optional<RunAsIdentityLoader> identityLoader)
+            private LanguageFunctionImplementation(QueryId queryId, String sql, SqlPath path, Optional<String> owner, Optional<RunAsIdentityLoader> identityLoader)
             {
                 this.functionSpecification = parser.createFunctionSpecification(sql);
-                this.functionMetadata = extractFunctionMetadata(createSqlLanguageFunctionId(sql), functionSpecification);
+                this.functionMetadata = extractFunctionMetadata(createSqlLanguageFunctionId(queryId, sql), functionSpecification);
                 this.path = requireNonNull(path, "path is null");
                 this.owner = requireNonNull(owner, "owner is null");
                 this.identityLoader = requireNonNull(identityLoader, "identityLoader is null");
@@ -401,16 +399,16 @@ public class LanguageFunctionManager
                 return functionMetadata;
             }
 
-            public void verifyForCreate(FunctionManager functionManager, AccessControl accessControl)
+            public synchronized void verifyForCreate(FunctionManager functionManager, AccessControl accessControl)
             {
                 checkState(identityLoader.isEmpty(), "create should not enforce security");
                 analyzeAndPlan(accessControl);
-                new SqlRoutineCompiler(functionManager).compile(getRoutine());
+                new SqlRoutineCompiler(functionManager).compile(routine);
             }
 
             private synchronized void analyzeAndPlan(AccessControl accessControl)
             {
-                if (analysis != null) {
+                if (routine != null) {
                     return;
                 }
                 if (analyzing) {
@@ -418,48 +416,28 @@ public class LanguageFunctionManager
                 }
 
                 analyzing = true;
+
                 FunctionContext context = functionContext(accessControl);
-                analysis = analyzer.analyze(context.session(), context.accessControl(), functionSpecification);
-
-                FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder dependencies = FunctionDependencyDeclaration.builder();
-                for (ResolvedFunction resolvedFunction : analysis.analysis().getResolvedFunctions()) {
-                    dependencies.addFunction(resolvedFunction.toCatalogSchemaFunctionName(), resolvedFunction.getSignature().getArgumentTypes());
-                }
-                this.dependencies = dependencies.build();
-
+                SqlRoutineAnalysis analysis = analyzer.analyze(context.session(), context.accessControl(), functionSpecification);
                 routine = planner.planSqlFunction(session, functionSpecification, analysis);
+
+                Hasher hasher = Hashing.sha256().newHasher();
+                SqlRoutineHash.hash(routine, hasher, blockEncodingSerde);
+                resolvedFunctionId = new FunctionId(SQL_FUNCTION_PREFIX + hasher.hash());
+
                 analyzing = false;
-            }
-
-            public synchronized FunctionDependencyDeclaration getFunctionDependencies(AccessControl accessControl)
-            {
-                analyzeAndPlan(accessControl);
-                return dependencies;
-            }
-
-            public synchronized FunctionDependencyDeclaration getFunctionDependencies()
-            {
-                if (dependencies == null) {
-                    throw new IllegalStateException("Function not analyzed: " + functionMetadata.getSignature());
-                }
-                return dependencies;
             }
 
             public synchronized IrRoutine getRoutine()
             {
-                if (routine == null) {
-                    throw new IllegalStateException("Function not analyzed: " + functionMetadata.getSignature());
-                }
+                checkState(routine != null, "function not yet analyzed");
                 return routine;
             }
 
-            public ScalarFunctionImplementation specialize(FunctionManager functionManager, InvocationConvention invocationConvention)
+            public synchronized FunctionId getResolvedFunctionId()
             {
-                // Recompile everytime this function is called as the function dependencies may have changed.
-                // The caller caches, so this should not be a problem.
-                // TODO: compiler should use function dependencies instead of function manager
-                SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager).compile(getRoutine());
-                return function.getScalarFunctionImplementation(invocationConvention);
+                checkState(routine != null, "function not yet analyzed");
+                return resolvedFunctionId;
             }
 
             private FunctionContext functionContext(AccessControl accessControl)

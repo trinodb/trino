@@ -140,12 +140,6 @@ public class TestJdbcResultSetCompatibilityOldServer
     }
 
     @Override
-    protected int getTestedServerVersion()
-    {
-        return parseInt(getTestedTrinoVersion());
-    }
-
-    @Override
     public String toString()
     {
         // This allows distinguishing tests run against different Trino server version from each other.

@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -45,22 +46,35 @@ public class FileResourceGroupConfigurationManager
             () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
             .jsonCodec(ManagerSpec.class);
 
+    private final Optional<LifeCycleManager> lifeCycleManager;
     private final List<ResourceGroupSpec> rootGroups;
     private final List<ResourceGroupSelector> selectors;
     private final Optional<Duration> cpuQuotaPeriod;
 
     @Inject
-    public FileResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, FileResourceGroupConfig config)
+    public FileResourceGroupConfigurationManager(LifeCycleManager lifeCycleManager, ClusterMemoryPoolManager memoryPoolManager, FileResourceGroupConfig config)
     {
-        this(memoryPoolManager, parseManagerSpec(config));
+        this(Optional.of(lifeCycleManager), memoryPoolManager, parseManagerSpec(config));
+    }
+
+    @VisibleForTesting
+    FileResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, FileResourceGroupConfig config)
+    {
+        this(Optional.empty(), memoryPoolManager, parseManagerSpec(config));
     }
 
     @VisibleForTesting
     FileResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, ManagerSpec managerSpec)
     {
+        this(Optional.empty(), memoryPoolManager, managerSpec);
+    }
+
+    private FileResourceGroupConfigurationManager(Optional<LifeCycleManager> lifeCycleManager, ClusterMemoryPoolManager memoryPoolManager, ManagerSpec managerSpec)
+    {
         super(memoryPoolManager);
         requireNonNull(managerSpec, "managerSpec is null");
 
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.rootGroups = ImmutableList.copyOf(managerSpec.getRootGroups());
         this.cpuQuotaPeriod = managerSpec.getCpuQuotaPeriod();
         validateRootGroups(managerSpec);
@@ -124,5 +138,11 @@ public class FileResourceGroupConfigurationManager
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.ifPresent(LifeCycleManager::stop);
     }
 }

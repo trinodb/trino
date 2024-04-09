@@ -13,11 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.base.VerifyException;
-import io.trino.spi.TrinoException;
 import org.apache.iceberg.FileFormat;
-
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public enum IcebergFileFormat
 {
@@ -28,28 +24,30 @@ public enum IcebergFileFormat
 
     public FileFormat toIceberg()
     {
-        switch (this) {
-            case ORC:
-                return FileFormat.ORC;
-            case PARQUET:
-                return FileFormat.PARQUET;
-            case AVRO:
-                return FileFormat.AVRO;
-        }
-        throw new VerifyException("Unhandled type: " + this);
+        return switch (this) {
+            case ORC -> FileFormat.ORC;
+            case PARQUET -> FileFormat.PARQUET;
+            case AVRO -> FileFormat.AVRO;
+        };
     }
 
     public static IcebergFileFormat fromIceberg(FileFormat format)
     {
-        switch (format) {
-            case ORC:
-                return ORC;
-            case PARQUET:
-                return PARQUET;
-            case AVRO:
-                return AVRO;
-            default:
-                throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + format);
-        }
+        return switch (format) {
+            case ORC -> ORC;
+            case PARQUET -> PARQUET;
+            case AVRO -> AVRO;
+            // Not used as a data file format
+            case METADATA -> throw new IllegalArgumentException("Unexpected METADATA file format");
+        };
+    }
+
+    public String humanName()
+    {
+        return switch (this) {
+            case AVRO -> "Avro";
+            case ORC -> "ORC";
+            case PARQUET -> "Parquet";
+        };
     }
 }

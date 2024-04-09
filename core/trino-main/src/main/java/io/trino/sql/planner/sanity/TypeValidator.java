@@ -17,30 +17,26 @@ import com.google.common.collect.ListMultimap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.type.FunctionType;
-import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Ensures that all the expressions and FunctionCalls matches their output symbols
@@ -52,29 +48,14 @@ public final class TypeValidator
     public void validate(PlanNode plan,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(session, plannerContext.getTypeManager(), typeAnalyzer, types), null);
+        plan.accept(new Visitor(), null);
     }
 
     private static class Visitor
             extends SimplePlanVisitor<Void>
     {
-        private final Session session;
-        private final TypeCoercion typeCoercion;
-        private final TypeAnalyzer typeAnalyzer;
-        private final TypeProvider types;
-
-        public Visitor(Session session, TypeManager typeManager, TypeAnalyzer typeAnalyzer, TypeProvider types)
-        {
-            this.session = requireNonNull(session, "session is null");
-            this.typeCoercion = new TypeCoercion(typeManager::getType);
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-            this.types = requireNonNull(types, "types is null");
-        }
-
         @Override
         public Void visitAggregation(AggregationNode node, Void context)
         {
@@ -116,12 +97,13 @@ public final class TypeValidator
             visitPlan(node, context);
 
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                Type expectedType = types.get(entry.getKey());
-                if (entry.getValue() instanceof SymbolReference symbolReference) {
-                    verifyTypeSignature(entry.getKey(), expectedType, types.get(Symbol.from(symbolReference)));
+                Type expectedType = entry.getKey().getType();
+                if (entry.getValue() instanceof Reference reference) {
+                    Symbol symbol = Symbol.from(reference);
+                    verifyTypeSignature(entry.getKey(), expectedType, symbol.getType());
                     continue;
                 }
-                Type actualType = typeAnalyzer.getType(session, types, entry.getValue());
+                Type actualType = entry.getValue().type();
                 verifyTypeSignature(entry.getKey(), expectedType, actualType);
             }
 
@@ -136,9 +118,9 @@ public final class TypeValidator
             ListMultimap<Symbol, Symbol> symbolMapping = node.getSymbolMapping();
             for (Symbol keySymbol : symbolMapping.keySet()) {
                 List<Symbol> valueSymbols = symbolMapping.get(keySymbol);
-                Type expectedType = types.get(keySymbol);
+                Type expectedType = keySymbol.getType();
                 for (Symbol valueSymbol : valueSymbols) {
-                    verifyTypeSignature(keySymbol, expectedType, types.get(valueSymbol));
+                    verifyTypeSignature(keySymbol, expectedType, valueSymbol.getType());
                 }
             }
 
@@ -155,14 +137,14 @@ public final class TypeValidator
 
         private void checkSignature(Symbol symbol, BoundSignature signature)
         {
-            Type expectedType = types.get(symbol);
+            Type expectedType = symbol.getType();
             Type actualType = signature.getReturnType();
             verifyTypeSignature(symbol, expectedType, actualType);
         }
 
         private void checkCall(Symbol symbol, BoundSignature signature, List<Expression> arguments)
         {
-            Type expectedType = types.get(symbol);
+            Type expectedType = symbol.getType();
             Type actualType = signature.getReturnType();
             verifyTypeSignature(symbol, expectedType, actualType);
 
@@ -176,16 +158,27 @@ public final class TypeValidator
                 if (expectedTypeSignature instanceof FunctionType) {
                     continue;
                 }
-                Type actualTypeSignature = typeAnalyzer.getType(session, types, arguments.get(i));
+                Type actualTypeSignature = arguments.get(i).type();
                 verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
             }
         }
 
         private void verifyTypeSignature(Symbol symbol, Type expected, Type actual)
         {
-            // UNKNOWN should be considered as a wildcard type, which matches all the other types
-            if (!(actual instanceof UnknownType) && !typeCoercion.isTypeOnlyCoercion(actual, expected)) {
-                checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol, expected, actual);
+            if (actual instanceof RowType actualRowType && expected instanceof RowType expectedRowType) {
+                // ignore the field names when comparing row types -- TODO: maybe we should be more strict about this and require they match
+                List<Type> actualFieldTypes = actualRowType.getFields().stream()
+                        .map(RowType.Field::getType)
+                        .toList();
+
+                List<Type> expectedFieldType = expectedRowType.getFields().stream()
+                        .map(RowType.Field::getType)
+                        .toList();
+
+                checkArgument(expectedFieldType.equals(actualFieldTypes), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol.getName(), expected, actual);
+            }
+            else if (!(actual instanceof UnknownType)) { // UNKNOWN should be considered as a wildcard type, which matches all the other types
+                checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol.getName(), expected, actual);
             }
         }
     }

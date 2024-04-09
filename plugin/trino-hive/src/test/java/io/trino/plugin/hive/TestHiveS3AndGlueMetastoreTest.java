@@ -18,11 +18,10 @@ import io.trino.Session;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
+import java.net.URI;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -52,10 +51,10 @@ public class TestHiveS3AndGlueMetastoreTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        metastore = createTestingGlueHiveMetastore(Path.of(schemaPath()));
+        metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()));
 
         Session session = createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder(session)
+        QueryRunner queryRunner = HiveQueryRunner.builder(session)
                 .addExtraProperty("sql.path", "hive.functions")
                 .addExtraProperty("sql.default-function-catalog", "hive")
                 .addExtraProperty("sql.default-function-schema", "functions")
@@ -264,7 +263,7 @@ public class TestHiveS3AndGlueMetastoreTest
             if (partitioned) {
                 assertQuery("SHOW STATS FOR " + tableName, """
                         VALUES
-                        ('col_str', 0.0, 1.0, 0.0, null, null, null),
+                        ('col_str', 16.0, 1.0, 0.0, null, null, null),
                         ('col_int', null, 4.0, 0.0, null, 1, 4),
                         (null, null, null, null, 4.0, null, null)""");
             }
@@ -325,6 +324,7 @@ public class TestHiveS3AndGlueMetastoreTest
         assertUpdate("CREATE FUNCTION " + name + "(x double) RETURNS double COMMENT 't88' RETURN x * 8.8");
 
         assertThat(query("SHOW FUNCTIONS"))
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(name, "bigint", "integer", "scalar", true, "t42")
@@ -343,6 +343,7 @@ public class TestHiveS3AndGlueMetastoreTest
         assertUpdate("CREATE FUNCTION " + name2 + "(s varchar) RETURNS varchar RETURN 'Hello ' || s");
 
         assertThat(query("SHOW FUNCTIONS"))
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(name, "bigint", "integer", "scalar", true, "t42")

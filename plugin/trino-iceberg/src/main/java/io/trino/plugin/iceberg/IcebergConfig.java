@@ -80,6 +80,7 @@ public class IcebergConfig
     private int catalogCacheSize = 10;
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
+    private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
 
     public CatalogType getCatalogType()
     {
@@ -438,6 +439,20 @@ public class IcebergConfig
     public boolean isQueryPartitionFilterRequired()
     {
         return queryPartitionFilterRequired;
+    }
+
+    @Min(0)
+    public int getSplitManagerThreads()
+    {
+        return splitManagerThreads;
+    }
+
+    @Config("iceberg.split-manager-threads")
+    @ConfigDescription("Number of threads to use for generating splits")
+    public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
+    {
+        this.splitManagerThreads = splitManagerThreads;
+        return this;
     }
 
     @AssertFalse(message = "iceberg.materialized-views.storage-schema may only be set when iceberg.materialized-views.hide-storage-table is set to false")

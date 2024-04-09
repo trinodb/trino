@@ -59,6 +59,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
+import static java.sql.JDBCType.BOOLEAN;
 import static java.sql.JDBCType.CHAR;
 import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.DECIMAL;
@@ -101,6 +102,10 @@ public abstract class BaseTestHiveCoercion
                 "list_to_list",
                 "map_to_map",
                 "boolean_to_varchar",
+                "string_to_boolean",
+                "special_string_to_boolean",
+                "numeric_string_to_boolean",
+                "varchar_to_boolean",
                 "tinyint_to_smallint",
                 "tinyint_to_int",
                 "tinyint_to_bigint",
@@ -147,10 +152,22 @@ public abstract class BaseTestHiveCoercion
                 "long_decimal_to_varchar",
                 "short_decimal_to_bounded_varchar",
                 "long_decimal_to_bounded_varchar",
+                "varchar_to_tinyint",
+                "string_to_tinyint",
+                "varchar_to_smallint",
+                "string_to_smallint",
+                "varchar_to_integer",
+                "string_to_integer",
+                "varchar_to_bigint",
+                "string_to_bigint",
                 "varchar_to_bigger_varchar",
                 "varchar_to_smaller_varchar",
                 "varchar_to_date",
                 "varchar_to_distant_date",
+                "varchar_to_float",
+                "string_to_float",
+                "varchar_to_float_infinity",
+                "varchar_to_special_float",
                 "varchar_to_double",
                 "string_to_double",
                 "varchar_to_double_infinity",
@@ -159,6 +176,9 @@ public abstract class BaseTestHiveCoercion
                 "date_to_bounded_varchar",
                 "char_to_bigger_char",
                 "char_to_smaller_char",
+                "string_to_char",
+                "varchar_to_bigger_char",
+                "varchar_to_smaller_char",
                 "timestamp_millis_to_date",
                 "timestamp_micros_to_date",
                 "timestamp_nanos_to_date",
@@ -201,6 +221,10 @@ public abstract class BaseTestHiveCoercion
                         "  ARRAY [CAST(ROW (2, -101, 12345, 'removed') AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
                         "  MAP (ARRAY [TINYINT '2'], ARRAY [CAST(ROW (-3, 2323, REAL '0.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %2$s))]), " +
                         "  TRUE, " +
+                        "  'TRUE', " +
+                        "  ' ', " +
+                        "  '-123', " +
+                        "  'No', " +
                         "  TINYINT '-1', " +
                         "  TINYINT '2', " +
                         "  TINYINT '-3', " +
@@ -247,6 +271,14 @@ public abstract class BaseTestHiveCoercion
                         "  DECIMAL '12345678.123456123456', " +
                         "  DECIMAL '12345.12345', " +
                         "  DECIMAL '12345678.123456123456', " +
+                        "  '-127', " +
+                        "  '2147483647', " +
+                        "  '-32768', " +
+                        "  '2147483647', " +
+                        "  '-2147483648', " +
+                        "  '2147483647', " +
+                        "  '0', " +
+                        "  '1234567890123', " +
                         "  'abc', " +
                         "  'abc', " +
                         "  '2023-09-28', " +
@@ -255,10 +287,17 @@ public abstract class BaseTestHiveCoercion
                         "  '1234.01234', " +
                         "  'Infinity'," +
                         "  'NaN'," +
+                        "  '1234.567', " +
+                        "  '1234.01234', " +
+                        "  'Infinity'," +
+                        "  'NaN'," +
                         "  DATE '2023-09-28', " +
                         "  DATE '2000-04-13', " +
                         "  'abc', " +
                         "  'abc', " +
+                        "  'Bigger Value', " +
+                        "  'Hi  ', " +
+                        "  'TrinoDB', " +
                         "  TIMESTAMP '2022-12-31 23:59:59.999', " +
                         "  TIMESTAMP '2023-12-31 23:59:59.999999', " +
                         "  TIMESTAMP '2024-12-31 23:59:59.999999999', " +
@@ -273,6 +312,10 @@ public abstract class BaseTestHiveCoercion
                         "  ARRAY [CAST(ROW (-2, 101, -12345, NULL) AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
                         "  MAP (ARRAY [TINYINT '-2'], ARRAY [CAST(ROW (null, -2323, REAL '-1.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %2$s))]), " +
                         "  FALSE, " +
+                        "  'FAlSE', " +
+                        "  'oFF', " +
+                        "  '-0', " +
+                        "  '', " +
                         "  TINYINT '1', " +
                         "  TINYINT '-2', " +
                         "  NULL, " +
@@ -319,10 +362,22 @@ public abstract class BaseTestHiveCoercion
                         "  DECIMAL '-12345678.123456123456', " +
                         "  DECIMAL '-12345.12345', " +
                         "  DECIMAL '-12345678.123456123456', " +
+                        "  '1270', " +
+                        "  '123e+1', " +
+                        "  '327680', " +
+                        "  '123e+1', " +
+                        "  '21474836480', " +
+                        "  '123e+1', " +
+                        "  '-9.223372e+18', " +
+                        "  'Hello', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '2023-09-27', " +
                         "  '1900-01-01', " +
+                        "  '-12345.6789', " +
+                        "  '0', " +
+                        "  '-4.4028235e+39f'," +
+                        "  'Invalid Double'," +
                         "  '-12345.6789', " +
                         "  '0', " +
                         "  '-Infinity'," +
@@ -331,6 +386,9 @@ public abstract class BaseTestHiveCoercion
                         "  DATE '1900-01-01', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
+                        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
+                        "  '\uD83D\uDCB0 \uD83D\uDCB0\uD83D\uDCB0', " +
+                        "  '\uD83D\uDCB0 \uD83D\uDCB0', " +
                         "  TIMESTAMP '1970-01-01 00:00:00.123', " +
                         "  TIMESTAMP '1970-01-01 00:00:00.123456', " +
                         "  TIMESTAMP '1970-01-01 00:00:00.123456789', " +
@@ -350,11 +408,25 @@ public abstract class BaseTestHiveCoercion
         String hiveValueForCaseChangeField;
         String coercedNaN = "NaN";
         Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
+        Map<String, List<Object>> fromVarcharCoercions = ImmutableMap.of(
+                "string_to_boolean", ImmutableList.of(true, false),
+                "special_string_to_boolean", ImmutableList.of(true, false),
+                "numeric_string_to_boolean", ImmutableList.of(true, true),
+                "varchar_to_boolean", ImmutableList.of(false, false),
+                "varchar_to_tinyint", ImmutableList.of(-127, -10),
+                "varchar_to_smallint", ImmutableList.of(-32768, 0));
         if (Stream.of("rctext", "textfile", "sequencefile").anyMatch(isFormat)) {
             hiveValueForCaseChangeField = "\"lower2uppercase\":2";
         }
         else if (isFormat.test("orc")) {
             hiveValueForCaseChangeField = "\"LOWER2UPPERCASE\":null";
+            fromVarcharCoercions = ImmutableMap.of(
+                    "string_to_boolean", Arrays.asList(null, null),
+                    "special_string_to_boolean", Arrays.asList(null, null),
+                    "numeric_string_to_boolean", ImmutableList.of(true, false),
+                    "varchar_to_boolean", Arrays.asList(null, null),
+                    "varchar_to_tinyint", Arrays.asList(-127, null),
+                    "varchar_to_smallint", Arrays.asList(-32768, null));
         }
         else {
             hiveValueForCaseChangeField = "\"LOWER2UPPERCASE\":2";
@@ -423,6 +495,7 @@ public abstract class BaseTestHiveCoercion
                 .put("boolean_to_varchar", ImmutableList.of(
                         "TRUE",
                         "FALSE"))
+                .putAll(fromVarcharCoercions)
                 .put("tinyint_to_smallint", ImmutableList.of(
                         -1,
                         1))
@@ -549,18 +622,45 @@ public abstract class BaseTestHiveCoercion
                 .put("long_decimal_to_bounded_varchar", ImmutableList.of(
                         "12345678.123456123456",
                         "-12345678.123456123456"))
+                .put("string_to_tinyint", Arrays.asList(null, null))
+                .put("string_to_smallint", Arrays.asList(null, null))
+                .put("string_to_integer", Arrays.asList(null, null))
+                .put("varchar_to_integer", Arrays.asList(-2147483648, null))
+                .put("varchar_to_bigint", Arrays.asList(0, null))
+                .put("string_to_bigint", Arrays.asList(1234567890123L, null))
                 .put("varchar_to_bigger_varchar", ImmutableList.of(
                         "abc",
                         "\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0"))
                 .put("varchar_to_smaller_varchar", ImmutableList.of(
                         "ab",
                         "\uD83D\uDCB0\uD83D\uDCB0"))
+                .put("string_to_char", ImmutableList.of(
+                        "B",
+                        "\uD83D\uDCB0"))
+                .put("varchar_to_bigger_char", ImmutableList.of(
+                        "Hi    ",
+                        "\uD83D\uDCB0 \uD83D\uDCB0\uD83D\uDCB0  "))
+                .put("varchar_to_smaller_char", ImmutableList.of(
+                        "Tr",
+                        "\uD83D\uDCB0 "))
                 .put("varchar_to_date", ImmutableList.of(
                         java.sql.Date.valueOf("2023-09-28"),
                         java.sql.Date.valueOf("2023-09-27")))
                 .put("varchar_to_distant_date", ImmutableList.of(
                         java.sql.Date.valueOf("8000-04-13"),
                         java.sql.Date.valueOf("1900-01-01")))
+                .put("varchar_to_float", ImmutableList.of(
+                        1234.567f,
+                        -12345.6789f))
+                .put("string_to_float", ImmutableList.of(
+                        1234.01234f,
+                        0f))
+                .put("varchar_to_float_infinity", ImmutableList.of(
+                        Float.POSITIVE_INFINITY,
+                        Float.NEGATIVE_INFINITY))
+                .put("varchar_to_special_float", Arrays.asList(
+                        coercedNaN == null ? null : Float.NaN,
+                        null))
                 .put("varchar_to_double", ImmutableList.of(
                         1234.567,
                         -12345.6789))
@@ -1008,6 +1108,10 @@ public abstract class BaseTestHiveCoercion
                 row("list_to_list", "array(row(ti2int integer, si2bi bigint, bi2vc varchar))"),
                 row("map_to_map", "map(integer, row(ti2bi bigint, int2bi bigint, float2double double, add tinyint))"),
                 row("boolean_to_varchar", "varchar(5)"),
+                row("string_to_boolean", "boolean"),
+                row("special_string_to_boolean", "boolean"),
+                row("numeric_string_to_boolean", "boolean"),
+                row("varchar_to_boolean", "boolean"),
                 row("tinyint_to_smallint", "smallint"),
                 row("tinyint_to_int", "integer"),
                 row("tinyint_to_bigint", "bigint"),
@@ -1054,10 +1158,22 @@ public abstract class BaseTestHiveCoercion
                 row("long_decimal_to_varchar", "varchar"),
                 row("short_decimal_to_bounded_varchar", "varchar(30)"),
                 row("long_decimal_to_bounded_varchar", "varchar(30)"),
+                row("varchar_to_tinyint", "tinyint"),
+                row("string_to_tinyint", "tinyint"),
+                row("varchar_to_smallint", "smallint"),
+                row("string_to_smallint", "smallint"),
+                row("varchar_to_integer", "integer"),
+                row("string_to_integer", "integer"),
+                row("varchar_to_bigint", "bigint"),
+                row("string_to_bigint", "bigint"),
                 row("varchar_to_bigger_varchar", "varchar(4)"),
                 row("varchar_to_smaller_varchar", "varchar(2)"),
                 row("varchar_to_date", "date"),
                 row("varchar_to_distant_date", "date"),
+                row("varchar_to_float", floatType),
+                row("string_to_float", floatType),
+                row("varchar_to_float_infinity", floatType),
+                row("varchar_to_special_float", floatType),
                 row("varchar_to_double", "double"),
                 row("string_to_double", "double"),
                 row("varchar_to_double_infinity", "double"),
@@ -1066,6 +1182,9 @@ public abstract class BaseTestHiveCoercion
                 row("date_to_bounded_varchar", "varchar(12)"),
                 row("char_to_bigger_char", "char(4)"),
                 row("char_to_smaller_char", "char(2)"),
+                row("string_to_char", "char(1)"),
+                row("varchar_to_bigger_char", "char(6)"),
+                row("varchar_to_smaller_char", "char(2)"),
                 row("timestamp_millis_to_date", "date"),
                 row("timestamp_micros_to_date", "date"),
                 row("timestamp_nanos_to_date", "date"),
@@ -1096,6 +1215,10 @@ public abstract class BaseTestHiveCoercion
                 .put("list_to_list", ARRAY) // list
                 .put("map_to_map", JAVA_OBJECT) // map
                 .put("boolean_to_varchar", VARCHAR)
+                .put("string_to_boolean", BOOLEAN)
+                .put("special_string_to_boolean", BOOLEAN)
+                .put("numeric_string_to_boolean", BOOLEAN)
+                .put("varchar_to_boolean", BOOLEAN)
                 .put("tinyint_to_smallint", SMALLINT)
                 .put("tinyint_to_int", INTEGER)
                 .put("tinyint_to_bigint", BIGINT)
@@ -1142,10 +1265,22 @@ public abstract class BaseTestHiveCoercion
                 .put("long_decimal_to_varchar", VARCHAR)
                 .put("short_decimal_to_bounded_varchar", VARCHAR)
                 .put("long_decimal_to_bounded_varchar", VARCHAR)
+                .put("varchar_to_tinyint", TINYINT)
+                .put("string_to_tinyint", TINYINT)
+                .put("varchar_to_smallint", SMALLINT)
+                .put("string_to_smallint", SMALLINT)
+                .put("varchar_to_integer", INTEGER)
+                .put("string_to_integer", INTEGER)
+                .put("varchar_to_bigint", BIGINT)
+                .put("string_to_bigint", BIGINT)
                 .put("varchar_to_bigger_varchar", VARCHAR)
                 .put("varchar_to_smaller_varchar", VARCHAR)
                 .put("varchar_to_date", DATE)
                 .put("varchar_to_distant_date", DATE)
+                .put("varchar_to_float", floatType)
+                .put("string_to_float", floatType)
+                .put("varchar_to_float_infinity", floatType)
+                .put("varchar_to_special_float", floatType)
                 .put("varchar_to_double", DOUBLE)
                 .put("string_to_double", DOUBLE)
                 .put("varchar_to_double_infinity", DOUBLE)
@@ -1154,6 +1289,9 @@ public abstract class BaseTestHiveCoercion
                 .put("date_to_bounded_varchar", VARCHAR)
                 .put("char_to_bigger_char", CHAR)
                 .put("char_to_smaller_char", CHAR)
+                .put("string_to_char", CHAR)
+                .put("varchar_to_bigger_char", CHAR)
+                .put("varchar_to_smaller_char", CHAR)
                 .put("id", BIGINT)
                 .put("nested_field", BIGINT)
                 .put("timestamp_to_string", VARCHAR)
@@ -1184,6 +1322,10 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN list_to_list list_to_list array<struct<ti2int:int, si2bi:bigint, bi2vc:string>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN map_to_map map_to_map map<int,struct<ti2bi:bigint, int2bi:bigint, float2double:double, add:tinyint>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN boolean_to_varchar boolean_to_varchar varchar(5)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_boolean string_to_boolean boolean", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN special_string_to_boolean special_string_to_boolean boolean", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN numeric_string_to_boolean numeric_string_to_boolean boolean", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_boolean varchar_to_boolean boolean", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_smallint tinyint_to_smallint smallint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_int tinyint_to_int int", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_bigint tinyint_to_bigint bigint", tableName));
@@ -1230,18 +1372,33 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_varchar long_decimal_to_varchar string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN short_decimal_to_bounded_varchar short_decimal_to_bounded_varchar varchar(30)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_bounded_varchar long_decimal_to_bounded_varchar varchar(30)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_tinyint varchar_to_tinyint tinyint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_tinyint string_to_tinyint tinyint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smallint varchar_to_smallint smallint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_smallint string_to_smallint smallint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_integer varchar_to_integer integer", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_integer string_to_integer integer", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigint varchar_to_bigint bigint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_bigint string_to_bigint bigint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigger_varchar varchar_to_bigger_varchar varchar(4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_varchar varchar_to_smaller_varchar varchar(2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_date varchar_to_date date", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN date_to_string date_to_string string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN date_to_bounded_varchar date_to_bounded_varchar varchar(12)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_distant_date varchar_to_distant_date date", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_float varchar_to_float %s", tableName, floatType));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_float string_to_float %s", tableName, floatType));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_float_infinity varchar_to_float_infinity %s", tableName, floatType));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_special_float varchar_to_special_float %s", tableName, floatType));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_double varchar_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_double string_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_double_infinity varchar_to_double_infinity double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_special_double varchar_to_special_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_bigger_char char_to_bigger_char char(4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_smaller_char char_to_smaller_char char(2)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_char string_to_char char(1)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigger_char varchar_to_bigger_char char(6)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_char varchar_to_smaller_char char(2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_millis_to_date timestamp_millis_to_date date", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_micros_to_date timestamp_micros_to_date date", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_nanos_to_date timestamp_nanos_to_date date", tableName));

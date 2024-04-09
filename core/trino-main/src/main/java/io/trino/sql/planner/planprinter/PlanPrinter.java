@@ -53,14 +53,18 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -97,9 +101,11 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
+import io.trino.sql.planner.plan.RowsPerMatch;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
+import io.trino.sql.planner.plan.SkipToPosition;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
@@ -120,23 +126,13 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
-import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SkipTo.Position;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -147,7 +143,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
@@ -163,20 +158,19 @@ import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.ExpressionUtils.combineConjunctsWithDuplicates;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrUtils.combineConjunctsWithDuplicates;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static io.trino.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
@@ -202,7 +196,6 @@ public class PlanPrinter
     @VisibleForTesting
     PlanPrinter(
             PlanNode planRoot,
-            TypeProvider types,
             Function<TableScanNode, TableInfo> tableInfoSupplier,
             Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats,
             ValuePrinter valuePrinter,
@@ -211,7 +204,6 @@ public class PlanPrinter
             Anonymizer anonymizer)
     {
         requireNonNull(planRoot, "planRoot is null");
-        requireNonNull(types, "types is null");
         requireNonNull(tableInfoSupplier, "tableInfoSupplier is null");
         requireNonNull(dynamicFilterDomainStats, "dynamicFilterDomainStats is null");
         requireNonNull(valuePrinter, "valuePrinter is null");
@@ -236,10 +228,10 @@ public class PlanPrinter
                 .mapToLong(planNode -> planNode.getPlanNodeBlockedTime().toMillis())
                 .sum(), MILLISECONDS));
 
-        this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime, totalBlockedTime);
+        this.representation = new PlanRepresentation(planRoot, totalCpuTime, totalScheduledTime, totalBlockedTime);
 
-        Visitor visitor = new Visitor(types, estimatedStatsAndCosts, stats);
-        planRoot.accept(visitor, new Context());
+        Visitor visitor = new Visitor(estimatedStatsAndCosts, stats);
+        planRoot.accept(visitor, new Context(Optional.empty(), false));
     }
 
     private String toText(boolean verbose, int level)
@@ -255,20 +247,15 @@ public class PlanPrinter
 
     JsonRenderedNode toJsonRenderedNode()
     {
-        return new JsonRenderer().renderJson(representation, representation.getRoot());
+        return new JsonRenderer().renderJson(representation, representation.getRoot(), false);
     }
 
-    public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, Metadata metadata, FunctionManager functionManager, Session session)
+    public static String jsonFragmentPlan(PlanNode root, Metadata metadata, FunctionManager functionManager, Session session)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(symbols.entrySet().stream()
-                .distinct()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
-
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
         return new PlanPrinter(
                 root,
-                typeProvider,
                 tableInfoSupplier,
                 ImmutableMap.of(),
                 valuePrinter,
@@ -281,7 +268,6 @@ public class PlanPrinter
     public static String jsonLogicalPlan(
             PlanNode plan,
             Session session,
-            TypeProvider types,
             Metadata metadata,
             FunctionManager functionManager,
             StatsAndCosts estimatedStatsAndCosts)
@@ -290,7 +276,6 @@ public class PlanPrinter
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
         return new PlanPrinter(
                 plan,
-                types,
                 tableInfoSupplier,
                 ImmutableMap.of(),
                 valuePrinter,
@@ -308,14 +293,11 @@ public class PlanPrinter
             Anonymizer anonymizer)
     {
         List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
-        TypeProvider types = getTypeProvider(allStages.stream()
-                .map(StageInfo::getPlan)
-                .collect(toImmutableList()));
         Map<PlanNodeId, TableInfo> tableInfos = allStages.stream()
                 .map(StageInfo::getTables)
                 .map(Map::entrySet)
                 .flatMap(Collection::stream)
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
         List<PlanFragment> planFragments = allStages.stream()
@@ -327,7 +309,6 @@ public class PlanPrinter
                 planFragments,
                 tableScanNode -> tableInfos.get(tableScanNode.getId()),
                 valuePrinter,
-                types,
                 anonymizer);
     }
 
@@ -335,12 +316,10 @@ public class PlanPrinter
     {
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        TypeProvider typeProvider = getTypeProvider(plan.getAllFragments());
         return jsonDistributedPlan(
                 plan.getAllFragments(),
                 tableInfoSupplier,
                 valuePrinter,
-                typeProvider,
                 new NoOpAnonymizer());
     }
 
@@ -348,7 +327,6 @@ public class PlanPrinter
             List<PlanFragment> fragments,
             Function<TableScanNode, TableInfo> tableInfoSupplier,
             ValuePrinter valuePrinter,
-            TypeProvider typeProvider,
             Anonymizer anonymizer)
     {
         Map<PlanFragmentId, JsonRenderedNode> anonymizedPlan = fragments.stream()
@@ -356,7 +334,6 @@ public class PlanPrinter
                         PlanFragment::getId,
                         planFragment -> new PlanPrinter(
                                 planFragment.getRoot(),
-                                typeProvider,
                                 tableInfoSupplier,
                                 ImmutableMap.of(),
                                 valuePrinter,
@@ -369,7 +346,6 @@ public class PlanPrinter
 
     public static String textLogicalPlan(
             PlanNode plan,
-            TypeProvider types,
             Metadata metadata,
             FunctionManager functionManager,
             StatsAndCosts estimatedStatsAndCosts,
@@ -377,12 +353,11 @@ public class PlanPrinter
             int level,
             boolean verbose)
     {
-        return textLogicalPlan(plan, types, metadata, functionManager, estimatedStatsAndCosts, session, level, verbose, Optional.empty());
+        return textLogicalPlan(plan, metadata, functionManager, estimatedStatsAndCosts, session, level, verbose, Optional.empty());
     }
 
     public static String textLogicalPlan(
             PlanNode plan,
-            TypeProvider types,
             Metadata metadata,
             FunctionManager functionManager,
             StatsAndCosts estimatedStatsAndCosts,
@@ -397,7 +372,6 @@ public class PlanPrinter
         version.ifPresent(v -> builder.append(format("Trino version: %s\n", v)));
         builder.append(new PlanPrinter(
                 plan,
-                types,
                 tableInfoSupplier,
                 ImmutableMap.of(),
                 valuePrinter,
@@ -442,15 +416,11 @@ public class PlanPrinter
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
         StringBuilder builder = new StringBuilder();
-        List<PlanFragment> allFragments = allStages.stream()
-                .map(StageInfo::getPlan)
-                .collect(toImmutableList());
         Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(allStages);
 
         Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats = queryStats.getDynamicFiltersStats()
                 .getDynamicFilterDomainStats().stream()
                 .collect(toImmutableMap(DynamicFilterDomainStats::getDynamicFilterId, identity()));
-        TypeProvider typeProvider = getTypeProvider(allFragments);
 
         builder.append(format("Trino version: %s\n", version));
         builder.append(format("Queued: %s, Analysis: %s, Planning: %s, Execution: %s\n",
@@ -468,7 +438,6 @@ public class PlanPrinter
                     Optional.of(stageInfo),
                     Optional.of(aggregatedStats),
                     verbose,
-                    typeProvider,
                     anonymizer));
         }
 
@@ -480,12 +449,11 @@ public class PlanPrinter
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
         StringBuilder builder = new StringBuilder();
-        TypeProvider typeProvider = getTypeProvider(plan.getAllFragments());
         builder.append(format("Trino version: %s\n", version));
         for (PlanFragment fragment : plan.getAllFragments()) {
             builder.append(formatFragment(
                     tableInfoSupplier,
-                    ImmutableMap.of(), valuePrinter, fragment, Optional.empty(), Optional.empty(), verbose, typeProvider, new NoOpAnonymizer()));
+                    ImmutableMap.of(), valuePrinter, fragment, Optional.empty(), Optional.empty(), verbose, new NoOpAnonymizer()));
         }
 
         return builder.toString();
@@ -499,7 +467,6 @@ public class PlanPrinter
             Optional<StageInfo> stageInfo,
             Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats,
             boolean verbose,
-            TypeProvider typeProvider,
             Anonymizer anonymizer)
     {
         StringBuilder builder = new StringBuilder();
@@ -585,7 +552,7 @@ public class PlanPrinter
         builder.append(indentString(1));
         String hashColumn = partitioningScheme.getHashColumn().map(anonymizer::anonymize).map(column -> "[" + column + "]").orElse("");
         if (replicateNullsAndAny) {
-            builder.append(format("Output partitioning: %s (replicate nulls and any) [%s]%s\n",
+            builder.append(format("Output partitioning: %s (replicate nulls and any) [%s]%s",
                     anonymizer.anonymize(partitioningScheme.getPartitioning().getHandle()),
                     Joiner.on(", ").join(arguments),
                     hashColumn));
@@ -596,13 +563,12 @@ public class PlanPrinter
                     Joiner.on(", ").join(arguments),
                     hashColumn));
         }
-
-        fragment.getPartitionCount().ifPresent(partitionCount -> builder.append(format("%sPartition count: %s\n", indentString(1), partitionCount)));
+        partitioningScheme.getPartitionCount().ifPresent(partitionCount -> builder.append(format("%sOutput partition count: %s\n", indentString(1), partitionCount)));
+        fragment.getPartitionCount().ifPresent(partitionCount -> builder.append(format("%sInput partition count: %s\n", indentString(1), partitionCount)));
 
         builder.append(
                         new PlanPrinter(
                                 fragment.getRoot(),
-                                typeProvider,
                                 tableInfoSupplier,
                                 dynamicFilterDomainStats,
                                 valuePrinter,
@@ -630,28 +596,20 @@ public class PlanPrinter
                 succinctBytes((long) digest.getMax()));
     }
 
-    private static TypeProvider getTypeProvider(List<PlanFragment> fragments)
-    {
-        return TypeProvider.copyOf(fragments.stream()
-                .flatMap(f -> f.getSymbols().entrySet().stream())
-                .distinct()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
-    }
-
-    public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types)
+    public static String graphvizLogicalPlan(PlanNode plan)
     {
         // TODO: This should move to something like GraphvizRenderer
         PlanFragment fragment = new PlanFragment(
                 new PlanFragmentId("graphviz_plan"),
                 plan,
-                types.allTypes(),
+                ImmutableSet.of(),
                 SINGLE_DISTRIBUTION,
                 Optional.empty(),
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
@@ -664,13 +622,11 @@ public class PlanPrinter
     private class Visitor
             extends PlanVisitor<Void, Context>
     {
-        private final TypeProvider types;
         private final StatsAndCosts estimatedStatsAndCosts;
         private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
 
-        public Visitor(TypeProvider types, StatsAndCosts estimatedStatsAndCosts, Optional<Map<PlanNodeId, PlanNodeStats>> stats)
+        public Visitor(StatsAndCosts estimatedStatsAndCosts, Optional<Map<PlanNodeId, PlanNodeStats>> stats)
         {
-            this.types = requireNonNull(types, "types is null");
             this.estimatedStatsAndCosts = requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
             this.stats = requireNonNull(stats, "stats is null");
         }
@@ -678,30 +634,30 @@ public class PlanPrinter
         @Override
         public Void visitExplainAnalyze(ExplainAnalyzeNode node, Context context)
         {
-            addNode(node, "ExplainAnalyze", context.tag());
-            return processChildren(node, new Context());
+            addNode(node, "ExplainAnalyze", context);
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
         public Void visitJoin(JoinNode node, Context context)
         {
             List<Expression> criteriaExpressions = node.getCriteria().stream()
-                    .map(clause -> unresolveFunctions(clause.toExpression()))
+                    .map(JoinNode.EquiJoinClause::toExpression)
                     .collect(toImmutableList());
 
             NodeRepresentation nodeOutput;
             if (node.isCrossJoin()) {
                 checkState(criteriaExpressions.isEmpty());
                 checkState(node.getFilter().isEmpty());
-                nodeOutput = addNode(node, "CrossJoin", context.tag());
+                nodeOutput = addNode(node, "CrossJoin", context);
             }
             else {
                 ImmutableMap.Builder<String, String> descriptor = ImmutableMap.<String, String>builder()
                         .put("criteria", Joiner.on(" AND ").join(anonymizeExpressions(criteriaExpressions)));
-                node.getFilter().ifPresent(filter -> descriptor.put("filter", formatFilter(unresolveFunctions(filter))));
+                node.getFilter().ifPresent(filter -> descriptor.put("filter", formatFilter(filter)));
                 descriptor.put("hash", formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()));
                 node.getDistributionType().ifPresent(distribution -> descriptor.put("distribution", distribution.name()));
-                nodeOutput = addNode(node, node.getType().getJoinLabel(), descriptor.buildOrThrow(), node.getReorderJoinStatsAndCost(), context.tag());
+                nodeOutput = addNode(node, node.getType().getJoinLabel(), descriptor.buildOrThrow(), node.getReorderJoinStatsAndCost(), context);
             }
 
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetails("Distribution: %s", distributionType));
@@ -711,8 +667,8 @@ public class PlanPrinter
             if (!node.getDynamicFilters().isEmpty()) {
                 nodeOutput.appendDetails("dynamicFilterAssignments = %s", printDynamicFilterAssignments(node.getDynamicFilters()));
             }
-            node.getLeft().accept(this, new Context());
-            node.getRight().accept(this, new Context());
+            node.getLeft().accept(this, new Context(context.isInitialPlan()));
+            node.getRight().accept(this, new Context(context.isInitialPlan()));
 
             return null;
         }
@@ -723,11 +679,11 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node,
                     node.getType().getJoinLabel(),
                     ImmutableMap.of("filter", formatFilter(node.getFilter())),
-                    context.tag());
+                    context);
 
             nodeOutput.appendDetails("Distribution: %s", node.getDistributionType());
-            node.getLeft().accept(this, new Context());
-            node.getRight().accept(this, new Context());
+            node.getLeft().accept(this, new Context(context.isInitialPlan()));
+            node.getRight().accept(this, new Context(context.isInitialPlan()));
 
             return null;
         }
@@ -740,11 +696,11 @@ public class PlanPrinter
                     ImmutableMap.of(
                             "criteria", anonymizer.anonymize(node.getSourceJoinSymbol()) + " = " + anonymizer.anonymize(node.getFilteringSourceJoinSymbol()),
                             "hash", formatHash(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol())),
-                    context.tag());
+                    context);
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetails("Distribution: %s", distributionType));
             node.getDynamicFilterId().ifPresent(dynamicFilterId -> nodeOutput.appendDetails("dynamicFilterId: %s", dynamicFilterId));
-            node.getSource().accept(this, new Context());
-            node.getFilteringSource().accept(this, new Context());
+            node.getSource().accept(this, new Context(context.isInitialPlan()));
+            node.getFilteringSource().accept(this, new Context(context.isInitialPlan()));
 
             return null;
         }
@@ -756,8 +712,8 @@ public class PlanPrinter
                     node,
                     "DynamicFilterSource",
                     ImmutableMap.of("dynamicFilterAssignments", printDynamicFilterAssignments(node.getDynamicFilters())),
-                    context.tag());
-            node.getSource().accept(this, new Context());
+                    context);
+            node.getSource().accept(this, new Context(context.isInitialPlan()));
             return null;
         }
 
@@ -769,9 +725,9 @@ public class PlanPrinter
                     ImmutableMap.of(
                             "indexedTable", anonymizer.anonymize(node.getIndexHandle()),
                             "lookup", formatSymbols(node.getLookupSymbols())),
-                    context.tag());
+                    context);
 
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
+            for (Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 if (node.getOutputSymbols().contains(entry.getKey())) {
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), anonymizer.anonymize(entry.getValue()));
                 }
@@ -784,7 +740,7 @@ public class PlanPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
+                joinExpressions.add(new Comparison(Comparison.Operator.EQUAL,
                         clause.getProbe().toSymbolReference(),
                         clause.getIndex().toSymbolReference()));
             }
@@ -794,9 +750,9 @@ public class PlanPrinter
                     ImmutableMap.of(
                             "criteria", Joiner.on(" AND ").join(anonymizeExpressions(joinExpressions)),
                             "hash", formatHash(node.getProbeHashSymbol(), node.getIndexHashSymbol())),
-                    context.tag());
-            node.getProbeSource().accept(this, new Context());
-            node.getIndexSource().accept(this, new Context());
+                    context);
+            node.getProbeSource().accept(this, new Context(context.isInitialPlan()));
+            node.getIndexSource().accept(this, new Context(context.isInitialPlan()));
 
             return null;
         }
@@ -807,8 +763,8 @@ public class PlanPrinter
             addNode(node,
                     "Offset",
                     ImmutableMap.of("count", String.valueOf(node.getCount())),
-                    context.tag());
-            return processChildren(node, new Context());
+                    context);
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -820,8 +776,8 @@ public class PlanPrinter
                             "count", String.valueOf(node.getCount()),
                             "withTies", formatBoolean(node.isWithTies()),
                             "inputPreSortedBy", formatSymbols(node.getPreSortedInputs())),
-                    context.tag());
-            return processChildren(node, new Context());
+                    context);
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -832,8 +788,8 @@ public class PlanPrinter
                     ImmutableMap.of(
                             "limit", String.valueOf(node.getLimit()),
                             "hash", formatHash(node.getHashSymbol())),
-                    context.tag());
-            return processChildren(node, new Context());
+                    context);
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -855,12 +811,12 @@ public class PlanPrinter
                     node,
                     "Aggregate",
                     ImmutableMap.of("type", type, "keys", keys, "hash", formatHash(node.getHashSymbol())),
-                    context.tag());
+                    context);
 
             node.getAggregations().forEach((symbol, aggregation) ->
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(symbol), formatAggregation(anonymizer, aggregation)));
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -878,13 +834,13 @@ public class PlanPrinter
                     node,
                     "GroupId",
                     ImmutableMap.of("symbols", formatCollection(anonymizedInputGroupingSetSymbols, Objects::toString)),
-                    context.tag());
+                    context);
 
-            for (Map.Entry<Symbol, Symbol> mapping : node.getGroupingColumns().entrySet()) {
+            for (Entry<Symbol, Symbol> mapping : node.getGroupingColumns().entrySet()) {
                 nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(mapping.getKey()), anonymizer.anonymize(mapping.getValue()));
             }
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -893,12 +849,12 @@ public class PlanPrinter
             addNode(node,
                     "MarkDistinct",
                     ImmutableMap.of(
-                            "distinct", formatOutputs(types, node.getDistinctSymbols()),
+                            "distinct", formatOutputs(node.getDistinctSymbols()),
                             "marker", anonymizer.anonymize(node.getMarkerSymbol()),
                             "hash", formatHash(node.getHashSymbol())),
-                    context.tag());
+                    context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -936,9 +892,9 @@ public class PlanPrinter
                     node,
                     "Window",
                     descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(),
-                    context.tag());
+                    context);
 
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+            for (Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 WindowNode.Function function = entry.getValue();
                 String frameInfo = formatFrame(function.getFrame());
 
@@ -949,7 +905,7 @@ public class PlanPrinter
                         Joiner.on(", ").join(anonymizeExpressions(function.getArguments())),
                         frameInfo);
             }
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -985,14 +941,14 @@ public class PlanPrinter
 
             NodeRepresentation nodeOutput = addNode(
                     node,
-                    "PatterRecognition",
+                    "PatternRecognition",
                     descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(),
-                    context.tag());
+                    context);
 
             if (node.getCommonBaseFrame().isPresent()) {
                 nodeOutput.appendDetails("base frame: %s", formatFrame(node.getCommonBaseFrame().get()));
             }
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+            for (Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 WindowNode.Function function = entry.getValue();
                 nodeOutput.appendDetails(
                         "%s := %s(%s)",
@@ -1001,66 +957,45 @@ public class PlanPrinter
                         Joiner.on(", ").join(anonymizeExpressions(function.getArguments())));
             }
 
-            for (Map.Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
+            for (Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
                 nodeOutput.appendDetails(
                         "%s := %s",
                         anonymizer.anonymize(entry.getKey()),
-                        anonymizer.anonymize(unresolveFunctions(entry.getValue().getExpressionAndValuePointers().getExpression())));
+                        anonymizer.anonymize(entry.getValue().getExpressionAndValuePointers().getExpression()));
                 appendValuePointers(nodeOutput, entry.getValue().getExpressionAndValuePointers());
             }
             if (node.getRowsPerMatch() != WINDOW) {
                 nodeOutput.appendDetails("%s", formatRowsPerMatch(node.getRowsPerMatch()));
             }
-            nodeOutput.appendDetails("%s", formatSkipTo(node.getSkipToPosition(), node.getSkipToLabel()));
+            nodeOutput.appendDetails("%s", formatSkipTo(node.getSkipToPosition(), node.getSkipToLabels()));
             nodeOutput.appendDetails("pattern[%s] (%s)", node.getPattern(), node.isInitial() ? "INITIAL" : "SEEK");
-            nodeOutput.appendDetails("subsets[%s]", node.getSubsets().entrySet().stream()
-                    .map(subset -> subset.getKey().getName() +
-                            " := " +
-                            subset.getValue().stream()
-                                    .map(IrLabel::getName)
-                                    .collect(Collectors.joining(", ", "{", "}")))
-                    .collect(joining(", ")));
-            for (Map.Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
-                nodeOutput.appendDetails("%s := %s", entry.getKey().getName(), anonymizer.anonymize(unresolveFunctions(entry.getValue().getExpression())));
+
+            for (Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
+                nodeOutput.appendDetails("%s := %s", entry.getKey().getName(), anonymizer.anonymize(entry.getValue().getExpression()));
                 appendValuePointers(nodeOutput, entry.getValue());
             }
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         private void appendValuePointers(NodeRepresentation nodeOutput, ExpressionAndValuePointers expressionAndPointers)
         {
-            for (int i = 0; i < expressionAndPointers.getLayout().size(); i++) {
-                Symbol symbol = expressionAndPointers.getLayout().get(i);
-                if (expressionAndPointers.getMatchNumberSymbols().contains(symbol)) {
-                    // match_number does not use the value pointer. It is constant per match.
-                    continue;
-                }
-                ValuePointer pointer = expressionAndPointers.getValuePointers().get(i);
+            for (ExpressionAndValuePointers.Assignment assignment : expressionAndPointers.getAssignments()) {
+                String value = switch (assignment.valuePointer()) {
+                    case AggregationValuePointer pointer -> format(
+                            "%s%s(%s)%s",
+                            pointer.getSetDescriptor().isRunning() ? "RUNNING " : "FINAL ",
+                            formatFunctionName(pointer.getFunction()),
+                            Joiner.on(", ").join(anonymizeExpressions(pointer.getArguments())),
+                            pointer.getSetDescriptor().getLabels().stream()
+                                    .map(IrLabel::getName)
+                                    .collect(joining(", ", "{", "}")));
+                    case ScalarValuePointer pointer -> format("%s[%s]", anonymizer.anonymize(pointer.getInputSymbol()), formatLogicalIndexPointer(pointer.getLogicalIndexPointer()));
+                    case ClassifierValuePointer pointer -> format("%s[%s]", "classifier", formatLogicalIndexPointer(pointer.getLogicalIndexPointer()));
+                    case MatchNumberValuePointer pointer -> "match_number";
+                };
 
-                if (pointer instanceof ScalarValuePointer scalarPointer) {
-                    String sourceSymbolName = expressionAndPointers.getClassifierSymbols().contains(symbol)
-                            ? "classifier"
-                            : anonymizer.anonymize(scalarPointer.getInputSymbol());
-                    nodeOutput.appendDetails("%s%s := %s[%s]", indentString(1), anonymizer.anonymize(symbol), sourceSymbolName, formatLogicalIndexPointer(scalarPointer.getLogicalIndexPointer()));
-                }
-                else if (pointer instanceof AggregationValuePointer aggregationPointer) {
-                    String processingMode = aggregationPointer.getSetDescriptor().isRunning() ? "RUNNING " : "FINAL ";
-                    String arguments = Joiner.on(", ").join(anonymizeExpressions(aggregationPointer.getArguments()));
-                    String labels = aggregationPointer.getSetDescriptor().getLabels().stream()
-                            .map(IrLabel::getName)
-                            .collect(joining(", ", "{", "}"));
-                    nodeOutput.appendDetails("%s%s := %s%s(%s)%s",
-                            indentString(1),
-                            anonymizer.anonymize(symbol),
-                            processingMode,
-                            formatFunctionName(aggregationPointer.getFunction()),
-                            arguments,
-                            labels);
-                }
-                else {
-                    throw new UnsupportedOperationException("unexpected ValuePointer type: " + pointer.getClass().getSimpleName());
-                }
+                nodeOutput.appendDetails("%s%s := %s", indentString(1), anonymizer.anonymize(assignment.symbol()), value);
             }
         }
 
@@ -1122,13 +1057,13 @@ public class PlanPrinter
             };
         }
 
-        private String formatSkipTo(Position position, Optional<IrLabel> label)
+        private String formatSkipTo(SkipToPosition position, Set<IrLabel> labels)
         {
             return switch (position) {
                 case PAST_LAST -> "AFTER MATCH SKIP PAST LAST ROW";
                 case NEXT -> "AFTER MATCH SKIP TO NEXT ROW";
-                case FIRST -> "AFTER MATCH SKIP TO FIRST " + label.get().getName();
-                case LAST -> "AFTER MATCH SKIP TO LAST " + label.get().getName();
+                case FIRST -> "AFTER MATCH SKIP TO FIRST " + labels;
+                case LAST -> "AFTER MATCH SKIP TO LAST " + labels;
             };
         }
 
@@ -1146,11 +1081,11 @@ public class PlanPrinter
                             .put("limit", String.valueOf(node.getMaxRankingPerPartition()))
                             .put("hash", formatHash(node.getHashSymbol()))
                             .buildOrThrow(),
-                    context.tag());
+                    context);
 
             nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(node.getRankingSymbol()), node.getRankingType());
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1169,10 +1104,10 @@ public class PlanPrinter
                     node,
                     "RowNumber",
                     descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(),
-                    context.tag());
+                    context);
             nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(node.getRowNumberSymbol()), "row_number()");
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1181,7 +1116,7 @@ public class PlanPrinter
             TableHandle table = node.getTable();
             TableInfo tableInfo = tableInfoSupplier.apply(node);
             NodeRepresentation nodeOutput;
-            nodeOutput = addNode(node, "TableScan", ImmutableMap.of("table", anonymizer.anonymize(table, tableInfo)), context.tag());
+            nodeOutput = addNode(node, "TableScan", ImmutableMap.of("table", anonymizer.anonymize(table, tableInfo)), context);
             printTableScanInfo(nodeOutput, node, tableInfo);
             PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
             if (nodeStats != null) {
@@ -1202,7 +1137,7 @@ public class PlanPrinter
         @Override
         public Void visitValues(ValuesNode node, Context context)
         {
-            NodeRepresentation nodeOutput = addNode(node, "Values", context.tag());
+            NodeRepresentation nodeOutput = addNode(node, "Values", context);
             if (node.getRows().isEmpty()) {
                 for (int i = 0; i < node.getRowCount(); i++) {
                     nodeOutput.appendDetails("()");
@@ -1212,12 +1147,11 @@ public class PlanPrinter
             List<String> rows = node.getRows().get().stream()
                     .map(row -> {
                         if (row instanceof Row) {
-                            return ((Row) row).getItems().stream()
-                                    .map(PlanPrinter::unresolveFunctions)
+                            return ((Row) row).items().stream()
                                     .map(anonymizer::anonymize)
                                     .collect(joining(", ", "(", ")"));
                         }
-                        return anonymizer.anonymize(unresolveFunctions(row));
+                        return anonymizer.anonymize(row);
                     })
                     .collect(toImmutableList());
             for (String row : rows) {
@@ -1279,7 +1213,7 @@ public class PlanPrinter
                 operatorName += "Filter";
                 Expression predicate = filterNode.get().getPredicate();
                 DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
-                descriptor.put("filterPredicate", formatFilter(unresolveFunctions(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts()))));
+                descriptor.put("filterPredicate", formatFilter(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts())));
                 if (!extractResult.getDynamicConjuncts().isEmpty()) {
                     dynamicFilters = extractResult.getDynamicConjuncts();
                     descriptor.put("dynamicFilters", printDynamicFilters(dynamicFilters));
@@ -1304,7 +1238,7 @@ public class PlanPrinter
                     ImmutableList.of(sourceNode),
                     ImmutableList.of(),
                     Optional.empty(),
-                    context.tag());
+                    context);
 
             projectNode.ifPresent(value -> printAssignments(nodeOutput, value.getAssignments()));
 
@@ -1350,7 +1284,7 @@ public class PlanPrinter
                 return null;
             }
 
-            sourceNode.accept(this, new Context());
+            sourceNode.accept(this, new Context(context.isInitialPlan()));
             return null;
         }
 
@@ -1383,14 +1317,14 @@ public class PlanPrinter
         {
             return filters.stream()
                     .map(filter -> anonymizer.anonymize(filter.getInput()) + " " + filter.getOperator().getValue() + " #" + filter.getId())
-                    .collect(Collectors.joining(", ", "{", "}"));
+                    .collect(joining(", ", "{", "}"));
         }
 
         private String printDynamicFilterAssignments(Map<DynamicFilterId, Symbol> filters)
         {
             return filters.entrySet().stream()
                     .map(filter -> anonymizer.anonymize(filter.getValue()) + " -> #" + filter.getKey())
-                    .collect(Collectors.joining(", ", "{", "}"));
+                    .collect(joining(", ", "{", "}"));
         }
 
         private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node, TableInfo tableInfo)
@@ -1402,7 +1336,7 @@ public class PlanPrinter
             }
             else {
                 // first, print output columns and their constraints
-                for (Map.Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
+                for (Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
                     ColumnHandle column = assignment.getValue();
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(assignment.getKey()), anonymizer.anonymize(column));
                     printConstraint(nodeOutput, column, predicate);
@@ -1428,19 +1362,11 @@ public class PlanPrinter
         public Void visitUnnest(UnnestNode node, Context context)
         {
             String name;
-            if (node.getFilter().isPresent()) {
-                name = node.getJoinType().getJoinLabel() + " Unnest";
-            }
-            else if (!node.getReplicateSymbols().isEmpty()) {
-                if (node.getJoinType() == INNER) {
-                    name = "CrossJoin Unnest";
-                }
-                else {
-                    name = node.getJoinType().getJoinLabel() + " Unnest";
-                }
+            if (node.getJoinType() == INNER) {
+                name = "CrossJoin Unnest";
             }
             else {
-                name = "Unnest";
+                name = node.getJoinType().getJoinLabel() + " Unnest";
             }
 
             List<Symbol> unnestInputs = node.getMappings().stream()
@@ -1449,12 +1375,11 @@ public class PlanPrinter
 
             ImmutableMap.Builder<String, String> descriptor = ImmutableMap.builder();
             if (!node.getReplicateSymbols().isEmpty()) {
-                descriptor.put("replicate", formatOutputs(types, node.getReplicateSymbols()));
+                descriptor.put("replicate", formatOutputs(node.getReplicateSymbols()));
             }
-            descriptor.put("unnest", formatOutputs(types, unnestInputs));
-            node.getFilter().ifPresent(filter -> descriptor.put("filter", formatFilter(filter)));
-            addNode(node, name, descriptor.buildOrThrow(), context.tag());
-            return processChildren(node, new Context());
+            descriptor.put("unnest", formatOutputs(unnestInputs));
+            addNode(node, name, descriptor.buildOrThrow(), context);
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1464,15 +1389,15 @@ public class PlanPrinter
                     node,
                     "Output",
                     ImmutableMap.of("columnNames", formatCollection(node.getColumnNames(), anonymizer::anonymizeColumn)),
-                    context.tag());
+                    context);
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 Symbol symbol = node.getOutputSymbols().get(i);
-                if (!name.equals(symbol.toString())) {
+                if (!name.equals(symbol.getName())) {
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymizeColumn(name), anonymizer.anonymize(symbol));
                 }
             }
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1483,8 +1408,8 @@ public class PlanPrinter
                     ImmutableMap.of(
                             "count", String.valueOf(node.getCount()),
                             "orderBy", formatOrderingScheme(node.getOrderingScheme())),
-                    context.tag());
-            return processChildren(node, new Context());
+                    context);
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1493,9 +1418,9 @@ public class PlanPrinter
             addNode(node,
                     format("%sSort", node.isPartial() ? "Partial" : ""),
                     ImmutableMap.of("orderBy", formatOrderingScheme(node.getOrderingScheme())),
-                    context.tag());
+                    context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1506,9 +1431,9 @@ public class PlanPrinter
                     ImmutableMap.of("sourceFragmentIds", formatCollection(node.getSourceFragmentIds(), Objects::toString)),
                     ImmutableList.of(),
                     ImmutableList.of(),
-                    node.getSourceFragmentIds(),
+                    ImmutableList.of(),
                     Optional.empty(),
-                    context.tag());
+                    context);
 
             return null;
         }
@@ -1516,9 +1441,9 @@ public class PlanPrinter
         @Override
         public Void visitUnion(UnionNode node, Context context)
         {
-            addNode(node, "Union", context.tag());
+            addNode(node, "Union", context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1527,9 +1452,9 @@ public class PlanPrinter
             addNode(node,
                     "Intersect",
                     ImmutableMap.of("isDistinct", formatBoolean(node.isDistinct())),
-                    context.tag());
+                    context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1538,9 +1463,9 @@ public class PlanPrinter
             addNode(node,
                     "Except",
                     ImmutableMap.of("isDistinct", formatBoolean(node.isDistinct())),
-                    context.tag());
+                    context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1549,14 +1474,14 @@ public class PlanPrinter
             addNode(node,
                     "RefreshMaterializedView",
                     ImmutableMap.of("viewName", anonymizer.anonymize(node.getViewName())),
-                    context.tag());
+                    context);
             return null;
         }
 
         @Override
         public Void visitTableWriter(TableWriterNode node, Context context)
         {
-            NodeRepresentation nodeOutput = addNode(node, "TableWriter", context.tag());
+            NodeRepresentation nodeOutput = addNode(node, "TableWriter", context);
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 Symbol symbol = node.getColumns().get(i);
@@ -1568,7 +1493,7 @@ public class PlanPrinter
                 printStatisticAggregations(nodeOutput, node.getStatisticsAggregation().get(), node.getStatisticsAggregationDescriptor().get());
             }
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1577,8 +1502,8 @@ public class PlanPrinter
             addNode(node,
                     "StatisticsWriter",
                     ImmutableMap.of("target", anonymizer.anonymize(node.getTarget())),
-                    context.tag());
-            return processChildren(node, new Context());
+                    context);
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1588,14 +1513,14 @@ public class PlanPrinter
                     node,
                     "TableCommit",
                     ImmutableMap.of("target", anonymizer.anonymize(node.getTarget())),
-                    context.tag());
+                    context);
 
             if (node.getStatisticsAggregation().isPresent()) {
                 verify(node.getStatisticsAggregationDescriptor().isPresent(), "statisticsAggregationDescriptor is not present");
                 printStatisticAggregations(nodeOutput, node.getStatisticsAggregation().get(), node.getStatisticsAggregationDescriptor().get());
             }
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         private void printStatisticAggregations(NodeRepresentation nodeOutput, StatisticAggregations aggregations, StatisticAggregationsDescriptor<Symbol> descriptor)
@@ -1616,10 +1541,10 @@ public class PlanPrinter
                 NodeRepresentation nodeOutput,
                 Map<TableStatisticType, Symbol> tableStatistics,
                 Map<ColumnStatisticMetadata, Symbol> columnStatistics,
-                Map<Symbol, AggregationNode.Aggregation> aggregations)
+                Map<Symbol, Aggregation> aggregations)
         {
             nodeOutput.appendDetails("aggregations =>");
-            for (Map.Entry<TableStatisticType, Symbol> tableStatistic : tableStatistics.entrySet()) {
+            for (Entry<TableStatisticType, Symbol> tableStatistic : tableStatistics.entrySet()) {
                 nodeOutput.appendDetails("%s%s => [%s := %s]",
                         indentString(1),
                         anonymizer.anonymize(tableStatistic.getValue()),
@@ -1627,7 +1552,7 @@ public class PlanPrinter
                         formatAggregation(anonymizer, aggregations.get(tableStatistic.getValue())));
             }
 
-            for (Map.Entry<ColumnStatisticMetadata, Symbol> columnStatistic : columnStatistics.entrySet()) {
+            for (Entry<ColumnStatisticMetadata, Symbol> columnStatistic : columnStatistics.entrySet()) {
                 String aggregationName;
                 if (columnStatistic.getKey().getStatisticTypeIfPresent().isPresent()) {
                     aggregationName = columnStatistic.getKey().getStatisticType().name();
@@ -1659,9 +1584,9 @@ public class PlanPrinter
                     ImmutableMap.of(
                             "type", node.getSampleType().name(),
                             "ratio", String.valueOf(node.getSampleRatio())),
-                    context.tag());
+                    context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1671,7 +1596,7 @@ public class PlanPrinter
                 addNode(node,
                         format("%sMerge", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
                         ImmutableMap.of("orderBy", formatOrderingScheme(node.getOrderingScheme().get())),
-                        context.tag());
+                        context);
             }
             else if (node.getScope() == Scope.LOCAL) {
                 addNode(node,
@@ -1681,32 +1606,50 @@ public class PlanPrinter
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
                                 "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn()),
                                 "arguments", formatCollection(node.getPartitioningScheme().getPartitioning().getArguments(), anonymizer::anonymize)),
-                        context.tag());
+                        context);
             }
             else {
                 addNode(node,
                         format("%sExchange", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
                         ImmutableMap.of(
                                 "partitionCount", node.getPartitioningScheme().getPartitionCount().map(String::valueOf).orElse(""),
+                                "scaleWriters", formatBoolean(node.getPartitioningScheme().getPartitioning().getHandle().isScaleWriters()),
                                 "type", node.getType().name(),
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
                                 "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn())),
-                        context.tag());
+                        context);
             }
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
+        }
+
+        @Override
+        public Void visitAdaptivePlanNode(AdaptivePlanNode node, Context context)
+        {
+            addNode(
+                    node,
+                    "AdaptivePlan",
+                    ImmutableMap.of(),
+                    ImmutableList.of(node.getId()),
+                    ImmutableList.of(node.getCurrentPlan()),
+                    ImmutableList.of(node.getInitialPlan()),
+                    Optional.empty(),
+                    context);
+            node.getInitialPlan().accept(this, new Context("Initial Plan", true));
+            node.getCurrentPlan().accept(this, new Context("Current Plan", false));
+            return null;
         }
 
         @Override
         public Void visitTableExecute(TableExecuteNode node, Context context)
         {
-            NodeRepresentation nodeOutput = addNode(node, "TableExecute", context.tag());
+            NodeRepresentation nodeOutput = addNode(node, "TableExecute", context);
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 Symbol symbol = node.getColumns().get(i);
                 nodeOutput.appendDetails("%s := %s", anonymizer.anonymizeColumn(name), anonymizer.anonymize(symbol));
             }
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1715,7 +1658,7 @@ public class PlanPrinter
             addNode(node,
                     "SimpleTableExecute",
                     ImmutableMap.of("table", anonymizer.anonymize(node.getExecuteHandle())),
-                    context.tag());
+                    context);
             return null;
         }
 
@@ -1725,21 +1668,21 @@ public class PlanPrinter
             addNode(node,
                     "MergeWriter",
                     ImmutableMap.of("table", anonymizer.anonymize(node.getTarget())),
-                    context.tag());
-            return processChildren(node, new Context());
+                    context);
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
         public Void visitMergeProcessor(MergeProcessorNode node, Context context)
         {
-            NodeRepresentation nodeOutput = addNode(node, "MergeProcessor", context.tag());
+            NodeRepresentation nodeOutput = addNode(node, "MergeProcessor", context);
             nodeOutput.appendDetails("target: %s", anonymizer.anonymize(node.getTarget()));
             nodeOutput.appendDetails("merge row column: %s", anonymizer.anonymize(node.getMergeRowSymbol()));
             nodeOutput.appendDetails("row id column: %s", anonymizer.anonymize(node.getRowIdSymbol()));
             nodeOutput.appendDetails("redistribution columns: %s", anonymize(node.getRedistributionColumnSymbols()));
             nodeOutput.appendDetails("data columns: %s", anonymize(node.getDataColumnSymbols()));
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1748,9 +1691,9 @@ public class PlanPrinter
             addNode(node,
                     "TableDelete",
                     ImmutableMap.of("target", anonymizer.anonymize(node.getTarget())),
-                    context.tag());
+                    context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1759,25 +1702,25 @@ public class PlanPrinter
             addNode(node,
                     "TableUpdate",
                     ImmutableMap.of("target", anonymizer.anonymize(node.getTarget())),
-                    context.tag());
+                    context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
         public Void visitEnforceSingleRow(EnforceSingleRowNode node, Context context)
         {
-            addNode(node, "EnforceSingleRow", context.tag());
+            addNode(node, "EnforceSingleRow", context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
         public Void visitAssignUniqueId(AssignUniqueId node, Context context)
         {
-            addNode(node, "AssignUniqueId", context.tag());
+            addNode(node, "AssignUniqueId", context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1788,7 +1731,7 @@ public class PlanPrinter
                     ImmutableMap.of("groupId", String.valueOf(node.getGroupId())),
                     ImmutableList.of(),
                     Optional.empty(),
-                    context.tag());
+                    context);
 
             return null;
         }
@@ -1800,10 +1743,10 @@ public class PlanPrinter
                     node,
                     "Apply",
                     ImmutableMap.of("correlation", formatSymbols(node.getCorrelation())),
-                    context.tag());
+                    context);
             printAssignments(nodeOutput, node.getSubqueryAssignments());
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1814,9 +1757,9 @@ public class PlanPrinter
                     ImmutableMap.of(
                             "correlation", formatSymbols(node.getCorrelation()),
                             "filter", formatFilter(node.getFilter())),
-                    context.tag());
+                    context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1826,7 +1769,7 @@ public class PlanPrinter
                     node,
                     "TableFunction",
                     ImmutableMap.of("name", node.getName()),
-                    context.tag());
+                    context);
 
             if (!node.getArguments().isEmpty()) {
                 nodeOutput.appendDetails("Arguments:");
@@ -1839,13 +1782,13 @@ public class PlanPrinter
 
                 if (!node.getCopartitioningLists().isEmpty()) {
                     nodeOutput.appendDetails("%s", node.getCopartitioningLists().stream()
-                            .map(list -> list.stream().collect(Collectors.joining(", ", "(", ")")))
+                            .map(list -> list.stream().collect(joining(", ", "(", ")")))
                             .collect(joining(", ", "Co-partition: [", "]")));
                 }
             }
 
             for (int i = 0; i < node.getSources().size(); i++) {
-                node.getSources().get(i).accept(this, new Context(node.getTableArgumentProperties().get(i).getArgumentName()));
+                node.getSources().get(i).accept(this, new Context(node.getTableArgumentProperties().get(i).getArgumentName(), context.isInitialPlan()));
             }
 
             return null;
@@ -1954,9 +1897,9 @@ public class PlanPrinter
                 specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
             });
 
-            addNode(node, "TableFunctionProcessor", descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(), context.tag());
+            addNode(node, "TableFunctionProcessor", descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(), context);
 
-            return processChildren(node, new Context());
+            return processChildren(node, new Context(context.isInitialPlan()));
         }
 
         @Override
@@ -1976,12 +1919,36 @@ public class PlanPrinter
 
         private void printAssignments(NodeRepresentation nodeOutput, Assignments assignments)
         {
-            for (Map.Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
-                if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
+            for (Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
+                if (entry.getValue() instanceof Reference && ((Reference) entry.getValue()).name().equals(entry.getKey().getName())) {
                     // skip identity assignments
                     continue;
                 }
-                nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), anonymizer.anonymize(unresolveFunctions(entry.getValue())));
+                nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), anonymizer.anonymize(entry.getValue()));
+            }
+        }
+
+        private void printAssignments(NodeRepresentation nodeOutput, Map<Symbol, ApplyNode.SetExpression> assignments)
+        {
+            for (Entry<Symbol, ApplyNode.SetExpression> entry : assignments.entrySet()) {
+                String assignment = switch (entry.getValue()) {
+                    case ApplyNode.In in -> "%s IN %s".formatted(anonymizer.anonymize(in.value()), anonymizer.anonymize(in.reference()));
+                    case ApplyNode.Exists unused -> "EXISTS";
+                    case ApplyNode.QuantifiedComparison comparison -> "%s %s %s %s".formatted(
+                            anonymizer.anonymize(comparison.value()),
+                            switch (comparison.operator()) {
+                                case EQUAL -> "=";
+                                case NOT_EQUAL -> "<>";
+                                case LESS_THAN -> "<";
+                                case LESS_THAN_OR_EQUAL -> "<=";
+                                case GREATER_THAN -> ">";
+                                case GREATER_THAN_OR_EQUAL -> ">=";
+                            },
+                            comparison.quantifier(),
+                            anonymizer.anonymize(comparison.reference()));
+                };
+
+                nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), assignment);
             }
         }
 
@@ -2051,7 +2018,7 @@ public class PlanPrinter
 
         private String formatFilter(Expression filter)
         {
-            return filter.equals(TRUE_LITERAL) ? "" : anonymizer.anonymize(filter);
+            return filter.equals(TRUE) ? "" : anonymizer.anonymize(filter);
         }
 
         private String formatBoolean(boolean value)
@@ -2106,31 +2073,31 @@ public class PlanPrinter
                     .collect(toImmutableList());
         }
 
-        private String formatOutputs(TypeProvider types, Iterable<Symbol> outputs)
+        private String formatOutputs(Iterable<Symbol> outputs)
         {
             return Streams.stream(outputs)
-                    .map(input -> anonymizer.anonymize(input) + ":" + types.get(input).getDisplayName())
+                    .map(input -> anonymizer.anonymize(input) + ":" + input.getType().getDisplayName())
                     .collect(joining(", ", "[", "]"));
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, Optional<String> tag)
+        public NodeRepresentation addNode(PlanNode node, String name, Context context)
         {
-            return addNode(node, name, ImmutableMap.of(), tag);
+            return addNode(node, name, ImmutableMap.of(), context);
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, Optional<String> tag)
+        public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, Context context)
         {
-            return addNode(node, name, descriptor, node.getSources(), Optional.empty(), tag);
+            return addNode(node, name, descriptor, node.getSources(), Optional.empty(), context);
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost, Optional<String> tag)
+        public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost, Context context)
         {
-            return addNode(node, name, descriptor, node.getSources(), reorderJoinStatsAndCost, tag);
+            return addNode(node, name, descriptor, node.getSources(), reorderJoinStatsAndCost, context);
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, List<PlanNode> children, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost, Optional<String> tag)
+        public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, List<PlanNode> children, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost, Context context)
         {
-            return addNode(node, name, descriptor, ImmutableList.of(node.getId()), children, ImmutableList.of(), reorderJoinStatsAndCost, tag);
+            return addNode(node, name, descriptor, ImmutableList.of(node.getId()), children, ImmutableList.of(), reorderJoinStatsAndCost, context);
         }
 
         public NodeRepresentation addNode(
@@ -2139,18 +2106,19 @@ public class PlanPrinter
                 Map<String, String> descriptor,
                 List<PlanNodeId> allNodes,
                 List<PlanNode> children,
-                List<PlanFragmentId> remoteSources,
+                List<PlanNode> initialChildren,
                 Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost,
-                Optional<String> tag)
+                Context context)
         {
             List<PlanNodeId> childrenIds = children.stream().map(PlanNode::getId).collect(toImmutableList());
+            List<PlanNodeId> initialChildrenIds = initialChildren.stream().map(PlanNode::getId).collect(toImmutableList());
             List<PlanNodeStatsEstimate> estimatedStats = allNodes.stream()
                     .map(nodeId -> estimatedStatsAndCosts.getStats().getOrDefault(nodeId, PlanNodeStatsEstimate.unknown()))
                     .collect(toList());
             List<PlanCostEstimate> estimatedCosts = allNodes.stream()
                     .map(nodeId -> estimatedStatsAndCosts.getCosts().getOrDefault(nodeId, PlanCostEstimate.unknown()))
                     .collect(toList());
-            name = tag
+            name = context.tag()
                     .map(tagName -> format("[%s] ", tagName))
                     .orElse("") + name;
 
@@ -2160,16 +2128,21 @@ public class PlanPrinter
                     rootNode.getClass().getSimpleName(),
                     descriptor,
                     rootNode.getOutputSymbols().stream()
-                            .map(s -> new TypedSymbol(new Symbol(anonymizer.anonymize(s)), types.get(s)))
+                            .map(s -> new Symbol(s.getType(), anonymizer.anonymize(s)))
                             .collect(toImmutableList()),
                     stats.map(s -> s.get(rootNode.getId())),
                     estimatedStats,
                     estimatedCosts,
                     reorderJoinStatsAndCost,
                     childrenIds,
-                    remoteSources);
+                    initialChildrenIds);
 
-            representation.addNode(nodeOutput);
+            if (context.isInitialPlan()) {
+                representation.addInitialNode(nodeOutput);
+            }
+            else {
+                representation.addNode(nodeOutput);
+            }
             return nodeOutput;
         }
     }
@@ -2223,46 +2196,16 @@ public class PlanPrinter
         return name.toString();
     }
 
-    private static Expression unresolveFunctions(Expression expression)
+    private record Context(Optional<String> tag, boolean isInitialPlan)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
+        public Context(boolean isInitialPlan)
         {
-            @Override
-            public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-                CatalogSchemaFunctionName name = extractFunctionName(node.getName());
-                QualifiedName qualifiedName;
-                if (isInlineFunction(name) || isBuiltinFunctionName(name)) {
-                    qualifiedName = QualifiedName.of(name.getFunctionName());
-                }
-                else {
-                    qualifiedName = QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
-                }
-                return new FunctionCall(
-                        rewritten.getLocation(),
-                        qualifiedName,
-                        rewritten.getWindow(),
-                        rewritten.getFilter(),
-                        rewritten.getOrderBy(),
-                        rewritten.isDistinct(),
-                        rewritten.getNullTreatment(),
-                        rewritten.getProcessingMode(),
-                        rewritten.getArguments());
-            }
-        }, expression);
-    }
-
-    private record Context(Optional<String> tag)
-    {
-        public Context()
-        {
-            this(Optional.empty());
+            this(Optional.empty(), isInitialPlan);
         }
 
-        public Context(String tag)
+        public Context(String tag, boolean isInitialPlan)
         {
-            this(Optional.of(tag));
+            this(Optional.of(tag), isInitialPlan);
         }
 
         private Context

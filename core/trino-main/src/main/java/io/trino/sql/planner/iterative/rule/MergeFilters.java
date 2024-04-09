@@ -16,15 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static java.util.Objects.requireNonNull;
 
 public class MergeFilters
         implements Rule<FilterNode>
@@ -33,13 +31,6 @@ public class MergeFilters
 
     private static final Pattern<FilterNode> PATTERN = filter()
             .with(source().matching(filter().capturedAs(CHILD)));
-
-    private final Metadata metadata;
-
-    public MergeFilters(Metadata metadata)
-    {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-    }
 
     @Override
     public Pattern<FilterNode> getPattern()
@@ -56,6 +47,6 @@ public class MergeFilters
                 new FilterNode(
                         parent.getId(),
                         child.getSource(),
-                        combineConjuncts(metadata, child.getPredicate(), parent.getPredicate())));
+                        combineConjuncts(child.getPredicate(), parent.getPredicate())));
     }
 }

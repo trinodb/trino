@@ -19,6 +19,7 @@ import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -34,12 +35,12 @@ public class SheetsQueryRunner
 
     private SheetsQueryRunner() {}
 
-    public static DistributedQueryRunner createSheetsQueryRunner(
+    public static QueryRunner createSheetsQueryRunner(
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .build();
         try {
@@ -76,7 +77,7 @@ public class SheetsQueryRunner
     {
         Logging.initialize();
 
-        DistributedQueryRunner queryRunner = createSheetsQueryRunner(
+        QueryRunner queryRunner = createSheetsQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of("gsheets.metadata-sheet-id", TEST_METADATA_SHEET_ID));
 

@@ -15,6 +15,7 @@ package io.trino.sql.analyzer;
 
 import io.trino.Session;
 import io.trino.client.NodeVersion;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
@@ -28,7 +29,6 @@ import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.SubPlan;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.tree.CreateCatalog;
@@ -63,7 +63,6 @@ public class QueryExplainer
     private final PlanFragmenter planFragmenter;
     private final PlannerContext plannerContext;
     private final AnalyzerFactory analyzerFactory;
-    private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final NodeVersion version;
@@ -73,16 +72,14 @@ public class QueryExplainer
             PlanFragmenter planFragmenter,
             PlannerContext plannerContext,
             AnalyzerFactory analyzerFactory,
-            StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             NodeVersion version)
     {
-        this.planOptimizers = requireNonNull(planOptimizersFactory.get(), "planOptimizers is null");
+        this.planOptimizers = requireNonNull(planOptimizersFactory.getPlanOptimizers(), "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
-        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.version = requireNonNull(version, "version is null");
@@ -103,7 +100,7 @@ public class QueryExplainer
         return switch (planType) {
             case LOGICAL -> {
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
-                yield PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), plannerContext.getMetadata(), plannerContext.getFunctionManager(), plan.getStatsAndCosts(), session, 0, false, Optional.of(version));
+                yield PlanPrinter.textLogicalPlan(plan.getRoot(), plannerContext.getMetadata(), plannerContext.getFunctionManager(), plan.getStatsAndCosts(), session, 0, false, Optional.of(version));
             }
             case DISTRIBUTED -> PlanPrinter.textDistributedPlan(
                     getDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector),
@@ -128,7 +125,7 @@ public class QueryExplainer
         return switch (planType) {
             case LOGICAL -> {
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
-                yield PlanPrinter.graphvizLogicalPlan(plan.getRoot(), plan.getTypes());
+                yield PlanPrinter.graphvizLogicalPlan(plan.getRoot());
             }
             case DISTRIBUTED -> PlanPrinter.graphvizDistributedPlan(getDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector));
             default -> throw new IllegalArgumentException("Unhandled plan type: " + planType);
@@ -147,7 +144,7 @@ public class QueryExplainer
             case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session);
             case LOGICAL -> {
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
-                yield jsonLogicalPlan(plan.getRoot(), session, plan.getTypes(), plannerContext.getMetadata(), plannerContext.getFunctionManager(), plan.getStatsAndCosts());
+                yield jsonLogicalPlan(plan.getRoot(), session, plannerContext.getMetadata(), plannerContext.getFunctionManager(), plan.getStatsAndCosts());
             }
             case DISTRIBUTED -> jsonDistributedPlan(
                     getDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector),
@@ -171,11 +168,11 @@ public class QueryExplainer
                 planOptimizers,
                 idAllocator,
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
                 statsCalculator,
                 costCalculator,
                 warningCollector,
-                planOptimizersStatsCollector);
+                planOptimizersStatsCollector,
+                new CachingTableStatsProvider(plannerContext.getMetadata(), session));
         return logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED, true);
     }
 
@@ -197,39 +194,26 @@ public class QueryExplainer
             return Optional.empty();
         }
 
-        if (statement instanceof CreateCatalog) {
-            return Optional.of("CREATE CATALOG " + ((CreateCatalog) statement).getCatalogName());
-        }
-        if (statement instanceof DropCatalog) {
-            return Optional.of("DROP CATALOG " + ((DropCatalog) statement).getCatalogName());
-        }
-        if (statement instanceof CreateSchema) {
-            return Optional.of("CREATE SCHEMA " + ((CreateSchema) statement).getSchemaName());
-        }
-        if (statement instanceof DropSchema) {
-            return Optional.of("DROP SCHEMA " + ((DropSchema) statement).getSchemaName());
-        }
-        if (statement instanceof CreateTable) {
-            return Optional.of("CREATE TABLE " + ((CreateTable) statement).getName());
-        }
-        if (statement instanceof CreateView) {
-            return Optional.of("CREATE VIEW " + ((CreateView) statement).getName());
-        }
-        if (statement instanceof CreateMaterializedView) {
-            return Optional.of("CREATE MATERIALIZED VIEW " + ((CreateMaterializedView) statement).getName());
-        }
-        if (statement instanceof Prepare) {
-            return Optional.of("PREPARE " + ((Prepare) statement).getName());
-        }
+        return Optional.of(switch (statement) {
+            case CreateCatalog createCatalog -> "CREATE CATALOG " + createCatalog.getCatalogName();
+            case DropCatalog dropCatalog -> "DROP CATALOG " + dropCatalog.getCatalogName();
+            case CreateSchema createSchema -> "CREATE SCHEMA " + createSchema.getSchemaName();
+            case DropSchema dropSchema -> "DROP SCHEMA " + dropSchema.getSchemaName();
+            case CreateTable createTable -> "CREATE TABLE " + createTable.getName();
+            case CreateView createView -> "CREATE VIEW " + createView.getName();
+            case CreateMaterializedView createMaterializedView -> "CREATE MATERIALIZED VIEW " + createMaterializedView.getName();
+            case Prepare prepare -> "PREPARE " + prepare.getName();
+            default -> {
+                StringBuilder builder = new StringBuilder();
+                builder.append(SqlFormatter.formatSql(statement));
+                if (!parameters.isEmpty()) {
+                    builder.append("\n")
+                            .append("Parameters: ")
+                            .append(parameters);
+                }
 
-        StringBuilder builder = new StringBuilder();
-        builder.append(SqlFormatter.formatSql(statement));
-        if (!parameters.isEmpty()) {
-            builder.append("\n")
-                    .append("Parameters: ")
-                    .append(parameters);
-        }
-
-        return Optional.of(builder.toString());
+                yield builder.toString();
+            }
+        });
     }
 }

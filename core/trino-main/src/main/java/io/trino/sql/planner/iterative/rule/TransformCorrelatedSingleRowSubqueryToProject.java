@@ -15,18 +15,18 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Row;
 
 import static com.google.common.collect.Streams.forEachPair;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * This optimizer can rewrite correlated single row subquery to projection in a way described here:
@@ -61,7 +61,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
         implements Rule<CorrelatedJoinNode>
 {
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
-            .with(filter().equalTo(TRUE_LITERAL));
+            .with(filter().equalTo(TRUE));
 
     @Override
     public Pattern<CorrelatedJoinNode> getPattern()
@@ -93,7 +93,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
                         .putIdentities(parent.getInput().getOutputSymbols());
                 forEachPair(
                         values.getOutputSymbols().stream(),
-                        row.getItems().stream(),
+                        row.items().stream(),
                         assignments::put);
                 return Result.ofPlanNode(projectNode(parent.getInput(), assignments.build(), context));
             }

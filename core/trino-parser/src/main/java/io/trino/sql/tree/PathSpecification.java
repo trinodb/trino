@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 public final class PathSpecification
         extends Node
 {
-    private List<PathElement> path;
+    private final List<PathElement> path;
 
     public PathSpecification(NodeLocation location, List<PathElement> path)
     {

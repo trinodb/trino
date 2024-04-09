@@ -51,7 +51,6 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     @BeforeMethodWithContext
     public void setup()
     {
-        super.setUp();
         databricksRuntimeVersion = getDatabricksRuntimeVersion().orElseThrow();
     }
 

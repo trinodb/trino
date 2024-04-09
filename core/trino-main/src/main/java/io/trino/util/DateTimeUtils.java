@@ -17,7 +17,6 @@ import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.sql.tree.IntervalLiteral.IntervalField;
 import org.assertj.core.util.VisibleForTesting;
 import org.joda.time.DateTime;
 import org.joda.time.DurationFieldType;
@@ -46,6 +45,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.sql.tree.IntervalLiteral.IntervalField;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
@@ -238,88 +238,88 @@ public final class DateTimeUtils
     {
         IntervalField end = endField.orElse(startField);
 
-        if (startField == IntervalField.DAY && end == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_DAY_SECOND_FORMATTER, value, startField, end);
-        }
-        if (startField == IntervalField.DAY && end == IntervalField.MINUTE) {
-            return parsePeriodMillis(INTERVAL_DAY_MINUTE_FORMATTER, value, startField, end);
-        }
-        if (startField == IntervalField.DAY && end == IntervalField.HOUR) {
-            return parsePeriodMillis(INTERVAL_DAY_HOUR_FORMATTER, value, startField, end);
-        }
-        if (startField == IntervalField.DAY && end == IntervalField.DAY) {
-            return parsePeriodMillis(INTERVAL_DAY_FORMATTER, value, startField, end);
-        }
+        try {
+            if (startField == IntervalField.DAY && end == IntervalField.SECOND) {
+                return parsePeriodMillis(INTERVAL_DAY_SECOND_FORMATTER, value);
+            }
+            if (startField == IntervalField.DAY && end == IntervalField.MINUTE) {
+                return parsePeriodMillis(INTERVAL_DAY_MINUTE_FORMATTER, value);
+            }
+            if (startField == IntervalField.DAY && end == IntervalField.HOUR) {
+                return parsePeriodMillis(INTERVAL_DAY_HOUR_FORMATTER, value);
+            }
+            if (startField == IntervalField.DAY && end == IntervalField.DAY) {
+                return parsePeriodMillis(INTERVAL_DAY_FORMATTER, value);
+            }
 
-        if (startField == IntervalField.HOUR && end == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_HOUR_SECOND_FORMATTER, value, startField, end);
-        }
-        if (startField == IntervalField.HOUR && end == IntervalField.MINUTE) {
-            return parsePeriodMillis(INTERVAL_HOUR_MINUTE_FORMATTER, value, startField, end);
-        }
-        if (startField == IntervalField.HOUR && end == IntervalField.HOUR) {
-            return parsePeriodMillis(INTERVAL_HOUR_FORMATTER, value, startField, end);
-        }
+            if (startField == IntervalField.HOUR && end == IntervalField.SECOND) {
+                return parsePeriodMillis(INTERVAL_HOUR_SECOND_FORMATTER, value);
+            }
+            if (startField == IntervalField.HOUR && end == IntervalField.MINUTE) {
+                return parsePeriodMillis(INTERVAL_HOUR_MINUTE_FORMATTER, value);
+            }
+            if (startField == IntervalField.HOUR && end == IntervalField.HOUR) {
+                return parsePeriodMillis(INTERVAL_HOUR_FORMATTER, value);
+            }
 
-        if (startField == IntervalField.MINUTE && end == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_MINUTE_SECOND_FORMATTER, value, startField, end);
-        }
-        if (startField == IntervalField.MINUTE && end == IntervalField.MINUTE) {
-            return parsePeriodMillis(INTERVAL_MINUTE_FORMATTER, value, startField, end);
-        }
+            if (startField == IntervalField.MINUTE && end == IntervalField.SECOND) {
+                return parsePeriodMillis(INTERVAL_MINUTE_SECOND_FORMATTER, value);
+            }
+            if (startField == IntervalField.MINUTE && end == IntervalField.MINUTE) {
+                return parsePeriodMillis(INTERVAL_MINUTE_FORMATTER, value);
+            }
 
-        if (startField == IntervalField.SECOND && end == IntervalField.SECOND) {
-            return parsePeriodMillis(INTERVAL_SECOND_FORMATTER, value, startField, end);
+            if (startField == IntervalField.SECOND && end == IntervalField.SECOND) {
+                return parsePeriodMillis(INTERVAL_SECOND_FORMATTER, value);
+            }
+        }
+        catch (IllegalArgumentException e) {
+            throw invalidInterval(e, value, startField, end);
         }
 
         throw new IllegalArgumentException("Invalid day second interval qualifier: " + startField + " to " + end);
     }
 
-    public static long parsePeriodMillis(PeriodFormatter periodFormatter, String value, IntervalField startField, IntervalField endField)
+    private static long parsePeriodMillis(PeriodFormatter periodFormatter, String value)
     {
-        try {
-            Period period = parsePeriod(periodFormatter, value);
-            return IntervalDayTime.toMillis(
-                    period.getValue(DAY_FIELD),
-                    period.getValue(HOUR_FIELD),
-                    period.getValue(MINUTE_FIELD),
-                    period.getValue(SECOND_FIELD),
-                    period.getValue(MILLIS_FIELD));
-        }
-        catch (IllegalArgumentException e) {
-            throw invalidInterval(e, value, startField, endField);
-        }
+        Period period = parsePeriod(periodFormatter, value);
+        return IntervalDayTime.toMillis(
+                period.getValue(DAY_FIELD),
+                period.getValue(HOUR_FIELD),
+                period.getValue(MINUTE_FIELD),
+                period.getValue(SECOND_FIELD),
+                period.getValue(MILLIS_FIELD));
     }
 
     public static long parseYearMonthInterval(String value, IntervalField startField, Optional<IntervalField> endField)
     {
         IntervalField end = endField.orElse(startField);
 
-        if (startField == IntervalField.YEAR && end == IntervalField.MONTH) {
-            return parsePeriodMonths(value, INTERVAL_YEAR_MONTH_FORMATTER, startField, end);
-        }
-        if (startField == IntervalField.YEAR && end == IntervalField.YEAR) {
-            return parsePeriodMonths(value, INTERVAL_YEAR_FORMATTER, startField, end);
-        }
+        try {
+            if (startField == IntervalField.YEAR && end == IntervalField.MONTH) {
+                return parsePeriodMonths(value, INTERVAL_YEAR_MONTH_FORMATTER);
+            }
+            if (startField == IntervalField.YEAR && end == IntervalField.YEAR) {
+                return parsePeriodMonths(value, INTERVAL_YEAR_FORMATTER);
+            }
 
-        if (startField == IntervalField.MONTH && end == IntervalField.MONTH) {
-            return parsePeriodMonths(value, INTERVAL_MONTH_FORMATTER, startField, end);
+            if (startField == IntervalField.MONTH && end == IntervalField.MONTH) {
+                return parsePeriodMonths(value, INTERVAL_MONTH_FORMATTER);
+            }
+        }
+        catch (IllegalArgumentException e) {
+            throw invalidInterval(e, value, startField, end);
         }
 
         throw new IllegalArgumentException("Invalid year month interval qualifier: " + startField + " to " + end);
     }
 
-    private static long parsePeriodMonths(String value, PeriodFormatter periodFormatter, IntervalField startField, IntervalField endField)
+    private static long parsePeriodMonths(String value, PeriodFormatter periodFormatter)
     {
-        try {
-            Period period = parsePeriod(periodFormatter, value);
-            return IntervalYearMonth.toMonths(
-                    period.getValue(YEAR_FIELD),
-                    period.getValue(MONTH_FIELD));
-        }
-        catch (IllegalArgumentException e) {
-            throw invalidInterval(e, value, startField, endField);
-        }
+        Period period = parsePeriod(periodFormatter, value);
+        return IntervalYearMonth.toMonths(
+                period.getValue(YEAR_FIELD),
+                period.getValue(MONTH_FIELD));
     }
 
     private static Period parsePeriod(PeriodFormatter periodFormatter, String value)

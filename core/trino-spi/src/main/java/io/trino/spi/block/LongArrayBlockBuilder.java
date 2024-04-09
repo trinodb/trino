@@ -21,6 +21,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static java.lang.Math.max;
+import static java.util.Objects.checkIndex;
 
 public class LongArrayBlockBuilder
         implements BlockBuilder
@@ -214,6 +215,13 @@ public class LongArrayBlockBuilder
             blockBuilderStatus.addBytes(LongArrayBlock.SIZE_IN_BYTES_PER_POSITION);
         }
         return this;
+    }
+
+    @Override
+    public void resetTo(int position)
+    {
+        checkIndex(position, positionCount + 1);
+        positionCount = position;
     }
 
     @Override

@@ -13,8 +13,6 @@
  */
 package io.trino.sql.analyzer;
 
-import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.FunctionCall;
@@ -27,15 +25,6 @@ import static java.util.Objects.requireNonNull;
 class WindowFunctionValidator
         extends DefaultExpressionTraversalVisitor<Analysis>
 {
-    private final Session session;
-    private final Metadata metadata;
-
-    public WindowFunctionValidator(Session session, Metadata metadata)
-    {
-        this.session = session;
-        this.metadata = metadata;
-    }
-
     @Override
     protected Void visitFunctionCall(FunctionCall functionCall, Analysis analysis)
     {

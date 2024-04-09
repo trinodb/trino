@@ -18,24 +18,24 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Pattern.nonEmpty;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -75,20 +75,19 @@ public class TransformCorrelatedJoinToJoin
         DecorrelatedNode decorrelatedSubquery = decorrelatedNodeOptional.get();
 
         Expression filter = combineConjuncts(
-                plannerContext.getMetadata(),
-                decorrelatedSubquery.getCorrelatedPredicates().orElse(TRUE_LITERAL),
+                decorrelatedSubquery.getCorrelatedPredicates().orElse(TRUE),
                 correlatedJoinNode.getFilter());
 
         return Result.ofPlanNode(new JoinNode(
                 correlatedJoinNode.getId(),
-                correlatedJoinNode.getType().toJoinNodeType(),
+                correlatedJoinNode.getType(),
                 correlatedJoinNode.getInput(),
                 decorrelatedSubquery.getNode(),
                 ImmutableList.of(),
                 correlatedJoinNode.getInput().getOutputSymbols(),
                 correlatedJoinNode.getSubquery().getOutputSymbols(),
                 false,
-                filter.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(filter),
+                filter.equals(TRUE) ? Optional.empty() : Optional.of(filter),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

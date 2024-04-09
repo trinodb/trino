@@ -21,6 +21,9 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeSourceHandle.SourceFile;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
@@ -74,6 +77,7 @@ public class FileSystemExchange
     private final List<URI> baseDirectories;
     private final FileSystemExchangeStorage exchangeStorage;
     private final FileSystemExchangeStats stats;
+    private final Span exchangeSpan;
     private final ExchangeContext exchangeContext;
     private final int outputPartitionCount;
     private final boolean preserveOrderWithinPartition;
@@ -98,6 +102,7 @@ public class FileSystemExchange
             List<URI> baseDirectories,
             FileSystemExchangeStorage exchangeStorage,
             FileSystemExchangeStats stats,
+            Tracer tracer,
             ExchangeContext exchangeContext,
             int outputPartitionCount,
             boolean preserveOrderWithinPartition,
@@ -112,6 +117,12 @@ public class FileSystemExchange
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.exchangeContext = requireNonNull(exchangeContext, "exchangeContext is null");
+        this.exchangeSpan = tracer.spanBuilder("exchange")
+                .setParent(Context.current().with(exchangeContext.getParentSpan()))
+                .setAttribute("ExchangeId", exchangeContext.getExchangeId().getId())
+                .setAttribute("PartitionCount", outputPartitionCount)
+                .setAttribute("PreserveOrderWithinPartition", Boolean.toString(preserveOrderWithinPartition))
+                .startSpan();
         this.outputPartitionCount = outputPartitionCount;
         this.preserveOrderWithinPartition = preserveOrderWithinPartition;
 
@@ -316,6 +327,7 @@ public class FileSystemExchange
     public void close()
     {
         stats.getCloseExchange().record(exchangeStorage.deleteRecursively(allSinks.stream().map(this::getTaskOutputDirectory).collect(toImmutableList())));
+        exchangeSpan.end();
     }
 
     /**

@@ -79,7 +79,6 @@ public final class Threads
             lockedMonitors.get(depth).forEach(monitor -> sb.append(format("\t-  locked %s\n", monitor)));
         }
 
-        stackTrace.forEachRemaining(element -> sb.append(format("\tat %s\n", element)));
         while (stackTrace.hasNext()) {
             StackTraceElement element = stackTrace.next();
             depth++;

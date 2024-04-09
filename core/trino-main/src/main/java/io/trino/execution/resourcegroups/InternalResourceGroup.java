@@ -105,7 +105,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private SchedulingPolicy schedulingPolicy = FAIR;
     @GuardedBy("root")
-    private boolean jmxExport;
+    private boolean jmxExport = true;
 
     // Live data structures
     // ====================
@@ -954,7 +954,7 @@ public class InternalResourceGroup
     ResourceUsage getResourceUsageSnapshot()
     {
         synchronized (root) {
-            return cachedResourceUsage.clone();
+            return cachedResourceUsage;
         }
     }
 

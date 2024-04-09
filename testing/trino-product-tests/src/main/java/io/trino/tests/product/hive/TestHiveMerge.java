@@ -29,6 +29,7 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
+import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V2;
 import static io.trino.tests.product.hive.BucketingType.NONE;
 import static io.trino.tests.product.hive.TestHiveTransactionalTable.TEST_TIMEOUT;
@@ -42,7 +43,7 @@ import static java.util.Locale.ENGLISH;
 public class TestHiveMerge
         extends HiveProductTest
 {
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeSimpleSelect()
     {
         withTemporaryTable("merge_simple_select_target", false, NONE, targetTable -> {
@@ -67,7 +68,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeSimpleSelectPartitioned()
     {
         withTemporaryTable("merge_simple_select_partitioned_target", true, NONE, targetTable -> {
@@ -92,7 +93,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT, dataProvider = "partitionedAndBucketedProvider")
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT, dataProvider = "partitionedAndBucketedProvider")
     public void testMergeUpdateWithVariousLayouts(boolean partitioned, String bucketing)
     {
         BucketingType bucketingType = bucketing.isEmpty() ? NONE : BUCKETED_V2;
@@ -129,7 +130,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testMergeUnBucketedUnPartitionedFailure()
     {
         withTemporaryTable("merge_with_various_formats_failure", false, NONE, targetTable -> {
@@ -166,7 +167,7 @@ public class TestHiveMerge
         };
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeMultipleOperationsUnbucketedUnpartitioned()
     {
         withTemporaryTable("merge_multiple", false, NONE, targetTable -> {
@@ -175,7 +176,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeMultipleOperationsUnbucketedPartitioned()
     {
         withTemporaryTable("merge_multiple", true, NONE, targetTable -> {
@@ -184,7 +185,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeMultipleOperationsBucketedUnpartitioned()
     {
         withTemporaryTable("merge_multiple", false, BUCKETED_V2, targetTable -> {
@@ -259,7 +260,7 @@ public class TestHiveMerge
         return result.rows().stream().map(QueryAssert.Row::new).collect(toImmutableList());
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeSimpleQuery()
     {
         withTemporaryTable("merge_simple_query_target", false, NONE, targetTable -> {
@@ -279,7 +280,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeAllInserts()
     {
         withTemporaryTable("merge_all_inserts", false, NONE, targetTable -> {
@@ -297,7 +298,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeSimpleQueryPartitioned()
     {
         withTemporaryTable("merge_simple_query_partitioned_target", true, NONE, targetTable -> {
@@ -318,7 +319,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeAllColumnsUpdated()
     {
         withTemporaryTable("merge_all_columns_updated_target", false, NONE, targetTable -> {
@@ -339,7 +340,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeAllMatchesDeleted()
     {
         withTemporaryTable("merge_all_matches_deleted_target", false, NONE, targetTable -> {
@@ -360,7 +361,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000, dataProvider = "partitionedBucketedFailure")
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000, dataProvider = "partitionedBucketedFailure")
     public void testMergeMultipleRowsMatchFails(String createTableSql)
     {
         withTemporaryTable("merge_all_matches_deleted_target", true, NONE, targetTable -> {
@@ -396,7 +397,7 @@ public class TestHiveMerge
         };
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeFailingPartitioning()
     {
         String testDescription = "failing_merge";
@@ -422,7 +423,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeFailureWithDifferentPartitioning()
     {
         testMergeWithDifferentPartitioningInternal(
@@ -431,7 +432,7 @@ public class TestHiveMerge
                 "CREATE TABLE %s (customer STRING, purchases INT) PARTITIONED BY (address STRING) CLUSTERED BY (customer) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')");
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000, dataProvider = "targetAndSourceWithDifferentPartitioning")
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000, dataProvider = "targetAndSourceWithDifferentPartitioning")
     public void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
     {
         testMergeWithDifferentPartitioningInternal(testDescription, createTargetTableSql, createSourceTableSql);
@@ -498,7 +499,7 @@ public class TestHiveMerge
         };
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeQueryWithStrangeCapitalization()
     {
         withTemporaryTable("test_without_aliases_target", false, NONE, targetTable -> {
@@ -517,7 +518,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeWithoutTablesAliases()
     {
         withTemporaryTable("test_without_aliases_target", false, NONE, targetTable -> {
@@ -541,7 +542,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeWithUnpredictablePredicates()
     {
         withTemporaryTable("test_without_aliases_target", false, NONE, targetTable -> {
@@ -582,7 +583,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeWithSimplifiedUnpredictablePredicates()
     {
         withTemporaryTable("test_without_aliases_target", false, NONE, targetTable -> {
@@ -607,7 +608,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeCasts()
     {
         withTemporaryTable("merge_cast_target", false, NONE, targetTable -> {
@@ -629,7 +630,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeSubqueries()
     {
         withTemporaryTable("merge_nation_target", false, NONE, targetTable -> {
@@ -654,7 +655,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
     public void testMergeOriginalFilesTarget()
     {
         withTemporaryTable("region", false, NONE, targetTable -> {
@@ -676,7 +677,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testMergeOverManySplits()
     {
         withTemporaryTable("delete_select", false, NONE, targetTable -> {
@@ -694,7 +695,7 @@ public class TestHiveMerge
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testMergeFalseJoinCondition()
     {
         withTemporaryTable("join_false", false, NONE, targetTable -> {

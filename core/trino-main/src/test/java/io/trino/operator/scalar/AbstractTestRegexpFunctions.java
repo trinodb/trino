@@ -16,7 +16,6 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.FeaturesConfig;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -24,7 +23,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.analyzer.RegexLibrary;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -33,10 +32,10 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Collections;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,10 +57,7 @@ public abstract class AbstractTestRegexpFunctions
     @BeforeAll
     public void init()
     {
-        assertions = new QueryAssertions(
-                LocalQueryRunner.builder(testSessionBuilder().build())
-                        .withFeaturesConfig(new FeaturesConfig().setRegexLibrary(regexLibrary))
-                        .build());
+        assertions = new QueryAssertions(new StandaloneQueryRunner(TEST_SESSION, builder -> builder.addProperty("regex-library", regexLibrary.name())));
 
         assertions.addFunctions(InternalFunctionBundle.builder()
                 .scalars(AbstractTestRegexpFunctions.class)

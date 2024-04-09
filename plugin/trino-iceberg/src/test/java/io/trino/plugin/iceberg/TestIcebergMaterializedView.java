@@ -18,7 +18,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.sql.tree.ExplainType;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -36,10 +36,10 @@ public class TestIcebergMaterializedView
     private HiveMetastore metastore;
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+        QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .build();
         try {
             metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
@@ -54,6 +54,12 @@ public class TestIcebergMaterializedView
             secondIceberg = Session.builder(queryRunner.getDefaultSession())
                     .setCatalog("iceberg2")
                     .build();
+
+            queryRunner.createCatalog("iceberg_legacy_mv", "iceberg", Map.of(
+                    "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                    "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toString(),
+                    "iceberg.hive-catalog-name", "hive",
+                    "iceberg.materialized-views.hide-storage-table", "false"));
 
             queryRunner.execute(secondIceberg, "CREATE SCHEMA " + secondIceberg.getSchema().orElseThrow());
         }

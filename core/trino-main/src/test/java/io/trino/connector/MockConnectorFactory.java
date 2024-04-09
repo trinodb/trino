@@ -23,6 +23,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -146,6 +147,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
 
     private final WriterScalingOptions writerScalingOptions;
+    private final Supplier<Set<ConnectorCapabilities>> capabilities;
 
     private MockConnectorFactory(
             String name,
@@ -197,7 +199,8 @@ public class MockConnectorFactory
             Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources,
             OptionalInt maxWriterTasks,
             BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute,
-            WriterScalingOptions writerScalingOptions)
+            WriterScalingOptions writerScalingOptions,
+            Supplier<Set<ConnectorCapabilities>> capabilities)
     {
         this.name = requireNonNull(name, "name is null");
         this.sessionProperty = ImmutableList.copyOf(requireNonNull(sessionProperty, "sessionProperty is null"));
@@ -249,6 +252,7 @@ public class MockConnectorFactory
         this.maxWriterTasks = maxWriterTasks;
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
         this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
+        this.capabilities = requireNonNull(capabilities, "capabilities is null");
     }
 
     @Override
@@ -309,7 +313,8 @@ public class MockConnectorFactory
                 tableFunctionSplitsSources,
                 maxWriterTasks,
                 getLayoutForTableExecute,
-                writerScalingOptions);
+                writerScalingOptions,
+                capabilities);
     }
 
     public static MockConnectorFactory create()
@@ -463,6 +468,7 @@ public class MockConnectorFactory
         private OptionalInt maxWriterTasks = OptionalInt.empty();
         private BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute = (session, handle) -> Optional.empty();
         private WriterScalingOptions writerScalingOptions = WriterScalingOptions.DISABLED;
+        private Supplier<Set<ConnectorCapabilities>> capabilities = ImmutableSet::of;
 
         private Builder() {}
 
@@ -810,6 +816,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withCapabilities(Supplier<Set<ConnectorCapabilities>> capabilities)
+        {
+            this.capabilities = capabilities;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             Optional<ConnectorAccessControl> accessControl = Optional.empty();
@@ -866,7 +878,8 @@ public class MockConnectorFactory
                     tableFunctionSplitsSources,
                     maxWriterTasks,
                     getLayoutForTableExecute,
-                    writerScalingOptions);
+                    writerScalingOptions,
+                    capabilities);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()

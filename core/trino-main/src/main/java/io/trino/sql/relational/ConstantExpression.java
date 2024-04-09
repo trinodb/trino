@@ -15,6 +15,7 @@ package io.trino.sql.relational;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.primitives.Primitives;
 import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
@@ -48,6 +49,13 @@ public final class ConstantExpression
     public ConstantExpression(Object value, Type type)
     {
         requireNonNull(type, "type is null");
+        if (value != null && !Primitives.wrap(type.getJavaType()).isInstance(value)) {
+            throw new IllegalArgumentException("Invalid value %s of Java type %s for Trino type %s, expected instance of %s".formatted(
+                    value,
+                    value.getClass(),
+                    type,
+                    type.getJavaType()));
+        }
 
         this.value = value;
         this.type = type;

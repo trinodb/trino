@@ -41,7 +41,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_ICEBERG_REDIRECTIONS;
-import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
@@ -61,7 +60,7 @@ import static org.testng.Assert.assertEquals;
 public abstract class AbstractTestHiveViews
         extends HiveProductTest
 {
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testSelectOnView()
     {
@@ -77,7 +76,7 @@ public abstract class AbstractTestHiveViews
                         row(2, "BRAZIL", 1, "y alongside of the pending deposits. carefully special packages are about the ironic forges. slyly special ")));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testArrayIndexingInView()
     {
@@ -100,7 +99,7 @@ public abstract class AbstractTestHiveViews
                 queryAssert -> queryAssert.containsOnly(row("hive")));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCommonTableExpression()
     {
@@ -114,7 +113,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW test_common_table_expression");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedCommonTableExpression()
     {
@@ -129,7 +128,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW test_nested_common_table_expression");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testArrayConstructionInView()
     {
@@ -142,7 +141,7 @@ public abstract class AbstractTestHiveViews
                 .containsOnly(row(8, 2));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testMapConstructionInView()
     {
@@ -162,7 +161,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW test_map_construction_view");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testSelectOnViewFromDifferentSchema()
     {
@@ -176,7 +175,7 @@ public abstract class AbstractTestHiveViews
         assertViewQuery("SELECT * FROM test_schema.hive_test_view_1", queryAssert -> queryAssert.hasRowsCount(25));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testViewReferencingTableInDifferentSchema()
     {
@@ -197,7 +196,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery(format("DROP SCHEMA %s CASCADE", schemaY));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testViewReferencingTableInTheSameSchemaWithoutQualifier()
     {
@@ -216,7 +215,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery(format("DROP SCHEMA %s CASCADE", schemaX));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     // TODO (https://github.com/trinodb/trino/issues/5911) the test does not test view coercion
     public void testViewWithUnsupportedCoercion()
@@ -228,7 +227,7 @@ public abstract class AbstractTestHiveViews
                 .hasMessageContaining("View 'hive.default.view_with_unsupported_coercion' is stale or in invalid state: a column of type bigint projected from query view at position 0 has no name");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testOuterParentheses()
     {
@@ -240,7 +239,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW view_outer_parentheses");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testDateFunction()
     {
@@ -256,7 +255,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP TABLE hive_table_date_function");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testPmodFunction()
     {
@@ -272,7 +271,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP TABLE hive_table_pmod_function");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     // TODO (https://github.com/trinodb/trino/issues/5911) the test does not test view coercion
     public void testWithUnsupportedFunction()
@@ -284,7 +283,7 @@ public abstract class AbstractTestHiveViews
                 .hasMessageContaining("View 'hive.default.view_with_repeat_function' is stale or in invalid state: a column of type array(varchar(152)) projected from query view at position 0 has no name");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testExistingView()
     {
@@ -295,7 +294,7 @@ public abstract class AbstractTestHiveViews
                 .hasMessageContaining("View already exists");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testShowCreateView()
     {
@@ -321,7 +320,7 @@ public abstract class AbstractTestHiveViews
     /**
      * Test view containing IF, IN, LIKE, BETWEEN, CASE, COALESCE, operators, delimited and non-delimited columns, an inline comment
      */
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRichSqlSyntax()
     {
@@ -359,7 +358,7 @@ public abstract class AbstractTestHiveViews
                         row(17, "PERU", true, 0, 0, 0, "", "PERU", 3.494, null, 10069)));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testIdentifierThatStartWithDigit()
     {
@@ -374,7 +373,7 @@ public abstract class AbstractTestHiveViews
                 queryAssert -> queryAssert.contains(row("abc")));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHiveViewInInformationSchema()
     {
@@ -399,7 +398,7 @@ public abstract class AbstractTestHiveViews
                 .contains(row("n_nationkey", "bigint", "", ""));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHiveViewWithParametrizedTypes()
     {
@@ -420,7 +419,7 @@ public abstract class AbstractTestHiveViews
                 row("varchar"));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHiveViewWithTextualTypes()
     {
@@ -448,7 +447,7 @@ public abstract class AbstractTestHiveViews
 
     protected abstract List<QueryAssert.Row> getExpectedHiveViewTextualColumnsTypes();
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedHiveViews()
     {
@@ -465,7 +464,7 @@ public abstract class AbstractTestHiveViews
                 queryAssert -> queryAssert.containsOnly(row("KENYA")));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testSelectFromHiveViewWithoutDefaultCatalogAndSchema()
     {
@@ -479,7 +478,7 @@ public abstract class AbstractTestHiveViews
                 .containsOnly(row(1L));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testTimestampHiveView()
     {
@@ -512,7 +511,7 @@ public abstract class AbstractTestHiveViews
                 .containsOnly(row("1990-01-02 12:13:14.123456789"));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCurrentUser()
     {
@@ -524,7 +523,7 @@ public abstract class AbstractTestHiveViews
         assertThat(connectToTrino("alice@presto").executeQuery(testQuery)).containsOnly(row("alice"));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedGroupBy()
     {
@@ -541,7 +540,7 @@ public abstract class AbstractTestHiveViews
                         row(4, 1)));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnionAllViews()
     {
@@ -577,7 +576,7 @@ public abstract class AbstractTestHiveViews
                         row(1));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnionDistinctViews()
     {
@@ -609,7 +608,7 @@ public abstract class AbstractTestHiveViews
         }
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHivePartitionViews()
     {
@@ -713,7 +712,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP TABLE default.view_iceberg_table");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testViewWithColumnAliasesDifferingInCase()
     {
@@ -740,7 +739,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW test_namesake_column_names_view");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRunAsInvoker()
     {

@@ -30,14 +30,15 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.exchange.ExchangeContextInstance;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
-import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
@@ -125,6 +126,7 @@ public class DeduplicatingDirectExchangeBuffer
             RetryPolicy retryPolicy,
             ExchangeManagerRegistry exchangeManagerRegistry,
             QueryId queryId,
+            Span parentSpan,
             ExchangeId exchangeId)
     {
         this.executor = requireNonNull(executor, "executor is null");
@@ -132,6 +134,7 @@ public class DeduplicatingDirectExchangeBuffer
         this.pageBuffer = new PageBuffer(
                 exchangeManagerRegistry,
                 queryId,
+                parentSpan,
                 exchangeId,
                 executor,
                 bufferCapacity);
@@ -430,6 +433,7 @@ public class DeduplicatingDirectExchangeBuffer
     {
         private final ExchangeManagerRegistry exchangeManagerRegistry;
         private final QueryId queryId;
+        private final Span parentSpan;
         private final ExchangeId exchangeId;
         private final Executor executor;
 
@@ -465,12 +469,14 @@ public class DeduplicatingDirectExchangeBuffer
         private PageBuffer(
                 ExchangeManagerRegistry exchangeManagerRegistry,
                 QueryId queryId,
+                Span parentSpan,
                 ExchangeId exchangeId,
                 Executor executor,
                 DataSize pageBufferCapacity)
         {
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.queryId = requireNonNull(queryId, "queryId is null");
+            this.parentSpan = requireNonNull(parentSpan, "querySpan is null");
             this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
             this.executor = requireNonNull(executor, "executor is null");
             this.pageBufferCapacityInBytes = pageBufferCapacity.toBytes();
@@ -502,7 +508,7 @@ public class DeduplicatingDirectExchangeBuffer
                 verify(writeBuffer == null, "writeBuffer is not expected to be initialized");
 
                 exchangeManager = exchangeManagerRegistry.getExchangeManager();
-                exchange = exchangeManager.createExchange(new ExchangeContext(queryId, exchangeId), 1, true);
+                exchange = exchangeManager.createExchange(new ExchangeContextInstance(queryId, exchangeId, parentSpan), 1, true);
 
                 sinkHandle = exchange.addSink(0);
                 exchange.noMoreSinks();

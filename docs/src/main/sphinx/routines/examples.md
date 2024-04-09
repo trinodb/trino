@@ -370,6 +370,58 @@ BEGIN
 END
 ```
 
+## Optional parameter example
+
+Routines can invoke other routines and other functions. The full signature of a
+routine is composed of routine name and parameters, and determines the exact
+routine to use. You can declare multiple routines with the same name, but with
+different number of arguments or different argument types. One example use case
+is to implement an optional parameter.
+
+The following routine truncates a string to the specified length including three
+dots at the end of the output:
+
+```sql
+FUNCTION dots(input varchar, length integer)
+RETURNS varchar
+BEGIN
+  IF length(input) > length THEN
+    RETURN substring(input, 1, length-3) || '...';
+  END IF;
+  RETURN input;
+END;
+```
+
+Following are example invocations and output:
+
+```sql
+SELECT dots('A long string that will be shortened',15);
+-- A long strin...
+SELECT	dots('A short string',15);
+-- A short string
+```
+
+If you want to provide a routine with the same name, but without the parameter
+for length, you can create another routine that invokes the preceding routine:
+
+```sql
+FUNCTION dots(input varchar)
+RETURNS varchar
+RETURN dots(input, 15);
+```
+
+You can now use both routines. When the length parameter is omitted the default
+value from the second declaration is used.
+
+```sql
+SELECT dots('A long string that will be shortened',15);
+-- A long strin...
+SELECT dots('A long string that will be shortened');
+-- A long strin...
+SELECT dots('A long string that will be shortened',20);
+-- A long string tha...
+```
+
 ## Date string parsing example
 
 This example routine parses a date string of type `VARCHAR` into `TIMESTAMP WITH
@@ -413,6 +465,71 @@ SELECT from_date_string('2023010123'); -- 2023-01-01 23:00:00.000 UTC (using the
 SELECT from_date_string(NULL); -- NULL (handles NULL string)
 SELECT from_date_string('abc'); -- NULL (not matched to any format)
 ```
+
+## Human readable days
+
+Trino includes a built-in function called {func}`human_readable_seconds` that
+formats a number of seconds into a string:
+
+```sql
+SELECT human_readable_seconds(134823);
+-- 1 day, 13 hours, 27 minutes, 3 seconds
+```
+
+The example routine `hrd` formats a number of days into a human readable text
+that provides the approximate number of years and months:
+
+```sql
+FUNCTION hrd(d integer)
+RETURNS VARCHAR
+BEGIN
+    DECLARE answer varchar default 'About ';
+    DECLARE years real;
+    DECLARE months real;
+    SET years = truncate(d/365);
+    IF years > 0 then
+        SET answer = answer || format('%1.0f', years) || ' year';
+    END IF;
+    IF years > 1 THEN
+        SET answer = answer || 's';
+    END IF;
+    SET d = d - cast( years AS integer) * 365 ;
+    SET months = truncate(d / 30);
+    IF months > 0 and years > 0 THEN
+        SET answer = answer || ' and ';
+    END IF;
+    IF months > 0 THEN
+        set answer = answer || format('%1.0f', months) || ' month';
+    END IF;
+    IF months > 1 THEN
+        SET answer = answer || 's';
+    END IF;
+    IF years < 1 and months < 1 THEN
+        SET answer = 'Less than 1 month';
+    END IF;
+    RETURN answer;
+END;
+```
+
+The following examples show the output for a range of values under one month, under
+one year, and various larger values:
+
+```sql
+SELECT hrd(10); -- Less than 1 month
+SELECT hrd(95); -- About 3 months
+SELECT hrd(400); -- About 1 year and 1 month
+SELECT hrd(369); -- About 1 year
+SELECT hrd(800); -- About 2 years and 2 months
+SELECT hrd(1100); -- About 3 years
+SELECT hrd(5000); -- About 13 years and 8 months
+```
+
+Improvements of the routine could include the following modifications:
+
+* Take into account that one month equals 30.4375 days.
+* Take into account that one year equals 365.25 days.
+* Add weeks to the output.
+* Expand the cover decades, centuries, and millenia.
 
 ## Truncating long strings
 
@@ -621,4 +738,212 @@ The preceding query produces the following output:
     10000000000000000 | 8.88PB
    100000000000000000 | 88.8PB
   1000000000000000000 | 888PB
+```
+
+
+## Charts
+
+Trino already has a built-in `bar()` [color function](/functions/color), but
+it's using ANSI escape codes to output colors, and thus is only usable for
+displaying results in a terminal. The following example shows a similar routine,
+that only uses ASCII characters.
+
+```sql
+FUNCTION ascii_bar(value DOUBLE)
+RETURNS VARCHAR
+BEGIN
+  DECLARE max_width DOUBLE DEFAULT 40.0;
+  RETURN array_join(
+    repeat('█',
+        greatest(0, CAST(floor(max_width * value) AS integer) - 1)), '')
+        || ARRAY[' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'][cast((value % (cast(1 as double) / max_width)) * max_width * 8 + 1 as int)];
+END;
+```
+
+It can be used to visualize a value.
+
+```sql
+WITH
+data AS (
+    SELECT
+        cast(s.num as double) / 100.0 AS x,
+        sin(cast(s.num as double) / 100.0) AS y
+    FROM table(sequence(start=>0, stop=>314, step=>10)) AS s(num)
+)
+SELECT
+    data.x,
+    round(data.y, 4) AS y,
+    ascii_bar(data.y) AS chart
+FROM data
+ORDER BY data.x;
+```
+
+The preceding query produces the following output:
+
+```text
+  x  |   y    |                  chart
+-----+--------+-----------------------------------------
+ 0.0 |    0.0 |
+ 0.1 | 0.0998 | ███
+ 0.2 | 0.1987 | ███████
+ 0.3 | 0.2955 | ██████████▉
+ 0.4 | 0.3894 | ██████████████▋
+ 0.5 | 0.4794 | ██████████████████▏
+ 0.6 | 0.5646 | █████████████████████▋
+ 0.7 | 0.6442 | ████████████████████████▊
+ 0.8 | 0.7174 | ███████████████████████████▊
+ 0.9 | 0.7833 | ██████████████████████████████▍
+ 1.0 | 0.8415 | ████████████████████████████████▋
+ 1.1 | 0.8912 | ██████████████████████████████████▋
+ 1.2 |  0.932 | ████████████████████████████████████▎
+ 1.3 | 0.9636 | █████████████████████████████████████▌
+ 1.4 | 0.9854 | ██████████████████████████████████████▍
+ 1.5 | 0.9975 | ██████████████████████████████████████▉
+ 1.6 | 0.9996 | ███████████████████████████████████████
+ 1.7 | 0.9917 | ██████████████████████████████████████▋
+ 1.8 | 0.9738 | ██████████████████████████████████████
+ 1.9 | 0.9463 | ████████████████████████████████████▉
+ 2.0 | 0.9093 | ███████████████████████████████████▍
+ 2.1 | 0.8632 | █████████████████████████████████▌
+ 2.2 | 0.8085 | ███████████████████████████████▍
+ 2.3 | 0.7457 | ████████████████████████████▉
+ 2.4 | 0.6755 | ██████████████████████████
+ 2.5 | 0.5985 | ███████████████████████
+ 2.6 | 0.5155 | ███████████████████▋
+ 2.7 | 0.4274 | ████████████████▏
+ 2.8 |  0.335 | ████████████▍
+ 2.9 | 0.2392 | ████████▋
+ 3.0 | 0.1411 | ████▋
+ 3.1 | 0.0416 | ▋
+```
+
+It's also possible to draw more compacted charts. Following is a routine drawing
+vertical bars:
+
+```sql
+FUNCTION vertical_bar(value DOUBLE)
+RETURNS VARCHAR
+RETURN ARRAY[' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'][cast(value * 8 + 1 as int)];
+```
+
+It can be used to draw a distribution of values, in a single column.
+
+```sql
+WITH
+measurements(sensor_id, recorded_at, value) AS (
+    VALUES
+        ('A', date '2023-01-01', 5.0)
+      , ('A', date '2023-01-03', 7.0)
+      , ('A', date '2023-01-04', 15.0)
+      , ('A', date '2023-01-05', 14.0)
+      , ('A', date '2023-01-08', 10.0)
+      , ('A', date '2023-01-09', 1.0)
+      , ('A', date '2023-01-10', 7.0)
+      , ('A', date '2023-01-11', 8.0)
+      , ('B', date '2023-01-03', 2.0)
+      , ('B', date '2023-01-04', 3.0)
+      , ('B', date '2023-01-05', 2.5)
+      , ('B', date '2023-01-07', 2.75)
+      , ('B', date '2023-01-09', 4.0)
+      , ('B', date '2023-01-10', 1.5)
+      , ('B', date '2023-01-11', 1.0)
+),
+days AS (
+    SELECT date_add('day', s.num, date '2023-01-01') AS day
+    -- table function arguments need to be constant but range could be calculated
+    -- using: SELECT date_diff('day', max(recorded_at), min(recorded_at)) FROM measurements
+    FROM table(sequence(start=>0, stop=>10)) AS s(num)
+),
+sensors(id) AS (VALUES ('A'), ('B')),
+normalized AS (
+    SELECT
+        sensors.id AS sensor_id,
+        days.day,
+        value,
+        value / max(value) OVER (PARTITION BY sensor_id) AS normalized
+    FROM days
+    CROSS JOIN sensors
+    LEFT JOIN measurements m ON day = recorded_at AND m.sensor_id = sensors.id
+)
+SELECT
+    sensor_id,
+    min(day) AS start,
+    max(day) AS stop,
+    count(value) AS num_values,
+    min(value) AS min_value,
+    max(value) AS max_value,
+    avg(value) AS avg_value,
+    array_join(array_agg(coalesce(vertical_bar(normalized), ' ') ORDER BY day), '') AS distribution
+FROM normalized
+WHERE sensor_id IS NOT NULL
+GROUP BY sensor_id
+ORDER BY sensor_id;
+```
+
+The preceding query produces the following output:
+
+```text
+ sensor_id |   start    |    stop    | num_values | min_value | max_value | avg_value | distribution
+-----------+------------+------------+------------+-----------+-----------+-----------+--------------
+ A         | 2023-01-01 | 2023-01-11 |          8 |      1.00 |     15.00 |      8.38 | ▃ ▄█▇  ▅▁▄▄
+ B         | 2023-01-01 | 2023-01-11 |          7 |      1.00 |      4.00 |      2.39 |   ▄▆▅ ▆ █▃▂
+```
+
+## Top-N
+
+Trino already has a built-in [aggregate function](/functions/aggregate) called
+`approx_most_frequent()`, that can calculate most frequently occurring values.
+It returns a map with values as keys and number of occurrences as values. Maps
+are not ordered, so when displayed, the entries can change places on subsequent
+runs of the same query, and readers must still compare all frequencies to find
+the one most frequent value. The following is a routine returns ordered results
+as a string.
+
+```sql
+FUNCTION format_topn(input map<varchar, bigint>)
+RETURNS VARCHAR
+NOT DETERMINISTIC
+BEGIN
+  DECLARE freq_separator VARCHAR DEFAULT '=';
+  DECLARE entry_separator VARCHAR DEFAULT ', ';
+  RETURN array_join(transform(
+    reverse(array_sort(transform(
+      transform(
+        map_entries(input),
+          r -> cast(r AS row(key varchar, value bigint))
+      ),
+      r -> cast(row(r.value, r.key) AS row(value bigint, key varchar)))
+    )),
+    r -> r.key || freq_separator || cast(r.value as varchar)),
+    entry_separator);
+END;
+```
+
+Following is an example query to count generated strings:
+
+```sql
+WITH
+data AS (
+    SELECT lpad('', 3, chr(65+(s.num / 3))) AS value
+    FROM table(sequence(start=>1, stop=>10)) AS s(num)
+),
+aggregated AS (
+    SELECT
+        array_agg(data.value ORDER BY data.value) AS all_values,
+        approx_most_frequent(3, data.value, 1000) AS top3
+    FROM data
+)
+SELECT
+    a.all_values,
+    a.top3,
+    format_topn(a.top3) AS top3_formatted
+FROM aggregated a;
+```
+
+The preceding query produces the following result:
+
+```text
+                     all_values                     |         top3          |    top3_formatted
+----------------------------------------------------+-----------------------+---------------------
+ [AAA, AAA, BBB, BBB, BBB, CCC, CCC, CCC, DDD, DDD] | {AAA=2, CCC=3, BBB=3} | CCC=3, BBB=3, AAA=2
 ```

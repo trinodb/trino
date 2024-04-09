@@ -62,9 +62,9 @@ public class TestVarcharToDoubleCoercer
         assertVarcharToDoubleCoercion(actualValue, false, expectedValue);
     }
 
-    private static void assertVarcharToDoubleCoercion(String actualValue, boolean treatNaNAsNull, Double expectedValue)
+    private static void assertVarcharToDoubleCoercion(String actualValue, boolean isOrcFile, Double expectedValue)
     {
-        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(DOUBLE), new CoercionContext(DEFAULT_PRECISION, treatNaNAsNull)).orElseThrow()
+        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(DOUBLE), new CoercionContext(DEFAULT_PRECISION, isOrcFile)).orElseThrow()
                 .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(actualValue)));
         assertThat(blockToNativeValue(DOUBLE, coercedBlock))
                 .isEqualTo(expectedValue);

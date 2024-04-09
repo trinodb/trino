@@ -26,7 +26,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
-import io.trino.spi.TrinoException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,7 +37,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Multimaps.asMap;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.TABLE_IS_TRANSACTIONAL;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.TABLE_TRANSACTIONAL_PROPERTIES;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -86,9 +84,7 @@ public final class AcidTables
             throws IOException
     {
         TrinoOutputFile file = fileSystem.newOutputFile(versionFilePath(deltaOrBaseDir));
-        try (var out = file.createOrOverwrite()) {
-            out.write('2');
-        }
+        file.createOrOverwrite(new byte[] {'2'});
     }
 
     public static int readAcidVersionFile(TrinoFileSystem fileSystem, Location deltaOrBaseDir)
@@ -133,7 +129,8 @@ public final class AcidTables
 
             if (name.startsWith("base_") || name.startsWith("delta_") || name.startsWith("delete_delta_")) {
                 if (suffix.indexOf('/', slash + 1) != -1) {
-                    throw new TrinoException(HIVE_INVALID_BUCKET_FILES, "Found file in sub-directory of ACID directory: " + file.location());
+                    // Ignore nested delta directories
+                    continue;
                 }
                 groupedFiles.put(name, file);
             }

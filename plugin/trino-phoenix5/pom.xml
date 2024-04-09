@@ -5,20 +5,20 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>435</version>
+        <version>444</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-phoenix5</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Phoenix 5 Connector</description>
+    <description>Trino - Phoenix 5 connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.hbase.version>2.2.7</dep.hbase.version>
 
         <!-- This is required for JDK 17 to start HBase server due to illegal reflective access -->
-        <air.test.jvm.additional-arguments>--add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
+        <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>

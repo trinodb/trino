@@ -156,7 +156,8 @@ public abstract class AbstractTestAggregationFunction
             if (aggregationImplementation.getRemoveInputFunction().isPresent()) {
                 for (int oldi = oldStart; oldi < oldStart + oldWidth; ++oldi) {
                     if (oldi < start || oldi >= start + width) {
-                        aggregation.removeInput(windowIndex, oldi, oldi);
+                        boolean res = aggregation.removeInput(windowIndex, oldi, oldi);
+                        assertThat(res).isTrue();
                     }
                 }
                 for (int newi = start; newi < start + width; ++newi) {
@@ -184,7 +185,7 @@ public abstract class AbstractTestAggregationFunction
         }
     }
 
-    private static WindowAccumulator createWindowAccumulator(ResolvedFunction resolvedFunction, AggregationImplementation aggregationImplementation)
+    protected static WindowAccumulator createWindowAccumulator(ResolvedFunction resolvedFunction, AggregationImplementation aggregationImplementation)
     {
         try {
             Constructor<? extends WindowAccumulator> constructor = generateWindowAccumulatorClass(

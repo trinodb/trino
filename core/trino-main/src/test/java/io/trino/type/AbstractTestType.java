@@ -31,10 +31,6 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.LiteralEncoder;
-import io.trino.sql.planner.TestingPlannerContext;
-import io.trino.sql.tree.Expression;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
@@ -52,7 +48,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static io.trino.operator.OperatorAssertion.toRow;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
@@ -71,17 +66,13 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static io.trino.util.StructuralTestUtil.sqlMapOf;
-import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSortedMap;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Fail.fail;
 
 public abstract class AbstractTestType
 {
@@ -202,32 +193,6 @@ public abstract class AbstractTestType
             nullsBlockBuilder.appendNull();
         }
         return nullsBlockBuilder.buildValueBlock();
-    }
-
-    @Test
-    public void testLiteralFormRecognized()
-    {
-        PlannerContext plannerContext = createPlannerContext();
-        LiteralEncoder literalEncoder = new LiteralEncoder(plannerContext);
-        for (int position = 0; position < testBlock.getPositionCount(); position++) {
-            Object value = readNativeValue(type, testBlock, position);
-            Expression expression = literalEncoder.toExpression(value, type);
-            if (!isEffectivelyLiteral(plannerContext, TEST_SESSION, expression)) {
-                fail(format(
-                        "Expression not recognized literal for value %s at position %s (%s): %s",
-                        value,
-                        position,
-                        type.getObjectValue(SESSION, testBlock, position),
-                        expression));
-            }
-        }
-    }
-
-    protected PlannerContext createPlannerContext()
-    {
-        return TestingPlannerContext.plannerContextBuilder()
-                .addType(type)
-                .build();
     }
 
     @Test

@@ -13,9 +13,9 @@
  */
 package io.trino.testng.services;
 
+import org.junit.jupiter.api.Test;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
 

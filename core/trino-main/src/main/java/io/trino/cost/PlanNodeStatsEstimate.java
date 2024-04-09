@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 
@@ -78,12 +77,12 @@ public class PlanNodeStatsEstimate
      * Returns estimated data size.
      * Unknown value is represented by {@link Double#NaN}
      */
-    public double getOutputSizeInBytes(Collection<Symbol> outputSymbols, TypeProvider types)
+    public double getOutputSizeInBytes(Collection<Symbol> outputSymbols)
     {
         requireNonNull(outputSymbols, "outputSymbols is null");
 
         return outputSymbols.stream()
-                .mapToDouble(symbol -> getOutputSizeForSymbol(getSymbolStatistics(symbol), types.get(symbol)))
+                .mapToDouble(symbol -> getOutputSizeForSymbol(getSymbolStatistics(symbol), symbol.getType()))
                 .sum();
     }
 
@@ -99,8 +98,8 @@ public class PlanNodeStatsEstimate
         // account for "is null" boolean array
         outputSize += outputRowCount;
 
-        if (type instanceof FixedWidthType) {
-            outputSize += numberOfNonNullRows * ((FixedWidthType) type).getFixedSize();
+        if (type instanceof FixedWidthType fixedType) {
+            outputSize += numberOfNonNullRows * fixedType.getFixedSize();
         }
         else {
             double averageRowSize = firstNonNaN(symbolStatistics.getAverageRowSize(), DEFAULT_DATA_SIZE_PER_COLUMN);

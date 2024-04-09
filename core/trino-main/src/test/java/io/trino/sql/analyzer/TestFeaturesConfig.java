@@ -27,6 +27,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.CompressionCodec.ZSTD;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 import static io.trino.sql.analyzer.RegexLibrary.RE2J;
 
@@ -50,7 +52,7 @@ public class TestFeaturesConfig
                 .setSpillMaxUsedSpaceThreshold(0.9)
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
-                .setExchangeCompressionEnabled(false)
+                .setExchangeCompressionCodec(NONE)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.ABORT)
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(500, KILOBYTE))
@@ -74,7 +76,7 @@ public class TestFeaturesConfig
                 .put("scale-writers", "false")
                 .put("writer-scaling-min-data-processed", "4GB")
                 .put("max-memory-per-partition-writer", "4GB")
-                .put("regex-library", "RE2J")
+                .put("deprecated.regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
                 .put("spill-enabled", "true")
@@ -84,7 +86,7 @@ public class TestFeaturesConfig
                 .put("spiller-max-used-space-threshold", "0.8")
                 .put("memory-revoking-threshold", "0.2")
                 .put("memory-revoking-target", "0.8")
-                .put("exchange.compression-enabled", "true")
+                .put("exchange.compression-codec", "ZSTD")
                 .put("exchange.data-integrity-verification", "RETRY")
                 .put("pages-index.eager-compaction-enabled", "true")
                 .put("filter-and-project-min-output-page-size", "1MB")
@@ -115,7 +117,7 @@ public class TestFeaturesConfig
                 .setSpillMaxUsedSpaceThreshold(0.8)
                 .setMemoryRevokingThreshold(0.2)
                 .setMemoryRevokingTarget(0.8)
-                .setExchangeCompressionEnabled(true)
+                .setExchangeCompressionCodec(ZSTD)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.RETRY)
                 .setPagesIndexEagerCompactionEnabled(true)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(1, MEGABYTE))

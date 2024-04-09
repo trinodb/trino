@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.client.ErrorInfo;
 import io.trino.client.ErrorLocation;
 import io.trino.client.FailureInfo;
 import io.trino.spi.ErrorCode;
@@ -24,8 +25,6 @@ import io.trino.spi.HostAddress;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -33,8 +32,6 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class ExecutionFailureInfo
 {
-    private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("(.*)\\.(.*)\\(([^:]*)(?::(.*))?\\)");
-
     private final String type;
     private final String message;
     private final ExecutionFailureInfo cause;
@@ -129,49 +126,15 @@ public class ExecutionFailureInfo
                 .map(ExecutionFailureInfo::toFailureInfo)
                 .collect(toImmutableList());
 
-        return new FailureInfo(type, message, cause == null ? null : cause.toFailureInfo(), suppressed, stack, errorLocation);
+        ErrorInfo errorInfo = null;
+        if (errorCode != null) {
+            errorInfo = new ErrorInfo(errorCode.getCode(), errorCode.getName(), errorCode.getType().toString());
+        }
+        return new FailureInfo(type, message, cause == null ? null : cause.toFailureInfo(), suppressed, stack, errorInfo, errorLocation);
     }
 
     public RuntimeException toException()
     {
-        return toException(this);
-    }
-
-    private static Failure toException(ExecutionFailureInfo executionFailureInfo)
-    {
-        if (executionFailureInfo == null) {
-            return null;
-        }
-        Failure failure = new Failure(executionFailureInfo.getType(), executionFailureInfo.getMessage(), executionFailureInfo.getErrorCode(), toException(executionFailureInfo.getCause()));
-        for (ExecutionFailureInfo suppressed : executionFailureInfo.getSuppressed()) {
-            failure.addSuppressed(toException(suppressed));
-        }
-        ImmutableList.Builder<StackTraceElement> stackTraceBuilder = ImmutableList.builderWithExpectedSize(executionFailureInfo.getStack().size());
-        for (String stack : executionFailureInfo.getStack()) {
-            stackTraceBuilder.add(toStackTraceElement(stack));
-        }
-        ImmutableList<StackTraceElement> stackTrace = stackTraceBuilder.build();
-        failure.setStackTrace(stackTrace.toArray(new StackTraceElement[stackTrace.size()]));
-        return failure;
-    }
-
-    public static StackTraceElement toStackTraceElement(String stack)
-    {
-        Matcher matcher = STACK_TRACE_PATTERN.matcher(stack);
-        if (matcher.matches()) {
-            String declaringClass = matcher.group(1);
-            String methodName = matcher.group(2);
-            String fileName = matcher.group(3);
-            int number = -1;
-            if (fileName.equals("Native Method")) {
-                fileName = null;
-                number = -2;
-            }
-            else if (matcher.group(4) != null) {
-                number = Integer.parseInt(matcher.group(4));
-            }
-            return new StackTraceElement(declaringClass, methodName, fileName, number);
-        }
-        return new StackTraceElement("Unknown", stack, null, -1);
+        return new Failure(this);
     }
 }

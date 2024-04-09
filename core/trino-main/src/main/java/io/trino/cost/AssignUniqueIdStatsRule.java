@@ -13,10 +13,8 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Patterns;
 
@@ -36,9 +34,9 @@ public class AssignUniqueIdStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(AssignUniqueId assignUniqueId, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    public Optional<PlanNodeStatsEstimate> calculate(AssignUniqueId assignUniqueId, Context context)
     {
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(assignUniqueId.getSource());
+        PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(assignUniqueId.getSource());
         return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats)
                 .addSymbolStatistics(assignUniqueId.getIdColumn(), SymbolStatsEstimate.builder()
                         .setDistinctValuesCount(sourceStats.getOutputRowCount())

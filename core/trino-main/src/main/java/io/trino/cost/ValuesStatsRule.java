@@ -13,18 +13,15 @@
  */
 package io.trino.cost;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.List;
@@ -38,23 +35,14 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.planner.plan.Patterns.values;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class ValuesStatsRule
         implements Rule<ValuesNode>
 {
     private static final Pattern<ValuesNode> PATTERN = values();
-
-    private final PlannerContext plannerContext;
-
-    public ValuesStatsRule(PlannerContext plannerContext)
-    {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-    }
 
     @Override
     public Pattern<ValuesNode> getPattern()
@@ -63,7 +51,7 @@ public class ValuesStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(ValuesNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    public Optional<PlanNodeStatsEstimate> calculate(ValuesNode node, Context context)
     {
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         statsBuilder.setOutputRowCount(node.getRowCount());
@@ -74,11 +62,10 @@ public class ValuesStatsRule
                 List<Object> symbolValues = getSymbolValues(
                         node,
                         symbolId,
-                        session,
                         RowType.anonymous(node.getOutputSymbols().stream()
-                                .map(types::get)
+                                .map(Symbol::getType)
                                 .collect(toImmutableList())));
-                statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, types.get(symbol)));
+                statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, symbol.getType()));
             }
         }
         catch (RuntimeException e) {
@@ -89,7 +76,7 @@ public class ValuesStatsRule
         return Optional.of(statsBuilder.build());
     }
 
-    private List<Object> getSymbolValues(ValuesNode valuesNode, int symbolId, Session session, Type rowType)
+    private List<Object> getSymbolValues(ValuesNode valuesNode, int symbolId, Type rowType)
     {
         Type symbolType = rowType.getTypeParameters().get(symbolId);
         if (UNKNOWN.equals(symbolType)) {
@@ -100,9 +87,10 @@ public class ValuesStatsRule
         }
         checkState(valuesNode.getRows().isPresent(), "rows is empty");
         return valuesNode.getRows().get().stream()
-                .map(row -> {
-                    SqlRow rowValue = (SqlRow) evaluateConstantExpression(row, rowType, plannerContext, session, new AllowAllAccessControl(), ImmutableMap.of());
-                    return readNativeValue(symbolType, rowValue.getRawFieldBlock(symbolId), rowValue.getRawIndex());
+                .map(row -> switch (row) {
+                    case Row value -> ((Constant) value.items().get(symbolId)).value();
+                    case Constant(Type type, SqlRow value) -> readNativeValue(symbolType, value.getRawFieldBlock(symbolId), value.getRawIndex());
+                    default -> throw new IllegalArgumentException("Expected Row or Constant: " + row);
                 })
                 .collect(toList());
     }

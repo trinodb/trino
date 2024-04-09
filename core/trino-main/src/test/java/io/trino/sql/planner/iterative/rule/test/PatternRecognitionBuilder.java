@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule.test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -24,25 +24,22 @@ import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.RowsPerMatch;
+import io.trino.sql.planner.plan.SkipToPosition;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
-import io.trino.sql.tree.SkipTo;
 
-import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.sql.planner.assertions.PatternRecognitionExpressionRewriter.rewrite;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
-import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
+import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
+import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 
 public class PatternRecognitionBuilder
 {
@@ -50,16 +47,15 @@ public class PatternRecognitionBuilder
     private List<Symbol> partitionBy = ImmutableList.of();
     private Optional<OrderingScheme> orderBy = Optional.empty();
     private final Map<Symbol, WindowNode.Function> windowFunctions = new HashMap<>();
-    private final Map<Symbol, Map.Entry<String, Type>> measures = new HashMap<>();
+    private final Map<Symbol, Measure> measures = new HashMap<>();
     private Optional<WindowNode.Frame> commonBaseFrame = Optional.empty();
     private RowsPerMatch rowsPerMatch = ONE;
-    private Optional<IrLabel> skipToLabel = Optional.empty();
-    private SkipTo.Position skipToPosition = PAST_LAST;
+    private Set<IrLabel> skipToLabels = ImmutableSet.of();
+    private SkipToPosition skipToPosition = PAST_LAST;
     private boolean initial = true;
     private IrRowPattern pattern;
     private final Map<IrLabel, Set<IrLabel>> subsets = new HashMap<>();
-    private final Map<IrLabel, String> variableDefinitionsBySql = new HashMap<>();
-    private final Map<IrLabel, Expression> variableDefinitionsByExpression = new HashMap<>();
+    private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions = new HashMap<>();
 
     public PatternRecognitionBuilder source(PlanNode source)
     {
@@ -85,10 +81,19 @@ public class PatternRecognitionBuilder
         return this;
     }
 
-    public PatternRecognitionBuilder addMeasure(Symbol symbol, String expression, Type type)
+    public PatternRecognitionBuilder addMeasure(Symbol symbol, Expression expression, Map<String, ValuePointer> pointers)
     {
-        this.measures.put(symbol, new AbstractMap.SimpleEntry<>(expression, type));
+        List<ExpressionAndValuePointers.Assignment> assignments = pointers.entrySet().stream()
+                .map(entry -> new ExpressionAndValuePointers.Assignment(new Symbol(symbol.getType(), entry.getKey()), entry.getValue()))
+                .toList();
+
+        this.measures.put(symbol, new Measure(new ExpressionAndValuePointers(expression, assignments), symbol.getType()));
         return this;
+    }
+
+    public PatternRecognitionBuilder addMeasure(Symbol symbol, Expression expression)
+    {
+        return addMeasure(symbol, expression, ImmutableMap.of());
     }
 
     public PatternRecognitionBuilder frame(WindowNode.Frame frame)
@@ -103,14 +108,14 @@ public class PatternRecognitionBuilder
         return this;
     }
 
-    public PatternRecognitionBuilder skipTo(SkipTo.Position position, IrLabel label)
+    public PatternRecognitionBuilder skipTo(SkipToPosition position, Set<IrLabel> labels)
     {
         this.skipToPosition = position;
-        this.skipToLabel = Optional.of(label);
+        this.skipToLabels = ImmutableSet.copyOf(labels);
         return this;
     }
 
-    public PatternRecognitionBuilder skipTo(SkipTo.Position position)
+    public PatternRecognitionBuilder skipTo(SkipToPosition position)
     {
         this.skipToPosition = position;
         return this;
@@ -134,26 +139,23 @@ public class PatternRecognitionBuilder
         return this;
     }
 
-    public PatternRecognitionBuilder addVariableDefinition(IrLabel name, String expression)
+    public PatternRecognitionBuilder addVariableDefinition(IrLabel name, Expression expression, Map<Symbol, ValuePointer> pointers)
     {
-        this.variableDefinitionsBySql.put(name, expression);
+        List<ExpressionAndValuePointers.Assignment> assignments = pointers.entrySet().stream()
+                .map(entry -> new ExpressionAndValuePointers.Assignment(entry.getKey(), entry.getValue()))
+                .toList();
+
+        this.variableDefinitions.put(name, new ExpressionAndValuePointers(expression, assignments));
         return this;
     }
 
     public PatternRecognitionBuilder addVariableDefinition(IrLabel name, Expression expression)
     {
-        this.variableDefinitionsByExpression.put(name, expression);
-        return this;
+        return addVariableDefinition(name, expression, ImmutableMap.of());
     }
 
     public PatternRecognitionNode build(PlanNodeIdAllocator idAllocator)
     {
-        ImmutableMap.Builder<IrLabel, ExpressionAndValuePointers> variableDefinitions = ImmutableMap.<IrLabel, ExpressionAndValuePointers>builder()
-                .putAll(variableDefinitionsBySql.entrySet().stream()
-                        .collect(toImmutableMap(Map.Entry::getKey, entry -> rewrite(entry.getValue(), subsets))))
-                .putAll(variableDefinitionsByExpression.entrySet().stream()
-                        .collect(toImmutableMap(Map.Entry::getKey, entry -> rewrite(entry.getValue(), subsets))));
-
         return new PatternRecognitionNode(
                 idAllocator.getNextId(),
                 source,
@@ -162,20 +164,13 @@ public class PatternRecognitionBuilder
                 ImmutableSet.of(),
                 0,
                 windowFunctions,
-                measures.entrySet().stream()
-                        .collect(toImmutableMap(Map.Entry::getKey, entry -> measure(entry.getValue()))),
+                measures,
                 commonBaseFrame,
                 rowsPerMatch,
-                skipToLabel,
+                skipToLabels,
                 skipToPosition,
                 initial,
                 pattern,
-                subsets,
-                variableDefinitions.buildOrThrow());
-    }
-
-    private Measure measure(Map.Entry<String, Type> entry)
-    {
-        return new Measure(rewrite(entry.getKey(), subsets), entry.getValue());
+                variableDefinitions);
     }
 }

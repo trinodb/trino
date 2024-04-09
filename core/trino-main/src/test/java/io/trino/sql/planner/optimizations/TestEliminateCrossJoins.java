@@ -14,11 +14,24 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.SystemSessionProperties;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -26,7 +39,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestEliminateCrossJoins
         extends BasePlanTest
@@ -125,13 +138,14 @@ public class TestEliminateCrossJoins
                                 .left(
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
                                                 .equiCriteria("P_PARTKEY", "L_PARTKEY")
-                                                .filter("P_NAME < expr")
+                                                .filter(new Comparison(LESS_THAN, new Reference(VARCHAR, "P_NAME"), new Reference(VARCHAR, "expr")))
                                                 .left(anyTree(PART_WITH_NAME_TABLESCAN))
                                                 .right(
                                                         anyTree(
                                                                 project(
-                                                                        ImmutableMap.of("expr", expression("cast(L_COMMENT AS varchar(55))")),
-                                                                        filter("L_PARTKEY <> L_ORDERKEY",
+                                                                        ImmutableMap.of("expr", expression(new Cast(new Reference(VARCHAR, "L_COMMENT"), createVarcharType(55)))),
+                                                                        filter(
+                                                                                new Comparison(NOT_EQUAL, new Reference(BIGINT, "L_PARTKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                                                                                 LINEITEM_WITH_COMMENT_TABLESCAN))))))
                                 .right(anyTree(ORDERS_TABLESCAN)))));
     }
@@ -148,8 +162,12 @@ public class TestEliminateCrossJoins
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
                                                 .equiCriteria("P_PARTKEY", "L_PARTKEY")
                                                 .left(anyTree(PART_TABLESCAN))
-                                                .right(anyTree(filter("L_RETURNFLAG = 'R'", LINEITEM_WITH_RETURNFLAG_TABLESCAN)))))
+                                                .right(anyTree(filter(
+                                                        new Comparison(EQUAL, new Reference(createVarcharType(1), "L_RETURNFLAG"), new Constant(createVarcharType(1), Slices.utf8Slice("R"))),
+                                                        LINEITEM_WITH_RETURNFLAG_TABLESCAN)))))
                                 .right(
-                                        anyTree(filter("O_SHIPPRIORITY >= 10", ORDERS_WITH_SHIPPRIORITY_TABLESCAN))))));
+                                        anyTree(filter(
+                                                new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "O_SHIPPRIORITY"), new Constant(INTEGER, 10L)),
+                                                ORDERS_WITH_SHIPPRIORITY_TABLESCAN))))));
     }
 }

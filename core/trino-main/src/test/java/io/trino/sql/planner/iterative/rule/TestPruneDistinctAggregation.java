@@ -15,15 +15,16 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestPruneDistinctAggregation
         extends BaseRuleTest
@@ -53,7 +54,7 @@ public class TestPruneDistinctAggregation
                     Symbol a = p.symbol("a");
                     AggregationNode child = p.aggregation(aggregationBuilder ->
                             aggregationBuilder.globalGrouping()
-                                    .addAggregation(p.symbol("sum", BIGINT), expression("sum(a)"), ImmutableList.of(BIGINT))
+                                    .addAggregation(p.symbol("sum", BIGINT), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                                     .source(p.values(1, a)));
                     return p.aggregation(aggregationBuilder ->
                             aggregationBuilder.globalGrouping()

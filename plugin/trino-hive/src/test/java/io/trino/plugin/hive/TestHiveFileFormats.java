@@ -17,7 +17,6 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.Location;
@@ -212,8 +211,8 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.data.Offset.offset;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
 
 // Failing on multiple threads because of org.apache.hadoop.hive.ql.io.parquet.write.ParquetRecordWriterWrapper
 // uses a single record writer across all threads.
@@ -222,7 +221,7 @@ import static org.testng.Assert.assertEquals;
 public final class TestHiveFileFormats
 {
     private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
-    private static final double EPSILON = 0.001;
+    private static final float EPSILON = 0.001f;
 
     private static final FileFormatDataSourceStats STATS = new FileFormatDataSourceStats();
     private static final ConnectorSession PARQUET_SESSION = getHiveSession(createParquetHiveConfig(false));
@@ -488,7 +487,7 @@ public final class TestHiveFileFormats
         assertThatFileFormat(ORC)
                 .withWriteColumns(testColumns)
                 .withRowsCount(rowCount)
-                .withReadColumns(Lists.reverse(testColumns))
+                .withReadColumns(testColumns.reversed())
                 .withSession(session)
                 .isReadableByPageSource(fileSystemFactory -> new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC));
     }
@@ -603,7 +602,7 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
 
         // test the name-based access
-        readColumns = Lists.reverse(writeColumns);
+        readColumns = writeColumns.reversed();
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
@@ -1045,10 +1044,12 @@ public final class TestHiveFileFormats
                                 .isEqualTo(expectedValue);
                     }
                     else if (type == REAL) {
-                        assertEquals((float) actualValue, (float) expectedValue, EPSILON, "Wrong value for column " + testColumn.name());
+                        assertThat((float) actualValue).describedAs("Wrong value for column %s", testColumn.name())
+                                .isCloseTo((float) expectedValue, offset(EPSILON));
                     }
                     else if (type == DOUBLE) {
-                        assertEquals((double) actualValue, (double) expectedValue, EPSILON, "Wrong value for column " + testColumn.name());
+                        assertThat((double) actualValue).describedAs("Wrong value for column %s", testColumn.name())
+                                .isCloseTo((double) expectedValue, offset((double) EPSILON));
                     }
                     else if (type == DATE) {
                         SqlDate expectedDate = new SqlDate(toIntExact((long) expectedValue));
@@ -1495,7 +1496,7 @@ public final class TestHiveFileFormats
         configureCompression(jobConf, compressionCodec);
 
         File file = File.createTempFile("trino_test", "data");
-        file.delete();
+        verify(file.delete());
         try {
             FileSinkOperator.RecordWriter recordWriter = outputFormat.getHiveRecordWriter(
                     jobConf,
@@ -1537,7 +1538,7 @@ public final class TestHiveFileFormats
             }
         }
         finally {
-            file.delete();
+            verify(file.delete());
         }
     }
 
@@ -1562,7 +1563,7 @@ public final class TestHiveFileFormats
         }
 
         // For Parquet
-        config.set(ParquetOutputFormat.COMPRESSION, compressionCodec.getParquetCompressionCodec().name());
+        config.set(ParquetOutputFormat.COMPRESSION, compressionCodec.getParquetCompressionCodec().orElseThrow().name());
 
         // For Avro
         compressionCodec.getAvroCompressionKind().ifPresent(kind -> config.set("avro.output.codec", kind.toString()));

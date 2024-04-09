@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.Patterns;
 import io.trino.sql.planner.plan.PlanNode;
 
@@ -35,11 +36,12 @@ import java.util.Optional;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.isDistinctOperator;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.restoreDistinctAggregation;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.subquery;
@@ -47,7 +49,6 @@ import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.type;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -110,7 +111,7 @@ public class TransformCorrelatedGroupedAggregationWithoutProjection
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(type().equalTo(INNER))
             .with(nonEmpty(Patterns.CorrelatedJoin.correlation()))
-            .with(filter().equalTo(TRUE_LITERAL))
+            .with(filter().equalTo(TRUE))
             .with(subquery().matching(aggregation()
                     .with(nonEmpty(groupingColumns()))
                     .matching(aggregation -> aggregation.getGroupingSetCount() == 1)
@@ -163,7 +164,7 @@ public class TransformCorrelatedGroupedAggregationWithoutProjection
 
         JoinNode join = new JoinNode(
                 context.getIdAllocator().getNextId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 inputWithUniqueId,
                 source,
                 ImmutableList.of(),

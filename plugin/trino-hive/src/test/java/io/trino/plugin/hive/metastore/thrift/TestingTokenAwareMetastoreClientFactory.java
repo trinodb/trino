@@ -17,6 +17,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.thrift.TException;
 
+import java.net.URI;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -29,23 +30,31 @@ public class TestingTokenAwareMetastoreClientFactory
     public static final Duration TIMEOUT = new Duration(20, SECONDS);
 
     private final DefaultThriftMetastoreClientFactory factory;
-    private final HostAndPort address;
+    private final URI address;
 
-    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, HostAndPort address)
+    private final MetastoreClientAdapterProvider metastoreClientAdapterProvider;
+
+    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, URI uri)
     {
-        this(socksProxy, address, TIMEOUT);
+        this(socksProxy, uri, TIMEOUT, delegate -> delegate);
     }
 
-    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, HostAndPort address, Duration timeout)
+    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, URI address, Duration timeout)
+    {
+        this(socksProxy, address, timeout, delegate -> delegate);
+    }
+
+    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, URI uri, Duration timeout, MetastoreClientAdapterProvider metastoreClientAdapterProvider)
     {
         this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, timeout, timeout, AUTHENTICATION, "localhost");
-        this.address = requireNonNull(address, "address is null");
+        this.address = requireNonNull(uri, "uri is null");
+        this.metastoreClientAdapterProvider = requireNonNull(metastoreClientAdapterProvider, "metastoreClientAdapterProvider is null");
     }
 
     @Override
     public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
             throws TException
     {
-        return factory.create(address, delegationToken);
+        return metastoreClientAdapterProvider.createThriftMetastoreClientAdapter(factory.create(address, delegationToken));
     }
 }

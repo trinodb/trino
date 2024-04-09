@@ -124,15 +124,6 @@ public final class IntArrayBlock
         return positionCount;
     }
 
-    @Override
-    public int getInt(int position, int offset)
-    {
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-        return getInt(position);
-    }
-
     public int getInt(int position)
     {
         checkReadablePosition(this, position);
@@ -231,10 +222,7 @@ public final class IntArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("IntArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return "IntArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
     boolean[] getRawValueIsNull()

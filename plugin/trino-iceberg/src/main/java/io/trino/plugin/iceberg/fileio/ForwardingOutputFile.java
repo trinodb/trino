@@ -54,13 +54,8 @@ public class ForwardingOutputFile
     @Override
     public PositionOutputStream createOrOverwrite()
     {
-        try {
-            // Callers of this method don't have access to memory context, so we skip tracking memory here
-            return new CountingPositionOutputStream(outputFile.createOrOverwrite());
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to create file: " + location(), e);
-        }
+        // Iceberg never overwrites existing files. All callers use unique names.
+        return create();
     }
 
     @Override

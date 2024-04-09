@@ -34,6 +34,7 @@ import io.trino.memory.MemoryManagerConfig;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.InternalNodeManager.NodesSnapshot;
+import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.memory.MemoryPoolInfo;
 import jakarta.annotation.PostConstruct;
@@ -41,6 +42,7 @@ import jakarta.annotation.PreDestroy;
 import org.assertj.core.util.VisibleForTesting;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
@@ -573,24 +575,25 @@ public class BinPackingNodeAllocatorService
             }
         }
 
+        private List<InternalNode> dropCoordinatorsIfNecessary(List<InternalNode> candidates)
+        {
+            return scheduleOnCoordinator ? candidates : candidates.stream().filter(node -> !node.isCoordinator()).collect(toImmutableList());
+        }
+
         public ReserveResult tryReserve(PendingAcquire acquire)
         {
             NodeRequirements requirements = acquire.getNodeRequirements();
             Optional<Set<InternalNode>> catalogNodes = requirements.getCatalogHandle().map(nodesSnapshot::getConnectorNodes);
 
-            List<InternalNode> candidates = allNodesSorted.stream()
-                    .filter(node -> catalogNodes.isEmpty() || catalogNodes.get().contains(node))
-                    .filter(node -> {
-                        // Allow using coordinator if explicitly requested
-                        if (requirements.getAddresses().contains(node.getHostAndPort())) {
-                            return true;
-                        }
-                        if (requirements.getAddresses().isEmpty()) {
-                            return scheduleOnCoordinator || !node.isCoordinator();
-                        }
-                        return false;
-                    })
-                    .collect(toImmutableList());
+            List<InternalNode> candidates = new ArrayList<>(allNodesSorted);
+            catalogNodes.ifPresent(candidates::retainAll); // Drop non-catalog nodes, if any.
+            Set<HostAddress> addresses = requirements.getAddresses();
+            if (!addresses.isEmpty()) {
+                candidates = candidates.stream().filter(node -> addresses.contains(node.getHostAndPort())).collect(toImmutableList());
+            }
+            else {
+                candidates = dropCoordinatorsIfNecessary(candidates);
+            }
 
             if (candidates.isEmpty()) {
                 return ReserveResult.NONE_MATCHING;

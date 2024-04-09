@@ -14,11 +14,11 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Row;
 
 import java.util.Arrays;
 import java.util.List;
@@ -68,7 +68,7 @@ public class PruneValuesColumns
         ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
         for (Expression row : valuesNode.getRows().get()) {
             rowsBuilder.add(new Row(Arrays.stream(mapping)
-                    .mapToObj(i -> ((Row) row).getItems().get(i))
+                    .mapToObj(i -> ((Row) row).items().get(i))
                     .collect(Collectors.toList())));
         }
 

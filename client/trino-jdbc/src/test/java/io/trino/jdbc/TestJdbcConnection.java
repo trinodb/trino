@@ -227,7 +227,7 @@ public class TestJdbcConnection
             // invalid catalog
             try (Statement statement = connection.createStatement()) {
                 assertThatThrownBy(() -> statement.execute("USE abc.xyz"))
-                        .hasMessageEndingWith("Catalog does not exist: abc");
+                        .hasMessageEndingWith("Catalog 'abc' not found");
             }
 
             // invalid schema
@@ -254,7 +254,7 @@ public class TestJdbcConnection
         try (Connection connection = createConnection()) {
             assertThat(listSession(connection))
                     .contains("join_distribution_type|AUTOMATIC|AUTOMATIC")
-                    .contains("exchange_compression|false|false");
+                    .contains("exchange_compression_codec|NONE|NONE");
 
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SET SESSION join_distribution_type = 'BROADCAST'");
@@ -262,15 +262,15 @@ public class TestJdbcConnection
 
             assertThat(listSession(connection))
                     .contains("join_distribution_type|BROADCAST|AUTOMATIC")
-                    .contains("exchange_compression|false|false");
+                    .contains("exchange_compression_codec|NONE|NONE");
 
             try (Statement statement = connection.createStatement()) {
-                statement.execute("SET SESSION exchange_compression = true");
+                statement.execute("SET SESSION exchange_compression_codec = 'LZ4'");
             }
 
             assertThat(listSession(connection))
                     .contains("join_distribution_type|BROADCAST|AUTOMATIC")
-                    .contains("exchange_compression|true|false");
+                    .contains("exchange_compression_codec|LZ4|NONE");
 
             try (Statement statement = connection.createStatement()) {
                 // setting Hive session properties requires the admin role
@@ -286,7 +286,7 @@ public class TestJdbcConnection
 
                     assertThat(listSession(connection))
                             .contains("join_distribution_type|BROADCAST|AUTOMATIC")
-                            .contains("exchange_compression|true|false")
+                            .contains("exchange_compression_codec|LZ4|NONE")
                             .contains(format("spatial_partitioning_table_name|%s|", value));
                 }
                 catch (Exception e) {

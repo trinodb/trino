@@ -74,7 +74,7 @@ public class QualifiedName
         else {
             List<Identifier> subList = originalParts.subList(0, originalParts.size() - 1);
             this.prefix = Optional.of(new QualifiedName(subList));
-            this.suffix = mapIdentifier(originalParts.get(originalParts.size() - 1));
+            this.suffix = mapIdentifier(originalParts.getLast());
         }
     }
 

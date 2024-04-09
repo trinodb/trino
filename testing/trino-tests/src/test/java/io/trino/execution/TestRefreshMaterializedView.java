@@ -30,8 +30,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.ManageTestResources;
-import io.trino.testng.services.ReportOrphanedExecutors;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -62,8 +60,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestRefreshMaterializedView
         extends AbstractTestQueryFramework
 {
-    @ManageTestResources.Suppress(because = "Not a TestNG test class")
-    @ReportOrphanedExecutors.Suppress(because = "Not a TestNG test class")
     private final ListeningExecutorService executorService = listeningDecorator(newCachedThreadPool());
     private SettableFuture<Void> startRefreshMaterializedView;
     private SettableFuture<Void> finishRefreshMaterializedView;
@@ -90,7 +86,7 @@ public class TestRefreshMaterializedView
                 .setCatalog("mock")
                 .setSchema("default")
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .build();
         queryRunner.installPlugin(
                 new MockConnectorPlugin(

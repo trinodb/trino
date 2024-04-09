@@ -60,42 +60,6 @@ public abstract class BaseFaultTolerantExecutionTest
         assertThat(actualNumberOfFiles).isEqualTo(expectedNumberOfFiles);
     }
 
-    @Test
-    public void testExecutePreferredWritePartitioningSkewMitigation()
-    {
-        @Language("SQL") String createTableSql = """
-                CREATE TABLE test_execute_skew_mitigation WITH (%s = ARRAY['returnflag']) AS
-                SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, linestatus, shipdate, commitdate, receiptdate, shipinstruct, shipmode, returnflag
-                FROM tpch.sf1.lineitem
-                WHERE returnflag = 'N'
-                LIMIT 1000000""".formatted(partitioningTablePropertyName);
-        assertUpdate(createTableSql, 1000000);
-
-        @Language("SQL") String executeSql = "ALTER TABLE test_execute_skew_mitigation EXECUTE optimize";
-        @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\" FROM test_execute_skew_mitigation";
-
-        Session session = withSingleWriterPerTask(getSession());
-
-        // force single writer task to verify there is exactly one writer per task
-        assertUpdate(withUnlimitedTargetTaskInputSize(session), executeSql);
-        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(1);
-
-        assertUpdate(withDisabledPreferredWritePartitioning(session), executeSql);
-        int expectedNumberOfFiles = computeActual(selectFileInfo).getRowCount();
-        assertThat(expectedNumberOfFiles)
-                .withFailMessage("optimize is expected to generate more than a single file per partition")
-                .isGreaterThan(1);
-
-        assertUpdate(withEnabledPreferredWritePartitioning(session), executeSql);
-        int actualNumberOfFiles = computeActual(selectFileInfo).getRowCount();
-        assertThat(actualNumberOfFiles).isEqualTo(expectedNumberOfFiles);
-
-        // verify no data is lost in process
-        assertQuery("SELECT count(*) FROM test_execute_skew_mitigation", "SELECT 1000000");
-
-        assertUpdate("DROP TABLE test_execute_skew_mitigation");
-    }
-
     private static Session withSingleWriterPerTask(Session session)
     {
         return Session.builder(session)

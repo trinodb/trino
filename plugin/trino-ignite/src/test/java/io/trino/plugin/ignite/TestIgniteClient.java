@@ -27,15 +27,11 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
-import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
@@ -43,14 +39,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -172,9 +166,8 @@ public class TestIgniteClient
         // c_varchar IS NULL
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
-                                new IsNullPredicate(
-                                        new SymbolReference("c_varchar_symbol")),
-                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                                new IsNull(
+                                        new Reference(VARCHAR, "c_varchar_symbol"))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NULL");
@@ -187,9 +180,7 @@ public class TestIgniteClient
         // c_varchar IS NOT NULL
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
-                                new IsNotNullPredicate(
-                                        new SymbolReference("c_varchar_symbol")),
-                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                                new Not(new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NOT NULL");
@@ -202,25 +193,17 @@ public class TestIgniteClient
         // NOT(expression)
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
-                                new NotExpression(
-                                        new IsNotNullPredicate(
-                                                new SymbolReference("c_varchar_symbol"))),
-                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                                new Not(
+                                        new Not(new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("NOT ((`c_varchar`) IS NOT NULL)");
         assertThat(converted.parameters()).isEmpty();
     }
 
-    private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
+    private ConnectorExpression translateToConnectorExpression(Expression expression)
     {
-        return ConnectorExpressionTranslator.translate(
-                        TEST_SESSION,
-                        expression,
-                        TypeProvider.viewOf(symbolTypes.entrySet().stream()
-                                .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))),
-                        PLANNER_CONTEXT,
-                        createTestingTypeAnalyzer(PLANNER_CONTEXT))
+        return ConnectorExpressionTranslator.translate(TEST_SESSION, expression)
                 .orElseThrow();
     }
 

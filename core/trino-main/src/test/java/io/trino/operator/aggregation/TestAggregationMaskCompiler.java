@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ShortArrayBlock;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -125,22 +127,28 @@ public class TestAggregationMaskCompiler
         AggregationMaskBuilder maskBuilder = maskBuilderSupplier.get();
 
         for (int positionCount = 7; positionCount < 10; positionCount++) {
+            assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockRle(positionCount, (byte) 1))), positionCount);
+
             byte[] mask = new byte[positionCount];
             Arrays.fill(mask, (byte) 1);
 
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlock(positionCount, mask))), positionCount);
+            assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockAsDictionary(positionCount, mask))), positionCount);
 
             Arrays.fill(mask, (byte) 0);
             mask[1] = 1;
             mask[3] = 1;
             mask[5] = 1;
             assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlock(positionCount, mask))), positionCount, 1, 3, 5);
+            assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockAsDictionary(positionCount, mask))), positionCount, 1, 3, 5);
 
             mask[3] = 0;
             assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlock(positionCount, mask))), positionCount, 1, 5);
+            assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockAsDictionary(positionCount, mask))), positionCount, 1, 5);
 
             mask[2] = 1;
             assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlock(positionCount, mask))), positionCount, 1, 2, 5);
+            assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockAsDictionary(positionCount, mask))), positionCount, 1, 2, 5);
 
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockRle(positionCount, (byte) 1))), positionCount);
             assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockRle(positionCount, (byte) 0))), positionCount);
@@ -163,6 +171,7 @@ public class TestAggregationMaskCompiler
             Arrays.fill(mask, (byte) 1);
 
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlock(positionCount, mask))), positionCount);
+            assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockAsDictionary(positionCount, mask))), positionCount);
 
             boolean[] nullFlags = new boolean[positionCount];
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockNulls(nullFlags))), positionCount);
@@ -193,6 +202,19 @@ public class TestAggregationMaskCompiler
     private static Block createMaskBlockRle(int positionCount, byte mask)
     {
         return RunLengthEncodedBlock.create(createMaskBlock(1, new byte[] {mask}), positionCount);
+    }
+
+    private static Block createMaskBlockAsDictionary(int positionCount, byte[] mask)
+    {
+        // spread the mask out and then create a dictionary block choosing only the original mask values
+        // this ensures that the compiler properly handles unwraps the dictionary block
+        byte[] newMask = new byte[positionCount * 2];
+        for (int i = positionCount - 1; i >= 0; i--) {
+            newMask[i * 2] = mask[i];
+            newMask[(i * 2) + 1] = (byte) (mask[i] == 0 ? 1 : 0);
+        }
+        Block block = DictionaryBlock.create(positionCount * 2, new ByteArrayBlock(positionCount * 2, Optional.empty(), newMask), IntStream.range(0, positionCount * 2).toArray());
+        return block.getPositions(IntStream.range(0, positionCount).map(i -> i * 2).toArray(), 0, positionCount);
     }
 
     private static Block createMaskBlockNulls(boolean[] nulls)

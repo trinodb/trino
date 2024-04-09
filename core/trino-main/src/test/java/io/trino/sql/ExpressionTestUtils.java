@@ -13,42 +13,12 @@
  */
 package io.trino.sql;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.ResolvedFunction;
-import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.ExpressionAnalyzer;
-import io.trino.sql.analyzer.Scope;
-import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.assertions.ExpressionVerifier;
 import io.trino.sql.planner.assertions.SymbolAliases;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.NodeRef;
-import io.trino.transaction.TestingTransactionManager;
-import io.trino.transaction.TransactionManager;
-
-import java.util.Map;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
-import static io.trino.testing.TransactionBuilder.transaction;
 
 public final class ExpressionTestUtils
 {
-    private static final SqlParser SQL_PARSER = new SqlParser();
-
     private ExpressionTestUtils() {}
 
     public static void assertExpressionEquals(Expression actual, Expression expected)
@@ -71,110 +41,5 @@ public final class ExpressionTestUtils
             formatted = message + " ";
         }
         throw new AssertionError(formatted + " expected [" + expected + "] but found [" + actual + "]");
-    }
-
-    public static Expression createExpression(Session session, String expression, TransactionManager transactionManager, PlannerContext plannerContext, TypeProvider symbolTypes)
-    {
-        Expression parsedExpression = SQL_PARSER.createExpression(expression);
-        return planExpression(transactionManager, plannerContext, session, symbolTypes, parsedExpression);
-    }
-
-    public static Expression createExpression(String expression, TransactionManager transactionManager, PlannerContext plannerContext, TypeProvider symbolTypes)
-    {
-        return createExpression(TEST_SESSION, expression, transactionManager, plannerContext, symbolTypes);
-    }
-
-    public static Expression planExpression(TransactionManager transactionManager, PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression)
-    {
-        if (session.getTransactionId().isPresent()) {
-            return planExpressionInExistingTx(plannerContext, typeProvider, expression, session);
-        }
-        return transaction(transactionManager, plannerContext.getMetadata(), new AllowAllAccessControl())
-                .singleStatement()
-                .execute(session, transactionSession -> {
-                    return planExpressionInExistingTx(plannerContext, typeProvider, expression, transactionSession);
-                });
-    }
-
-    private static Expression planExpressionInExistingTx(PlannerContext plannerContext, TypeProvider typeProvider, Expression expression, Session transactionSession)
-    {
-        return resolveFunctionCalls(plannerContext, transactionSession, typeProvider, rewriteIdentifiersToSymbolReferences(expression));
-    }
-
-    public static Expression resolveFunctionCalls(PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression)
-    {
-        return resolveFunctionCalls(plannerContext, session, typeProvider, expression, Scope.builder().build());
-    }
-
-    public static Expression resolveFunctionCalls(PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression, Scope scope)
-    {
-        ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                plannerContext,
-                new AllowAllAccessControl(),
-                session,
-                typeProvider,
-                ImmutableMap.of(),
-                node -> semanticException(EXPRESSION_NOT_CONSTANT, node, "Constant expression cannot contain a subquery"),
-                WarningCollector.NOOP,
-                false);
-        analyzer.analyze(expression, scope);
-
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
-        {
-            @Override
-            public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                ResolvedFunction resolvedFunction = analyzer.getResolvedFunctions().get(NodeRef.of(node));
-                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
-
-                FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-                FunctionCall newFunctionCall = new FunctionCall(
-                        rewritten.getLocation(),
-                        resolvedFunction.toQualifiedName(),
-                        rewritten.getWindow(),
-                        rewritten.getFilter(),
-                        rewritten.getOrderBy(),
-                        rewritten.isDistinct(),
-                        rewritten.getNullTreatment(),
-                        rewritten.getProcessingMode(),
-                        rewritten.getArguments());
-                return coerceIfNecessary(node, newFunctionCall);
-            }
-
-            @Override
-            protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
-                rewrittenExpression = coerceIfNecessary(node, rewrittenExpression);
-
-                return rewrittenExpression;
-            }
-
-            private Expression coerceIfNecessary(Expression originalExpression, Expression rewrittenExpression)
-            {
-                // cast expression if coercion is registered
-                Type coercion = analyzer.getExpressionCoercions().get(NodeRef.of(originalExpression));
-                if (coercion != null) {
-                    rewrittenExpression = new Cast(
-                            rewrittenExpression,
-                            toSqlType(coercion),
-                            false,
-                            analyzer.getTypeOnlyCoercions().contains(NodeRef.of(originalExpression)));
-                }
-                return rewrittenExpression;
-            }
-        }, expression);
-    }
-
-    public static Map<NodeRef<Expression>, Type> getTypes(Session session, PlannerContext plannerContext, TypeProvider typeProvider, Expression expression)
-    {
-        if (session.getTransactionId().isPresent()) {
-            return createTestingTypeAnalyzer(plannerContext).getTypes(session, typeProvider, expression);
-        }
-        return transaction(new TestingTransactionManager(), plannerContext.getMetadata(), new AllowAllAccessControl())
-                .singleStatement()
-                .execute(session, transactionSession -> {
-                    return createTestingTypeAnalyzer(plannerContext).getTypes(transactionSession, typeProvider, expression);
-                });
     }
 }

@@ -13,8 +13,8 @@
  */
 package io.trino.metadata;
 
-import io.trino.connector.ConnectorName;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.ConnectorName;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

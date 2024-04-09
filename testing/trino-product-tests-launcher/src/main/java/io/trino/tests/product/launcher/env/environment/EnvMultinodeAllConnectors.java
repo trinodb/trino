@@ -69,6 +69,7 @@ public final class EnvMultinodeAllConnectors
                         "singlestore",
                         "mongodb",
                         "mysql",
+                        "opensearch",
                         "oracle",
                         "phoenix5",
                         "pinot",
@@ -77,6 +78,7 @@ public final class EnvMultinodeAllConnectors
                         "raptor_legacy",
                         "redis",
                         "redshift",
+                        "snowflake",
                         "sqlserver",
                         "trino_thrift",
                         "tpcds")

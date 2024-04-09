@@ -13,13 +13,15 @@
  */
 package io.trino.hive.formats.line.simple;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
-import java.util.List;
+import java.util.Set;
+
+import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 
 public final class SimpleConstants
 {
-    public static final List<String> HIVE_SERDE_CLASS_NAMES = ImmutableList.of("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe");
+    public static final Set<String> HIVE_SERDE_CLASS_NAMES = ImmutableSet.of(LAZY_SIMPLE_SERDE_CLASS);
 
     private SimpleConstants() {}
 }

@@ -29,6 +29,7 @@ documentation](/connector).
 (built-in-table-functions)=
 ## Built-in table functions
 
+(exclude-columns-table-function)=
 :::{function} exclude_columns(input => table, columns => descriptor) -> table
 Excludes from `table` all columns listed in `descriptor`:
 

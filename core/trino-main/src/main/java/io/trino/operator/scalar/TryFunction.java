@@ -34,7 +34,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 @ScalarFunction(value = NAME, hidden = true, deterministic = false)
 public final class TryFunction
 {
-    public static final String NAME = "$internal$try";
+    public static final String NAME = "$try";
 
     private TryFunction() {}
 

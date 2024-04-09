@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.s3;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.net.HostAndPort;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -25,14 +24,15 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
+import java.net.URI;
 import java.util.Locale;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
-import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
@@ -46,7 +46,7 @@ public final class S3HiveQueryRunner
 
     private S3HiveQueryRunner() {}
 
-    public static DistributedQueryRunner create(
+    public static QueryRunner create(
             HiveMinioDataLake hiveMinioDataLake,
             Map<String, String> additionalHiveProperties)
             throws Exception
@@ -75,7 +75,7 @@ public final class S3HiveQueryRunner
     public static class Builder
             extends HiveQueryRunner.Builder<Builder>
     {
-        private HostAndPort hiveMetastoreEndpoint;
+        private URI hiveMetastoreEndpoint;
         private Duration thriftMetastoreTimeout = TestingTokenAwareMetastoreClientFactory.TIMEOUT;
         private ThriftMetastoreConfig thriftMetastoreConfig = new ThriftMetastoreConfig();
         private String s3Region;
@@ -85,7 +85,7 @@ public final class S3HiveQueryRunner
         private String bucketName;
 
         @CanIgnoreReturnValue
-        public Builder setHiveMetastoreEndpoint(HostAndPort hiveMetastoreEndpoint)
+        public Builder setHiveMetastoreEndpoint(URI hiveMetastoreEndpoint)
         {
             this.hiveMetastoreEndpoint = requireNonNull(hiveMetastoreEndpoint, "hiveMetastoreEndpoint is null");
             return this;
@@ -176,9 +176,9 @@ public final class S3HiveQueryRunner
         HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake("tpch");
         hiveMinioDataLake.start();
 
-        DistributedQueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
+        QueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
-                .setHiveProperties(ImmutableMap.of("hive.security", ALLOW_ALL))
+                .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
                 .setSkipTimezoneSetup(true)
                 .setInitialTables(TpchTable.getTables())
                 .build();

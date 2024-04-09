@@ -21,15 +21,10 @@ import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TableStatsProvider;
 import io.trino.cost.TaskCountEstimator;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
-import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SystemPartitioningHandle;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -59,6 +54,7 @@ import static io.trino.SystemSessionProperties.getMinInputSizePerTask;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isDeterminePartitionCountForWriteEnabled;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -104,43 +100,31 @@ public class DeterminePartitionCount
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(tableStatsProvider, "tableStatsProvider is null");
-        requireNonNull(taskCountEstimator, "taskCountEstimator is null");
 
         // Skip partition count determination if no partitioned remote exchanges exist in the plan anyway
-        if (!isEligibleRemoteExchangePresent(plan)) {
+        boolean taskRetries = getRetryPolicy(context.session()).equals(RetryPolicy.TASK);
+        if (!isEligibleRemoteExchangePresent(plan, taskRetries)) {
             return plan;
         }
 
         // Unless enabled, skip for write nodes since writing partitioned data with small amount of nodes could cause
         // memory related issues even when the amount of data is small.
         boolean isWriteQuery = PlanNodeSearcher.searchFrom(plan).whereIsInstanceOfAny(INSERT_NODES).matches();
-        if (isWriteQuery && !isDeterminePartitionCountForWriteEnabled(session)) {
+        if (isWriteQuery && !isDeterminePartitionCountForWriteEnabled(context.session())) {
             return plan;
         }
 
-        return determinePartitionCount(plan, session, types, tableStatsProvider, isWriteQuery)
-                .map(partitionCount -> rewriteWith(new Rewriter(partitionCount), plan))
+        return determinePartitionCount(plan, context.session(), context.tableStatsProvider(), isWriteQuery)
+                .map(partitionCount -> rewriteWith(new Rewriter(partitionCount, taskRetries), plan))
                 .orElse(plan);
     }
 
     private Optional<Integer> determinePartitionCount(
             PlanNode plan,
             Session session,
-            TypeProvider types,
             TableStatsProvider tableStatsProvider,
             boolean isWriteQuery)
     {
@@ -178,14 +162,13 @@ public class DeterminePartitionCount
         verify(minPartitionCount <= maxPartitionCount, "minPartitionCount %s larger than maxPartitionCount %s",
                 minPartitionCount, maxPartitionCount);
 
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, tableStatsProvider);
         long queryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
 
         // Calculate partition count based on nodes output data size and rows
         Optional<Integer> partitionCountBasedOnOutputSize = getPartitionCountBasedOnOutputSize(
                 plan,
                 statsProvider,
-                types,
                 minInputSizePerTask,
                 queryMaxMemoryPerNode);
         Optional<Integer> partitionCountBasedOnRows = getPartitionCountBasedOnRows(plan, statsProvider, minInputRowsPerTask);
@@ -217,16 +200,15 @@ public class DeterminePartitionCount
     private static Optional<Integer> getPartitionCountBasedOnOutputSize(
             PlanNode plan,
             StatsProvider statsProvider,
-            TypeProvider types,
             long minInputSizePerTask,
             long queryMaxMemoryPerNode)
     {
         double sourceTablesOutputSize = getSourceNodesOutputStats(
                 plan,
-                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
         double expandingNodesMaxOutputSize = getExpandingNodesMaxOutputStats(
                 plan,
-                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
         if (isNaN(sourceTablesOutputSize) || isNaN(expandingNodesMaxOutputSize)) {
             return Optional.empty();
         }
@@ -317,32 +299,37 @@ public class DeterminePartitionCount
                 .sum();
     }
 
-    private static boolean isEligibleRemoteExchangePresent(PlanNode root)
+    private static boolean isEligibleRemoteExchangePresent(PlanNode root, boolean taskRetries)
     {
         return PlanNodeSearcher.searchFrom(root)
-                .where(node -> node instanceof ExchangeNode exchangeNode && isEligibleRemoteExchange(exchangeNode))
+                .where(node -> node instanceof ExchangeNode exchangeNode && isEligibleRemoteExchange(exchangeNode, taskRetries))
                 .matches();
     }
 
-    private static boolean isEligibleRemoteExchange(ExchangeNode exchangeNode)
+    private static boolean isEligibleRemoteExchange(ExchangeNode exchangeNode, boolean taskRetries)
     {
         if (exchangeNode.getScope() != REMOTE || exchangeNode.getType() != REPARTITION) {
             return false;
         }
+
         PartitioningHandle partitioningHandle = exchangeNode.getPartitioningScheme().getPartitioning().getHandle();
+
         return !partitioningHandle.isScaleWriters()
                 && !partitioningHandle.isSingleNode()
-                && partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle;
+                && partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle
+                && (!taskRetries || partitioningHandle == FIXED_HASH_DISTRIBUTION); // for FTE it only makes sense to set partition count fot hash partitioned fragments
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
         private final int partitionCount;
+        private final boolean taskRetries;
 
-        private Rewriter(int partitionCount)
+        private Rewriter(int partitionCount, boolean taskRetries)
         {
             this.partitionCount = partitionCount;
+            this.taskRetries = taskRetries;
         }
 
         @Override
@@ -353,7 +340,7 @@ public class DeterminePartitionCount
                     .collect(toImmutableList());
 
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
-            if (isEligibleRemoteExchange(node)) {
+            if (isEligibleRemoteExchange(node, taskRetries)) {
                 partitioningScheme = partitioningScheme.withPartitionCount(Optional.of(partitionCount));
             }
 

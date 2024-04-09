@@ -14,23 +14,45 @@
 package io.trino.sql.planner.optimizations;
 
 import io.trino.Session;
+import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.TableStatsProvider;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
+
+import static java.util.Objects.requireNonNull;
 
 public interface PlanOptimizer
 {
-    PlanNode optimize(
-            PlanNode plan,
+    PlanNode optimize(PlanNode plan, Context context);
+
+    record Context(
             Session session,
-            TypeProvider types,
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider);
+            TableStatsProvider tableStatsProvider,
+            RuntimeInfoProvider runtimeInfoProvider)
+    {
+        public Context(
+                Session session,
+                SymbolAllocator symbolAllocator,
+                PlanNodeIdAllocator idAllocator,
+                WarningCollector warningCollector,
+                PlanOptimizersStatsCollector planOptimizersStatsCollector,
+                TableStatsProvider tableStatsProvider,
+                RuntimeInfoProvider runtimeInfoProvider)
+        {
+            this.session = requireNonNull(session, "session is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.tableStatsProvider = requireNonNull(tableStatsProvider, "tableStatsProvider is null");
+            this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
+            this.runtimeInfoProvider = requireNonNull(runtimeInfoProvider, "runtimeInfoProvider is null");
+        }
+    }
 }

@@ -44,7 +44,8 @@ public class TestJmxStats
                 ImmutableMap.of(
                         "connection-url", "jdbc:driver:",
                         "bootstrap.quiet", "true"),
-                new TestingConnectorContext());
+                new TestingConnectorContext())
+                .shutdown();
         MBeanServer mbeanServer = getPlatformMBeanServer();
         Set<ObjectName> objectNames = mbeanServer.queryNames(new ObjectName("io.trino.plugin.jdbc:*"), null);
 

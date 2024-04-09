@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.buffer.CompressionCodec;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
@@ -107,7 +108,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
-    public static final String EXCHANGE_COMPRESSION = "exchange_compression";
+    public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
@@ -195,6 +196,7 @@ public final class SystemSessionProperties
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER = "fault_tolerant_execution_small_stage_source_size_multiplier";
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS = "fault_tolerant_execution_small_stage_require_no_more_partitions";
     private static final String FAULT_TOLERANT_EXECUTION_STAGE_ESTIMATION_FOR_EAGER_PARENT_ENABLED = "fault_tolerant_execution_stage_estimation_for_eager_parent_enabled";
+    public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_QUERY_PLANNING_ENABLED = "fault_tolerant_execution_adaptive_query_planning_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
@@ -505,10 +507,11 @@ public final class SystemSessionProperties
                         "Enable a stats-based rule adding exchanges below GroupId",
                         optimizerConfig.isEnableForcedExchangeBelowGroupId(),
                         true),
-                booleanProperty(
-                        EXCHANGE_COMPRESSION,
-                        "Enable compression in exchanges",
-                        featuresConfig.isExchangeCompressionEnabled(),
+                enumProperty(
+                        EXCHANGE_COMPRESSION_CODEC,
+                        "Compression codec used for data in exchanges, supports NONE, LZ4, ZSTD",
+                        CompressionCodec.class,
+                        featuresConfig.getExchangeCompressionCodec(),
                         false),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
@@ -715,6 +718,7 @@ public final class SystemSessionProperties
                         COST_ESTIMATION_WORKER_COUNT,
                         "Set the estimate count of workers while planning",
                         null,
+                        value -> validateIntegerValue(value, COST_ESTIMATION_WORKER_COUNT, 1, true),
                         true),
                 booleanProperty(
                         OMIT_DATETIME_TYPE_PRECISION,
@@ -996,6 +1000,11 @@ public final class SystemSessionProperties
                         "Enable aggressive stage output size estimation heuristic for children of stages to be executed eagerly",
                         queryManagerConfig.isFaultTolerantExecutionStageEstimationForEagerParentEnabled(),
                         true),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_ADAPTIVE_QUERY_PLANNING_ENABLED,
+                        "Enable adaptive query planning for the fault tolerant execution",
+                        queryManagerConfig.isFaultTolerantExecutionAdaptiveQueryPlanningEnabled(),
+                        false),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
@@ -1327,9 +1336,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID, Boolean.class);
     }
 
-    public static boolean isExchangeCompressionEnabled(Session session)
+    public static CompressionCodec getExchangeCompressionCodec(Session session)
     {
-        return session.getSystemProperty(EXCHANGE_COMPRESSION, Boolean.class);
+        return session.getSystemProperty(EXCHANGE_COMPRESSION_CODEC, CompressionCodec.class);
     }
 
     public static boolean isEnableIntermediateAggregations(Session session)
@@ -1841,6 +1850,11 @@ public final class SystemSessionProperties
     public static boolean isFaultTolerantExecutionStageEstimationForEagerParentEnabled(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_STAGE_ESTIMATION_FOR_EAGER_PARENT_ENABLED, Boolean.class);
+    }
+
+    public static boolean isFaultTolerantExecutionAdaptiveQueryPlanningEnabled(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ADAPTIVE_QUERY_PLANNING_ENABLED, Boolean.class);
     }
 
     public static boolean isAdaptivePartialAggregationEnabled(Session session)

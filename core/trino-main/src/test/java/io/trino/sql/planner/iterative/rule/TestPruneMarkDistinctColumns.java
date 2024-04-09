@@ -15,11 +15,14 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -43,7 +46,7 @@ public class TestPruneMarkDistinctColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("key2", expression("key")),
+                                ImmutableMap.of("key2", expression(new Reference(BIGINT, "key"))),
                                 values(ImmutableList.of("key", "unused"))));
     }
 
@@ -66,12 +69,12 @@ public class TestPruneMarkDistinctColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("mark", expression("mark")),
+                                ImmutableMap.of("mark", expression(new Reference(BOOLEAN, "mark"))),
                                 markDistinct("mark", ImmutableList.of("key"), "hash",
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "key", expression("key"),
-                                                        "hash", expression("hash")),
+                                                        "key", expression(new Reference(BIGINT, "key")),
+                                                        "hash", expression(new Reference(BIGINT, "hash"))),
                                                 values(ImmutableList.of("key", "hash", "unused"))))));
     }
 

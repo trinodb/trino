@@ -15,18 +15,12 @@ package io.trino.sql.planner.optimizations;
 
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.BeginTableExecuteResult;
-import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -52,6 +46,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static java.util.Objects.requireNonNull;
@@ -77,23 +72,15 @@ public class BeginTableWrite
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         try {
-            return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan, Optional.empty());
+            return SimplePlanRewriter.rewriteWith(new Rewriter(context.session()), plan, Optional.empty());
         }
         catch (RuntimeException e) {
             try {
                 int nestLevel = 4; // so that it renders reasonably within exception stacktrace
-                String explain = textLogicalPlan(plan, types, metadata, functionManager, StatsAndCosts.empty(), session, nestLevel, false);
+                String explain = textLogicalPlan(plan, metadata, functionManager, StatsAndCosts.empty(), context.session(), nestLevel, false);
                 e.addSuppressed(new Exception("Current plan:\n" + explain));
             }
             catch (RuntimeException ignore) {
@@ -185,7 +172,7 @@ public class BeginTableWrite
             PlanNode child = node.getSource();
 
             WriterTarget originalTarget = getWriterTarget(child);
-            WriterTarget newTarget = createWriterTarget(originalTarget);
+            WriterTarget newTarget = createWriterTarget(originalTarget, child);
 
             child = context.rewrite(child, Optional.of(newTarget));
 
@@ -236,7 +223,7 @@ public class BeginTableWrite
             throw new IllegalArgumentException("Invalid child for TableCommitNode: " + node.getClass().getSimpleName());
         }
 
-        private WriterTarget createWriterTarget(WriterTarget target)
+        private WriterTarget createWriterTarget(WriterTarget target, PlanNode planNode)
         {
             // TODO: begin these operations in pre-execution step, not here
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
@@ -255,7 +242,8 @@ public class BeginTableWrite
                         metadata.getTableName(session, insert.getHandle()).getSchemaTableName(),
                         target.supportsMultipleWritersPerPartition(metadata, session),
                         target.getMaxWriterTasks(metadata, session),
-                        target.getWriterScalingOptions(metadata, session));
+                        target.getWriterScalingOptions(metadata, session),
+                        findSourceTableHandles(planNode));
             }
             if (target instanceof MergeTarget merge) {
                 MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
@@ -271,6 +259,7 @@ public class BeginTableWrite
                         metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles()),
                         metadata.getTableName(session, refreshMV.getStorageTableHandle()).getSchemaTableName(),
                         refreshMV.getSourceTableHandles(),
+                        refreshMV.getSourceTableFunctions(),
                         refreshMV.getWriterScalingOptions(metadata, session));
             }
             if (target instanceof TableExecuteTarget tableExecute) {
@@ -278,6 +267,17 @@ public class BeginTableWrite
                 return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName(), tableExecute.getWriterScalingOptions());
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
+        }
+
+        private static List<TableHandle> findSourceTableHandles(PlanNode startNode)
+        {
+            return PlanNodeSearcher.searchFrom(startNode)
+                    .where(node -> node instanceof TableScanNode tableScanNode && !tableScanNode.isUpdateTarget())
+                    .findAll()
+                    .stream()
+                    .map(TableScanNode.class::cast)
+                    .map(TableScanNode::getTable)
+                    .collect(toImmutableList());
         }
 
         private Optional<TableHandle> findTableScanHandleForTableExecute(PlanNode startNode)

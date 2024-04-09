@@ -19,7 +19,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -65,8 +64,8 @@ public class TestExpressions
         assertThat(assertions.query("SELECT IF(3 IN (2, 4, 3, 5 / 0), 1e0, x + x) FROM (VALUES rand()) t(x)")).matches("VALUES 1e0");
 
         // the in-predicate is inlined into Values and evaluated by the ExpressionInterpreter: eager evaluation, failure.
-        assertThatThrownBy(() -> assertions.query("SELECT 3 IN (2, 4, 3, 5 / 0)"))
-                .hasMessage("Division by zero");
+        assertThat(assertions.query("SELECT 3 IN (2, 4, 3, 5 / 0)"))
+                .failure().hasMessage("Division by zero");
     }
 
     @Test

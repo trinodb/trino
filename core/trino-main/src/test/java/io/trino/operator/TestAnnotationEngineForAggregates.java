@@ -79,7 +79,6 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.operator.AnnotationEngineAssertions.assertDependencyCount;
 import static io.trino.operator.AnnotationEngineAssertions.assertImplementationCount;
@@ -104,7 +103,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestAnnotationEngineForAggregates
 {
-    private static final MetadataManager METADATA = createTestMetadataManager();
     private static final FunctionManager FUNCTION_MANAGER = createTestingFunctionManager();
     private static final FunctionDependencies NO_FUNCTION_DEPENDENCIES = new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of());
 

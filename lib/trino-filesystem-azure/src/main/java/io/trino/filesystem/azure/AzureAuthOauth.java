@@ -27,13 +27,21 @@ public class AzureAuthOauth
     @Inject
     public AzureAuthOauth(AzureAuthOAuthConfig config)
     {
+<<<<<<< HEAD
         this(config.getClientEndpoint(), config.getClientId(), config.getClientSecret(), config.getTenantId());
     }
 
     public AzureAuthOauth(String clientEndpoint, String clientId, String clientSecret, String tenantId)
+=======
+        this(config.getClientEndpoint(), config.getTenantId(), config.getClientId(), config.getClientSecret());
+    }
+
+    public AzureAuthOauth(String clientEndpoint, String tenantId, String clientId, String clientSecret)
+>>>>>>> 444
     {
         credential = new ClientSecretCredentialBuilder()
                 .authorityHost(clientEndpoint)
+                .tenantId(tenantId)
                 .clientId(clientId)
                 .clientSecret(clientSecret)
                 .tenantId(tenantId)

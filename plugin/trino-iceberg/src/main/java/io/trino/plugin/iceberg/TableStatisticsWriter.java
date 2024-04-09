@@ -98,12 +98,8 @@ public class TableStatisticsWriter
             StatsUpdateMode updateMode,
             CollectedStatistics collectedStatistics)
     {
-        Snapshot snapshot = table.snapshot(snapshotId);
         TableOperations operations = ((HasTableOperations) table).operations();
         FileIO fileIO = operations.io();
-        long snapshotSequenceNumber = snapshot.sequenceNumber();
-        Schema schema = table.schemas().get(snapshot.schemaId());
-
         collectedStatistics = mergeStatisticsIfNecessary(
                 table,
                 snapshotId,
@@ -112,6 +108,23 @@ public class TableStatisticsWriter
                 collectedStatistics);
         Map<Integer, CompactSketch> ndvSketches = collectedStatistics.ndvSketches();
 
+        return writeStatisticsFile(session, table, fileIO, snapshotId, ndvSketches);
+    }
+
+    public StatisticsFile rewriteStatisticsFile(ConnectorSession session, Table table, long snapshotId)
+    {
+        TableOperations operations = ((HasTableOperations) table).operations();
+        FileIO fileIO = operations.io();
+        // This will rewrite old statistics file as ndvSketches map is empty
+        return writeStatisticsFile(session, table, fileIO, snapshotId, Map.of());
+    }
+
+    private GenericStatisticsFile writeStatisticsFile(ConnectorSession session, Table table, FileIO fileIO, long snapshotId, Map<Integer, CompactSketch> ndvSketches)
+    {
+        Snapshot snapshot = table.snapshot(snapshotId);
+        long snapshotSequenceNumber = snapshot.sequenceNumber();
+        TableOperations operations = ((HasTableOperations) table).operations();
+        Schema schema = table.schemas().get(snapshot.schemaId());
         Set<Integer> validFieldIds = stream(
                 Traverser.forTree((Types.NestedField nestedField) -> {
                     Type type = nestedField.type();

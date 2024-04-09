@@ -411,7 +411,7 @@ public class TestEvictableLoadingCache
 
     /**
      * Test that the loader is invoked only once for concurrent invocations of {{@link LoadingCache#get(Object, Callable)} with equal keys.
-     * This is a behavior of Guava Cache as well. While this is necessarily desirable behavior (see
+     * This is a behavior of Guava Cache as well. While this is not necessarily desirable behavior (see
      * <a href="https://github.com/trinodb/trino/issues/11067">https://github.com/trinodb/trino/issues/11067</a>),
      * the test exists primarily to document current state and support discussion, should the current state change.
      */

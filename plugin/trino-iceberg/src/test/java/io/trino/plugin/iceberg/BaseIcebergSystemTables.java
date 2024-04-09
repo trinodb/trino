@@ -15,15 +15,17 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -46,7 +48,7 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return IcebergQueryRunner.builder()
@@ -100,6 +102,7 @@ public abstract class BaseIcebergSystemTables
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_drop_column");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_nan");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_with_dml");
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_metadata_log_entries");
         assertUpdate("DROP SCHEMA IF EXISTS test_schema");
     }
 
@@ -195,6 +198,77 @@ public abstract class BaseIcebergSystemTables
 
         // Test the number of history entries
         assertQuery("SELECT count(*) FROM test_schema.\"test_table$history\"", "VALUES 3");
+    }
+
+    @Test
+    public void testMetadataLogEntriesTable()
+    {
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$metadata_log_entries\"",
+                "VALUES ('timestamp', 'timestamp(3) with time zone', '', '')," +
+                        "('file', 'varchar', '', '')," +
+                        "('latest_snapshot_id', 'bigint', '', '')," +
+                        "('latest_schema_id', 'integer', '', '')," +
+                        "('latest_sequence_number', 'bigint', '', '')");
+
+        List<Integer> latestSchemaIds = new ArrayList<>();
+        List<Long> latestSequenceNumbers = new ArrayList<>();
+
+        assertUpdate("CREATE TABLE test_schema.test_metadata_log_entries (c1 BIGINT)");
+        latestSchemaIds.add(0);
+        latestSequenceNumbers.add(1L);
+        assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
+
+        assertUpdate("INSERT INTO test_schema.test_metadata_log_entries VALUES (1)", 1);
+        // INSERT create two commits (https://github.com/trinodb/trino/issues/15439) and share a same snapshotId
+        latestSchemaIds.add(0);
+        latestSchemaIds.add(0);
+        latestSequenceNumbers.add(2L);
+        latestSequenceNumbers.add(2L);
+        assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
+
+        assertUpdate("ALTER TABLE test_schema.test_metadata_log_entries ADD COLUMN c2 VARCHAR");
+        latestSchemaIds.add(0);
+        latestSequenceNumbers.add(2L);
+        assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
+
+        assertUpdate("DELETE FROM test_schema.test_metadata_log_entries WHERE c1 = 1", 1);
+        latestSchemaIds.add(1);
+        latestSequenceNumbers.add(3L);
+        assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
+
+        // OPTIMIZE create two commits: update snapshot and rewrite statistics
+        assertUpdate("ALTER TABLE test_schema.test_metadata_log_entries execute optimize");
+        latestSchemaIds.add(1);
+        latestSchemaIds.add(1);
+        latestSequenceNumbers.add(4L);
+        latestSequenceNumbers.add(4L);
+        assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
+
+        assertUpdate("CREATE OR REPLACE TABLE test_schema.test_metadata_log_entries (c3 INTEGER)");
+        latestSchemaIds.add(2);
+        latestSequenceNumbers.add(5L);
+        assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
+
+        assertUpdate("INSERT INTO test_schema.test_metadata_log_entries VALUES (1)", 1);
+        latestSchemaIds.add(2);
+        latestSequenceNumbers.add(6L);
+        latestSchemaIds.add(2);
+        latestSequenceNumbers.add(6L);
+        assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
+
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_metadata_log_entries");
+    }
+
+    private void assertMetadataLogEntries(List<Integer> latestSchemaIds, List<Long> latestSequenceNumbers)
+    {
+        MaterializedResult result = computeActual("SELECT latest_schema_id, latest_sequence_number FROM test_schema.\"test_metadata_log_entries$metadata_log_entries\" ORDER BY timestamp");
+        List<MaterializedRow> materializedRows = result.getMaterializedRows();
+
+        assertThat(result.getRowCount()).isEqualTo(latestSchemaIds.size());
+        for (int i = 0; i < result.getRowCount(); i++) {
+            assertThat(materializedRows.get(i).getField(0)).isEqualTo(latestSchemaIds.get(i));
+            assertThat(materializedRows.get(i).getField(1)).isEqualTo(latestSequenceNumbers.get(i));
+        }
     }
 
     @Test

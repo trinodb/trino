@@ -9,7 +9,7 @@ module.exports = {
         'workers': __dirname +'/workers.jsx',
         'timeline': __dirname +'/timeline.jsx',
     },
-    mode: "development",
+    mode: "production",
     module: {
         rules: [
             {
