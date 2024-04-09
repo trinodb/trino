@@ -72,6 +72,10 @@ public class StaticMetastoreConfig
     @AssertFalse(message = "'hive.metastore.uri' cannot contain both http and https URI schemes")
     public boolean isMetastoreHttpUrisValid()
     {
+        if (metastoreUris == null) {
+            // metastoreUris is required, but that's validated on the getter
+            return true;
+        }
         boolean hasHttpMetastore = metastoreUris.stream().anyMatch(uri -> "http".equalsIgnoreCase(uri.getScheme()));
         boolean hasHttpsMetastore = metastoreUris.stream().anyMatch(uri -> "https".equalsIgnoreCase(uri.getScheme()));
         if (hasHttpsMetastore || hasHttpMetastore) {
@@ -83,6 +87,10 @@ public class StaticMetastoreConfig
     @AssertFalse(message = "'hive.metastore.uri' cannot contain both http(s) and thrift URI schemes")
     public boolean isEitherThriftOrHttpMetastore()
     {
+        if (metastoreUris == null) {
+            // metastoreUris is required, but that's validated on the getter
+            return true;
+        }
         boolean hasHttpMetastore = metastoreUris.stream().anyMatch(uri -> "http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()));
         boolean hasThriftMetastore = metastoreUris.stream().anyMatch(uri -> "thrift".equalsIgnoreCase(uri.getScheme()));
         return hasHttpMetastore && hasThriftMetastore;
