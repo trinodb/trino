@@ -63,7 +63,7 @@ record IcebergStatistics(
         columnSizes = ImmutableMap.copyOf(requireNonNull(columnSizes, "columnSizes is null"));
     }
 
-    public static class Builder
+    static class Builder
     {
         private final List<Types.NestedField> columns;
         private final TypeManager typeManager;
