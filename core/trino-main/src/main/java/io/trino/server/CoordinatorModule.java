@@ -16,6 +16,7 @@ package io.trino.server;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -365,10 +366,10 @@ public class CoordinatorModule
 
         // cleanup
         closingBinder(binder)
-                .registerExecutor(ExecutorService.class, ForStatementResource.class)
-                .registerExecutor(ScheduledExecutorService.class, ForStatementResource.class)
-                .registerExecutor(ExecutorService.class, ForQueryExecution.class)
-                .registerExecutor(ScheduledExecutorService.class, ForScheduler.class);
+                .registerExecutor(Key.get(ExecutorService.class, ForStatementResource.class))
+                .registerExecutor(Key.get(ScheduledExecutorService.class, ForStatementResource.class))
+                .registerExecutor(Key.get(ExecutorService.class, ForQueryExecution.class))
+                .registerExecutor(Key.get(ScheduledExecutorService.class, ForScheduler.class));
     }
 
     // working around circular dependency Metadata <-> PlannerContext
