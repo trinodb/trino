@@ -13,35 +13,15 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.Duration;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class IcebergExpireSnapshotsHandle
-        extends IcebergProcedureHandle
+public record IcebergExpireSnapshotsHandle(Duration retentionThreshold)
+        implements IcebergProcedureHandle
 {
-    private final Duration retentionThreshold;
-
-    @JsonCreator
-    public IcebergExpireSnapshotsHandle(Duration retentionThreshold)
+    public IcebergExpireSnapshotsHandle
     {
-        this.retentionThreshold = requireNonNull(retentionThreshold, "retentionThreshold is null");
-    }
-
-    @JsonProperty
-    public Duration getRetentionThreshold()
-    {
-        return retentionThreshold;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("retentionThreshold", retentionThreshold)
-                .toString();
+        requireNonNull(retentionThreshold, "retentionThreshold is null");
     }
 }
