@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -496,9 +497,9 @@ public class ServerMainModule
 
         // cleanup
         closingBinder(binder)
-                .registerExecutor(ScheduledExecutorService.class, ForExchange.class)
-                .registerExecutor(ExecutorService.class, ForAsyncHttp.class)
-                .registerExecutor(ScheduledExecutorService.class, ForAsyncHttp.class);
+                .registerExecutor(Key.get(ScheduledExecutorService.class, ForExchange.class))
+                .registerExecutor(Key.get(ExecutorService.class, ForAsyncHttp.class))
+                .registerExecutor(Key.get(ScheduledExecutorService.class, ForAsyncHttp.class));
     }
 
     private static class RegisterFunctionBundles
