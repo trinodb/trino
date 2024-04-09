@@ -13,91 +13,30 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.iceberg.FileContent;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class CommitTaskData
+public record CommitTaskData(
+        String path,
+        IcebergFileFormat fileFormat,
+        long fileSizeInBytes,
+        MetricsWrapper metrics,
+        String partitionSpecJson,
+        Optional<String> partitionDataJson,
+        FileContent content,
+        Optional<String> referencedDataFile)
 {
-    private final String path;
-    private final IcebergFileFormat fileFormat;
-    private final long fileSizeInBytes;
-    private final MetricsWrapper metrics;
-    private final String partitionSpecJson;
-    private final Optional<String> partitionDataJson;
-    private final FileContent content;
-    private final Optional<String> referencedDataFile;
-
-    @JsonCreator
-    public CommitTaskData(
-            @JsonProperty("path") String path,
-            @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
-            @JsonProperty("fileSizeInBytes") long fileSizeInBytes,
-            @JsonProperty("metrics") MetricsWrapper metrics,
-            @JsonProperty("partitionSpecJson") String partitionSpecJson,
-            @JsonProperty("partitionDataJson") Optional<String> partitionDataJson,
-            @JsonProperty("content") FileContent content,
-            @JsonProperty("referencedDataFile") Optional<String> referencedDataFile)
+    public CommitTaskData
     {
-        this.path = requireNonNull(path, "path is null");
-        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        this.fileSizeInBytes = fileSizeInBytes;
-        this.metrics = requireNonNull(metrics, "metrics is null");
-        this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
-        this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
-        this.content = requireNonNull(content, "content is null");
-        this.referencedDataFile = requireNonNull(referencedDataFile, "referencedDataFile is null");
-    }
-
-    @JsonProperty
-    public String getPath()
-    {
-        return path;
-    }
-
-    @JsonProperty
-    public IcebergFileFormat getFileFormat()
-    {
-        return fileFormat;
-    }
-
-    @JsonProperty
-    public long getFileSizeInBytes()
-    {
-        return fileSizeInBytes;
-    }
-
-    @JsonProperty
-    public MetricsWrapper getMetrics()
-    {
-        return metrics;
-    }
-
-    @JsonProperty
-    public String getPartitionSpecJson()
-    {
-        return partitionSpecJson;
-    }
-
-    @JsonProperty
-    public Optional<String> getPartitionDataJson()
-    {
-        return partitionDataJson;
-    }
-
-    @JsonProperty
-    public FileContent getContent()
-    {
-        return content;
-    }
-
-    @JsonProperty
-    public Optional<String> getReferencedDataFile()
-    {
-        return referencedDataFile;
+        requireNonNull(path, "path is null");
+        requireNonNull(fileFormat, "fileFormat is null");
+        requireNonNull(metrics, "metrics is null");
+        requireNonNull(partitionSpecJson, "partitionSpecJson is null");
+        requireNonNull(partitionDataJson, "partitionDataJson is null");
+        requireNonNull(content, "content is null");
+        requireNonNull(referencedDataFile, "referencedDataFile is null");
     }
 }
