@@ -77,18 +77,15 @@ public class ClosingBinder
         return this;
     }
 
-    private static class Cleanup
+    private record Cleanup(
+            @ForCleanup Set<ExecutorService> executors,
+            @ForCleanup Set<Closeable> closeables)
     {
-        private final Set<ExecutorService> executors;
-        private final Set<Closeable> closeables;
-
         @Inject
-        public Cleanup(
-                @ForCleanup Set<ExecutorService> executors,
-                @ForCleanup Set<Closeable> closeables)
+        private Cleanup
         {
-            this.executors = ImmutableSet.copyOf(executors);
-            this.closeables = ImmutableSet.copyOf(closeables);
+            executors = ImmutableSet.copyOf(executors);
+            closeables = ImmutableSet.copyOf(closeables);
         }
 
         @PreDestroy
