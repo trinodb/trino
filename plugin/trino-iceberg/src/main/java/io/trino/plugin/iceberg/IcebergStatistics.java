@@ -121,15 +121,15 @@ final class IcebergStatistics
     {
         private final List<Types.NestedField> columns;
         private final TypeManager typeManager;
-        private final Map<Integer, Optional<Long>> nullCounts = new HashMap<>();
-        private final Map<Integer, Optional<Long>> nanCounts = new HashMap<>();
-        private final Map<Integer, ColumnStatistics> columnStatistics = new HashMap<>();
-        private final Map<Integer, Long> columnSizes = new HashMap<>();
         private final Map<Integer, io.trino.spi.type.Type> fieldIdToTrinoType;
 
         private long recordCount;
         private long fileCount;
         private long size;
+        private final Map<Integer, ColumnStatistics> columnStatistics = new HashMap<>();
+        private final Map<Integer, Optional<Long>> nullCounts = new HashMap<>();
+        private final Map<Integer, Optional<Long>> nanCounts = new HashMap<>();
+        private final Map<Integer, Long> columnSizes = new HashMap<>();
 
         public Builder(
                 List<Types.NestedField> columns,
