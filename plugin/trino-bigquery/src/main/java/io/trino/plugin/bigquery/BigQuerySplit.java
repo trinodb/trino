@@ -16,9 +16,11 @@ package io.trino.plugin.bigquery;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -123,9 +125,13 @@ public class BigQuerySplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return this;
+        return ImmutableMap.of(
+                "mode", mode.name(),
+                "filter", filter.orElse(""),
+                "streamName", streamName,
+                "emptyRowsToGenerate", String.valueOf(emptyRowsToGenerate));
     }
 
     @Override

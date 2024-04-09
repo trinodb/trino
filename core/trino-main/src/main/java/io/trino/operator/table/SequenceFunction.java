@@ -194,11 +194,11 @@ public class SequenceFunction
         }
 
         @Override
-        public Object getInfo()
+        public Map<String, String> getSplitInfo()
         {
-            return ImmutableMap.builder()
-                    .put("start", start)
-                    .put("stop", stop)
+            return ImmutableMap.<String, String>builder()
+                    .put("start", String.valueOf(start))
+                    .put("stop", String.valueOf(stop))
                     .buildOrThrow();
         }
 

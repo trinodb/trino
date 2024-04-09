@@ -17,19 +17,20 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.CatalogHandle;
 
+import java.util.Map;
+
 import static java.util.Objects.requireNonNull;
 
 public class SplitOperatorInfo
         implements OperatorInfo
 {
     private final CatalogHandle catalogHandle;
-    // NOTE: this deserializes to a map instead of the expected type
-    private final Object splitInfo;
+    private final Map<String, String> splitInfo;
 
     @JsonCreator
     public SplitOperatorInfo(
             @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
-            @JsonProperty("splitInfo") Object splitInfo)
+            @JsonProperty("splitInfo") Map<String, String> splitInfo)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.splitInfo = splitInfo;
@@ -42,7 +43,7 @@ public class SplitOperatorInfo
     }
 
     @JsonProperty
-    public Object getSplitInfo()
+    public Map<String, String> getSplitInfo()
     {
         return splitInfo;
     }
