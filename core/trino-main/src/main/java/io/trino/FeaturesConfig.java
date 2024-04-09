@@ -71,6 +71,7 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "fast-inequality-joins",
         "histogram.implementation",
         "legacy.allow-set-view-authorization",
+        "legacy.materialized-view-grace-period",
         "multimapagg.implementation",
         "optimizer.iterative-rule-based-column-pruning",
         "optimizer.processing-optimization",
@@ -115,7 +116,6 @@ public class FeaturesConfig
     private boolean legacyCatalogRoles;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
 
-    private boolean legacyMaterializedViewGracePeriod;
     private boolean hideInaccessibleColumns;
     private boolean forceSpillingJoin;
 
@@ -457,21 +457,6 @@ public class FeaturesConfig
     public FeaturesConfig setIncrementalHashArrayLoadFactorEnabled(boolean incrementalHashArrayLoadFactorEnabled)
     {
         this.incrementalHashArrayLoadFactorEnabled = incrementalHashArrayLoadFactorEnabled;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isLegacyMaterializedViewGracePeriod()
-    {
-        return legacyMaterializedViewGracePeriod;
-    }
-
-    @Deprecated
-    @Config("legacy.materialized-view-grace-period")
-    @ConfigDescription("Enable legacy handling of stale materialized views")
-    public FeaturesConfig setLegacyMaterializedViewGracePeriod(boolean legacyMaterializedViewGracePeriod)
-    {
-        this.legacyMaterializedViewGracePeriod = legacyMaterializedViewGracePeriod;
         return this;
     }
 
