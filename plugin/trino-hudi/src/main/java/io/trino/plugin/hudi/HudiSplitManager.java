@@ -31,7 +31,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
-import jakarta.annotation.PreDestroy;
 
 import java.util.List;
 import java.util.Map;
@@ -71,12 +70,6 @@ public class HudiSplitManager
         this.executor = requireNonNull(executor, "executor is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.splitLoaderExecutorService = requireNonNull(splitLoaderExecutorService, "splitLoaderExecutorService is null");
-    }
-
-    @PreDestroy
-    public void destroy()
-    {
-        this.executor.shutdown();
     }
 
     @Override
