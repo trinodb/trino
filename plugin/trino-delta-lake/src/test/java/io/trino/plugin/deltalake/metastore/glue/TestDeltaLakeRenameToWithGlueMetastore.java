@@ -48,7 +48,6 @@ public class TestDeltaLakeRenameToWithGlueMetastore
                 .build();
 
         QueryRunner queryRunner = DeltaLakeQueryRunner.builder(deltaLakeSession)
-                .setCatalogName(CATALOG_NAME)
                 .setDeltaProperties(ImmutableMap.of("hive.metastore", "glue"))
                 .build();
         schemaLocation = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");

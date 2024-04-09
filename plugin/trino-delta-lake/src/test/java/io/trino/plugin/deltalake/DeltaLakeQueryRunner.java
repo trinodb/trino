@@ -74,7 +74,7 @@ public final class DeltaLakeQueryRunner
     public static class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
-        private String catalogName;
+        private String catalogName = DELTA_CATALOG;
         private ImmutableMap.Builder<String, String> deltaProperties = ImmutableMap.builder();
 
         protected Builder()
@@ -281,7 +281,6 @@ public final class DeltaLakeQueryRunner
         {
             // Please set Delta Lake connector properties via VM options. e.g. -Dhive.metastore=glue -D..
             QueryRunner queryRunner = builder()
-                    .setCatalogName(DELTA_CATALOG)
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                     .build();
 

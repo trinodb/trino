@@ -42,7 +42,6 @@ public class TestCloseIdleWriters
         Path metastoreDirectory = Files.createTempDirectory(DELTA_CATALOG);
         metastoreDirectory.toFile().deleteOnExit();
         QueryRunner queryRunner = DeltaLakeQueryRunner.builder()
-                .setCatalogName(DELTA_CATALOG)
                 .setNodeCount(1)
                 // Set the target max file size to 100GB so that we don't close writers due to file size in append
                 // page.
