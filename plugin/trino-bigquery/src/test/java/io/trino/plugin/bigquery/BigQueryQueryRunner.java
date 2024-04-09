@@ -215,7 +215,6 @@ public final class BigQueryQueryRunner
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 TpchTable.getTables());
-        Thread.sleep(10);
         Logger log = Logger.get(BigQueryQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

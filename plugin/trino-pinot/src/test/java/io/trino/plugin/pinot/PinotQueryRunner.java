@@ -89,7 +89,6 @@ public class PinotQueryRunner
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of("pinot.segments-per-split", "10"),
                 Set.of(REGION, NATION, ORDERS, CUSTOMER));
-        Thread.sleep(10);
         Logger log = Logger.get(PinotQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

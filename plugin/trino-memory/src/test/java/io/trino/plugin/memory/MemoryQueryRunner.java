@@ -131,7 +131,6 @@ public final class MemoryQueryRunner
         QueryRunner queryRunner = createMemoryQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 TpchTable.getTables());
-        Thread.sleep(10);
         Logger log = Logger.get(MemoryQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
@@ -161,7 +160,6 @@ public final class MemoryQueryRunner
                     })
                     .setInitialTables(TpchTable.getTables())
                     .build();
-            Thread.sleep(10);
             Logger log = Logger.get(MemoryQueryRunner.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
