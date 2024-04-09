@@ -311,14 +311,6 @@ public final class Decimals
         return result;
     }
 
-    @Deprecated(forRemoval = true)
-    public static void throwIfOverflows(long high, long low)
-    {
-        if (overflows(high, low)) {
-            throw new ArithmeticException("Decimal overflow");
-        }
-    }
-
     public static boolean overflows(Int128 value)
     {
         return overflows(value.getHigh(), value.getLow());
