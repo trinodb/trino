@@ -60,6 +60,7 @@ The following configuration properties are available:
 | `mongodb.required-replica-set`           | The required replica set name                                              |
 | `mongodb.cursor-batch-size`              | The number of elements to return in a batch                                |
 | `mongodb.allow-local-scheduling`         | Assign MongoDB splits to a specific worker                                 |
+| `mongodb.dynamic-filtering.wait-timeout` | Duration to wait for completion of dynamic filters during split generation |
 
 ### `mongodb.connection-url`
 
@@ -212,6 +213,12 @@ MongoDB node. Note that a shared deployment is not recommended, and enabling
 this property can lead to resource contention.
 
 This property is optional, and defaults to false.
+
+### `mongodb.dynamic-filtering.wait-timeout`
+
+Duration to wait for completion of dynamic filters during split generation.
+
+This property is optional; the default is `5s`.
 
 (table-definition-label)=
 
