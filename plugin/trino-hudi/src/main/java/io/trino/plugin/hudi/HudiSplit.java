@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -72,14 +73,14 @@ public class HudiSplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return ImmutableMap.builder()
+        return ImmutableMap.<String, String>builder()
                 .put("location", location)
-                .put("start", start)
-                .put("length", length)
-                .put("fileSize", fileSize)
-                .put("fileModifiedTime", fileModifiedTime)
+                .put("start", String.valueOf(start))
+                .put("length", String.valueOf(length))
+                .put("fileSize", String.valueOf(fileSize))
+                .put("fileModifiedTime", String.valueOf(fileModifiedTime))
                 .buildOrThrow();
     }
 

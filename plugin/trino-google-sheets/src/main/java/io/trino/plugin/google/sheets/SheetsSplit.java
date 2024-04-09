@@ -20,6 +20,7 @@ import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -46,10 +47,9 @@ public class SheetsSplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        ImmutableMap.Builder<Object, Object> builder = ImmutableMap.builder();
-        return builder.buildOrThrow();
+        return ImmutableMap.of();
     }
 
     @Override

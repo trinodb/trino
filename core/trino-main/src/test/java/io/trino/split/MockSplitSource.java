@@ -14,6 +14,7 @@
 package io.trino.split;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -24,6 +25,7 @@ import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -152,9 +154,9 @@ public class MockSplitSource
             implements ConnectorSplit
     {
         @Override
-        public Object getInfo()
+        public Map<String, String> getSplitInfo()
         {
-            return "A mock split";
+            return ImmutableMap.of("name", "A mock split");
         }
 
         @Override
