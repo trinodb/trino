@@ -594,9 +594,8 @@ public class ClickHouseClient
                         longDecimalReadFunction(UINT64_TYPE, UNNECESSARY),
                         uInt64WriteFunction(getClickHouseServerVersion(session))));
             case IPv4:
-                return Optional.of(ipAddressColumnMapping("IPv4StringToNum(?)"));
             case IPv6:
-                return Optional.of(ipAddressColumnMapping("IPv6StringToNum(?)"));
+                return Optional.of(ipAddressColumnMapping(column.getOriginalTypeName()));
             case Enum8:
             case Enum16:
                 return Optional.of(ColumnMapping.sliceMapping(
@@ -879,7 +878,7 @@ public class ClickHouseClient
         };
     }
 
-    private ColumnMapping ipAddressColumnMapping(String writeBindExpression)
+    private ColumnMapping ipAddressColumnMapping(String clickhouseType)
     {
         return ColumnMapping.sliceMapping(
                 ipAddressType,
@@ -903,17 +902,17 @@ public class ClickHouseClient
 
                     return wrappedBuffer(bytes);
                 },
-                ipAddressWriteFunction(writeBindExpression));
+                ipAddressWriteFunction(clickhouseType));
     }
 
-    private static SliceWriteFunction ipAddressWriteFunction(String bindExpression)
+    private static SliceWriteFunction ipAddressWriteFunction(String clickhouseType)
     {
         return new SliceWriteFunction()
         {
             @Override
             public String getBindExpression()
             {
-                return bindExpression;
+                return format("CAST(? AS %s)", clickhouseType);
             }
 
             @Override
