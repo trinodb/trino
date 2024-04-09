@@ -92,8 +92,8 @@ public class ClosingBinder
         public void shutdown()
                 throws IOException
         {
-            executors.forEach(ExecutorService::shutdownNow);
             try (Closer closer = Closer.create()) {
+                executors.forEach(executor -> closer.register(executor::shutdownNow));
                 closeables.forEach(closer::register);
             }
         }
