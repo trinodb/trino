@@ -14,6 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -21,6 +22,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestMongoClientConfig
 {
@@ -44,7 +47,8 @@ public class TestMongoClientConfig
                 .setRequiredReplicaSetName(null)
                 .setImplicitRowFieldPrefix("_pos")
                 .setProjectionPushdownEnabled(true)
-                .setAllowLocalScheduling(false));
+                .setAllowLocalScheduling(false)
+                .setDynamicFilteringWaitTimeout(new Duration(5, SECONDS)));
     }
 
     @Test
@@ -69,6 +73,7 @@ public class TestMongoClientConfig
                 .put("mongodb.implicit-row-field-prefix", "_prefix")
                 .put("mongodb.projection-pushdown-enabled", "false")
                 .put("mongodb.allow-local-scheduling", "true")
+                .put("mongodb.dynamic-filtering.wait-timeout", "2ms")
                 .buildOrThrow();
 
         MongoClientConfig expected = new MongoClientConfig()
@@ -88,7 +93,8 @@ public class TestMongoClientConfig
                 .setRequiredReplicaSetName("replica_set")
                 .setImplicitRowFieldPrefix("_prefix")
                 .setProjectionPushdownEnabled(false)
-                .setAllowLocalScheduling(true);
+                .setAllowLocalScheduling(true)
+                .setDynamicFilteringWaitTimeout(new Duration(2, MILLISECONDS));
 
         assertFullMapping(properties, expected);
     }
