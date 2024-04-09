@@ -107,7 +107,6 @@ public final class MongoQueryRunner
                 new MongoServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 TpchTable.getTables());
-        Thread.sleep(10);
         Logger log = Logger.get(MongoQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

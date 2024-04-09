@@ -68,7 +68,6 @@ public final class TpcdsQueryRunner
             throws Exception
     {
         QueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
-        Thread.sleep(10);
         Logger log = Logger.get(TpcdsQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
