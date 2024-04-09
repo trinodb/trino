@@ -59,4 +59,15 @@ public record MongoTableHandle(
                 projectedColumns,
                 limit);
     }
+
+    public MongoTableHandle withConstraint(TupleDomain<ColumnHandle> constraint)
+    {
+        return new MongoTableHandle(
+                schemaTableName,
+                remoteTableName,
+                filter,
+                constraint,
+                projectedColumns,
+                limit);
+    }
 }

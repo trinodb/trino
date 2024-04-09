@@ -18,9 +18,13 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({"mongodb.connection-per-host", "mongodb.socket-keep-alive", "mongodb.seeds", "mongodb.credentials"})
 public class MongoClientConfig
@@ -46,6 +50,7 @@ public class MongoClientConfig
     private String implicitRowFieldPrefix = "_pos";
     private boolean projectionPushDownEnabled = true;
     private boolean allowLocalScheduling;
+    private Duration dynamicFilteringWaitTimeout = new Duration(5, SECONDS);
 
     @NotNull
     public String getSchemaCollection()
@@ -263,6 +268,21 @@ public class MongoClientConfig
     public MongoClientConfig setAllowLocalScheduling(boolean allowLocalScheduling)
     {
         this.allowLocalScheduling = allowLocalScheduling;
+        return this;
+    }
+
+    @MinDuration("0ms")
+    @NotNull
+    public Duration getDynamicFilteringWaitTimeout()
+    {
+        return dynamicFilteringWaitTimeout;
+    }
+
+    @Config("mongodb.dynamic-filtering.wait-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation")
+    public MongoClientConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
+    {
+        this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
         return this;
     }
 }
