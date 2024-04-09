@@ -93,7 +93,7 @@ public class ThriftMetastoreModule
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
 
         closingBinder(binder)
-                .registerExecutor(ExecutorService.class, ThriftHiveWriteStatisticsExecutor.class);
+                .registerExecutor(Key.get(ExecutorService.class, ThriftHiveWriteStatisticsExecutor.class));
     }
 
     private static class ThriftHiveMetastoreStatisticExecutorProvider

@@ -106,7 +106,7 @@ public class JdbcModule
         newSetBinder(binder, JdbcQueryEventListener.class);
 
         closingBinder(binder)
-                .registerExecutor(ExecutorService.class, ForRecordCursor.class);
+                .registerExecutor(Key.get(ExecutorService.class, ForRecordCursor.class));
     }
 
     public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)

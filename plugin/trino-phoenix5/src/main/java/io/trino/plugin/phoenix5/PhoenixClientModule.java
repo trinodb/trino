@@ -151,7 +151,7 @@ public class PhoenixClientModule
         install(new DecimalModule());
 
         closingBinder(binder)
-                .registerExecutor(ExecutorService.class, ForRecordCursor.class);
+                .registerExecutor(Key.get(ExecutorService.class, ForRecordCursor.class));
     }
 
     private void checkConfiguration(String connectionUrl)
