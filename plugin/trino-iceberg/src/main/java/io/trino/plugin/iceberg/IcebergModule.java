@@ -59,6 +59,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -119,6 +120,8 @@ public class IcebergModule
         newOptionalBinder(binder, IcebergFileSystemFactory.class).setDefault().to(DefaultIcebergFileSystemFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CacheKeyProvider.class).setBinding().to(IcebergCacheKeyProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(boolean.class, AllowFilesystemCacheOnCoordinator.class)).setBinding().toInstance(true);
+
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergSplitManager.class));
     }
 
     @Provides
