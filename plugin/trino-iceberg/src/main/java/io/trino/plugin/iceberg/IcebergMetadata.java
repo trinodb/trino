@@ -1110,19 +1110,19 @@ public class IcebergMetadata
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         for (CommitTaskData task : commitTasks) {
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withPath(task.getPath())
-                    .withFileSizeInBytes(task.getFileSizeInBytes())
+                    .withPath(task.path())
+                    .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(table.getFileFormat().toIceberg())
-                    .withMetrics(task.getMetrics().metrics());
+                    .withMetrics(task.metrics().metrics());
 
             if (!icebergTable.spec().fields().isEmpty()) {
-                String partitionDataJson = task.getPartitionDataJson()
+                String partitionDataJson = task.partitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
                 builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
             }
 
             appendFiles.appendFile(builder.build());
-            writtenFiles.add(task.getPath());
+            writtenFiles.add(task.path());
         }
 
         // try to leave as little garbage as possible behind
@@ -1166,7 +1166,7 @@ public class IcebergMetadata
         }
 
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
-                .map(CommitTaskData::getPath)
+                .map(CommitTaskData::path)
                 .collect(toImmutableList())));
     }
 
@@ -1463,13 +1463,13 @@ public class IcebergMetadata
         Set<DataFile> newFiles = new HashSet<>();
         for (CommitTaskData task : commitTasks) {
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withPath(task.getPath())
-                    .withFileSizeInBytes(task.getFileSizeInBytes())
+                    .withPath(task.path())
+                    .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(optimizeHandle.getFileFormat().toIceberg())
-                    .withMetrics(task.getMetrics().metrics());
+                    .withMetrics(task.metrics().metrics());
 
             if (!icebergTable.spec().fields().isEmpty()) {
-                String partitionDataJson = task.getPartitionDataJson()
+                String partitionDataJson = task.partitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
                 builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
             }
@@ -2388,42 +2388,42 @@ public class IcebergMetadata
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
         for (CommitTaskData task : commitTasks) {
-            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.getPartitionSpecJson());
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
             Type[] partitionColumnTypes = partitionSpec.fields().stream()
                     .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
                     .toArray(Type[]::new);
-            switch (task.getContent()) {
+            switch (task.content()) {
                 case POSITION_DELETES -> {
                     FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
-                            .withPath(task.getPath())
-                            .withFormat(task.getFileFormat().toIceberg())
+                            .withPath(task.path())
+                            .withFormat(task.fileFormat().toIceberg())
                             .ofPositionDeletes()
-                            .withFileSizeInBytes(task.getFileSizeInBytes())
-                            .withMetrics(task.getMetrics().metrics());
+                            .withFileSizeInBytes(task.fileSizeInBytes())
+                            .withMetrics(task.metrics().metrics());
                     if (!partitionSpec.fields().isEmpty()) {
-                        String partitionDataJson = task.getPartitionDataJson()
+                        String partitionDataJson = task.partitionDataJson()
                                 .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
                         deleteBuilder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
                     }
                     rowDelta.addDeletes(deleteBuilder.build());
-                    writtenFiles.add(task.getPath());
-                    task.getReferencedDataFile().ifPresent(referencedDataFiles::add);
+                    writtenFiles.add(task.path());
+                    task.referencedDataFile().ifPresent(referencedDataFiles::add);
                 }
                 case DATA -> {
                     DataFiles.Builder builder = DataFiles.builder(partitionSpec)
-                            .withPath(task.getPath())
-                            .withFormat(task.getFileFormat().toIceberg())
-                            .withFileSizeInBytes(task.getFileSizeInBytes())
-                            .withMetrics(task.getMetrics().metrics());
+                            .withPath(task.path())
+                            .withFormat(task.fileFormat().toIceberg())
+                            .withFileSizeInBytes(task.fileSizeInBytes())
+                            .withMetrics(task.metrics().metrics());
                     if (!icebergTable.spec().fields().isEmpty()) {
-                        String partitionDataJson = task.getPartitionDataJson()
+                        String partitionDataJson = task.partitionDataJson()
                                 .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
                         builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
                     }
                     rowDelta.addRows(builder.build());
-                    writtenFiles.add(task.getPath());
+                    writtenFiles.add(task.path());
                 }
-                default -> throw new UnsupportedOperationException("Unsupported task content: " + task.getContent());
+                default -> throw new UnsupportedOperationException("Unsupported task content: " + task.content());
             }
         }
 
@@ -2891,19 +2891,19 @@ public class IcebergMetadata
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         for (CommitTaskData task : commitTasks) {
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withPath(task.getPath())
-                    .withFileSizeInBytes(task.getFileSizeInBytes())
+                    .withPath(task.path())
+                    .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(table.getFileFormat().toIceberg())
-                    .withMetrics(task.getMetrics().metrics());
+                    .withMetrics(task.metrics().metrics());
 
             if (!icebergTable.spec().fields().isEmpty()) {
-                String partitionDataJson = task.getPartitionDataJson()
+                String partitionDataJson = task.partitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
                 builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
             }
 
             appendFiles.appendFile(builder.build());
-            writtenFiles.add(task.getPath());
+            writtenFiles.add(task.path());
         }
 
         String tableDependencies = sourceTableHandles.stream()
@@ -2935,7 +2935,7 @@ public class IcebergMetadata
         transaction.commitTransaction();
         transaction = null;
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
-                .map(CommitTaskData::getPath)
+                .map(CommitTaskData::path)
                 .collect(toImmutableList())));
     }
 
