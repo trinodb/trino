@@ -15,11 +15,14 @@ package io.trino.plugin.pinot;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -32,6 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class PinotSplit
         implements ConnectorSplit
 {
+    private static final Joiner JOINER = Joiner.on(",");
     private static final int INSTANCE_SIZE = instanceSize(PinotSplit.class);
 
     private final SplitType splitType;
@@ -123,9 +127,13 @@ public class PinotSplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return this;
+        return ImmutableMap.of(
+                "splitType", splitType.name(),
+                "suffix", suffix.orElse(""),
+                "segments", JOINER.join(segments),
+                "segmentHost", segmentHost.orElse(""));
     }
 
     @Override

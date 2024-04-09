@@ -1076,9 +1076,9 @@ public class MockConnector
         MOCK_CONNECTOR_SPLIT;
 
         @Override
-        public Object getInfo()
+        public Map<String, String> getSplitInfo()
         {
-            return "mock connector split";
+            return ImmutableMap.of("info", "mock connector split");
         }
 
         @Override

@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -87,6 +88,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -913,9 +915,9 @@ public class TestNodeScheduler
         }
 
         @Override
-        public Object getInfo()
+        public Map<String, String> getSplitInfo()
         {
-            return this;
+            return ImmutableMap.of("address", address.toString());
         }
 
         @Override
@@ -957,9 +959,9 @@ public class TestNodeScheduler
         }
 
         @Override
-        public Object getInfo()
+        public Map<String, String> getSplitInfo()
         {
-            return this;
+            return ImmutableMap.of("address", "10.0.0.1:11");
         }
 
         @Override
@@ -1004,9 +1006,9 @@ public class TestNodeScheduler
         }
 
         @Override
-        public Object getInfo()
+        public Map<String, String> getSplitInfo()
         {
-            return this;
+            return ImmutableMap.of("hosts", hosts.stream().map(HostAddress::toString).collect(joining(",")), "splitWeight", String.valueOf(splitWeight));
         }
 
         @Override

@@ -35,6 +35,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class HiveSplit
         implements ConnectorSplit
@@ -282,15 +283,15 @@ public class HiveSplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return ImmutableMap.builder()
+        return ImmutableMap.<String, String>builder()
                 .put("path", path)
-                .put("start", start)
-                .put("length", length)
-                .put("estimatedFileSize", estimatedFileSize)
-                .put("hosts", addresses)
-                .put("forceLocalScheduling", forceLocalScheduling)
+                .put("start", String.valueOf(start))
+                .put("length", String.valueOf(length))
+                .put("estimatedFileSize", String.valueOf(estimatedFileSize))
+                .put("hosts", addresses.stream().map(HostAddress::toString).collect(joining(",")))
+                .put("forceLocalScheduling", String.valueOf(forceLocalScheduling))
                 .put("partitionName", partitionName)
                 .put("deserializerClassName", getDeserializerClassName(schema))
                 .buildOrThrow();

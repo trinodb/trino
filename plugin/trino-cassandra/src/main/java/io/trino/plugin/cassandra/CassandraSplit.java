@@ -21,11 +21,13 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class CassandraSplit
         implements ConnectorSplit
@@ -70,10 +72,10 @@ public class CassandraSplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return ImmutableMap.builder()
-                .put("hosts", addresses)
+        return ImmutableMap.<String, String>builder()
+                .put("hosts", addresses.stream().map(HostAddress::toString).collect(joining(",")))
                 .put("partitionId", partitionId)
                 .buildOrThrow();
     }
