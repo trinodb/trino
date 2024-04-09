@@ -24,7 +24,6 @@ import jakarta.annotation.PreDestroy;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.Set;
@@ -35,6 +34,7 @@ import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static java.util.Objects.requireNonNull;
 
 public class ClosingBinder
 {
@@ -55,25 +55,23 @@ public class ClosingBinder
 
     public ClosingBinder registerExecutor(Class<? extends ExecutorService> type)
     {
-        executors.addBinding().to(type);
-        return this;
+        return registerExecutor(Key.get(type));
     }
 
-    public ClosingBinder registerExecutor(Class<? extends ExecutorService> type, Class<? extends Annotation> annotation)
+    public ClosingBinder registerExecutor(Key<? extends ExecutorService> key)
     {
-        executors.addBinding().to(Key.get(type, annotation));
+        executors.addBinding().to(requireNonNull(key, "key is null"));
         return this;
     }
 
     public ClosingBinder registerCloseable(Class<? extends Closeable> type)
     {
-        closeables.addBinding().to(type);
-        return this;
+        return registerCloseable(Key.get(type));
     }
 
-    public ClosingBinder registerCloseable(Class<? extends Closeable> type, Class<? extends Annotation> annotation)
+    public ClosingBinder registerCloseable(Key<? extends Closeable> key)
     {
-        closeables.addBinding().to(Key.get(type, annotation));
+        closeables.addBinding().to(key);
         return this;
     }
 
