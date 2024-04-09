@@ -99,7 +99,6 @@ public final class ThriftQueryRunner
         Logging.initialize();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         QueryRunner queryRunner = createThriftQueryRunner(3, true, properties);
-        Thread.sleep(10);
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
