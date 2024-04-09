@@ -124,10 +124,10 @@ public class IcebergPageSinkProvider
         switch (executeHandle.getProcedureId()) {
             case OPTIMIZE:
                 IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.getProcedureHandle();
-                Schema schema = SchemaParser.fromJson(optimizeHandle.getSchemaAsJson());
-                PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, optimizeHandle.getPartitionSpecAsJson());
+                Schema schema = SchemaParser.fromJson(optimizeHandle.schemaAsJson());
+                PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, optimizeHandle.partitionSpecAsJson());
                 LocationProvider locationProvider = getLocationProvider(executeHandle.getSchemaTableName(),
-                        executeHandle.getTableLocation(), optimizeHandle.getTableStorageProperties());
+                        executeHandle.getTableLocation(), optimizeHandle.tableStorageProperties());
                 return new IcebergPageSink(
                         schema,
                         partitionSpec,
@@ -135,13 +135,13 @@ public class IcebergPageSinkProvider
                         fileWriterFactory,
                         pageIndexerFactory,
                         fileSystemFactory.create(session.getIdentity(), executeHandle.getFileIoProperties()),
-                        optimizeHandle.getTableColumns(),
+                        optimizeHandle.tableColumns(),
                         jsonCodec,
                         session,
-                        optimizeHandle.getFileFormat(),
-                        optimizeHandle.getTableStorageProperties(),
+                        optimizeHandle.fileFormat(),
+                        optimizeHandle.tableStorageProperties(),
                         maxOpenPartitions,
-                        optimizeHandle.getSortOrder(),
+                        optimizeHandle.sortOrder(),
                         sortingFileWriterBufferSize,
                         sortingFileWriterMaxOpenFiles,
                         typeManager,

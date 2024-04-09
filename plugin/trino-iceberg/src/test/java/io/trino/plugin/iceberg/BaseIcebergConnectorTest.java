@@ -5921,7 +5921,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')",
-                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\{retentionThreshold=0\\.00s}.*");
+                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\[retentionThreshold=0\\.00s].*");
     }
 
     @Test
@@ -6059,7 +6059,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')",
-                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_remove_orphan_files.*\\{retentionThreshold=0\\.00s}.*");
+                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_remove_orphan_files.*\\[retentionThreshold=0\\.00s].*");
     }
 
     @Test
