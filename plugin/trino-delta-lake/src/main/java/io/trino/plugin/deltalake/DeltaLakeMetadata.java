@@ -2022,7 +2022,7 @@ public class DeltaLakeMetadata
             throws IOException
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        long currentVersion = getMandatoryCurrentVersion(fileSystem, handle.location(), handle.readVersion());
+        long currentVersion = getMandatoryCurrentVersion(fileSystem, handle.location(), readVersion.get());
 
         List<DeltaLakeTableHandle> sameAsTargetSourceTableHandles = sourceTableHandles.stream()
                 .filter(sourceTableHandle -> sourceTableHandle instanceof DeltaLakeTableHandle)
