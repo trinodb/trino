@@ -164,7 +164,7 @@ public final class TableStatisticsReader
 
         IcebergStatistics summary = icebergStatisticsBuilder.build();
 
-        if (summary.getFileCount() == 0) {
+        if (summary.fileCount() == 0) {
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
@@ -179,12 +179,12 @@ public final class TableStatisticsReader
                 extendedStatisticsEnabled);
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
-        double recordCount = summary.getRecordCount();
+        double recordCount = summary.recordCount();
         for (Entry<Integer, IcebergColumnHandle> columnHandleTuple : idToColumnHandle.entrySet()) {
             IcebergColumnHandle columnHandle = columnHandleTuple.getValue();
             int fieldId = columnHandle.getId();
             ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
-            Long nullCount = summary.getNullCounts().get(fieldId);
+            Long nullCount = summary.nullCounts().get(fieldId);
             if (nullCount != null) {
                 columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
             }
@@ -193,8 +193,8 @@ public final class TableStatisticsReader
                 long columnSize = fixedType.length();
                 columnBuilder.setDataSize(Estimate.of(columnSize));
             }
-            else if (summary.getColumnSizes() != null) {
-                Long columnSize = summary.getColumnSizes().get(fieldId);
+            else if (summary.columnSizes() != null) {
+                Long columnSize = summary.columnSizes().get(fieldId);
                 if (columnSize != null) {
                     // columnSize is the size on disk and Trino column stats is size in memory.
                     // The relation between the two is type and data dependent.
@@ -218,8 +218,8 @@ public final class TableStatisticsReader
                     }
                 }
             }
-            Object min = summary.getMinValues().get(fieldId);
-            Object max = summary.getMaxValues().get(fieldId);
+            Object min = summary.minValues().get(fieldId);
+            Object max = summary.maxValues().get(fieldId);
             if (min != null && max != null) {
                 columnBuilder.setRange(DoubleRange.from(columnHandle.getType(), min, max));
             }

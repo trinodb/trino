@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
@@ -45,76 +44,23 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
-final class IcebergStatistics
+record IcebergStatistics(
+        long recordCount,
+        long fileCount,
+        long size,
+        Map<Integer, Object> minValues,
+        Map<Integer, Object> maxValues,
+        Map<Integer, Long> nullCounts,
+        Map<Integer, Long> nanCounts,
+        Map<Integer, Long> columnSizes)
 {
-    private final long recordCount;
-    private final long fileCount;
-    private final long size;
-    private final Map<Integer, Object> minValues;
-    private final Map<Integer, Object> maxValues;
-    private final Map<Integer, Long> nullCounts;
-    private final Map<Integer, Long> nanCounts;
-    private final Map<Integer, Long> columnSizes;
-
-    private IcebergStatistics(
-            long recordCount,
-            long fileCount,
-            long size,
-            Map<Integer, Object> minValues,
-            Map<Integer, Object> maxValues,
-            Map<Integer, Long> nullCounts,
-            Map<Integer, Long> nanCounts,
-            Map<Integer, Long> columnSizes)
+    IcebergStatistics
     {
-        this.recordCount = recordCount;
-        this.fileCount = fileCount;
-        this.size = size;
-        this.minValues = ImmutableMap.copyOf(requireNonNull(minValues, "minValues is null"));
-        this.maxValues = ImmutableMap.copyOf(requireNonNull(maxValues, "maxValues is null"));
-        this.nullCounts = ImmutableMap.copyOf(requireNonNull(nullCounts, "nullCounts is null"));
-        this.nanCounts = ImmutableMap.copyOf(requireNonNull(nanCounts, "nanCounts is null"));
-        this.columnSizes = ImmutableMap.copyOf(requireNonNull(columnSizes, "columnSizes is null"));
-    }
-
-    public long getRecordCount()
-    {
-        return recordCount;
-    }
-
-    public long getFileCount()
-    {
-        return fileCount;
-    }
-
-    public long getSize()
-    {
-        return size;
-    }
-
-    public Map<Integer, Object> getMinValues()
-    {
-        return minValues;
-    }
-
-    public Map<Integer, Object> getMaxValues()
-    {
-        return maxValues;
-    }
-
-    public Map<Integer, Long> getNullCounts()
-    {
-        return nullCounts;
-    }
-
-    public Map<Integer, Long> getNanCounts()
-    {
-        return nanCounts;
-    }
-
-    public Map<Integer, Long> getColumnSizes()
-    {
-        return columnSizes;
+        minValues = ImmutableMap.copyOf(requireNonNull(minValues, "minValues is null"));
+        maxValues = ImmutableMap.copyOf(requireNonNull(maxValues, "maxValues is null"));
+        nullCounts = ImmutableMap.copyOf(requireNonNull(nullCounts, "nullCounts is null"));
+        nanCounts = ImmutableMap.copyOf(requireNonNull(nanCounts, "nanCounts is null"));
+        columnSizes = ImmutableMap.copyOf(requireNonNull(columnSizes, "columnSizes is null"));
     }
 
     public static class Builder
