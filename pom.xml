@@ -1622,12 +1622,6 @@
                 <version>8.5.13</version>
             </dependency>
 
-            <dependency>
-                <groupId>junit</groupId>
-                <artifactId>junit</artifactId>
-                <version>4.13.2</version>
-            </dependency>
-
             <!-- TODO: remove when updated in airbase -->
             <dependency>
                 <groupId>net.bytebuddy</groupId>
