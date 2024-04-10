@@ -142,6 +142,8 @@
 
     <properties>
         <project.build.targetJdk>21</project.build.targetJdk>
+        <!-- TODO remove this property when no module overrides it -->
+        <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
@@ -2664,8 +2666,8 @@
                                     -Xep:FallThrough:ERROR \
                                     -Xep:Finalize:ERROR \
                                     -Xep:GetClassOnEnum:ERROR \
-                                    <!-- needs some careful inspection -->
-                                    -Xep:GuardedBy:OFF \
+                                    <!-- TODO enable globally -->
+                                    -Xep:GuardedBy:${trino.error-prone.guarded-by} \
                                     -Xep:HidingField:ERROR \
                                     -Xep:JavaTimeDefaultTimeZone:OFF \
                                     <!-- covered by Modernizer -->
@@ -2699,6 +2701,7 @@
                                     -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \
                                     -Xep:RethrowReflectiveOperationExceptionAsLinkageError:OFF \
                                     -Xep:StaticAssignmentOfThrowable:ERROR \
+                                    -Xep:StaticGuardedByInstance:ERROR \
                                     -Xep:StreamResourceLeak:ERROR \
                                     -Xep:SuppressWarningsDeprecated:ERROR \
                                     -Xep:ThreeLetterTimeZoneID:ERROR \
