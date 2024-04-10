@@ -13,12 +13,16 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.Multiset;
 import io.airlift.units.Duration;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -36,11 +40,13 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.TEST_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
@@ -631,6 +637,10 @@ public abstract class BaseBigQueryConnectorTest
     @Test
     public void testBigQueryMaterializedView()
     {
+        Session skipViewMaterialization = Session.builder(getSession())
+                .setCatalogSessionProperty("bigquery", "skip_view_materialization", "true")
+                .build();
+
         String materializedView = "test_materialized_view" + randomNameSuffix();
         try {
             onBigQuery("CREATE MATERIALIZED VIEW test." + materializedView + " AS SELECT count(1) AS cnt FROM tpch.region");
@@ -639,12 +649,38 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery("DESCRIBE test." + materializedView, "VALUES ('cnt', 'bigint', '', '')");
             assertQuery("SELECT * FROM test." + materializedView, "VALUES 5");
 
+            executeExclusively(() -> {
+                assertStorageApiInvocations(getQueryRunner(), getSession(), "SELECT * FROM test." + materializedView, ImmutableMultiset.<String>builder()
+                        .add("BigQueryRead/CreateReadSession")
+                        .add("BigQueryRead/ReadRows")
+                        .build());
+                assertStorageApiInvocations(getQueryRunner(), skipViewMaterialization, "SELECT * FROM test." + materializedView, ImmutableMultiset.of());
+            });
+
             assertUpdate("DROP TABLE test." + materializedView);
             assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + materializedView + "'");
         }
         finally {
             onBigQuery("DROP MATERIALIZED VIEW IF EXISTS test." + materializedView);
         }
+    }
+
+    private static void assertStorageApiInvocations(
+            QueryRunner queryRunner,
+            Session session,
+            @Language("SQL") String query,
+            Multiset<String> expectedInvocations)
+    {
+        String storageApiPrefix = "google.cloud.bigquery.storage.v1.";
+        queryRunner.execute(session, query);
+
+        Multiset<String> invocations = queryRunner.getSpans().stream()
+                .map(SpanData::getName)
+                .filter(name -> name.startsWith(storageApiPrefix))
+                .map(name -> name.substring(storageApiPrefix.length()))
+                .collect(toImmutableMultiset());
+
+        assertMultisetsEqual(invocations, expectedInvocations);
     }
 
     @Test
@@ -695,6 +731,7 @@ public abstract class BaseBigQueryConnectorTest
     {
         Function<String, Session> sessionWithToken = token -> Session.builder(getSession())
                 .setTraceToken(Optional.of(token))
+                .setCatalogSessionProperty("bigquery", "skip_view_materialization", "true")
                 .build();
 
         String materializedView = "test_query_label" + randomNameSuffix();
@@ -739,9 +776,11 @@ public abstract class BaseBigQueryConnectorTest
     {
         Session queryResultsCacheSession = Session.builder(getSession())
                 .setCatalogSessionProperty("bigquery", "query_results_cache_enabled", "true")
+                .setCatalogSessionProperty("bigquery", "skip_view_materialization", "true")
                 .build();
         Session createNeverDisposition = Session.builder(getSession())
                 .setCatalogSessionProperty("bigquery", "query_results_cache_enabled", "true")
+                .setCatalogSessionProperty("bigquery", "skip_view_materialization", "true")
                 .setCatalogSessionProperty("bigquery", "create_disposition_type", "create_never")
                 .build();
 
