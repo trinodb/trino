@@ -133,16 +133,16 @@ public class DefaultQueryBuilder
                 formatProjectionAliases(client, leftProjections.values()),
                 formatProjectionAliases(client, rightProjections.values()),
                 formatProjections(client, leftProjections),
-                leftSource.getQuery(),
+                leftSource.query(),
                 formatJoinType(joinType),
                 formatProjections(client, rightProjections),
-                rightSource.getQuery(),
+                rightSource.query(),
                 joinConditions.stream()
                         .map(ParameterizedExpression::expression)
                         .collect(joining(") AND (", "(", ")")));
         List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
-                .addAll(leftSource.getParameters())
-                .addAll(rightSource.getParameters())
+                .addAll(leftSource.parameters())
+                .addAll(rightSource.parameters())
                 .addAll(joinConditions.stream()
                         .flatMap(expression -> expression.parameters().stream())
                         .iterator())
@@ -175,17 +175,17 @@ public class DefaultQueryBuilder
                 "SELECT %s, %s FROM (%s) %s %s (%s) %s ON %s",
                 formatAssignments(client, leftRelationAlias, leftAssignments),
                 formatAssignments(client, rightRelationAlias, rightAssignments),
-                leftSource.getQuery(),
+                leftSource.query(),
                 leftRelationAlias,
                 formatJoinType(joinType),
-                rightSource.getQuery(),
+                rightSource.query(),
                 rightRelationAlias,
                 joinConditions.stream()
                         .map(condition -> formatJoinCondition(client, leftRelationAlias, rightRelationAlias, condition))
                         .collect(joining(" AND ")));
         List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
-                .addAll(leftSource.getParameters())
-                .addAll(rightSource.getParameters())
+                .addAll(leftSource.parameters())
+                .addAll(rightSource.parameters())
                 .build();
         return new PreparedQuery(query, parameters);
     }
@@ -276,12 +276,12 @@ public class DefaultQueryBuilder
             Optional<Integer> columnCount)
             throws SQLException
     {
-        String modifiedQuery = queryModifier.apply(session, preparedQuery.getQuery());
+        String modifiedQuery = queryModifier.apply(session, preparedQuery.query());
         log.debug("Preparing query: %s", modifiedQuery);
         columnCount = columnCount.map(count -> max(count, 1)); // Query builder appends a dummy projection when no columns projected
         PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery, columnCount);
 
-        List<QueryParameter> parameters = preparedQuery.getParameters();
+        List<QueryParameter> parameters = preparedQuery.parameters();
         for (int i = 0; i < parameters.size(); i++) {
             QueryParameter parameter = parameters.get(i);
             int parameterIndex = i + 1;
@@ -404,8 +404,8 @@ public class DefaultQueryBuilder
         }
         if (baseRelation instanceof JdbcQueryRelationHandle) {
             PreparedQuery preparedQuery = ((JdbcQueryRelationHandle) baseRelation).getPreparedQuery();
-            preparedQuery.getParameters().forEach(accumulator);
-            return " FROM (" + preparedQuery.getQuery() + ") o";
+            preparedQuery.parameters().forEach(accumulator);
+            return " FROM (" + preparedQuery.query() + ") o";
         }
         throw new IllegalArgumentException("Unsupported relation: " + baseRelation);
     }

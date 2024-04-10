@@ -268,7 +268,7 @@ public abstract class BaseJdbcClient
                 PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
             if (metadata == null) {
-                throw new TrinoException(NOT_SUPPORTED, "Query not supported: ResultSetMetaData not available for query: " + preparedQuery.getQuery());
+                throw new TrinoException(NOT_SUPPORTED, "Query not supported: ResultSetMetaData not available for query: " + preparedQuery.query());
             }
             return new JdbcTableHandle(
                     new JdbcQueryRelationHandle(preparedQuery),
