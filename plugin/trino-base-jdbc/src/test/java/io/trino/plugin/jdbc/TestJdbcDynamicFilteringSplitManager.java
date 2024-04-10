@@ -39,7 +39,6 @@ import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_ENABLED;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
-import static java.lang.Thread.sleep;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -120,74 +119,76 @@ public class TestJdbcDynamicFilteringSplitManager
                         DYNAMIC_FILTERING_WAIT_TIMEOUT, "0s",
                         DYNAMIC_FILTERING_ENABLED, true))
                 .build();
+        CompletableFuture<Void> dynamicFilterFuture = new CompletableFuture<>();
+        DynamicFilter dynamicFilter = new DynamicFilter()
+        {
+            final List<CompletableFuture<Void>> lazyDynamicFilterFutures = ImmutableList.of(
+                    dynamicFilterFuture,
+                    new CompletableFuture<>());
 
-        ConnectorSplitSource splitSource = getConnectorSplitSource(session,
-                new DynamicFilter()
-                {
-                    final List<CompletableFuture<Void>> lazyDynamicFilterFutures = List.of(
-                            createCompletableFuture(1),
-                            createCompletableFuture(2));
+            @Override
+            public Set<ColumnHandle> getColumnsCovered()
+            {
+                return ImmutableSet.of();
+            }
 
-                    @Override
-                    public Set<ColumnHandle> getColumnsCovered()
-                    {
-                        return ImmutableSet.of();
-                    }
+            @Override
+            public CompletableFuture<?> isBlocked()
+            {
+                return unmodifiableFuture(CompletableFuture.anyOf(getUndoneFutures().toArray(new CompletableFuture[0])));
+            }
 
-                    @Override
-                    public CompletableFuture<?> isBlocked()
-                    {
-                        return unmodifiableFuture(CompletableFuture.anyOf(getUndoneFutures().toArray(new CompletableFuture[0])));
-                    }
+            @Override
+            public boolean isComplete()
+            {
+                return getUndoneFutures().isEmpty();
+            }
 
-                    @Override
-                    public boolean isComplete()
-                    {
-                        return getUndoneFutures().isEmpty();
-                    }
+            @Override
+            public boolean isAwaitable()
+            {
+                return !isComplete();
+            }
 
-                    @Override
-                    public boolean isAwaitable()
-                    {
-                        return !isComplete();
-                    }
+            @Override
+            public TupleDomain<ColumnHandle> getCurrentPredicate()
+            {
+                return TupleDomain.all();
+            }
 
-                    @Override
-                    public TupleDomain<ColumnHandle> getCurrentPredicate()
-                    {
-                        return TupleDomain.all();
-                    }
+            @Override
+            public OptionalLong getPreferredDynamicFilterTimeout()
+            {
+                return getUndoneFutures().isEmpty() ? OptionalLong.of(0L) : OptionalLong.of(3000L);
+            }
 
-                    @Override
-                    public OptionalLong getPreferredDynamicFilterTimeout()
-                    {
-                        return getUndoneFutures().isEmpty() ? OptionalLong.of(0L) : OptionalLong.of(3000L);
-                    }
-
-                    private List<CompletableFuture<Void>> getUndoneFutures()
-                    {
-                        return lazyDynamicFilterFutures.stream()
-                                .filter(future -> !future.isDone())
-                                .collect(toImmutableList());
-                    }
-                });
+            private List<CompletableFuture<Void>> getUndoneFutures()
+            {
+                return lazyDynamicFilterFutures.stream()
+                        .filter(future -> !future.isDone())
+                        .collect(toImmutableList());
+            }
+        };
+        ConnectorSplitSource splitSource = getConnectorSplitSource(session, dynamicFilter);
 
         // verify that getNextBatch() future completes after a min dynamic filter timeout
-        CompletableFuture<?> future = splitSource.getNextBatch(100);
-        assertFalse(future.isDone());
-        future.get(10, SECONDS);
-        // first narrow down of DF is completed
-        assertTrue(future.isDone());
+        CompletableFuture<?> splitSourceNextBatchFuture = splitSource.getNextBatch(100);
+        assertFalse(splitSourceNextBatchFuture.isDone());
+        // first narrow down of DF
+        dynamicFilterFuture.complete(null);
+        assertTrue(splitSourceNextBatchFuture.isDone());
         // whole DF is not completed, still min dynamic filter timeout remains
         assertFalse(splitSource.isFinished());
-        future = splitSource.getNextBatch(100);
-        // second narrow down of DF is ongoing
-        assertFalse(future.isDone());
-        future.get(10, SECONDS);
-        // second narrow down of DF is completed
-        assertTrue(future.isDone());
+        splitSourceNextBatchFuture = splitSource.getNextBatch(100);
+        assertFalse(splitSourceNextBatchFuture.isDone());
+        assertFalse(splitSource.isFinished());
+        // await preferred timeout ~ 3s
+        splitSourceNextBatchFuture.get(20, SECONDS);
+        assertTrue(splitSourceNextBatchFuture.isDone());
+        // preferred timeout passed but dynamic filter is still not done
+        assertTrue(dynamicFilter.isAwaitable());
+        // split source is completed
         assertTrue(splitSource.isFinished());
-
         splitSource.close();
     }
 
@@ -203,18 +204,5 @@ public class TestJdbcDynamicFilteringSplitManager
                 TABLE_HANDLE,
                 blockedDynamicFilter,
                 alwaysTrue());
-    }
-
-    private CompletableFuture<Void> createCompletableFuture(long completionTimeSeconds)
-    {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                sleep(SECONDS.toMillis(completionTimeSeconds));
-            }
-            catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            return null;
-        });
     }
 }
