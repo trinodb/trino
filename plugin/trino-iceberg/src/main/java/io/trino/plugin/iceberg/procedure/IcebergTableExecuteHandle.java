@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.SchemaTableName;
 
@@ -34,7 +35,7 @@ public record IcebergTableExecuteHandle(
         requireNonNull(procedureId, "procedureId is null");
         requireNonNull(procedureHandle, "procedureHandle is null");
         requireNonNull(tableLocation, "tableLocation is null");
-        requireNonNull(fileIoProperties, "fileIoProperties is null");
+        fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
     }
 
     @Override
