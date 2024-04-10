@@ -40,6 +40,7 @@ public record IcebergOptimizeHandle(
 {
     public IcebergOptimizeHandle
     {
+        requireNonNull(snapshotId, "snapshotId is null");
         requireNonNull(schemaAsJson, "schemaAsJson is null");
         requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
         tableColumns = ImmutableList.copyOf(requireNonNull(tableColumns, "tableColumns is null"));
