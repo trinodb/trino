@@ -63,9 +63,9 @@ public final class ElasticsearchQueryBuilder
                 ElasticsearchColumnHandle column = entry.getKey();
                 Domain domain = entry.getValue();
 
-                checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.getName());
+                checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.name());
                 if (!domain.isAll()) {
-                    addPredicateToQueryBuilder(queryBuilder, column.getName(), domain, column.getType());
+                    addPredicateToQueryBuilder(queryBuilder, column.name(), domain, column.type());
                 }
             }
         }
