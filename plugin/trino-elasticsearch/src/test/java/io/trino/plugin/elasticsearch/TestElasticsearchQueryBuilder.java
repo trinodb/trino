@@ -60,20 +60,20 @@ public class TestElasticsearchQueryBuilder
         // SingleValue
         assertQueryBuilder(
                 ImmutableMap.of(AGE, Domain.singleValue(INTEGER, 1L)),
-                new BoolQueryBuilder().filter(new TermQueryBuilder(AGE.getName(), 1L)));
+                new BoolQueryBuilder().filter(new TermQueryBuilder(AGE.name(), 1L)));
 
         // Range
         assertQueryBuilder(
                 ImmutableMap.of(SCORE, Domain.create(ValueSet.ofRanges(Range.range(DOUBLE, 65.0, false, 80.0, true)), false)),
-                new BoolQueryBuilder().filter(new RangeQueryBuilder(SCORE.getName()).gt(65.0).lte(80.0)));
+                new BoolQueryBuilder().filter(new RangeQueryBuilder(SCORE.name()).gt(65.0).lte(80.0)));
 
         // List
         assertQueryBuilder(
                 ImmutableMap.of(NAME, Domain.multipleValues(VARCHAR, ImmutableList.of("alice", "bob"))),
                 new BoolQueryBuilder().filter(
                         new BoolQueryBuilder()
-                                .should(new TermQueryBuilder(NAME.getName(), "alice"))
-                                .should(new TermQueryBuilder(NAME.getName(), "bob"))));
+                                .should(new TermQueryBuilder(NAME.name(), "alice"))
+                                .should(new TermQueryBuilder(NAME.name(), "bob"))));
         // all
         assertQueryBuilder(
                 ImmutableMap.of(AGE, Domain.all(INTEGER)),
@@ -82,20 +82,20 @@ public class TestElasticsearchQueryBuilder
         // notNull
         assertQueryBuilder(
                 ImmutableMap.of(AGE, Domain.notNull(INTEGER)),
-                new BoolQueryBuilder().filter(new ExistsQueryBuilder(AGE.getName())));
+                new BoolQueryBuilder().filter(new ExistsQueryBuilder(AGE.name())));
 
         // isNull
         assertQueryBuilder(
                 ImmutableMap.of(AGE, Domain.onlyNull(INTEGER)),
-                new BoolQueryBuilder().mustNot(new ExistsQueryBuilder(AGE.getName())));
+                new BoolQueryBuilder().mustNot(new ExistsQueryBuilder(AGE.name())));
 
         // isNullAllowed
         assertQueryBuilder(
                 ImmutableMap.of(AGE, Domain.singleValue(INTEGER, 1L, true)),
                 new BoolQueryBuilder().filter(
                         new BoolQueryBuilder()
-                                .should(new TermQueryBuilder(AGE.getName(), 1L))
-                                .should(new BoolQueryBuilder().mustNot(new ExistsQueryBuilder(AGE.getName())))));
+                                .should(new TermQueryBuilder(AGE.name(), 1L))
+                                .should(new BoolQueryBuilder().mustNot(new ExistsQueryBuilder(AGE.name())))));
     }
 
     @Test
@@ -106,8 +106,8 @@ public class TestElasticsearchQueryBuilder
                         AGE, Domain.singleValue(INTEGER, 1L),
                         SCORE, Domain.create(ValueSet.ofRanges(Range.range(DOUBLE, 65.0, false, 80.0, true)), false)),
                 new BoolQueryBuilder()
-                        .filter(new TermQueryBuilder(AGE.getName(), 1L))
-                        .filter(new RangeQueryBuilder(SCORE.getName()).gt(65.0).lte(80.0)));
+                        .filter(new TermQueryBuilder(AGE.name(), 1L))
+                        .filter(new RangeQueryBuilder(SCORE.name()).gt(65.0).lte(80.0)));
 
         assertQueryBuilder(
                 ImmutableMap.of(
@@ -116,18 +116,18 @@ public class TestElasticsearchQueryBuilder
                                 Range.range(DOUBLE, 65.0, false, 80.0, true),
                                 Range.equal(DOUBLE, 90.0)), false)),
                 new BoolQueryBuilder()
-                        .filter(new RangeQueryBuilder(LENGTH.getName()).gte(160.0).lte(180.0))
+                        .filter(new RangeQueryBuilder(LENGTH.name()).gte(160.0).lte(180.0))
                         .filter(new BoolQueryBuilder()
-                                .should(new RangeQueryBuilder(SCORE.getName()).gt(65.0).lte(80.0))
-                                .should(new TermQueryBuilder(SCORE.getName(), 90.0))));
+                                .should(new RangeQueryBuilder(SCORE.name()).gt(65.0).lte(80.0))
+                                .should(new TermQueryBuilder(SCORE.name(), 90.0))));
 
         assertQueryBuilder(
                 ImmutableMap.of(
                         AGE, Domain.singleValue(INTEGER, 10L),
                         SCORE, Domain.onlyNull(DOUBLE)),
                 new BoolQueryBuilder()
-                        .filter(new TermQueryBuilder(AGE.getName(), 10L))
-                        .mustNot(new ExistsQueryBuilder(SCORE.getName())));
+                        .filter(new TermQueryBuilder(AGE.name(), 10L))
+                        .mustNot(new ExistsQueryBuilder(SCORE.name())));
     }
 
     private static void assertQueryBuilder(Map<ElasticsearchColumnHandle, Domain> domains, QueryBuilder expected)
