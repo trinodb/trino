@@ -13,7 +13,6 @@
  */
 package io.trino.connector;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -26,6 +25,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorName;
+import io.trino.util.AutoCloseableCloser;
 import jakarta.annotation.PreDestroy;
 
 import java.util.ArrayList;
@@ -74,25 +74,22 @@ public class WorkerDynamicCatalogManager
 
     @PreDestroy
     public void stop()
+            throws Exception
     {
-        List<CatalogConnector> catalogs;
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            catalogRemovingLock.lock();
+            try {
+                if (stopped) {
+                    return;
+                }
+                stopped = true;
 
-        catalogRemovingLock.lock();
-        try {
-            if (stopped) {
-                return;
+                catalogs.values().forEach(catalog -> closer.register(catalog::shutdown));
+                catalogs.clear();
             }
-            stopped = true;
-
-            catalogs = ImmutableList.copyOf(this.catalogs.values());
-            this.catalogs.clear();
-        }
-        finally {
-            catalogRemovingLock.unlock();
-        }
-
-        for (CatalogConnector connector : catalogs) {
-            connector.shutdown();
+            finally {
+                catalogRemovingLock.unlock();
+            }
         }
     }
 
