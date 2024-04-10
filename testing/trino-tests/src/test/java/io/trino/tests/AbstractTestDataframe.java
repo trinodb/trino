@@ -113,9 +113,7 @@ public abstract class AbstractTestDataframe
     public void setUp()
             throws Exception
     {
-        queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
-                .addExtraProperty("dataframe-api-enabled", "true")
-                .build();
+        queryRunner = DistributedQueryRunner.builder(TEST_SESSION).build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
@@ -134,9 +132,7 @@ public abstract class AbstractTestDataframe
 
     private static TestingTrinoServer runTestServer()
     {
-        TestingTrinoServer queryRunner = TestingTrinoServer.builder()
-                .setProperties(ImmutableMap.of("dataframe-api-enabled", "true"))
-                .build();
+        TestingTrinoServer queryRunner = TestingTrinoServer.builder().build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());

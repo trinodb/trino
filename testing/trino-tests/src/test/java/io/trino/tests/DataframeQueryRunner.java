@@ -51,7 +51,6 @@ public class DataframeQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(getDefaultSession())
-                .addExtraProperty("dataframe-api-enabled", "true")
                 .setCoordinatorProperties(ImmutableMap.copyOf(coordinatorProperties))
                 .build();
 

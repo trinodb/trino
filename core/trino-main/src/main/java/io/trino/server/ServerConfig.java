@@ -28,7 +28,7 @@ public class ServerConfig
     private boolean coordinator = true;
     private boolean concurrentStartup;
     private boolean includeExceptionInResponse = true;
-    private boolean dataframeApiEnabled;
+    private boolean dataframeApiEnabled = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean queryResultsCompressionEnabled = true;
     private Optional<String> queryInfoUrlTemplate = Optional.empty();
