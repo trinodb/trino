@@ -551,6 +551,22 @@ public abstract class BaseJdbcClient
                         .collect(toImmutableList())));
     }
 
+    protected JdbcTypeHandle getJdbcTypeHandle(ConnectorSession session, JdbcTableHandle tableHandle, ParameterizedExpression parameterizedExpression)
+    {
+        try (Connection connection = connectionFactory.openConnection(session);
+                PreparedStatement preparedStatement = queryBuilder.preparedStatementForExpression(
+                        this,
+                        session,
+                        connection,
+                        tableHandle.getRelationHandle(),
+                        ImmutableMap.of("expression", parameterizedExpression))) {
+            return getOnlyElement(getColumns(session, connection, preparedStatement.getMetaData())).getJdbcTypeHandle();
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
     @Override
     public Optional<PreparedQuery> implementJoin(
             ConnectorSession session,

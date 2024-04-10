@@ -96,6 +96,11 @@ public interface JdbcClient
         return Optional.empty();
     }
 
+    default Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return Optional.empty();
+    }
+
     ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle);
 
     ConnectorSplitSource getSplits(ConnectorSession session, JdbcProcedureHandle procedureHandle);

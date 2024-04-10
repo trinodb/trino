@@ -155,6 +155,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle tableHandle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return delegate().convertProjection(session, tableHandle, expression, assignments);
+    }
+
+    @Override
     public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle layoutHandle)
     {
         return delegate().getSplits(session, layoutHandle);

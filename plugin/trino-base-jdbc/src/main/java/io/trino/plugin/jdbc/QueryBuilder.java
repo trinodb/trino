@@ -30,6 +30,14 @@ import java.util.Optional;
 
 public interface QueryBuilder
 {
+    PreparedStatement preparedStatementForExpression(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            JdbcRelationHandle baseRelation,
+            Map<String, ParameterizedExpression> expression)
+            throws SQLException;
+
     PreparedQuery prepareSelectQuery(
             JdbcClient client,
             ConnectorSession session,

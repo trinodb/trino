@@ -97,6 +97,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.expression.ConnectorExpressions.and;
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractConjuncts;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isComplexExpressionPushdown;
@@ -308,11 +310,83 @@ public class DefaultJdbcMetadata
 
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        List<JdbcColumnHandle> newColumns = assignments.values().stream()
-                .map(JdbcColumnHandle.class::cast)
+        int nextSyntheticColumnId = handle.getNextSyntheticColumnId();
+
+        Map<String, Assignment> newAssignments = new HashMap<>();
+        ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
+        ImmutableList.Builder<JdbcColumnHandle> newColumnsBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<String, ParameterizedExpression> columnExpressionsBuilder = ImmutableMap.builder();
+
+        for (ConnectorExpression projection : projections) {
+            // Don't generate needless transformations for constants.
+            if (projection instanceof Constant) {
+                continue;
+            }
+            // Don't generate needless transformations for variable.
+            if (projection instanceof Variable variable) {
+                JdbcColumnHandle columnHandle = (JdbcColumnHandle) assignments.get(variable.getName());
+                newAssignments.put(variable.getName(), new Assignment(variable.getName(), columnHandle, variable.getType()));
+                newColumnsBuilder.add(columnHandle);
+                continue;
+            }
+            // Try to convert Projection
+            Optional<JdbcExpression> expression = jdbcClient.convertProjection(session, handle, projection, assignments);
+            if (isComplexExpressionPushdown(session) && expression.isPresent()) {
+                String columnName = SYNTHETIC_COLUMN_NAME_PREFIX + nextSyntheticColumnId;
+                JdbcColumnHandle newColumn = JdbcColumnHandle.builder()
+                        .setColumnName(columnName)
+                        .setJdbcTypeHandle(expression.get().getJdbcTypeHandle())
+                        .setColumnType(projection.getType())
+                        .setComment(Optional.of("synthetic"))
+                        .build();
+                nextSyntheticColumnId++;
+                columnExpressionsBuilder.put(columnName, new ParameterizedExpression(expression.get().getExpression(), expression.get().getParameters()));
+                Variable newVariable = new Variable(newColumn.getColumnName(), newColumn.getColumnType());
+                newVariablesBuilder.put(projection, newVariable);
+                Assignment newAssignment = new Assignment(columnName, newColumn, projection.getType());
+                newAssignments.putIfAbsent(columnName, newAssignment);
+                newColumnsBuilder.add(newColumn);
+            }
+            else {
+                extractSupportedProjectedColumns(projection, connectorExpression -> connectorExpression instanceof Variable).stream()
+                        .map(Variable.class::cast).map(Variable::getName)
+                        .forEach(name -> {
+                            newAssignments.put(name, new Assignment(name, assignments.get(name), ((JdbcColumnHandle) assignments.get(name)).getColumnType()));
+                            newColumnsBuilder.add((JdbcColumnHandle) assignments.get(name));
+                        });
+            }
+        }
+
+        List<JdbcColumnHandle> newColumns = newColumnsBuilder.build();
+
+        // Modify projections to refer to new variables
+        Map<ConnectorExpression, Variable> newVariables = newVariablesBuilder.buildOrThrow();
+        List<ConnectorExpression> newProjections = projections.stream()
+                .map(expression -> replaceWithNewVariables(expression, newVariables))
                 .collect(toImmutableList());
 
-        if (handle.getColumns().isPresent()) {
+        List<Assignment> outputAssignments = newAssignments.values().stream().collect(toImmutableList());
+
+        if (!columnExpressionsBuilder.buildOrThrow().isEmpty()) {
+            PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, handle, Optional.empty(), newColumns, columnExpressionsBuilder.buildOrThrow());
+            return Optional.of(new ProjectionApplicationResult<>(
+                    new JdbcTableHandle(
+                            new JdbcQueryRelationHandle(preparedQuery),
+                            TupleDomain.all(),
+                            ImmutableList.of(),
+                            Optional.empty(),
+                            OptionalLong.empty(),
+                            Optional.of(newColumns),
+                            handle.getOtherReferencedTables(),
+                            nextSyntheticColumnId,
+                            handle.getAuthorization(),
+                            handle.getUpdateAssignments()),
+                    newProjections,
+                    outputAssignments,
+                    precalculateStatisticsForPushdown));
+        }
+
+        if (newVariables.isEmpty() && handle.getColumns().isPresent()) {
             Set<JdbcColumnHandle> newColumnSet = ImmutableSet.copyOf(newColumns);
             Set<JdbcColumnHandle> tableColumnSet = ImmutableSet.copyOf(handle.getColumns().get());
             if (newColumnSet.equals(tableColumnSet)) {
@@ -337,16 +411,11 @@ public class DefaultJdbcMetadata
                         handle.getLimit(),
                         Optional.of(newColumns),
                         handle.getOtherReferencedTables(),
-                        handle.getNextSyntheticColumnId(),
+                        nextSyntheticColumnId,
                         handle.getAuthorization(),
                         handle.getUpdateAssignments()),
-                projections,
-                assignments.entrySet().stream()
-                        .map(assignment -> new Assignment(
-                                assignment.getKey(),
-                                assignment.getValue(),
-                                ((JdbcColumnHandle) assignment.getValue()).getColumnType()))
-                        .collect(toImmutableList()),
+                newProjections,
+                outputAssignments,
                 precalculateStatisticsForPushdown));
     }
 

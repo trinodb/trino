@@ -70,6 +70,21 @@ public class DefaultQueryBuilder
     }
 
     @Override
+    public PreparedStatement preparedStatementForExpression(JdbcClient client, ConnectorSession session, Connection connection, JdbcRelationHandle baseRelation, Map<String, ParameterizedExpression> expressions)
+            throws SQLException
+    {
+        ImmutableList.Builder<QueryParameter> queryParameterBuilder = ImmutableList.builder();
+        ImmutableList.Builder<String> projectionsExpressionBuilder = ImmutableList.builder();
+        for (Map.Entry<String, ParameterizedExpression> entry : expressions.entrySet()) {
+            projectionsExpressionBuilder.add(entry.getValue().expression() + " AS " + entry.getKey());
+            queryParameterBuilder.addAll(entry.getValue().parameters());
+        }
+        String sql = "SELECT " + String.join(", ", projectionsExpressionBuilder.build());
+        sql += getFrom(client, baseRelation, queryParameterBuilder::add);
+        return prepareStatement(client, session, connection, new PreparedQuery(sql, queryParameterBuilder.build()), Optional.empty());
+    }
+
+    @Override
     public PreparedQuery prepareSelectQuery(
             JdbcClient client,
             ConnectorSession session,
@@ -279,6 +294,7 @@ public class DefaultQueryBuilder
         String modifiedQuery = queryModifier.apply(session, preparedQuery.query());
         log.debug("Preparing query: %s", modifiedQuery);
         columnCount = columnCount.map(count -> max(count, 1)); // Query builder appends a dummy projection when no columns projected
+        System.out.println("Modified " + modifiedQuery);
         PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery, columnCount);
 
         List<QueryParameter> parameters = preparedQuery.parameters();

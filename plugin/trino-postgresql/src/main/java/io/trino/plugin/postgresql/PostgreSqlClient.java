@@ -800,6 +800,17 @@ public class PostgreSqlClient
         return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
+    @Override
+    public Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        Optional<ParameterizedExpression> parameterizedExpression = connectorExpressionRewriter.rewrite(session, expression, assignments);
+        if (parameterizedExpression.isPresent()) {
+            ParameterizedExpression convertedExpression = parameterizedExpression.get();
+            return Optional.of(new JdbcExpression(convertedExpression.expression(), convertedExpression.parameters(), getJdbcTypeHandle(session, handle, convertedExpression)));
+        }
+        return Optional.empty();
+    }
+
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
         return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));

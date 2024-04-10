@@ -30,6 +30,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.QueryRunner;
@@ -1025,6 +1026,40 @@ public class TestPostgreSqlConnectorTest
                     .matches("VALUES 1")
                     .isFullyPushedDown();
         }
+    }
+
+    @Test
+    public void testProjectionPushdownWithConnectorExpressions()
+    {
+        assertThat(query("SELECT nationkey, nationkey + (100 - regionkey ) FROM nation"))
+                .isFullyPushedDown();
+
+        // connector expression - nested rewritten call with casts, $cast call not implemented so the call tree is not pushed down
+        assertThat(query("SELECT nationkey, custkey + (nationkey + (acctbal + 100)) FROM customer"))
+                .isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT nationkey, CAST(regionkey AS VARCHAR) FROM nation"))
+                .isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT nationkey, upper(name) FROM nation"))
+                .isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT shippriority % 4 FROM orders")).isFullyPushedDown();
+
+        assertThat(query("SELECT name, (nationkey - regionkey) % (nationkey + 1) FROM nation"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name, (nationkey - regionkey) / (nationkey + 1) FROM nation WHERE comment = 'non'"))
+                .isFullyPushedDown();
+
+        // some databases calculate remainder instead of modulus when one of the values is negative
+        assertThat(query("SELECT nationkey, name, regionkey, (nationkey - regionkey) % -nationkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))
+                .isFullyPushedDown()
+                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1', BIGINT '2')");
+
+        assertQueryFails(
+                "SELECT nationkey, name, regionkey, (nationkey - regionkey) % 0 FROM nation",
+                "ERROR: division by zero");
     }
 
     private String getLongInClause(int start, int length)
