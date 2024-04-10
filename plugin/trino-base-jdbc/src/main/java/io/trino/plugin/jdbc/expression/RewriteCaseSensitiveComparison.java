@@ -89,6 +89,6 @@ public class RewriteCaseSensitiveComparison
 
     private static boolean isCaseSensitive(Variable variable, RewriteContext<?> context)
     {
-        return ((JdbcColumnHandle) context.getAssignment(variable.getName())).getJdbcTypeHandle().getCaseSensitivity().equals(Optional.of(CASE_SENSITIVE));
+        return ((JdbcColumnHandle) context.getAssignment(variable.getName())).getJdbcTypeHandle().caseSensitivity().equals(Optional.of(CASE_SENSITIVE));
     }
 }

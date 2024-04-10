@@ -591,14 +591,14 @@ public class RedshiftClient
             return mapping;
         }
 
-        if ("time".equals(type.getJdbcTypeName().orElse(""))) {
+        if ("time".equals(type.jdbcTypeName().orElse(""))) {
             return Optional.of(ColumnMapping.longMapping(
                     TIME_MICROS,
                     RedshiftClient::readTime,
                     RedshiftClient::writeTime));
         }
 
-        switch (type.getJdbcType()) {
+        switch (type.jdbcType()) {
             case Types.BIT: // Redshift uses this for booleans
                 return Optional.of(booleanColumnMapping());
 
@@ -616,8 +616,8 @@ public class RedshiftClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.NUMERIC: {
-                int precision = type.getRequiredColumnSize();
-                int scale = type.getRequiredDecimalDigits();
+                int precision = type.requiredColumnSize();
+                int scale = type.requiredDecimalDigits();
                 DecimalType decimalType = createDecimalType(precision, scale);
                 if (precision == REDSHIFT_DECIMAL_CUTOFF_PRECISION) {
                     return Optional.of(ColumnMapping.objectMapping(
@@ -629,17 +629,17 @@ public class RedshiftClient
             }
 
             case Types.CHAR:
-                CharType charType = createCharType(type.getRequiredColumnSize());
+                CharType charType = createCharType(type.requiredColumnSize());
                 return Optional.of(ColumnMapping.sliceMapping(
                         charType,
                         charReadFunction(charType),
                         RedshiftClient::writeChar));
 
             case Types.VARCHAR: {
-                if (type.getColumnSize().isEmpty()) {
+                if (type.columnSize().isEmpty()) {
                     throw new TrinoException(REDSHIFT_INVALID_TYPE, "column size not present");
                 }
-                int length = type.getRequiredColumnSize();
+                int length = type.requiredColumnSize();
                 return Optional.of(varcharColumnMapping(
                         length < VarcharType.MAX_LENGTH
                                 ? createVarcharType(length)
@@ -1002,7 +1002,7 @@ public class RedshiftClient
     private static Optional<ColumnMapping> legacyDefaultColumnMapping(JdbcTypeHandle typeHandle)
     {
         // This method is copied from deprecated StandardColumnMappings.legacyDefaultColumnMapping()
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.BIT:
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
@@ -1028,8 +1028,8 @@ public class RedshiftClient
 
             case Types.NUMERIC:
             case Types.DECIMAL:
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
-                int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                int decimalDigits = typeHandle.requiredDecimalDigits();
+                int precision = typeHandle.requiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
                     return Optional.empty();
                 }
@@ -1037,13 +1037,13 @@ public class RedshiftClient
 
             case Types.CHAR:
             case Types.NCHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
 
             case Types.BINARY:
             case Types.VARBINARY:
