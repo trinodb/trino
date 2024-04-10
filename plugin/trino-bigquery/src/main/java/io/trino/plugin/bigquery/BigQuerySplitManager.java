@@ -134,11 +134,11 @@ public class BigQuerySplitManager
             // Storage API doesn't support reading wildcard tables
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
-        if (type == MATERIALIZED_VIEW || type == EXTERNAL) {
-            // Storage API doesn't support reading materialized views and external tables
+        if (type == EXTERNAL) {
+            // Storage API doesn't support reading external tables
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
-        if (type == VIEW) {
+        if (type == VIEW || type == MATERIALIZED_VIEW) {
             if (isSkipViewMaterialization(session)) {
                 return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
             }
