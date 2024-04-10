@@ -86,7 +86,7 @@ Array elements must not be `NULL` or empty.
 The returned geometry may not be simple and may contain duplicate points if input array has duplicates.
 :::
 
-:::{function} ST_Point(double, double) -> Point
+:::{function} ST_Point(lat: double, lon: double) -> Point
 Returns a geometry type point object with the given coordinate values.
 :::
 
@@ -109,51 +109,51 @@ Converts a SphericalGeography object to a Geometry object.
 
 ## Relationship tests
 
-:::{function} ST_Contains(Geometry, Geometry) -> boolean
+:::{function} ST_Contains(geometryA: Geometry, geometryB: Geometry) -> boolean
 Returns `true` if and only if no points of the second geometry lie in the exterior
 of the first geometry, and at least one point of the interior of the first geometry
 lies in the interior of the second geometry.
 :::
 
-:::{function} ST_Crosses(Geometry, Geometry) -> boolean
+:::{function} ST_Crosses(first: Geometry, second: Geometry) -> boolean
 Returns `true` if the supplied geometries have some, but not all, interior points in common.
 :::
 
-:::{function} ST_Disjoint(Geometry, Geometry) -> boolean
+:::{function} ST_Disjoint(first: Geometry, second: Geometry) -> boolean
 Returns `true` if the give geometries do not *spatially intersect* --
 if they do not share any space together.
 :::
 
-:::{function} ST_Equals(Geometry, Geometry) -> boolean
+:::{function} ST_Equals(first: Geometry, second: Geometry) -> boolean
 Returns `true` if the given geometries represent the same geometry.
 :::
 
-:::{function} ST_Intersects(Geometry, Geometry) -> boolean
+:::{function} ST_Intersects(first: Geometry, second: Geometry) -> boolean
 Returns `true` if the given geometries spatially intersect in two dimensions
 (share any portion of space) and `false` if they do not (they are disjoint).
 :::
 
-:::{function} ST_Overlaps(Geometry, Geometry) -> boolean
+:::{function} ST_Overlaps(first: Geometry, second: Geometry) -> boolean
 Returns `true` if the given geometries share space, are of the same dimension,
 but are not completely contained by each other.
 :::
 
-:::{function} ST_Relate(Geometry, Geometry) -> boolean
+:::{function} ST_Relate(first: Geometry, second: Geometry) -> boolean
 Returns `true` if first geometry is spatially related to second geometry.
 :::
 
-:::{function} ST_Touches(Geometry, Geometry) -> boolean
+:::{function} ST_Touches(first: Geometry, second: Geometry) -> boolean
 Returns `true` if the given geometries have at least one point in common,
 but their interiors do not intersect.
 :::
 
-:::{function} ST_Within(Geometry, Geometry) -> boolean
+:::{function} ST_Within(first: Geometry, second: Geometry) -> boolean
 Returns `true` if first geometry is completely inside second geometry.
 :::
 
 ## Operations
 
-:::{function} geometry_nearest_points(Geometry, Geometry) -> row(Point, Point)
+:::{function} geometry_nearest_points(first: Geometry, second: Geometry) -> row(Point, Point)
 Returns the points on each geometry nearest the other.  If either geometry
 is empty, return `NULL`.  Otherwise, return a row of two Points that have
 the minimum distance of any two points on the geometries.  The first Point
@@ -178,7 +178,7 @@ is less than or equal to the specified distance. If the points of the geometry a
 close together (``delta < 1e-8``), this might return an empty geometry.
 :::
 
-:::{function} ST_Difference(Geometry, Geometry) -> Geometry
+:::{function} ST_Difference(first: Geometry, second: Geometry) -> Geometry
 Returns the geometry value that represents the point set difference of the given geometries.
 :::
 
@@ -195,15 +195,15 @@ rectangular polygon of a geometry. Returns `NULL` if input geometry is empty.
 Returns a line string representing the exterior ring of the input polygon.
 :::
 
-:::{function} ST_Intersection(Geometry, Geometry) -> Geometry
+:::{function} ST_Intersection(first: Geometry, second: Geometry) -> Geometry
 Returns the geometry value that represents the point set intersection of two geometries.
 :::
 
-:::{function} ST_SymDifference(Geometry, Geometry) -> Geometry
+:::{function} ST_SymDifference(first: Geometry, second: Geometry) -> Geometry
 Returns the geometry value that represents the point set symmetric difference of two geometries.
 :::
 
-:::{function} ST_Union(Geometry, Geometry) -> Geometry
+:::{function} ST_Union(first: Geometry, second: Geometry) -> Geometry
 Returns a geometry that represents the point set union of the input geometries.
 
 See also:  {func}`geometry_union`, {func}`geometry_union_agg`
@@ -242,14 +242,14 @@ Returns the inherent dimension of this geometry object, which must be
 less than or equal to the coordinate dimension.
 :::
 
-:::{function} ST_Distance(Geometry, Geometry) -> double
+:::{function} ST_Distance(first: Geometry, second: Geometry) -> double
 :noindex: true
 
 Returns the 2-dimensional cartesian minimum distance (based on spatial ref)
 between two geometries in projected units.
 :::
 
-:::{function} ST_Distance(SphericalGeography, SphericalGeography) -> double
+:::{function} ST_Distance(first: SphericalGeography, second: SphericalGeography) -> double
 Returns the great-circle distance in meters between two SphericalGeography points.
 :::
 
