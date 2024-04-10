@@ -532,8 +532,7 @@ public class FileHiveMetastore
         return listTablesCache.getUnchecked(databaseName);
     }
 
-    @GuardedBy("this")
-    private List<TableInfo> doListAllTables(String databaseName)
+    private synchronized List<TableInfo> doListAllTables(String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");
 
