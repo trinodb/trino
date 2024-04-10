@@ -365,11 +365,10 @@ public class CoordinatorModule
         install(new QueryExecutionFactoryModule());
 
         // cleanup
-        closingBinder(binder)
-                .registerExecutor(Key.get(ExecutorService.class, ForStatementResource.class))
-                .registerExecutor(Key.get(ScheduledExecutorService.class, ForStatementResource.class))
-                .registerExecutor(Key.get(ExecutorService.class, ForQueryExecution.class))
-                .registerExecutor(Key.get(ScheduledExecutorService.class, ForScheduler.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForStatementResource.class));
+        closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForStatementResource.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForQueryExecution.class));
+        closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForScheduler.class));
     }
 
     // working around circular dependency Metadata <-> PlannerContext
