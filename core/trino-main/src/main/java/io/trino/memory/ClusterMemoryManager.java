@@ -59,7 +59,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -71,6 +70,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Sets.difference;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.ExceededMemoryLimitException.exceededGlobalTotalLimit;
@@ -86,13 +86,14 @@ import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 public class ClusterMemoryManager
 {
     private static final Logger log = Logger.get(ClusterMemoryManager.class);
     private static final String EXPORTED_POOL_NAME = "general";
 
-    private final ExecutorService listenerExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService listenerExecutor = newSingleThreadExecutor(daemonThreadsNamed("cluster-memory-manager-listener-%s"));
     private final ClusterMemoryLeakDetector memoryLeakDetector = new ClusterMemoryLeakDetector();
     private final InternalNodeManager nodeManager;
     private final LocationFactory locationFactory;
