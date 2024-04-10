@@ -76,7 +76,7 @@ public class ScanQueryPageSource
 
         // When the _source field is requested, we need to bypass column pruning when fetching the document
         boolean needAllFields = columns.stream()
-                .map(OpenSearchColumnHandle::getName)
+                .map(OpenSearchColumnHandle::name)
                 .anyMatch(isEqual(SOURCE.getName()));
 
         // Columns to fetch as doc_fields instead of pulling them out of the JSON source
@@ -88,12 +88,12 @@ public class ScanQueryPageSource
                 .collect(toImmutableList());
 
         columnBuilders = columns.stream()
-                .map(OpenSearchColumnHandle::getType)
+                .map(OpenSearchColumnHandle::type)
                 .map(type -> type.createBlockBuilder(null, 1))
                 .toArray(BlockBuilder[]::new);
 
         List<String> requiredFields = columns.stream()
-                .map(OpenSearchColumnHandle::getName)
+                .map(OpenSearchColumnHandle::name)
                 .filter(name -> !isBuiltinColumn(name))
                 .collect(toList());
 
@@ -158,7 +158,7 @@ public class ScanQueryPageSource
             Map<String, Object> document = hit.getSourceAsMap();
 
             for (int i = 0; i < decoders.size(); i++) {
-                String field = columns.get(i).getName();
+                String field = columns.get(i).name();
                 decoders.get(i).decode(hit, () -> getField(document, field), columnBuilders[i]);
             }
 
@@ -206,7 +206,7 @@ public class ScanQueryPageSource
         Map<String, Type> result = new HashMap<>();
 
         for (OpenSearchColumnHandle column : columns) {
-            flattenFields(result, column.getName(), column.getType());
+            flattenFields(result, column.name(), column.type());
         }
 
         return result;
@@ -227,7 +227,7 @@ public class ScanQueryPageSource
     private List<Decoder> createDecoders(List<OpenSearchColumnHandle> columns)
     {
         return columns.stream()
-                .map(OpenSearchColumnHandle::getDecoderDescriptor)
+                .map(OpenSearchColumnHandle::decoderDescriptor)
                 .map(DecoderDescriptor::createDecoder)
                 .collect(toImmutableList());
     }
