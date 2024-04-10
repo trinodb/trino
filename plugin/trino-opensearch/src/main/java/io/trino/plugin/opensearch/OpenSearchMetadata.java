@@ -403,18 +403,18 @@ public class OpenSearchMetadata
         OpenSearchColumnHandle column = (OpenSearchColumnHandle) columnHandle;
 
         if (isPassthroughQuery(table)) {
-            if (column.getName().equals(PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA.getName())) {
+            if (column.name().equals(PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA.getName())) {
                 return PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA;
             }
 
-            throw new IllegalArgumentException(format("Unexpected column for table '%s$query': %s", table.getIndex(), column.getName()));
+            throw new IllegalArgumentException(format("Unexpected column for table '%s$query': %s", table.getIndex(), column.name()));
         }
 
-        return BuiltinColumns.of(column.getName())
+        return BuiltinColumns.of(column.name())
                 .map(BuiltinColumns::getMetadata)
                 .orElse(ColumnMetadata.builder()
-                        .setName(column.getName())
-                        .setType(column.getType())
+                        .setName(column.name())
+                        .setType(column.type())
                         .build());
     }
 
@@ -507,7 +507,7 @@ public class OpenSearchMetadata
         for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
             OpenSearchColumnHandle column = (OpenSearchColumnHandle) entry.getKey();
 
-            if (column.isSupportsPredicates()) {
+            if (column.supportsPredicates()) {
                 supported.put(column, entry.getValue());
             }
             else {
@@ -529,7 +529,7 @@ public class OpenSearchMetadata
                     String variableName = ((Variable) arguments.get(0)).getName();
                     OpenSearchColumnHandle column = (OpenSearchColumnHandle) constraint.getAssignments().get(variableName);
                     verifyNotNull(column, "No assignment for %s", variableName);
-                    String columnName = column.getName();
+                    String columnName = column.name();
                     Object pattern = ((Constant) arguments.get(1)).getValue();
                     Optional<Slice> escape = Optional.empty();
                     if (arguments.size() == 3) {
