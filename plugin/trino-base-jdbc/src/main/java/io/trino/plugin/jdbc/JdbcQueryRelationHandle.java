@@ -40,7 +40,7 @@ public class JdbcQueryRelationHandle
     @Override
     public String toString()
     {
-        return format("Query[%s]", preparedQuery.getQuery());
+        return format("Query[%s]", preparedQuery.query());
     }
 
     @Override
