@@ -34,7 +34,6 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -773,9 +772,7 @@ public class InternalResourceGroup
             }
             else {
                 // Intermediate resource group
-                for (Iterator<InternalResourceGroup> iterator = dirtySubGroups.iterator(); iterator.hasNext(); ) {
-                    InternalResourceGroup subGroup = iterator.next();
-
+                for (InternalResourceGroup subGroup : dirtySubGroups) {
                     ResourceUsage subGroupUsageDelta = subGroup.updateResourceUsageAndGetDelta();
                     groupUsageDelta = groupUsageDelta.add(subGroupUsageDelta);
                     cachedResourceUsage = cachedResourceUsage.add(subGroupUsageDelta);
