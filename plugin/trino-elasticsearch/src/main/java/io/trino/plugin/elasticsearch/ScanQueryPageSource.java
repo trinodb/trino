@@ -109,8 +109,8 @@ public class ScanQueryPageSource
 
         long start = System.nanoTime();
         SearchResponse searchResponse = client.beginSearch(
-                split.getIndex(),
-                split.getShard(),
+                split.index(),
+                split.shard(),
                 buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,

@@ -41,8 +41,8 @@ class CountQueryPageSource
 
         long start = System.nanoTime();
         long count = client.count(
-                split.getIndex(),
-                split.getShard(),
+                split.index(),
+                split.shard(),
                 buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes()));
         readTimeNanos = System.nanoTime() - start;
 
