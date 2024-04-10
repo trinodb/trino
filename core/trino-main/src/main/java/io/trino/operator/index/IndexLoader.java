@@ -228,7 +228,8 @@ public class IndexLoader
         return myUpdateRequest.getFinishedIndexSnapshot();
     }
 
-    public IndexedData streamIndexDataForSingleKey(UpdateRequest updateRequest)
+    @GuardedBy("this")
+    private IndexedData streamIndexDataForSingleKey(UpdateRequest updateRequest)
     {
         Page indexKeyTuple = updateRequest.getPage().getRegion(0, 1);
 
