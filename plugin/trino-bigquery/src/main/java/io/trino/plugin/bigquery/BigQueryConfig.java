@@ -49,6 +49,7 @@ public class BigQueryConfig
     private boolean arrowSerializationEnabled;
     private Duration viewExpireDuration = new Duration(24, HOURS);
     private boolean skipViewMaterialization;
+    private boolean viewMaterializationWithFilter;
     private Optional<String> viewMaterializationProject = Optional.empty();
     private Optional<String> viewMaterializationDataset = Optional.empty();
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
@@ -152,6 +153,19 @@ public class BigQueryConfig
     public BigQueryConfig setSkipViewMaterialization(boolean skipViewMaterialization)
     {
         this.skipViewMaterialization = skipViewMaterialization;
+        return this;
+    }
+
+    public boolean isViewMaterializationWithFilter()
+    {
+        return viewMaterializationWithFilter;
+    }
+
+    @Config("bigquery.view-materialization-with-filter")
+    @ConfigDescription("Use filter when materializing views")
+    public BigQueryConfig setViewMaterializationWithFilter(boolean viewMaterializationWithFilter)
+    {
+        this.viewMaterializationWithFilter = viewMaterializationWithFilter;
         return this;
     }
 
@@ -333,6 +347,9 @@ public class BigQueryConfig
 
         if (skipViewMaterialization) {
             checkState(viewsEnabled, "%s config property must be enabled when skipping view materialization", VIEWS_ENABLED);
+        }
+        if (viewMaterializationWithFilter) {
+            checkState(viewsEnabled, "%s config property must be enabled when view materialization with filter is enabled", VIEWS_ENABLED);
         }
     }
 }

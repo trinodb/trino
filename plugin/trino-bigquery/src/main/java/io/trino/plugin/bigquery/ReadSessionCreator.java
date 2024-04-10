@@ -38,6 +38,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.cloud.bigquery.storage.v1.ArrowSerializationOptions.CompressionCodec.ZSTD;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.isViewMaterializationWithFilter;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
@@ -77,7 +78,7 @@ public class ReadSessionCreator
         TableInfo tableDetails = client.getTable(remoteTable)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTable.getDataset(), remoteTable.getTable())));
 
-        TableInfo actualTable = getActualTable(client, tableDetails, selectedFields);
+        TableInfo actualTable = getActualTable(client, tableDetails, selectedFields, isViewMaterializationWithFilter(session) ? filter : Optional.empty());
 
         List<String> filteredSelectedFields = selectedFields.stream()
                 .map(BigQueryUtil::toBigQueryColumnName)
@@ -121,7 +122,8 @@ public class ReadSessionCreator
     private TableInfo getActualTable(
             BigQueryClient client,
             TableInfo remoteTable,
-            List<String> requiredColumns)
+            List<String> requiredColumns,
+            Optional<String> filter)
     {
         TableDefinition tableDefinition = remoteTable.getDefinition();
         TableDefinition.Type tableType = tableDefinition.getType();
@@ -135,7 +137,7 @@ public class ReadSessionCreator
                         BigQueryConfig.VIEWS_ENABLED));
             }
             // get it from the view
-            return client.getCachedTable(viewExpiration, remoteTable, requiredColumns);
+            return client.getCachedTable(viewExpiration, remoteTable, requiredColumns, filter);
         }
         // Storage API doesn't support reading other table types (materialized views, external)
         throw new TrinoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",

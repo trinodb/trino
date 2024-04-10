@@ -525,6 +525,7 @@
                                 <exclude>**/TestBigQueryArrowTypeMapping.java</exclude>
                                 <exclude>**/TestBigQueryArrowSerialization.java</exclude>
                                 <exclude>**/TestBigQueryMetadata.java</exclude>
+                                <exclude>**/TestBigQuerySplitManager.java</exclude>
                                 <exclude>**/TestBigQueryInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                                 <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
@@ -602,6 +603,7 @@
                                 <include>**/TestBigQueryAvroTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadataCaching.java</include>
                                 <include>**/TestBigQueryMetadata.java</include>
+                                <include>**/TestBigQuerySplitManager.java</include>
                                 <include>**/TestBigQuery*FailureRecoveryTest.java</include>
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
                             </includes>
