@@ -39,6 +39,7 @@ public class TestBigQueryConfig
                 .setParallelism(null)
                 .setViewExpireDuration(new Duration(24, HOURS))
                 .setSkipViewMaterialization(false)
+                .setViewMaterializationWithFilter(false)
                 .setViewMaterializationProject(null)
                 .setViewMaterializationDataset(null)
                 .setMaxReadRowsRetries(3)
@@ -66,6 +67,7 @@ public class TestBigQueryConfig
                 .put("bigquery.experimental.arrow-serialization.enabled", "true")
                 .put("bigquery.view-expire-duration", "30m")
                 .put("bigquery.skip-view-materialization", "true")
+                .put("bigquery.view-materialization-with-filter", "true")
                 .put("bigquery.view-materialization-project", "vmproject")
                 .put("bigquery.view-materialization-dataset", "vmdataset")
                 .put("bigquery.max-read-rows-retries", "10")
@@ -88,6 +90,7 @@ public class TestBigQueryConfig
                 .setArrowSerializationEnabled(true)
                 .setViewExpireDuration(new Duration(30, MINUTES))
                 .setSkipViewMaterialization(true)
+                .setViewMaterializationWithFilter(true)
                 .setViewMaterializationProject("vmproject")
                 .setViewMaterializationDataset("vmdataset")
                 .setMaxReadRowsRetries(10)
@@ -120,5 +123,12 @@ public class TestBigQueryConfig
                 .validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("bigquery.views-enabled config property must be enabled when skipping view materialization");
+
+        assertThatThrownBy(() -> new BigQueryConfig()
+                .setViewMaterializationWithFilter(true)
+                .setViewsEnabled(false)
+                .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("bigquery.views-enabled config property must be enabled when view materialization with filter is enabled");
     }
 }
