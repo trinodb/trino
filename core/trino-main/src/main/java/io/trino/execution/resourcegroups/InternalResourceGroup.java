@@ -851,17 +851,21 @@ public class InternalResourceGroup
 
     private void addOrUpdateSubGroup(Queue<InternalResourceGroup> queue, InternalResourceGroup group)
     {
-        if (schedulingPolicy == WEIGHTED_FAIR) {
-            ((WeightedFairQueue<InternalResourceGroup>) queue).addOrUpdate(group, new Usage(group.getSchedulingWeight(), group.getRunningQueries()));
-        }
-        else {
-            ((UpdateablePriorityQueue<InternalResourceGroup>) queue).addOrUpdate(group, getSubGroupSchedulingPriority(schedulingPolicy, group));
+        synchronized (root) {
+            if (schedulingPolicy == WEIGHTED_FAIR) {
+                ((WeightedFairQueue<InternalResourceGroup>) queue).addOrUpdate(group, new Usage(group.getSchedulingWeight(), group.getRunningQueries()));
+            }
+            else {
+                ((UpdateablePriorityQueue<InternalResourceGroup>) queue).addOrUpdate(group, getSubGroupSchedulingPriority(schedulingPolicy, group));
+            }
         }
     }
 
     private void addOrUpdateSubGroup(InternalResourceGroup group)
     {
-        addOrUpdateSubGroup(eligibleSubGroups, group);
+        synchronized (root) {
+            addOrUpdateSubGroup(eligibleSubGroups, group);
+        }
     }
 
     private static long getSubGroupSchedulingPriority(SchedulingPolicy policy, InternalResourceGroup group)
@@ -874,11 +878,13 @@ public class InternalResourceGroup
 
     private long computeSchedulingWeight()
     {
-        if (runningQueries.size() + descendantRunningQueries >= softConcurrencyLimit) {
-            return schedulingWeight;
-        }
+        synchronized (root) {
+            if (runningQueries.size() + descendantRunningQueries >= softConcurrencyLimit) {
+                return schedulingWeight;
+            }
 
-        return (long) Integer.MAX_VALUE * schedulingWeight;
+            return (long) Integer.MAX_VALUE * schedulingWeight;
+        }
     }
 
     private boolean isEligibleToStartNext()
