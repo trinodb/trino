@@ -967,10 +967,10 @@ public class InternalResourceGroup
         if (this == o) {
             return true;
         }
-        if (!(o instanceof InternalResourceGroup)) {
+        // FIXME: InternalResourceGroup should be final. Supports subclassing for test purposes.
+        if (!(o instanceof InternalResourceGroup that)) {
             return false;
         }
-        InternalResourceGroup that = (InternalResourceGroup) o;
         return Objects.equals(id, that.id);
     }
 
