@@ -139,7 +139,7 @@ public final class JdbcColumnHandle
         return Joiner.on(":").skipNulls().join(
                 columnName,
                 columnType.getDisplayName(),
-                jdbcTypeHandle.getJdbcTypeName().orElse(null));
+                jdbcTypeHandle.jdbcTypeName().orElse(null));
     }
 
     public long getRetainedSizeInBytes()

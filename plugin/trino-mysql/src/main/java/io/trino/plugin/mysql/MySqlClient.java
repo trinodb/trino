@@ -488,7 +488,7 @@ public class MySqlClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        String jdbcTypeName = typeHandle.getJdbcTypeName()
+        String jdbcTypeName = typeHandle.jdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
@@ -508,12 +508,12 @@ public class MySqlClient
             case "json":
                 return Optional.of(jsonColumnMapping());
             case "enum":
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
             case "datetime":
                 return mysqlDateTimeToTrinoTimestamp(typeHandle);
         }
 
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.BIT:
                 return Optional.of(booleanColumnMapping());
 
@@ -543,8 +543,8 @@ public class MySqlClient
 
             case Types.NUMERIC:
             case Types.DECIMAL:
-                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
-                int precision = typeHandle.getRequiredColumnSize();
+                int decimalDigits = typeHandle.decimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                int precision = typeHandle.requiredColumnSize();
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
@@ -557,14 +557,14 @@ public class MySqlClient
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
 
             case Types.CHAR:
-                return Optional.of(mySqlDefaultCharColumnMapping(typeHandle.getRequiredColumnSize(), typeHandle.getCaseSensitivity()));
+                return Optional.of(mySqlDefaultCharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity()));
 
             // TODO not all these type constants are necessarily used by the JDBC driver
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                return Optional.of(mySqlDefaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), typeHandle.getCaseSensitivity()));
+                return Optional.of(mySqlDefaultVarcharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity()));
 
             case Types.BINARY:
             case Types.VARBINARY:
@@ -578,7 +578,7 @@ public class MySqlClient
                         mySqlDateWriteFunctionUsingLocalDate()));
 
             case Types.TIME:
-                TimeType timeType = createTimeType(getTimePrecision(typeHandle.getRequiredColumnSize()));
+                TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
                 requireNonNull(timeType, "timeType is null");
                 checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
                 return Optional.of(ColumnMapping.longMapping(
@@ -631,7 +631,7 @@ public class MySqlClient
 
     private Optional<ColumnMapping> mysqlDateTimeToTrinoTimestamp(JdbcTypeHandle typeHandle)
     {
-        TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
+        TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.requiredColumnSize()));
         checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return Optional.of(ColumnMapping.longMapping(
                 timestampType,
@@ -641,7 +641,7 @@ public class MySqlClient
 
     private static Optional<ColumnMapping> mysqlTimestampToTrinoTimestampWithTz(JdbcTypeHandle typeHandle)
     {
-        TimestampWithTimeZoneType trinoType = createTimestampWithTimeZoneType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
+        TimestampWithTimeZoneType trinoType = createTimestampWithTimeZoneType(getTimestampPrecision(typeHandle.requiredColumnSize()));
         if (trinoType.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
             return Optional.of(ColumnMapping.longMapping(
                     trinoType,
