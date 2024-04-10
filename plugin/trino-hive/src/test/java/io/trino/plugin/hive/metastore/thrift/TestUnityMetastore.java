@@ -45,7 +45,7 @@ final class TestUnityMetastore
                 .setHttpBearerToken(databricksToken)
                 .setAdditionalHeaders("X-Databricks-Catalog-Name:" + databricksCatalogName);
         ThriftMetastoreClient client = ((ThriftMetastoreClientFactory) new HttpThriftMetastoreClientFactory(config, new TestingNodeManager(), OpenTelemetry.noop()))
-                .create(metastoreUri, Optional.empty());
+                .create(metastoreUri, null, Optional.empty());
 
         HiveMetastore metastore = new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
                 .metastoreClient(client)

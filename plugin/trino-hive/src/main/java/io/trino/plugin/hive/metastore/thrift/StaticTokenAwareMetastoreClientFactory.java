@@ -56,7 +56,7 @@ public class StaticTokenAwareMetastoreClientFactory
     @VisibleForTesting
     StaticTokenAwareMetastoreClientFactory(StaticMetastoreConfig config, ThriftMetastoreAuthenticationConfig authenticationConfig, ThriftMetastoreClientFactory clientFactory, Ticker ticker)
     {
-        this(config.getMetastoreUris(), config.getMetastoreUsername(), clientFactory, ticker);
+        this(config.getMetastoreUris(), config.getHiveCatalogName(), config.getMetastoreUsername(), clientFactory, ticker);
 
         checkArgument(
                 isNullOrEmpty(metastoreUsername) || authenticationConfig.getAuthenticationType() == ThriftMetastoreAuthenticationType.NONE,
@@ -65,13 +65,13 @@ public class StaticTokenAwareMetastoreClientFactory
                 authenticationConfig.getAuthenticationType());
     }
 
-    private StaticTokenAwareMetastoreClientFactory(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory, Ticker ticker)
+    private StaticTokenAwareMetastoreClientFactory(List<URI> metastoreUris, String catalogName, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory, Ticker ticker)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
         this.backoffs = metastoreUris.stream()
                 .map(StaticTokenAwareMetastoreClientFactory::checkMetastoreUri)
-                .map(uri -> new Backoff(uri, ticker))
+                .map(uri -> new Backoff(uri, catalogName, ticker))
                 .collect(toImmutableList());
 
         this.metastoreUsername = metastoreUsername;
@@ -99,7 +99,7 @@ public class StaticTokenAwareMetastoreClientFactory
         TException lastException = null;
         for (Backoff backoff : backoffsSorted) {
             try {
-                return getClient(backoff.getUri(), backoff, delegationToken);
+                return getClient(backoff, delegationToken);
             }
             catch (TException e) {
                 lastException = e;
@@ -110,23 +110,28 @@ public class StaticTokenAwareMetastoreClientFactory
         throw new TException("Failed connecting to Hive metastore: " + addresses, lastException);
     }
 
-    private ThriftMetastoreClient getClient(URI uri, Backoff backoff, Optional<String> delegationToken)
+    private ThriftMetastoreClient getClient(Backoff backoff, Optional<String> delegationToken)
             throws TException
     {
-        ThriftMetastoreClient client = new FailureAwareThriftMetastoreClient(clientFactory.create(uri, delegationToken), new Callback()
-        {
-            @Override
-            public void success()
-            {
-                backoff.success();
-            }
+        ThriftMetastoreClient client = new FailureAwareThriftMetastoreClient(
+                clientFactory.create(
+                        backoff.getUri(),
+                        backoff.getCatalogName(),
+                        delegationToken),
+                new Callback()
+                {
+                    @Override
+                    public void success()
+                    {
+                        backoff.success();
+                    }
 
-            @Override
-            public void failed(TException e)
-            {
-                backoff.fail();
-            }
-        });
+                    @Override
+                    public void failed(TException e)
+                    {
+                        backoff.fail();
+                    }
+                });
         if (!isNullOrEmpty(metastoreUsername)) {
             client.setUGI(metastoreUsername);
         }
@@ -151,14 +156,16 @@ public class StaticTokenAwareMetastoreClientFactory
         static final long MAX_BACKOFF = new Duration(60, SECONDS).roundTo(NANOSECONDS);
 
         private final URI uri;
+        private final String catalogName;
         private final Ticker ticker;
         private long backoffDuration = MIN_BACKOFF;
         private OptionalLong lastFailureTimestamp = OptionalLong.empty();
 
-        Backoff(URI uri, Ticker ticker)
+        Backoff(URI uri, String catalogName, Ticker ticker)
         {
             this.uri = requireNonNull(uri, "uri is null");
             this.ticker = requireNonNull(ticker, "ticker is null");
+            this.catalogName = catalogName;
         }
 
         public HostAndPort getAddress()
@@ -169,6 +176,11 @@ public class StaticTokenAwareMetastoreClientFactory
         public URI getUri()
         {
             return uri;
+        }
+
+        public String getCatalogName()
+        {
+            return catalogName;
         }
 
         synchronized void fail()

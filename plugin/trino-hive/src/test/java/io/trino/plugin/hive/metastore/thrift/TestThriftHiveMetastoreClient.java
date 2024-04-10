@@ -43,6 +43,7 @@ public class TestThriftHiveMetastoreClient
                     connectionCount.incrementAndGet();
                     return new TTransportMock();
                 },
+                null,
                 "dummy",
                 new MetastoreSupportsDateStatistics(),
                 new AtomicInteger(),

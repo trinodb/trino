@@ -49,6 +49,6 @@ public final class TestHiveMetastoreClientFactory
             throws TException
     {
         URI metastore = URI.create("thrift://" + metastoreHost + ":" + metastorePort);
-        return thriftMetastoreClientFactory.create(metastore, Optional.empty());
+        return thriftMetastoreClientFactory.create(metastore, null, Optional.empty());
     }
 }

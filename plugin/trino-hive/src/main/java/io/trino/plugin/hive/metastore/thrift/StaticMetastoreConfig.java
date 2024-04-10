@@ -33,6 +33,7 @@ public class StaticMetastoreConfig
 
     private List<URI> metastoreUris;
     private String metastoreUsername;
+    private String hiveCatalogName;
 
     @NotNull
     public List<URI> getMetastoreUris()
@@ -86,5 +87,18 @@ public class StaticMetastoreConfig
         boolean hasHttpMetastore = metastoreUris.stream().anyMatch(uri -> "http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()));
         boolean hasThriftMetastore = metastoreUris.stream().anyMatch(uri -> "thrift".equalsIgnoreCase(uri.getScheme()));
         return hasHttpMetastore && hasThriftMetastore;
+    }
+
+    public String getHiveCatalogName()
+    {
+        return hiveCatalogName;
+    }
+
+    @Config("hive.metastore.catalog")
+    @ConfigDescription("Hive metastore catalog")
+    public StaticMetastoreConfig setHiveCatalogName(String hiveCatalogName)
+    {
+        this.hiveCatalogName = hiveCatalogName;
+        return this;
     }
 }

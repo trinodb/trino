@@ -76,11 +76,12 @@ public class HttpThriftMetastoreClientFactory
     }
 
     @Override
-    public ThriftMetastoreClient create(URI uri, Optional<String> delegationToken)
+    public ThriftMetastoreClient create(URI uri, String catalogName, Optional<String> delegationToken)
             throws TTransportException
     {
         return new ThriftHiveMetastoreClient(
                 () -> createHttpTransport(uri),
+                catalogName,
                 hostname,
                 new MetastoreSupportsDateStatistics(),
                 chosenGetTableMetaAlternative,

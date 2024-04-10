@@ -31,6 +31,7 @@ public class StaticTokenAwareHttpMetastoreClientFactory
 {
     private final ThriftMetastoreClientFactory clientProvider;
     private final ImmutableList<URI> metastoreUris;
+    private final String catalogName;
 
     @Inject
     StaticTokenAwareHttpMetastoreClientFactory(StaticMetastoreConfig config, ThriftMetastoreClientFactory clientProvider)
@@ -39,6 +40,7 @@ public class StaticTokenAwareHttpMetastoreClientFactory
         this.metastoreUris = config.getMetastoreUris().stream()
                 .map(StaticTokenAwareHttpMetastoreClientFactory::checkMetastoreUri)
                 .collect(toImmutableList());
+        this.catalogName = config.getHiveCatalogName();
     }
 
     private static URI checkMetastoreUri(URI uri)
@@ -58,7 +60,7 @@ public class StaticTokenAwareHttpMetastoreClientFactory
         TException lastException = null;
         for (URI metastoreUri : metastoreUris) {
             try {
-                return clientProvider.create(metastoreUri, Optional.empty());
+                return clientProvider.create(metastoreUri, catalogName, Optional.empty());
             }
             catch (TException e) {
                 lastException = e;

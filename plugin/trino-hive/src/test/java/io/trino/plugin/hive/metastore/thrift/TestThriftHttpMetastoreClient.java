@@ -57,7 +57,7 @@ public class TestThriftHttpMetastoreClient
             public Database getDatabase(String databaseName)
                     throws NoSuchObjectException
             {
-                if (databaseName.equals("@hive#testDbName")) {
+                if (databaseName.equals("testDbName")) {
                     return new Database("testDbName", "testOwner", "testLocation", Map.of("key", "value"));
                 }
                 throw new NoSuchObjectException("Database does not exist");
@@ -83,7 +83,7 @@ public class TestThriftHttpMetastoreClient
             ThriftMetastoreClientFactory factory = new HttpThriftMetastoreClientFactory(config, new TestingNodeManager(), OpenTelemetry.noop());
             URI metastoreUri = URI.create("http://localhost:" + metastoreServer.getPort());
             ThriftMetastoreClient client = factory.create(
-                    metastoreUri, Optional.empty());
+                    metastoreUri, null, Optional.empty());
             assertThat(client.getAllDatabases()).containsExactly("testDbName");
             assertThat(client.getDatabase("testDbName")).isEqualTo(new Database("testDbName", "testOwner", "testLocation", Map.of("key", "value")));
             // negative case

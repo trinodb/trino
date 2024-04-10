@@ -127,6 +127,7 @@ public class ThriftHiveMetastoreClient
 
     private final TransportSupplier transportSupplier;
     private TTransport transport;
+    private final String catalogName;
     protected ThriftHiveMetastore.Iface client;
     private final String hostname;
 
@@ -135,10 +136,10 @@ public class ThriftHiveMetastoreClient
     private final AtomicInteger chosenGetTableAlternative;
     private final AtomicInteger chosenAlterTransactionalTableAlternative;
     private final AtomicInteger chosenAlterPartitionsAlternative;
-    private final String catalogName;
 
     public ThriftHiveMetastoreClient(
             TransportSupplier transportSupplier,
+            String catalogName,
             String hostname,
             MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
             AtomicInteger chosenGetTableMetaAlternative,
@@ -154,7 +155,7 @@ public class ThriftHiveMetastoreClient
         this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
         this.chosenAlterTransactionalTableAlternative = requireNonNull(chosenAlterTransactionalTableAlternative, "chosenAlterTransactionalTableAlternative is null");
         this.chosenAlterPartitionsAlternative = requireNonNull(chosenAlterPartitionsAlternative, "chosenAlterPartitionsAlternative is null");
-        this.catalogName = "hive";
+        this.catalogName = catalogName;
         connect();
     }
 
@@ -165,6 +166,18 @@ public class ThriftHiveMetastoreClient
         ThriftHiveMetastore.Iface client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
         if (log.isDebugEnabled()) {
             client = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(client, log::debug));
+        }
+        if (catalogName != null) {
+            try {
+                List<String> catalogNames = client.getCatalogs().getNames();
+                if (!catalogNames.contains(catalogName)) {
+                    String message = String.format("catalog %s not exist in hive catalogs. available values: %s", catalogName, catalogNames);
+                    throw new TTransportException(TTransportException.UNKNOWN, message);
+                }
+            }
+            catch (TException exception) {
+                throw new TTransportException(TTransportException.UNKNOWN, exception);
+            }
         }
         this.client = client;
     }
@@ -204,6 +217,9 @@ public class ThriftHiveMetastoreClient
     public List<String> getAllDatabases()
             throws TException
     {
+        if (catalogName == null) {
+            return client.getDatabases("*");
+        }
         return client.getDatabases(prependCatalogToDbName(null));
     }
 

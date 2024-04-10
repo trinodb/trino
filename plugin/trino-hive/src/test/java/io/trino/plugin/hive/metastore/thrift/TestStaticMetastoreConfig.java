@@ -32,7 +32,8 @@ public class TestStaticMetastoreConfig
     {
         assertRecordedDefaults(recordDefaults(StaticMetastoreConfig.class)
                 .setMetastoreUris(null)
-                .setMetastoreUsername(null));
+                .setMetastoreUsername(null)
+                .setHiveCatalogName(null));
     }
 
     @Test
@@ -41,15 +42,18 @@ public class TestStaticMetastoreConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", "thrift://localhost:9083")
                 .put("hive.metastore.username", "trino")
+                .put("hive.metastore.catalog", "hive")
                 .buildOrThrow();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
                 .setMetastoreUris("thrift://localhost:9083")
-                .setMetastoreUsername("trino");
+                .setMetastoreUsername("trino")
+                .setHiveCatalogName("hive");
 
         assertFullMapping(properties, expected);
         assertThat(expected.getMetastoreUris()).isEqualTo(ImmutableList.of(URI.create("thrift://localhost:9083")));
         assertThat(expected.getMetastoreUsername()).isEqualTo("trino");
+        assertThat(expected.getHiveCatalogName()).isEqualTo("hive");
     }
 
     @Test
@@ -58,16 +62,19 @@ public class TestStaticMetastoreConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", "thrift://localhost:9083,thrift://192.0.2.3:8932")
                 .put("hive.metastore.username", "trino")
+                .put("hive.metastore.catalog", "hive")
                 .buildOrThrow();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
                 .setMetastoreUris("thrift://localhost:9083,thrift://192.0.2.3:8932")
-                .setMetastoreUsername("trino");
+                .setMetastoreUsername("trino")
+                .setHiveCatalogName("hive");
 
         assertFullMapping(properties, expected);
         assertThat(expected.getMetastoreUris()).isEqualTo(ImmutableList.of(
                 URI.create("thrift://localhost:9083"),
                 URI.create("thrift://192.0.2.3:8932")));
         assertThat(expected.getMetastoreUsername()).isEqualTo("trino");
+        assertThat(expected.getHiveCatalogName()).isEqualTo("hive");
     }
 }

@@ -55,6 +55,6 @@ public class TestingTokenAwareMetastoreClientFactory
     public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
             throws TException
     {
-        return metastoreClientAdapterProvider.createThriftMetastoreClientAdapter(factory.create(address, delegationToken));
+        return metastoreClientAdapterProvider.createThriftMetastoreClientAdapter(factory.create(address, null, delegationToken));
     }
 }
