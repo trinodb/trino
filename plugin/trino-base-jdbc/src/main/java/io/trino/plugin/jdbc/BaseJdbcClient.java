@@ -1599,9 +1599,9 @@ public abstract class BaseJdbcClient
             return (query, sortItems, limit) -> {
                 String orderBy = sortItems.stream()
                         .map(sortItem -> {
-                            String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                            String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                            return format("%s %s %s", quote.apply(sortItem.getColumn().getColumnName()), ordering, nullsHandling);
+                            String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                            String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                            return format("%s %s %s", quote.apply(sortItem.column().getColumnName()), ordering, nullsHandling);
                         })
                         .collect(joining(", "));
 

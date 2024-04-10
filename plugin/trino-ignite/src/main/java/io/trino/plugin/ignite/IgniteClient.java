@@ -481,9 +481,9 @@ public class IgniteClient
         return Optional.of((query, sortItems, limit) -> {
             String orderBy = sortItems.stream()
                     .map(sortItem -> {
-                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "IS NULL DESC" : "IS NULL ASC";
-                        String columnName = quoted(sortItem.getColumn().getColumnName());
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "IS NULL DESC" : "IS NULL ASC";
+                        String columnName = quoted(sortItem.column().getColumnName());
 
                         return format("%s %s, %1$s %s", columnName, nullsHandling, ordering);
                     })
