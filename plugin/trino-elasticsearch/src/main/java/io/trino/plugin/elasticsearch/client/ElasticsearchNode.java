@@ -17,25 +17,14 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class ElasticsearchNode
+public record ElasticsearchNode(
+        String id,
+        Optional<String> address)
 {
-    private final String id;
-    private final Optional<String> address;
-
-    public ElasticsearchNode(String id, Optional<String> address)
+    public ElasticsearchNode
     {
-        this.id = requireNonNull(id, "id is null");
-        this.address = requireNonNull(address, "address is null");
-    }
-
-    public String getId()
-    {
-        return id;
-    }
-
-    public Optional<String> getAddress()
-    {
-        return address;
+        requireNonNull(id, "id is null");
+        requireNonNull(address, "address is null");
     }
 
     @Override
