@@ -744,7 +744,6 @@ public class InternalResourceGroup
 
             updateEligibility();
             root.triggerProcessQueuedQueries();
-            return;
         }
     }
 
