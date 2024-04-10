@@ -26,6 +26,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION;
 import static io.trino.testing.DataProviders.cartesianProduct;
@@ -147,26 +148,34 @@ public class TestIcebergStatistics
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN comment");
 
         // schema changed, ANALYZE hasn't been re-run yet
+        double nameDataSize = (double) computeActual("SHOW STATS FOR " + tableName).getMaterializedRows().stream()
+                .filter(row -> "name".equals(row.getField(0)))
+                .collect(onlyElement()).getField(1);
+        assertThat(nameDataSize).isBetween(1000.0, 3000.0);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('name', 1908.0, 25, 0, null, null, null),
+                          ('name', %s, 25, 0, null, null, null),
                           ('info', null, null, null, null, null, null),
-                          (null, null, null, null, 50, null, null)""");
+                          (null, null, null, null, 50, null, null)""".formatted(nameDataSize));
 
         assertUpdate("ANALYZE " + tableName);
+        double infoDataSize = (double) computeActual("SHOW STATS FOR " + tableName).getMaterializedRows().stream()
+                .filter(row -> "info".equals(row.getField(0)))
+                .collect(onlyElement()).getField(1);
+        assertThat(infoDataSize).isBetween(4000.0, 6000.0);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('name', 1908.0, 25, 0, null, null, null),
-                          ('info', 4417.0, 25, 0.1, null, null, null),
-                          (null, null, null, null, 50, null, null)"""); // Row count statistics do not yet account for position deletes
+                          ('name', %s, 25, 0, null, null, null),
+                          ('info', %s, 25, 0.1, null, null, null),
+                          (null, null, null, null, 50, null, null)""".formatted(nameDataSize, infoDataSize)); // Row count statistics do not yet account for position deletes
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -992,7 +1001,7 @@ public class TestIcebergStatistics
         Session minimalSnapshotRetentionSession = Session.builder(getSession())
                 .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
                 .build();
-        
+
         String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
 
         assertUpdate(writeSession, "CREATE TABLE " + tableName + "(key integer)");
