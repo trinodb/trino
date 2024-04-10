@@ -57,7 +57,11 @@ public final class DockerFiles
         }
         if (dockerFilesHostPath != null) {
             Failsafe.with(RetryPolicy.builder().withMaxAttempts(5).build())
-                    .run(() -> deleteRecursively(dockerFilesHostPath, ALLOW_INSECURE));
+                    .run(() -> {
+                        synchronized (this) {
+                            deleteRecursively(dockerFilesHostPath, ALLOW_INSECURE);
+                        }
+                    });
             dockerFilesHostPath = null;
         }
         closed = true;
