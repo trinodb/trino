@@ -326,7 +326,13 @@ public class FileSystemExchange
     @Override
     public void close()
     {
-        stats.getCloseExchange().record(exchangeStorage.deleteRecursively(allSinks.stream().map(this::getTaskOutputDirectory).collect(toImmutableList())));
+        ImmutableList<URI> toDelete;
+        synchronized (this) {
+            toDelete = allSinks.stream()
+                    .map(this::getTaskOutputDirectory)
+                    .collect(toImmutableList());
+        }
+        stats.getCloseExchange().record(exchangeStorage.deleteRecursively(toDelete));
         exchangeSpan.end();
     }
 
