@@ -688,7 +688,7 @@ public class DynamicFilterService
 
         private final long start = System.nanoTime();
         private final AtomicReference<Duration> collectionDuration = new AtomicReference<>();
-        @GuardedBy("this")
+        // modifications @GuardedBy("this")
         private volatile boolean collected;
         private final SettableFuture<Domain> collectedDomainsFuture = SettableFuture.create();
 
