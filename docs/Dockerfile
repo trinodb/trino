@@ -13,7 +13,7 @@
 FROM python:slim
 
 # Required by pillow
-RUN apt update -y && apt install -y zlib1g-dev libjpeg-dev libxml2-dev libxslt-dev build-essential
+RUN apt update -y && apt install -y zlib1g-dev libjpeg-dev libxml2-dev libxslt-dev build-essential xsltproc
 
 WORKDIR /docs
 ADD requirements.txt /docs
