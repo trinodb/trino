@@ -346,7 +346,7 @@ public final class ColumnReaderFactory
         return primitiveType == INT32 || primitiveType == INT64 || primitiveType == BINARY || primitiveType == FIXED_LEN_BYTE_ARRAY;
     }
 
-    private static boolean isIntegerAnnotationAndPrimitive(LogicalTypeAnnotation typeAnnotation, PrimitiveTypeName primitiveType)
+    public static boolean isIntegerAnnotationAndPrimitive(LogicalTypeAnnotation typeAnnotation, PrimitiveTypeName primitiveType)
     {
         return isIntegerAnnotation(typeAnnotation) && (primitiveType == INT32 || primitiveType == INT64);
     }
