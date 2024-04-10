@@ -55,7 +55,7 @@ public class OpenSearchSplitManager
             return new FixedSplitSource(new OpenSearchSplit(tableHandle.index(), 0, Optional.empty()));
         }
         List<OpenSearchSplit> splits = client.getSearchShards(tableHandle.index()).stream()
-                .map(shard -> new OpenSearchSplit(shard.getIndex(), shard.getId(), shard.getAddress()))
+                .map(shard -> new OpenSearchSplit(shard.index(), shard.id(), shard.address()))
                 .collect(toImmutableList());
 
         return new FixedSplitSource(splits);
