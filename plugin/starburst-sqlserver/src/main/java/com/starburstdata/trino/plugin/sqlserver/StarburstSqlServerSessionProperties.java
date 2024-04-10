@@ -24,7 +24,7 @@ import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
-public final class StarburstSqlServerSessionProperties
+public class StarburstSqlServerSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String OVERRIDE_CATALOG = "override_catalog";

@@ -31,8 +31,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestStarburstSqlServerDatabasePrefixIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    private TestingSqlServer sqlServer;
-    private String sqlServerDatabaseName;
+    protected TestingSqlServer sqlServer;
+    protected String sqlServerDatabaseName;
 
     @Override
     protected QueryRunner createQueryRunner()

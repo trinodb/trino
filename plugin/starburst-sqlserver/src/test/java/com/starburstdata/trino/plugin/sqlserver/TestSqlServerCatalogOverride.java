@@ -38,7 +38,7 @@ public class TestSqlServerCatalogOverride
             .setCatalogSessionProperty(CATALOG, OVERRIDE_CATALOG, "master")
             .build();
 
-    private TestingSqlServer sqlServer;
+    protected TestingSqlServer sqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()
