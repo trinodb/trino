@@ -537,17 +537,17 @@ public class SqlServerClient
             return mapping;
         }
 
-        String jdbcTypeName = typeHandle.getJdbcTypeName()
+        String jdbcTypeName = typeHandle.jdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
         switch (jdbcTypeName) {
             case "varbinary":
                 return Optional.of(varbinaryColumnMapping());
             case "datetimeoffset":
-                return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
+                return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
         }
 
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.BIT:
                 return Optional.of(booleanColumnMapping());
 
@@ -574,8 +574,8 @@ public class SqlServerClient
 
             case Types.NUMERIC:
             case Types.DECIMAL: {
-                int columnSize = typeHandle.getRequiredColumnSize();
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
+                int columnSize = typeHandle.requiredColumnSize();
+                int decimalDigits = typeHandle.requiredDecimalDigits();
                 // TODO does sql server support negative scale?
                 int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
@@ -586,15 +586,15 @@ public class SqlServerClient
 
             case Types.CHAR:
             case Types.NCHAR:
-                return Optional.of(charColumnMapping(typeHandle.getRequiredColumnSize(), typeHandle.getCaseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
+                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
-                return Optional.of(varcharColumnMapping(typeHandle.getRequiredColumnSize(), typeHandle.getCaseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
+                return Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
 
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                return Optional.of(longVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(longVarcharColumnMapping(typeHandle.requiredColumnSize()));
 
             case Types.BINARY:
             case Types.VARBINARY:
@@ -608,14 +608,14 @@ public class SqlServerClient
                         sqlServerDateWriteFunction()));
 
             case Types.TIME:
-                TimeType timeType = createTimeType(typeHandle.getRequiredDecimalDigits());
+                TimeType timeType = createTimeType(typeHandle.requiredDecimalDigits());
                 return Optional.of(ColumnMapping.longMapping(
                         timeType,
                         timeReadFunction(timeType),
                         sqlServerTimeWriteFunction(timeType.getPrecision())));
 
             case Types.TIMESTAMP:
-                int precision = typeHandle.getRequiredDecimalDigits();
+                int precision = typeHandle.requiredDecimalDigits();
                 return Optional.of(timestampColumnMapping(createTimestampType(precision)));
         }
 
@@ -1147,7 +1147,7 @@ public class SqlServerClient
 
     private boolean isCaseSensitiveVarchar(JdbcColumnHandle columnHandle)
     {
-        return columnHandle.getJdbcTypeHandle().getCaseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE;
+        return columnHandle.getJdbcTypeHandle().caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE;
     }
 
     @Override

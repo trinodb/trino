@@ -423,7 +423,7 @@ public abstract class BaseJdbcClient
 
     protected Optional<ColumnMapping> getForcedMappingToVarchar(JdbcTypeHandle typeHandle)
     {
-        if (typeHandle.getJdbcTypeName().isPresent() && jdbcTypesMappedToVarchar.contains(typeHandle.getJdbcTypeName().get())) {
+        if (typeHandle.jdbcTypeName().isPresent() && jdbcTypesMappedToVarchar.contains(typeHandle.jdbcTypeName().get())) {
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
@@ -438,7 +438,7 @@ public abstract class BaseJdbcClient
                 (statement, index, value) -> {
                     throw new TrinoException(
                             NOT_SUPPORTED,
-                            "Underlying type that is mapped to VARCHAR is not supported for INSERT: " + typeHandle.getJdbcTypeName().get());
+                            "Underlying type that is mapped to VARCHAR is not supported for INSERT: " + typeHandle.jdbcTypeName().get());
                 },
                 DISABLE_PUSHDOWN));
     }

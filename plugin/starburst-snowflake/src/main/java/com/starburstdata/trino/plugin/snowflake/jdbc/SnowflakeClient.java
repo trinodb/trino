@@ -476,44 +476,44 @@ public class SnowflakeClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        String typeName = typeHandle.getJdbcTypeName()
+        String typeName = typeHandle.jdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
             return mapping;
         }
-        if (typeHandle.getJdbcType() == BOOLEAN) {
+        if (typeHandle.jdbcType() == BOOLEAN) {
             return Optional.of(booleanColumnMapping());
         }
 
-        if (typeHandle.getJdbcType() == Types.TINYINT) {
+        if (typeHandle.jdbcType() == Types.TINYINT) {
             return Optional.of(tinyintColumnMapping());
         }
 
-        if (typeHandle.getJdbcType() == Types.SMALLINT) {
+        if (typeHandle.jdbcType() == Types.SMALLINT) {
             return Optional.of(smallintColumnMapping());
         }
 
-        if (typeHandle.getJdbcType() == Types.INTEGER) {
+        if (typeHandle.jdbcType() == Types.INTEGER) {
             return Optional.of(integerColumnMapping());
         }
 
-        if (typeHandle.getJdbcType() == Types.BIGINT) {
+        if (typeHandle.jdbcType() == Types.BIGINT) {
             return Optional.of(bigintColumnMapping());
         }
 
-        if (typeHandle.getJdbcType() == REAL) {
+        if (typeHandle.jdbcType() == REAL) {
             return Optional.of(realColumnMapping());
         }
 
-        if (typeHandle.getJdbcType() == FLOAT || typeHandle.getJdbcType() == DOUBLE) {
+        if (typeHandle.jdbcType() == FLOAT || typeHandle.jdbcType() == DOUBLE) {
             return Optional.of(doubleColumnMapping());
         }
 
         if (typeName.equals("NUMBER")) {
-            int decimalDigits = typeHandle.getRequiredDecimalDigits();
-            int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+            int decimalDigits = typeHandle.requiredDecimalDigits();
+            int precision = typeHandle.requiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
             if (precision > Decimals.MAX_PRECISION) {
                 return Optional.empty();
             }
@@ -529,34 +529,34 @@ public class SnowflakeClient
             return Optional.of(ColumnMapping.sliceMapping(createUnboundedVarcharType(), varcharReadFunction(createUnboundedVarcharType()), varcharWriteFunction(), DISABLE_PUSHDOWN));
         }
 
-        if (typeHandle.getJdbcType() == DATE) {
+        if (typeHandle.jdbcType() == DATE) {
             return Optional.of(ColumnMapping.longMapping(
                     DateType.DATE,
                     ResultSet::getLong,
                     dateWriteFunctionUsingString()));
         }
 
-        if (typeHandle.getJdbcType() == Types.TIME) {
+        if (typeHandle.jdbcType() == Types.TIME) {
             return Optional.of(updatePushdownController(timeColumnMapping()));
         }
 
-        if (typeHandle.getJdbcType() == Types.TIMESTAMP_WITH_TIMEZONE || typeName.equals("TIMESTAMPLTZ")) {
-            return Optional.of(timestampWithTimezoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
+        if (typeHandle.jdbcType() == Types.TIMESTAMP_WITH_TIMEZONE || typeName.equals("TIMESTAMPLTZ")) {
+            return Optional.of(timestampWithTimezoneColumnMapping(typeHandle.requiredDecimalDigits()));
         }
 
-        if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
-            return Optional.of(timestampColumnMapping(typeHandle.getRequiredDecimalDigits()));
+        if (typeHandle.jdbcType() == Types.TIMESTAMP) {
+            return Optional.of(timestampColumnMapping(typeHandle.requiredDecimalDigits()));
         }
 
-        if (typeHandle.getJdbcType() == CHAR) {
-            return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+        if (typeHandle.jdbcType() == CHAR) {
+            return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
         }
 
-        if (typeHandle.getJdbcType() == VARCHAR) {
-            return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+        if (typeHandle.jdbcType() == VARCHAR) {
+            return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
         }
 
-        if (typeHandle.getJdbcType() == BINARY) {
+        if (typeHandle.jdbcType() == BINARY) {
             return Optional.of(varbinaryColumnMapping());
         }
 

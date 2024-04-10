@@ -401,12 +401,12 @@ public class OracleClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        if (typeHandle.getJdbcType() == TRINO_BIGINT_TYPE) {
+        if (typeHandle.jdbcType() == TRINO_BIGINT_TYPE) {
             // Synthetic column
             return Optional.of(bigintColumnMapping());
         }
 
-        String jdbcTypeName = typeHandle.getJdbcTypeName()
+        String jdbcTypeName = typeHandle.jdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
         Optional<ColumnMapping> mappingToVarchar = getForcedMappingToVarchar(typeHandle);
@@ -422,7 +422,7 @@ public class OracleClient
                     FULL_PUSHDOWN));
         }
 
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.SMALLINT:
                 return Optional.of(ColumnMapping.longMapping(
                         SMALLINT,
@@ -444,8 +444,8 @@ public class OracleClient
                         oracleDoubleWriteFunction(),
                         FULL_PUSHDOWN));
             case OracleTypes.NUMBER:
-                int actualPrecision = typeHandle.getRequiredColumnSize();
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
+                int actualPrecision = typeHandle.requiredColumnSize();
+                int decimalDigits = typeHandle.requiredDecimalDigits();
                 // Map negative scale to decimal(p+s, 0).
                 int precision = actualPrecision + max(-decimalDigits, 0);
                 int scale = max(decimalDigits, 0);
@@ -482,7 +482,7 @@ public class OracleClient
 
             case OracleTypes.CHAR:
             case OracleTypes.NCHAR:
-                CharType charType = createCharType(typeHandle.getRequiredColumnSize());
+                CharType charType = createCharType(typeHandle.requiredColumnSize());
                 return Optional.of(ColumnMapping.sliceMapping(
                         charType,
                         charReadFunction(charType),
@@ -492,7 +492,7 @@ public class OracleClient
             case OracleTypes.VARCHAR:
             case OracleTypes.NVARCHAR:
                 return Optional.of(ColumnMapping.sliceMapping(
-                        createVarcharType(typeHandle.getRequiredColumnSize()),
+                        createVarcharType(typeHandle.requiredColumnSize()),
                         (varcharResultSet, varcharColumnIndex) -> utf8Slice(varcharResultSet.getString(varcharColumnIndex)),
                         varcharWriteFunction(),
                         FULL_PUSHDOWN));
@@ -514,7 +514,7 @@ public class OracleClient
                         DISABLE_PUSHDOWN));
 
             case OracleTypes.TIMESTAMP:
-                int timestampPrecision = typeHandle.getRequiredDecimalDigits();
+                int timestampPrecision = typeHandle.requiredDecimalDigits();
                 return Optional.of(oracleTimestampColumnMapping(createTimestampType(timestampPrecision)));
             case OracleTypes.TIMESTAMPTZ:
                 return Optional.of(oracleTimestampWithTimeZoneColumnMapping());

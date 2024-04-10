@@ -400,7 +400,7 @@ public class SapHanaClient
             return mapping;
         }
 
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
 
@@ -423,7 +423,7 @@ public class SapHanaClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.DECIMAL:
-                if (typeHandle.getDecimalDigits().isEmpty()) {
+                if (typeHandle.decimalDigits().isEmpty()) {
                     // SAP HANA's SMALLDECIMAL and DECIMAL fit this category
                     //
                     // If precision and scale are not specified, then DECIMAL becomes a floating-point decimal number.
@@ -442,8 +442,8 @@ public class SapHanaClient
                     return Optional.of(doubleColumnMapping());
                 }
 
-                int precision = typeHandle.getRequiredColumnSize();
-                int scale = typeHandle.getRequiredDecimalDigits();
+                int precision = typeHandle.requiredColumnSize();
+                int scale = typeHandle.requiredDecimalDigits();
                 if (precision < 1 || precision > SAP_HANA_MAX_DECIMAL_PRECISION || scale < 0 || scale > precision) {
                     // SAP HANA supports precision [1, 38], and scale [0, precision]
                     log.warn("Unexpected decimal precision: %s", typeHandle);
@@ -453,12 +453,12 @@ public class SapHanaClient
 
             case Types.CHAR:
             case Types.NCHAR:
-                verify(typeHandle.getRequiredColumnSize() < CharType.MAX_LENGTH, "Unexpected type: %s", typeHandle); // SAP HANA char is shorter than Presto's
-                return Optional.of(charColumnMapping(createCharType(typeHandle.getRequiredColumnSize()), true));
+                verify(typeHandle.requiredColumnSize() < CharType.MAX_LENGTH, "Unexpected type: %s", typeHandle); // SAP HANA char is shorter than Presto's
+                return Optional.of(charColumnMapping(createCharType(typeHandle.requiredColumnSize()), true));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
 
             case Types.CLOB:
             case Types.NCLOB:
@@ -483,7 +483,7 @@ public class SapHanaClient
                 return Optional.of(timeColumnMapping());
 
             case Types.TIMESTAMP:
-                int timestampPrecision = typeHandle.getRequiredDecimalDigits();
+                int timestampPrecision = typeHandle.requiredDecimalDigits();
                 return Optional.of(timestampColumnMapping(timestampPrecision));
         }
 
@@ -636,9 +636,9 @@ public class SapHanaClient
         return Optional.of((query, sortItems, limit) -> {
             String orderBy = sortItems.stream()
                     .map(sortItem -> {
-                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                        return format("%s %s %s", quoted(sortItem.getColumn().getColumnName()), ordering, nullsHandling);
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                        return format("%s %s %s", quoted(sortItem.column().getColumnName()), ordering, nullsHandling);
                     })
                     .collect(joining(", "));
 

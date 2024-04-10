@@ -184,10 +184,10 @@ public class SnowflakeClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        String jdbcTypeName = typeHandle.getJdbcTypeName()
+        String jdbcTypeName = typeHandle.jdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
         jdbcTypeName = jdbcTypeName.toLowerCase(Locale.ENGLISH);
-        int type = typeHandle.getJdbcType();
+        int type = typeHandle.jdbcType();
 
         // Mappings for JDBC column types to internal Trino types
         final Map<Integer, ColumnMapping> standardColumnMappings = ImmutableMap.<Integer, ColumnMapping>builder()
@@ -210,14 +210,14 @@ public class SnowflakeClient
         }
 
         final Map<String, ColumnMappingFunction> snowflakeColumnMappings = ImmutableMap.<String, ColumnMappingFunction>builder()
-                .put("time", handle -> Optional.of(timeColumnMapping(handle.getRequiredDecimalDigits())))
-                .put("timestampntz", handle -> Optional.of(timestampColumnMapping(handle.getRequiredDecimalDigits())))
-                .put("timestamptz", handle -> Optional.of(timestampTZColumnMapping(handle.getRequiredDecimalDigits())))
+                .put("time", handle -> Optional.of(timeColumnMapping(handle.requiredDecimalDigits())))
+                .put("timestampntz", handle -> Optional.of(timestampColumnMapping(handle.requiredDecimalDigits())))
+                .put("timestamptz", handle -> Optional.of(timestampTZColumnMapping(handle.requiredDecimalDigits())))
                 .put("date", handle -> Optional.of(ColumnMapping.longMapping(DateType.DATE, (resultSet, columnIndex) -> LocalDate.ofEpochDay(resultSet.getLong(columnIndex)).toEpochDay(), snowFlakeDateWriter())))
-                .put("varchar", handle -> Optional.of(varcharColumnMapping(handle.getRequiredColumnSize(), typeHandle.getCaseSensitivity())))
+                .put("varchar", handle -> Optional.of(varcharColumnMapping(handle.requiredColumnSize(), typeHandle.caseSensitivity())))
                 .put("number", handle -> {
-                    int decimalDigits = handle.getRequiredDecimalDigits();
-                    int precision = handle.getRequiredColumnSize() + Math.max(-decimalDigits, 0);
+                    int decimalDigits = handle.requiredDecimalDigits();
+                    int precision = handle.requiredColumnSize() + Math.max(-decimalDigits, 0);
                     if (precision > 38) {
                         return Optional.empty();
                     }

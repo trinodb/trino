@@ -267,7 +267,7 @@ public class SalesforceJdbcClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
             case Types.INTEGER:
@@ -277,8 +277,8 @@ public class SalesforceJdbcClient
             case Types.DOUBLE:
                 return Optional.of(doubleColumnMapping());
             case Types.DECIMAL:
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
-                int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                int decimalDigits = typeHandle.requiredDecimalDigits();
+                int precision = typeHandle.requiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     return Optional.of(decimalColumnMapping(createDecimalType(MAX_PRECISION, scale), getDecimalRoundingMode(session)));
@@ -286,7 +286,7 @@ public class SalesforceJdbcClient
 
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
             case Types.VARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
             case Types.DATE:
                 return Optional.of(dateColumnMappingUsingSqlDate());
             case Types.TIME:

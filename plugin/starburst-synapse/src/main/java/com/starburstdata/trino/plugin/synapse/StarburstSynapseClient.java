@@ -200,9 +200,9 @@ public class StarburstSynapseClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.TIME:
-                TimeType timeType = createTimeType(typeHandle.getRequiredDecimalDigits());
+                TimeType timeType = createTimeType(typeHandle.requiredDecimalDigits());
                 return Optional.of(ColumnMapping.longMapping(
                         timeType,
                         timeReadFunction(timeType),
@@ -290,10 +290,10 @@ public class StarburstSynapseClient
 
             String orderBy = sortItems.stream()
                     .flatMap(sortItem -> {
-                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                        String columnSorting = format("%s %s", quoted(sortItem.getColumn().getColumnName()), ordering);
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        String columnSorting = format("%s %s", quoted(sortItem.column().getColumnName()), ordering);
 
-                        switch (sortItem.getSortOrder()) {
+                        switch (sortItem.sortOrder()) {
                             case ASC_NULLS_FIRST:
                                 // In Synapse ASC implies NULLS FIRST
                             case DESC_NULLS_LAST:
@@ -302,14 +302,14 @@ public class StarburstSynapseClient
 
                             case ASC_NULLS_LAST:
                                 return Stream.of(
-                                        format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) ASC", quoted(sortItem.getColumn().getColumnName())),
+                                        format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) ASC", quoted(sortItem.column().getColumnName())),
                                         columnSorting);
                             case DESC_NULLS_FIRST:
                                 return Stream.of(
-                                        format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) DESC", quoted(sortItem.getColumn().getColumnName())),
+                                        format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) DESC", quoted(sortItem.column().getColumnName())),
                                         columnSorting);
                         }
-                        throw new UnsupportedOperationException("Unsupported sort order: " + sortItem.getSortOrder());
+                        throw new UnsupportedOperationException("Unsupported sort order: " + sortItem.sortOrder());
                     })
                     .collect(joining(", "));
             return format("SELECT TOP (%d) %s ORDER BY %s", limit, query.substring(start.length()), orderBy);

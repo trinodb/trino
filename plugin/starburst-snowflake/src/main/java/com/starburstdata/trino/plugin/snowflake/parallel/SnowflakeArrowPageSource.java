@@ -82,7 +82,7 @@ public class SnowflakeArrowPageSource
                 Long.MAX_VALUE);
 
         int[] decimalColumnScales = columns.stream()
-                .map(column -> column.getJdbcTypeHandle().getDecimalDigits()
+                .map(column -> column.getJdbcTypeHandle().decimalDigits()
                         .orElse(0))
                 .mapToInt(Integer::intValue)
                 .toArray();

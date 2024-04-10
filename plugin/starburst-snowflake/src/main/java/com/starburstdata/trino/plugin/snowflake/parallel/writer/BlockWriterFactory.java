@@ -53,33 +53,33 @@ public final class BlockWriterFactory
     {
         JdbcTypeHandle typeHandle = columnHandle.getJdbcTypeHandle();
         Type type = columnHandle.getColumnType();
-        String typeName = typeHandle.getJdbcTypeName()
+        String typeName = typeHandle.jdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
-        if (type == BOOLEAN && typeHandle.getJdbcType() == Types.BOOLEAN) {
+        if (type == BOOLEAN && typeHandle.jdbcType() == Types.BOOLEAN) {
             return new BooleanValueWriter(converter, rowCount, type);
         }
-        else if (type == TINYINT && typeHandle.getJdbcType() == Types.TINYINT) {
+        else if (type == TINYINT && typeHandle.jdbcType() == Types.TINYINT) {
             return new LongValueWriter(converter, rowCount, type);
         }
-        else if (type == SMALLINT && typeHandle.getJdbcType() == Types.SMALLINT) {
+        else if (type == SMALLINT && typeHandle.jdbcType() == Types.SMALLINT) {
             return new SmallIntValueWriter(converter, rowCount, type);
         }
-        else if (type == INTEGER && typeHandle.getJdbcType() == Types.INTEGER) {
+        else if (type == INTEGER && typeHandle.jdbcType() == Types.INTEGER) {
             return new IntegerValueWriter(converter, rowCount, type);
         }
-        else if (type == BIGINT && typeHandle.getJdbcType() == Types.BIGINT) {
+        else if (type == BIGINT && typeHandle.jdbcType() == Types.BIGINT) {
             return new LongValueWriter(converter, rowCount, type);
         }
-        else if (type == REAL && typeHandle.getJdbcType() == Types.REAL) {
+        else if (type == REAL && typeHandle.jdbcType() == Types.REAL) {
             return new RealValueWriter(converter, rowCount, type);
         }
-        else if (type == DoubleType.DOUBLE && (typeHandle.getJdbcType() == Types.DOUBLE || typeHandle.getJdbcType() == Types.FLOAT)) {
+        else if (type == DoubleType.DOUBLE && (typeHandle.jdbcType() == Types.DOUBLE || typeHandle.jdbcType() == Types.FLOAT)) {
             return new DoubleValueWriter(converter, rowCount, type);
         }
         else if (typeName.equals("NUMBER")) {
-            int decimalDigits = typeHandle.getRequiredDecimalDigits();
-            int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0);
+            int decimalDigits = typeHandle.requiredDecimalDigits();
+            int precision = typeHandle.requiredColumnSize() + max(-decimalDigits, 0);
             DecimalType decimalType = createDecimalType(precision, max(decimalDigits, 0));
             if (decimalType.isShort()) {
                 return new ShortDecimalValueWriter(converter, rowCount, decimalType, type);
@@ -94,14 +94,14 @@ public final class BlockWriterFactory
         else if (type == VarcharType.VARCHAR && (typeName.equals("OBJECT") || typeName.equals("ARRAY"))) {
             return new VarcharValueWriter(converter, rowCount, type);
         }
-        else if (type == DateType.DATE && typeHandle.getJdbcType() == Types.DATE) {
+        else if (type == DateType.DATE && typeHandle.jdbcType() == Types.DATE) {
             return new LongValueWriter(converter, rowCount, type);
         }
-        else if (typeHandle.getJdbcType() == Types.TIME) {
+        else if (typeHandle.jdbcType() == Types.TIME) {
             return new TimeValueWriter(converter, rowCount, type);
         }
-        else if (typeHandle.getJdbcType() == Types.TIMESTAMP_WITH_TIMEZONE || typeName.equals("TIMESTAMPLTZ")) {
-            int precision = typeHandle.getRequiredDecimalDigits();
+        else if (typeHandle.jdbcType() == Types.TIMESTAMP_WITH_TIMEZONE || typeName.equals("TIMESTAMPLTZ")) {
+            int precision = typeHandle.requiredDecimalDigits();
             checkArgument(precision <= SNOWFLAKE_MAX_TIMESTAMP_PRECISION, MAX_TIMESTAMP_PRECISION_ERROR_MESSAGE);
             if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION && type.getJavaType() == long.class) {
                 return new ShortTimestampWithTimeZoneValueWriter(converter, rowCount, type);
@@ -110,8 +110,8 @@ public final class BlockWriterFactory
                 return new LongTimestampWithTimeZoneValueWriter(converter, rowCount, type);
             }
         }
-        else if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
-            int precision = typeHandle.getRequiredDecimalDigits();
+        else if (typeHandle.jdbcType() == Types.TIMESTAMP) {
+            int precision = typeHandle.requiredDecimalDigits();
             checkArgument(precision <= SNOWFLAKE_MAX_TIMESTAMP_PRECISION, MAX_TIMESTAMP_PRECISION_ERROR_MESSAGE);
             if (precision <= TimestampType.MAX_SHORT_PRECISION && type.getJavaType() == long.class) {
                 return new ShortTimestampValueWriter(converter, rowCount, type, precision);
@@ -120,8 +120,8 @@ public final class BlockWriterFactory
                 return new TimestampValueWriter(converter, rowCount, type, precision);
             }
         }
-        else if (typeHandle.getJdbcType() == Types.CHAR) {
-            int requiredColumnSize = typeHandle.getRequiredColumnSize();
+        else if (typeHandle.jdbcType() == Types.CHAR) {
+            int requiredColumnSize = typeHandle.requiredColumnSize();
             if (requiredColumnSize > CharType.MAX_LENGTH) {
                 return new VarcharValueWriter(converter, rowCount, type);
             }
@@ -129,10 +129,10 @@ public final class BlockWriterFactory
                 return new CharValueWriter(converter, rowCount, type);
             }
         }
-        else if (type.getJavaType() == Slice.class && typeHandle.getJdbcType() == Types.VARCHAR) {
+        else if (type.getJavaType() == Slice.class && typeHandle.jdbcType() == Types.VARCHAR) {
             return new VarcharValueWriter(converter, rowCount, type);
         }
-        else if (type == VARBINARY && typeHandle.getJdbcType() == Types.BINARY) {
+        else if (type == VARBINARY && typeHandle.jdbcType() == Types.BINARY) {
             return new VarbinaryValueWriter(converter, rowCount, type);
         }
         else {

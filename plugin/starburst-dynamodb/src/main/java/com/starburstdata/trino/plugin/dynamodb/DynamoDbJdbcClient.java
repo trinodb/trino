@@ -448,7 +448,7 @@ public class DynamoDbJdbcClient
         // Trino treats this as false and causes correctness issues when these predicates are pushed down to the driver
         // Therefore all predicates are pushed down for specific datatype except non-equality operator and datatype specific unsupported operators.
         // For some of the types, it was tricky to create a test table in DynamoDB which returns as a specific type in Trino.
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.BIT:
             case Types.BOOLEAN:
                 // Error if pushdown is enabled (besides the null issue):
@@ -471,7 +471,7 @@ public class DynamoDbJdbcClient
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(session, typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultVarcharColumnMapping(session, typeHandle.requiredColumnSize()));
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:

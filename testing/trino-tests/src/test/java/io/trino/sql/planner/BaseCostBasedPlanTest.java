@@ -331,7 +331,7 @@ public abstract class BaseCostBasedPlanTest
                     "%s aggregation over (%s)",
                     node.getStep().name().toLowerCase(ENGLISH),
                     node.getGroupingKeys().stream()
-                            .map(Symbol::getName)
+                            .map(Symbol::name)
                             .sorted()
                             .collect(joining(", ")));
 

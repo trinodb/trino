@@ -370,7 +370,7 @@ public class StargateClient
             return mapping;
         }
 
-        String jdbcTypeName = typeHandle.getJdbcTypeName()
+        String jdbcTypeName = typeHandle.jdbcTypeName()
                 // type name may be missing for synthetic type handles
                 .orElse("");
 
@@ -379,7 +379,7 @@ public class StargateClient
                 return Optional.of(jsonColumnMapping());
         }
 
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
 
@@ -402,14 +402,14 @@ public class StargateClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.DECIMAL:
-                return Optional.of(decimalColumnMapping(createDecimalType(typeHandle.getRequiredColumnSize(), typeHandle.getRequiredDecimalDigits())));
+                return Optional.of(decimalColumnMapping(createDecimalType(typeHandle.requiredColumnSize(), typeHandle.requiredDecimalDigits())));
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
 
             case Types.VARCHAR:
                 // Trino JDBC reports column size of VarcharType.UNBOUNDED_LENGTH for an unbounded varchar, and so it will be mapped to unbounded varchar here too
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
 
             case Types.VARBINARY:
                 return Optional.of(varbinaryColumnMapping());
@@ -418,16 +418,16 @@ public class StargateClient
                 return Optional.of(stargateDateColumnMapping());
 
             case Types.TIME:
-                return Optional.of(stargateTimeColumnMapping(typeHandle.getRequiredDecimalDigits()));
+                return Optional.of(stargateTimeColumnMapping(typeHandle.requiredDecimalDigits()));
 
             case Types.TIME_WITH_TIMEZONE:
-                return Optional.of(stargateTimeWithTimeZoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
+                return Optional.of(stargateTimeWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
 
             case Types.TIMESTAMP:
-                return Optional.of(stargateTimestampColumnMapping(typeHandle.getRequiredDecimalDigits()));
+                return Optional.of(stargateTimestampColumnMapping(typeHandle.requiredDecimalDigits()));
 
             case Types.TIMESTAMP_WITH_TIMEZONE:
-                return Optional.of(stargateTimestampWithTimeZoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
+                return Optional.of(stargateTimestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {

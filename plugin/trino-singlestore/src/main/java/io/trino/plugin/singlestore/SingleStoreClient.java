@@ -267,7 +267,7 @@ public class SingleStoreClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        String jdbcTypeName = typeHandle.getJdbcTypeName()
+        String jdbcTypeName = typeHandle.jdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
@@ -283,7 +283,7 @@ public class SingleStoreClient
             return Optional.of(jsonColumnMapping());
         }
 
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.BIT:
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
@@ -307,13 +307,13 @@ public class SingleStoreClient
                 return Optional.of(doubleColumnMapping());
             case Types.CHAR:
             case Types.NCHAR: // TODO it it is dummy copied from StandardColumnMappings, verify if it is proper mapping
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
             case Types.VARCHAR:
             case Types.LONGVARCHAR:
-                return Optional.of(checkNullUsingBytes(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false)));
+                return Optional.of(checkNullUsingBytes(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false)));
             case Types.DECIMAL:
-                int precision = typeHandle.getRequiredColumnSize();
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
+                int precision = typeHandle.requiredColumnSize();
+                int decimalDigits = typeHandle.requiredDecimalDigits();
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
@@ -332,14 +332,14 @@ public class SingleStoreClient
                         dateReadFunctionUsingLocalDate(),
                         dateWriteFunction()));
             case Types.TIME:
-                TimeType timeType = createTimeType(getTimePrecision(typeHandle.getRequiredColumnSize()));
+                TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
                 return Optional.of(ColumnMapping.longMapping(
                         timeType,
                         singleStoreTimeReadFunction(timeType),
                         timeWriteFunction(timeType.getPrecision())));
             case Types.TIMESTAMP:
                 // TODO (https://github.com/trinodb/trino/issues/5450) Fix DST handling
-                TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
+                TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.requiredColumnSize()));
                 return Optional.of(timestampColumnMapping(timestampType));
         }
 
@@ -663,13 +663,13 @@ public class SingleStoreClient
 
     private static Optional<ColumnMapping> getUnsignedMapping(JdbcTypeHandle typeHandle)
     {
-        if (typeHandle.getJdbcTypeName().isEmpty()) {
+        if (typeHandle.jdbcTypeName().isEmpty()) {
             return Optional.empty();
         }
 
-        String typeName = typeHandle.getJdbcTypeName().get();
+        String typeName = typeHandle.jdbcTypeName().get();
         if (UNSIGNED_TYPE_REGEX.matcher(typeName).matches()) {
-            switch (typeHandle.getJdbcType()) {
+            switch (typeHandle.jdbcType()) {
                 case Types.BIT:
                     return Optional.of(booleanColumnMapping());
 

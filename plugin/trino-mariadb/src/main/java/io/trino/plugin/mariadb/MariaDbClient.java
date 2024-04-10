@@ -347,7 +347,7 @@ public class MariaDbClient
             return unsignedMapping;
         }
 
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.TINYINT:
                 return Optional.of(tinyintColumnMapping());
             case Types.SMALLINT:
@@ -368,8 +368,8 @@ public class MariaDbClient
                 return Optional.of(doubleColumnMapping());
             case Types.NUMERIC:
             case Types.DECIMAL:
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
-                int precision = typeHandle.getRequiredColumnSize();
+                int decimalDigits = typeHandle.requiredDecimalDigits();
+                int precision = typeHandle.requiredColumnSize();
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
@@ -380,10 +380,10 @@ public class MariaDbClient
                 }
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
             case Types.VARCHAR:
             case Types.LONGVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
@@ -394,11 +394,11 @@ public class MariaDbClient
                         dateReadFunctionUsingLocalDate(),
                         dateWriteFunction()));
             case Types.TIME:
-                TimeType timeType = createTimeType(getTimePrecision(typeHandle.getRequiredColumnSize()));
+                TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
                 return Optional.of(timeColumnMapping(timeType));
             case Types.TIMESTAMP:
                 // This jdbcType maps both MariaDB TIMESTAMP and DATETIME types to Trino TIMESTAMP type
-                TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
+                TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.requiredColumnSize()));
                 return Optional.of(timestampColumnMapping(timestampType));
         }
 
@@ -795,11 +795,11 @@ public class MariaDbClient
 
     private static Optional<ColumnMapping> getUnsignedMapping(JdbcTypeHandle typeHandle)
     {
-        if (typeHandle.getJdbcTypeName().isEmpty()) {
+        if (typeHandle.jdbcTypeName().isEmpty()) {
             return Optional.empty();
         }
 
-        String typeName = typeHandle.getJdbcTypeName().get();
+        String typeName = typeHandle.jdbcTypeName().get();
         if (typeName.equalsIgnoreCase("tinyint unsigned")) {
             return Optional.of(smallintColumnMapping());
         }
