@@ -82,7 +82,6 @@ public class IndexLoader
     @GuardedBy("this")
     private PipelineContext pipelineContext; // Lazily initialized
 
-    @GuardedBy("this")
     private final AtomicReference<IndexSnapshot> indexSnapshotReference;
 
     public IndexLoader(
