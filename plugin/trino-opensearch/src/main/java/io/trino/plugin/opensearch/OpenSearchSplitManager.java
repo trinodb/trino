@@ -51,10 +51,10 @@ public class OpenSearchSplitManager
     {
         OpenSearchTableHandle tableHandle = (OpenSearchTableHandle) table;
 
-        if (tableHandle.getType().equals(OpenSearchTableHandle.Type.QUERY)) {
-            return new FixedSplitSource(new OpenSearchSplit(tableHandle.getIndex(), 0, Optional.empty()));
+        if (tableHandle.type().equals(OpenSearchTableHandle.Type.QUERY)) {
+            return new FixedSplitSource(new OpenSearchSplit(tableHandle.index(), 0, Optional.empty()));
         }
-        List<OpenSearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
+        List<OpenSearchSplit> splits = client.getSearchShards(tableHandle.index()).stream()
                 .map(shard -> new OpenSearchSplit(shard.getIndex(), shard.getId(), shard.getAddress()))
                 .collect(toImmutableList());
 

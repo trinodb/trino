@@ -169,10 +169,10 @@ public class OpenSearchMetadata
 
         if (isPassthroughQuery(handle)) {
             return new ConnectorTableMetadata(
-                    new SchemaTableName(handle.getSchema(), handle.getIndex()),
+                    new SchemaTableName(handle.schema(), handle.index()),
                     ImmutableList.of(PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA));
         }
-        return getTableMetadata(handle.getSchema(), handle.getIndex());
+        return getTableMetadata(handle.schema(), handle.index());
     }
 
     private ConnectorTableMetadata getTableMetadata(String schemaName, String tableName)
@@ -184,7 +184,7 @@ public class OpenSearchMetadata
     private InternalTableMetadata makeInternalTableMetadata(ConnectorTableHandle table)
     {
         OpenSearchTableHandle handle = (OpenSearchTableHandle) table;
-        return makeInternalTableMetadata(handle.getSchema(), handle.getIndex());
+        return makeInternalTableMetadata(handle.schema(), handle.index());
     }
 
     private InternalTableMetadata makeInternalTableMetadata(String schema, String tableName)
@@ -407,7 +407,7 @@ public class OpenSearchMetadata
                 return PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA;
             }
 
-            throw new IllegalArgumentException(format("Unexpected column for table '%s$query': %s", table.getIndex(), column.name()));
+            throw new IllegalArgumentException(format("Unexpected column for table '%s$query': %s", table.index(), column.name()));
         }
 
         return BuiltinColumns.of(column.name())
@@ -459,7 +459,7 @@ public class OpenSearchMetadata
         OpenSearchTableHandle handle = (OpenSearchTableHandle) table;
 
         return new ConnectorTableProperties(
-                handle.getConstraint(),
+                handle.constraint(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of());
@@ -475,17 +475,17 @@ public class OpenSearchMetadata
             return Optional.empty();
         }
 
-        if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
+        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
         handle = new OpenSearchTableHandle(
-                handle.getType(),
-                handle.getSchema(),
-                handle.getIndex(),
-                handle.getConstraint(),
-                handle.getRegexes(),
-                handle.getQuery(),
+                handle.type(),
+                handle.schema(),
+                handle.index(),
+                handle.constraint(),
+                handle.regexes(),
+                handle.query(),
                 OptionalLong.of(limit));
 
         return Optional.of(new LimitApplicationResult<>(handle, false, false));
@@ -515,11 +515,11 @@ public class OpenSearchMetadata
             }
         }
 
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = handle.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(TupleDomain.withColumnDomains(supported));
 
         ConnectorExpression oldExpression = constraint.getExpression();
-        Map<String, String> newRegexes = new HashMap<>(handle.getRegexes());
+        Map<String, String> newRegexes = new HashMap<>(handle.regexes());
         List<ConnectorExpression> expressions = ConnectorExpressions.extractConjuncts(constraint.getExpression());
         List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
         for (ConnectorExpression expression : expressions) {
@@ -537,7 +537,7 @@ public class OpenSearchMetadata
                     }
 
                     if (!newRegexes.containsKey(columnName) && pattern instanceof Slice) {
-                        IndexMetadata metadata = client.getIndexMetadata(handle.getIndex());
+                        IndexMetadata metadata = client.getIndexMetadata(handle.index());
                         if (metadata.getSchema()
                                     .getFields().stream()
                                     .anyMatch(field -> columnName.equals(field.getName()) && field.getType() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.getType()).getName()))) {
@@ -556,13 +556,13 @@ public class OpenSearchMetadata
         }
 
         handle = new OpenSearchTableHandle(
-                handle.getType(),
-                handle.getSchema(),
-                handle.getIndex(),
+                handle.type(),
+                handle.schema(),
+                handle.index(),
                 newDomain,
                 newRegexes,
-                handle.getQuery(),
-                handle.getLimit());
+                handle.query(),
+                handle.limit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), newExpression, false));
     }
@@ -649,7 +649,7 @@ public class OpenSearchMetadata
 
     private static boolean isPassthroughQuery(OpenSearchTableHandle table)
     {
-        return table.getType().equals(OpenSearchTableHandle.Type.QUERY);
+        return table.type().equals(OpenSearchTableHandle.Type.QUERY);
     }
 
     @Override
