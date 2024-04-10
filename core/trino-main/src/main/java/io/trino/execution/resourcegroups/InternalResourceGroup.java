@@ -131,7 +131,6 @@ public class InternalResourceGroup
     private ResourceUsage cachedResourceUsage = new ResourceUsage(0, 0);
     @GuardedBy("root")
     private long lastStartMillis;
-    @GuardedBy("root")
     private final CounterStat timeBetweenStartsSec = new CounterStat();
 
     public InternalResourceGroup(String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
