@@ -32,6 +32,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -92,6 +93,11 @@ public class EffectivePredicateExtractor
             entry -> {
                 Reference reference = entry.getKey().toSymbolReference();
                 Expression expression = entry.getValue();
+
+                if (expression instanceof Constant constant && constant.value() == null) {
+                    return new IsNull(reference);
+                }
+
                 // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
                 return new Comparison(EQUAL, reference, expression);
@@ -156,8 +162,16 @@ public class EffectivePredicateExtractor
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
             DomainTranslator.ExtractionResult underlying = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(underlyingPredicate));
-            DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
 
+            if (underlying.getTupleDomain().isNone()) {
+                // Effective predicate extraction is incorrect in the presence of nulls, which manifests as a NONE domain
+                // In that case, ignore it and combine it into the filter directly
+                // See EffectivePredicateExtractor#ENTRY_TO_EQUALITY
+                // TODO: this should be removed once EffectivePredicate extraction is fixed for null handling
+                return combineConjuncts(underlyingPredicate, node.getPredicate());
+            }
+
+            DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
             return combineConjuncts(
                     DomainTranslator.toPredicate(underlying.getTupleDomain().intersect(current.getTupleDomain())),
                     underlying.getRemainingExpression(),
