@@ -45,6 +45,8 @@ public class ViewMaterializationCache
 {
     private static final Logger log = Logger.get(ViewMaterializationCache.class);
 
+    public static final String TEMP_TABLE_PREFIX = "_pbc_";
+
     private final NonEvictableCache<String, TableInfo> destinationTableCache;
     private final Optional<String> viewMaterializationProject;
     private final Optional<String> viewMaterializationDataset;
@@ -70,7 +72,7 @@ public class ViewMaterializationCache
         String project = viewMaterializationProject.orElseGet(remoteTableId::getProject);
         String dataset = viewMaterializationDataset.orElseGet(remoteTableId::getDataset);
 
-        String name = format("_pbc_%s", randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
+        String name = format("%s%s", TEMP_TABLE_PREFIX, randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
         return TableId.of(project, dataset, name);
     }
 
