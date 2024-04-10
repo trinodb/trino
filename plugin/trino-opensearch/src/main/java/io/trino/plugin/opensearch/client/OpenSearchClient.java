@@ -173,7 +173,7 @@ public class OpenSearchClient
             Set<OpenSearchNode> nodes = fetchNodes();
 
             HttpHost[] hosts = nodes.stream()
-                    .map(OpenSearchNode::getAddress)
+                    .map(OpenSearchNode::address)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
@@ -315,7 +315,7 @@ public class OpenSearchClient
     public List<Shard> getSearchShards(String index)
     {
         Map<String, OpenSearchNode> nodeById = getNodes().stream()
-                .collect(toImmutableMap(OpenSearchNode::getId, Function.identity()));
+                .collect(toImmutableMap(OpenSearchNode::id, Function.identity()));
 
         SearchShardsResponse shardsResponse = doRequest(format("/%s/_search_shards", index), SEARCH_SHARDS_RESPONSE_CODEC::fromJson);
 
@@ -341,7 +341,7 @@ public class OpenSearchClient
                 node = nodeById.get(chosen.getNode());
             }
 
-            shards.add(new Shard(chosen.getIndex(), chosen.getShard(), node.getAddress()));
+            shards.add(new Shard(chosen.getIndex(), chosen.getShard(), node.address()));
         }
 
         return shards.build();
