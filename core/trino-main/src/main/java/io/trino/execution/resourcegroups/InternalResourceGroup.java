@@ -137,7 +137,7 @@ public class InternalResourceGroup
         this(Optional.empty(), name, jmxExportListener, executor);
     }
 
-    protected InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
+    private InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
@@ -746,7 +746,7 @@ public class InternalResourceGroup
         }
     }
 
-    protected ResourceUsage updateResourceUsageAndGetDelta()
+    private ResourceUsage updateResourceUsageAndGetDelta()
     {
         checkState(Thread.holdsLock(root), "Must hold lock to refresh stats");
         synchronized (root) {
@@ -787,7 +787,7 @@ public class InternalResourceGroup
         }
     }
 
-    protected void internalGenerateCpuQuota(long elapsedSeconds)
+    private void internalGenerateCpuQuota(long elapsedSeconds)
     {
         checkState(Thread.holdsLock(root), "Must hold lock to generate cpu quota");
         synchronized (root) {
@@ -813,7 +813,7 @@ public class InternalResourceGroup
         }
     }
 
-    protected boolean internalStartNext()
+    private boolean internalStartNext()
     {
         checkState(Thread.holdsLock(root), "Must hold lock to find next query");
         synchronized (root) {
