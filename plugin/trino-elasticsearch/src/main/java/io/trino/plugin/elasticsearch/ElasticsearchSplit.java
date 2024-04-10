@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
@@ -23,50 +22,26 @@ import io.trino.spi.connector.ConnectorSplit;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
-public class ElasticsearchSplit
+public record ElasticsearchSplit(
+        String index,
+        int shard,
+        Optional<String> address)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(ElasticsearchSplit.class);
 
-    private final String index;
-    private final int shard;
-    private final Optional<String> address;
-
-    @JsonCreator
-    public ElasticsearchSplit(
-            @JsonProperty("index") String index,
-            @JsonProperty("shard") int shard,
-            @JsonProperty("address") Optional<String> address)
+    public ElasticsearchSplit
     {
-        this.index = requireNonNull(index, "index is null");
-        this.shard = shard;
-        this.address = requireNonNull(address, "address is null");
+        requireNonNull(index, "index is null");
+        requireNonNull(address, "address is null");
     }
 
-    @JsonProperty
-    public String getIndex()
-    {
-        return index;
-    }
-
-    @JsonProperty
-    public int getShard()
-    {
-        return shard;
-    }
-
-    @JsonProperty
-    public Optional<String> getAddress()
-    {
-        return address;
-    }
-
+    @JsonIgnore
     @Override
     public List<HostAddress> getAddresses()
     {
@@ -74,26 +49,19 @@ public class ElasticsearchSplit
                 .orElseGet(ImmutableList::of);
     }
 
+    @JsonIgnore
     @Override
     public Object getInfo()
     {
         return this;
     }
 
+    @JsonIgnore
     @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(index)
                 + sizeOf(address, SizeOf::estimatedSizeOf);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("index", index)
-                .add("shard", shard)
-                .toString();
     }
 }
