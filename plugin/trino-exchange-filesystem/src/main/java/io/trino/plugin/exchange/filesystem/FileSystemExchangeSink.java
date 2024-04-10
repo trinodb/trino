@@ -485,6 +485,7 @@ public class FileSystemExchangeSink
             completableFuture.complete(null);
         }
 
+        @GuardedBy("this")
         private boolean hasFreeBuffers()
         {
             if (!freeBuffersQueue.isEmpty()) {
