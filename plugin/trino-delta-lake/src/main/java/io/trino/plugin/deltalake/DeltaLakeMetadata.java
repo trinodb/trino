@@ -2092,7 +2092,7 @@ public class DeltaLakeMetadata
     public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         DeltaLakeMergeTableHandle mergeHandle = (DeltaLakeMergeTableHandle) mergeTableHandle;
-        DeltaLakeTableHandle handle = mergeHandle.getTableHandle();
+        DeltaLakeTableHandle handle = mergeHandle.tableHandle();
 
         List<DeltaLakeMergeResult> mergeResults = fragments.stream()
                 .map(Slice::getBytes)
@@ -2110,7 +2110,7 @@ public class DeltaLakeMetadata
         List<DataFileInfo> newFiles = ImmutableList.copyOf(split.get(true));
         List<DataFileInfo> cdcFiles = ImmutableList.copyOf(split.get(false));
 
-        if (mergeHandle.getInsertTableHandle().isRetriesEnabled()) {
+        if (mergeHandle.insertTableHandle().isRetriesEnabled()) {
             cleanExtraOutputFiles(session, Location.of(handle.getLocation()), allFiles);
         }
 
@@ -2138,7 +2138,7 @@ public class DeltaLakeMetadata
             ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry(), handle.getProtocolEntry());
             List<String> partitionColumns = getPartitionColumns(
                     handle.getMetadataEntry().getOriginalPartitionColumns(),
-                    mergeHandle.getInsertTableHandle().getInputColumns(),
+                    mergeHandle.insertTableHandle().getInputColumns(),
                     columnMappingMode);
 
             if (!cdcFiles.isEmpty()) {
