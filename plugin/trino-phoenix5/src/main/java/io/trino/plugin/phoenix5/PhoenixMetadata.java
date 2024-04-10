@@ -117,8 +117,8 @@ public class PhoenixMetadata
                 .map(properties -> properties
                         .stream()
                         .map(item -> (LocalProperty<ColumnHandle>) new SortingProperty<ColumnHandle>(
-                                item.getColumn(),
-                                item.getSortOrder()))
+                                item.column(),
+                                item.sortOrder()))
                         .collect(toImmutableList()))
                 .orElse(ImmutableList.of());
 
