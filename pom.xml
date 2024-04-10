@@ -69,6 +69,7 @@
         <module>plugin/trino-clickhouse</module>
         <module>plugin/trino-dameng</module>
         <module>plugin/trino-delta-lake</module>
+        <module>plugin/trino-doris</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
@@ -107,7 +108,6 @@
         <module>plugin/trino-session-property-managers</module>
         <module>plugin/trino-singlestore</module>
         <module>plugin/trino-sqlserver</module>
-        <module>plugin/trino-starrocks</module>
         <module>plugin/trino-teradata-functions</module>
         <module>plugin/trino-thrift</module>
         <module>plugin/trino-thrift-api</module>

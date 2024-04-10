@@ -453,6 +453,7 @@ jobs:
             !:trino-clickhouse,
             !:trino-delta-lake,
             !:trino-docs,
+            !:trino-doris,
             !:trino-druid,
             !:trino-elasticsearch,
             !:trino-faulttolerant-tests,
@@ -489,7 +490,6 @@ jobs:
             !:trino-server-rpm,
             !:trino-singlestore,
             !:trino-sqlserver,
-            !:trino-starrocks,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
             !:trino-thrift'
@@ -585,6 +585,7 @@ jobs:
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
+            - { modules: plugin/trino-doris }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-google-sheets }
@@ -614,7 +615,6 @@ jobs:
             - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-sqlserver }
-            - { modules: plugin/trino-starrocks }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }

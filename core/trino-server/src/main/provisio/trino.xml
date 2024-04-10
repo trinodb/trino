@@ -74,6 +74,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/doris">
+        <artifact id="${project.groupId}:trino-doris:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/druid">
         <artifact id="${project.groupId}:trino-druid:zip:${project.version}">
             <unpack />
@@ -286,12 +292,6 @@
 
     <artifactSet to="plugin/sqlserver">
         <artifact id="${project.groupId}:trino-sqlserver:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/starrocks">
-        <artifact id="${project.groupId}:trino-starrocks:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

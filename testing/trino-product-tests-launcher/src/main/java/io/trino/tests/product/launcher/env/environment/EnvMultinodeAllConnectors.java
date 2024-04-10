@@ -52,6 +52,7 @@ public final class EnvMultinodeAllConnectors
                         "bigquery",
                         "cassandra",
                         "clickhouse",
+                        "doris",
                         "druid",
                         "delta_lake",
                         "elasticsearch",
@@ -78,7 +79,6 @@ public final class EnvMultinodeAllConnectors
                         "redis",
                         "redshift",
                         "sqlserver",
-                        "starrocks",
                         "trino_thrift",
                         "tpcds")
                 .forEach(connector -> builder.addConnector(

@@ -13,6 +13,7 @@ Black Hole      <connector/blackhole>
 Cassandra       <connector/cassandra>
 ClickHouse      <connector/clickhouse>
 Delta Lake      <connector/delta-lake>
+Doris           <connector/doris>
 Druid           <connector/druid>
 Elasticsearch   <connector/elasticsearch>
 Google Sheets   <connector/googlesheets>
@@ -38,7 +39,6 @@ Redis           <connector/redis>
 Redshift        <connector/redshift>
 SingleStore     <connector/singlestore>
 SQL Server      <connector/sqlserver>
-StarRocks       <connector/starrocks>
 System          <connector/system>
 Thrift          <connector/thrift>
 TPCDS           <connector/tpcds>
