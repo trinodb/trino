@@ -248,6 +248,9 @@ public class TransactionLogAccess
                 }
 
                 long version = checkpoint.get().version();
+                if (version == endVersion) {
+                    return checkpoint;
+                }
                 if (version > endVersion || (latestCheckpoint.isPresent() && version < latestCheckpoint.get().version())) {
                     continue;
                 }
