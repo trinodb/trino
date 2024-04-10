@@ -96,19 +96,19 @@ public class DeltaLakePageSinkProvider
     {
         DeltaLakeOutputTableHandle tableHandle = (DeltaLakeOutputTableHandle) outputTableHandle;
         DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(
-                tableHandle.getSchemaString(),
+                tableHandle.schemaString(),
                 typeManager,
-                tableHandle.getColumnMappingMode(),
-                tableHandle.getPartitionedBy());
+                tableHandle.columnMappingMode(),
+                tableHandle.partitionedBy());
         return new DeltaLakePageSink(
                 typeManager.getTypeOperators(),
-                tableHandle.getInputColumns(),
-                tableHandle.getPartitionedBy(),
+                tableHandle.inputColumns(),
+                tableHandle.partitionedBy(),
                 pageIndexerFactory,
                 fileSystemFactory,
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
-                Location.of(tableHandle.getLocation()),
+                Location.of(tableHandle.location()),
                 session,
                 stats,
                 trinoVersion,
