@@ -361,11 +361,13 @@ public class IcebergConfig
         return minimumAssignedSplitWeight;
     }
 
+    @Deprecated
     public boolean isHideMaterializedViewStorageTable()
     {
         return hideMaterializedViewStorageTable;
     }
 
+    @Deprecated
     @Config("iceberg.materialized-views.hide-storage-table")
     @ConfigDescription("Hide materialized view storage tables in metastore")
     public IcebergConfig setHideMaterializedViewStorageTable(boolean hideMaterializedViewStorageTable)
