@@ -304,7 +304,7 @@ public class MySqlClient
     @Override
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, JdbcTableHandle tableHandle)
     {
-        if (tableHandle.isSynthetic()) {
+        if (tableHandle.isSynthetic() || datetimeColumnSize != 0) {
             return ImmutableMap.of();
         }
         PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
