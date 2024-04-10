@@ -166,7 +166,7 @@ public class DeltaLakePageSinkProvider
     public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
     {
         DeltaLakeMergeTableHandle merge = (DeltaLakeMergeTableHandle) mergeHandle;
-        DeltaLakeInsertTableHandle tableHandle = merge.getInsertTableHandle();
+        DeltaLakeInsertTableHandle tableHandle = merge.insertTableHandle();
         ConnectorPageSink pageSink = createPageSink(transactionHandle, session, tableHandle, pageSinkId);
         DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), typeManager);
 
@@ -192,9 +192,9 @@ public class DeltaLakePageSinkProvider
             DeltaLakeMergeTableHandle mergeTableHandle,
             ConnectorSession session)
     {
-        MetadataEntry metadataEntry = mergeTableHandle.getTableHandle().getMetadataEntry();
-        ProtocolEntry protocolEntry = mergeTableHandle.getTableHandle().getProtocolEntry();
-        Set<String> partitionKeys = mergeTableHandle.getTableHandle().getMetadataEntry().getOriginalPartitionColumns().stream().collect(toImmutableSet());
+        MetadataEntry metadataEntry = mergeTableHandle.tableHandle().getMetadataEntry();
+        ProtocolEntry protocolEntry = mergeTableHandle.tableHandle().getProtocolEntry();
+        Set<String> partitionKeys = mergeTableHandle.tableHandle().getMetadataEntry().getOriginalPartitionColumns().stream().collect(toImmutableSet());
         List<DeltaLakeColumnHandle> tableColumns = extractSchema(metadataEntry, protocolEntry, typeManager).stream()
                 .map(metadata -> new DeltaLakeColumnHandle(
                         metadata.getName(),
@@ -216,7 +216,7 @@ public class DeltaLakePageSinkProvider
                         REGULAR,
                         Optional.empty()))
                 .build();
-        Location tableLocation = Location.of(mergeTableHandle.getTableHandle().getLocation());
+        Location tableLocation = Location.of(mergeTableHandle.tableHandle().getLocation());
 
         DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(metadataEntry, protocolEntry, typeManager, true);
 
