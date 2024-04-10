@@ -100,7 +100,7 @@ public class ScanQueryPageSource
         // sorting by _doc (index order) get special treatment in OpenSearch and is more efficient
         Optional<String> sort = Optional.of("_doc");
 
-        if (table.getQuery().isPresent()) {
+        if (table.query().isPresent()) {
             // However, if we're using a custom OpenSearch query, use default sorting.
             // Documents will be scored and returned based on relevance
             sort = Optional.empty();
@@ -110,13 +110,13 @@ public class ScanQueryPageSource
         SearchResponse searchResponse = client.beginSearch(
                 split.getIndex(),
                 split.getShard(),
-                OpenSearchQueryBuilder.buildSearchQuery(table.getConstraint().transformKeys(OpenSearchColumnHandle.class::cast), table.getQuery(), table.getRegexes()),
+                OpenSearchQueryBuilder.buildSearchQuery(table.constraint().transformKeys(OpenSearchColumnHandle.class::cast), table.query(), table.regexes()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,
                 sort,
-                table.getLimit());
+                table.limit());
         readTimeNanos += System.nanoTime() - start;
-        this.iterator = new SearchHitIterator(client, () -> searchResponse, table.getLimit());
+        this.iterator = new SearchHitIterator(client, () -> searchResponse, table.limit());
     }
 
     @Override
