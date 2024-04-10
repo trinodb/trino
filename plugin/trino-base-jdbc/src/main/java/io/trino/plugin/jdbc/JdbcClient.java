@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.TrinoException;
@@ -94,6 +95,11 @@ public interface JdbcClient
     default Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
+    }
+
+    default Map<ConnectorExpression, JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return ImmutableMap.of();
     }
 
     ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle);

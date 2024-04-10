@@ -24,6 +24,8 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.projection.ProjectFunctionRewriter;
+import io.trino.plugin.base.projection.ProjectFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.BooleanReadFunction;
@@ -68,6 +70,8 @@ import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.expression.RewriteArraySubscript.RewriteArraySubscriptFilter;
+import io.trino.plugin.jdbc.expression.RewriteArraySubscript.RewriteArraySubscriptProjection;
 import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
@@ -276,6 +280,7 @@ public class PostgreSqlClient
     private final List<String> tableTypes;
     private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final ProjectFunctionRewriter<JdbcExpression, ?> projectFunctionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
@@ -304,9 +309,18 @@ public class PostgreSqlClient
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
         Predicate<ConnectorSession> pushdownWithCollateEnabled = PostgreSqlSessionProperties::isEnableStringPushdownWithCollate;
+        BiFunction<ConnectorSession, JdbcColumnHandle, JdbcTypeHandle> arrayElementTypeHandleProvider = (connectorSession, columnHandle) -> { // Replace this with cache
+            try (Connection connection = connectionFactory.openConnection(connectorSession)) {
+                return getArrayElementTypeHandle(connection, columnHandle.getJdbcTypeHandle());
+            }
+            catch (SQLException e) {
+                throw new TrinoException(JDBC_ERROR, e);
+            }
+        };
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .add(new RewriteIn())
+                .add(new RewriteArraySubscriptFilter(arrayElementTypeHandleProvider))
                 .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
                 .withTypeClass("numeric_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint", "decimal", "real", "double"))
                 .map("$equal(left, right)").to("left = right")
@@ -334,6 +348,12 @@ public class PostgreSqlClient
                 .when(pushdownWithCollateEnabled).map("$greater_than(left: collatable_type, right: collatable_type)").to("left > right COLLATE \"C\"")
                 .when(pushdownWithCollateEnabled).map("$greater_than_or_equal(left: collatable_type, right: collatable_type)").to("left >= right COLLATE \"C\"")
                 .build();
+
+        this.projectFunctionRewriter = new ProjectFunctionRewriter<>(
+                this.connectorExpressionRewriter,
+                ImmutableSet.<ProjectFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
+                        .add(new RewriteArraySubscriptProjection(arrayElementTypeHandleProvider))
+                        .build());
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
@@ -798,6 +818,12 @@ public class PostgreSqlClient
     public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return connectorExpressionRewriter.rewrite(session, expression, assignments);
+    }
+
+    @Override
+    public Map<ConnectorExpression, JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return projectFunctionRewriter.rewrite(session, expression, assignments);
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
