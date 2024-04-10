@@ -63,7 +63,7 @@ public class WorkerDynamicCatalogManager
     private final ConcurrentMap<CatalogHandle, CatalogConnector> catalogs = new ConcurrentHashMap<>();
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
-    @GuardedBy("catalogsUpdateLock")
+    @GuardedBy("catalogsLock")
     private boolean stopped;
 
     @Inject
