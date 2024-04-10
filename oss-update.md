@@ -89,6 +89,8 @@ Action items:
 - [ ] Squash fixups
 - [ ] Check OSS release notes for breaking changes
 - [ ] Run benchmarks and verify results
+- [ ] No pinned items left on `#tmp-cork-trino-update-${NEW}` channel if it exists
+      (check it only before final merge, as new pinned items can be added)
 EOF
 )&labels=salesforce"
 ```
