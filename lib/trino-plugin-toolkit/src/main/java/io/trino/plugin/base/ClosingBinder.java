@@ -53,26 +53,24 @@ public class ClosingBinder
         binder.bind(Cleanup.class).asEagerSingleton();
     }
 
-    public ClosingBinder registerExecutor(Class<? extends ExecutorService> type)
+    public void registerExecutor(Class<? extends ExecutorService> type)
     {
-        return registerExecutor(Key.get(type));
+        registerExecutor(Key.get(type));
     }
 
-    public ClosingBinder registerExecutor(Key<? extends ExecutorService> key)
+    public void registerExecutor(Key<? extends ExecutorService> key)
     {
         executors.addBinding().to(requireNonNull(key, "key is null"));
-        return this;
     }
 
-    public ClosingBinder registerCloseable(Class<? extends Closeable> type)
+    public void registerCloseable(Class<? extends Closeable> type)
     {
-        return registerCloseable(Key.get(type));
+        registerCloseable(Key.get(type));
     }
 
-    public ClosingBinder registerCloseable(Key<? extends Closeable> key)
+    public void registerCloseable(Key<? extends Closeable> key)
     {
         closeables.addBinding().to(key);
-        return this;
     }
 
     private record Cleanup(
