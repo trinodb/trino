@@ -101,7 +101,7 @@ public class ScanQueryPageSource
         // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
         Optional<String> sort = Optional.of("_doc");
 
-        if (table.getQuery().isPresent()) {
+        if (table.query().isPresent()) {
             // However, if we're using a custom Elasticsearch query, use default sorting.
             // Documents will be scored and returned based on relevance
             sort = Optional.empty();
@@ -111,13 +111,13 @@ public class ScanQueryPageSource
         SearchResponse searchResponse = client.beginSearch(
                 split.getIndex(),
                 split.getShard(),
-                buildSearchQuery(table.getConstraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.getQuery(), table.getRegexes()),
+                buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,
                 sort,
-                table.getLimit());
+                table.limit());
         readTimeNanos += System.nanoTime() - start;
-        this.iterator = new SearchHitIterator(client, () -> searchResponse, table.getLimit());
+        this.iterator = new SearchHitIterator(client, () -> searchResponse, table.limit());
     }
 
     @Override
