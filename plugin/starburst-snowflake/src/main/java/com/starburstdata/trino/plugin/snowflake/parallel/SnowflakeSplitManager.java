@@ -120,7 +120,7 @@ public class SnowflakeSplitManager
             Map<String, ParameterBindingDTO> bindValues = convertToSnowflakeFormatWithStatement(preparedQuery, session, connection);
             SFStatement sFStatement = new SFStatement(connection.unwrap(SnowflakeConnectionV1.class).getSfSession());
             JsonNode jsonResult = (JsonNode) sFStatement.executeHelper(
-                    preparedQuery.getQuery(),
+                    preparedQuery.query(),
                     "application/snowflake",
                     bindValues,
                     false,
@@ -183,10 +183,10 @@ public class SnowflakeSplitManager
     public Map<String, ParameterBindingDTO> convertToSnowflakeFormatWithStatement(PreparedQuery preparedQuery, ConnectorSession session, Connection connection)
             throws SQLException
     {
-        String modifiedQuery = queryModifier.apply(session, preparedQuery.getQuery());
+        String modifiedQuery = queryModifier.apply(session, preparedQuery.query());
         StarburstSnowflakeStatementV1 statement = new StarburstSnowflakeStatementV1(connection.unwrap(SnowflakeConnectionV1.class), modifiedQuery);
 
-        List<QueryParameter> parameters = preparedQuery.getParameters();
+        List<QueryParameter> parameters = preparedQuery.parameters();
         for (int i = 0; i < parameters.size(); i++) {
             QueryParameter parameter = parameters.get(i);
             int parameterIndex = i + 1;
