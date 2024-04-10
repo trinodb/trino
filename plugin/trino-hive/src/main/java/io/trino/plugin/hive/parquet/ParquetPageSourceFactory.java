@@ -45,15 +45,18 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
 
@@ -90,6 +93,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isParquetUseColumnIndex
 import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static io.trino.plugin.hive.HiveSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.hive.parquet.ParquetPageSource.handleException;
+import static io.trino.plugin.hive.parquet.ParquetTypeTranslator.createCoercer;
 import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
@@ -435,13 +439,28 @@ public class ParquetPageSourceFactory
                 continue;
             }
             String columnName = useColumnNames ? column.getBaseColumnName() : fileSchema.getFields().get(column.getBaseHiveColumnIndex()).getName();
-            Optional<Field> field = constructField(column.getBaseType(), lookupColumnByName(messageColumn, columnName));
+
+            Optional<TypeCoercer<?, ?>> coercer = Optional.empty();
+            ColumnIO columnIO = lookupColumnByName(messageColumn, columnName);
+            if (columnIO != null && columnIO.getType().isPrimitive()) {
+                PrimitiveType primitiveType = columnIO.getType().asPrimitiveType();
+                coercer = createCoercer(primitiveType.getPrimitiveTypeName(), primitiveType.getLogicalTypeAnnotation(), column.getBaseType());
+            }
+
+            io.trino.spi.type.Type readType = coercer.map(TypeCoercer::getFromType).orElseGet(column::getBaseType);
+
+            Optional<Field> field = constructField(readType, columnIO);
             if (field.isEmpty()) {
-                pageSourceBuilder.addNullColumn(column.getBaseType());
+                pageSourceBuilder.addNullColumn(readType);
                 continue;
             }
             parquetColumnFieldsBuilder.add(new Column(columnName, field.get()));
-            pageSourceBuilder.addSourceColumn(sourceChannel);
+            if (coercer.isPresent()) {
+                pageSourceBuilder.addCoercedColumn(sourceChannel, coercer.get());
+            }
+            else {
+                pageSourceBuilder.addSourceColumn(sourceChannel);
+            }
             sourceChannel++;
         }
 
