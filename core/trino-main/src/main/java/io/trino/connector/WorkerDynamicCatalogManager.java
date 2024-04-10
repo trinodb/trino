@@ -91,6 +91,8 @@ public class WorkerDynamicCatalogManager
             finally {
                 catalogRemovingLock.unlock();
             }
+
+            closer.register(executor::shutdownNow);
         }
     }
 
