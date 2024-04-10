@@ -37,9 +37,8 @@ public class InMemoryTransactionManagerModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(TransactionManagerConfig.class);
-        closingBinder(binder)
-                .registerExecutor(Key.get(ExecutorService.class, ForTransactionManager.class))
-                .registerExecutor(Key.get(ScheduledExecutorService.class, ForTransactionManager.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForTransactionManager.class));
+        closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForTransactionManager.class));
     }
 
     @Provides
