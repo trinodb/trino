@@ -191,7 +191,7 @@ With this setup you can validate an individual file from the root by specifying
 the path:
 
 ```
-vale src/main/sphinx/overview/sep-ui.rst
+vale src/main/sphinx/overview/use-cases.md
 ```
 
 You can also use directory paths and all files within.
