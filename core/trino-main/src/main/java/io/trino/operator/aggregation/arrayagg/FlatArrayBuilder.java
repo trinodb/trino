@@ -33,6 +33,7 @@ import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
 import static io.trino.operator.VariableWidthData.POINTER_SIZE;
 import static io.trino.operator.VariableWidthData.getChunkOffset;
+import static java.lang.Math.toIntExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
@@ -208,7 +209,8 @@ public class FlatArrayBuilder
                 recordOffset += recordSize;
             }
         }
-        int recordsInOpenGroup = ((int) size) & RECORDS_PER_GROUP_MASK;
+
+        int recordsInOpenGroup = toIntExact(size - ((long) closedRecordGroups.size() * RECORDS_PER_GROUP));
         int recordOffset = 0;
         for (int recordIndex = 0; recordIndex < recordsInOpenGroup; recordIndex++) {
             write(openRecordGroup, recordOffset, blockBuilder);
