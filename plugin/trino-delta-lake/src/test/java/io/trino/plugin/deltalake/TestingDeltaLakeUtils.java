@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
@@ -57,7 +58,7 @@ public final class TestingDeltaLakeUtils
         // force entries to have JSON serializable statistics
         transactionLogAccess.flushCache();
 
-        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, dummyTable, tableLocation);
+        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, dummyTable, tableLocation, Optional.empty());
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, snapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, snapshot);
         try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, snapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
