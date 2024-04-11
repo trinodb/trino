@@ -106,7 +106,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         SchemaTableName schemaTableName = new SchemaTableName("db_name", tableName);
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, schemaTableName, tableLocation);
+            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, schemaTableName, tableLocation, Optional.empty());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -462,7 +462,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation());
+            tableSnapshot = transactionLogAccess.loadSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), Optional.empty());
         }
         catch (IOException e) {
             throw new RuntimeException(e);

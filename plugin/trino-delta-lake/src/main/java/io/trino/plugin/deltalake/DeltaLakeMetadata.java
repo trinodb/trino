@@ -825,7 +825,7 @@ public class DeltaLakeMetadata
                             return Stream.of();
                         }
                         String tableLocation = metastoreTable.get().location();
-                        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, table, tableLocation);
+                        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, table, tableLocation, Optional.empty());
                         MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, snapshot);
                         ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, snapshot);
                         List<ColumnMetadata> columnMetadata = getTableColumnMetadata(metadata, protocol);
