@@ -300,8 +300,23 @@ public abstract class BaseIcebergConnectorTest
     @Override
     public void testCharVarcharComparison()
     {
-        assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessage("Type not supported for Iceberg: char(3)");
+        // with char->varchar coercion on table creation, this is essentially varchar/varchar comparison
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_char_varchar",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS CHAR(3))), " +
+                        "   (3, CAST('   ' AS CHAR(3)))," +
+                        "   (6, CAST('x  ' AS CHAR(3)))")) {
+            // varchar of length shorter than column's length
+            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(2))")).returnsEmptyResult();
+            // varchar of length longer than column's length
+            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('    ' AS varchar(4))")).returnsEmptyResult();
+            // value that's not all-spaces
+            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))")).returnsEmptyResult();
+            // exact match
+            assertQuery("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('   ' AS varchar(3))", "VALUES (3, '   ')");
+        }
     }
 
     @Test
@@ -4897,20 +4912,13 @@ public abstract class BaseIcebergConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("tinyint")
-                || typeName.equals("smallint")
-                || typeName.startsWith("char(")) {
+                || typeName.equals("smallint")) {
             // These types are not supported by Iceberg
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
-        return Optional.of(dataMappingTestSetup);
-    }
-
-    @Override
-    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
-    {
-        String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("char(1)")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
+        if (typeName.equals("char(3)")) {
+            // Use explicitly padded literal in char mapping test due to whitespace padding on coercion to varchar
+            return Optional.of(new DataMappingTestSetup(typeName, "'ab '", dataMappingTestSetup.getHighValueLiteral()));
         }
         return Optional.of(dataMappingTestSetup);
     }
@@ -7871,6 +7879,11 @@ public abstract class BaseIcebergConnectorTest
                 .add(new TypeCoercionTestSetup("TIME '23:59:59.9999995'", "time(6)", "TIME '00:00:00.000000'"))
                 .add(new TypeCoercionTestSetup("TIME '23:59:59.999999499999'", "time(6)", "TIME '23:59:59.999999'"))
                 .add(new TypeCoercionTestSetup("TIME '23:59:59.9999994'", "time(6)", "TIME '23:59:59.999999'"))
+                .add(new TypeCoercionTestSetup("CHAR 'A'", "varchar", "'A'"))
+                .add(new TypeCoercionTestSetup("CHAR 'é'", "varchar", "'é'"))
+                .add(new TypeCoercionTestSetup("CHAR 'A '", "varchar", "'A '"))
+                .add(new TypeCoercionTestSetup("CHAR ' A'", "varchar", "' A'"))
+                .add(new TypeCoercionTestSetup("CHAR 'ABc'", "varchar", "'ABc'"))
                 .build();
     }
 
