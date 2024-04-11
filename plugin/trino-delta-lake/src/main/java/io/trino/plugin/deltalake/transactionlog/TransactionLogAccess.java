@@ -161,16 +161,6 @@ public class TransactionLogAccess
         return new CacheStatsMBean(tableSnapshots);
     }
 
-    /**
-     * @deprecated Use {@link #loadSnapshot(ConnectorSession, SchemaTableName, String, Optional)} instead.
-     */
-    @Deprecated
-    public TableSnapshot loadSnapshot(ConnectorSession session, SchemaTableName table, String tableLocation)
-            throws IOException
-    {
-        return loadSnapshot(session, table, tableLocation, Optional.empty());
-    }
-
     public TableSnapshot loadSnapshot(ConnectorSession session, SchemaTableName table, String tableLocation, Optional<Long> endVersion)
             throws IOException
     {
