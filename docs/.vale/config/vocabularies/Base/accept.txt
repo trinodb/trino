@@ -36,5 +36,4 @@ SPI
 subnet
 TLS
 Trino
-trino
 truststore
