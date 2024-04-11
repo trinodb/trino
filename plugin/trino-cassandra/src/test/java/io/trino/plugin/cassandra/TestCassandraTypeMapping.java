@@ -699,7 +699,7 @@ public class TestCassandraTypeMapping
 
     private TestCassandraTable testTable(String namePrefix, List<ColumnDefinition> columnDefinitions, List<String> rowsToInsert)
     {
-        return new TestCassandraTable(session::execute, server, "tpch", namePrefix, columnDefinitions, rowsToInsert);
+        return new TestCassandraTable(getQueryRunner(), session::execute, "tpch", namePrefix, columnDefinitions, rowsToInsert);
     }
 
     private void assertCassandraQueryFails(@Language("SQL") String sql, String expectedMessage)
