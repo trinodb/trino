@@ -46,7 +46,7 @@ public class TestingTokenAwareMetastoreClientFactory
 
     public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, URI uri, Duration timeout, MetastoreClientAdapterProvider metastoreClientAdapterProvider)
     {
-        this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, timeout, timeout, AUTHENTICATION, "localhost");
+        this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, timeout, timeout, AUTHENTICATION, "localhost", Optional.empty());
         this.address = requireNonNull(uri, "uri is null");
         this.metastoreClientAdapterProvider = requireNonNull(metastoreClientAdapterProvider, "metastoreClientAdapterProvider is null");
     }

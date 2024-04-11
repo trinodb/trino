@@ -182,6 +182,13 @@ properties:
 * - `hive.metastore.thrift.txn-lock-max-wait`
   - Maximum time to wait to acquire hive transaction lock.
   - `10m`
+* - `hive.metastore.thrift.catalog-name`
+  - The term "Hive metastore catalog name" refers to the abstraction concept
+    within Hive, enabling various systems to connect to distinct, independent
+    catalogs stored in the metastore. By default, the catalog name in Hive
+    metastore is set to "hive." When this configuration property is left empty,
+    the default catalog of the Hive metastore will be accessed.
+  -
 :::
 
 Use the following configuration properties for HTTP client transport mode, so
