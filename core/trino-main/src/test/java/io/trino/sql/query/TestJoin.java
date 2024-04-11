@@ -324,5 +324,18 @@ public class TestJoin
                 WHERE CAST(t.y AS int) = 1
                 """))
                 .matches("VALUES ('a', '1', 'a', '1')");
+
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(k, v) AS (VALUES if(random() >= 0, (1, CAST('10' AS varchar)))),
+                    b(k, v) AS (VALUES if(random() >= 0, (1, CAST('foo' AS varchar)))),
+                    t AS (
+                		SELECT k, CAST(v AS BIGINT) v1, v
+                		FROM a)
+                SELECT t.k, b.k
+                FROM t JOIN b ON t.k = b.k AND t.v1 = 10 AND t.v = b.v
+                """))
+                .returnsEmptyResult();
     }
 }
