@@ -29,6 +29,7 @@ import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -57,7 +58,7 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
                 CONNECTOR_NAME,
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "glue")
-                        .put("hive.metastore.glue.region", "us-east-2")
+                        .put("hive.metastore.glue.region", requireNonNull(System.getenv("AWS_REGION"), "AWS_REGION is null"))
                         .put("hive.metastore.glue.default-warehouse-dir", metastoreDir.toURI().toString())
                         .buildOrThrow());
 
