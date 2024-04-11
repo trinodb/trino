@@ -41,7 +41,7 @@ public record OpenSearchSplit(
         requireNonNull(address, "address is null");
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public List<HostAddress> getAddresses()
     {
@@ -49,14 +49,14 @@ public record OpenSearchSplit(
                 .orElseGet(ImmutableList::of);
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public Object getInfo()
     {
         return this;
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public long getRetainedSizeInBytes()
     {
