@@ -44,6 +44,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-alluxio</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-filesystem-azure</artifactId>
         </dependency>
 
