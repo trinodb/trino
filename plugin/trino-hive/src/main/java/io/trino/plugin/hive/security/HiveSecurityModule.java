@@ -27,7 +27,12 @@ public class HiveSecurityModule
 {
     public enum HiveSecurity
     {
-        ALLOW_ALL, READ_ONLY, FILE, SQL_STANDARD, SYSTEM
+        ALLOW_ALL,
+        READ_ONLY,
+        FILE,
+        SQL_STANDARD,
+        SYSTEM,
+        /**/
     }
 
     @Override
