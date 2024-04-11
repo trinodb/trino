@@ -23,6 +23,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hive.util.ThrottledAsyncQueue;
+import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -41,6 +42,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
@@ -90,7 +92,7 @@ public class DeltaLakeSplitSource
                 .exceptionally(throwable -> {
                     // set trinoException before finishing the queue to ensure failure is observed instead of successful completion
                     // (the field is declared as volatile to make sure that the change is visible right away to other threads)
-                    trinoException = new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to generate splits for " + this.tableName, throwable);
+                    trinoException = new TrinoException(findErrorCode(throwable), "Failed to generate splits for " + this.tableName, throwable);
                     try {
                         // Finish the queue to wake up threads from queue.getBatchAsync()
                         queue.finish();
@@ -101,6 +103,16 @@ public class DeltaLakeSplitSource
                     }
                     return null;
                 });
+    }
+
+    private ErrorCodeSupplier findErrorCode(Throwable throwable)
+    {
+        return getCausalChain(throwable).stream()
+                .filter(TrinoException.class::isInstance)
+                .map(TrinoException.class::cast)
+                .findFirst()
+                .map(t -> (ErrorCodeSupplier) t::getErrorCode)
+                .orElse(GENERIC_INTERNAL_ERROR);
     }
 
     @Override
