@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.alluxio;
+package io.trino.filesystem.cache.alluxio;
 
 import alluxio.client.file.CacheContext;
 import alluxio.client.file.URIStatus;
@@ -27,7 +27,7 @@ import io.trino.filesystem.Location;
 import java.nio.ByteBuffer;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.filesystem.alluxio.AlluxioTracing.withTracing;
+import static io.trino.filesystem.cache.alluxio.AlluxioTracing.withTracing;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 
 // Inspired by https://github.com/Alluxio/alluxio/blob/4e39eda0305a0042edaeae649b503b4508623619/dora/core/client/fs/src/main/java/alluxio/client/file/cache/LocalCacheFileInStream.java#L50
 // We implement a variant of this class to enable positioned reads
-public class AlluxioInputHelper
+public class AlluxioCacheInputHelper
 {
     private final Tracer tracer;
     private final URIStatus status;
@@ -58,7 +58,7 @@ public class AlluxioInputHelper
     private long bufferStartPosition;
     private long bufferEndPosition;
 
-    public AlluxioInputHelper(Tracer tracer, Location location, String cacheKey, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, AlluxioCacheStats statistics)
+    public AlluxioCacheInputHelper(Tracer tracer, Location location, String cacheKey, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, AlluxioCacheStats statistics)
     {
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.status = requireNonNull(status, "status is null");

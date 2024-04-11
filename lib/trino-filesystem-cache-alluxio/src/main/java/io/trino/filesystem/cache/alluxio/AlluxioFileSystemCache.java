@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.alluxio;
+package io.trino.filesystem.cache.alluxio;
 
 import alluxio.client.file.CacheContext;
 import alluxio.client.file.URIStatus;
@@ -61,14 +61,14 @@ public class AlluxioFileSystemCache
     public TrinoInput cacheInput(TrinoInputFile delegate, String key)
             throws IOException
     {
-        return new AlluxioInput(tracer, delegate, key, uriStatus(delegate, key), new TracingCacheManager(tracer, key, pageSize, cacheManager), config, statistics);
+        return new AlluxioCacheInput(tracer, delegate, key, uriStatus(delegate, key), new TracingCacheManager(tracer, key, pageSize, cacheManager), config, statistics);
     }
 
     @Override
     public TrinoInputStream cacheStream(TrinoInputFile delegate, String key)
             throws IOException
     {
-        return new AlluxioInputStream(tracer, delegate, key, uriStatus(delegate, key), new TracingCacheManager(tracer, key, pageSize, cacheManager), config, statistics);
+        return new AlluxioCacheInputStream(tracer, delegate, key, uriStatus(delegate, key), new TracingCacheManager(tracer, key, pageSize, cacheManager), config, statistics);
     }
 
     @Override
