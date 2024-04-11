@@ -43,7 +43,7 @@ public record OpenSearchSplit(
         requireNonNull(address, "address is null");
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public List<HostAddress> getAddresses()
     {
@@ -51,14 +51,14 @@ public record OpenSearchSplit(
                 .orElseGet(ImmutableList::of);
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public Map<String, String> getSplitInfo()
     {
         return ImmutableMap.of("index", index, "shard", String.valueOf(shard), "address", address.orElse(""));
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public long getRetainedSizeInBytes()
     {
