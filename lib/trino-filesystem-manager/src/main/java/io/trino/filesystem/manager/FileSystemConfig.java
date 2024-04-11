@@ -18,6 +18,7 @@ import io.airlift.configuration.Config;
 public class FileSystemConfig
 {
     private boolean hadoopEnabled;
+    private boolean alluxioEnabled;
     private boolean nativeAzureEnabled;
     private boolean nativeS3Enabled;
     private boolean nativeGcsEnabled;
@@ -32,6 +33,18 @@ public class FileSystemConfig
     public FileSystemConfig setHadoopEnabled(boolean hadoopEnabled)
     {
         this.hadoopEnabled = hadoopEnabled;
+        return this;
+    }
+
+    public boolean isAlluxioEnabled()
+    {
+        return alluxioEnabled;
+    }
+
+    @Config("fs.alluxio.enabled")
+    public FileSystemConfig setAlluxioEnabled(boolean nativeAlluxioEnabled)
+    {
+        this.alluxioEnabled = nativeAlluxioEnabled;
         return this;
     }
 
