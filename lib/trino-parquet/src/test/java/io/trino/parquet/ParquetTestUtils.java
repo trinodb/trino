@@ -110,12 +110,13 @@ public class ParquetTestUtils
             List<String> columnNames)
             throws IOException
     {
-        return createParquetReader(input, parquetMetadata, memoryContext, types, columnNames, TupleDomain.all());
+        return createParquetReader(input, parquetMetadata, new ParquetReaderOptions(), memoryContext, types, columnNames, TupleDomain.all());
     }
 
     public static ParquetReader createParquetReader(
             ParquetDataSource input,
             ParquetMetadata parquetMetadata,
+            ParquetReaderOptions options,
             AggregatedMemoryContext memoryContext,
             List<Type> types,
             List<String> columnNames,
@@ -138,7 +139,6 @@ public class ParquetTestUtils
         TupleDomain<ColumnDescriptor> parquetTupleDomain = predicate.transformKeys(
                 columnName -> descriptorsByPath.get(ImmutableList.of(columnName.toLowerCase(ENGLISH))));
         TupleDomainParquetPredicate parquetPredicate = buildPredicate(fileSchema, parquetTupleDomain, descriptorsByPath, UTC);
-        ParquetReaderOptions options = new ParquetReaderOptions();
         List<RowGroupInfo> rowGroups = getFilteredRowGroups(
                 0,
                 input.getEstimatedSize(),
@@ -172,6 +172,19 @@ public class ParquetTestUtils
         for (int i = 0; i < pageCount; i++) {
             List<Block> blocks = types.stream()
                     .map(type -> generateBlock(type, positionsPerPage))
+                    .collect(toImmutableList());
+            pagesBuilder.add(new Page(blocks.toArray(Block[]::new)));
+        }
+        return pagesBuilder.build();
+    }
+
+    public static List<io.trino.spi.Page> generateInputPages(List<Type> types, int positionsPerPage, List<?> data)
+    {
+        ImmutableList.Builder<io.trino.spi.Page> pagesBuilder = ImmutableList.builder();
+        for (int i = 0; i < data.size(); i += positionsPerPage) {
+            int index = i;
+            List<Block> blocks = types.stream()
+                    .map(type -> generateBlock(type, data.subList(index, index + positionsPerPage)))
                     .collect(toImmutableList());
             pagesBuilder.add(new Page(blocks.toArray(Block[]::new)));
         }
@@ -258,6 +271,15 @@ public class ParquetTestUtils
         BlockBuilder blockBuilder = type.createBlockBuilder(null, positions);
         for (int i = 0; i < positions; i++) {
             writeNativeValue(type, blockBuilder, (long) i);
+        }
+        return blockBuilder.build();
+    }
+
+    private static <T> Block generateBlock(Type type, List<T> data)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, data.size());
+        for (T value : data) {
+            writeNativeValue(type, blockBuilder, value);
         }
         return blockBuilder.build();
     }
