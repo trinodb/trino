@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.alluxio;
+package io.trino.filesystem.cache.alluxio;
 
 import alluxio.conf.AlluxioConfiguration;
 import alluxio.conf.AlluxioProperties;
@@ -35,9 +35,9 @@ import static alluxio.conf.PropertyKey.USER_CLIENT_CACHE_TTL_ENABLED;
 import static alluxio.conf.PropertyKey.USER_CLIENT_CACHE_TTL_THRESHOLD_SECONDS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.filesystem.alluxio.AlluxioFileSystemCacheConfig.CACHE_DIRECTORIES;
-import static io.trino.filesystem.alluxio.AlluxioFileSystemCacheConfig.CACHE_MAX_PERCENTAGES;
-import static io.trino.filesystem.alluxio.AlluxioFileSystemCacheConfig.CACHE_MAX_SIZES;
+import static io.trino.filesystem.cache.alluxio.AlluxioFileSystemCacheConfig.CACHE_DIRECTORIES;
+import static io.trino.filesystem.cache.alluxio.AlluxioFileSystemCacheConfig.CACHE_MAX_PERCENTAGES;
+import static io.trino.filesystem.cache.alluxio.AlluxioFileSystemCacheConfig.CACHE_MAX_SIZES;
 import static java.lang.String.format;
 import static java.lang.String.join;
 
