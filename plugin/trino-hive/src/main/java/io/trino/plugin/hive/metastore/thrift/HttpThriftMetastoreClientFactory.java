@@ -81,6 +81,7 @@ public class HttpThriftMetastoreClientFactory
         return new ThriftHiveMetastoreClient(
                 () -> createHttpTransport(uri),
                 hostname,
+                Optional.empty(),
                 new MetastoreSupportsDateStatistics(),
                 false,
                 chosenGetTableAlternative,
