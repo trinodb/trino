@@ -1632,7 +1632,7 @@ public class TestCassandraConnectorTest
 
     private TestCassandraTable testTable(String namePrefix, List<TestCassandraTable.ColumnDefinition> columnDefinitions, List<String> rowsToInsert)
     {
-        return new TestCassandraTable(session::execute, server, KEYSPACE, namePrefix, columnDefinitions, rowsToInsert);
+        return new TestCassandraTable(getQueryRunner(), session::execute, KEYSPACE, namePrefix, columnDefinitions, rowsToInsert);
     }
 
     private void onCassandra(@Language("SQL") String sql)
