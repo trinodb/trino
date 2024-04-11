@@ -217,6 +217,7 @@ public class EffectivePredicateExtractor
                     .collect(toImmutableList());
 
             List<Expression> projectionEqualities = nonIdentityAssignments.stream()
+                    .filter(assignment -> assignment.getKey().type().isComparable() || assignment.getKey().type().isOrderable())
                     .filter(assignment -> Sets.intersection(SymbolsExtractor.extractUnique(assignment.getValue()), newlyAssignedSymbols).isEmpty())
                     .map(ENTRY_TO_EQUALITY)
                     .collect(toImmutableList());
