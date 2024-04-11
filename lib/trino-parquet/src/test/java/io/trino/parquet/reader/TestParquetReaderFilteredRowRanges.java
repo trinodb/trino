@@ -84,6 +84,7 @@ public class TestParquetReaderFilteredRowRanges
         reader = createParquetReader(
                 dataSource,
                 parquetMetadata,
+                new ParquetReaderOptions(),
                 newSimpleAggregatedMemoryContext(),
                 types,
                 columnNames,
@@ -98,6 +99,7 @@ public class TestParquetReaderFilteredRowRanges
         reader = createParquetReader(
                 dataSource,
                 parquetMetadata,
+                new ParquetReaderOptions(),
                 newSimpleAggregatedMemoryContext(),
                 types,
                 columnNames,
@@ -112,6 +114,7 @@ public class TestParquetReaderFilteredRowRanges
         reader = createParquetReader(
                 dataSource,
                 parquetMetadata,
+                new ParquetReaderOptions(),
                 newSimpleAggregatedMemoryContext(),
                 types,
                 columnNames,
@@ -126,6 +129,7 @@ public class TestParquetReaderFilteredRowRanges
         reader = createParquetReader(
                 dataSource,
                 parquetMetadata,
+                new ParquetReaderOptions(),
                 newSimpleAggregatedMemoryContext(),
                 types,
                 columnNames,
@@ -140,6 +144,7 @@ public class TestParquetReaderFilteredRowRanges
         reader = createParquetReader(
                 dataSource,
                 parquetMetadata,
+                new ParquetReaderOptions(),
                 newSimpleAggregatedMemoryContext(),
                 types,
                 columnNames,
@@ -179,6 +184,7 @@ public class TestParquetReaderFilteredRowRanges
             reader = createParquetReader(
                     dataSource,
                     parquetMetadata,
+                    new ParquetReaderOptions(),
                     newSimpleAggregatedMemoryContext(),
                     types,
                     columnNames,
@@ -193,6 +199,7 @@ public class TestParquetReaderFilteredRowRanges
             reader = createParquetReader(
                     dataSource,
                     parquetMetadata,
+                    new ParquetReaderOptions(),
                     newSimpleAggregatedMemoryContext(),
                     types,
                     columnNames,
