@@ -29,7 +29,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.Random;
+import java.util.stream.LongStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;
 import static io.trino.block.BlockAssertions.createBooleansBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
@@ -101,6 +103,19 @@ public class TestArrayAggregation
                 fromTypes(BIGINT),
                 Arrays.asList(2L, 1L, 2L),
                 createLongsBlock(new Long[] {2L, 1L, 2L}));
+    }
+
+    @Test
+    public void testBigIntOnFlatArrayGroupSize()
+    {
+        long flatArrayGroupSize = 1 << 10;
+        long inputCount = flatArrayGroupSize * 2; // data will be split into two pages in assertAggregation
+        assertAggregation(
+                FUNCTION_RESOLUTION,
+                "array_agg",
+                fromTypes(BIGINT),
+                LongStream.rangeClosed(1L, inputCount).boxed().collect(toImmutableList()),
+                createLongsBlock(LongStream.rangeClosed(1L, inputCount).boxed().collect(toImmutableList())));
     }
 
     @Test
