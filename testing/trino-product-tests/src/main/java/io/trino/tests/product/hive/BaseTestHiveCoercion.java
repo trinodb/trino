@@ -91,6 +91,7 @@ public abstract class BaseTestHiveCoercion
         String floatToDoubleType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "DOUBLE" : "REAL";
         String floatToDecimalVal = tableName.toLowerCase(ENGLISH).contains("parquet") ? "12345.12345" : "12345.12300";
         String decimalToFloatVal = tableName.toLowerCase(ENGLISH).contains("parquet") ? "12345.12345" : "12345.124";
+        List<Object> booleanToVarcharVal = tableName.toLowerCase(ENGLISH).contains("parquet") && tableName.toLowerCase(ENGLISH).contains("_unpartitioned") ? ImmutableList.of("true", "false") : ImmutableList.of("TRUE", "FALSE");
 
         insertTableRows(tableName, floatToDoubleType);
 
@@ -189,7 +190,7 @@ public abstract class BaseTestHiveCoercion
                 "varchar_to_timestamp",
                 "id");
 
-        Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, decimalToFloatVal, floatToDecimalVal);
+        Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, decimalToFloatVal, floatToDecimalVal, booleanToVarcharVal);
 
         // For Trino, remove unsupported columns
         List<String> prestoReadColumns = removeUnsupportedColumnsForTrino(allColumns, tableName);
@@ -403,7 +404,7 @@ public abstract class BaseTestHiveCoercion
         resetHiveTimestampPrecision();
     }
 
-    protected Map<String, List<Object>> expectedValuesForEngineProvider(Engine engine, String tableName, String decimalToFloatVal, String floatToDecimalVal)
+    protected Map<String, List<Object>> expectedValuesForEngineProvider(Engine engine, String tableName, String decimalToFloatVal, String floatToDecimalVal, List<Object> booleanToVarcharVal)
     {
         String hiveValueForCaseChangeField;
         String coercedNaN = "NaN";
@@ -492,9 +493,7 @@ public abstract class BaseTestHiveCoercion
                                         .addField("add", null)
                                         .build()) :
                                 "{-2:{\"ti2bi\":null,\"int2bi\":-2323,\"float2double\":-1.5,\"add\":null}}"))
-                .put("boolean_to_varchar", ImmutableList.of(
-                        "TRUE",
-                        "FALSE"))
+                .put("boolean_to_varchar", booleanToVarcharVal)
                 .putAll(fromVarcharCoercions)
                 .put("tinyint_to_smallint", ImmutableList.of(
                         -1,
