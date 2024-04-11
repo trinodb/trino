@@ -171,7 +171,7 @@ public class TestIcebergMinioOrcConnectorTest
     }
 
     @Override
-    protected Optional<TimestampPrecisionTestSetup> filterTimestampPrecisionOnCreateTableAsSelectProvider(TimestampPrecisionTestSetup setup)
+    protected Optional<TypeCoercionTestSetup> filterTypeCoercionOnCreateTableAsSelectProvider(TypeCoercionTestSetup setup)
     {
         if (setup.sourceValueLiteral().equals("TIMESTAMP '1969-12-31 23:59:59.999999499999'")) {
             return Optional.of(setup.withNewValueLiteral("TIMESTAMP '1970-01-01 00:00:00.999999'"));
