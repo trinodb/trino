@@ -43,7 +43,7 @@ public record ElasticsearchSplit(
         requireNonNull(address, "address is null");
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public List<HostAddress> getAddresses()
     {
@@ -51,7 +51,7 @@ public record ElasticsearchSplit(
                 .orElseGet(ImmutableList::of);
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public Map<String, String> getSplitInfo()
     {
@@ -61,7 +61,7 @@ public record ElasticsearchSplit(
                 .buildOrThrow();
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public long getRetainedSizeInBytes()
     {
