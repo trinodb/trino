@@ -32,12 +32,20 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ParquetProperties;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
+import org.apache.parquet.format.BloomFilterAlgorithm;
+import org.apache.parquet.format.BloomFilterCompression;
+import org.apache.parquet.format.BloomFilterHash;
+import org.apache.parquet.format.BloomFilterHeader;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.KeyValue;
 import org.apache.parquet.format.RowGroup;
+import org.apache.parquet.format.SplitBlockAlgorithm;
+import org.apache.parquet.format.Uncompressed;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.format.XxHash;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.MessageColumnIO;
@@ -47,6 +55,7 @@ import org.joda.time.DateTimeZone;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -67,6 +76,13 @@ import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -77,6 +93,7 @@ public class ParquetWriter
         implements Closeable
 {
     private static final int INSTANCE_SIZE = instanceSize(ParquetWriter.class);
+    public static final List<Type> SUPPORTED_BLOOM_FILTER_TYPES = ImmutableList.of(BIGINT, DOUBLE, INTEGER, REAL, UUID, VARBINARY, VARCHAR);
 
     private final OutputStreamSliceOutput outputStream;
     private final ParquetWriterOptions writerOption;
@@ -86,6 +103,7 @@ public class ParquetWriter
     private final CompressionCodec compressionCodec;
     private final Optional<DateTimeZone> parquetTimeZone;
     private final FileFooter fileFooter;
+    private final ImmutableList.Builder<List<Optional<BloomFilter>>> bloomFilterGroups = ImmutableList.builder();
     private final Optional<ParquetWriteValidationBuilder> validationBuilder;
 
     private List<ColumnWriter> columnWriters;
@@ -204,6 +222,8 @@ public class ParquetWriter
             columnWriters.forEach(ColumnWriter::close);
             flush();
             columnWriters = ImmutableList.of();
+            fileMetaData = fileFooter.createFileMetadata();
+            writeBloomFilters(fileMetaData.getRow_groups(), bloomFilterGroups.build());
             writeFooter();
         }
         bufferedBytes = 0;
@@ -331,13 +351,14 @@ public class ParquetWriter
             bufferData.getData()
                     .forEach(data -> data.writeData(outputStream));
         }
+
+        bloomFilterGroups.add(bufferDataList.stream().map(BufferData::getBloomFilter).collect(toImmutableList()));
     }
 
     private void writeFooter()
             throws IOException
     {
         checkState(closed);
-        fileMetaData = fileFooter.createFileMetadata();
         Slice footer = serializeFooter(fileMetaData);
         recordValidation(validation -> validation.setRowGroups(fileMetaData.getRow_groups()));
         createDataOutput(footer).writeData(outputStream);
@@ -347,6 +368,39 @@ public class ParquetWriter
         createDataOutput(footerSize).writeData(outputStream);
 
         createDataOutput(MAGIC).writeData(outputStream);
+    }
+
+    private void writeBloomFilters(List<RowGroup> rowGroups, List<List<Optional<BloomFilter>>> rowGroupBloomFilters)
+    {
+        checkArgument(rowGroups.size() == rowGroupBloomFilters.size(), "Row groups size %s should match row group Bloom filter size %s", rowGroups.size(), rowGroupBloomFilters.size());
+        for (int group = 0; group < rowGroups.size(); group++) {
+            List<org.apache.parquet.format.ColumnChunk> columns = rowGroups.get(group).getColumns();
+            List<Optional<BloomFilter>> bloomFilters = rowGroupBloomFilters.get(group);
+            for (int i = 0; i < columns.size(); i++) {
+                if (bloomFilters.get(i).isEmpty()) {
+                    continue;
+                }
+
+                BloomFilter bloomFilter = bloomFilters.get(i).orElseThrow();
+                long bloomFilterOffset = outputStream.longSize();
+                try {
+                    Util.writeBloomFilterHeader(
+                            new BloomFilterHeader(
+                                    bloomFilter.getBitsetSize(),
+                                    BloomFilterAlgorithm.BLOCK(new SplitBlockAlgorithm()),
+                                    BloomFilterHash.XXHASH(new XxHash()),
+                                    BloomFilterCompression.UNCOMPRESSED(new Uncompressed())),
+                            outputStream,
+                            null,
+                            null);
+                    bloomFilter.writeTo(outputStream);
+                    columns.get(i).getMeta_data().setBloom_filter_offset(bloomFilterOffset);
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+        }
     }
 
     private void updateRowGroups(List<ColumnMetaData> columnMetaData)
@@ -394,7 +448,7 @@ public class ParquetWriter
                 primitiveTypes,
                 parquetProperties,
                 compressionCodec,
-                writerOption.getMaxPageValueCount(),
+                writerOption,
                 parquetTimeZone);
     }
 
