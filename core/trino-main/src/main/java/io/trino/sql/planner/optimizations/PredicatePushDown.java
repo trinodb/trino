@@ -972,19 +972,27 @@ public class PredicatePushDown
                 }
             }
 
-            List<Expression> leftCandidates = extractConjuncts(leftEffectivePredicate).stream()
+            List<Expression> leftConjuncts = extractConjuncts(leftEffectivePredicate).stream()
+                    .filter(expression -> !mayFail(plannerContext, expression) && isDeterministic(expression))
+                    .toList();
+
+            List<Expression> leftCandidates = leftConjuncts.stream()
                     .filter(EqualityInference::isInferenceCandidate)
                     .toList();
 
-            List<Expression> leftResiduals = extractConjuncts(leftEffectivePredicate).stream()
+            List<Expression> leftResiduals = leftConjuncts.stream()
                     .filter(conjunct -> !isInferenceCandidate(conjunct))
                     .toList();
 
-            List<Expression> rightCandidates = extractConjuncts(rightEffectivePredicate).stream()
+            List<Expression> rightConjuncts = extractConjuncts(rightEffectivePredicate).stream()
+                    .filter(expression -> !mayFail(plannerContext, expression) && isDeterministic(expression))
+                    .toList();
+
+            List<Expression> rightCandidates = rightConjuncts.stream()
                     .filter(EqualityInference::isInferenceCandidate)
                     .toList();
 
-            List<Expression> rightResiduals = extractConjuncts(rightEffectivePredicate).stream()
+            List<Expression> rightResiduals = rightConjuncts.stream()
                     .filter(conjunct -> !isInferenceCandidate(conjunct))
                     .toList();
 
