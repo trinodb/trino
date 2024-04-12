@@ -464,8 +464,8 @@ public class MongoMetadata
             Collection<ComputedStatistics> computedStatistics)
     {
         MongoInsertTableHandle handle = (MongoInsertTableHandle) insertHandle;
-        if (handle.getTemporaryTableName().isPresent()) {
-            finishInsert(session, handle.getRemoteTableName(), handle.getTemporaryRemoteTableName().get(), handle.getPageSinkIdColumnName().get(), fragments);
+        if (handle.temporaryTableName().isPresent()) {
+            finishInsert(session, handle.remoteTableName(), handle.getTemporaryRemoteTableName().get(), handle.pageSinkIdColumnName().get(), fragments);
         }
         clearRollback();
         return Optional.empty();
