@@ -63,7 +63,6 @@ import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
@@ -215,7 +214,7 @@ public class TestTableWriterOperator
                 new AggregationOperatorFactory(
                         1,
                         new PlanNodeId("test"),
-                        ImmutableList.of(LONG_MAX.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()))),
+                        ImmutableList.of(LONG_MAX.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty()))),
                 outputTypes,
                 session,
                 driverContext);

@@ -409,6 +409,7 @@ public class AggregationNode
         private final Optional<Symbol> filter;
         private final Optional<OrderingScheme> orderingScheme;
         private final Optional<Symbol> mask;
+        private final boolean legacyDecomposition;
 
         @JsonCreator
         public Aggregation(
@@ -417,7 +418,8 @@ public class AggregationNode
                 @JsonProperty("distinct") boolean distinct,
                 @JsonProperty("filter") Optional<Symbol> filter,
                 @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
-                @JsonProperty("mask") Optional<Symbol> mask)
+                @JsonProperty("mask") Optional<Symbol> mask,
+                @JsonProperty("legacyDecomposition") boolean legacyDecomposition)
         {
             this.resolvedFunction = requireNonNull(resolvedFunction, "resolvedFunction is null");
             this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
@@ -430,6 +432,7 @@ public class AggregationNode
             this.filter = requireNonNull(filter, "filter is null");
             this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
             this.mask = requireNonNull(mask, "mask is null");
+            this.legacyDecomposition = legacyDecomposition;
         }
 
         @JsonProperty
@@ -468,6 +471,12 @@ public class AggregationNode
             return mask;
         }
 
+        @JsonProperty
+        public boolean isLegacyDecomposition()
+        {
+            return legacyDecomposition;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -483,13 +492,14 @@ public class AggregationNode
                     Objects.equals(arguments, that.arguments) &&
                     Objects.equals(filter, that.filter) &&
                     Objects.equals(orderingScheme, that.orderingScheme) &&
-                    Objects.equals(mask, that.mask);
+                    Objects.equals(mask, that.mask) &&
+                    legacyDecomposition == that.legacyDecomposition;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(resolvedFunction, arguments, distinct, filter, orderingScheme, mask);
+            return Objects.hash(resolvedFunction, arguments, distinct, filter, orderingScheme, mask, legacyDecomposition);
         }
 
         private void verifyArguments(Step step)

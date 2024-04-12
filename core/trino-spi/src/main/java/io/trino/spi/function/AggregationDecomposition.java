@@ -13,20 +13,19 @@
  */
 package io.trino.spi.function;
 
-import com.google.errorprone.annotations.Keep;
+import static java.util.Objects.requireNonNull;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-@Keep
-@Retention(RUNTIME)
-@Target(METHOD)
-public @interface OutputFunction
+public record AggregationDecomposition(String partial, String output)
 {
-    String value();
-
-    Decomposition decomposition() default @Decomposition(partial = "", output = "");
+    public AggregationDecomposition
+    {
+        requireNonNull(partial, "partial cannot be null");
+        if (partial.isEmpty()) {
+            throw new IllegalArgumentException("partial cannot be empty");
+        }
+        requireNonNull(output, "output cannot be null");
+        if (output.isEmpty()) {
+            throw new IllegalArgumentException("output cannot be empty");
+        }
+    }
 }

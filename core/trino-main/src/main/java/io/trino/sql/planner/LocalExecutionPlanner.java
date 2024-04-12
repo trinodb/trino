@@ -372,6 +372,8 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.planner.AggregationDecompositions.decompose;
+import static io.trino.sql.planner.AggregationDecompositions.resolveIntermediateFromPartial;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.SortExpressionExtractor.extractSortExpression;
@@ -383,6 +385,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.JoinType.FULL;
@@ -3816,6 +3819,30 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
         }
 
+        private static boolean hasSamePhysicalShape(Type left, Type right)
+        {
+            if (left.equals(right)) {
+                return true;
+            }
+            // The declared intermediate may differ nominally from the serializer type (named vs
+            // anonymous row fields, or type parameters the serializer does not carry, e.g.
+            // qdigest(bigint) for any qdigest), so compare the physical block representation
+            if (left instanceof RowType leftRow && right instanceof RowType rightRow) {
+                List<Type> leftFields = leftRow.getTypeParameters();
+                List<Type> rightFields = rightRow.getTypeParameters();
+                if (leftFields.size() != rightFields.size()) {
+                    return false;
+                }
+                for (int i = 0; i < leftFields.size(); i++) {
+                    if (!hasSamePhysicalShape(leftFields.get(i), rightFields.get(i))) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return left.getValueBlockType().equals(right.getValueBlockType());
+        }
+
         private AggregatorFactory buildAggregatorFactory(
                 PhysicalOperation source,
                 Aggregation aggregation,
@@ -3903,14 +3930,46 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdas, aggregationImplementation.getLambdaInterfaces(), functionTypes);
 
+            boolean spillable = !aggregation.isDistinct() && aggregation.getOrderingScheme().isEmpty();
+            Optional<AccumulatorFactory> unspillAccumulatorFactory = Optional.empty();
+            if (spillable && !accumulatorFactory.isLegacyDecomposition()) {
+                // With a declared decomposition, spilled intermediate state is merged by the function that
+                // consumes the intermediate type as raw input
+                ResolvedFunction unspillFunction = switch (step) {
+                    case SINGLE -> decompose(plannerContext.getMetadata(), plannerContext.getTypeManager(), session, resolvedFunction).outputFunction();
+                    case PARTIAL -> resolveIntermediateFromPartial(plannerContext.getMetadata(), session, resolvedFunction);
+                    // FINAL and INTERMEDIATE functions already consume the intermediate type as raw input
+                    case FINAL, INTERMEDIATE -> resolvedFunction;
+                };
+                // The spilled pages contain the state-serializer layout, which the unspill function consumes
+                // as raw input, so the declared intermediate row must match the serializer layout exactly
+                Type unspillInputType = getOnlyElement(unspillFunction.signature().getArgumentTypes());
+                verify(hasSamePhysicalShape(unspillInputType, intermediateType),
+                        "Declared intermediate type %s of %s does not match the state serializer layout %s",
+                        unspillInputType,
+                        unspillFunction.signature().getName(),
+                        intermediateType);
+
+                AggregationImplementation unspillImplementation = plannerContext.getFunctionManager().getAggregationImplementation(unspillFunction);
+                unspillAccumulatorFactory = Optional.of(uncheckedCacheGet(
+                        accumulatorFactoryCache,
+                        new FunctionKey(unspillFunction.functionId(), unspillFunction.signature()),
+                        () -> generateAccumulatorFactory(
+                                unspillFunction.signature(),
+                                unspillImplementation,
+                                unspillFunction.functionNullability(),
+                                specializeAggregationLoops)));
+            }
+
             return new AggregatorFactory(
                     accumulatorFactory,
-                    step,
+                    accumulatorFactory.isLegacyDecomposition() ? step : SINGLE,
                     intermediateType,
                     finalType,
                     argumentChannels,
                     maskChannel,
-                    !aggregation.isDistinct() && aggregation.getOrderingScheme().isEmpty(),
+                    spillable,
+                    unspillAccumulatorFactory,
                     lambdaProviders);
         }
 

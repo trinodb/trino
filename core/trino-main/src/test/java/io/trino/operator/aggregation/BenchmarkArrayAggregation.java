@@ -45,7 +45,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static org.openjdk.jmh.annotations.Level.Invocation;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -89,7 +88,7 @@ public class BenchmarkArrayAggregation
                 default -> throw new UnsupportedOperationException();
             }
             TestingAggregationFunction function = new TestingFunctionResolution().getAggregateFunction("array_agg", fromTypes(elementType));
-            aggregator = function.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()).createAggregator(new AggregationMetrics());
+            aggregator = function.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty()).createAggregator(new AggregationMetrics());
 
             block = createChannel(ARRAY_SIZE, elementType);
             page = new Page(block);

@@ -19,6 +19,8 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -40,10 +42,13 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.matching.Pattern.empty;
+import static io.trino.sql.planner.AggregationDecompositions.resolveIntermediateFromOutput;
+import static io.trino.sql.planner.AggregationDecompositions.resolveIntermediateFromPartial;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static io.trino.sql.planner.plan.Patterns.Aggregation.step;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Adds INTERMEDIATE aggregations between an un-grouped FINAL aggregation and its preceding
@@ -77,6 +82,13 @@ public class AddIntermediateAggregations
             // Only consider aggregations without ORDER BY clause
             .matching(node -> !node.hasOrderings());
 
+    private final PlannerContext plannerContext;
+
+    public AddIntermediateAggregations(PlannerContext plannerContext)
+    {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+    }
+
     @Override
     public Pattern<AggregationNode> getPattern()
     {
@@ -96,7 +108,7 @@ public class AddIntermediateAggregations
         PlanNodeIdAllocator idAllocator = context.getIdAllocator();
         Session session = context.getSession();
 
-        Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator);
+        Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator, session);
 
         if (rewrittenSource.isEmpty()) {
             return Result.empty();
@@ -113,7 +125,7 @@ public class AddIntermediateAggregations
             source = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
-                    inputsAsOutputs(aggregation.getAggregations()),
+                    inputsAsOutputs(aggregation.getAggregations(), session),
                     aggregation.getGroupingSets(),
                     aggregation.getPreGroupedSymbols(),
                     AggregationNode.Step.INTERMEDIATE,
@@ -127,10 +139,10 @@ public class AddIntermediateAggregations
     /**
      * Recurse through a series of preceding ExchangeNodes and ProjectNodes to find the preceding PARTIAL aggregation
      */
-    private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator)
+    private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, Session session)
     {
         if (node instanceof AggregationNode aggregationNode && aggregationNode.getStep() == AggregationNode.Step.PARTIAL) {
-            return Optional.of(addGatheringIntermediate(aggregationNode, idAllocator));
+            return Optional.of(addGatheringIntermediate(aggregationNode, idAllocator, session));
         }
 
         if (!(node instanceof ExchangeNode) && !(node instanceof ProjectNode)) {
@@ -139,7 +151,7 @@ public class AddIntermediateAggregations
 
         ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
         for (PlanNode source : node.getSources()) {
-            Optional<PlanNode> planNode = recurseToPartial(lookup.resolve(source), lookup, idAllocator);
+            Optional<PlanNode> planNode = recurseToPartial(lookup.resolve(source), lookup, idAllocator, session);
             if (planNode.isEmpty()) {
                 return Optional.empty();
             }
@@ -148,14 +160,14 @@ public class AddIntermediateAggregations
         return Optional.of(node.replaceChildren(builder.build()));
     }
 
-    private PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator)
+    private PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator, Session session)
     {
         verify(aggregation.getGroupingKeys().isEmpty(), "Should be an un-grouped aggregation");
         ExchangeNode gatheringExchange = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, aggregation);
         return AggregationNode.builderFrom(aggregation)
                 .setId(idAllocator.getNextId())
                 .setSource(gatheringExchange)
-                .setAggregations(outputsAsInputs(aggregation.getAggregations()))
+                .setAggregations(outputsAsInputs(aggregation.getAggregations(), session))
                 .setStep(AggregationNode.Step.INTERMEDIATE)
                 .build();
     }
@@ -167,22 +179,32 @@ public class AddIntermediateAggregations
      * 'a' := sum('b') => 'a' := sum('a')
      * 'a' := count(*) => 'a' := count('a')
      */
-    private static Map<Symbol, AggregationNode.Aggregation> outputsAsInputs(Map<Symbol, AggregationNode.Aggregation> assignments)
+    private Map<Symbol, AggregationNode.Aggregation> outputsAsInputs(Map<Symbol, AggregationNode.Aggregation> assignments, Session session)
     {
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
         for (Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             Symbol output = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
             checkState(aggregation.getOrderingScheme().isEmpty(), "Intermediate aggregation does not support ORDER BY");
+
+            ResolvedFunction intermediateFunction;
+            if (aggregation.isLegacyDecomposition()) {
+                intermediateFunction = aggregation.getResolvedFunction();
+            }
+            else {
+                intermediateFunction = resolveIntermediateFromPartial(plannerContext.getMetadata(), session, aggregation.getResolvedFunction());
+            }
+
             builder.put(
                     output,
                     new AggregationNode.Aggregation(
-                            aggregation.getResolvedFunction(),
+                            intermediateFunction,
                             ImmutableList.of(output.toSymbolReference()),
                             false,
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty()));  // No mask for INTERMEDIATE
+                            Optional.empty(), // No mask for INTERMEDIATE
+                            aggregation.isLegacyDecomposition()));
         }
         return builder.buildOrThrow();
     }
@@ -195,13 +217,29 @@ public class AddIntermediateAggregations
      * Example:
      * 'a' := sum('b') => 'b' := sum('b')
      */
-    private static Map<Symbol, AggregationNode.Aggregation> inputsAsOutputs(Map<Symbol, AggregationNode.Aggregation> assignments)
+    private Map<Symbol, AggregationNode.Aggregation> inputsAsOutputs(Map<Symbol, AggregationNode.Aggregation> assignments, Session session)
     {
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
         for (Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             // Should only have one input symbol
-            Symbol input = getOnlyElement(SymbolsExtractor.extractAll(entry.getValue()));
-            builder.put(input, entry.getValue());
+            AggregationNode.Aggregation aggregation = entry.getValue();
+            Symbol input = getOnlyElement(SymbolsExtractor.extractAll(aggregation));
+
+            if (!aggregation.isLegacyDecomposition()) {
+                // The final aggregation function consumes the intermediate type but produces the final result,
+                // so the intermediate aggregation must instead consume and produce the intermediate type
+                ResolvedFunction intermediateFunction = resolveIntermediateFromOutput(plannerContext.getMetadata(), session, aggregation.getResolvedFunction());
+                aggregation = new AggregationNode.Aggregation(
+                        intermediateFunction,
+                        aggregation.getArguments(),
+                        aggregation.isDistinct(),
+                        aggregation.getFilter(),
+                        aggregation.getOrderingScheme(),
+                        aggregation.getMask(),
+                        aggregation.isLegacyDecomposition());
+            }
+
+            builder.put(input, aggregation);
         }
         return builder.buildOrThrow();
     }

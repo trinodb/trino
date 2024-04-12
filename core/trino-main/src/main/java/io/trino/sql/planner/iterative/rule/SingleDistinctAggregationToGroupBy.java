@@ -161,6 +161,7 @@ public class SingleDistinctAggregationToGroupBy
                 false,
                 aggregation.getFilter(),
                 aggregation.getOrderingScheme(),
-                aggregation.getMask());
+                aggregation.getMask(),
+                aggregation.isLegacyDecomposition());
     }
 }

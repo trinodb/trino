@@ -776,7 +776,8 @@ public class TestCostCalculator
                 false,
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                true);
 
         return singleAggregation(
                 new PlanNodeId(id),

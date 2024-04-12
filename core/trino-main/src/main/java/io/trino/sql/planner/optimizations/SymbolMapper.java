@@ -212,7 +212,8 @@ public class SymbolMapper
                 aggregation.isDistinct(),
                 aggregation.getFilter().map(this::map),
                 aggregation.getOrderingScheme().map(this::map),
-                aggregation.getMask().map(this::map));
+                aggregation.getMask().map(this::map),
+                aggregation.isLegacyDecomposition());
     }
 
     public GroupIdNode map(GroupIdNode node, PlanNode source)
