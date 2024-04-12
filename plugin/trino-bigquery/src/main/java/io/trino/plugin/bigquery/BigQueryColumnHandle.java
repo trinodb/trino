@@ -50,7 +50,7 @@ public class BigQueryColumnHandle
             @JsonProperty("name") String name,
             @JsonProperty("trinoType") Type trinoType,
             @JsonProperty("bigqueryType") StandardSQLTypeName bigqueryType,
-            @JsonProperty("isPushdownSupported") boolean isPushdownSupported,
+            @JsonProperty("pushdownSupported") boolean isPushdownSupported,
             @JsonProperty("mode") Field.Mode mode,
             @JsonProperty("subColumns") List<BigQueryColumnHandle> subColumns,
             @JsonProperty("description") String description,
