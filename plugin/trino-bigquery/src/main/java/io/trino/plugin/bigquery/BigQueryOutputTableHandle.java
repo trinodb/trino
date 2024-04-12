@@ -47,6 +47,6 @@ public record BigQueryOutputTableHandle(
     @JsonIgnore
     public Optional<RemoteTableName> getTemporaryRemoteTableName()
     {
-        return temporaryTableName.map(tableName -> new RemoteTableName(remoteTableName.getProjectId(), remoteTableName.getDatasetName(), tableName));
+        return temporaryTableName.map(tableName -> new RemoteTableName(remoteTableName.projectId(), remoteTableName.datasetName(), tableName));
     }
 }
