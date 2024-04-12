@@ -340,8 +340,8 @@ public class BigQueryMetadata
         log.debug("getColumnHandles(session=%s, tableHandle=%s)", session, tableHandle);
 
         BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
-        if (table.getProjectedColumns().isPresent()) {
-            return table.getProjectedColumns().get().stream()
+        if (table.projectedColumns().isPresent()) {
+            return table.projectedColumns().get().stream()
                     .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
         }
 
@@ -685,7 +685,7 @@ public class BigQueryMetadata
     {
         BigQueryTableHandle tableHandle = ((BigQueryTableHandle) handle);
         checkArgument(tableHandle.isNamedRelation(), "Unable to delete from synthetic table: %s", tableHandle);
-        TupleDomain<ColumnHandle> tableConstraint = tableHandle.getConstraint();
+        TupleDomain<ColumnHandle> tableConstraint = tableHandle.constraint();
         Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
 
         RemoteTableName remoteTableName = tableHandle.asPlainTable().getRemoteTableName();
@@ -778,7 +778,7 @@ public class BigQueryMetadata
 
         List<ColumnHandle> newColumns = ImmutableList.copyOf(assignments.values());
 
-        if (bigQueryTableHandle.getProjectedColumns().isPresent() && containSameElements(newColumns, bigQueryTableHandle.getProjectedColumns().get())) {
+        if (bigQueryTableHandle.projectedColumns().isPresent() && containSameElements(newColumns, bigQueryTableHandle.projectedColumns().get())) {
             return Optional.empty();
         }
 
@@ -805,7 +805,7 @@ public class BigQueryMetadata
                 session, handle, constraint.getSummary(), constraint.predicate(), constraint.getPredicateColumns());
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) handle;
 
-        TupleDomain<ColumnHandle> oldDomain = bigQueryTableHandle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = bigQueryTableHandle.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         TupleDomain<ColumnHandle> remainingFilter;
         if (newDomain.isNone()) {
