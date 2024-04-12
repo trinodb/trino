@@ -16,6 +16,7 @@ package io.trino.plugin.snowflake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -24,6 +25,7 @@ import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
+import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -35,6 +37,9 @@ import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.plugin.snowflake.SnowflakeQueryRunner.createSnowflakeQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -76,7 +81,7 @@ public class TestSnowflakeTypeMapping
     {
         return createSnowflakeQueryRunner(
                 ImmutableMap.of(),
-                ImmutableMap.of(),
+                ImmutableMap.of("jdbc-types-mapped-to-varchar", "ARRAY"),
                 ImmutableList.of());
     }
 
@@ -390,6 +395,56 @@ public class TestSnowflakeTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
+    }
+
+    @Test
+    public void testForcedMappingToVarchar()
+    {
+        try (TestTable table = new TestTable(
+                TestingSnowflakeServer::execute,
+                "tpch.test_forced_varchar_mapping",
+                "AS SELECT ARRAY_CONSTRUCT(1, 2, 3) x")) {
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    """
+                    VALUES ('[
+                      1,
+                      2,
+                      3
+                    ]')
+                    """);
+
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES 'some value'",
+                    "Underlying type that is mapped to VARCHAR is not supported for INSERT: .*");
+        }
+    }
+
+    @Test
+    public void testUnsupportedDataType()
+    {
+        try (TestTable table = new TestTable(
+                TestingSnowflakeServer::execute,
+                "tpch.test_unsupported_data_type",
+                "AS SELECT TRUE x, TO_GEOMETRY('POINT(1820.12 890.56)') y")) {
+            assertQuery(unsupportedTypeHandling(IGNORE), "SELECT * FROM " + table.getName(), "VALUES TRUE");
+            assertQuery(unsupportedTypeHandling(CONVERT_TO_VARCHAR), "SELECT * FROM " + table.getName(), """
+                    VALUES (TRUE, '{
+                      "coordinates": [
+                        1.820120000000000e+03,
+                        8.905599999999999e+02
+                      ],
+                      "type": "Point"
+                    }')
+                    """);
+        }
+    }
+
+    private Session unsupportedTypeHandling(UnsupportedTypeHandling unsupportedTypeHandling)
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty("snowflake", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
+                .build();
     }
 
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)

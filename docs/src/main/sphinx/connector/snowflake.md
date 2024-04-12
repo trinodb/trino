@@ -74,6 +74,9 @@ Trino supports the following Snowflake data types:
 
 Complete list of [Snowflake data types](https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html).
 
+```{include} jdbc-type-mapping.fragment
+```
+
 (snowflake-sql-support)=
 
 ## SQL support
