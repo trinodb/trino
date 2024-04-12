@@ -191,7 +191,7 @@ public class RedisMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         RedisTableHandle handle = (RedisTableHandle) table;
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = handle.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         TupleDomain<ColumnHandle> remainingFilter;
         if (newDomain.isNone()) {
@@ -205,7 +205,7 @@ public class RedisMetadata
 
             // Currently, only Redis key of string type supports pushdown.
             // Key pushdown is not supported when multiple key fields are defined in the table definition file.
-            if (toRedisDataType(handle.getKeyDataFormat()) != RedisDataType.STRING) {
+            if (toRedisDataType(handle.keyDataFormat()) != RedisDataType.STRING) {
                 unsupported = domains;
             }
             else if (getUserDefinedKeySize(session, handle) > 1) {
@@ -233,11 +233,11 @@ public class RedisMetadata
         }
 
         handle = new RedisTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getKeyDataFormat(),
-                handle.getValueDataFormat(),
-                handle.getKeyName(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.keyDataFormat(),
+                handle.valueDataFormat(),
+                handle.keyName(),
                 newDomain);
 
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
