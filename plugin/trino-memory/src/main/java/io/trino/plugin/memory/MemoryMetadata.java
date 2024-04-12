@@ -161,21 +161,15 @@ public class MemoryMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
-    {
-        throw new UnsupportedOperationException("This method is not supported because getTableHandle with versions is implemented instead");
-    }
-
-    @Override
     public synchronized ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         Long id = tableIds.get(schemaTableName);
         if (id == null) {
             return null;
-        }
-
-        if (startVersion.isPresent() || endVersion.isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
 
         return new MemoryTableHandle(id, OptionalLong.empty(), OptionalDouble.empty());

@@ -133,15 +133,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
-    {
-        Span span = startSpan("getTableHandle", tableName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.getTableHandle(session, tableName);
-        }
-    }
-
-    @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
         Span span = startSpan("getTableHandle", tableName);

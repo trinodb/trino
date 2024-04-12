@@ -30,6 +30,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,7 +69,7 @@ public class TestKinesisTableDescriptionSupplier
     {
         KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         SchemaTableName tblName = new SchemaTableName("prod", "test_table");
-        KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
+        KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName, Optional.empty(), Optional.empty());
         assertThat(metadata).isNotNull();
         SchemaTableName tableSchemaName = tableHandle.schemaTableName();
         assertThat(tableSchemaName.getSchemaName()).isEqualTo("prod");
@@ -91,7 +92,7 @@ public class TestKinesisTableDescriptionSupplier
         assertThat(schemas.size()).isEqualTo(1);
         assertThat(schemas.get(0)).isEqualTo("prod");
 
-        KinesisTableHandle tblHandle = metadata.getTableHandle(null, tblName);
+        KinesisTableHandle tblHandle = metadata.getTableHandle(null, tblName, Optional.empty(), Optional.empty());
         assertThat(tblHandle).isNotNull();
         assertThat(tblHandle.schemaName()).isEqualTo("prod");
         assertThat(tblHandle.tableName()).isEqualTo("test_table");

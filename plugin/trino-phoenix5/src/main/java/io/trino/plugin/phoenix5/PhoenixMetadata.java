@@ -40,6 +40,7 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
@@ -97,8 +98,12 @@ public class PhoenixMetadata
     }
 
     @Override
-    public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         return phoenixClient.getTableHandle(session, schemaTableName)
                 .map(JdbcTableHandle::asPlainTable)
                 .map(JdbcNamedRelationHandle::getRemoteTableName)

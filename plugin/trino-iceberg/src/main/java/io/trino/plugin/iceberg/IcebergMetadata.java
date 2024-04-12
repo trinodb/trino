@@ -378,12 +378,6 @@ public class IcebergMetadata
     }
 
     @Override
-    public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
-    {
-        throw new UnsupportedOperationException("This method is not supported because getTableHandle with versions is implemented instead");
-    }
-
-    @Override
     public ConnectorTableHandle getTableHandle(
             ConnectorSession session,
             SchemaTableName tableName,

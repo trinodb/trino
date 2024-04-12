@@ -28,6 +28,7 @@ import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.RetryMode;
@@ -87,8 +88,12 @@ public class KafkaMetadata
     }
 
     @Override
-    public KafkaTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public KafkaTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         return getTopicDescription(session, schemaTableName)
                 .map(kafkaTopicDescription -> new KafkaTableHandle(
                         schemaTableName.getSchemaName(),

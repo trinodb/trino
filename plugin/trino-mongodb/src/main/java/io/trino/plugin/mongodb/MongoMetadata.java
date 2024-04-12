@@ -169,6 +169,7 @@ public class MongoMetadata
         if (startVersion.isPresent() || endVersion.isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
+
         requireNonNull(tableName, "tableName is null");
         try {
             return mongoSession.getTable(tableName).tableHandle();
