@@ -580,9 +580,9 @@ public class BigQueryMetadata
 
         for (ColumnHandle columnHandle : columns) {
             BigQueryColumnHandle column = (BigQueryColumnHandle) columnHandle;
-            tempFields.add(typeManager.toField(column.getName(), column.getTrinoType(), column.getColumnMetadata().getComment()));
-            columnNames.add(column.getName());
-            columnTypes.add(column.getTrinoType());
+            tempFields.add(typeManager.toField(column.name(), column.trinoType(), column.getColumnMetadata().getComment()));
+            columnNames.add(column.name());
+            columnTypes.add(column.trinoType());
         }
         ColumnMetadata pageSinkIdColumn = buildPageSinkIdColumn(columnNames.build());
         tempFields.add(typeManager.toField(pageSinkIdColumn.getName(), pageSinkIdColumn.getType(), pageSinkIdColumn.getComment()));
@@ -757,7 +757,7 @@ public class BigQueryMetadata
                 quote(remoteTableName.getProjectId()),
                 quote(remoteTableName.getDatasetName()),
                 quote(remoteTableName.getTableName()),
-                quote(column.getName()));
+                quote(column.name()));
         client.executeUpdate(session, QueryJobConfiguration.newBuilder(sql)
                 .addPositionalParameter(QueryParameterValue.string(newComment.orElse(null)))
                 .build());
@@ -785,7 +785,7 @@ public class BigQueryMetadata
         assignments.forEach((name, column) -> {
             BigQueryColumnHandle columnHandle = (BigQueryColumnHandle) column;
             projectedColumns.add(columnHandle);
-            assignmentList.add(new Assignment(name, column, columnHandle.getTrinoType()));
+            assignmentList.add(new Assignment(name, column, columnHandle.trinoType()));
         });
 
         bigQueryTableHandle = bigQueryTableHandle.withProjectedColumns(projectedColumns.build());
