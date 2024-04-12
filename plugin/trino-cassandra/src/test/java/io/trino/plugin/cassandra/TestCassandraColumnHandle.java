@@ -43,11 +43,11 @@ public class TestCassandraColumnHandle
         String json = codec.toJson(expected);
         CassandraColumnHandle actual = codec.fromJson(json);
 
-        assertThat(actual.getName()).isEqualTo(expected.getName());
-        assertThat(actual.getOrdinalPosition()).isEqualTo(expected.getOrdinalPosition());
-        assertThat(actual.getCassandraType()).isEqualTo(expected.getCassandraType());
-        assertThat(actual.isPartitionKey()).isEqualTo(expected.isPartitionKey());
-        assertThat(actual.isClusteringKey()).isEqualTo(expected.isClusteringKey());
+        assertThat(actual.name()).isEqualTo(expected.name());
+        assertThat(actual.ordinalPosition()).isEqualTo(expected.ordinalPosition());
+        assertThat(actual.cassandraType()).isEqualTo(expected.cassandraType());
+        assertThat(actual.partitionKey()).isEqualTo(expected.partitionKey());
+        assertThat(actual.clusteringKey()).isEqualTo(expected.clusteringKey());
     }
 
     @Test
@@ -65,10 +65,10 @@ public class TestCassandraColumnHandle
         String json = codec.toJson(expected);
         CassandraColumnHandle actual = codec.fromJson(json);
 
-        assertThat(actual.getName()).isEqualTo(expected.getName());
-        assertThat(actual.getOrdinalPosition()).isEqualTo(expected.getOrdinalPosition());
-        assertThat(actual.getCassandraType()).isEqualTo(expected.getCassandraType());
-        assertThat(actual.isPartitionKey()).isEqualTo(expected.isPartitionKey());
-        assertThat(actual.isClusteringKey()).isEqualTo(expected.isClusteringKey());
+        assertThat(actual.name()).isEqualTo(expected.name());
+        assertThat(actual.ordinalPosition()).isEqualTo(expected.ordinalPosition());
+        assertThat(actual.cassandraType()).isEqualTo(expected.cassandraType());
+        assertThat(actual.partitionKey()).isEqualTo(expected.partitionKey());
+        assertThat(actual.clusteringKey()).isEqualTo(expected.clusteringKey());
     }
 }

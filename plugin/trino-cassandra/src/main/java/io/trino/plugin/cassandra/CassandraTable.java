@@ -46,14 +46,14 @@ public class CassandraTable
     public List<CassandraColumnHandle> getPartitionKeyColumns()
     {
         return columns.stream()
-                .filter(CassandraColumnHandle::isPartitionKey)
+                .filter(CassandraColumnHandle::partitionKey)
                 .collect(toImmutableList());
     }
 
     public List<CassandraColumnHandle> getClusteringKeyColumns()
     {
         return columns.stream()
-                .filter(CassandraColumnHandle::isClusteringKey)
+                .filter(CassandraColumnHandle::clusteringKey)
                 .collect(toImmutableList());
     }
 
@@ -67,7 +67,7 @@ public class CassandraTable
             else {
                 sb.append(",");
             }
-            sb.append(CassandraCqlUtils.validColumnName(column.getName()));
+            sb.append(CassandraCqlUtils.validColumnName(column.name()));
         }
         sb.append(")");
         return sb.toString();
