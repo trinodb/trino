@@ -45,6 +45,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
+import static io.trino.plugin.base.util.Exceptions.findErrorCode;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static java.util.function.Function.identity;
@@ -349,12 +350,9 @@ public final class MetadataListing
 
     private static TrinoException handleListingException(RuntimeException exception, String type, String catalogName)
     {
-        ErrorCodeSupplier result = GENERIC_INTERNAL_ERROR;
-        if (exception instanceof TrinoException trinoException) {
-            result = trinoException::getErrorCode;
-        }
+        ErrorCodeSupplier errorCodeSupplier = findErrorCode(exception).orElse(GENERIC_INTERNAL_ERROR);
         return new TrinoException(
-                result,
+                errorCodeSupplier,
                 "Error listing %s for catalog %s: %s".formatted(type, catalogName, exception.getMessage()),
                 exception);
     }
