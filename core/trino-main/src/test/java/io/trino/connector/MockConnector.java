@@ -27,6 +27,7 @@ import io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import io.trino.connector.MockConnectorFactory.ApplyTopN;
 import io.trino.connector.MockConnectorFactory.ListRoleGrants;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -58,6 +59,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
@@ -125,6 +127,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.MockConnector.MockConnectorSplit.MOCK_CONNECTOR_SPLIT;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
@@ -535,8 +538,12 @@ public class MockConnector
         public void dropSchema(ConnectorSession session, String schemaName, boolean cascade) {}
 
         @Override
-        public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+        public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
         {
+            if (startVersion.isPresent() || endVersion.isPresent()) {
+                throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+            }
+
             return getTableHandle.apply(session, tableName);
         }
 

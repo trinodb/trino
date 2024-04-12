@@ -26,6 +26,7 @@ import io.trino.plugin.tpch.statistics.ColumnStatisticsData;
 import io.trino.plugin.tpch.statistics.StatisticsEstimator;
 import io.trino.plugin.tpch.statistics.TableStatisticsData;
 import io.trino.plugin.tpch.statistics.TableStatisticsDataRepository;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -37,6 +38,7 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LocalProperty;
@@ -80,6 +82,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.asMap;
 import static io.trino.plugin.tpch.util.PredicateUtils.convertToPredicate;
 import static io.trino.plugin.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -187,8 +190,12 @@ public class TpchMetadata
     }
 
     @Override
-    public TpchTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public TpchTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         requireNonNull(tableName, "tableName is null");
         if (!tableNames.contains(tableName.getTableName())) {
             return null;

@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -39,6 +40,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.connector.system.SystemColumnHandle.toSystemColumnHandles;
 import static io.trino.metadata.MetadataUtil.findColumnMetadata;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Collections.singletonMap;
 import static java.util.Objects.requireNonNull;
@@ -63,12 +65,17 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
         Optional<SystemTable> table = tables.getSystemTable(session, tableName);
         if (table.isEmpty()) {
             return null;
         }
+
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         return SystemTableHandle.fromSchemaTableName(tableName);
     }
 

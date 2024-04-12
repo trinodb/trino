@@ -81,7 +81,7 @@ public class TestDefaultJdbcMetadata
                 TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
-        tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
+        tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -140,11 +140,11 @@ public class TestDefaultJdbcMetadata
     @Test
     public void testGetTableHandle()
     {
-        JdbcTableHandle tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"))).isEqualTo(tableHandle);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("example", "unknown"))).isNull();
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "numbers"))).isNull();
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown"))).isNull();
+        JdbcTableHandle tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty());
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty())).isEqualTo(tableHandle);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("example", "unknown"), Optional.empty(), Optional.empty())).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "numbers"), Optional.empty(), Optional.empty())).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown"), Optional.empty(), Optional.empty())).isNull();
     }
 
     @Test
@@ -180,7 +180,7 @@ public class TestDefaultJdbcMetadata
                 new ColumnMetadata("value", BIGINT)));
 
         // escaping name patterns
-        JdbcTableHandle specialTableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("exa_ple", "num_ers"));
+        JdbcTableHandle specialTableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("exa_ple", "num_ers"), Optional.empty(), Optional.empty());
         ConnectorTableMetadata specialTableMetadata = metadata.getTableMetadata(SESSION, specialTableHandle);
         assertThat(specialTableMetadata.getTable()).isEqualTo(new SchemaTableName("exa_ple", "num_ers"));
         assertThat(specialTableMetadata.getColumns()).isEqualTo(ImmutableList.of(
@@ -248,7 +248,7 @@ public class TestDefaultJdbcMetadata
         SchemaTableName table = new SchemaTableName("example", "foo");
         metadata.createTable(SESSION, new ConnectorTableMetadata(table, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), false);
 
-        JdbcTableHandle handle = metadata.getTableHandle(SESSION, table);
+        JdbcTableHandle handle = metadata.getTableHandle(SESSION, table, Optional.empty(), Optional.empty());
 
         ConnectorTableMetadata layout = metadata.getTableMetadata(SESSION, handle);
         assertThat(layout.getTable()).isEqualTo(table);
@@ -270,7 +270,7 @@ public class TestDefaultJdbcMetadata
 
         SchemaTableName newTableName = new SchemaTableName("example", "bar");
         metadata.renameTable(SESSION, handle, newTableName);
-        handle = metadata.getTableHandle(SESSION, newTableName);
+        handle = metadata.getTableHandle(SESSION, newTableName, Optional.empty(), Optional.empty());
         layout = metadata.getTableMetadata(SESSION, handle);
         assertThat(layout.getTable()).isEqualTo(newTableName);
         assertThat(layout.getColumns())
@@ -300,13 +300,13 @@ public class TestDefaultJdbcMetadata
                 ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of(groupByColumn)));
 
-        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
+        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty());
         Optional<AggregationApplicationResult<ConnectorTableHandle>> aggregationResult = applyAggregation.apply(baseTableHandle);
         assertThat(aggregationResult).isPresent();
 
         SchemaTableName noAggregationPushdownTable = new SchemaTableName("example", "no_aggregation_pushdown");
         metadata.createTable(SESSION, new ConnectorTableMetadata(noAggregationPushdownTable, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), false);
-        ConnectorTableHandle noAggregationPushdownTableHandle = metadata.getTableHandle(session, noAggregationPushdownTable);
+        ConnectorTableHandle noAggregationPushdownTableHandle = metadata.getTableHandle(session, noAggregationPushdownTable, Optional.empty(), Optional.empty());
         aggregationResult = applyAggregation.apply(noAggregationPushdownTableHandle);
         assertThat(aggregationResult).isEmpty();
     }
@@ -318,7 +318,7 @@ public class TestDefaultJdbcMetadata
                 .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig().setAggregationPushdownEnabled(true), Optional.empty()).getSessionProperties())
                 .build();
         ColumnHandle groupByColumn = metadata.getColumnHandles(session, tableHandle).get("text");
-        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
+        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty());
         ConnectorTableHandle aggregatedTable = applyCountAggregation(session, baseTableHandle, ImmutableList.of(ImmutableList.of(groupByColumn)));
 
         Domain domain = Domain.singleValue(VARCHAR, utf8Slice("one"));
@@ -334,7 +334,7 @@ public class TestDefaultJdbcMetadata
                 .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig().setAggregationPushdownEnabled(true), Optional.empty()).getSessionProperties())
                 .build();
         ColumnHandle groupByColumn = metadata.getColumnHandles(session, tableHandle).get("text");
-        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
+        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty());
 
         Domain firstDomain = Domain.multipleValues(VARCHAR, ImmutableList.of(utf8Slice("one"), utf8Slice("two")));
         JdbcTableHandle filterResult = applyFilter(session, baseTableHandle, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, firstDomain))));
@@ -365,7 +365,7 @@ public class TestDefaultJdbcMetadata
         ColumnHandle groupByColumn = columnHandles.get("text");
         ColumnHandle nonGroupByColumn = columnHandles.get("value");
 
-        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
+        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty());
         ConnectorTableHandle aggregatedTable = applyCountAggregation(session, baseTableHandle, ImmutableList.of(ImmutableList.of(groupByColumn)));
 
         Domain domain = Domain.singleValue(BIGINT, 123L);
@@ -390,7 +390,7 @@ public class TestDefaultJdbcMetadata
         ColumnHandle textColumn = columnHandles.get("text");
         ColumnHandle valueColumn = columnHandles.get("value");
 
-        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
+        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty());
 
         ConnectorTableHandle aggregatedTable = applyCountAggregation(session, baseTableHandle, ImmutableList.of(ImmutableList.of(textColumn, valueColumn), ImmutableList.of(textColumn)));
 
@@ -424,7 +424,7 @@ public class TestDefaultJdbcMetadata
         ConnectorSession session = TestingConnectorSession.builder()
                 .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig().setAggregationPushdownEnabled(true), Optional.empty()).getSessionProperties())
                 .build();
-        JdbcTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
+        JdbcTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty());
 
         // redirection is applied if constraintExpressions is empty
         assertThat(metadata.applyTableScanRedirect(session, baseTableHandle)).hasValueSatisfying(actualResult -> {

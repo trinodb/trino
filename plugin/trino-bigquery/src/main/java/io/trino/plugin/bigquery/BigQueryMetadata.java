@@ -54,6 +54,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -112,6 +113,7 @@ import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
 import static io.trino.plugin.bigquery.BigQueryUtil.quote;
 import static io.trino.plugin.bigquery.BigQueryUtil.quoted;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -285,8 +287,12 @@ public class BigQueryMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         BigQueryClient client = bigQueryClientFactory.create(session);
         log.debug("getTableHandle(session=%s, schemaTableName=%s)", session, schemaTableName);
         DatasetId localDatasetId = client.toDatasetId(schemaTableName.getSchemaName());

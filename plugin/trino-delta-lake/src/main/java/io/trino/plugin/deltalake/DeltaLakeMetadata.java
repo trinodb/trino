@@ -560,12 +560,6 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public LocatedTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
-    {
-        throw new UnsupportedOperationException("Calling this method is not supported. getTableHandle with versions is implemented");
-    }
-
-    @Override
     public LocatedTableHandle getTableHandle(
             ConnectorSession session,
             SchemaTableName tableName,

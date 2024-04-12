@@ -80,6 +80,7 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -488,8 +489,12 @@ public class HiveMetadata
     }
 
     @Override
-    public HiveTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public HiveTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         requireNonNull(tableName, "tableName is null");
         if (isHiveSystemSchema(tableName.getSchemaName())) {
             return null;
@@ -982,7 +987,7 @@ public class HiveMetadata
             }
 
             for (SchemaTableName tableName : tables) {
-                ConnectorTableHandle table = getTableHandle(session, tableName);
+                ConnectorTableHandle table = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
                 if (table == null) {
                     log.debug("Table disappeared during DROP SCHEMA CASCADE: %s", tableName);
                     continue;

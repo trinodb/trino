@@ -35,6 +35,7 @@ import io.trino.plugin.pinot.query.aggregation.ImplementCountAll;
 import io.trino.plugin.pinot.query.aggregation.ImplementCountDistinct;
 import io.trino.plugin.pinot.query.aggregation.ImplementMinMax;
 import io.trino.plugin.pinot.query.aggregation.ImplementSum;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -44,6 +45,7 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
@@ -79,6 +81,7 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -149,8 +152,12 @@ public class PinotMetadata
     }
 
     @Override
-    public PinotTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public PinotTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         if (tableName.getTableName().trim().contains("select ")) {
             DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName, pinotClient, typeConverter);
             return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.tableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
