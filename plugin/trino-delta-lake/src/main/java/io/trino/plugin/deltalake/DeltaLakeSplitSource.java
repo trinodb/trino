@@ -42,12 +42,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static io.trino.plugin.base.util.Exceptions.findErrorCode;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
@@ -92,7 +92,8 @@ public class DeltaLakeSplitSource
                 .exceptionally(throwable -> {
                     // set trinoException before finishing the queue to ensure failure is observed instead of successful completion
                     // (the field is declared as volatile to make sure that the change is visible right away to other threads)
-                    trinoException = new TrinoException(findErrorCode(throwable), "Failed to generate splits for " + this.tableName, throwable);
+                    ErrorCodeSupplier errorCodeSupplier = findErrorCode(throwable).orElse(GENERIC_INTERNAL_ERROR);
+                    trinoException = new TrinoException(errorCodeSupplier, "Failed to generate splits for " + this.tableName, throwable);
                     try {
                         // Finish the queue to wake up threads from queue.getBatchAsync()
                         queue.finish();
@@ -103,16 +104,6 @@ public class DeltaLakeSplitSource
                     }
                     return null;
                 });
-    }
-
-    private ErrorCodeSupplier findErrorCode(Throwable throwable)
-    {
-        return getCausalChain(throwable).stream()
-                .filter(TrinoException.class::isInstance)
-                .map(TrinoException.class::cast)
-                .findFirst()
-                .map(t -> (ErrorCodeSupplier) t::getErrorCode)
-                .orElse(GENERIC_INTERNAL_ERROR);
     }
 
     @Override
