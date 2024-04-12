@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.cloud.bigquery.RangePartitioning;
 import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.TableDefinition;
@@ -25,47 +23,22 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class BigQueryTableHandle
+public record BigQueryTableHandle(
+        BigQueryRelationHandle relationHandle,
+        TupleDomain<ColumnHandle> constraint,
+        Optional<List<BigQueryColumnHandle>> projectedColumns)
         implements ConnectorTableHandle
 {
-    private final BigQueryRelationHandle relationHandle;
-    private final TupleDomain<ColumnHandle> constraint;
-    private final Optional<List<BigQueryColumnHandle>> projectedColumns;
-
-    @JsonCreator
-    public BigQueryTableHandle(
-            @JsonProperty("relationHandle") BigQueryRelationHandle relationHandle,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("projectedColumns") Optional<List<BigQueryColumnHandle>> projectedColumns)
+    public BigQueryTableHandle
     {
-        this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
-        this.constraint = requireNonNull(constraint, "constraint is null");
-        this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
-    }
-
-    @JsonProperty
-    public BigQueryRelationHandle getRelationHandle()
-    {
-        return relationHandle;
-    }
-
-    @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
-    {
-        return constraint;
-    }
-
-    @JsonProperty
-    public Optional<List<BigQueryColumnHandle>> getProjectedColumns()
-    {
-        return projectedColumns;
+        requireNonNull(relationHandle, "relationHandle is null");
+        requireNonNull(constraint, "constraint is null");
+        requireNonNull(projectedColumns, "projectedColumns is null");
     }
 
     @JsonIgnore
@@ -91,37 +64,6 @@ public class BigQueryTableHandle
     {
         checkState(!isSynthetic(), "The table handle does not represent a plain table: %s", this);
         return getRequiredNamedRelation();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        BigQueryTableHandle that = (BigQueryTableHandle) o;
-        return Objects.equals(relationHandle, that.relationHandle) &&
-                Objects.equals(constraint, that.constraint) &&
-                Objects.equals(projectedColumns, that.projectedColumns);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(relationHandle, constraint, projectedColumns);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("relationHandle", relationHandle)
-                .add("constraint", constraint)
-                .add("projectedColumns", projectedColumns)
-                .toString();
     }
 
     BigQueryTableHandle withConstraint(TupleDomain<ColumnHandle> newConstraint)
