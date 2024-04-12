@@ -1474,7 +1474,7 @@ public class PostgreSqlClient
                     Optional.of(typeInfo.getPGType(pgElementOid)),
                     arrayTypeHandle.columnSize(),
                     arrayTypeHandle.decimalDigits(),
-                    arrayTypeHandle.arrayDimensions(),
+                    Optional.empty(),
                     Optional.empty());
         }
         catch (SQLException e) {

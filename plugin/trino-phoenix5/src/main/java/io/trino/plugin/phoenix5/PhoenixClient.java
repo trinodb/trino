@@ -883,7 +883,7 @@ public class PhoenixClient
                 Optional.of(arrayTypeName),
                 arrayTypeHandle.columnSize(),
                 arrayTypeHandle.decimalDigits(),
-                arrayTypeHandle.arrayDimensions(),
+                Optional.empty(),
                 Optional.empty());
     }
 
