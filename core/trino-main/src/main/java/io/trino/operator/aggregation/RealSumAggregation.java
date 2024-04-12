@@ -18,7 +18,7 @@ import io.trino.operator.aggregation.state.NullableDoubleState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -28,6 +28,7 @@ import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.StandardTypes;
 import io.trino.type.Reals;
 
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -44,24 +45,8 @@ public final class RealSumAggregation
         state.setValue(state.getValue() + intBitsToFloat((int) value));
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState NullableDoubleState state, @AggregationState NullableDoubleState otherState)
-    {
-        if (state.isNull()) {
-            if (otherState.isNull()) {
-                return;
-            }
-            state.set(otherState);
-            return;
-        }
-
-        if (!otherState.isNull()) {
-            state.setValue(state.getValue() + otherState.getValue());
-        }
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.REAL)
+    @OutputFunction(value = StandardTypes.REAL, decomposition = @Decomposition(partial = "sum_real$intermediate", output = "sum_real$final"))
     public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
     {
         if (state.isNull()) {
@@ -69,6 +54,53 @@ public final class RealSumAggregation
         }
         else {
             REAL.writeLong(out, floatToRawIntBits((float) state.getValue()));
+        }
+    }
+
+    // sum(REAL) uses double as an intermediate type, so the partial and final cannot be mixed into the same class
+    @AggregationFunction
+    public static final class RealSumDecomposedAggregation
+    {
+        private RealSumDecomposedAggregation() {}
+
+        @InputFunction
+        public static void partialInput(@AggregationState NullableDoubleState state, @SqlType(StandardTypes.REAL) long value)
+        {
+            state.setNull(false);
+            state.setValue(state.getValue() + intBitsToFloat((int) value));
+        }
+
+        @InputFunction
+        public static void intermediateInput(@AggregationState NullableDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+        {
+            state.setNull(false);
+            state.setValue(state.getValue() + value);
+        }
+
+        @AggregationFunction(value = "sum_real$intermediate", hidden = true)
+        @SqlNullable
+        @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "sum_real$intermediate", output = "sum_real$intermediate"))
+        public static void intermediateOutput(@AggregationState NullableDoubleState state, BlockBuilder out)
+        {
+            if (state.isNull()) {
+                out.appendNull();
+            }
+            else {
+                DOUBLE.writeDouble(out, state.getValue());
+            }
+        }
+
+        @AggregationFunction(value = "sum_real$final", hidden = true)
+        @SqlNullable
+        @OutputFunction(value = StandardTypes.REAL, decomposition = @Decomposition(partial = "sum_real$intermediate", output = "sum_real$final"))
+        public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
+        {
+            if (state.isNull()) {
+                out.appendNull();
+            }
+            else {
+                REAL.writeLong(out, floatToRawIntBits((float) state.getValue()));
+            }
         }
     }
 

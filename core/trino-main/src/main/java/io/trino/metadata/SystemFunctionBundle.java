@@ -424,6 +424,7 @@ public final class SystemFunctionBundle
                 .aggregates(BooleanOrAggregation.class)
                 .aggregates(DoubleSumAggregation.class)
                 .aggregates(RealSumAggregation.class)
+                .aggregates(RealSumAggregation.RealSumDecomposedAggregation.class)
                 .aggregates(BigintSumAggregation.class)
                 .aggregates(NumberSumAggregation.class)
                 .aggregates(IntervalDayToSecondSumAggregation.class)
