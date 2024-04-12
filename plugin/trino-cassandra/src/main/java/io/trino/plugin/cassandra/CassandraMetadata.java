@@ -132,7 +132,7 @@ public class CassandraMetadata
     {
         requireNonNull(tableHandle, "tableHandle is null");
         CassandraTableHandle handle = (CassandraTableHandle) tableHandle;
-        if (handle.getRelationHandle() instanceof CassandraQueryRelationHandle queryRelationHandle) {
+        if (handle.relationHandle() instanceof CassandraQueryRelationHandle queryRelationHandle) {
             List<ColumnMetadata> columns = getColumnHandles(queryRelationHandle.getQuery()).stream()
                     .map(CassandraColumnHandle.class::cast)
                     .map(CassandraColumnHandle::getColumnMetadata)
@@ -465,7 +465,7 @@ public class CassandraMetadata
         }
 
         CassandraTableHandle tableHandle = queryHandle.getTableHandle();
-        List<ColumnHandle> columnHandles = getColumnHandles(((CassandraQueryRelationHandle) tableHandle.getRelationHandle()).getQuery());
+        List<ColumnHandle> columnHandles = getColumnHandles(((CassandraQueryRelationHandle) tableHandle.relationHandle()).getQuery());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 
