@@ -67,9 +67,9 @@ public class RedisTableDescriptionSupplier
             for (File file : listFiles(tableDescriptionDir)) {
                 if (file.isFile() && file.getName().endsWith(".json")) {
                     RedisTableDescription table = tableDescriptionCodec.fromJson(readAllBytes(file.toPath()));
-                    String schemaName = firstNonNull(table.getSchemaName(), defaultSchema);
-                    log.debug("Redis table %s.%s: %s", schemaName, table.getTableName(), table);
-                    builder.put(new SchemaTableName(schemaName, table.getTableName()), table);
+                    String schemaName = firstNonNull(table.schemaName(), defaultSchema);
+                    log.debug("Redis table %s.%s: %s", schemaName, table.tableName(), table);
+                    builder.put(new SchemaTableName(schemaName, table.tableName()), table);
                 }
             }
 

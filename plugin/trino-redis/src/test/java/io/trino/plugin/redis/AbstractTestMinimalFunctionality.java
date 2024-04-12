@@ -67,8 +67,8 @@ public abstract class AbstractTestMinimalFunctionality
         this.tableName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
         RedisTableDescription stringValueTableDescription = loadSimpleTableDescription(queryRunner, "string");
         RedisTableDescription hashValueTableDescription = loadSimpleTableDescription(queryRunner, "hash");
-        this.stringValueTableName = stringValueTableDescription.getTableName();
-        this.hashValueTableName = hashValueTableDescription.getTableName();
+        this.stringValueTableName = stringValueTableDescription.tableName();
+        this.hashValueTableName = hashValueTableDescription.tableName();
 
         installRedisPlugin(redisServer, queryRunner,
                 ImmutableMap.<SchemaTableName, RedisTableDescription>builder()
