@@ -103,7 +103,7 @@ public class RedisMetadata
         // via the table description doc
         String keyName = null;
         if (table.key() != null) {
-            keyName = table.key().getName();
+            keyName = table.key().name();
         }
 
         return new RedisTableHandle(
@@ -117,7 +117,7 @@ public class RedisMetadata
 
     private static String getDataFormat(RedisTableFieldGroup fieldGroup)
     {
-        return (fieldGroup == null) ? DummyRowDecoder.NAME : fieldGroup.getDataFormat();
+        return (fieldGroup == null) ? DummyRowDecoder.NAME : fieldGroup.dataFormat();
     }
 
     @Override
@@ -159,7 +159,7 @@ public class RedisMetadata
         int index = 0;
         RedisTableFieldGroup key = redisTableDescription.key();
         if (key != null) {
-            List<RedisTableFieldDescription> fields = key.getFields();
+            List<RedisTableFieldDescription> fields = key.fields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
                     columnHandles.put(field.getName(), field.getColumnHandle(true, index));
@@ -170,7 +170,7 @@ public class RedisMetadata
 
         RedisTableFieldGroup value = redisTableDescription.value();
         if (value != null) {
-            List<RedisTableFieldDescription> fields = value.getFields();
+            List<RedisTableFieldDescription> fields = value.fields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
                     columnHandles.put(field.getName(), field.getColumnHandle(false, index));
@@ -303,7 +303,7 @@ public class RedisMetadata
     private static void appendFields(ImmutableList.Builder<ColumnMetadata> builder, RedisTableFieldGroup group)
     {
         if (group != null) {
-            List<RedisTableFieldDescription> fields = group.getFields();
+            List<RedisTableFieldDescription> fields = group.fields();
             if (fields != null) {
                 for (RedisTableFieldDescription fieldDescription : fields) {
                     builder.add(fieldDescription.getColumnMetadata());
