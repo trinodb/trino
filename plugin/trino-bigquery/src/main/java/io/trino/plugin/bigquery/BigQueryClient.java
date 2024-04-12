@@ -407,8 +407,8 @@ public class BigQueryClient
 
     public List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
     {
-        if (tableHandle.getProjectedColumns().isPresent()) {
-            return tableHandle.getProjectedColumns().get();
+        if (tableHandle.projectedColumns().isPresent()) {
+            return tableHandle.projectedColumns().get();
         }
         checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
 
