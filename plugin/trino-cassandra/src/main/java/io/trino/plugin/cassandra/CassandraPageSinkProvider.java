@@ -54,10 +54,10 @@ public class CassandraPageSinkProvider
                 cassandraTypeManager,
                 cassandraSession,
                 cassandraSession.getProtocolVersion(),
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getColumnNames(),
-                handle.getColumnTypes(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.columnNames(),
+                handle.columnTypes(),
                 true,
                 batchSize);
     }
