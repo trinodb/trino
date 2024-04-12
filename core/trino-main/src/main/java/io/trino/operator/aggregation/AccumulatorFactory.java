@@ -18,6 +18,8 @@ import java.util.function.Supplier;
 
 public interface AccumulatorFactory
 {
+    boolean isLegacyDecomposition();
+
     List<Class<?>> getLambdaInterfaces();
 
     Accumulator createAccumulator(List<Supplier<Object>> lambdaProviders);

@@ -42,7 +42,6 @@ import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.StructuralTestUtil.sqlMapOf;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -70,7 +69,7 @@ public class TestLearnAggregations
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 "learn_classifier",
                 fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature())));
-        assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator(new AggregationMetrics()));
+        assertLearnClassifier(aggregationFunction.createSingleAggregatorFactory(ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator(new AggregationMetrics()));
     }
 
     @Test
@@ -79,7 +78,7 @@ public class TestLearnAggregations
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 "learn_libsvm_classifier",
                 fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()), VARCHAR.getTypeSignature()));
-        assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator(new AggregationMetrics()));
+        assertLearnClassifier(aggregationFunction.createSingleAggregatorFactory(ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator(new AggregationMetrics()));
     }
 
     private static void assertLearnClassifier(Aggregator aggregator)

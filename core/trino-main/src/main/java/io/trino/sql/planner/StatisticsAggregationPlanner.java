@@ -89,7 +89,8 @@ public class StatisticsAggregationPlanner
                     false,
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    true);
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
             aggregations.put(symbol, aggregation);
             descriptor.addTableStatistic(ROW_COUNT, symbol);
@@ -152,7 +153,7 @@ public class StatisticsAggregationPlanner
         return createAggregation(metadata.resolveBuiltinFunction(functionName, fromTypes(inputType)), input, inputType);
     }
 
-    private static ColumnStatisticsAggregation createAggregation(ResolvedFunction resolvedFunction, Symbol input, Type inputType)
+    private ColumnStatisticsAggregation createAggregation(ResolvedFunction resolvedFunction, Symbol input, Type inputType)
     {
         Type resolvedType = getOnlyElement(resolvedFunction.signature().getArgumentTypes());
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
@@ -163,7 +164,8 @@ public class StatisticsAggregationPlanner
                         false,
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty()),
+                        Optional.empty(),
+                        metadata.getAggregationFunctionMetadata(session, resolvedFunction).getDecomposition().isEmpty()),
                 resolvedFunction.signature().getReturnType());
     }
 

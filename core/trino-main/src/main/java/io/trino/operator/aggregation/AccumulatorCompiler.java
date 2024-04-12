@@ -131,7 +131,8 @@ public final class AccumulatorCompiler
                 accumulatorConstructor,
                 groupedAccumulatorConstructor,
                 implementation.getLambdaInterfaces(),
-                maskBuilderConstructor);
+                maskBuilderConstructor,
+                implementation.isLegacyDecomposition());
     }
 
     private static <T> Constructor<? extends T> generateAccumulatorClass(
@@ -1125,6 +1126,7 @@ public final class AccumulatorCompiler
                 .map(combineFunction -> normalizeParameters(combineFunction, lambdaParameterCount))
                 .ifPresent(builder::combineFunction);
         builder.outputFunction(normalizeParameters(implementation.getOutputFunction(), 0));
+        builder.setLegacyDecomposition(implementation.isLegacyDecomposition());
         builder.accumulatorStateDescriptors(implementation.getAccumulatorStateDescriptors());
         builder.lambdaInterfaces(implementation.getLambdaInterfaces());
         implementation.getWindowAccumulator().ifPresent(builder::windowAccumulator);

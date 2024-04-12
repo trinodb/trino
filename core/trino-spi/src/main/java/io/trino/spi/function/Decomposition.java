@@ -19,14 +19,14 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 @Keep
 @Retention(RUNTIME)
-@Target(METHOD)
-public @interface OutputFunction
+@Target({TYPE, METHOD})
+public @interface Decomposition
 {
-    String value();
-
-    Decomposition decomposition() default @Decomposition(partial = "", output = "");
+    String partial();
+    String output();
 }

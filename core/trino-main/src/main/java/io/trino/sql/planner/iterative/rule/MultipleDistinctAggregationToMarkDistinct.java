@@ -166,7 +166,8 @@ public class MultipleDistinctAggregationToMarkDistinct
                                 false,
                                 aggregation.getFilter(),
                                 aggregation.getOrderingScheme(),
-                                Optional.of(marker)));
+                                Optional.of(marker),
+                                aggregation.isLegacyDecomposition()));
             }
             else {
                 newAggregations.put(entry.getKey(), aggregation);

@@ -65,6 +65,12 @@ public class OrderedAccumulatorFactory
     }
 
     @Override
+    public boolean isLegacyDecomposition()
+    {
+        return delegate.isLegacyDecomposition();
+    }
+
+    @Override
     public List<Class<?>> getLambdaInterfaces()
     {
         return delegate.getLambdaInterfaces();

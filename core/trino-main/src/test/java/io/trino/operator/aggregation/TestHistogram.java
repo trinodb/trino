@@ -59,7 +59,6 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static io.trino.util.StructuralTestUtil.sqlMapOf;
@@ -236,7 +235,7 @@ public class TestHistogram
     public void testEmptyHistogramOutputsNull()
     {
         TestingAggregationFunction function = getInternalDefaultVarCharAggregation();
-        GroupedAggregator groupedAggregator = function.createAggregatorFactory(SINGLE, Ints.asList(new int[] {}), OptionalInt.empty())
+        GroupedAggregator groupedAggregator = function.createSingleAggregatorFactory(Ints.asList(new int[] {}), OptionalInt.empty())
                 .createGroupedAggregator(new AggregationMetrics());
         BlockBuilder blockBuilder = function.getFinalType().createBlockBuilder(null, 1000);
 
@@ -292,7 +291,7 @@ public class TestHistogram
         int numGroups = 50000;
         int itemCount = 30;
         Random random = new Random();
-        GroupedAggregator groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())
+        GroupedAggregator groupedAggregator = aggregationFunction.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty())
                 .createGroupedAggregator(new AggregationMetrics());
 
         for (int j = 0; j < numGroups; j++) {

@@ -19,6 +19,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.AggregationDecomposition;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -47,6 +48,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.preferPartialAggregation;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -201,30 +203,47 @@ public class PushPartialAggregationThroughExchange
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> finalAggregation = ImmutableMap.builder();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
+            checkState(originalAggregation.getOrderingScheme().isEmpty(), "Aggregate with ORDER BY does not support partial aggregation");
+
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
             AggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(context.getSession(), resolvedFunction);
             List<Type> intermediateTypes = functionMetadata.getIntermediateTypes().stream()
                     .map(plannerContext.getTypeManager()::getType)
                     .collect(toImmutableList());
-            Type intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.get(0) : RowType.anonymous(intermediateTypes);
-            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(resolvedFunction.signature().getName().getFunctionName(), intermediateType);
 
-            checkState(originalAggregation.getOrderingScheme().isEmpty(), "Aggregate with ORDER BY does not support partial aggregation");
+            Type intermediateType;
+            ResolvedFunction partialFunction;
+            ResolvedFunction outputFunction;
+            boolean legacyDecomposition = functionMetadata.getDecomposition().isEmpty();
+            if (legacyDecomposition) {
+                intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.get(0) : RowType.anonymous(intermediateTypes);
+                partialFunction = resolvedFunction;
+                outputFunction = resolvedFunction;
+            }
+            else {
+                AggregationDecomposition decomposition = functionMetadata.getDecomposition().get();
+                partialFunction = plannerContext.getMetadata().resolveBuiltinFunction(decomposition.partial(), fromTypes(resolvedFunction.signature().getArgumentTypes()));
+                intermediateType = partialFunction.signature().getReturnType();
+                outputFunction = plannerContext.getMetadata().resolveBuiltinFunction(decomposition.output(), fromTypes(intermediateType));
+            }
+
+            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(resolvedFunction.signature().getName().getFunctionName(), intermediateType);
             intermediateAggregation.put(
                     intermediateSymbol,
                     new AggregationNode.Aggregation(
-                            resolvedFunction,
+                            partialFunction,
                             originalAggregation.getArguments(),
                             originalAggregation.isDistinct(),
                             originalAggregation.getFilter(),
                             originalAggregation.getOrderingScheme(),
-                            originalAggregation.getMask()));
+                            originalAggregation.getMask(),
+                            legacyDecomposition));
 
             // rewrite final aggregation in terms of intermediate function
             finalAggregation.put(
                     entry.getKey(),
                     new AggregationNode.Aggregation(
-                            resolvedFunction,
+                            outputFunction,
                             ImmutableList.<Expression>builder()
                                     .add(intermediateSymbol.toSymbolReference())
                                     .addAll(originalAggregation.getArguments().stream()
@@ -234,7 +253,8 @@ public class PushPartialAggregationThroughExchange
                             false,
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty()));
+                            Optional.empty(),
+                            legacyDecomposition));
         }
 
         PlanNode partial = new AggregationNode(

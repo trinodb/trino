@@ -133,28 +133,32 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
-                                    Optional.empty()),
+                                    Optional.empty(),
+                                    true),
                             maxValue, new Aggregation(
                                     metadata.resolveBuiltinFunction("max", fromTypes(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
-                                    Optional.empty()),
+                                    Optional.empty(),
+                                    true),
                             countAllValue, new Aggregation(
                                     metadata.resolveBuiltinFunction("count", emptyList()),
                                     ImmutableList.of(),
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
-                                    Optional.empty()),
+                                    Optional.empty(),
+                                    true),
                             countNonNullValue, new Aggregation(
                                     metadata.resolveBuiltinFunction("count", fromTypes(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
-                                    Optional.empty())),
+                                    Optional.empty(),
+                                    true)),
                     globalAggregation());
 
             PlanNode join = new CorrelatedJoinNode(

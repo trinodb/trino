@@ -17,8 +17,11 @@ import io.trino.Session;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.Plugin;
+import io.trino.spi.function.AggregationDecomposition;
+import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -36,11 +39,13 @@ import io.trino.transaction.TransactionManager;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -169,10 +174,36 @@ public class TestingFunctionResolution
     {
         return inTransaction(session -> {
             ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, parameterTypes);
+            AggregationImplementation singleImplementation = plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction);
+
+            AggregationImplementation partialFunction;
+            FunctionNullability partialNullability;
+            AggregationImplementation outputFunction;
+            FunctionNullability outputNullability;
+            Optional<AggregationDecomposition> decomposition = metadata.getAggregationFunctionMetadata(session, resolvedFunction).getDecomposition();
+            if (decomposition.isPresent()) {
+                ResolvedFunction partial = metadata.resolveBuiltinFunction(decomposition.get().partial(), parameterTypes);
+                partialFunction = plannerContext.getFunctionManager().getAggregationImplementation(partial);
+                partialNullability = partial.functionNullability();
+                ResolvedFunction output = metadata.resolveBuiltinFunction(decomposition.get().output(), fromTypes(partial.signature().getReturnType()));
+                outputFunction = plannerContext.getFunctionManager().getAggregationImplementation(output);
+                outputNullability = output.functionNullability();
+            }
+            else {
+                partialFunction = singleImplementation;
+                partialNullability = resolvedFunction.functionNullability();
+                outputFunction = singleImplementation;
+                outputNullability = resolvedFunction.functionNullability();
+            }
+
             return new TestingAggregationFunction(
                     resolvedFunction.signature(),
                     resolvedFunction.functionNullability(),
-                    plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction));
+                    singleImplementation,
+                    partialFunction,
+                    partialNullability,
+                    outputFunction,
+                    outputNullability);
         });
     }
 

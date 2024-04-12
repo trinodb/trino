@@ -232,7 +232,8 @@ public class OptimizeMixedDistinctAggregations
                         false,
                         Optional.of(groupIdFilterSymbol),
                         Optional.empty(),
-                        Optional.empty()));
+                        Optional.empty(),
+                        originalAggregation.isLegacyDecomposition()));
             }
         }
 
@@ -277,7 +278,8 @@ public class OptimizeMixedDistinctAggregations
                             false,
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty());
+                            Optional.empty(),
+                            originalAggregation.isLegacyDecomposition());
                     innerAggregations.put(innerAggregationOutputSymbol, innerAggregation);
 
                     // second, let's create outer aggregation
@@ -292,7 +294,8 @@ public class OptimizeMixedDistinctAggregations
                             false,
                             Optional.of(nonDistinctGroupFilterSymbol),
                             Optional.empty(),
-                            Optional.empty());
+                            Optional.empty(),
+                            true);
                     Symbol outerAggregationOutputSymbol = origalAggregationOutputSymbol;
                     // handle 0 on empty input aggregations
                     CatalogSchemaFunctionName name = originalAggregation.getResolvedFunction().signature().getName();

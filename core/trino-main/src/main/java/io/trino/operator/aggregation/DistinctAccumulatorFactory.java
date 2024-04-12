@@ -54,6 +54,12 @@ public class DistinctAccumulatorFactory
     }
 
     @Override
+    public boolean isLegacyDecomposition()
+    {
+        return delegate.isLegacyDecomposition();
+    }
+
+    @Override
     public List<Class<?>> getLambdaInterfaces()
     {
         return delegate.getLambdaInterfaces();

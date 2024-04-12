@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.AggregationDecomposition;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticAggregations
@@ -72,24 +74,42 @@ public class StatisticAggregations
             List<Type> intermediateTypes = functionMetadata.getIntermediateTypes().stream()
                     .map(plannerContext.getTypeManager()::getType)
                     .collect(toImmutableList());
-            Type intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.get(0) : RowType.anonymous(intermediateTypes);
+
+            Type intermediateType;
+            ResolvedFunction partialFunction;
+            ResolvedFunction outputFunction;
+            boolean legacyDecomposition = functionMetadata.getDecomposition().isEmpty();
+            if (legacyDecomposition) {
+                intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.getFirst() : RowType.anonymous(intermediateTypes);
+                partialFunction = resolvedFunction;
+                outputFunction = resolvedFunction;
+            }
+            else {
+                AggregationDecomposition decomposition = functionMetadata.getDecomposition().get();
+                partialFunction = plannerContext.getMetadata().resolveBuiltinFunction(decomposition.partial(), fromTypes(resolvedFunction.signature().getArgumentTypes()));
+                intermediateType = partialFunction.signature().getReturnType();
+                outputFunction = plannerContext.getMetadata().resolveBuiltinFunction(decomposition.output(), fromTypes(intermediateType));
+            }
+
             Symbol partialSymbol = symbolAllocator.newSymbol(resolvedFunction.signature().getName().getFunctionName(), intermediateType);
             mappings.put(entry.getKey(), partialSymbol);
             partialAggregation.put(partialSymbol, new Aggregation(
-                    resolvedFunction,
+                    partialFunction,
                     originalAggregation.getArguments(),
                     originalAggregation.isDistinct(),
                     originalAggregation.getFilter(),
                     originalAggregation.getOrderingScheme(),
-                    originalAggregation.getMask()));
+                    originalAggregation.getMask(),
+                    legacyDecomposition));
             finalAggregation.put(entry.getKey(),
                     new Aggregation(
-                            resolvedFunction,
+                            outputFunction,
                             ImmutableList.of(partialSymbol.toSymbolReference()),
                             false,
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty()));
+                            Optional.empty(),
+                            legacyDecomposition));
         }
         groupingSymbols.forEach(symbol -> mappings.put(symbol, symbol));
         return new Parts(

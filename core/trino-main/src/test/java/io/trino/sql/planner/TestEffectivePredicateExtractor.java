@@ -211,14 +211,16 @@ public class TestEffectivePredicateExtractor
                                 false,
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty()),
+                                Optional.empty(),
+                                true),
                         new Symbol(BIGINT, "d"), new Aggregation(
                                 fakeFunction("test"),
                                 ImmutableList.of(),
                                 false,
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty())),
+                                Optional.empty(),
+                                true)),
                 singleGroupingSet(ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(BIGINT, "c"))));
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);

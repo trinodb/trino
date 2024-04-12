@@ -189,10 +189,11 @@ public class PreAggregateCaseAggregations
                 projectNode,
                 newProjectionSymbols,
                 preAggregations);
-        return Result.ofPlanNode(createNewAggregation(newProjection, aggregationNode, newProjectionSymbols));
+        return Result.ofPlanNode(createNewAggregation(context.getSession(), newProjection, aggregationNode, newProjectionSymbols));
     }
 
     private AggregationNode createNewAggregation(
+            Session session,
             PlanNode source,
             AggregationNode aggregationNode,
             Map<CaseAggregation, Symbol> newProjectionSymbols)
@@ -209,7 +210,8 @@ public class PreAggregateCaseAggregations
                                         false,
                                         Optional.empty(),
                                         Optional.empty(),
-                                        Optional.empty()))),
+                                        Optional.empty(),
+                                        plannerContext.getMetadata().getAggregationFunctionMetadata(session, entry.getKey().getCumulativeFunction()).getDecomposition().isEmpty()))),
                 aggregationNode.getGroupingSets(),
                 aggregationNode.getPreGroupedSymbols(),
                 aggregationNode.getStep(),
@@ -264,7 +266,8 @@ public class PreAggregateCaseAggregations
                                         false,
                                         Optional.empty(),
                                         Optional.empty(),
-                                        Optional.empty()))),
+                                        Optional.empty(),
+                                        plannerContext.getMetadata().getAggregationFunctionMetadata(context.getSession(), entry.getKey().getFunction()).getDecomposition().isEmpty()))),
                 singleGroupingSet(groupingKeys),
                 ImmutableList.of(),
                 SINGLE,

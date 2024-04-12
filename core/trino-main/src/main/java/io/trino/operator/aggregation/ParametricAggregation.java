@@ -108,6 +108,7 @@ public class ParametricAggregation
             for (AccumulatorStateDetails<?> stateDetail : stateDetails) {
                 builder.intermediateType(stateDetail.getSerializedType());
             }
+            details.decomposition().ifPresent(builder::decomposition);
         }
         return builder.build();
     }
@@ -167,7 +168,8 @@ public class ParametricAggregation
                 boundSignature,
                 inputParameterKinds));
 
-        if (getAggregationMetadata().isDecomposable()) {
+        AggregationFunctionMetadata aggregationMetadata = getAggregationMetadata();
+        if (aggregationMetadata.isDecomposable() && aggregationMetadata.getDecomposition().isEmpty()) {
             MethodHandle combineHandle = concreteImplementation.getCombineFunction()
                     .orElseThrow(() -> new IllegalArgumentException(format("Decomposable method %s does not have a combine method", boundSignature.getName())));
             builder.combineFunction(bindDependencies(combineHandle, concreteImplementation.getCombineDependencies(), functionBinding, functionDependencies));
@@ -175,6 +177,7 @@ public class ParametricAggregation
         else {
             checkArgument(concreteImplementation.getCombineFunction().isEmpty(), "Decomposable method %s does not have a combine method", boundSignature.getName());
         }
+        builder.setLegacyDecomposition(aggregationMetadata.getDecomposition().isEmpty());
 
         builder.outputFunction(bindDependencies(
                 concreteImplementation.getOutputFunction(),

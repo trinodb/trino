@@ -120,7 +120,8 @@ public class ImplementFilteredAggregations
                     aggregation.isDistinct(),
                     Optional.empty(),
                     aggregation.getOrderingScheme(),
-                    mask));
+                    mask,
+                    aggregation.isLegacyDecomposition()));
         }
 
         Expression predicate = TRUE;

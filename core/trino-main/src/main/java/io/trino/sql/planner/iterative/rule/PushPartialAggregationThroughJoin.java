@@ -347,7 +347,8 @@ public class PushPartialAggregationThroughJoin
                             false,
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty()));
+                            Optional.empty(),
+                            aggregation.isLegacyDecomposition()));
         }
 
         return new AggregationNode(

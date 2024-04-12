@@ -1265,8 +1265,9 @@ class QueryPlanner
             // TODO: for ORDER BY arguments, rewrite them such that they match the actual arguments to the function. This is necessary to maintain the semantics of DISTINCT + ORDER BY,
             //   which requires that ORDER BY be a subset of arguments
             //   What can happen currently is that if the argument requires a coercion, the argument will take a different input that the ORDER BY clause, which is undefined behavior
+            ResolvedFunction resolvedFunction = analysis.getResolvedFunction(function).get();
             Aggregation aggregation = new Aggregation(
-                    analysis.getResolvedFunction(function).get(),
+                    resolvedFunction,
                     function.getArguments().stream()
                             .map(argument -> {
                                 if (argument instanceof LambdaExpression) {
@@ -1278,7 +1279,8 @@ class QueryPlanner
                     function.isDistinct(),
                     function.getFilter().map(coercions),
                     function.getOrderBy().map(orderBy -> translateOrderingScheme(orderBy.getSortItems(), coercions)),
-                    Optional.empty());
+                    Optional.empty(),
+                    plannerContext.getMetadata().getAggregationFunctionMetadata(session, resolvedFunction).getDecomposition().isEmpty());
 
             aggregateMappingBuilder.add(new AggregationAssignment(symbol, function, aggregation));
         }

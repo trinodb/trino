@@ -50,7 +50,8 @@ class AggregationDecorrelation
                     aggregation.isDistinct(),
                     aggregation.getFilter(),
                     aggregation.getOrderingScheme(),
-                    Optional.of(masks.get(symbol))));
+                    Optional.of(masks.get(symbol)),
+                    aggregation.isLegacyDecomposition()));
         }
 
         return rewritten.buildOrThrow();
