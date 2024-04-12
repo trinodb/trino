@@ -28,6 +28,7 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -58,6 +59,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jmx.JmxErrorCode.JMX_INVALID_TABLE_NAME;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -97,8 +99,12 @@ public class JmxMetadata
     }
 
     @Override
-    public JmxTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public JmxTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         return getTableHandle(tableName);
     }
 
@@ -255,7 +261,7 @@ public class JmxMetadata
         }
 
         return tableNames.stream()
-                .map(tableName -> TableColumnsMetadata.forTable(tableName, getTableHandle(session, tableName).getTableMetadata().getColumns()))
+                .map(tableName -> TableColumnsMetadata.forTable(tableName, getTableHandle(session, tableName, Optional.empty(), Optional.empty()).getTableMetadata().getColumns()))
                 .iterator();
     }
 

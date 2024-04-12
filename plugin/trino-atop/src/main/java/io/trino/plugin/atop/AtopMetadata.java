@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.plugin.atop.AtopTable.AtopColumn;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnNotFoundException;
@@ -24,6 +25,7 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -39,6 +41,7 @@ import java.util.stream.Stream;
 
 import static io.trino.plugin.atop.AtopTable.AtopColumn.END_TIME;
 import static io.trino.plugin.atop.AtopTable.AtopColumn.START_TIME;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -64,8 +67,12 @@ public class AtopMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         requireNonNull(tableName, "tableName is null");
 
         String schemaName = tableName.getSchemaName();
@@ -125,7 +132,7 @@ public class AtopMetadata
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix.getSchema())) {
-            ConnectorTableMetadata tableMetadata = getTableMetadata(session, getTableHandle(session, tableName));
+            ConnectorTableMetadata tableMetadata = getTableMetadata(session, getTableHandle(session, tableName, Optional.empty(), Optional.empty()));
             columns.put(tableName, tableMetadata.getColumns());
         }
         return columns.buildOrThrow();

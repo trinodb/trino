@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.NotFoundException;
@@ -111,10 +112,13 @@ public class CassandraMetadata
                 .collect(toImmutableList());
     }
 
-    @SuppressWarnings("deprecation") // TODO Implement getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional) method
     @Override
-    public CassandraTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public CassandraTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         requireNonNull(tableName, "tableName is null");
         try {
             return new CassandraTableHandle(cassandraSession.getTable(tableName).tableHandle());

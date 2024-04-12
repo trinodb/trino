@@ -146,7 +146,7 @@ public class TestTpchMetadata
 
     private void testGetTableMetadata(String schema, TpchTable<?> table)
     {
-        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
+        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()), Optional.empty(), Optional.empty());
         ConnectorTableMetadata tableMetadata = tpchMetadata.getTableMetadata(session, tableHandle);
         assertThat(tableMetadata.getTableSchema().getTable().getTableName()).isEqualTo(table.getTableName());
         assertThat(tableMetadata.getTableSchema().getTable().getSchemaName()).isEqualTo(schema);
@@ -170,7 +170,7 @@ public class TestTpchMetadata
 
     private void testTableStats(String schema, TpchTable<?> table, Constraint constraint, double expectedRowCount)
     {
-        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
+        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()), Optional.empty(), Optional.empty());
         Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = tpchMetadata.applyFilter(session, tableHandle, constraint);
         if (result.isPresent()) {
             tableHandle = (TpchTableHandle) result.get().getHandle();
@@ -185,7 +185,7 @@ public class TestTpchMetadata
 
     private void testNoTableStats(String schema, TpchTable<?> table)
     {
-        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
+        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()), Optional.empty(), Optional.empty());
         TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle);
         assertThat(tableStatistics.getRowCount().isUnknown()).isTrue();
     }
@@ -276,7 +276,7 @@ public class TestTpchMetadata
 
     private void testColumnStats(String schema, TpchTable<?> table, TpchColumn<?> column, Constraint constraint, ColumnStatistics expected)
     {
-        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
+        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()), Optional.empty(), Optional.empty());
         Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = tpchMetadata.applyFilter(session, tableHandle, constraint);
         if (result.isPresent()) {
             tableHandle = (TpchTableHandle) result.get().getHandle();
@@ -297,7 +297,7 @@ public class TestTpchMetadata
     @Test
     public void testOrdersOrderStatusPredicatePushdown()
     {
-        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName("sf1", ORDERS.getTableName()));
+        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName("sf1", ORDERS.getTableName()), Optional.empty(), Optional.empty());
 
         TupleDomain<ColumnHandle> domain;
         ConstraintApplicationResult<ConnectorTableHandle> result;
@@ -324,7 +324,7 @@ public class TestTpchMetadata
     @Test
     public void testPartTypeAndPartContainerPredicatePushdown()
     {
-        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName("sf1", PART.getTableName()));
+        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName("sf1", PART.getTableName()), Optional.empty(), Optional.empty());
 
         TupleDomain<ColumnHandle> domain;
         ConstraintApplicationResult<ConnectorTableHandle> result;

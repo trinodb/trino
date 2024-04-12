@@ -690,13 +690,13 @@ public abstract class BaseConnectorTest
     @Test
     public void testSelectVersionOfNonExistentTable()
     {
+        String tableName = "foo_" + randomNameSuffix();
         String catalog = getSession().getCatalog().orElseThrow();
         String schema = getSession().getSchema().orElseThrow();
-        String tableName = "foo_" + randomNameSuffix();
         assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))
-                .failure().hasMessage(format("line 1:15: Table '%s.%s.%s' does not exist", catalog, schema, tableName));
+                .failure().hasMessageMatching("line 1:15: Table '%s.%s.%s' does not exist|This connector does not support versioned tables".formatted(catalog, schema, tableName));
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'version1'"))
-                .failure().hasMessage(format("line 1:15: Table '%s.%s.%s' does not exist", catalog, schema, tableName));
+                .failure().hasMessageMatching("line 1:15: Table '%s.%s.%s' does not exist|This connector does not support versioned tables".formatted(catalog, schema, tableName));
     }
 
     /**

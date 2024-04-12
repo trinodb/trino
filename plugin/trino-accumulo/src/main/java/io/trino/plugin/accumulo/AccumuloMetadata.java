@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -261,8 +262,12 @@ public class AccumuloMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         if (!listSchemaNames(session).contains(tableName.getSchemaName().toLowerCase(Locale.ENGLISH))) {
             return null;
         }
@@ -446,7 +451,7 @@ public class AccumuloMetadata
 
         // Make sure requested table exists, returning the single table of it does
         SchemaTableName table = prefix.toSchemaTableName();
-        if (getTableHandle(session, table) != null) {
+        if (getTableHandle(session, table, Optional.empty(), Optional.empty()) != null) {
             return ImmutableList.of(table);
         }
 

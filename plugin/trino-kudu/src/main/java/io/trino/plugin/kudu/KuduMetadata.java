@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
@@ -111,7 +112,7 @@ public class KuduMetadata
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : tables) {
-            KuduTableHandle tableHandle = getTableHandle(session, tableName);
+            KuduTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
             if (tableHandle != null) {
                 KuduTable table = tableHandle.getTable(clientSession);
                 columns.put(tableName, getColumnsMetadata(table.getSchema()));
@@ -213,8 +214,12 @@ public class KuduMetadata
     }
 
     @Override
-    public KuduTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public KuduTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         try {
             KuduTable table = clientSession.openTable(schemaTableName);
             OptionalInt bucketCount = OptionalInt.empty();

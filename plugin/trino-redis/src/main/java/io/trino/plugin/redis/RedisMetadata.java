@@ -20,12 +20,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.decoder.dummy.DummyRowDecoder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -49,6 +51,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.redis.RedisSplit.toRedisDataType;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -92,8 +95,12 @@ public class RedisMetadata
     }
 
     @Override
-    public RedisTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public RedisTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         RedisTableDescription table = getDefinedTables().get(schemaTableName);
         if (table == null) {
             return null;
