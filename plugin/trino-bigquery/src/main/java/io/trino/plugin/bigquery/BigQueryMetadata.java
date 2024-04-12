@@ -541,7 +541,7 @@ public class BigQueryMetadata
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         BigQueryTableHandle bigQueryTable = (BigQueryTableHandle) tableHandle;
-        if (isWildcardTable(TableDefinition.Type.valueOf(bigQueryTable.asPlainTable().getType()), bigQueryTable.asPlainTable().getRemoteTableName().getTableName())) {
+        if (isWildcardTable(TableDefinition.Type.valueOf(bigQueryTable.asPlainTable().getType()), bigQueryTable.asPlainTable().getRemoteTableName().tableName())) {
             throw new TrinoException(BIGQUERY_UNSUPPORTED_OPERATION, "This connector does not support dropping wildcard tables");
         }
         TableId tableId = bigQueryTable.asPlainTable().getRemoteTableName().toTableId();
@@ -557,9 +557,9 @@ public class BigQueryMetadata
         RemoteTableName remoteTableName = table.asPlainTable().getRemoteTableName();
         String sql = format(
                 "TRUNCATE TABLE %s.%s.%s",
-                quote(remoteTableName.getProjectId()),
-                quote(remoteTableName.getDatasetName()),
-                quote(remoteTableName.getTableName()));
+                quote(remoteTableName.projectId()),
+                quote(remoteTableName.datasetName()),
+                quote(remoteTableName.tableName()));
         client.executeUpdate(session, QueryJobConfiguration.of(sql));
     }
 
@@ -573,7 +573,7 @@ public class BigQueryMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
-        if (isWildcardTable(TableDefinition.Type.valueOf(table.asPlainTable().getType()), table.asPlainTable().getRemoteTableName().getTableName())) {
+        if (isWildcardTable(TableDefinition.Type.valueOf(table.asPlainTable().getType()), table.asPlainTable().getRemoteTableName().tableName())) {
             throw new TrinoException(BIGQUERY_UNSUPPORTED_OPERATION, "This connector does not support inserting into wildcard tables");
         }
         ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columns.size());
@@ -590,8 +590,8 @@ public class BigQueryMetadata
         tempFields.add(typeManager.toField(pageSinkIdColumn.getName(), pageSinkIdColumn.getType(), pageSinkIdColumn.getComment()));
 
         BigQueryClient client = bigQueryClientFactory.create(session);
-        String projectId = table.asPlainTable().getRemoteTableName().getProjectId();
-        String schemaName = table.asPlainTable().getRemoteTableName().getDatasetName();
+        String projectId = table.asPlainTable().getRemoteTableName().projectId();
+        String schemaName = table.asPlainTable().getRemoteTableName().datasetName();
 
         String temporaryTableName = generateTemporaryTableName(session);
         TableId temporaryTableId = createTable(client, projectId, schemaName, temporaryTableName, tempFields.build(), Optional.empty());
@@ -620,10 +620,10 @@ public class BigQueryMetadata
             BigQueryClient client = bigQueryClientFactory.create(session);
 
             RemoteTableName pageSinkTable = new RemoteTableName(
-                    targetTable.getProjectId(),
-                    targetTable.getDatasetName(),
+                    targetTable.projectId(),
+                    targetTable.datasetName(),
                     generateTemporaryTableName(session));
-            createTable(client, pageSinkTable.getProjectId(), pageSinkTable.getDatasetName(), pageSinkTable.getTableName(), ImmutableList.of(typeManager.toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, null)), Optional.empty());
+            createTable(client, pageSinkTable.projectId(), pageSinkTable.datasetName(), pageSinkTable.tableName(), ImmutableList.of(typeManager.toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, null)), Optional.empty());
             closer.register(() -> bigQueryClientFactory.create(session).dropTable(pageSinkTable.toTableId()));
 
             InsertAllRequest.Builder batch = InsertAllRequest.newBuilder(pageSinkTable.toTableId());
@@ -691,9 +691,9 @@ public class BigQueryMetadata
         RemoteTableName remoteTableName = tableHandle.asPlainTable().getRemoteTableName();
         String sql = format(
                 "DELETE FROM %s.%s.%s WHERE %s",
-                quote(remoteTableName.getProjectId()),
-                quote(remoteTableName.getDatasetName()),
-                quote(remoteTableName.getTableName()),
+                quote(remoteTableName.projectId()),
+                quote(remoteTableName.datasetName()),
+                quote(remoteTableName.tableName()),
                 filter.orElse("true"));
         BigQueryClient client = bigQueryClientFactory.create(session);
         long rows = client.executeUpdate(session, QueryJobConfiguration.newBuilder(sql)
@@ -738,9 +738,9 @@ public class BigQueryMetadata
         RemoteTableName remoteTableName = table.asPlainTable().getRemoteTableName();
         String sql = format(
                 "ALTER TABLE %s.%s.%s SET OPTIONS (description = ?)",
-                quote(remoteTableName.getProjectId()),
-                quote(remoteTableName.getDatasetName()),
-                quote(remoteTableName.getTableName()));
+                quote(remoteTableName.projectId()),
+                quote(remoteTableName.datasetName()),
+                quote(remoteTableName.tableName()));
         client.executeUpdate(session, QueryJobConfiguration.newBuilder(sql)
                 .addPositionalParameter(QueryParameterValue.string(newComment.orElse(null)))
                 .build());
@@ -756,9 +756,9 @@ public class BigQueryMetadata
         RemoteTableName remoteTableName = table.asPlainTable().getRemoteTableName();
         String sql = format(
                 "ALTER TABLE %s.%s.%s ALTER COLUMN %s SET OPTIONS (description = ?)",
-                quote(remoteTableName.getProjectId()),
-                quote(remoteTableName.getDatasetName()),
-                quote(remoteTableName.getTableName()),
+                quote(remoteTableName.projectId()),
+                quote(remoteTableName.datasetName()),
+                quote(remoteTableName.tableName()),
                 quote(column.name()));
         client.executeUpdate(session, QueryJobConfiguration.newBuilder(sql)
                 .addPositionalParameter(QueryParameterValue.string(newComment.orElse(null)))
