@@ -27,6 +27,7 @@ import java.util.Map;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -56,10 +57,14 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
 
         queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
         Map<String, String> s3Properties = ImmutableMap.<String, String>builder()
-                .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                .put("hive.s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
-                .put("hive.s3.path-style-access", "true")
+                .put("fs.hadoop.enabled", "false")
+                .put("fs.native-s3.enabled", "true")
+                .put("s3.aws-access-key", MINIO_ACCESS_KEY)
+                .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .put("s3.region", MINIO_REGION)
+                .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                .put("s3.path-style-access", "true")
+                .put("s3.streaming.part-size", "5MB") // minimize memory usage
                 .buildOrThrow();
         queryRunner.createCatalog(
                 "hive",
