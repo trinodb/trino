@@ -412,8 +412,8 @@ public class MongoMetadata
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         MongoOutputTableHandle handle = (MongoOutputTableHandle) tableHandle;
-        if (handle.getTemporaryTableName().isPresent()) {
-            finishInsert(session, handle.getRemoteTableName(), handle.getTemporaryRemoteTableName().get(), handle.getPageSinkIdColumnName().get(), fragments);
+        if (handle.temporaryTableName().isPresent()) {
+            finishInsert(session, handle.remoteTableName(), handle.getTemporaryRemoteTableName().get(), handle.pageSinkIdColumnName().get(), fragments);
         }
         clearRollback();
         return Optional.empty();
