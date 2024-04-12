@@ -73,7 +73,7 @@ public class BigQueryFilterQueryBuilder
         for (BigQueryColumnHandle column : columns) {
             Domain domain = tupleDomain.getDomains().get().get(column);
             if (domain != null) {
-                toPredicate(toBigQueryColumnName(column.getName()), domain, column).ifPresent(clauses::add);
+                toPredicate(toBigQueryColumnName(column.name()), domain, column).ifPresent(clauses::add);
             }
         }
         return clauses.build();
@@ -96,7 +96,7 @@ public class BigQueryFilterQueryBuilder
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
-                String value = convertToString(column.getTrinoType(), column.getBigqueryType(), range.getSingleValue());
+                String value = convertToString(column.trinoType(), column.bigqueryType(), range.getSingleValue());
                 singleValues.add(value);
             }
             else {
@@ -136,7 +136,7 @@ public class BigQueryFilterQueryBuilder
 
     private String toPredicate(String columnName, String operator, Object value, BigQueryColumnHandle column)
     {
-        String valueAsString = convertToString(column.getTrinoType(), column.getBigqueryType(), value);
+        String valueAsString = convertToString(column.trinoType(), column.bigqueryType(), value);
         return quote(columnName) + " " + operator + " " + valueAsString;
     }
 }

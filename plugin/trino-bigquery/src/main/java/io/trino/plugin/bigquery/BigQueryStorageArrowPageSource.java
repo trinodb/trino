@@ -73,7 +73,7 @@ public class BigQueryStorageArrowPageSource
         this.streamBufferAllocator = allocator.newChildAllocator(split.getStreamName(), 1024, Long.MAX_VALUE);
         this.bigQueryArrowToPageConverter = new BigQueryArrowToPageConverter(typeManager, streamBufferAllocator, schema, columns);
         this.pageBuilder = new PageBuilder(columns.stream()
-                .map(BigQueryColumnHandle::getTrinoType)
+                .map(BigQueryColumnHandle::trinoType)
                 .collect(toImmutableList()));
     }
 
