@@ -115,8 +115,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
         assertCacheOperations(location, content, readTimes,
                 ImmutableMultiset.<CacheOperationSpan>builder()
                         .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 11), readTimes)
-                        .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, 0), 0, 11), readTimes)
-                        .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, 0), 0, 11))
+                        .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 11), readTimes)
+                        .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 11))
                         .add(new CacheOperationSpan("Alluxio.writeCache", location.toString(), 11))
                         .add(new CacheOperationSpan("Alluxio.readExternal", location.toString(), 11))
                         .build());
@@ -132,8 +132,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
                 ImmutableMultiset.<CacheOperationSpan>builder()
                         .add(new CacheOperationSpan("Alluxio.readExternal", location.toString(), 16))
                         .add(new CacheOperationSpan("Alluxio.writeCache", location.toString(), 16))
-                        .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, 1), 0, 16))
-                        .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, 1), 0, 16), readTimes)
+                        .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 16))
+                        .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 16), readTimes)
                         .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 16), readTimes)
                         .build());
     }
