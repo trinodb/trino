@@ -194,7 +194,7 @@ public class TrinoRestCatalog
                 // Namespace may have been deleted during listing
             }
             catch (RESTException e) {
-                throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to list tables from namespaces: %s", namespaces), e);
+                throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to list tables from namespace: %s", restNamespace), e);
             }
         }
         return tables.build();
