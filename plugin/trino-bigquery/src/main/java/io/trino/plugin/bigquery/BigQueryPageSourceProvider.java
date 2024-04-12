@@ -121,8 +121,8 @@ public class BigQueryPageSourceProvider
                 typeManager,
                 bigQueryClientFactory.create(session),
                 table,
-                columnHandles.stream().map(BigQueryColumnHandle::getName).collect(toImmutableList()),
-                columnHandles.stream().map(BigQueryColumnHandle::getTrinoType).collect(toImmutableList()),
+                columnHandles.stream().map(BigQueryColumnHandle::name).collect(toImmutableList()),
+                columnHandles.stream().map(BigQueryColumnHandle::trinoType).collect(toImmutableList()),
                 filter);
     }
 }
