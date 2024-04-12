@@ -266,7 +266,9 @@ public class BigQueryMetadata
                 new RemoteTableName(tableInfo.get().getTableId()),
                 tableInfo.get().getDefinition().getType().toString(),
                 partitionType,
-                Optional.ofNullable(tableInfo.get().getDescription())))
+                Optional.ofNullable(tableInfo.get().getDescription())),
+                TupleDomain.all(),
+                Optional.empty())
                 .withProjectedColumns(columns.build());
     }
 

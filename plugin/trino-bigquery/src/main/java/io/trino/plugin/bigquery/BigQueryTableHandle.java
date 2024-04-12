@@ -50,14 +50,6 @@ public class BigQueryTableHandle
         this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
     }
 
-    public BigQueryTableHandle(BigQueryRelationHandle relationHandle)
-    {
-        this(
-                relationHandle,
-                TupleDomain.all(),
-                Optional.empty());
-    }
-
     @JsonProperty
     public BigQueryRelationHandle getRelationHandle()
     {
