@@ -53,7 +53,7 @@ public class SheetsPageSink
         for (int position = 0; position < page.getPositionCount(); position++) {
             List<Object> row = new ArrayList<>();
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                row.add(getObjectValue(columns.get(channel).getColumnType(), page.getBlock(channel), position));
+                row.add(getObjectValue(columns.get(channel).columnType(), page.getBlock(channel), position));
             }
             rows.add(row);
         }
