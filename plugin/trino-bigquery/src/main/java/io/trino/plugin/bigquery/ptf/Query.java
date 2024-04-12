@@ -118,7 +118,7 @@ public class Query
             }
 
             Descriptor returnedType = new Descriptor(columnsBuilder.build().stream()
-                    .map(column -> new Field(column.getName(), Optional.of(column.getTrinoType())))
+                    .map(column -> new Field(column.name(), Optional.of(column.trinoType())))
                     .collect(toList()));
 
             QueryHandle handle = new QueryHandle(tableHandle.withProjectedColumns(columnsBuilder.build()));
