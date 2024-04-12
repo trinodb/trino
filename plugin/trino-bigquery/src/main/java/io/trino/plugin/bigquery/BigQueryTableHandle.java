@@ -19,11 +19,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.cloud.bigquery.RangePartitioning;
 import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.TableDefinition;
-import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TimePartitioning;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -50,12 +48,6 @@ public class BigQueryTableHandle
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
-    }
-
-    @Deprecated
-    public BigQueryTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, TableInfo tableInfo)
-    {
-        this(new BigQueryNamedRelationHandle(schemaTableName, remoteTableName, tableInfo.getDefinition().getType().toString(), getPartitionType(tableInfo.getDefinition()), Optional.ofNullable(tableInfo.getDescription())));
     }
 
     public BigQueryTableHandle(BigQueryRelationHandle relationHandle)
