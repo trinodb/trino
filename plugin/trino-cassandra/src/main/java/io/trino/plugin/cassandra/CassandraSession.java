@@ -268,7 +268,7 @@ public class CassandraSession
         }
 
         List<CassandraColumnHandle> sortedColumnHandles = columnHandles.build().stream()
-                .sorted(comparing(CassandraColumnHandle::getOrdinalPosition))
+                .sorted(comparing(CassandraColumnHandle::ordinalPosition))
                 .collect(toList());
 
         CassandraNamedRelationHandle tableHandle = new CassandraNamedRelationHandle(tableMeta.getKeyspace().asInternal(), tableMeta.getName().asInternal());
@@ -425,14 +425,14 @@ public class CassandraSession
                     buffer.put(component);
                 }
                 CassandraColumnHandle columnHandle = partitionKeyColumns.get(i);
-                NullableValue keyPart = cassandraTypeManager.getColumnValue(columnHandle.getCassandraType(), row, i);
+                NullableValue keyPart = cassandraTypeManager.getColumnValue(columnHandle.cassandraType(), row, i);
                 map.put(columnHandle, keyPart);
                 if (i > 0) {
                     stringBuilder.append(" AND ");
                 }
-                stringBuilder.append(CassandraCqlUtils.validColumnName(columnHandle.getName()));
+                stringBuilder.append(CassandraCqlUtils.validColumnName(columnHandle.name()));
                 stringBuilder.append(" = ");
-                stringBuilder.append(cassandraTypeManager.getColumnValueForCql(columnHandle.getCassandraType(), row, i));
+                stringBuilder.append(cassandraTypeManager.getColumnValueForCql(columnHandle.cassandraType(), row, i));
             }
             buffer.flip();
             byte[] key = new byte[buffer.limit()];
@@ -509,11 +509,11 @@ public class CassandraSession
     {
         List<Term> values = filterPrefixes
                 .stream()
-                .map(value -> cassandraTypeManager.getJavaValue(column.getCassandraType().getKind(), value))
+                .map(value -> cassandraTypeManager.getJavaValue(column.cassandraType().getKind(), value))
                 .map(QueryBuilder::literal)
                 .collect(toList());
 
-        return Relation.column(CassandraCqlUtils.validColumnName(column.getName())).in(values);
+        return Relation.column(CassandraCqlUtils.validColumnName(column.name())).in(values);
     }
 
     private List<Relation> getEqualityRelations(List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
@@ -522,8 +522,8 @@ public class CassandraSession
                 .range(0, Math.min(partitionKeyColumns.size(), filterPrefix.size()))
                 .mapToObj(i -> {
                     CassandraColumnHandle column = partitionKeyColumns.get(i);
-                    Object value = cassandraTypeManager.getJavaValue(column.getCassandraType().getKind(), filterPrefix.get(i));
-                    return Relation.column(CassandraCqlUtils.validColumnName(column.getName())).isEqualTo(literal(value));
+                    Object value = cassandraTypeManager.getJavaValue(column.cassandraType().getKind(), filterPrefix.get(i));
+                    return Relation.column(CassandraCqlUtils.validColumnName(column.name())).isEqualTo(literal(value));
                 })
                 .collect(toImmutableList());
     }

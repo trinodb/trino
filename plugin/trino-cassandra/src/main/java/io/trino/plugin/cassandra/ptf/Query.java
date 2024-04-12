@@ -112,7 +112,7 @@ public class Query
             checkState(!columnHandles.isEmpty(), "Handle doesn't have columns info");
             Descriptor returnedType = new Descriptor(columnHandles.stream()
                     .map(CassandraColumnHandle.class::cast)
-                    .map(column -> new Field(column.getName(), Optional.of(column.getType())))
+                    .map(column -> new Field(column.name(), Optional.of(column.getType())))
                     .collect(toImmutableList()));
 
             QueryHandle handle = new QueryHandle(new CassandraTableHandle(queryRelationHandle));

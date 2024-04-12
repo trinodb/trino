@@ -290,7 +290,7 @@ public class TestCassandraConnector
                     assertThat(tupleValueBlock.getFieldCount()).isEqualTo(3);
 
                     CassandraColumnHandle tupleColumnHandle = (CassandraColumnHandle) columnHandles.get(columnIndex.get("typetuple"));
-                    List<CassandraType> tupleArgumentTypes = tupleColumnHandle.getCassandraType().getArgumentTypes();
+                    List<CassandraType> tupleArgumentTypes = tupleColumnHandle.cassandraType().getArgumentTypes();
                     int rawIndex = tupleValueBlock.getRawIndex();
                     assertThat(tupleArgumentTypes.get(0).getTrinoType().getLong(tupleValueBlock.getRawFieldBlock(0), rawIndex)).isEqualTo(rowNumber);
                     assertThat(tupleArgumentTypes.get(1).getTrinoType().getSlice(tupleValueBlock.getRawFieldBlock(1), rawIndex).toStringUtf8()).isEqualTo("text-" + rowNumber);
@@ -454,7 +454,7 @@ public class TestCassandraConnector
         ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
         int i = 0;
         for (ColumnHandle columnHandle : columnHandles) {
-            String name = ((CassandraColumnHandle) columnHandle).getName();
+            String name = ((CassandraColumnHandle) columnHandle).name();
             index.put(name, i);
             i++;
         }

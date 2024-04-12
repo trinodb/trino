@@ -81,7 +81,7 @@ public final class CassandraCqlUtils
             else {
                 stringBuilder.append(",");
             }
-            stringBuilder.append(validColumnName(((CassandraColumnHandle) column).getName()));
+            stringBuilder.append(validColumnName(((CassandraColumnHandle) column).name()));
         }
     }
 
@@ -104,7 +104,7 @@ public final class CassandraCqlUtils
     public static List<String> selection(List<CassandraColumnHandle> columns)
     {
         return columns.stream()
-                .map(column -> validColumnName(column.getName()))
+                .map(column -> validColumnName(column.name()))
                 .collect(toImmutableList());
     }
 

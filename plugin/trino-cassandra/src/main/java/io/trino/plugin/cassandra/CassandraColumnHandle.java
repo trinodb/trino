@@ -13,92 +13,33 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class CassandraColumnHandle
+public record CassandraColumnHandle(
+        String name,
+        int ordinalPosition,
+        CassandraType cassandraType,
+        boolean partitionKey,
+        boolean clusteringKey,
+        boolean indexed,
+        boolean hidden)
         implements ColumnHandle
 {
-    private final String name;
-    private final int ordinalPosition;
-    private final CassandraType cassandraType;
-    private final boolean partitionKey;
-    private final boolean clusteringKey;
-    private final boolean indexed;
-    private final boolean hidden;
-
-    @JsonCreator
-    public CassandraColumnHandle(
-            @JsonProperty("name") String name,
-            @JsonProperty("ordinalPosition") int ordinalPosition,
-            @JsonProperty("cassandraType") CassandraType cassandraType,
-            @JsonProperty("partitionKey") boolean partitionKey,
-            @JsonProperty("clusteringKey") boolean clusteringKey,
-            @JsonProperty("indexed") boolean indexed,
-            @JsonProperty("hidden") boolean hidden)
+    public CassandraColumnHandle
     {
-        this.name = requireNonNull(name, "name is null");
+        requireNonNull(name, "name is null");
         checkArgument(ordinalPosition >= 0, "ordinalPosition is negative");
-        this.ordinalPosition = ordinalPosition;
-        this.cassandraType = requireNonNull(cassandraType, "cassandraType is null");
-        this.partitionKey = partitionKey;
-        this.clusteringKey = clusteringKey;
-        this.indexed = indexed;
-        this.hidden = hidden;
+        requireNonNull(cassandraType, "cassandraType is null");
     }
 
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
-    }
-
-    @JsonProperty
-    public CassandraType getCassandraType()
-    {
-        return cassandraType;
-    }
-
-    @JsonProperty
-    public boolean isPartitionKey()
-    {
-        return partitionKey;
-    }
-
-    @JsonProperty
-    public boolean isClusteringKey()
-    {
-        return clusteringKey;
-    }
-
-    @JsonProperty
-    public boolean isIndexed()
-    {
-        return indexed;
-    }
-
-    @JsonProperty
-    public boolean isHidden()
-    {
-        return hidden;
-    }
-
+    @JsonIgnore
     public ColumnMetadata getColumnMetadata()
     {
         return ColumnMetadata.builder()
@@ -108,54 +49,9 @@ public class CassandraColumnHandle
                 .build();
     }
 
+    @JsonIgnore
     public Type getType()
     {
         return cassandraType.getTrinoType();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(
-                name,
-                ordinalPosition,
-                cassandraType,
-                partitionKey,
-                clusteringKey,
-                indexed,
-                hidden);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        CassandraColumnHandle other = (CassandraColumnHandle) obj;
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
-                Objects.equals(this.cassandraType, other.cassandraType) &&
-                Objects.equals(this.partitionKey, other.partitionKey) &&
-                Objects.equals(this.clusteringKey, other.clusteringKey) &&
-                Objects.equals(this.indexed, other.indexed) &&
-                Objects.equals(this.hidden, other.hidden);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("name", name)
-                .add("ordinalPosition", ordinalPosition)
-                .add("cassandraType", cassandraType)
-                .add("partitionKey", partitionKey)
-                .add("clusteringKey", clusteringKey)
-                .add("indexed", indexed)
-                .add("hidden", hidden)
-                .toString();
     }
 }

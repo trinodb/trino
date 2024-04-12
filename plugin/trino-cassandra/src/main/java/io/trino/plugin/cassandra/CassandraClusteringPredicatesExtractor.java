@@ -84,7 +84,7 @@ public class CassandraClusteringPredicatesExtractor
                                     .map(range -> toCqlLiteral(columnHandle, range.getSingleValue()))
                                     .collect(joining(","));
                             fullyPushedColumnPredicates.add(columnHandle);
-                            return CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN (" + inValues + ")";
+                            return CassandraCqlUtils.validColumnName(columnHandle.name()) + " IN (" + inValues + ")";
                         }
                         return translateRangeIntoCql(columnHandle, ranges.getSpan());
                     }, discreteValues -> {
@@ -95,7 +95,7 @@ public class CassandraClusteringPredicatesExtractor
                             if (discreteValues.getValuesCount() == 1) {
                                 fullyPushedColumnPredicates.add(columnHandle);
                                 return format("%s = %s",
-                                        CassandraCqlUtils.validColumnName(columnHandle.getName()),
+                                        CassandraCqlUtils.validColumnName(columnHandle.name()),
                                         toCqlLiteral(columnHandle, getOnlyElement(discreteValues.getValues())));
                             }
                             if (isInExpressionNotAllowed(clusteringColumns, cassandraVersion, currentlyProcessedClusteringColumn)) {
@@ -103,10 +103,10 @@ public class CassandraClusteringPredicatesExtractor
                             }
 
                             String inValues = discreteValues.getValues().stream()
-                                    .map(value -> cassandraTypeManager.toCqlLiteral(columnHandle.getCassandraType(), value))
+                                    .map(value -> cassandraTypeManager.toCqlLiteral(columnHandle.cassandraType(), value))
                                     .collect(joining(","));
                             fullyPushedColumnPredicates.add(columnHandle);
-                            return CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN (" + inValues + " )";
+                            return CassandraCqlUtils.validColumnName(columnHandle.name()) + " IN (" + inValues + " )";
                         }
                         return null;
                     }, allOrNone -> null);
@@ -136,12 +136,12 @@ public class CassandraClusteringPredicatesExtractor
 
     private String toCqlLiteral(CassandraColumnHandle columnHandle, Object value)
     {
-        return cassandraTypeManager.toCqlLiteral(columnHandle.getCassandraType(), value);
+        return cassandraTypeManager.toCqlLiteral(columnHandle.cassandraType(), value);
     }
 
     private String translateRangeIntoCql(CassandraColumnHandle columnHandle, Range range)
     {
-        if (columnHandle.getCassandraType().getKind() == CassandraType.Kind.TUPLE || columnHandle.getCassandraType().getKind() == CassandraType.Kind.UDT) {
+        if (columnHandle.cassandraType().getKind() == CassandraType.Kind.TUPLE || columnHandle.cassandraType().getKind() == CassandraType.Kind.UDT) {
             // Building CQL literals for TUPLE and UDT type is not supported
             return null;
         }
@@ -151,7 +151,7 @@ public class CassandraClusteringPredicatesExtractor
         }
         if (range.isSingleValue()) {
             return format("%s = %s",
-                    CassandraCqlUtils.validColumnName(columnHandle.getName()),
+                    CassandraCqlUtils.validColumnName(columnHandle.name()),
                     toCqlLiteral(columnHandle, range.getSingleValue()));
         }
 
@@ -161,7 +161,7 @@ public class CassandraClusteringPredicatesExtractor
             String lowBound = toCqlLiteral(columnHandle, range.getLowBoundedValue());
             lowerBoundPredicate = format(
                     "%s %s %s",
-                    CassandraCqlUtils.validColumnName(columnHandle.getName()),
+                    CassandraCqlUtils.validColumnName(columnHandle.name()),
                     range.isLowInclusive() ? ">=" : ">",
                     lowBound);
         }
@@ -169,7 +169,7 @@ public class CassandraClusteringPredicatesExtractor
             String highBound = toCqlLiteral(columnHandle, range.getHighBoundedValue());
             upperBoundPredicate = format(
                     "%s %s %s",
-                    CassandraCqlUtils.validColumnName(columnHandle.getName()),
+                    CassandraCqlUtils.validColumnName(columnHandle.name()),
                     range.isHighInclusive() ? "<=" : "<",
                     highBound);
         }

@@ -40,8 +40,8 @@ public class CassandraRecordSet
         this.cql = requireNonNull(cql, "cql is null");
 
         requireNonNull(cassandraColumns, "cassandraColumns is null");
-        this.cassandraNames = transformList(cassandraColumns, CassandraColumnHandle::getName);
-        this.cassandraTypes = transformList(cassandraColumns, CassandraColumnHandle::getCassandraType);
+        this.cassandraNames = transformList(cassandraColumns, CassandraColumnHandle::name);
+        this.cassandraTypes = transformList(cassandraColumns, CassandraColumnHandle::cassandraType);
         this.columnTypes = transformList(cassandraColumns, CassandraColumnHandle::getType);
     }
 
