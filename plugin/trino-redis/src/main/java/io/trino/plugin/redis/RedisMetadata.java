@@ -102,15 +102,15 @@ public class RedisMetadata
         // check if keys are supplied in a zset
         // via the table description doc
         String keyName = null;
-        if (table.getKey() != null) {
-            keyName = table.getKey().getName();
+        if (table.key() != null) {
+            keyName = table.key().getName();
         }
 
         return new RedisTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
-                getDataFormat(table.getKey()),
-                getDataFormat(table.getValue()),
+                getDataFormat(table.key()),
+                getDataFormat(table.value()),
                 keyName,
                 TupleDomain.all());
     }
@@ -157,7 +157,7 @@ public class RedisMetadata
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
 
         int index = 0;
-        RedisTableFieldGroup key = redisTableDescription.getKey();
+        RedisTableFieldGroup key = redisTableDescription.key();
         if (key != null) {
             List<RedisTableFieldDescription> fields = key.getFields();
             if (fields != null) {
@@ -168,7 +168,7 @@ public class RedisMetadata
             }
         }
 
-        RedisTableFieldGroup value = redisTableDescription.getValue();
+        RedisTableFieldGroup value = redisTableDescription.value();
         if (value != null) {
             List<RedisTableFieldDescription> fields = value.getFields();
             if (fields != null) {
@@ -290,8 +290,8 @@ public class RedisMetadata
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
 
-        appendFields(builder, table.getKey());
-        appendFields(builder, table.getValue());
+        appendFields(builder, table.key());
+        appendFields(builder, table.value());
 
         for (RedisInternalFieldDescription fieldDescription : RedisInternalFieldDescription.values()) {
             builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
