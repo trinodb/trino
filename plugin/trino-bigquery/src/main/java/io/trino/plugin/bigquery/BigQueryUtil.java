@@ -85,6 +85,6 @@ public final class BigQueryUtil
 
     public static String quoted(RemoteTableName table)
     {
-        return format("%s.%s.%s", quote(table.getProjectId()), quote(table.getDatasetName()), quote(table.getTableName()));
+        return format("%s.%s.%s", quote(table.projectId()), quote(table.datasetName()), quote(table.tableName()));
     }
 }

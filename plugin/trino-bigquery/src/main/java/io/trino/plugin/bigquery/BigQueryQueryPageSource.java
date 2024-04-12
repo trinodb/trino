@@ -113,7 +113,7 @@ public class BigQueryQueryPageSource
             }
             return "SELECT * FROM (" + queryRelationHandle.getQuery() + " ) WHERE " + filter.get();
         }
-        TableId tableId = TableId.of(projectId, table.asPlainTable().getRemoteTableName().getDatasetName(), table.asPlainTable().getRemoteTableName().getTableName());
+        TableId tableId = TableId.of(projectId, table.asPlainTable().getRemoteTableName().datasetName(), table.asPlainTable().getRemoteTableName().tableName());
         return selectSql(tableId, ImmutableList.copyOf(columnNames), filter);
     }
 

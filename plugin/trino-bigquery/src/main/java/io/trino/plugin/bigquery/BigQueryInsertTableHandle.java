@@ -44,6 +44,6 @@ public record BigQueryInsertTableHandle(
     @JsonIgnore
     public RemoteTableName getTemporaryRemoteTableName()
     {
-        return new RemoteTableName(remoteTableName.getProjectId(), remoteTableName.getDatasetName(), temporaryTableName);
+        return new RemoteTableName(remoteTableName.projectId(), remoteTableName.datasetName(), temporaryTableName);
     }
 }

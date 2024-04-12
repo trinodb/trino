@@ -13,28 +13,22 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1.TableName;
-
-import java.util.Objects;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public final class RemoteTableName
+public record RemoteTableName(
+        String projectId,
+        String datasetName,
+        String tableName)
 {
-    private final String projectId;
-    private final String datasetName;
-    private final String tableName;
-
-    @JsonCreator
-    public RemoteTableName(String projectId, String datasetName, String tableName)
+    public RemoteTableName
     {
-        this.projectId = requireNonNull(projectId, "projectId is null");
-        this.datasetName = requireNonNull(datasetName, "datasetName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        requireNonNull(projectId, "projectId is null");
+        requireNonNull(datasetName, "datasetName is null");
+        requireNonNull(tableName, "tableName is null");
     }
 
     public RemoteTableName(TableId tableId)
@@ -50,45 +44,6 @@ public final class RemoteTableName
     public TableName toTableName()
     {
         return TableName.of(projectId, datasetName, tableName);
-    }
-
-    @JsonProperty
-    public String getProjectId()
-    {
-        return projectId;
-    }
-
-    @JsonProperty
-    public String getDatasetName()
-    {
-        return datasetName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        RemoteTableName that = (RemoteTableName) o;
-        return projectId.equals(that.projectId) &&
-                datasetName.equals(that.datasetName) &&
-                tableName.equals(that.tableName);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(projectId, datasetName, tableName);
     }
 
     @Override
