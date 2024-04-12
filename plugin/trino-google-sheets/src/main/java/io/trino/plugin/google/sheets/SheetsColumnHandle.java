@@ -13,86 +13,28 @@
  */
 package io.trino.plugin.google.sheets;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNull;
 
-public final class SheetsColumnHandle
+public record SheetsColumnHandle(
+        String columnName,
+        Type columnType,
+        int ordinalPosition)
         implements ColumnHandle
 {
-    private final String columnName;
-    private final Type columnType;
-    private final int ordinalPosition;
-
-    @JsonCreator
-    public SheetsColumnHandle(
-            @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") Type columnType,
-            @JsonProperty("ordinalPosition") int ordinalPosition)
+    public SheetsColumnHandle
     {
-        this.columnName = requireNonNull(columnName, "columnName is null");
-        this.columnType = requireNonNull(columnType, "columnType is null");
-        this.ordinalPosition = ordinalPosition;
+        requireNonNull(columnName, "columnName is null");
+        requireNonNull(columnType, "columnType is null");
     }
 
-    @JsonProperty
-    public String getColumnName()
-    {
-        return columnName;
-    }
-
-    @JsonProperty
-    public Type getColumnType()
-    {
-        return columnType;
-    }
-
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
-    }
-
+    @JsonIgnore
     public ColumnMetadata getColumnMetadata()
     {
         return new ColumnMetadata(columnName, columnType);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return hash(columnName, columnType, ordinalPosition);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-
-        SheetsColumnHandle other = (SheetsColumnHandle) obj;
-        return Objects.equals(this.columnName, other.columnName);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("columnName", columnName)
-                .add("columnType", columnType)
-                .add("ordinalPosition", ordinalPosition)
-                .toString();
     }
 }
