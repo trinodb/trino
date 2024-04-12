@@ -41,6 +41,6 @@ public class TestCassandraTableHandle
         String json = codec.toJson(expected);
         CassandraTableHandle actual = codec.fromJson(json);
 
-        assertThat(actual.getRelationHandle()).isEqualTo(new CassandraQueryRelationHandle("SELECT * FROM tpch.region"));
+        assertThat(actual.relationHandle()).isEqualTo(new CassandraQueryRelationHandle("SELECT * FROM tpch.region"));
     }
 }
