@@ -665,7 +665,7 @@ public class BigQueryMetadata
             Collection<ComputedStatistics> computedStatistics)
     {
         BigQueryInsertTableHandle handle = (BigQueryInsertTableHandle) insertHandle;
-        return finishInsert(session, handle.getRemoteTableName(), handle.getTemporaryRemoteTableName(), handle.getPageSinkIdColumnName(), handle.getColumnNames(), fragments);
+        return finishInsert(session, handle.remoteTableName(), handle.getTemporaryRemoteTableName(), handle.pageSinkIdColumnName(), handle.columnNames(), fragments);
     }
 
     @Override
