@@ -13,65 +13,28 @@
  */
 package io.trino.plugin.redis;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Groups the field descriptions for value or key.
  */
-public class RedisTableFieldGroup
+public record RedisTableFieldGroup(
+        String dataFormat,
+        String name,
+        List<RedisTableFieldDescription> fields)
 {
-    private final String dataFormat;
-    private final List<RedisTableFieldDescription> fields;
-    private final String name;
-
-    @JsonCreator
-    public RedisTableFieldGroup(
-            @JsonProperty("dataFormat") String dataFormat,
-            @JsonProperty("name") String name,
-            @JsonProperty("fields") List<RedisTableFieldDescription> fields)
+    public RedisTableFieldGroup
     {
-        this.dataFormat = requireNonNull(dataFormat, "dataFormat is null");
-        this.name = name;
+        requireNonNull(dataFormat, "dataFormat is null");
         if (!dataFormat.equals("set") && !dataFormat.equals("zset")) {
-            this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
+            fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
         }
         else {
-            this.fields = null;
+            fields = null;
         }
-    }
-
-    @JsonProperty
-    public String getDataFormat()
-    {
-        return dataFormat;
-    }
-
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public List<RedisTableFieldDescription> getFields()
-    {
-        return fields;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("dataFormat", dataFormat)
-                .add("name", name)
-                .add("fields", fields)
-                .toString();
     }
 }
