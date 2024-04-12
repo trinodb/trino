@@ -43,12 +43,12 @@ public class BigQueryPageSinkProvider
         BigQueryOutputTableHandle handle = (BigQueryOutputTableHandle) outputTableHandle;
         return new BigQueryPageSink(
                 clientFactory.create(session),
-                handle.getRemoteTableName(),
-                handle.getColumnNames(),
-                handle.getColumnTypes(),
+                handle.remoteTableName(),
+                handle.columnNames(),
+                handle.columnTypes(),
                 pageSinkId,
-                handle.getTemporaryTableName(),
-                handle.getPageSinkIdColumnName());
+                handle.temporaryTableName(),
+                handle.pageSinkIdColumnName());
     }
 
     @Override
