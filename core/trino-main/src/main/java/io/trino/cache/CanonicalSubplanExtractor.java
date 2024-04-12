@@ -341,7 +341,7 @@ public final class CanonicalSubplanExtractor
         {
             PlanNode source = node.getSource();
 
-            if (extractExpressions(node).stream().anyMatch(this::containsLambdaExpression)) {
+            if (containsLambdaExpression(node)) {
                 // lambda expressions are not supported
                 canonicalizeRecursively(source);
                 return Optional.empty();
@@ -411,16 +411,17 @@ public final class CanonicalSubplanExtractor
                     .build());
         }
 
-        private boolean containsLambdaExpression(Expression expression)
-        {
-            return stream(Traverser.<Expression>forTree(Expression::children).depthFirstPreOrder(expression))
-                    .anyMatch(instanceOf(Lambda.class));
-        }
-
         @Override
         public Optional<CanonicalSubplan> visitFilter(FilterNode node, Void context)
         {
             PlanNode source = node.getSource();
+
+            if (containsLambdaExpression(node)) {
+                // lambda expressions are not supported
+                canonicalizeRecursively(source);
+                return Optional.empty();
+            }
+
             if (!isDeterministic(node.getPredicate())) {
                 canonicalizeRecursively(source);
                 return Optional.empty();
@@ -473,6 +474,17 @@ public final class CanonicalSubplanExtractor
                             .addAll(conjuncts.build())
                             .build())
                     .build());
+        }
+
+        private boolean containsLambdaExpression(PlanNode node)
+        {
+            return extractExpressions(node).stream().anyMatch(this::containsLambdaExpression);
+        }
+
+        private boolean containsLambdaExpression(Expression expression)
+        {
+            return stream(Traverser.<Expression>forTree(Expression::children).depthFirstPreOrder(expression))
+                    .anyMatch(instanceOf(Lambda.class));
         }
 
         @Override

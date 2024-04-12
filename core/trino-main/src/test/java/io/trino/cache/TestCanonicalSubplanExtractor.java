@@ -433,6 +433,14 @@ public class TestCanonicalSubplanExtractor
     }
 
     @Test
+    public void testFilterWithLambdas()
+    {
+        List<CanonicalSubplan> subplans = extractCanonicalSubplansForQuery("SELECT nationkey FROM nation WHERE any_match(array[nationkey], x -> x > 5)");
+        assertThat(subplans).hasSize(1);
+        assertThat(subplans.get(0).getOriginalPlanNode()).isInstanceOf(TableScanNode.class);
+    }
+
+    @Test
     public void testTopN()
     {
         List<CanonicalSubplan> subplans = extractCanonicalSubplansForQuery("SELECT nationkey FROM nation ORDER BY name LIMIT 5");
