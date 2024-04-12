@@ -107,7 +107,7 @@ public class BigQueryQueryPageSource
 
     private static String buildSql(BigQueryTableHandle table, String projectId, List<String> columnNames, Optional<String> filter)
     {
-        if (table.getRelationHandle() instanceof BigQueryQueryRelationHandle queryRelationHandle) {
+        if (table.relationHandle() instanceof BigQueryQueryRelationHandle queryRelationHandle) {
             if (filter.isEmpty()) {
                 return queryRelationHandle.getQuery();
             }
