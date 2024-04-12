@@ -7284,7 +7284,7 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("ALTER TABLE " + tableName + " EXECUTE vacuum", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("ALTER TABLE " + tableName + " RENAME TO bad_person_some_new_name", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN foo int", "Metadata not found in metadata location for table " + schemaTableName);
-        // TODO (https://github.com/trinodb/trino/issues/16248) ADD field
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN independence.month int", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN country", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN independence.month", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES format = 'PARQUET'", "Metadata not found in metadata location for table " + schemaTableName);
