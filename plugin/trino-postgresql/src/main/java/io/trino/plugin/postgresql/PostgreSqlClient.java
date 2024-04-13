@@ -109,6 +109,7 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
+import org.postgresql.util.PGobject;
 
 import java.io.IOException;
 import java.sql.Array;
@@ -125,6 +126,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -561,6 +563,12 @@ public class PostgreSqlClient
                 return Optional.of(timestampWithTimeZoneColumnMapping(decimalDigits));
             case "hstore":
                 return Optional.of(hstoreColumnMapping(session));
+            case "vector":
+                return Optional.of(vectorColumnMapping(session));
+        }
+        if (jdbcTypeName.endsWith("\"vector\"")) {
+            // TODO: Find more reliable way to detect vector type. The type name can be "schema-name"."vector"
+            return Optional.of(vectorColumnMapping(session));
         }
 
         switch (typeHandle.jdbcType()) {
@@ -1574,6 +1582,45 @@ public class PostgreSqlClient
                 uuidType,
                 (resultSet, columnIndex) -> javaUuidToTrinoUuid((UUID) resultSet.getObject(columnIndex)),
                 uuidWriteFunction());
+    }
+
+    private static ColumnMapping vectorColumnMapping(ConnectorSession session)
+    {
+        return ColumnMapping.objectMapping(
+                new ArrayType(REAL),
+                vectorReadFunction(),
+                vectorWriteFunction(session),
+                DISABLE_PUSHDOWN);
+    }
+
+    private static ObjectReadFunction vectorReadFunction()
+    {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
+            // getArray is unsupported for vectors type
+            String result = resultSet.getString(columnIndex);
+            if (result == null) {
+                BlockBuilder builder = REAL.createBlockBuilder(null, 10);
+                builder.appendNull();
+                return builder.build();
+            }
+            String[] vectors = result.substring(1, result.length() - 1).split(",");
+            BlockBuilder builder = REAL.createBlockBuilder(null, vectors.length);
+            for (String vector : vectors) {
+                REAL.writeFloat(builder, Float.parseFloat(vector));
+            }
+            return builder.build();
+        });
+    }
+
+    private static ObjectWriteFunction vectorWriteFunction(ConnectorSession session)
+    {
+        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
+            Object[] vectors = getJdbcObjectArray(session, REAL, block);
+            PGobject pgObject = new PGobject();
+            pgObject.setType("vector");
+            pgObject.setValue(Arrays.toString(vectors));
+            statement.setObject(index, pgObject, Types.OTHER);
+        });
     }
 
     private static class StatisticsDao
