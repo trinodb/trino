@@ -164,12 +164,12 @@ public class JmxRecordSetProvider
 
         List<List<Object>> rows;
         try {
-            if (tableHandle.isLiveData()) {
+            if (tableHandle.liveData()) {
                 rows = getLiveRows(tableHandle, columns);
             }
             else {
-                List<Integer> selectedColumns = calculateSelectedColumns(tableHandle.getColumnHandles(), getColumnNames(columns));
-                rows = tableHandle.getObjectNames().stream()
+                List<Integer> selectedColumns = calculateSelectedColumns(tableHandle.columnHandles(), getColumnNames(columns));
+                rows = tableHandle.objectNames().stream()
                         .flatMap(objectName -> jmxHistoricalData.getRows(objectName, selectedColumns).stream())
                         .collect(toImmutableList());
             }
@@ -227,7 +227,7 @@ public class JmxRecordSetProvider
             throws JMException
     {
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
-        for (String objectName : tableHandle.getObjectNames()) {
+        for (String objectName : tableHandle.objectNames()) {
             rows.add(getLiveRow(objectName, columns, 0));
         }
         return rows.build();
