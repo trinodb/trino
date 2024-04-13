@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.google.sheets;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ConnectorSplit;
@@ -26,32 +25,24 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
-public class SheetsSplit
+public record SheetsSplit(List<List<String>> values)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(SheetsSplit.class);
 
-    private final List<List<String>> values;
-
-    @JsonCreator
-    public SheetsSplit(
-            @JsonProperty("values") List<List<String>> values)
+    public SheetsSplit
     {
-        this.values = requireNonNull(values, "values is null");
+        requireNonNull(values, "values is null");
     }
 
-    @JsonProperty
-    public List<List<String>> getValues()
-    {
-        return values;
-    }
-
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public Map<String, String> getSplitInfo()
     {
         return ImmutableMap.of();
     }
 
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public long getRetainedSizeInBytes()
     {
