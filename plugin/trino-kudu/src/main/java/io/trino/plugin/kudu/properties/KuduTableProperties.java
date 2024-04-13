@@ -190,9 +190,7 @@ public final class KuduTableProperties
         @SuppressWarnings("unchecked")
         List<String> rangeColumns = (List<String>) tableProperties.get(PARTITION_BY_RANGE_COLUMNS);
         if (!rangeColumns.isEmpty()) {
-            RangePartitionDefinition range = new RangePartitionDefinition();
-            range.setColumns(rangeColumns);
-            design.setRange(range);
+            design.setRange(new RangePartitionDefinition(rangeColumns));
         }
 
         return design;
@@ -292,7 +290,7 @@ public final class KuduTableProperties
             }
 
             if (partitionDesign.getRange() != null) {
-                properties.put(PARTITION_BY_RANGE_COLUMNS, partitionDesign.getRange().getColumns());
+                properties.put(PARTITION_BY_RANGE_COLUMNS, partitionDesign.getRange().columns());
             }
 
             String partitionRangesValue = mapper.writeValueAsString(rangePartitionList);
@@ -405,11 +403,9 @@ public final class KuduTableProperties
 
         List<Integer> rangeColumns = partitionSchema.getRangeSchema().getColumnIds();
         if (!rangeColumns.isEmpty()) {
-            RangePartitionDefinition definition = new RangePartitionDefinition();
-            definition.setColumns(rangeColumns.stream()
+            partitionDesign.setRange(new RangePartitionDefinition(rangeColumns.stream()
                     .map(i -> schema.getColumns().get(i).getName())
-                    .collect(toImmutableList()));
-            partitionDesign.setRange(definition);
+                    .collect(toImmutableList())));
         }
 
         return partitionDesign;
@@ -420,7 +416,7 @@ public final class KuduTableProperties
     {
         PartialRow partialRow = new PartialRow(schema);
         if (boundValue != null) {
-            List<Integer> rangeColumns = definition.getColumns().stream()
+            List<Integer> rangeColumns = definition.columns().stream()
                     .map(schema::getColumnIndex).collect(toImmutableList());
 
             if (rangeColumns.size() != boundValue.getValues().size()) {
