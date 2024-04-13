@@ -13,60 +13,18 @@
  */
 package io.trino.plugin.tpch;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
-
-import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class TpchPartitioningHandle
+public record TpchPartitioningHandle(String table, long totalRows)
         implements ConnectorPartitioningHandle
 {
-    private final String table;
-    private final long totalRows;
-
-    @JsonCreator
-    public TpchPartitioningHandle(@JsonProperty("table") String table, @JsonProperty("totalRows") long totalRows)
+    public TpchPartitioningHandle
     {
-        this.table = requireNonNull(table, "table is null");
-
+        requireNonNull(table, "table is null");
         checkArgument(totalRows > 0, "totalRows must be at least 1");
-        this.totalRows = totalRows;
-    }
-
-    @JsonProperty
-    public String getTable()
-    {
-        return table;
-    }
-
-    @JsonProperty
-    public long getTotalRows()
-    {
-        return totalRows;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        TpchPartitioningHandle that = (TpchPartitioningHandle) o;
-        return Objects.equals(table, that.table) &&
-                totalRows == that.totalRows;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(table, totalRows);
     }
 
     @Override
