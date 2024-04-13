@@ -27,11 +27,6 @@ public final class BlackHoleColumnHandle
     private final String name;
     private final Type columnType;
 
-    public BlackHoleColumnHandle(ColumnMetadata columnMetadata)
-    {
-        this(columnMetadata.getName(), columnMetadata.getType());
-    }
-
     @JsonCreator
     public BlackHoleColumnHandle(
             @JsonProperty("name") String name,
