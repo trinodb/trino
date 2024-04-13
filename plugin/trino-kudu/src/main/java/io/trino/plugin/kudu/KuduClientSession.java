@@ -467,7 +467,7 @@ public class KuduClientSession
         PartitionDesign partitionDesign = KuduTableProperties.getPartitionDesign(properties);
         if (partitionDesign.getHash() != null) {
             for (HashPartitionDefinition partition : partitionDesign.getHash()) {
-                options.addHashPartitions(partition.getColumns(), partition.getBuckets());
+                options.addHashPartitions(partition.columns(), partition.buckets());
             }
         }
         if (partitionDesign.getRange() != null) {
