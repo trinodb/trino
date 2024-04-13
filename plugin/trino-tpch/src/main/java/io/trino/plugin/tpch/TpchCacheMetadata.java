@@ -28,19 +28,19 @@ public class TpchCacheMetadata
     public Optional<CacheTableId> getCacheTableId(ConnectorTableHandle table)
     {
         TpchTableHandle handle = (TpchTableHandle) table;
-        if (!handle.getConstraint().isAll()) {
+        if (!handle.constraint().isAll()) {
             // lossless conversion of TupleDomain to string requires JSON serialization
             return Optional.empty();
         }
 
         // ensure cache id generation is revisited whenever handle classes change
         handle = new TpchTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getScaleFactor(),
-                handle.getConstraint());
+                handle.schemaName(),
+                handle.tableName(),
+                handle.scaleFactor(),
+                handle.constraint());
 
-        return Optional.of(new CacheTableId(handle.getSchemaName() + ":" + handle.getTableName() + ":" + handle.getScaleFactor()));
+        return Optional.of(new CacheTableId(handle.schemaName() + ":" + handle.tableName() + ":" + handle.scaleFactor()));
     }
 
     @Override
@@ -50,10 +50,10 @@ public class TpchCacheMetadata
 
         // ensure cache id generation is revisited whenever handle classes change
         handle = new TpchColumnHandle(
-                handle.getColumnName(),
-                handle.getType());
+                handle.columnName(),
+                handle.type());
 
-        return Optional.of(new CacheColumnId(handle.getColumnName() + ":" + handle.getType()));
+        return Optional.of(new CacheColumnId(handle.columnName() + ":" + handle.type()));
     }
 
     @Override

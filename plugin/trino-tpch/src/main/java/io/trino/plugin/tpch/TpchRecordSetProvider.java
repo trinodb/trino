@@ -49,12 +49,12 @@ public class TpchRecordSetProvider
         TpchTableHandle tpchTable = (TpchTableHandle) table;
 
         return getRecordSet(
-                TpchTable.getTable(tpchTable.getTableName()),
+                TpchTable.getTable(tpchTable.tableName()),
                 columns,
-                tpchTable.getScaleFactor(),
+                tpchTable.scaleFactor(),
                 tpchSplit.getPartNumber(),
                 tpchSplit.getTotalParts(),
-                tpchTable.getConstraint());
+                tpchTable.constraint());
     }
 
     public <E extends TpchEntity> RecordSet getRecordSet(
