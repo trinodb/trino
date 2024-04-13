@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.cache.alluxio;
+package io.trino.filesystem.alluxio;
 
 import alluxio.client.file.URIStatus;
 import alluxio.client.file.cache.CacheManager;
@@ -28,7 +28,7 @@ import java.io.IOException;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.primitives.Ints.saturatedCast;
-import static io.trino.filesystem.cache.alluxio.AlluxioTracing.withTracing;
+import static io.trino.filesystem.alluxio.AlluxioTracing.withTracing;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
@@ -41,7 +41,7 @@ import static java.lang.String.format;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
-public class AlluxioCacheInputStream
+public class AlluxioInputStream
         extends TrinoInputStream
 {
     private final TrinoInputFile inputFile;
@@ -49,13 +49,13 @@ public class AlluxioCacheInputStream
     private final Location location;
     private final AlluxioCacheStats statistics;
     private final String key;
-    private final AlluxioCacheInputHelper helper;
+    private final AlluxioInputHelper helper;
     private final Tracer tracer;
     private TrinoInputStream externalStream;
     private long position;
     private boolean closed;
 
-    public AlluxioCacheInputStream(Tracer tracer, TrinoInputFile inputFile, String key, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, AlluxioCacheStats statistics)
+    public AlluxioInputStream(Tracer tracer, TrinoInputFile inputFile, String key, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, AlluxioCacheStats statistics)
     {
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.inputFile = requireNonNull(inputFile, "inputFile is null");
@@ -63,7 +63,7 @@ public class AlluxioCacheInputStream
         this.location = inputFile.location();
         this.statistics = requireNonNull(statistics, "statistics is null");
         this.key = requireNonNull(key, "key is null");
-        this.helper = new AlluxioCacheInputHelper(tracer, inputFile.location(), key, status, cacheManager, configuration, statistics);
+        this.helper = new AlluxioInputHelper(tracer, inputFile.location(), key, status, cacheManager, configuration, statistics);
     }
 
     @Override
@@ -153,7 +153,7 @@ public class AlluxioCacheInputStream
             throws IOException
     {
         verify(length > 0, "zero-length or negative read");
-        AlluxioCacheInputHelper.PageAlignedRead aligned = helper.alignRead(readPosition, length);
+        AlluxioInputHelper.PageAlignedRead aligned = helper.alignRead(readPosition, length);
         if (externalStream == null) {
             externalStream = inputFile.newStream();
         }
