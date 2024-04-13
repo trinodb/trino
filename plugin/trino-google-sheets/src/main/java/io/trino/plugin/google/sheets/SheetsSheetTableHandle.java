@@ -13,71 +13,25 @@
  */
 package io.trino.plugin.google.sheets;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Objects;
 
 import static io.trino.plugin.google.sheets.SheetsClient.RANGE_SEPARATOR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public final class SheetsSheetTableHandle
+public record SheetsSheetTableHandle(
+        String sheetId,
+        String sheetRange)
         implements SheetsConnectorTableHandle
 {
-    private final String sheetId;
-    private final String sheetRange;
-
-    @JsonCreator
-    public SheetsSheetTableHandle(
-            @JsonProperty("sheetId") String sheetId,
-            @JsonProperty("sheetRange") String sheetRange)
+    public SheetsSheetTableHandle
     {
-        this.sheetId = requireNonNull(sheetId, "sheetId is null");
-        this.sheetRange = requireNonNull(sheetRange, "sheetRange is null");
-    }
-
-    @JsonProperty
-    public String getSheetId()
-    {
-        return sheetId;
-    }
-
-    @JsonProperty
-    public String getSheetRange()
-    {
-        return sheetRange;
+        requireNonNull(sheetId, "sheetId is null");
+        requireNonNull(sheetRange, "sheetRange is null");
     }
 
     @JsonIgnore
     public String getSheetExpression()
     {
         return "%s%s%s".formatted(sheetId, RANGE_SEPARATOR, sheetRange);
-    }
-
-    @Override
-    public String toString()
-    {
-        return format("Sheet[sheetId=%s, sheetRange=%s]", sheetId, sheetRange);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SheetsSheetTableHandle that = (SheetsSheetTableHandle) o;
-        return sheetId.equals(that.sheetId) && sheetRange.equals(that.sheetRange);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(sheetId, sheetRange);
     }
 }
