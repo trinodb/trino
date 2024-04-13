@@ -932,28 +932,25 @@ public class TestCassandraConnectorTest
     @Test
     public void testKeyspaceNameAmbiguity()
     {
-        // Run exclusively as the test temporarily creates unsupported state (name conflict)
-        executeExclusively(() -> {
-            // Identifiers enclosed in double quotes are stored in Cassandra verbatim. It is possible to create 2 keyspaces with names
-            // that have differences only in letters case.
-            session.execute("CREATE KEYSPACE \"KeYsPaCe_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
-            session.execute("CREATE KEYSPACE \"kEySpAcE_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+        // Identifiers enclosed in double quotes are stored in Cassandra verbatim. It is possible to create 2 keyspaces with names
+        // that have differences only in letters case.
+        session.execute("CREATE KEYSPACE \"KeYsPaCe_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+        session.execute("CREATE KEYSPACE \"kEySpAcE_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
 
-            // Although in Trino all the schema and table names are always displayed as lowercase
-            assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                    .row("keyspace_3")
-                    .row("keyspace_3")
-                    .build(), new Duration(1, MINUTES));
+        // Although in Trino all the schema and table names are always displayed as lowercase
+        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("keyspace_3")
+                .row("keyspace_3")
+                .build(), new Duration(1, MINUTES));
 
-            // There is no way to figure out what the exactly keyspace we want to retrieve tables from
-            assertQueryFailsEventually(
-                    "SHOW TABLES FROM cassandra.keyspace_3",
-                    "Error listing tables for catalog cassandra: More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
-                    new Duration(1, MINUTES));
+        // There is no way to figure out what the exactly keyspace we want to retrieve tables from
+        assertQueryFailsEventually(
+                "SHOW TABLES FROM cassandra.keyspace_3",
+                "Error listing tables for catalog cassandra: More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
+                new Duration(1, MINUTES));
 
-            session.execute("DROP KEYSPACE \"KeYsPaCe_3\"");
-            session.execute("DROP KEYSPACE \"kEySpAcE_3\"");
-        });
+        session.execute("DROP KEYSPACE \"KeYsPaCe_3\"");
+        session.execute("DROP KEYSPACE \"kEySpAcE_3\"");
     }
 
     @Test
