@@ -348,7 +348,7 @@ public class MemoryMetadata
         requireNonNull(tableHandle, "tableHandle is null");
         MemoryOutputTableHandle memoryOutputHandle = (MemoryOutputTableHandle) tableHandle;
 
-        updateRowsOnHosts(memoryOutputHandle.getTable(), fragments);
+        updateRowsOnHosts(memoryOutputHandle.table(), fragments);
         return Optional.empty();
     }
 
