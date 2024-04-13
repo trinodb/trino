@@ -302,7 +302,11 @@ public class BlackHoleMetadata
         Duration pageProcessingDelay = (Duration) tableMetadata.getProperties().get(PAGE_PROCESSING_DELAY);
 
         BlackHoleTableHandle handle = new BlackHoleTableHandle(
-                tableMetadata,
+                tableMetadata.getTable().getSchemaName(),
+                tableMetadata.getTable().getTableName(),
+                tableMetadata.getColumns().stream()
+                        .map(column -> new BlackHoleColumnHandle(column.getName(), column.getType()))
+                        .collect(toList()),
                 splitCount,
                 pagesPerSplit,
                 rowsPerPage,
