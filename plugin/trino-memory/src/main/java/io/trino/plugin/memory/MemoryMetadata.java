@@ -178,14 +178,14 @@ public class MemoryMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
 
-        return new MemoryTableHandle(id);
+        return new MemoryTableHandle(id, OptionalLong.empty(), OptionalDouble.empty());
     }
 
     @Override
     public synchronized ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        return tables.get(handle.getId()).getMetadata();
+        return tables.get(handle.id()).getMetadata();
     }
 
     @Override
@@ -209,7 +209,7 @@ public class MemoryMetadata
     public synchronized Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        return tables.get(handle.getId())
+        return tables.get(handle.id())
                 .getColumns().stream()
                 .collect(toImmutableMap(ColumnInfo::name, ColumnInfo::handle));
     }
@@ -218,7 +218,7 @@ public class MemoryMetadata
     public synchronized ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        return tables.get(handle.getId())
+        return tables.get(handle.id())
                 .getColumn(columnHandle)
                 .getMetadata();
     }
@@ -267,7 +267,7 @@ public class MemoryMetadata
     public synchronized void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        TableInfo info = tables.remove(handle.getId());
+        TableInfo info = tables.remove(handle.id());
         if (info != null) {
             tableIds.remove(info.getSchemaTableName());
         }
@@ -280,7 +280,7 @@ public class MemoryMetadata
         checkTableNotExists(newTableName);
 
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        long tableId = handle.getId();
+        long tableId = handle.id();
 
         TableInfo oldInfo = tables.get(tableId);
         tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getDataFragments(), oldInfo.getComment()));
@@ -356,7 +356,7 @@ public class MemoryMetadata
     public synchronized MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
-        return new MemoryInsertTableHandle(memoryTableHandle.getId(), ImmutableSet.copyOf(tableIds.values()));
+        return new MemoryInsertTableHandle(memoryTableHandle.id(), ImmutableSet.copyOf(tableIds.values()));
     }
 
     @Override
@@ -497,7 +497,7 @@ public class MemoryMetadata
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        List<MemoryDataFragment> dataFragments = getDataFragments(((MemoryTableHandle) tableHandle).getId());
+        List<MemoryDataFragment> dataFragments = getDataFragments(((MemoryTableHandle) tableHandle).id());
         long rows = dataFragments.stream()
                 .mapToLong(MemoryDataFragment::getRows)
                 .sum();
@@ -511,12 +511,12 @@ public class MemoryMetadata
     {
         MemoryTableHandle table = (MemoryTableHandle) handle;
 
-        if (table.getLimit().isPresent() && table.getLimit().getAsLong() <= limit) {
+        if (table.limit().isPresent() && table.limit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
         return Optional.of(new LimitApplicationResult<>(
-                new MemoryTableHandle(table.getId(), OptionalLong.of(limit), OptionalDouble.empty()),
+                new MemoryTableHandle(table.id(), OptionalLong.of(limit), OptionalDouble.empty()),
                 true,
                 true));
     }
@@ -526,12 +526,12 @@ public class MemoryMetadata
     {
         MemoryTableHandle table = (MemoryTableHandle) handle;
 
-        if ((table.getSampleRatio().isPresent() && table.getSampleRatio().getAsDouble() == sampleRatio) || sampleType != SYSTEM || table.getLimit().isPresent()) {
+        if ((table.sampleRatio().isPresent() && table.sampleRatio().getAsDouble() == sampleRatio) || sampleType != SYSTEM || table.limit().isPresent()) {
             return Optional.empty();
         }
 
         return Optional.of(new SampleApplicationResult<>(
-                new MemoryTableHandle(table.getId(), table.getLimit(), OptionalDouble.of(table.getSampleRatio().orElse(1) * sampleRatio)),
+                new MemoryTableHandle(table.id(), table.limit(), OptionalDouble.of(table.sampleRatio().orElse(1) * sampleRatio)),
                 true));
     }
 
@@ -539,21 +539,21 @@ public class MemoryMetadata
     public synchronized void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
         MemoryTableHandle table = (MemoryTableHandle) tableHandle;
-        TableInfo info = tables.get(table.getId());
+        TableInfo info = tables.get(table.id());
         checkArgument(info != null, "Table not found");
-        tables.put(table.getId(), new TableInfo(table.getId(), info.getSchemaName(), info.getTableName(), info.getColumns(), info.getDataFragments(), comment));
+        tables.put(table.id(), new TableInfo(table.id(), info.getSchemaName(), info.getTableName(), info.getColumns(), info.getDataFragments(), comment));
     }
 
     @Override
     public synchronized void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Optional<String> comment)
     {
         MemoryTableHandle table = (MemoryTableHandle) tableHandle;
-        TableInfo info = tables.get(table.getId());
+        TableInfo info = tables.get(table.id());
         checkArgument(info != null, "Table not found");
         tables.put(
-                table.getId(),
+                table.id(),
                 new TableInfo(
-                        table.getId(),
+                        table.id(),
                         info.getSchemaName(),
                         info.getTableName(),
                         info.getColumns().stream()
