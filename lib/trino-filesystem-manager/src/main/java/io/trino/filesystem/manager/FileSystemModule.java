@@ -22,6 +22,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.alluxio.AlluxioFileSystemFactory;
 import io.trino.filesystem.alluxio.AlluxioFileSystemModule;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
@@ -32,7 +33,6 @@ import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
-import io.trino.filesystem.cache.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.s3.S3FileSystemFactory;
@@ -84,7 +84,7 @@ public class FileSystemModule
 
         var factories = newMapBinder(binder, String.class, TrinoFileSystemFactory.class);
 
-        if (config.isNativeAlluxioEnabled()) {
+        if (config.isAlluxioEnabled()) {
             install(new AlluxioFileSystemModule());
             factories.addBinding("alluxio").to(AlluxioFileSystemFactory.class);
         }

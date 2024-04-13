@@ -13,17 +13,18 @@
  */
 package io.trino.filesystem.alluxio;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import static com.google.inject.Scopes.SINGLETON;
-
-public class AlluxioFileSystemModule
-        implements Module
+public class TestAlluxioUtils
 {
-    @Override
-    public void configure(Binder binder)
+    @Test
+    public void test()
     {
-        binder.bind(AlluxioFileSystemFactory.class).in(SINGLETON);
+        String path = "test/level0-file0";
+        Assertions.assertEquals(path, AlluxioUtils.simplifyPath(path));
+
+        path = "a/./b/../../c/";
+        Assertions.assertEquals("c/", AlluxioUtils.simplifyPath(path));
     }
 }

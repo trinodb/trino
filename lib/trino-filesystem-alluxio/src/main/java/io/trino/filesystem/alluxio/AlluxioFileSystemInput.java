@@ -19,18 +19,20 @@ import io.trino.filesystem.TrinoInputFile;
 
 import java.io.IOException;
 
+import static java.lang.Math.min;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
-public class AlluxioInput
+public class AlluxioFileSystemInput
         implements TrinoInput
 {
     private final FileInStream stream;
 
     private final TrinoInputFile inputFile;
 
-    private boolean closed;
+    private volatile boolean closed;
 
-    public AlluxioInput(FileInStream stream, TrinoInputFile inputFile)
+    public AlluxioFileSystemInput(FileInStream stream, TrinoInputFile inputFile)
     {
         this.stream = requireNonNull(stream, "stream is null");
         this.inputFile = requireNonNull(inputFile, "inputFile is null");
@@ -41,6 +43,11 @@ public class AlluxioInput
             throws IOException
     {
         ensureOpen();
+        checkFromIndexSize(bufferOffset, bufferLength, buffer.length);
+        if (position + bufferLength > inputFile.length()) {
+            throw new IOException("readFully position overflow %s. pos %d + buffer length %d > file size %d"
+                    .formatted(inputFile.location(), position, bufferLength, inputFile.length()));
+        }
         stream.positionedRead(position, buffer, bufferOffset, bufferLength);
     }
 
@@ -49,8 +56,11 @@ public class AlluxioInput
             throws IOException
     {
         ensureOpen();
-        //TODO(JiamingMai): implement this method
-        return 0;
+        checkFromIndexSize(bufferOffset, bufferLength, buffer.length);
+        long fileSize = inputFile.length();
+        int readSize = (int) min(fileSize, bufferLength);
+        readFully(fileSize - readSize, buffer, bufferOffset, readSize);
+        return readSize;
     }
 
     @Override
@@ -71,7 +81,7 @@ public class AlluxioInput
             throws IOException
     {
         if (closed) {
-            throw new IOException("Output stream closed: " + this);
+            throw new IOException("Input stream closed: " + this);
         }
     }
 }
