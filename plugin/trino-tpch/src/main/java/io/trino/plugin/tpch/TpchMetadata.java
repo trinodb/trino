@@ -332,9 +332,9 @@ public class TpchMetadata
     {
         return ColumnStatistics.builder()
                 .setNullsFraction(Estimate.zero())
-                .setDistinctValuesCount(stats.getDistinctValuesCount().map(Estimate::of).orElse(Estimate.unknown()))
-                .setDataSize(stats.getDataSize().map(Estimate::of).orElse(Estimate.unknown()))
-                .setRange(toRange(stats.getMin(), stats.getMax(), columnType))
+                .setDistinctValuesCount(stats.distinctValuesCount().map(Estimate::of).orElse(Estimate.unknown()))
+                .setDataSize(stats.dataSize().map(Estimate::of).orElse(Estimate.unknown()))
+                .setRange(toRange(stats.min(), stats.max(), columnType))
                 .build();
     }
 
