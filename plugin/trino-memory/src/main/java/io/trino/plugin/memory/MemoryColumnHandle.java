@@ -13,48 +13,11 @@
  */
 package io.trino.plugin.memory;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 
-import java.util.Objects;
-
-public final class MemoryColumnHandle
+public record MemoryColumnHandle(int columnIndex)
         implements ColumnHandle
 {
-    private final int columnIndex;
-
-    @JsonCreator
-    public MemoryColumnHandle(@JsonProperty("columnIndex") int columnIndex)
-    {
-        this.columnIndex = columnIndex;
-    }
-
-    @JsonProperty
-    public int getColumnIndex()
-    {
-        return columnIndex;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(columnIndex);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        MemoryColumnHandle other = (MemoryColumnHandle) obj;
-        return Objects.equals(this.columnIndex, other.columnIndex);
-    }
-
     @Override
     public String toString()
     {
