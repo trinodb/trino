@@ -88,7 +88,7 @@ public class TableInfo
     public ColumnInfo getColumn(ColumnHandle handle)
     {
         return columns.stream()
-                .filter(column -> column.getHandle().equals(handle))
+                .filter(column -> column.handle().equals(handle))
                 .collect(onlyElement());
     }
 
