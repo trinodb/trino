@@ -232,7 +232,7 @@ public class TestKuduScannerKeepAlive
         }
 
         KuduClientConfig config = new KuduClientConfig()
-                .setMasterAddresses(masterAddress.toString())
+                .setMasterAddresses(ImmutableList.of(masterAddress.toString()))
                 .setScannerKeepAliveInterval(scannerKeepAliveInterval);
 
         return new KuduRecordSet(
