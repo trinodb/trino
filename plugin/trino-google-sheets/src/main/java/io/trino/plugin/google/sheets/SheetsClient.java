@@ -126,7 +126,7 @@ public class SheetsClient
     public Optional<SheetsTable> getTable(SheetsConnectorTableHandle tableHandle)
     {
         if (tableHandle instanceof SheetsNamedTableHandle namedTableHandle) {
-            return getTable(namedTableHandle.getTableName());
+            return getTable(namedTableHandle.tableName());
         }
         if (tableHandle instanceof SheetsSheetTableHandle sheetTableHandle) {
             return getTableFromValues(readAllValuesFromSheet(sheetTableHandle.getSheetExpression()));

@@ -178,14 +178,14 @@ public class SheetsMetadata
             throw new TrinoException(NOT_SUPPORTED, format("Can only insert into named tables. Found table handle type: %s", tableHandle));
         }
 
-        SheetsTable table = sheetsClient.getTable(namedTableHandle.getTableName())
+        SheetsTable table = sheetsClient.getTable(namedTableHandle.tableName())
                 .orElseThrow(() -> new TableNotFoundException(namedTableHandle.getSchemaTableName()));
 
         List<SheetsColumnHandle> columnHandles = new ArrayList<>(table.getColumnsMetadata().size());
         for (int id = 0; id < table.getColumnsMetadata().size(); id++) {
             columnHandles.add(new SheetsColumnHandle(table.getColumnsMetadata().get(id).getName(), table.getColumnsMetadata().get(id).getType(), id));
         }
-        return new SheetsConnectorInsertTableHandle(namedTableHandle.getTableName(), columnHandles);
+        return new SheetsConnectorInsertTableHandle(namedTableHandle.tableName(), columnHandles);
     }
 
     @Override
@@ -214,7 +214,7 @@ public class SheetsMetadata
     private static SchemaTableName getSchemaTableName(SheetsConnectorTableHandle handle)
     {
         if (handle instanceof SheetsNamedTableHandle namedTableHandle) {
-            return new SchemaTableName(namedTableHandle.getSchemaName(), namedTableHandle.getTableName());
+            return new SchemaTableName(namedTableHandle.schemaName(), namedTableHandle.tableName());
         }
         if (handle instanceof SheetsSheetTableHandle) {
             // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
