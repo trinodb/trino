@@ -140,7 +140,7 @@ public class MemoryMetadata
             viewNames.forEach(viewName -> dropView(session, viewName));
 
             Set<SchemaTableName> tableNames = tables.values().stream()
-                    .filter(table -> table.getSchemaName().equals(schemaName))
+                    .filter(table -> table.schemaName().equals(schemaName))
                     .map(TableInfo::getSchemaTableName)
                     .collect(toImmutableSet());
             tableNames.forEach(tableName -> dropTable(session, getTableHandle(session, tableName, Optional.empty(), Optional.empty())));
@@ -156,7 +156,7 @@ public class MemoryMetadata
     @GuardedBy("this")
     private boolean isSchemaEmpty(String schemaName)
     {
-        return tables.values().stream().noneMatch(table -> table.getSchemaName().equals(schemaName)) &&
+        return tables.values().stream().noneMatch(table -> table.schemaName().equals(schemaName)) &&
                 views.keySet().stream().noneMatch(view -> view.getSchemaName().equals(schemaName));
     }
 
@@ -198,7 +198,7 @@ public class MemoryMetadata
                 .forEach(builder::add);
 
         tables.values().stream()
-                .filter(table -> schemaName.map(table.getSchemaName()::contentEquals).orElse(true))
+                .filter(table -> schemaName.map(table.schemaName()::contentEquals).orElse(true))
                 .map(TableInfo::getSchemaTableName)
                 .forEach(builder::add);
 
@@ -210,7 +210,7 @@ public class MemoryMetadata
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
         return tables.get(handle.id())
-                .getColumns().stream()
+                .columns().stream()
                 .collect(toImmutableMap(ColumnInfo::name, ColumnInfo::handle));
     }
 
@@ -283,7 +283,7 @@ public class MemoryMetadata
         long tableId = handle.id();
 
         TableInfo oldInfo = tables.get(tableId);
-        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getDataFragments(), oldInfo.getComment()));
+        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.columns(), oldInfo.dataFragments(), oldInfo.comment()));
 
         tableIds.remove(oldInfo.getSchemaTableName());
         tableIds.put(newTableName, tableId);
@@ -480,18 +480,18 @@ public class MemoryMetadata
         TableInfo info = tables.get(tableId);
         checkState(info != null, "Uninitialized tableId %s", tableId);
 
-        Map<HostAddress, MemoryDataFragment> dataFragments = new HashMap<>(info.getDataFragments());
+        Map<HostAddress, MemoryDataFragment> dataFragments = new HashMap<>(info.dataFragments());
         for (Slice fragment : fragments) {
             MemoryDataFragment memoryDataFragment = MemoryDataFragment.fromSlice(fragment);
             dataFragments.merge(memoryDataFragment.getHostAddress(), memoryDataFragment, MemoryDataFragment::merge);
         }
 
-        tables.put(tableId, new TableInfo(tableId, info.getSchemaName(), info.getTableName(), info.getColumns(), dataFragments, info.getComment()));
+        tables.put(tableId, new TableInfo(tableId, info.schemaName(), info.tableName(), info.columns(), dataFragments, info.comment()));
     }
 
     public synchronized List<MemoryDataFragment> getDataFragments(long tableId)
     {
-        return ImmutableList.copyOf(tables.get(tableId).getDataFragments().values());
+        return ImmutableList.copyOf(tables.get(tableId).dataFragments().values());
     }
 
     @Override
@@ -541,7 +541,7 @@ public class MemoryMetadata
         MemoryTableHandle table = (MemoryTableHandle) tableHandle;
         TableInfo info = tables.get(table.id());
         checkArgument(info != null, "Table not found");
-        tables.put(table.id(), new TableInfo(table.id(), info.getSchemaName(), info.getTableName(), info.getColumns(), info.getDataFragments(), comment));
+        tables.put(table.id(), new TableInfo(table.id(), info.schemaName(), info.tableName(), info.columns(), info.dataFragments(), comment));
     }
 
     @Override
@@ -554,13 +554,13 @@ public class MemoryMetadata
                 table.id(),
                 new TableInfo(
                         table.id(),
-                        info.getSchemaName(),
-                        info.getTableName(),
-                        info.getColumns().stream()
+                        info.schemaName(),
+                        info.tableName(),
+                        info.columns().stream()
                                 .map(tableColumn -> Objects.equals(tableColumn.handle(), columnHandle) ? new ColumnInfo(tableColumn.handle(), tableColumn.name(), tableColumn.getMetadata().getType(), comment) : tableColumn)
                                 .collect(toImmutableList()),
-                        info.getDataFragments(),
-                        info.getComment()));
+                        info.dataFragments(),
+                        info.comment()));
     }
 
     @Override
