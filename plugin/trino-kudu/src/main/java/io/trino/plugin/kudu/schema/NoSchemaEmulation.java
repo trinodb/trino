@@ -23,6 +23,8 @@ import java.util.List;
 
 import static io.trino.plugin.kudu.KuduClientSession.DEFAULT_SCHEMA;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
+import static java.lang.String.format;
 
 public class NoSchemaEmulation
         implements SchemaEmulation
@@ -31,7 +33,7 @@ public class NoSchemaEmulation
     public void createSchema(KuduClientWrapper client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
-            throw new SchemaAlreadyExistsException(schemaName);
+            throw new TrinoException(SCHEMA_ALREADY_EXISTS, format("Schema already exists: '%s'", schemaName));
         }
         throw new TrinoException(GENERIC_USER_ERROR, "Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
