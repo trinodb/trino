@@ -102,8 +102,8 @@ public class TpcdsMetadata
     {
         TpcdsTableHandle tpcdsTableHandle = (TpcdsTableHandle) tableHandle;
 
-        Table table = Table.getTable(tpcdsTableHandle.getTableName());
-        String schemaName = scaleFactorSchemaName(tpcdsTableHandle.getScaleFactor());
+        Table table = Table.getTable(tpcdsTableHandle.tableName());
+        String schemaName = scaleFactorSchemaName(tpcdsTableHandle.scaleFactor());
 
         return getTableMetadata(schemaName, table);
     }
@@ -123,8 +123,8 @@ public class TpcdsMetadata
     {
         TpcdsTableHandle tpcdsTableHandle = (TpcdsTableHandle) tableHandle;
 
-        Table table = Table.getTable(tpcdsTableHandle.getTableName());
-        String schemaName = scaleFactorSchemaName(tpcdsTableHandle.getScaleFactor());
+        Table table = Table.getTable(tpcdsTableHandle.tableName());
+        String schemaName = scaleFactorSchemaName(tpcdsTableHandle.scaleFactor());
 
         return tpcdsTableStatisticsFactory.create(schemaName, table, getColumnHandles(session, tableHandle));
     }
