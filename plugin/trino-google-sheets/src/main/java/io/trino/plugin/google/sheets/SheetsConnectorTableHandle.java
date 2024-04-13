@@ -25,7 +25,7 @@ public sealed interface SheetsConnectorTableHandle
     static NotFoundException tableNotFound(SheetsConnectorTableHandle tableHandle)
     {
         if (tableHandle instanceof SheetsNamedTableHandle sheetsNamedTableHandle) {
-            return new TableNotFoundException(new SchemaTableName(sheetsNamedTableHandle.getSchemaName(), sheetsNamedTableHandle.getTableName()));
+            return new TableNotFoundException(new SchemaTableName(sheetsNamedTableHandle.schemaName(), sheetsNamedTableHandle.tableName()));
         }
         if (tableHandle instanceof SheetsSheetTableHandle sheetsSheetTableHandle) {
             return new SheetNotFoundException(sheetsSheetTableHandle.getSheetExpression());
