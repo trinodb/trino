@@ -52,12 +52,12 @@ public class TpcdsTableStatisticsFactory
 
     private TableStatistics toTableStatistics(Map<String, ColumnHandle> columnHandles, TableStatisticsData statisticsData)
     {
-        long rowCount = statisticsData.getRowCount();
+        long rowCount = statisticsData.rowCount();
         TableStatistics.Builder tableStatistics = TableStatistics.builder()
                 .setRowCount(Estimate.of(rowCount));
 
         if (rowCount > 0) {
-            Map<String, ColumnStatisticsData> columnsData = statisticsData.getColumns();
+            Map<String, ColumnStatisticsData> columnsData = statisticsData.columns();
             for (Map.Entry<String, ColumnHandle> entry : columnHandles.entrySet()) {
                 TpcdsColumnHandle columnHandle = (TpcdsColumnHandle) entry.getValue();
                 tableStatistics.setColumnStatistics(entry.getValue(), toColumnStatistics(columnsData.get(entry.getKey()), columnHandle.getType(), rowCount));
