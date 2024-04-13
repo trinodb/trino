@@ -149,7 +149,7 @@ public class JmxMetadata
             // that attributes are in the same order on all of them.
             columns = columns.stream()
                     .distinct()
-                    .sorted(comparing(JmxColumnHandle::getColumnName))
+                    .sorted(comparing(JmxColumnHandle::columnName))
                     .collect(toImmutableList());
 
             return new JmxTableHandle(tableName, objectNames.stream().map(ObjectName::toString).collect(toImmutableList()), columns, true, TupleDomain.all());
@@ -221,7 +221,7 @@ public class JmxMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
-        return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumnHandles(), column -> column.getColumnName().toLowerCase(ENGLISH)));
+        return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumnHandles(), column -> column.columnName().toLowerCase(ENGLISH)));
     }
 
     @Override
@@ -270,7 +270,7 @@ public class JmxMetadata
         Map<ColumnHandle, Domain> otherDomains = new LinkedHashMap<>();
         domains.forEach((column, domain) -> {
             JmxColumnHandle columnHandle = (JmxColumnHandle) column;
-            if (columnHandle.getColumnName().equals(NODE_COLUMN_NAME)) {
+            if (columnHandle.columnName().equals(NODE_COLUMN_NAME)) {
                 nodeDomains.put(column, domain);
             }
             else {
