@@ -317,7 +317,7 @@ public class TpchMetadata
                 .setRowCount(Estimate.of(tableStatisticsData.rowCount()));
         tableStatisticsData.columns().forEach((columnName, stats) -> {
             TpchColumnHandle columnHandle = (TpchColumnHandle) getColumnHandle(tpchTableHandle, columnHandles, columnName);
-            builder.setColumnStatistics(columnHandle, toColumnStatistics(stats, columnHandle.getType()));
+            builder.setColumnStatistics(columnHandle, toColumnStatistics(stats, columnHandle.type()));
         });
         return builder.build();
     }
@@ -394,7 +394,7 @@ public class TpchMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
-        String columnName = ((TpchColumnHandle) columnHandle).getColumnName();
+        String columnName = ((TpchColumnHandle) columnHandle).columnName();
 
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.getName().equals(columnName)) {
@@ -527,14 +527,14 @@ public class TpchMetadata
                         ImmutableBiMap.copyOf(getColumnHandles(session, table)).inverse(),
                         handle.getConstraint()
                                 .transformKeys(TpchColumnHandle.class::cast)
-                                .transformKeys(TpchColumnHandle::getColumnName)));
+                                .transformKeys(TpchColumnHandle::columnName)));
     }
 
     private static TupleDomain<ColumnHandle> toTupleDomain(Map<TpchColumnHandle, Set<NullableValue>> predicate)
     {
         return TupleDomain.withColumnDomains(predicate.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
-                    Type type = entry.getKey().getType();
+                    Type type = entry.getKey().type();
                     return entry.getValue().stream()
                             .map(nullableValue -> Domain.singleValue(type, nullableValue.getValue()))
                             .reduce(Domain::union)

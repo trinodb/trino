@@ -243,7 +243,7 @@ public class TestLogicalPlanner
                                             .orElseThrow(() -> new AssertionError("Unexpected none TupleDomain"));
 
                                     Domain domain = domains.entrySet().stream()
-                                            .filter(entry -> ((TpchColumnHandle) entry.getKey()).getColumnName().equals("type"))
+                                            .filter(entry -> ((TpchColumnHandle) entry.getKey()).columnName().equals("type"))
                                             .map(Entry::getValue)
                                             .collect(toOptional())
                                             .orElseThrow(() -> new AssertionError("No domain for 'type'"));
@@ -256,7 +256,7 @@ public class TestLogicalPlanner
                                     return true;
                                 },
                                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                                        tableHandle -> ((TpchColumnHandle) tableHandle).getColumnName().equals("type"),
+                                        tableHandle -> ((TpchColumnHandle) tableHandle).columnName().equals("type"),
                                         Domain.create(
                                                 ValueSet.ofRanges(Range.range(createVarcharType(25), utf8Slice("LARGE PLATED "), true, utf8Slice("LARGE PLATED!"), false)),
                                                 false))),

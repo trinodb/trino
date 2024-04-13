@@ -222,7 +222,7 @@ public class TestPushProjectionIntoTableScan
     private MockConnectorFactory createMockFactory(Map<String, ColumnHandle> assignments, Optional<MockConnectorFactory.ApplyProjection> applyProjection)
     {
         List<ColumnMetadata> metadata = assignments.entrySet().stream()
-                .map(entry -> new ColumnMetadata(entry.getKey(), ((TpchColumnHandle) entry.getValue()).getType()))
+                .map(entry -> new ColumnMetadata(entry.getKey(), ((TpchColumnHandle) entry.getValue()).type()))
                 .collect(toImmutableList());
 
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder()

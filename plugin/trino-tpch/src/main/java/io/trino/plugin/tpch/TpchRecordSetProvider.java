@@ -67,7 +67,7 @@ public class TpchRecordSetProvider
     {
         ImmutableList.Builder<TpchColumn<E>> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
-            String columnName = ((TpchColumnHandle) column).getColumnName();
+            String columnName = ((TpchColumnHandle) column).columnName();
             if (columnName.equalsIgnoreCase(TpchMetadata.ROW_NUMBER_COLUMN_NAME)) {
                 builder.add(new RowNumberTpchColumn<>());
             }
