@@ -234,7 +234,7 @@ public class TestLogicalPlanner
                 anyTree(
                         tableScan(
                                 tableHandle -> {
-                                    Map<ColumnHandle, Domain> domains = ((TpchTableHandle) tableHandle).getConstraint().getDomains()
+                                    Map<ColumnHandle, Domain> domains = ((TpchTableHandle) tableHandle).constraint().getDomains()
                                             .orElseThrow(() -> new AssertionError("Unexpected none TupleDomain"));
 
                                     Domain domain = domains.entrySet().stream()
