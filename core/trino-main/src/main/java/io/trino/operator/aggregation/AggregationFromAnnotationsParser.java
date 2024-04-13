@@ -152,6 +152,7 @@ public final class AggregationFromAnnotationsParser
             functions.add(new ParametricAggregation(
                     exactImplementation.getSignature(),
                     header,
+                    header.hidden() || exactImplementation.isHidden(),
                     stateDetails,
                     ParametricImplementationsGroup.of(exactImplementation)));
         }
@@ -164,6 +165,7 @@ public final class AggregationFromAnnotationsParser
             functions.add(new ParametricAggregation(
                     implementations.getSignature(),
                     header,
+                    header.hidden() || nonExactImplementations.stream().allMatch(ParametricAggregationImplementation::isHidden),
                     stateDetails,
                     implementations));
         }

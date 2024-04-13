@@ -26,4 +26,5 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Target(METHOD)
 public @interface InputFunction
 {
+    boolean hidden() default false;
 }
