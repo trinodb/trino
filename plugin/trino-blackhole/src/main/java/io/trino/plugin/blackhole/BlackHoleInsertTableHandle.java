@@ -13,27 +13,16 @@
  */
 package io.trino.plugin.blackhole;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 
 import static java.util.Objects.requireNonNull;
 
-public final class BlackHoleInsertTableHandle
+public record BlackHoleInsertTableHandle(Duration pageProcessingDelay)
         implements ConnectorInsertTableHandle
 {
-    private final Duration pageProcessingDelay;
-
-    @JsonCreator
-    public BlackHoleInsertTableHandle(@JsonProperty("pageProcessingDelay") Duration pageProcessingDelay)
+    public BlackHoleInsertTableHandle
     {
-        this.pageProcessingDelay = requireNonNull(pageProcessingDelay, "pageProcessingDelay is null");
-    }
-
-    @JsonProperty
-    public Duration getPageProcessingDelay()
-    {
-        return pageProcessingDelay;
+        requireNonNull(pageProcessingDelay, "pageProcessingDelay is null");
     }
 }
