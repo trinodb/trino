@@ -58,16 +58,17 @@ public class ParametricAggregation
     public ParametricAggregation(
             Signature signature,
             AggregationHeader details,
+            boolean hidden,
             List<AccumulatorStateDetails<?>> stateDetails,
             ParametricImplementationsGroup<ParametricAggregationImplementation> implementations)
     {
-        super(createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
+        super(createFunctionMetadata(signature, details, implementations.getFunctionNullability(), hidden),
                 createAggregationFunctionMetadata(details, stateDetails));
         this.stateDetails = ImmutableList.copyOf(requireNonNull(stateDetails, "stateDetails is null"));
         this.implementations = requireNonNull(implementations, "implementations is null");
     }
 
-    private static FunctionMetadata createFunctionMetadata(Signature signature, AggregationHeader details, FunctionNullability functionNullability)
+    private static FunctionMetadata createFunctionMetadata(Signature signature, AggregationHeader details, FunctionNullability functionNullability, boolean hidden)
     {
         FunctionMetadata.Builder functionMetadata = FunctionMetadata.aggregateBuilder(details.name())
                 .signature(signature)
@@ -75,7 +76,7 @@ public class ParametricAggregation
 
         details.aliases().forEach(functionMetadata::alias);
 
-        if (details.hidden()) {
+        if (hidden) {
             functionMetadata.hidden();
         }
         if (details.deprecated()) {
