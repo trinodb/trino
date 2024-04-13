@@ -135,7 +135,7 @@ public abstract class KuduTestTable
         PartitionDesign partitionDesign = KuduTableProperties.getPartitionDesign(properties);
         if (partitionDesign.getHash() != null) {
             for (HashPartitionDefinition partition : partitionDesign.getHash()) {
-                options.addHashPartitions(partition.getColumns(), partition.getBuckets());
+                options.addHashPartitions(partition.columns(), partition.buckets());
             }
         }
         //if (partitionDesign.getRange() != null) {
@@ -146,8 +146,8 @@ public abstract class KuduTestTable
         List<RangePartition> rangePartitions = KuduTableProperties.getRangePartitions(properties);
         if (rangePartitionDefinition != null && !rangePartitions.isEmpty()) {
             for (RangePartition rangePartition : rangePartitions) {
-                PartialRow lower = KuduTableProperties.toRangeBoundToPartialRow(schema, rangePartitionDefinition, rangePartition.getLower());
-                PartialRow upper = KuduTableProperties.toRangeBoundToPartialRow(schema, rangePartitionDefinition, rangePartition.getUpper());
+                PartialRow lower = KuduTableProperties.toRangeBoundToPartialRow(schema, rangePartitionDefinition, rangePartition.lower());
+                PartialRow upper = KuduTableProperties.toRangeBoundToPartialRow(schema, rangePartitionDefinition, rangePartition.upper());
                 options.addRangePartition(lower, upper);
             }
         }

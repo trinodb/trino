@@ -234,10 +234,7 @@ public final class KuduTableProperties
         if (hashBuckets == null) {
             throw new TrinoException(GENERIC_USER_ERROR, "Missing table property " + bucketPropertyName);
         }
-        HashPartitionDefinition definition = new HashPartitionDefinition();
-        definition.setColumns(columns);
-        definition.setBuckets(hashBuckets);
-        return definition;
+        return new HashPartitionDefinition(columns, hashBuckets);
     }
 
     public static List<RangePartition> getRangePartitions(Map<String, Object> tableProperties)
@@ -285,12 +282,12 @@ public final class KuduTableProperties
             if (partitionDesign.getHash() != null) {
                 List<HashPartitionDefinition> list = partitionDesign.getHash();
                 if (!list.isEmpty()) {
-                    properties.put(PARTITION_BY_HASH_COLUMNS, list.get(0).getColumns());
-                    properties.put(PARTITION_BY_HASH_BUCKETS, list.get(0).getBuckets());
+                    properties.put(PARTITION_BY_HASH_COLUMNS, list.get(0).columns());
+                    properties.put(PARTITION_BY_HASH_BUCKETS, list.get(0).buckets());
                 }
                 if (list.size() >= 2) {
-                    properties.put(PARTITION_BY_HASH_COLUMNS_2, list.get(1).getColumns());
-                    properties.put(PARTITION_BY_HASH_BUCKETS_2, list.get(1).getBuckets());
+                    properties.put(PARTITION_BY_HASH_COLUMNS_2, list.get(1).columns());
+                    properties.put(PARTITION_BY_HASH_BUCKETS_2, list.get(1).buckets());
                 }
             }
 
@@ -400,12 +397,9 @@ public final class KuduTableProperties
 
         List<HashPartitionDefinition> hashPartitions = partitionSchema.getHashBucketSchemas().stream()
                 .map(hashBucketSchema -> {
-                    HashPartitionDefinition hash = new HashPartitionDefinition();
                     List<String> cols = hashBucketSchema.getColumnIds().stream()
                             .map(idx -> schema.getColumnByIndex(idx).getName()).collect(toImmutableList());
-                    hash.setColumns(cols);
-                    hash.setBuckets(hashBucketSchema.getNumBuckets());
-                    return hash;
+                    return new HashPartitionDefinition(cols, hashBucketSchema.getNumBuckets());
                 }).collect(toImmutableList());
         partitionDesign.setHash(hashPartitions);
 
