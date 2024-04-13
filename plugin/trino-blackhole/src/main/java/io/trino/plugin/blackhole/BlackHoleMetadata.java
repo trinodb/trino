@@ -315,7 +315,7 @@ public class BlackHoleMetadata
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         BlackHoleOutputTableHandle blackHoleOutputTableHandle = (BlackHoleOutputTableHandle) tableHandle;
-        BlackHoleTableHandle table = blackHoleOutputTableHandle.getTable();
+        BlackHoleTableHandle table = blackHoleOutputTableHandle.table();
         tables.put(table.toSchemaTableName(), table);
         return Optional.empty();
     }
