@@ -71,7 +71,7 @@ public final class MemoryPageSourceProvider
 
         int[] columnIndexes = columns.stream()
                 .map(MemoryColumnHandle.class::cast)
-                .mapToInt(MemoryColumnHandle::getColumnIndex)
+                .mapToInt(MemoryColumnHandle::columnIndex)
                 .toArray();
         List<Page> pages = pagesStore.getPages(
                 tableId,
