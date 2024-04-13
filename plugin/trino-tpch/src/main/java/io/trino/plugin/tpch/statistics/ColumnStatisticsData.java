@@ -13,31 +13,22 @@
  */
 package io.trino.plugin.tpch.statistics;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class ColumnStatisticsData
+public record ColumnStatisticsData(
+        Optional<Long> distinctValuesCount,
+        Optional<Object> min,
+        Optional<Object> max,
+        Optional<Long> dataSize)
 {
-    private final Optional<Long> distinctValuesCount;
-    private final Optional<Object> min;
-    private final Optional<Object> max;
-    private final Optional<Long> dataSize;
-
-    @JsonCreator
-    public ColumnStatisticsData(
-            @JsonProperty("distinctValuesCount") Optional<Long> distinctValuesCount,
-            @JsonProperty("min") Optional<Object> min,
-            @JsonProperty("max") Optional<Object> max,
-            @JsonProperty("dataSize") Optional<Long> dataSize)
+    public ColumnStatisticsData
     {
-        this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
-        this.min = requireNonNull(min, "min is null");
-        this.max = requireNonNull(max, "max is null");
-        this.dataSize = requireNonNull(dataSize, "dataSize is null");
+        requireNonNull(distinctValuesCount, "distinctValuesCount is null");
+        requireNonNull(min, "min is null");
+        requireNonNull(max, "max is null");
+        requireNonNull(dataSize, "dataSize is null");
     }
 
     public static ColumnStatisticsData empty()
@@ -48,25 +39,5 @@ public class ColumnStatisticsData
     public static ColumnStatisticsData zero()
     {
         return new ColumnStatisticsData(Optional.of(0L), Optional.empty(), Optional.empty(), Optional.of(0L));
-    }
-
-    public Optional<Long> getDistinctValuesCount()
-    {
-        return distinctValuesCount;
-    }
-
-    public Optional<Object> getMin()
-    {
-        return min;
-    }
-
-    public Optional<Object> getMax()
-    {
-        return max;
-    }
-
-    public Optional<Long> getDataSize()
-    {
-        return dataSize;
     }
 }
