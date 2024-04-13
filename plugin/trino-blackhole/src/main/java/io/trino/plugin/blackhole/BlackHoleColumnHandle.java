@@ -13,64 +13,26 @@
  */
 package io.trino.plugin.blackhole;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
-public final class BlackHoleColumnHandle
+public record BlackHoleColumnHandle(String name, Type columnType)
         implements ColumnHandle
 {
-    private final String name;
-    private final Type columnType;
-
-    @JsonCreator
-    public BlackHoleColumnHandle(
-            @JsonProperty("name") String name,
-            @JsonProperty("columnType") Type columnType)
+    public BlackHoleColumnHandle
     {
-        this.name = name;
-        this.columnType = columnType;
+        requireNonNull(name, "name is null");
+        requireNonNull(columnType, "columnType is null");
     }
 
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public Type getColumnType()
-    {
-        return columnType;
-    }
-
+    @JsonIgnore
     public ColumnMetadata toColumnMetadata()
     {
         return new ColumnMetadata(name, columnType);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name, columnType);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        BlackHoleColumnHandle other = (BlackHoleColumnHandle) obj;
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.columnType, other.columnType);
     }
 
     @Override

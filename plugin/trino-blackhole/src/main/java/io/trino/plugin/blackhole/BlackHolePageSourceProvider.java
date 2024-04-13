@@ -74,7 +74,7 @@ public final class BlackHolePageSourceProvider
         ImmutableList.Builder<Type> builder = ImmutableList.builder();
 
         for (ColumnHandle column : columns) {
-            builder.add(((BlackHoleColumnHandle) column).getColumnType());
+            builder.add(((BlackHoleColumnHandle) column).columnType());
         }
         List<Type> types = builder.build();
 
