@@ -472,7 +472,7 @@ public class KuduClientSession
         }
         if (partitionDesign.getRange() != null) {
             rangePartitionDefinition = partitionDesign.getRange();
-            options.setRangePartitionColumns(rangePartitionDefinition.getColumns());
+            options.setRangePartitionColumns(rangePartitionDefinition.columns());
         }
 
         List<RangePartition> rangePartitions = KuduTableProperties.getRangePartitions(properties);
