@@ -37,26 +37,6 @@ public final class BlackHoleTableHandle
     private final int fieldsLength;
     private final Duration pageProcessingDelay;
 
-    public BlackHoleTableHandle(
-            ConnectorTableMetadata tableMetadata,
-            int splitCount,
-            int pagesPerSplit,
-            int rowsPerPage,
-            int fieldsLength,
-            Duration pageProcessingDelay)
-    {
-        this(tableMetadata.getTable().getSchemaName(),
-                tableMetadata.getTable().getTableName(),
-                tableMetadata.getColumns().stream()
-                        .map(column -> new BlackHoleColumnHandle(column.getName(), column.getType()))
-                        .collect(toList()),
-                splitCount,
-                pagesPerSplit,
-                rowsPerPage,
-                fieldsLength,
-                pageProcessingDelay);
-    }
-
     @JsonCreator
     public BlackHoleTableHandle(
             @JsonProperty("schemaName") String schemaName,
