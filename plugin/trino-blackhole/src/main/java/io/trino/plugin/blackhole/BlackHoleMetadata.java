@@ -156,7 +156,7 @@ public class BlackHoleMetadata
     {
         BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
         return blackHoleTableHandle.getColumnHandles().stream()
-                .collect(toImmutableMap(BlackHoleColumnHandle::getName, Function.identity()));
+                .collect(toImmutableMap(BlackHoleColumnHandle::name, Function.identity()));
     }
 
     @Override
@@ -187,7 +187,7 @@ public class BlackHoleMetadata
         BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
         BlackHoleColumnHandle column = (BlackHoleColumnHandle) columnHandle;
         List<BlackHoleColumnHandle> columns = new ArrayList<>(table.getColumnHandles());
-        columns.set(columns.indexOf(column), new BlackHoleColumnHandle(column.getName(), type));
+        columns.set(columns.indexOf(column), new BlackHoleColumnHandle(column.name(), type));
 
         tables.put(table.toSchemaTableName(), new BlackHoleTableHandle(
                 table.getSchemaName(),
@@ -213,7 +213,7 @@ public class BlackHoleMetadata
             ColumnStatistics.Builder stats = ColumnStatistics.builder()
                     .setDistinctValuesCount(Estimate.of(1))
                     .setNullsFraction(Estimate.of(0));
-            if (isNumericType(column.getColumnType())) {
+            if (isNumericType(column.columnType())) {
                 stats.setRange(new DoubleRange(0, 0));
             }
             tableStats.setColumnStatistics(column, stats.build());
