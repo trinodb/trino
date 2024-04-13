@@ -39,7 +39,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.kudu.KuduClientSession.DEFAULT_SCHEMA;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static java.lang.String.format;
 
 public class SchemaEmulationByTableNameConvention
         implements SchemaEmulation
@@ -58,7 +60,7 @@ public class SchemaEmulationByTableNameConvention
     public void createSchema(KuduClientWrapper client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
-            throw new SchemaAlreadyExistsException(schemaName);
+            throw new TrinoException(SCHEMA_ALREADY_EXISTS, format("Schema already exists: '%s'", schemaName));
         }
         try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientWrapper(client)) {
             KuduTable schemasTable = getSchemasTable(client);
