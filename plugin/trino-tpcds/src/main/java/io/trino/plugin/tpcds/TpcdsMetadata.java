@@ -143,7 +143,7 @@ public class TpcdsMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
-        String columnName = ((TpcdsColumnHandle) columnHandle).getColumnName();
+        String columnName = ((TpcdsColumnHandle) columnHandle).columnName();
 
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.getName().equals(columnName)) {

@@ -60,7 +60,7 @@ public class TpcdsTableStatisticsFactory
             Map<String, ColumnStatisticsData> columnsData = statisticsData.columns();
             for (Map.Entry<String, ColumnHandle> entry : columnHandles.entrySet()) {
                 TpcdsColumnHandle columnHandle = (TpcdsColumnHandle) entry.getValue();
-                tableStatistics.setColumnStatistics(entry.getValue(), toColumnStatistics(columnsData.get(entry.getKey()), columnHandle.getType(), rowCount));
+                tableStatistics.setColumnStatistics(entry.getValue(), toColumnStatistics(columnsData.get(entry.getKey()), columnHandle.type(), rowCount));
             }
         }
 
