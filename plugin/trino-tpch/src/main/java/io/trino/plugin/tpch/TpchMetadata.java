@@ -314,8 +314,8 @@ public class TpchMetadata
     private TableStatistics toTableStatistics(TableStatisticsData tableStatisticsData, TpchTableHandle tpchTableHandle, Map<String, ColumnHandle> columnHandles)
     {
         TableStatistics.Builder builder = TableStatistics.builder()
-                .setRowCount(Estimate.of(tableStatisticsData.getRowCount()));
-        tableStatisticsData.getColumns().forEach((columnName, stats) -> {
+                .setRowCount(Estimate.of(tableStatisticsData.rowCount()));
+        tableStatisticsData.columns().forEach((columnName, stats) -> {
             TpchColumnHandle columnHandle = (TpchColumnHandle) getColumnHandle(tpchTableHandle, columnHandles, columnName);
             builder.setColumnStatistics(columnHandle, toColumnStatistics(stats, columnHandle.getType()));
         });
