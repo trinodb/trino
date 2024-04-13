@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.memory;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
@@ -22,32 +23,17 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ColumnInfo
+public record ColumnInfo(ColumnHandle handle, String name, Type type, Optional<String> comment)
 {
-    private final ColumnHandle handle;
-    private final String name;
-    private final Type type;
-
-    private final Optional<String> comment;
-
-    public ColumnInfo(ColumnHandle handle, String name, Type type, Optional<String> comment)
+    public ColumnInfo
     {
-        this.handle = requireNonNull(handle, "handle is null");
-        this.name = requireNonNull(name, "name is null");
-        this.type = requireNonNull(type, "type is null");
-        this.comment = requireNonNull(comment, "comment is null");
+        requireNonNull(handle, "handle is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(comment, "comment is null");
     }
 
-    public ColumnHandle getHandle()
-    {
-        return handle;
-    }
-
-    public String getName()
-    {
-        return name;
-    }
-
+    @JsonIgnore
     public ColumnMetadata getMetadata()
     {
         return ColumnMetadata.builder()

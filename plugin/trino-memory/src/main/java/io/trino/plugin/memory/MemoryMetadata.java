@@ -211,7 +211,7 @@ public class MemoryMetadata
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
         return tables.get(handle.getId())
                 .getColumns().stream()
-                .collect(toImmutableMap(ColumnInfo::getName, ColumnInfo::getHandle));
+                .collect(toImmutableMap(ColumnInfo::name, ColumnInfo::handle));
     }
 
     @Override
@@ -557,7 +557,7 @@ public class MemoryMetadata
                         info.getSchemaName(),
                         info.getTableName(),
                         info.getColumns().stream()
-                                .map(tableColumn -> Objects.equals(tableColumn.getHandle(), columnHandle) ? new ColumnInfo(tableColumn.getHandle(), tableColumn.getName(), tableColumn.getMetadata().getType(), comment) : tableColumn)
+                                .map(tableColumn -> Objects.equals(tableColumn.handle(), columnHandle) ? new ColumnInfo(tableColumn.handle(), tableColumn.name(), tableColumn.getMetadata().getType(), comment) : tableColumn)
                                 .collect(toImmutableList()),
                         info.getDataFragments(),
                         info.getComment()));
