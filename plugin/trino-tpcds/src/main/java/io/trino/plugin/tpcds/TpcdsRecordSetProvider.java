@@ -45,8 +45,8 @@ public class TpcdsRecordSetProvider
         TpcdsSplit tpcdsSplit = (TpcdsSplit) split;
         TpcdsTableHandle tpcdsTable = (TpcdsTableHandle) tableHandle;
 
-        Table table = getTable(tpcdsTable.getTableName());
-        double scaleFactor = tpcdsTable.getScaleFactor();
+        Table table = getTable(tpcdsTable.tableName());
+        double scaleFactor = tpcdsTable.scaleFactor();
         int partNumber = tpcdsSplit.getPartNumber();
         int totalParts = tpcdsSplit.getTotalParts();
         boolean noSexism = tpcdsSplit.isNoSexism();
