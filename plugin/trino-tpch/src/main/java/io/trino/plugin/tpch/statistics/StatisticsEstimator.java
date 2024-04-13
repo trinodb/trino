@@ -64,12 +64,12 @@ public class StatisticsEstimator
 
     private TableStatisticsData addPartitionStats(TableStatisticsData left, TableStatisticsData right, TpchColumn<?> partitionColumn)
     {
-        Map<String, ColumnStatisticsData> combinedColumnStats = left.getColumns().entrySet().stream().collect(toImmutableMap(
+        Map<String, ColumnStatisticsData> combinedColumnStats = left.columns().entrySet().stream().collect(toImmutableMap(
                 Map.Entry::getKey,
                 entry -> {
                     String columnName = entry.getKey();
                     ColumnStatisticsData leftStats = entry.getValue();
-                    ColumnStatisticsData rightStats = right.getColumns().get(columnName);
+                    ColumnStatisticsData rightStats = right.columns().get(columnName);
                     Optional<Long> ndv = addDistinctValuesCount(partitionColumn, columnName, leftStats, rightStats);
                     Optional<Object> min = combine(leftStats.min(), rightStats.min(), this::min);
                     Optional<Object> max = combine(leftStats.max(), rightStats.max(), this::max);
@@ -80,7 +80,7 @@ public class StatisticsEstimator
                 }));
 
         return new TableStatisticsData(
-                left.getRowCount() + right.getRowCount(),
+                left.rowCount() + right.rowCount(),
                 combinedColumnStats);
     }
 
