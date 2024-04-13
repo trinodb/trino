@@ -14,58 +14,16 @@
 
 package io.trino.plugin.tpcds.statistics;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class ColumnStatisticsData
+public record ColumnStatisticsData(long distinctValuesCount, long nullsCount, Optional<Object> min, Optional<Object> max, Optional<Long> dataSize)
 {
-    private final long distinctValuesCount;
-    private final long nullsCount;
-    private final Optional<Object> min;
-    private final Optional<Object> max;
-    private final Optional<Long> dataSize;
-
-    @JsonCreator
-    public ColumnStatisticsData(
-            @JsonProperty("distinctValuesCount") long distinctValuesCount,
-            @JsonProperty("nullsCount") long nullsCount,
-            @JsonProperty("min") Optional<Object> min,
-            @JsonProperty("max") Optional<Object> max,
-            @JsonProperty("dataSize") Optional<Long> dataSize)
+    public ColumnStatisticsData
     {
-        this.distinctValuesCount = distinctValuesCount;
-        this.nullsCount = nullsCount;
-        this.min = requireNonNull(min, "min is null");
-        this.max = requireNonNull(max, "max is null");
-        this.dataSize = requireNonNull(dataSize, "dataSize is null");
-    }
-
-    public long getDistinctValuesCount()
-    {
-        return distinctValuesCount;
-    }
-
-    public long getNullsCount()
-    {
-        return nullsCount;
-    }
-
-    public Optional<Object> getMin()
-    {
-        return min;
-    }
-
-    public Optional<Object> getMax()
-    {
-        return max;
-    }
-
-    public Optional<Long> getDataSize()
-    {
-        return dataSize;
+        requireNonNull(min, "min is null");
+        requireNonNull(max, "max is null");
+        requireNonNull(dataSize, "dataSize is null");
     }
 }
