@@ -69,14 +69,14 @@ public class TpchIndexMetadata
                 .build();
 
         // do we have an index?
-        if (indexedData.getIndexedTable(tpchTableHandle.getTableName(), tpchTableHandle.getScaleFactor(), lookupColumnNames).isEmpty()) {
+        if (indexedData.getIndexedTable(tpchTableHandle.tableName(), tpchTableHandle.scaleFactor(), lookupColumnNames).isEmpty()) {
             return Optional.empty();
         }
 
         TupleDomain<ColumnHandle> filteredTupleDomain = tupleDomain.filter((column, domain) -> !fixedValues.containsKey(column));
         TpchIndexHandle indexHandle = new TpchIndexHandle(
-                tpchTableHandle.getTableName(),
-                tpchTableHandle.getScaleFactor(),
+                tpchTableHandle.tableName(),
+                tpchTableHandle.scaleFactor(),
                 lookupColumnNames,
                 TupleDomain.fromFixedValues(fixedValues));
         return Optional.of(new ConnectorResolvedIndex(indexHandle, filteredTupleDomain));
