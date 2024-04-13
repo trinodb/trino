@@ -13,37 +13,43 @@
  */
 package io.trino.filesystem.alluxio;
 
-import alluxio.AlluxioURI;
 import alluxio.client.file.FileInStream;
 import alluxio.client.file.FileSystem;
 import alluxio.client.file.URIStatus;
 import alluxio.exception.AlluxioException;
+import alluxio.exception.FileDoesNotExistException;
+import alluxio.exception.runtime.NotFoundRuntimeException;
 import alluxio.grpc.OpenFilePOptions;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
 
+import static io.trino.filesystem.alluxio.AlluxioUtils.convertToAlluxioURI;
 import static java.util.Objects.requireNonNull;
 
-public class AlluxioInputFile
+public class AlluxioFileSystemInputFile
         implements TrinoInputFile
 {
     private final Location location;
 
     private final FileSystem fileSystem;
 
+    private final String mountRoot;
+
     private Long length;
 
     private URIStatus status;
 
-    public AlluxioInputFile(Location location, Long length, FileSystem fileSystem)
+    public AlluxioFileSystemInputFile(Location location, Long length, FileSystem fileSystem, String mountRoot)
     {
         this.location = requireNonNull(location, "location is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+        this.mountRoot = requireNonNull(mountRoot, "mountRoot is null");
         this.length = length;
     }
 
@@ -52,7 +58,7 @@ public class AlluxioInputFile
             throws IOException
     {
         try {
-            return new AlluxioInput(openFile(), this);
+            return new AlluxioFileSystemInput(openFile(), this);
         }
         catch (AlluxioException e) {
             throw new IOException("Error newInput() file: %s".formatted(location), e);
@@ -64,8 +70,7 @@ public class AlluxioInputFile
             throws IOException
     {
         try {
-            AlluxioTrinoInputStream alluxioTrinoInputStream = new AlluxioTrinoInputStream(location, openFile());
-            return alluxioTrinoInputStream;
+            return new AlluxioTrinoInputStream(location, openFile(), getStatus());
         }
         catch (AlluxioException e) {
             throw new IOException("Error newStream() file: %s".formatted(location), e);
@@ -75,21 +80,36 @@ public class AlluxioInputFile
     private FileInStream openFile()
             throws IOException, AlluxioException
     {
-        FileInStream fileInStream = fileSystem.openFile(lazyStatus(), OpenFilePOptions.getDefaultInstance());
-        return fileInStream;
+        if (!exists()) {
+            throw new FileNotFoundException("File does not exist: " + location);
+        }
+        return fileSystem.openFile(getStatus(), OpenFilePOptions.getDefaultInstance());
     }
 
-    private URIStatus lazyStatus()
+    private URIStatus getStatus(boolean lazy)
             throws IOException
     {
-        if (status == null) {
-            try {
-                //TODO: create a URIStatus object based on the location field
-                status = fileSystem.getStatus(new AlluxioURI(location.toString()));
+        if (lazy) {
+            if (status == null) {
+                getStatus();
             }
-            catch (AlluxioException | IOException e) {
-                throw new IOException("Get status for file %s failed: %s".formatted(location, e.getMessage()), e);
-            }
+            return status;
+        }
+        return getStatus();
+    }
+
+    private URIStatus getStatus()
+            throws IOException
+    {
+        try {
+            //TODO: create a URIStatus object based on the location field
+            status = fileSystem.getStatus(convertToAlluxioURI(location, mountRoot));
+        }
+        catch (FileDoesNotExistException | NotFoundRuntimeException e) {
+            return null;
+        }
+        catch (AlluxioException | IOException e) {
+            throw new IOException("Get status for file %s failed: %s".formatted(location, e.getMessage()), e);
         }
         return status;
     }
@@ -99,7 +119,11 @@ public class AlluxioInputFile
             throws IOException
     {
         if (length == null) {
-            length = lazyStatus().getLength();
+            URIStatus status = getStatus(true);
+            if (status == null) {
+                throw new FileNotFoundException("File does not exist: %s".formatted(location));
+            }
+            length = status.getLength();
         }
         return length;
     }
@@ -108,22 +132,22 @@ public class AlluxioInputFile
     public Instant lastModified()
             throws IOException
     {
-        return Instant.ofEpochMilli(lazyStatus().getLastModificationTimeMs());
+        URIStatus status = getStatus(true);
+        if (status == null) {
+            throw new FileNotFoundException("File does not exist: %s".formatted(location));
+        }
+        return Instant.ofEpochMilli(status.getLastModificationTimeMs());
     }
 
     @Override
     public boolean exists()
             throws IOException
     {
-        try {
-            //TODO: check if this way builds a correct AlluxioURI argument
-            URIStatus status = lazyStatus();
-            AlluxioURI alluxioURI = new AlluxioURI(status.getPath());
-            return fileSystem.exists(alluxioURI);
+        URIStatus status = getStatus();
+        if (status == null || !status.isCompleted()) {
+            return false;
         }
-        catch (AlluxioException e) {
-            throw new IOException("Error exists() file: %s".formatted(location), e);
-        }
+        return true;
     }
 
     @Override

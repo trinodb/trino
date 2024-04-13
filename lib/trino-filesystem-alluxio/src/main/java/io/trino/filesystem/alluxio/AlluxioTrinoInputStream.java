@@ -14,6 +14,7 @@
 package io.trino.filesystem.alluxio;
 
 import alluxio.client.file.FileInStream;
+import alluxio.client.file.URIStatus;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputStream;
 
@@ -27,12 +28,14 @@ public class AlluxioTrinoInputStream
 {
     private final Location location;
     private final FileInStream stream;
+    private final URIStatus fileStatus;
     private boolean closed;
 
-    public AlluxioTrinoInputStream(Location location, FileInStream stream)
+    public AlluxioTrinoInputStream(Location location, FileInStream stream, URIStatus fileStatus)
     {
         this.location = requireNonNull(location, "location is null");
         this.stream = requireNonNull(stream, "stream is null");
+        this.fileStatus = requireNonNull(fileStatus, "fileStatus is null");
     }
 
     @Override
@@ -53,11 +56,17 @@ public class AlluxioTrinoInputStream
             throws IOException
     {
         ensureOpen();
+        if (position < 0) {
+            throw new IOException("Negative seek offset");
+        }
+        if (position > fileStatus.getLength()) {
+            throw new IOException("Cannot seek to %s. File size is %s: %s".formatted(position, fileStatus.getLength(), location));
+        }
         try {
-            stream.skip(position);
+            stream.seek(position);
         }
         catch (IOException e) {
-            throw new IOException("Skipping %s bytes of file %s failed: %s".formatted(position, location, e.getMessage()), e);
+            throw new IOException("Cannot seek to %s: %s".formatted(position, location));
         }
     }
 
@@ -115,5 +124,13 @@ public class AlluxioTrinoInputStream
         if (closed) {
             throw new IOException("Input stream closed: " + location);
         }
+    }
+
+    @Override
+    public int available()
+            throws IOException
+    {
+        ensureOpen();
+        return super.available();
     }
 }
