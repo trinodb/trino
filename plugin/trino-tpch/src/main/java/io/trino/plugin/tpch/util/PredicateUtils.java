@@ -28,8 +28,8 @@ public final class PredicateUtils
     public static Predicate<NullableValue> convertToPredicate(TupleDomain<ColumnHandle> predicate, TpchColumnHandle columnHandle)
     {
         Domain columnDomain = predicate.getDomains()
-                .map(domains -> domains.getOrDefault(columnHandle, Domain.all(columnHandle.getType())))
-                .orElseGet(() -> Domain.none(columnHandle.getType()));
+                .map(domains -> domains.getOrDefault(columnHandle, Domain.all(columnHandle.type())))
+                .orElseGet(() -> Domain.none(columnHandle.type()));
 
         return nullableValue -> columnDomain.includesNullableValue(nullableValue.getValue());
     }
