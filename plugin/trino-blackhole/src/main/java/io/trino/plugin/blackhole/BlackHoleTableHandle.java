@@ -48,7 +48,7 @@ public final class BlackHoleTableHandle
         this(tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
                 tableMetadata.getColumns().stream()
-                        .map(BlackHoleColumnHandle::new)
+                        .map(column -> new BlackHoleColumnHandle(column.getName(), column.getType()))
                         .collect(toList()),
                 splitCount,
                 pagesPerSplit,
