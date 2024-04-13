@@ -67,7 +67,7 @@ public final class MemoryPageSourceProvider
         int totalParts = memorySplit.getTotalPartsPerWorker();
         long expectedRows = memorySplit.getExpectedRows();
         MemoryTableHandle memoryTable = (MemoryTableHandle) table;
-        OptionalDouble sampleRatio = memoryTable.getSampleRatio();
+        OptionalDouble sampleRatio = memoryTable.sampleRatio();
 
         int[] columnIndexes = columns.stream()
                 .map(MemoryColumnHandle.class::cast)
