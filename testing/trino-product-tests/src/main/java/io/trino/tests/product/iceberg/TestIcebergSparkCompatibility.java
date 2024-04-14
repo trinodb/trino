@@ -1772,7 +1772,7 @@ public class TestIcebergSparkCompatibility
 
         List<Row> expected = ImmutableList.of(row(11, 12), row(12, 12));
 
-        onTrino().executeQuery("SET SESSION iceberg.aggregation_pushdown_enabled = 'true'");
+        onTrino().executeQuery("SET SESSION iceberg.aggregation_pushdown_enabled = true");
 
         assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
