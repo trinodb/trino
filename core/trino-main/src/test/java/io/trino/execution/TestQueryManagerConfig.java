@@ -29,6 +29,8 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.QueryManagerConfig.AVAILABLE_HEAP_MEMORY;
 import static io.trino.execution.QueryManagerConfig.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT;
+import static java.lang.Math.max;
+import static java.lang.Math.round;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -66,7 +68,7 @@ public class TestQueryManagerConfig
                 .setQueryMaxPlanningTime(new Duration(10, MINUTES))
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, DAYS))
                 .setQueryReportedRuleStatsLimit(10)
-                .setDispatcherQueryPoolSize(Runtime.getRuntime().availableProcessors() * 10)
+                .setDispatcherQueryPoolSize(max(50, Runtime.getRuntime().availableProcessors() * 10))
                 .setQueryMaxScanPhysicalBytes(null)
                 .setRequiredWorkers(1)
                 .setRequiredWorkersMaxWait(new Duration(5, MINUTES))
@@ -97,7 +99,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(2000)
                 .setFaultTolerantExecutionStandardSplitSize(DataSize.of(64, MEGABYTE))
                 .setFaultTolerantExecutionMaxTaskSplitCount(256)
-                .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15)))
+                .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(round(AVAILABLE_HEAP_MEMORY * 0.15)))
                 .setFaultTolerantExecutionMaxPartitionCount(50)
                 .setFaultTolerantExecutionMinPartitionCount(4)
                 .setFaultTolerantExecutionMinPartitionCountForWrite(50)
