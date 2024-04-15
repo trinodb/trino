@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
  * a table function having KEEP WHEN EMPTY property must have single distribution.
  */
 public class EmptyTableFunctionPartition
-        implements TableFunctionPartition
+        implements TableFunctionInput
 {
     private final TableFunctionDataProcessor tableFunction;
     private final int properChannelsCount;

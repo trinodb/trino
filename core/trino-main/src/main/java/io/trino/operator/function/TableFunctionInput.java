@@ -16,7 +16,7 @@ package io.trino.operator.function;
 import io.trino.operator.WorkProcessor;
 import io.trino.spi.Page;
 
-public interface TableFunctionPartition
+public interface TableFunctionInput
 {
     WorkProcessor<Page> toOutputPages();
 }
