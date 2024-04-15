@@ -66,7 +66,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
@@ -2533,7 +2532,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                     .collect(toImmutableList());
 
             long successfulInsertsCount = futures.stream()
-                    .map(future -> tryGetFutureValue(future, 20, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .map(MoreFutures::getFutureValue)
                     .filter(success -> success)
                     .count();
 

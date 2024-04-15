@@ -49,7 +49,6 @@ import java.util.stream.LongStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
@@ -220,7 +219,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .collect(toImmutableList());
 
             long successfulInsertsCount = futures.stream()
-                    .map(future -> tryGetFutureValue(future, 20, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .map(MoreFutures::getFutureValue)
                     .filter(success -> success)
                     .count();
 
@@ -290,7 +289,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .collect(toImmutableList());
 
             long successfulInsertsCount = futures.stream()
-                    .map(future -> tryGetFutureValue(future, 20, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .map(MoreFutures::getFutureValue)
                     .filter(success -> success)
                     .count();
 
@@ -530,7 +529,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .collect(toImmutableList());
 
             long successfulInsertsCount = futures.stream()
-                    .map(future -> tryGetFutureValue(future, 20, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .map(MoreFutures::getFutureValue)
                     .filter(success -> success)
                     .count();
             assertThat(successfulInsertsCount).isGreaterThanOrEqualTo(1);
@@ -588,7 +587,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .collect(toImmutableList());
 
             long successfulInsertsCount = futures.stream()
-                    .map(future -> tryGetFutureValue(future, 20, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .map(MoreFutures::getFutureValue)
                     .filter(success -> success)
                     .count();
             assertThat(successfulInsertsCount).isGreaterThanOrEqualTo(1);
