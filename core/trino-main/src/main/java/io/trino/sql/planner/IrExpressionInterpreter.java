@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -29,6 +30,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
@@ -761,6 +763,24 @@ public class IrExpressionInterpreter
                 }
                 default -> new Cast(value, node.type(), node.safe());
             };
+        }
+
+        @Override
+        protected Expression visitArray(Array node, SymbolResolver context)
+        {
+            List<Expression> elements = node.elements().stream()
+                    .map(field -> processWithExceptionHandling(field, context))
+                    .toList();
+
+            if (elements.stream().allMatch(Constant.class::isInstance)) {
+                BlockBuilder builder = node.elementType().createBlockBuilder(null, node.elements().size());
+                for (Expression element : elements) {
+                    writeNativeValue(node.elementType(), builder, ((Constant) element).value());
+                }
+                return new Constant(node.type(), builder.build());
+            }
+
+            return new Array(node.elementType(), elements);
         }
 
         @Override

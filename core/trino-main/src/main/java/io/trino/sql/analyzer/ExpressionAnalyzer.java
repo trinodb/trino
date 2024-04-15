@@ -28,14 +28,12 @@ import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
@@ -179,7 +177,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonExistsFunction.JSON_EXISTS_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_TO_JSON;
@@ -294,8 +291,6 @@ public class ExpressionAnalyzer
 {
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT = 63;
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
-
-    private static final CatalogSchemaFunctionName ARRAY_CONSTRUCTOR_NAME = builtinFunctionName(ArrayConstructor.NAME);
 
     public static final RowType JSON_NO_PARAMETERS_ROW_TYPE = RowType.anonymous(ImmutableList.of(UNKNOWN));
 
@@ -1379,14 +1374,7 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
 
-            if (function.getSignature().getName().equals(ARRAY_CONSTRUCTOR_NAME)) {
-                // After optimization, array constructor is rewritten to a function call.
-                // For historic reasons array constructor is allowed to have 254 arguments
-                if (node.getArguments().size() > 254) {
-                    throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for array constructor");
-                }
-            }
-            else if (node.getArguments().size() > 127) {
+            if (node.getArguments().size() > 127) {
                 throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.getSignature().getName().getFunctionName());
             }
 
