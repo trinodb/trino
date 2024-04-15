@@ -33,6 +33,9 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.max;
+import static java.lang.Math.round;
+import static java.lang.Runtime.getRuntime;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -55,10 +58,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 })
 public class QueryManagerConfig
 {
-    public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
+    public static final long AVAILABLE_HEAP_MEMORY = getRuntime().maxMemory();
     public static final int MAX_TASK_RETRY_ATTEMPTS = 126;
     public static final int FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT = 1000;
-
+    public static final int DISPATCHER_THREADPOOL_MAX_SIZE = max(50, getRuntime().availableProcessors() * 10);
     private int scheduleSplitBatchSize = 1000;
     private int minScheduleSplitBatchSize = 100;
     private int maxConcurrentQueries = 1000;
@@ -95,6 +98,7 @@ public class QueryManagerConfig
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
     private Optional<DataSize> queryMaxScanPhysicalBytes = Optional.empty();
     private int queryReportedRuleStatsLimit = 10;
+    private int dispatcherQueryPoolSize = DISPATCHER_THREADPOOL_MAX_SIZE;
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
@@ -132,7 +136,7 @@ public class QueryManagerConfig
 
     private DataSize faultTolerantExecutionStandardSplitSize = DataSize.of(64, MEGABYTE);
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
-    private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
+    private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(round(AVAILABLE_HEAP_MEMORY * 0.15));
     private int faultTolerantExecutionMaxPartitionCount = 50;
     private int faultTolerantExecutionMinPartitionCount = 4;
     private int faultTolerantExecutionMinPartitionCountForWrite = 50;
@@ -501,6 +505,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryReportedRuleStatsLimit(int queryReportedRuleStatsLimit)
     {
         this.queryReportedRuleStatsLimit = queryReportedRuleStatsLimit;
+        return this;
+    }
+
+    @Min(1)
+    public int getDispatcherQueryPoolSize()
+    {
+        return dispatcherQueryPoolSize;
+    }
+
+    @Config("query.dispatcher-query-pool-size")
+    public QueryManagerConfig setDispatcherQueryPoolSize(int dispatcherQueryPoolSize)
+    {
+        this.dispatcherQueryPoolSize = dispatcherQueryPoolSize;
         return this;
     }
 
