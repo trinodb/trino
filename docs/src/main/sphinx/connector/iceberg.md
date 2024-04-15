@@ -701,6 +701,12 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Optionally specifies table partitioning. If a table is partitioned by
     columns `c1` and `c2`, the partitioning property is `partitioning =
     ARRAY['c1', 'c2']`.
+* - `sorted_by`
+  - The sort order to be applied during writes to the content of
+    each file written to the table. If the table files are sorted by columns
+    `c1` and `c2`, the sort order property is `sorted_by = ARRAY['c1', 'c2']`.
+    The sort order applies to the contents written within each output file
+    independently and not the entire dataset.
 * - `location`
   - Optionally specifies the file system location URI for the table.
 * - `format_version`
