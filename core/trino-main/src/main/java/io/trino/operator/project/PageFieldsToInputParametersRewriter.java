@@ -125,6 +125,7 @@ public final class PageFieldsToInputParametersRewriter
                 case IS_NULL:
                 case NULL_IF:
                 case DEREFERENCE:
+                case ARRAY_CONSTRUCTOR:
                 case ROW_CONSTRUCTOR:
                     return new SpecialForm(
                             specialForm.getForm(),

@@ -19,11 +19,11 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -132,7 +132,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
@@ -153,7 +152,6 @@ import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
 import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
-import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -674,20 +672,12 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(Array expression)
     {
-        checkCondition(expression.getValues().size() <= 254, TOO_MANY_ARGUMENTS, "Too many arguments for array constructor");
-
-        List<Type> types = expression.getValues().stream()
-                .map(analysis::getType)
-                .collect(toImmutableList());
-
         List<io.trino.sql.ir.Expression> values = expression.getValues().stream()
                 .map(this::translateExpression)
                 .collect(toImmutableList());
 
-        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                .setName(ArrayConstructor.NAME)
-                .setArguments(types, values)
-                .build();
+        Type type = analysis.getType(expression);
+        return new io.trino.sql.ir.Array(((ArrayType) type).getElementType(), values);
     }
 
     private io.trino.sql.ir.Expression translate(CurrentCatalog unused)

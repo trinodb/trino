@@ -165,6 +165,7 @@ public class ExpressionOptimizer
                 case OR:
                 case IN:
                 case DEREFERENCE:
+                case ARRAY_CONSTRUCTOR:
                 case ROW_CONSTRUCTOR: {
                     List<RowExpression> arguments = specialForm.getArguments().stream()
                             .map(argument -> argument.accept(this, null))

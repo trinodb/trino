@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -41,7 +42,6 @@ public class TestArraySortAfterArrayDistinct
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction ARRAY = FUNCTIONS.resolveFunction("$array", fromTypes(VARCHAR));
     private static final ResolvedFunction SORT = FUNCTIONS.resolveFunction("array_sort", fromTypes(new ArrayType(VARCHAR)));
     private static final ResolvedFunction SORT_WITH_LAMBDA = FUNCTIONS.resolveFunction("array_sort", fromTypes(new ArrayType(VARCHAR), new FunctionType(ImmutableList.of(VARCHAR, VARCHAR), INTEGER)));
     private static final ResolvedFunction DISTINCT = FUNCTIONS.resolveFunction("array_distinct", fromTypes(new ArrayType(VARCHAR)));
@@ -50,8 +50,8 @@ public class TestArraySortAfterArrayDistinct
     public void testArrayDistinctAfterArraySort()
     {
         test(
-                new Call(DISTINCT, ImmutableList.of(new Call(SORT, ImmutableList.of(new Call(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
-                new Call(SORT, ImmutableList.of(new Call(DISTINCT, ImmutableList.of(new Call(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))));
+                new Call(DISTINCT, ImmutableList.of(new Call(SORT, ImmutableList.of(new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
+                new Call(SORT, ImmutableList.of(new Call(DISTINCT, ImmutableList.of(new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))));
     }
 
     @Test
@@ -60,11 +60,11 @@ public class TestArraySortAfterArrayDistinct
         test(
                 new Call(DISTINCT, ImmutableList.of(
                         new Call(SORT_WITH_LAMBDA, ImmutableList.of(
-                                new Call(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))),
+                                new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))),
                                 new Lambda(ImmutableList.of(new Symbol(VARCHAR, "a"), new Symbol(VARCHAR, "b")), new Constant(INTEGER, 1L)))))),
                 new Call(SORT_WITH_LAMBDA, ImmutableList.of(
                         new Call(DISTINCT, ImmutableList.of(
-                                new Call(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))),
+                                new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))),
                         new Lambda(ImmutableList.of(new Symbol(VARCHAR, "a"), new Symbol(VARCHAR, "b")), new Constant(INTEGER, 1L)))));
     }
 

@@ -15,7 +15,6 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
-import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
@@ -24,13 +23,13 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.ResolvedField;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.NodeRef;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -93,10 +92,7 @@ public final class GroupingOperationRewriter
         return new Call(
                 metadata.resolveOperator(OperatorType.SUBSCRIPT, ImmutableList.of(new ArrayType(type), BIGINT)),
                 ImmutableList.of(
-                        BuiltinFunctionCallBuilder.resolve(metadata)
-                                .setName(ArrayConstructor.NAME)
-                                .setArguments(Collections.nCopies(groupingResults.size(), type), groupingResults)
-                                .build(),
+                        new Array(type, groupingResults),
                         new Call(
                                 metadata.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT)),
                                 ImmutableList.of(groupIdSymbol.get().toSymbolReference(), new Constant(BIGINT, 1L)))));
