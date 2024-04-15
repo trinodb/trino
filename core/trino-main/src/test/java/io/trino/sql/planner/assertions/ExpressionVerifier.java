@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.assertions;
 
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
@@ -70,6 +71,16 @@ public final class ExpressionVerifier
     public ExpressionVerifier(SymbolAliases symbolAliases)
     {
         this.symbolAliases = requireNonNull(symbolAliases, "symbolAliases is null");
+    }
+
+    @Override
+    protected Boolean visitArray(Array actual, Expression expectedExpression)
+    {
+        if (!(expectedExpression instanceof Array expected)) {
+            return false;
+        }
+
+        return process(actual.elements(), expected.elements());
     }
 
     @Override

@@ -41,6 +41,7 @@ public class IrExpressions
     public static boolean mayFail(PlannerContext plannerContext, Expression expression)
     {
         return switch (expression) {
+            case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
             case Between e -> mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
             case Bind e -> false;
             case Call e -> mayFail(e.function()) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument)); // TODO: allow functions to be marked as non-failing

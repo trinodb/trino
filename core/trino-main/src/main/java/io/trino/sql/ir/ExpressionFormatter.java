@@ -57,6 +57,14 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitArray(Array node, Void context)
+        {
+            return node.elements().stream()
+                    .map(child -> process(child, context))
+                    .collect(joining(", ", "ARRAY[", "]"));
+        }
+
+        @Override
         protected String visitRow(Row node, Void context)
         {
             return node.items().stream()
