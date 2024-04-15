@@ -299,7 +299,7 @@ public class TableFunctionOperator
                         markerChannels,
                         passThroughSpecifications,
                         processEmptyInput))
-                .flatMap(TableFunctionPartition::toOutputPages);
+                .flatMap(TableFunctionInput::toOutputPages);
     }
 
     @Override
@@ -530,7 +530,7 @@ public class TableFunctionOperator
         return findEndPosition(startPosition, pagesIndex.getPositionCount(), (firstPosition, secondPosition) -> pagesIndex.positionIdenticalToPosition(pagesHashStrategy, firstPosition, secondPosition));
     }
 
-    private WorkProcessor<TableFunctionPartition> pagesIndexToTableFunctionPartitions(
+    private WorkProcessor<TableFunctionInput> pagesIndexToTableFunctionPartitions(
             PagesIndex pagesIndex,
             HashStrategies hashStrategies,
             TableFunctionProcessorProvider tableFunctionProvider,
@@ -553,7 +553,7 @@ public class TableFunctionOperator
             private boolean processEmpty = processEmptyInput;
 
             @Override
-            public WorkProcessor.ProcessState<TableFunctionPartition> process()
+            public WorkProcessor.ProcessState<TableFunctionInput> process()
             {
                 if (partitionStart == pagesIndex.getPositionCount()) {
                     if (processEmpty && pagesIndex.getPositionCount() == 0) {

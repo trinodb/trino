@@ -52,7 +52,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RegularTableFunctionPartition
-        implements TableFunctionPartition
+        implements TableFunctionInput
 {
     private final PagesIndex pagesIndex;
     private final int partitionStart;
