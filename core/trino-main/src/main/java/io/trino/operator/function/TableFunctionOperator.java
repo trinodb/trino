@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.operator.function;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,7 +20,15 @@ import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.operator.RegularTableFunctionPartition.PassThroughColumnSpecification;
+import io.trino.operator.DriverContext;
+import io.trino.operator.Operator;
+import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactory;
+import io.trino.operator.PageBuffer;
+import io.trino.operator.PagesHashStrategy;
+import io.trino.operator.PagesIndex;
+import io.trino.operator.WorkProcessor;
+import io.trino.operator.function.RegularTableFunctionPartition.PassThroughColumnSpecification;
 import io.trino.spi.Page;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
