@@ -328,8 +328,10 @@ public final class IcebergQueryRunner
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
                             "hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString(),
-                            "hive.azure.abfs-storage-account", azureAccount,
-                            "hive.azure.abfs-access-key", azureAccessKey))
+                            "fs.hadoop.enabled", "false",
+                            "fs.native-azure.enabled", "true",
+                            "azure.auth-type", "ACCESS_KEY",
+                            "azure.access-key", azureAccessKey))
                     .setSchemaInitializer(
                             SchemaInitializer.builder()
                                     .withSchemaName("tpch")
