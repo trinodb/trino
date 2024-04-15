@@ -20,6 +20,7 @@ import io.trino.plugin.varada.juffer.BufferAllocator;
 import io.trino.plugin.varada.storage.engine.ExceptionThrower;
 import io.trino.plugin.varada.storage.engine.StorageEngine;
 import io.trino.plugin.varada.storage.engine.StorageEngineConstants;
+import io.trino.plugin.varada.storage.engine.nativeimpl.NativeInterrupt;
 import io.trino.plugin.varada.storage.juffers.ReadJuffersWarmUpElement;
 import io.trino.plugin.varada.storage.lucene.LuceneMatcher;
 import io.trino.plugin.warp.gen.constants.RecordIndexListType;
@@ -187,6 +188,7 @@ public class StorageReader
     /**
      * prepare buffers for filling
      */
+    @NativeInterrupt
     CollectOpenResult queryOpen(int rowsLimit, StorageCollectorCallBack storageCollectorCallBack)
     {
         if (!dictionariesLoaded) {
@@ -238,6 +240,7 @@ public class StorageReader
         return collectOpenResult;
     }
 
+    @NativeInterrupt
     private void matchIfNeeded()
     {
         if (matchExhausted) {
@@ -298,6 +301,7 @@ public class StorageReader
         return collectBufferState != CollectBufferState.COLLECT_BUFFER_STATE_EMPTY;
     }
 
+    @NativeInterrupt
     long queryClose(CollectOpenResult collectOpenResult, StorageCollectorArgs storageCollectorArgs, StorageCollectorCallBack storageCollectorCallBack)
     {
         // match

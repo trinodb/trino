@@ -14,6 +14,7 @@
 package io.trino.plugin.varada.di;
 
 import com.google.inject.Binder;
+import com.google.inject.matcher.Matchers;
 import io.airlift.log.Logger;
 import io.trino.plugin.varada.storage.engine.ConnectorSync;
 import io.trino.plugin.varada.storage.engine.ExceptionThrower;
@@ -22,6 +23,8 @@ import io.trino.plugin.varada.storage.engine.StorageEngineConstants;
 import io.trino.plugin.varada.storage.engine.nativeimpl.CoordinatorNativeConnectorSync;
 import io.trino.plugin.varada.storage.engine.nativeimpl.NativeConnectorSync;
 import io.trino.plugin.varada.storage.engine.nativeimpl.NativeExceptionThrower;
+import io.trino.plugin.varada.storage.engine.nativeimpl.NativeInterrupt;
+import io.trino.plugin.varada.storage.engine.nativeimpl.NativeInterruptInterceptor;
 import io.trino.plugin.varada.storage.engine.nativeimpl.NativeLogger;
 import io.trino.plugin.varada.storage.engine.nativeimpl.NativeStorageEngine;
 import io.trino.plugin.varada.storage.engine.nativeimpl.NativeStorageEngineConstants;
@@ -137,6 +140,7 @@ public class VaradaNativeStorageEngineModule
         binder.bind(NativeLogger.class);
         binder.bind(ExceptionThrower.class).to(NativeExceptionThrower.class).asEagerSingleton();
         binder.bind(NativeStorageStateHandler.class);
+        binder.bindInterceptor(Matchers.any(), Matchers.annotatedWith(NativeInterrupt.class), new NativeInterruptInterceptor());
     }
 
     static {

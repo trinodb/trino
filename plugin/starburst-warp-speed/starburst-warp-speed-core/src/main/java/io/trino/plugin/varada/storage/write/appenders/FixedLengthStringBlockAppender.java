@@ -19,7 +19,7 @@ import io.trino.plugin.varada.dispatcher.model.WarmUpElement;
 import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.engine.StorageEngineConstants;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 import io.trino.plugin.varada.util.SliceUtils;
 import io.trino.spi.type.Type;
 
@@ -49,7 +49,7 @@ public class FixedLengthStringBlockAppender
     }
 
     @Override
-    public AppendResult appendWithDictionary(BlockPosHolder blockPos, boolean stopAfterOneFlush, WriteDictionary writeDictionary, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithDictionary(BlockPosHolder blockPos, boolean stopAfterOneFlush, WriteDictionary writeDictionary, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         ShortBuffer buff = (ShortBuffer) juffersWE.getRecordBuffer();
         int stringLength = weRecTypeLength;
@@ -67,7 +67,7 @@ public class FixedLengthStringBlockAppender
                 }
                 else {
                     Slice slice = blockPos.getSlice();
-                    warmupElementStats.updateMinMax(slice);
+                    warmupElementStatsBuilder.updateMinMax(slice);
                     writeValue(writeDictionary, buff, stringLength, sliceConverter.apply(slice));
                 }
             }
@@ -75,7 +75,7 @@ public class FixedLengthStringBlockAppender
         else {
             for (; blockPos.inRange(); blockPos.advance()) {
                 Slice slice = blockPos.getSlice();
-                warmupElementStats.updateMinMax(slice);
+                warmupElementStatsBuilder.updateMinMax(slice);
                 writeValue(writeDictionary, buff, stringLength, sliceConverter.apply(slice));
             }
         }
@@ -91,7 +91,7 @@ public class FixedLengthStringBlockAppender
     }
 
     @Override
-    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         int nullsCount = 0;
         int recBuffSize = juffersWE.getRecBuffSize();
@@ -121,7 +121,7 @@ public class FixedLengthStringBlockAppender
                 }
                 else {
                     Slice slice = blockPos.getSlice();
-                    warmupElementStats.updateMinMax(slice);
+                    warmupElementStatsBuilder.updateMinMax(slice);
                     writeValue(buff, stringLength, sliceConverter.apply(slice));
                 }
                 blockPos.advance();
@@ -138,7 +138,7 @@ public class FixedLengthStringBlockAppender
                     }
                 }
                 Slice slice = blockPos.getSlice();
-                warmupElementStats.updateMinMax(slice);
+                warmupElementStatsBuilder.updateMinMax(slice);
                 writeValue(buff, stringLength, sliceConverter.apply(slice));
                 blockPos.advance();
             }

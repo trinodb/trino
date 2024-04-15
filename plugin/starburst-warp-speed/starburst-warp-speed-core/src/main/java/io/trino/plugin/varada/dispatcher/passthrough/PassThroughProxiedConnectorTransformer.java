@@ -69,8 +69,8 @@ public class PassThroughProxiedConnectorTransformer
             ConnectorSplitNodeDistributor connectorSplitNodeDistributor,
             ConnectorSession session)
     {
-        String splitKey = proxyConnectorSplit.getInfo() != null ?
-                proxyConnectorSplit.getInfo().toString() : String.valueOf(proxyConnectorSplit.hashCode());
+        String splitKey = proxyConnectorSplit.getSplitInfo() != null ?
+                proxyConnectorSplit.getSplitInfo().toString() : String.valueOf(proxyConnectorSplit.hashCode());
         List<HostAddress> hostAddresses = getHostAddressForSplit(
                 splitKey,
                 connectorSplitNodeDistributor);

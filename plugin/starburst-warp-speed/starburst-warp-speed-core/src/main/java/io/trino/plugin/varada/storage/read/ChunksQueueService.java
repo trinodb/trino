@@ -67,31 +67,26 @@ public class ChunksQueueService
         return isChunkRangeCompleted(chunksQueue) && (chunksQueue.getTotalNumChunks() >= numChunks);
     }
 
-    // returns if buffer if exhausted and we need to stop collecting
-    boolean prepareNextChunk(ChunksQueue chunksQueue,
+    // returns > 0 if buffer is exhausted and we need to stop collecting, 0 if not, -1 for error
+    int prepareNextChunk(ChunksQueue chunksQueue,
             boolean chunkPrepared,
             int collectTxId,
             int rowsLimit,
             int numCollectedRows,
             int[] outResultType)
     {
-        boolean bufferIsFull = false;
+        int ret = 0;
         if (!chunkPrepared) {
             int chunkIndex = chunksQueue.getCurrent();
             int bitmapResetPoint = chunksQueue.getCurrentResetPoint();
             logger.debug("collectFromStorage process match chunkIndex %d bitmapResetPoint %d rowsLimit %d numCollectedRows %d",
                     chunkIndex, bitmapResetPoint, rowsLimit, numCollectedRows);
-            int ret = storageEngine.processMatchResult(collectTxId,
+            ret = storageEngine.processMatchResult(collectTxId,
                     chunksQueue.getCurrent(),
                     chunksQueue.getCurrentResetPoint(),
                     rowsLimit - numCollectedRows,
                     outResultType);
-            if (ret == -1) {
-                throw new RuntimeException(String.format("prepareNextChunk failed unexpectedly collectTxId %d chunkIx %d resetPoint %d numCollectedRows %d rowsLimit %d",
-                        collectTxId, chunksQueue.getCurrent(), chunksQueue.getCurrentResetPoint(), numCollectedRows, rowsLimit));
-            }
-            bufferIsFull = (ret > 0);
         }
-        return bufferIsFull;
+        return ret;
     }
 }

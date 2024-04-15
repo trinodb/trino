@@ -330,9 +330,4 @@ public final class VaradaStatsBufferAllocator
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 8;
-    }
 }

@@ -32,6 +32,7 @@ import io.trino.plugin.varada.dispatcher.model.WarmUpElementState;
 import io.trino.plugin.varada.dispatcher.services.RowGroupDataService;
 import io.trino.plugin.varada.dispatcher.warmup.WarmupProperties;
 import io.trino.plugin.varada.expression.TransformFunction;
+import io.trino.plugin.varada.juffer.BufferAllocator;
 import io.trino.plugin.varada.metrics.MetricsManager;
 import io.trino.plugin.varada.storage.engine.StorageEngineConstants;
 import io.trino.plugin.varada.storage.write.WarmupElementStats;
@@ -68,17 +69,20 @@ public class WarmupElementsCreator
     private final StorageEngineConstants storageEngineConstants;
     private final DispatcherProxiedConnectorTransformer dispatcherProxiedConnectorTransformer;
     private final VaradaStatsWarmingService statsWarmingService;
+    private final BufferAllocator bufferAllocator;
 
     @Inject
     public WarmupElementsCreator(
             RowGroupDataService rowGroupDataService,
             MetricsManager metricsManager,
             StorageEngineConstants storageEngineConstants,
+            BufferAllocator bufferAllocator,
             DispatcherProxiedConnectorTransformer dispatcherProxiedConnectorTransformer,
             GlobalConfiguration globalConfiguration)
     {
         this.rowGroupDataService = requireNonNull(rowGroupDataService);
         this.storageEngineConstants = requireNonNull(storageEngineConstants);
+        this.bufferAllocator = requireNonNull(bufferAllocator);
         this.dispatcherProxiedConnectorTransformer = requireNonNull(dispatcherProxiedConnectorTransformer);
         this.statsWarmingService = (VaradaStatsWarmingService) metricsManager.get(VaradaStatsWarmingService.createKey(WARMING_SERVICE_STAT_GROUP));
         this.shapingLogger = ShapingLogger.getInstance(
@@ -124,7 +128,8 @@ public class WarmupElementsCreator
                                 .recTypeCode(existingWarmUpElement.get().getRecTypeCode())
                                 .recTypeLength(existingWarmUpElement.get().getRecTypeLength())
                                 .varadaColumn(varadaColumn)
-                                .warmupElementStats(new WarmupElementStats(0, null, null))
+                                .warmupElementStats(WarmupElementStats.UNINITIALIZED)
+                                .warmUpContextSize(existingWarmUpElement.get().getWarmUpContextSize())
                                 .build());
                     }
                     else {
@@ -151,12 +156,17 @@ public class WarmupElementsCreator
                         recTypeLength = TypeUtils.getIndexTypeLength(recTypeCode, recTypeLength, storageEngineConstants.getFixedLengthStringLimit());
                     }
 
+                    int warmUpContextSize = (warmUpType == WarmUpType.WARM_UP_TYPE_DATA) ?
+                            bufferAllocator.getWarmupDataTxSize(recTypeCode, recTypeLength) :
+                            bufferAllocator.getWarmupIndexTxSize();
                     warmUpElements.add(WarmUpElement.builder()
+                            .creationTime(System.currentTimeMillis())
                             .warmUpType(warmUpType)
                             .recTypeCode(recTypeCode)
                             .recTypeLength(recTypeLength)
                             .varadaColumn(varadaColumn)
-                            .warmupElementStats(new WarmupElementStats(0, null, null))
+                            .warmupElementStats(WarmupElementStats.UNINITIALIZED)
+                            .warmUpContextSize(warmUpContextSize)
                             .build());
                 }
             }
@@ -209,6 +219,7 @@ public class WarmupElementsCreator
             RecTypeCode recTypeCode = TypeUtils.convertToRecTypeCode(columnType, recTypeLength, storageEngineConstants.getFixedLengthStringLimit());
             res = Optional.of(WarmUpElement
                     .builder()
+                    .creationTime(System.currentTimeMillis())
                     .varadaColumn(cachedColumn)
                     .warmUpType(WarmUpType.WARM_UP_TYPE_DATA)
                     .recTypeCode(recTypeCode)
@@ -216,7 +227,8 @@ public class WarmupElementsCreator
                     .exportState(ExportState.NOT_EXPORTED)
                     .storeId(storeId)
                     .state(WarmUpElementState.VALID)
-                    .warmupElementStats(new WarmupElementStats(0, null, null))
+                    .warmupElementStats(WarmupElementStats.UNINITIALIZED)
+                    .warmUpContextSize(bufferAllocator.getWarmupDataTxSize(recTypeCode, recTypeLength))
                     .build());
         }
         catch (UnsupportedOperationException e) {

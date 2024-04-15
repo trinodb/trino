@@ -227,7 +227,7 @@ public class WarpCachePageSink
             storageWarmerService.flushRecords(warmingCacheData.fileCookie(), rowGroupData);
             runDemote = true;
         }
-        storageWarmerService.fileClose(warmingCacheData.fileCookie(), rowGroupData);
+        storageWarmerService.fileClose(warmingCacheData.fileCookie(), Optional.of(rowGroupData));
         if (!finished) { //abort
             WarmUpElement failedWarmupElement = warmupElementWriteMetadata.get().warmUpElement();
             rowGroupDataService.markAsFailed(rowGroupData.getRowGroupKey(), List.of(failedWarmupElement), Collections.emptyMap());

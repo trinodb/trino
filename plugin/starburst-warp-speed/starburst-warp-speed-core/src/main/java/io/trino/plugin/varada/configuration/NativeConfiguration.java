@@ -67,6 +67,7 @@ public class NativeConfiguration
     private boolean enableQueryResultType;
     private boolean enablePackedChunk = true;
     private boolean enableCompression = true;
+    private boolean enableWarmDelay;
     private int exceptionalListCompression;
     private Set<String> unsupportedNativeFunctions = Collections.emptySet();
     private Duration storageTemporaryExceptionDuration = Duration.of(5, ChronoUnit.MINUTES);
@@ -248,6 +249,18 @@ public class NativeConfiguration
     public void setEnableCompression(boolean enableCompression)
     {
         this.enableCompression = enableCompression;
+    }
+
+    public boolean getEnableWarmDelay()
+    {
+        return enableWarmDelay;
+    }
+
+    @LegacyConfig(LOCAL_DATA_STORAGE_PREFIX + "enable.warm-delay")
+    @Config(WARP_SPEED_PREFIX + "enable.warm-delay")
+    public void setEnableWarmDelay(boolean enableWarmDelay)
+    {
+        this.enableWarmDelay = enableWarmDelay;
     }
 
     public int getTaskMaxWorkerThreads()

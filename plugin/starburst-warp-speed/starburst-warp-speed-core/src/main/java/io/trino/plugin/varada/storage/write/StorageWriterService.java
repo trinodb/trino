@@ -260,7 +260,7 @@ public class StorageWriterService
         WarmupElementStats closedStats;
         WarmupElementWriteMetadata warmupElementWriteMetadata = storageWriterContext.getWarmupElementWriteMetadata();
         try {
-            closedStats = getFinalStats(storageWriterContext.getWarmupElementStats(), warmupElementWriteMetadata);
+            closedStats = getFinalStats(storageWriterContext.getWarmupElementStatsBuilder().build(), warmupElementWriteMetadata);
         }
         catch (Exception e) {
             logger.warn(e, "failed to get range on write");
@@ -381,11 +381,14 @@ public class StorageWriterService
                     }
                 }
                 if (!nativeThrowed) {
+                    outFileParams = weClose(storageWriterContext);
+                    if (outFileParams[WeProperties.WE_PROPERTIES_END_OFFSET.ordinal()] == -1) {
+                        aborted = true;
+                    }
                     if (aborted) {
                         storageWriterContext.setFailed();
                         updateToFailedState(storageWriterContext.getWarmupElementBuilder(), storageWriterContext.getWarmupElementWriteMetadata());
                     }
-                    outFileParams = weClose(storageWriterContext);
                 }
                 else if (aborted) {
                     storageWriterContext.setFailed();
@@ -444,9 +447,9 @@ public class StorageWriterService
     private WarmupElementStats getFinalStats(WarmupElementStats warmupElementStats, WarmupElementWriteMetadata warmupElementWriteMetadata)
     {
         WarmUpElement warmUpElement = warmupElementWriteMetadata.warmUpElement();
-        if (warmUpElement.getRecTypeCode().isSupportedFiltering() &&
-                warmUpElement.getWarmUpType() != WarmUpType.WARM_UP_TYPE_LUCENE &&
-                warmupElementStats.isValidRange()) {
+        if (warmupElementStats.isInitialized() &&
+                warmUpElement.getRecTypeCode().isSupportedFiltering() &&
+                warmUpElement.getWarmUpType() != WarmUpType.WARM_UP_TYPE_LUCENE) {
             if (warmUpElement.getRecTypeCode() == RecTypeCode.REC_TYPE_VARCHAR ||
                     warmUpElement.getRecTypeCode() == RecTypeCode.REC_TYPE_CHAR) {
                 Slice maxSlice = (Slice) warmupElementStats.getMaxValue();
@@ -521,7 +524,7 @@ public class StorageWriterService
                     false,
                     storageWriterContext.getWriteDictionary(),
                     warmUpElement,
-                    storageWriterContext.getWarmupElementStats());
+                    storageWriterContext.getWarmupElementStatsBuilder());
             storageWriterContext.getWriteJuffersWarmUpElement().increaseNullsCount(appendResult.nullsCount());
         }
         catch (WarmupException e) {

@@ -321,10 +321,5 @@ public final class VaradaStatsLucene
         return new HashMap<>();
     }
 
-    public int getNumberOfMetrics()
-    {
-        return 25;
-    }
-
     private native ByteBuffer initNative(long limit);
 }

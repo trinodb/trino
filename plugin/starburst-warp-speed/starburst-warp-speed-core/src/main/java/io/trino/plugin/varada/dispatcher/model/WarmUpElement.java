@@ -36,6 +36,7 @@ public class WarmUpElement
 
     public static final String REC_TYPE_CODE = "recTypeCode";
     public static final String REC_TYPE_LENGTH = "recTypeLength";
+    public static final String WARM_UP_CONTEXT_SIZE = "warmUpContextSize";
     public static final String STATS = "stats";
     public static final String USED_DICTIONARY_SIZE = "usedDictionarySize";
     public static final String DICTIONARY_INFO = "dictionaryInfo";
@@ -48,6 +49,8 @@ public class WarmUpElement
     public static final String EXPORT_STATE = "exportState";
     public static final String IS_IMPORTED = "isImported";
     public static final String WARM_STATE = "warmState";
+    public static final String FIRST_USED_TIMESTAMP = "firstUsedTimestamp";
+    public static final String CREATION_TIME = "creationTime";
 
     public static final String TOTAL_RECORDS = "total_records";
 
@@ -55,6 +58,7 @@ public class WarmUpElement
     private final WarmUpType warmUpType;
     private final RecTypeCode recTypeCode;
     private final int recTypeLength;
+    private final int warmUpContextSize;
     private final WarmupElementStats warmupElementStats;
     private final int usedDictionarySize;
     private final DictionaryInfo dictionaryInfo;
@@ -65,6 +69,8 @@ public class WarmUpElement
     private final int endOffset;
     private final WarmUpElementState state;
     private transient long lastUsedTimestamp;
+    private long firstUsedTimestamp;
+    private long creationTime;
     private final ExportState exportState;
     private final boolean isImported;
     private final WarmState warmState;
@@ -80,6 +86,7 @@ public class WarmUpElement
             WarmUpType warmUpType,
             RecTypeCode recTypeCode,
             int recTypeLength,
+            int warmUpContextSize,
             WarmupElementStats warmupElementStats,
             int usedDictionarySize,
             DictionaryInfo dictionaryInfo,
@@ -93,12 +100,15 @@ public class WarmUpElement
             boolean isImported,
             WarmState warmState,
             int totalRecords,
-            UUID storeId)
+            UUID storeId,
+            long creationTime,
+            long firstUsedTimestamp)
     {
         this.varadaColumn = requireNonNull(varadaColumn);
         this.warmUpType = requireNonNull(warmUpType);
         this.recTypeCode = recTypeCode;
         this.recTypeLength = recTypeLength;
+        this.warmUpContextSize = warmUpContextSize;
         this.warmupElementStats = requireNonNull(warmupElementStats);
         this.usedDictionarySize = usedDictionarySize;
         this.dictionaryInfo = dictionaryInfo;
@@ -113,6 +123,8 @@ public class WarmUpElement
         this.warmState = warmState;
         this.totalRecords = totalRecords;
         this.storeId = storeId;
+        this.creationTime = creationTime;
+        this.firstUsedTimestamp = firstUsedTimestamp;
         this.lastUsedTimestamp = System.currentTimeMillis(); // when loading from DB sets to loading time
     }
 
@@ -123,6 +135,7 @@ public class WarmUpElement
                 .warmUpType(warmUpElement.getWarmUpType())
                 .recTypeCode(warmUpElement.getRecTypeCode())
                 .recTypeLength(warmUpElement.getRecTypeLength())
+                .warmUpContextSize(warmUpElement.getWarmUpContextSize())
                 .warmupElementStats(warmUpElement.getWarmupElementStats())
                 .usedDictionarySize(warmUpElement.getUsedDictionarySize())
                 .dictionaryInfo(warmUpElement.getDictionaryInfo())
@@ -137,6 +150,8 @@ public class WarmUpElement
                 .isImported(warmUpElement.isImported())
                 .totalRecords(warmUpElement.getTotalRecords())
                 .warmState(warmUpElement.getWarmState())
+                .firstUsedTimestamp(warmUpElement.getFirstUsedTimestamp())
+                .creationTime(warmUpElement.getCreationTime())
                 .lastUsedTimestamp(warmUpElement.getLastUsedTimestamp());
     }
 
@@ -173,6 +188,12 @@ public class WarmUpElement
     public int getRecTypeLength()
     {
         return recTypeLength;
+    }
+
+    @JsonProperty(WARM_UP_CONTEXT_SIZE)
+    public int getWarmUpContextSize()
+    {
+        return warmUpContextSize;
     }
 
     @JsonProperty(EXPORT_STATE)
@@ -236,8 +257,11 @@ public class WarmUpElement
     }
 
     @JsonIgnore
-    public void setLastUsedTimestamp(long lastUsedTimestamp)
+    public void setUsedTimestamp(long lastUsedTimestamp)
     {
+        if (this.firstUsedTimestamp == 0) {
+            this.firstUsedTimestamp = lastUsedTimestamp;
+        }
         this.lastUsedTimestamp = lastUsedTimestamp;
     }
 
@@ -283,6 +307,18 @@ public class WarmUpElement
         return warmState;
     }
 
+    @JsonProperty(FIRST_USED_TIMESTAMP)
+    public long getFirstUsedTimestamp()
+    {
+        return firstUsedTimestamp;
+    }
+
+    @JsonProperty(CREATION_TIME)
+    public long getCreationTime()
+    {
+        return creationTime;
+    }
+
     @JsonIgnore
     public boolean isHot()
     {
@@ -297,11 +333,14 @@ public class WarmUpElement
                 ", warmUpType=" + warmUpType +
                 ", recTypeCode=" + recTypeCode +
                 ", recTypeLength=" + recTypeLength +
+                ", warmUpContextSize=" + warmUpContextSize +
                 ", exportState=" + exportState +
                 ", dictionaryInfo=" + dictionaryInfo +
                 ", usedDictionarySize=" + usedDictionarySize +
                 ", warmupElementStats=" + warmupElementStats +
                 ", state=" + state +
+                ", creationTime=" + creationTime +
+                ", firstUsedTimestamp=" + firstUsedTimestamp +
                 ", lastUsedTimestamp=" + lastUsedTimestamp +
                 ", startOffset=" + startOffset +
                 ", queryOffset=" + queryOffset +
@@ -329,6 +368,7 @@ public class WarmUpElement
                 (warmUpType == warmUpElement.warmUpType) &&
                 (recTypeCode == warmUpElement.recTypeCode) &&
                 (recTypeLength == warmUpElement.recTypeLength) &&
+                (warmUpContextSize == warmUpElement.warmUpContextSize) &&
                 Objects.equals(warmupElementStats, warmUpElement.warmupElementStats) &&
                 (usedDictionarySize == warmUpElement.usedDictionarySize) &&
                 Objects.equals(dictionaryInfo, warmUpElement.dictionaryInfo) &&
@@ -348,7 +388,7 @@ public class WarmUpElement
     @Override
     public int hashCode()
     {
-        return Objects.hash(varadaColumn, warmUpType, recTypeCode, recTypeLength, warmupElementStats, usedDictionarySize, dictionaryInfo, startOffset, queryOffset, queryReadSize, warmEvents, endOffset, state, exportState, isImported, warmState, storeId, totalRecords);
+        return Objects.hash(varadaColumn, warmUpType, recTypeCode, recTypeLength, warmUpContextSize, warmupElementStats, usedDictionarySize, dictionaryInfo, startOffset, queryOffset, queryReadSize, warmEvents, endOffset, state, exportState, isImported, warmState, storeId, totalRecords);
     }
 
     @JsonPOJOBuilder
@@ -358,6 +398,7 @@ public class WarmUpElement
         WarmUpType warmUpType;
         RecTypeCode recTypeCode;
         int recTypeLength;
+        int warmUpContextSize;
         long lastUsedTimestamp = Instant.now().toEpochMilli();
         ExportState exportState = ExportState.NOT_EXPORTED;
         WarmupElementStats warmupElementStats;
@@ -369,6 +410,8 @@ public class WarmUpElement
         private int queryReadSize;
         private int warmEvents;
         private int endOffset;
+        private long creationTime;
+        private long firstUsedTimestamp;
 
         private int totalRecords;
         private boolean isImported;
@@ -393,6 +436,13 @@ public class WarmUpElement
         public Builder recTypeLength(int recTypeLength)
         {
             this.recTypeLength = recTypeLength;
+            return this;
+        }
+
+        @JsonProperty(WARM_UP_CONTEXT_SIZE)
+        public Builder warmUpContextSize(int warmUpContextSize)
+        {
+            this.warmUpContextSize = warmUpContextSize;
             return this;
         }
 
@@ -514,12 +564,27 @@ public class WarmUpElement
             return this;
         }
 
+        @JsonProperty(FIRST_USED_TIMESTAMP)
+        public Builder firstUsedTimestamp(long firstUsedTimestamp)
+        {
+            this.firstUsedTimestamp = firstUsedTimestamp;
+            return this;
+        }
+
+        @JsonProperty(CREATION_TIME)
+        public Builder creationTime(long creationTime)
+        {
+            this.creationTime = creationTime;
+            return this;
+        }
+
         public WarmUpElement build()
         {
             WarmUpElement warmUpElement = new WarmUpElement(varadaColumn,
                     warmUpType,
                     recTypeCode,
                     recTypeLength,
+                    warmUpContextSize,
                     warmupElementStats,
                     usedDictionarySize,
                     dictionaryInfo,
@@ -533,7 +598,9 @@ public class WarmUpElement
                     isImported,
                     warmState,
                     totalRecords,
-                    storeId);
+                    storeId,
+                    creationTime,
+                    firstUsedTimestamp);
             warmUpElement.lastUsedTimestamp = lastUsedTimestamp;
             return warmUpElement;
         }

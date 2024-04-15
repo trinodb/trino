@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 final class StorageWriterContext
 {
     private final AtomicReference<Object> isCleanupDone;
-    private final WarmupElementStats warmupElementStats;
+    private final WarmupElementStatsBuilder warmupElementStatsBuilder;
     private boolean weClosed;
     private final WarmupElementWriteMetadata warmupElementWriteMetadata;
     private int recordBufferSize;
@@ -65,7 +65,7 @@ final class StorageWriterContext
         this.writeDictionary = writeDictionary;
         this.luceneIndexer = luceneIndexer;
         this.isCleanupDone = new AtomicReference<>(null);
-        this.warmupElementStats = new WarmupElementStats(0, null, null);
+        this.warmupElementStatsBuilder = new WarmupElementStatsBuilder(warmupElementWriteMetadata.warmUpElement().getWarmupElementStats());
     }
 
     int getRecordBufferPos()
@@ -174,9 +174,9 @@ final class StorageWriterContext
         return writeDictionary;
     }
 
-    WarmupElementStats getWarmupElementStats()
+    WarmupElementStatsBuilder getWarmupElementStatsBuilder()
     {
-        return warmupElementStats;
+        return warmupElementStatsBuilder;
     }
 
     AtomicReference<Object> getIsCleanupDone()
@@ -199,7 +199,6 @@ final class StorageWriterContext
                 recordBufferPos == that.recordBufferPos &&
                 weSuccess == that.weSuccess &&
                 weCookie == that.weCookie &&
-                Objects.equals(warmupElementStats, that.warmupElementStats) &&
                 Objects.equals(warmupElementWriteMetadata, that.warmupElementWriteMetadata) &&
                 Objects.equals(warmupElementBuilder, that.warmupElementBuilder) &&
                 Objects.equals(writeJuffersWarmUpElement, that.writeJuffersWarmUpElement) &&
@@ -213,7 +212,6 @@ final class StorageWriterContext
     public int hashCode()
     {
         return Objects.hash(
-                warmupElementStats,
                 weClosed,
                 warmupElementWriteMetadata,
                 recordBufferSize,
@@ -233,7 +231,6 @@ final class StorageWriterContext
     {
         return "StorageWriterParams{" +
                 "isCleanupDone=" + isCleanupDone +
-                ", warmupElementStats=" + warmupElementStats +
                 ", weClosed=" + weClosed +
                 ", warmupElementWriteMetadata=" + warmupElementWriteMetadata +
                 ", recordBufferSize=" + recordBufferSize +

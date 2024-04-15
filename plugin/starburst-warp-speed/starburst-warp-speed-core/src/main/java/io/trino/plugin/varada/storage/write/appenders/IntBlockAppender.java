@@ -17,7 +17,7 @@ import io.trino.plugin.varada.dictionary.WriteDictionary;
 import io.trino.plugin.varada.dispatcher.model.WarmUpElement;
 import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
@@ -31,7 +31,7 @@ public class IntBlockAppender
     }
 
     @Override
-    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         IntBuffer buff = (IntBuffer) juffersWE.getRecordBuffer();
         int nullsCount = 0;
@@ -44,7 +44,7 @@ public class IntBlockAppender
                 }
                 else {
                     int val = blockPos.getInt();
-                    warmupElementStats.updateMinMax(val);
+                    warmupElementStatsBuilder.updateMinMax(val);
                     writeValue(val, buff);
                 }
             }
@@ -52,7 +52,7 @@ public class IntBlockAppender
         else {
             for (; blockPos.inRange(); blockPos.advance()) {
                 int val = blockPos.getInt();
-                warmupElementStats.updateMinMax(val);
+                warmupElementStatsBuilder.updateMinMax(val);
                 writeValue(val, buff);
             }
         }
@@ -68,7 +68,7 @@ public class IntBlockAppender
 
     @Override
     public AppendResult appendWithDictionary(BlockPosHolder blockPos,
-            boolean stopAfterOneFlush, WriteDictionary writeDictionary, WarmupElementStats warmupElementStats)
+            boolean stopAfterOneFlush, WriteDictionary writeDictionary, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         int nullsCount = 0;
         ShortBuffer buff = (ShortBuffer) juffersWE.getRecordBuffer();
@@ -81,7 +81,7 @@ public class IntBlockAppender
                 }
                 else {
                     int val = blockPos.getInt();
-                    warmupElementStats.updateMinMax(val);
+                    warmupElementStatsBuilder.updateMinMax(val);
                     short key = writeDictionary.get(val);
                     writeValue(key, buff);
                 }
@@ -90,7 +90,7 @@ public class IntBlockAppender
         else {
             for (; blockPos.inRange(); blockPos.advance()) {
                 int val = blockPos.getInt();
-                warmupElementStats.updateMinMax(val);
+                warmupElementStatsBuilder.updateMinMax(val);
                 short key = writeDictionary.get(val);
                 writeValue(key, buff);
             }

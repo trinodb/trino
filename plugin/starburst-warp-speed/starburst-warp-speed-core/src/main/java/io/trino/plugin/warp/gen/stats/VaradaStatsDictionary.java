@@ -447,9 +447,4 @@ public final class VaradaStatsDictionary
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 12;
-    }
 }

@@ -199,9 +199,4 @@ public final class VaradaStatsTest
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 3;
-    }
 }

@@ -251,10 +251,5 @@ public final class VaradaStatsQueryresult
         return new HashMap<>();
     }
 
-    public int getNumberOfMetrics()
-    {
-        return 18;
-    }
-
     private native ByteBuffer initNative(long limit);
 }

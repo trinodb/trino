@@ -19,7 +19,7 @@ import io.trino.plugin.varada.dispatcher.model.WarmUpElementState;
 import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
 import io.trino.plugin.varada.storage.lucene.LuceneIndexer;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 import io.trino.plugin.varada.warmup.exceptions.WarmupException;
 
 import java.io.IOException;
@@ -37,7 +37,7 @@ public class LuceneBlockAppender
     }
 
     @Override
-    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         // TODO: handle arrays (VDB-2828)
 

@@ -148,10 +148,5 @@ public final class VaradaStatsBtree
         return new HashMap<>();
     }
 
-    public int getNumberOfMetrics()
-    {
-        return 5;
-    }
-
     private native ByteBuffer initNative(long limit);
 }

@@ -162,9 +162,4 @@ public final class VaradaStatsWarmupRuleFetcher
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 2;
-    }
 }

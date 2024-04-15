@@ -16,14 +16,12 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeWarpGlueHive;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeWarpSpeedMinio;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
-import static io.trino.tests.product.TestGroups.WARP_SPEED;
-import static io.trino.tests.product.TestGroups.WARP_SPEED_MINIO;
+import static io.trino.tests.product.TestGroups.WARP_SPEED_HIVE;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteWarpSpeed
@@ -34,10 +32,7 @@ public class SuiteWarpSpeed
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeWarpGlueHive.class)
-                        .withGroups(WARP_SPEED)
-                        .build(),
-                testOnEnvironment(EnvMultinodeWarpSpeedMinio.class)
-                        .withGroups(WARP_SPEED_MINIO)
+                        .withGroups(WARP_SPEED_HIVE)
                         .build());
     }
 }

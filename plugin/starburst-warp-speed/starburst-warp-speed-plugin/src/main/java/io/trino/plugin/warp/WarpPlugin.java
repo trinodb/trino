@@ -17,6 +17,7 @@ package io.trino.plugin.warp;
 import com.starburstdata.trino.plugin.license.LicenseManager;
 import io.trino.plugin.varada.dispatcher.CachingPlugin;
 import io.trino.spi.Plugin;
+import io.trino.spi.cache.CacheManagerFactory;
 import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Collections;
@@ -29,6 +30,7 @@ public class WarpPlugin
         implements Plugin
 {
     private final LicenseManager licenseManager;
+    private StarburstWarpConnectorFactory starburstWarpConnectorFactory;
 
     public WarpPlugin()
     {
@@ -43,6 +45,13 @@ public class WarpPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return List.of(new StarburstWarpConnectorFactory(super.getConnectorFactory(), licenseManager, Collections.emptyList()));
+        starburstWarpConnectorFactory = new StarburstWarpConnectorFactory(super.getConnectorFactory(), licenseManager, Collections.emptyList());
+        return List.of(starburstWarpConnectorFactory);
+    }
+
+    @Override
+    public Iterable<CacheManagerFactory> getCacheManagerFactories()
+    {
+        return List.of(starburstWarpConnectorFactory);
     }
 }

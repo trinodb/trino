@@ -37,7 +37,6 @@ public class JMXCachingConstants
         public static final String EXTERNAL_MATCH = "external_match_columns";
         public static final String EXTERNAL_COLLECT = "external_collect_columns";
         public static final String WARP_CACHE_SKIPPED = "skip_warp_cache_manager";
-        public static final String WARP_CACHE_SKIPPED_DYNAMIC_FILTER = "skip_dl_warp_cache_manager";
         public static final String WARP_CACHE = "warp_cache_manager";
         public static final String FILTERED_BY_PREDICATE = "filtered_by_predicate";
     }

@@ -19,7 +19,7 @@ import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.juffer.BufferAllocator;
 import io.trino.plugin.varada.storage.engine.StorageEngineConstants;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 import io.trino.plugin.varada.type.TypeUtils;
 import io.trino.plugin.varada.util.SliceUtils;
 import io.trino.spi.block.SqlMap;
@@ -57,7 +57,7 @@ public class CrcStringBlockAppender
             BlockPosHolder blockPos,
             boolean stopAfterOneFlush,
             WarmUpElement warmUpElement,
-            WarmupElementStats warmupElementStats)
+            WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         int nullsCount = 0;
         // string length must be taken form type since the warm up type length represents the index length (maximum is 8)
@@ -81,7 +81,7 @@ public class CrcStringBlockAppender
                     nullsCount++;
                 }
                 else {
-                    warmupElementStats.updateMinMax(slice);
+                    warmupElementStatsBuilder.updateMinMax(slice);
                     Slice value = sliceConverter.apply(slice);
                     writeValue(blockPos, jufferPos, stringLength, value);
                 }

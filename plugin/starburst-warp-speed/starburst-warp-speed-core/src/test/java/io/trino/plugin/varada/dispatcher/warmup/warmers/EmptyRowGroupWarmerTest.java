@@ -25,6 +25,7 @@ import io.trino.plugin.varada.dispatcher.services.RowGroupDataService;
 import io.trino.plugin.varada.dispatcher.warmup.WarmData;
 import io.trino.plugin.varada.dispatcher.warmup.WarmExecutionState;
 import io.trino.plugin.varada.dispatcher.warmup.WarmupProperties;
+import io.trino.plugin.varada.juffer.BufferAllocator;
 import io.trino.plugin.varada.metrics.MetricsManager;
 import io.trino.plugin.varada.storage.engine.StorageEngineConstants;
 import io.trino.plugin.warp.gen.constants.WarmUpType;
@@ -75,6 +76,7 @@ public class EmptyRowGroupWarmerTest
                 rowGroupDataService,
                 metricsManager,
                 mock(StorageEngineConstants.class),
+                mock(BufferAllocator.class),
                 new TestingConnectorProxiedConnectorTransformer(),
                 new GlobalConfiguration());
 

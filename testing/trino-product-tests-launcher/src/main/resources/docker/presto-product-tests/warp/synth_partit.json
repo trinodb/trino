@@ -1,0 +1,2749 @@
+[
+  {
+    "name": "partition_test",
+    "lines": 100000,
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "char_5",
+        "type": "char",
+        "args": [
+          5
+        ]
+      },
+      {
+        "name": "tiny_1234",
+        "type": "tinyint"
+      }
+    ],
+    "partition_by": [
+      "tiny_1234"
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "char_5",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "tiny_1234",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from partition_test",
+    "data": "resources/synthetic/partition_test.jsonl",
+    "expected_dictionary_counters": {
+      "dictionary_failed_elements_count": 0,
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 1
+    },
+    "queries_data": [
+      {
+        "query": "select count(*) from partition_test",
+        "expected_result": [
+          100000
+        ],
+        "query_id": "partition_test_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(char_5) from partition_test where char_5='Saman' OR char_5='Leona'",
+        "expected_result": [
+          481
+        ],
+        "query_id": "partition_test_2",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "empty_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "partition_test_two_levels",
+    "skip": true,
+    "skip_comment": "ToDo: temporarily skipped until fixed",
+    "pt_enable": true,
+    "lines": 100000,
+    "structure": [
+      {
+        "name": "char_5",
+        "type": "char",
+        "args": [
+          5
+        ]
+      },
+      {
+        "name": "tiny_11",
+        "type": "tinyint"
+      },
+      {
+        "name": "int_20",
+        "type": "integer"
+      }
+    ],
+    "partition_by": [
+      "tiny_11",
+      "int_20"
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "char_5",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "tiny_11",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "int_20",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from partition_test_two_levels",
+    "data": "resources/synthetic/partition_test_two_levels.jsonl",
+    "expected_dictionary_counters": {
+      "dictionary_failed_elements_count": 0,
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 2
+    },
+    "queries_data": [
+      {
+        "query": "select count(*) from partition_test_two_levels",
+        "expected_result": [
+          100000
+        ],
+        "query_id": "partition_test_two_levels_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(distinct char_5) from partition_test_two_levels where tiny_11=8",
+        "expected_result": [687],
+        "query_id": "partition_test_two_levels_2",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "partition_folders",
+    "skip": true,
+    "skip_comment": "ToDo: temporarily skipped until fixed",
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "char_5",
+        "type": "char",
+        "args": [
+          5
+        ]
+      },
+      {
+        "name": "tiny_1234",
+        "type": "tinyint"
+      }
+    ],
+    "partition_by": [
+      "tiny_1234"
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "char_5",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "tiny_1234",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from partition_folders",
+    "expected_dictionary_counters": {
+      "dictionary_failed_elements_count": 0,
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 1
+    },
+    "queries_data": [
+      {
+        "query": "select count(*) from partition_folders",
+        "expected_result": [
+          300000
+        ],
+        "query_id": "partition_folders_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from partition_folders where char_5='Kelly'",
+        "expected_result": [
+          1452
+        ],
+        "query_id": "partition_folders_2",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from partition_folders where tiny_1234=2",
+        "expected_result": [
+          75261
+        ],
+        "query_id": "partition_folders_3",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "integer_date_partition",
+    "pt_enable": true,
+    "lines": 1000000,
+    "structure": [
+      {
+        "name": "char_5",
+        "type": "char",
+        "args": [
+          5
+        ]
+      },
+      {
+        "name": "m_date",
+        "type": "integer"
+      }
+    ],
+    "partition_by": [
+      "m_date"
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "char_5",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "m_date",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from integer_date_partition",
+    "data": "resources/synthetic/integer_date_partition.jsonl",
+    "expected_dictionary_counters": {
+      "dictionary_failed_elements_count": 0,
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 2
+    },
+    "queries_data": [
+      {
+        "query": "select count(char_5) from integer_date_partition",
+        "expected_result": [
+          1000000
+        ],
+        "query_id": "integer_date_partition_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "custom_partitions_test",
+    "skip": true,
+    "structure": [
+      {
+        "name": "str1",
+        "type": "varchar"
+      },
+      {
+        "name": "datestr",
+        "type": "varchar"
+      },
+      {
+        "name": "hourint",
+        "type": "integer"
+      }
+    ],
+    "custom_partition": {
+      "fields": [
+        "datestr",
+        "hourint"
+      ],
+      "structure": {
+        "2020-01-02": [
+          15,
+          16
+        ],
+        "2020-01-10": [
+          80
+        ],
+        "2020-01-11": [
+          79
+        ],
+        "2020-01-12": [
+          78
+        ]
+      }
+    },
+    "partition_by": [
+      "datestr",
+      "hourint"
+    ],
+    "queries_data": [
+      {
+        "query": "select count(str1) from mv_custom_partitions",
+        "expected_result": [
+          173015040
+        ],
+        "query_id": "custom_partitions_test_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from mv_custom_partitions where hourint = 16 and str1='abcd'",
+        "expected_result": [
+          4914001
+        ],
+        "query_id": "custom_partitions_test_2",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "date_partition_orc_file",
+    "skip": true,
+    "skip_comment": "ToDo: temporarily skipped until fixed",
+    "pt_enable": true,
+    "lines": 3193768,
+    "structure": [
+      {
+        "name": "account_id",
+        "type": "bigint"
+      },
+      {
+        "name": "site_id",
+        "type": "bigint"
+      },
+      {
+        "name": "url",
+        "type": "varchar"
+      },
+      {
+        "name": "targeting_type",
+        "type": "bigint"
+      },
+      {
+        "name": "language_id",
+        "type": "bigint"
+      },
+      {
+        "name": "is_translated",
+        "type": "bigint"
+      },
+      {
+        "name": "category_list_string",
+        "type": "varchar"
+      },
+      {
+        "name": "peer_category_list_string",
+        "type": "varchar"
+      },
+      {
+        "name": "requests",
+        "type": "bigint"
+      },
+      {
+        "name": "partition_date",
+        "type": "date"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "account_id",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "site_id",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "url",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "targeting_type",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "language_id",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "is_translated",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "category_list_string",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "peer_category_list_string",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "requests",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "partition_date",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "expected_warm_failures": 30,
+    "partition_by": [
+      "partition_date"
+    ],
+    "data_format": "ORC",
+    "warm_query": "select count(account_id), count(site_id), count(url), count(targeting_type), count(language_id), count(is_translated), count(category_list_string), count(peer_category_list_string), count(requests), count(partition_date) from date_partition_orc_file",
+    "data": "resources/synthetic/date_partition_orc_file.jsonl",
+    "queries_data": [
+      {
+        "query": "select count(account_id) from date_partition_orc_file",
+        "expected_result": [
+          3193768
+        ],
+        "query_id": "date_partition_orc_file_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 6,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from date_partition_orc_file where site_id=804294",
+        "expected_result": [
+          137106
+        ],
+        "query_id": "date_partition_orc_file_2",
+        "expected_counters": {
+          "varada_match_columns": 6,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from date_partition_orc_file where site_id=804294 and is_translated is null",
+        "expected_result": [
+          130550
+        ],
+        "query_id": "date_partition_orc_file_3",
+        "expected_counters": {
+          "varada_match_columns": 12,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select avg(requests), max(account_id), min(site_id), count(url), min(targeting_type), count(language_id), count(is_translated) from date_partition_orc_file where site_id>100",
+        "expected_result": [
+          67.92415575523532,
+          1481,
+          125,
+          3189774,
+          0,
+          3175219,
+          459467
+        ],
+        "query_id": "date_partition_orc_file_4",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 6,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      }
+    ]
+  },
+  {
+    "name": "partition_date",
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "int_1",
+        "type": "integer"
+      },
+      {
+        "name": "bigint_2",
+        "type": "bigint"
+      },
+      {
+        "name": "smallint_3",
+        "type": "smallint"
+      },
+      {
+        "name": "tinyint_4",
+        "type": "tinyint"
+      },
+      {
+        "name": "char_5",
+        "type": "char",
+        "args": [
+          9
+        ]
+      },
+      {
+        "name": "ts",
+        "type": "varchar"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "int_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "bigint_2",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "smallint_3",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "tinyint_4",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "char_5",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "ts",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      }
+    ],
+    "warm_query": "select * from partition_date",
+    "partition_by": [
+      "ts"
+    ],
+    "expected_dictionary_counters": {
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 4
+    },
+    "queries_data": [
+      {
+        "query": "select count(*) from partition_date",
+        "expected_result": [
+          1000000
+        ],
+        "query_id": "partition_date_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "phoenix_table",
+    "structure": [
+      {
+        "name": "event_type",
+        "type": "varchar"
+      },
+      {
+        "name": "ts__",
+        "type": "varchar"
+      },
+      {
+        "name": "pid",
+        "type": "bigint"
+      },
+      {
+        "name": "process_start_time",
+        "type": "bigint"
+      },
+      {
+        "name": "network_status",
+        "type": "varchar"
+      },
+      {
+        "name": "is_active",
+        "type": "varchar"
+      },
+      {
+        "name": "is_decommissioned",
+        "type": "varchar"
+      },
+      {
+        "name": "sha1",
+        "type": "varchar"
+      },
+      {
+        "name": "sha256",
+        "type": "varchar"
+      },
+      {
+        "name": "md5",
+        "type": "varchar"
+      },
+      {
+        "name": "image_sha1_hash",
+        "type": "varchar"
+      },
+      {
+        "name": "verb",
+        "type": "varchar"
+      },
+      {
+        "name": "source",
+        "type": "varchar"
+      },
+      {
+        "name": "uri",
+        "type": "varchar"
+      },
+      {
+        "name": "registry_id",
+        "type": "varchar"
+      },
+      {
+        "name": "registry_path",
+        "type": "varchar"
+      },
+      {
+        "name": "task_path",
+        "type": "varchar"
+      },
+      {
+        "name": "task_name",
+        "type": "varchar"
+      },
+      {
+        "name": "query_results",
+        "type": "varchar"
+      },
+      {
+        "name": "query_name",
+        "type": "varchar"
+      },
+      {
+        "name": "s_port",
+        "type": "bigint"
+      },
+      {
+        "name": "d_port",
+        "type": "bigint"
+      },
+      {
+        "name": "s_addr",
+        "type": "varchar"
+      },
+      {
+        "name": "d_addr",
+        "type": "varchar"
+      },
+      {
+        "name": "direction",
+        "type": "varchar"
+      },
+      {
+        "name": "file_name",
+        "type": "varchar"
+      },
+      {
+        "name": "is_spawner",
+        "type": "varchar"
+      },
+      {
+        "name": "parent_is_spawner",
+        "type": "varchar"
+      },
+      {
+        "name": "parent_process_unique_key",
+        "type": "bigint"
+      },
+      {
+        "name": "image_path",
+        "type": "varchar"
+      },
+      {
+        "name": "command_line",
+        "type": "varchar"
+      },
+      {
+        "name": "is_inherited_spawner",
+        "type": "varchar"
+      },
+      {
+        "name": "process_status",
+        "type": "varchar"
+      },
+      {
+        "name": "dummy1",
+        "type": "varchar"
+      },
+      {
+        "name": "dummy2",
+        "type": "varchar"
+      },
+      {
+        "name": "dummy3",
+        "type": "varchar"
+      },
+      {
+        "name": "dummy4",
+        "type": "varchar"
+      },
+      {
+        "name": "dummy5",
+        "type": "varchar"
+      },
+      {
+        "name": "agent_timestamp",
+        "type": "bigint"
+      },
+      {
+        "name": "process_unique_key",
+        "type": "varchar"
+      },
+      {
+        "name": "process_user_name",
+        "type": "varchar"
+      },
+      {
+        "name": "parent_process_start_time",
+        "type": "bigint"
+      },
+      {
+        "name": "parent_process_name",
+        "type": "varchar"
+      },
+      {
+        "name": "parent_pid",
+        "type": "bigint"
+      },
+      {
+        "name": "group_id",
+        "type": "bigint"
+      },
+      {
+        "name": "process_name",
+        "type": "varchar"
+      },
+      {
+        "name": "agent",
+        "type": "varchar"
+      },
+      {
+        "name": "agent_oid",
+        "type": "varchar"
+      },
+      {
+        "name": "agent_version",
+        "type": "varchar"
+      },
+      {
+        "name": "computer_name",
+        "type": "varchar"
+      },
+      {
+        "name": "external_ip",
+        "type": "varchar"
+      },
+      {
+        "name": "machine_type",
+        "type": "varchar"
+      },
+      {
+        "name": "os_family",
+        "type": "varchar"
+      },
+      {
+        "name": "last_logged_in_sid",
+        "type": "timestamp"
+      },
+      {
+        "name": "last_logged_in_user",
+        "type": "timestamp"
+      },
+      {
+        "name": "last_active_time",
+        "type": "timestamp"
+      },
+      {
+        "name": "uuid",
+        "type": "varchar"
+      },
+      {
+        "name": "mgmt_addr__",
+        "type": "varchar"
+      },
+      {
+        "name": "site_id",
+        "type": "varchar"
+      },
+      {
+        "name": "mgmt_id",
+        "type": "bigint"
+      },
+      {
+        "name": "mgmt",
+        "type": "varchar"
+      },
+      {
+        "name": "group_uid",
+        "type": "varchar"
+      },
+      {
+        "name": "double_field",
+        "type": "double"
+      },
+      {
+        "name": "real_field",
+        "type": "real"
+      },
+      {
+        "name": "tinyint_field",
+        "type": "tinyint"
+      },
+      {
+        "name": "smallint_field",
+        "type": "smallint"
+      },
+      {
+        "name": "decimal_field",
+        "type": "decimal",
+        "args": [
+          30,
+          26
+        ]
+      },
+      {
+        "name": "date_field",
+        "type": "date"
+      },
+      {
+        "name": "mgmt_addr",
+        "type": "varchar"
+      },
+      {
+        "name": "ts",
+        "type": "varchar"
+      }
+    ],
+    "partition_by": [
+      "mgmt_addr",
+      "ts"
+    ],
+    "data_format": "ORC",
+    "warmup_rules": [
+      {
+        "colNameId": "event_type",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "pid",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_BLOOM_LOW"
+        ]
+      },
+      {
+        "colNameId": "process_start_time",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "network_status",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "is_active",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "is_decommissioned",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "sha1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "sha256",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "md5",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "image_sha1_hash",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "verb",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "source",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "uri",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "registry_id",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "registry_path",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "task_path",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "task_name",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "query_results",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "query_name",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "s_port",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "d_port",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "s_addr",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "d_addr",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "direction",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "file_name",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "is_spawner",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "parent_is_spawner",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "parent_process_unique_key",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "image_path",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "command_line",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "is_inherited_spawner",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "process_status",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "dummy1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE",
+          "WARM_UP_TYPE_BLOOM_MEDIUM"
+        ]
+      },
+      {
+        "colNameId": "dummy2",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "dummy3",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "dummy4",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "dummy5",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "agent_timestamp",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "process_unique_key",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "process_user_name",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "parent_process_start_time",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "parent_process_name",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "parent_pid",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "group_id",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "process_name",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "agent",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "agent_oid",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "agent_version",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BLOOM_LOW"
+        ]
+      },
+      {
+        "colNameId": "computer_name",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "external_ip",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "machine_type",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "os_family",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE",
+          "WARM_UP_TYPE_BLOOM_LOW"
+        ]
+      },
+      {
+        "colNameId": "last_logged_in_sid",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "last_logged_in_user",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "last_active_time",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "uuid",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "site_id",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "mgmt_id",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "mgmt",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "group_uid",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "double_field",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "real_field",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "tinyint_field",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "smallint_field",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "decimal_field",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_BLOOM_HIGH"
+        ]
+      },
+      {
+        "colNameId": "date_field",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "mgmt_addr",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "ts",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      }
+    ],
+    "expected_dictionary_counters": {
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 43
+    },
+    "queries_data": [
+      {
+        "query": "SELECT COUNT(*) FROM phoenix_table",
+        "expected_result": [
+          [
+            1730048
+          ]
+        ],
+        "query_id": "phoenix_table_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 9,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "SELECT COUNT(*), sum(real_field) FROM phoenix_table WHERE dummy1='asdfasdfasdfasdfasdf' AND dummy2='asdfasdfasdfasdfasdf' AND group_uid='4355767941191166720' AND agent_version like '%3.2.1.3%' AND task_name='None' AND md5<>'None'",
+        "expected_result": [
+          [
+            108681,
+            72426720.0
+          ]
+        ],
+        "query_id": "phoenix_table_2",
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 4,
+          "prefilled_collect_columns": 2,
+          "external_match_columns": 4,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "SELECT COUNT(*), sum(real_field) FROM phoenix_table WHERE dummy1='asdfasdfasdfasdfasdf' AND group_uid='4355767941191166720' AND agent_version like '%3.2.1.3%' AND task_name='None'",
+        "expected_result": [
+          [
+            108681,
+            72426720.0
+          ]
+        ],
+        "query_id": "phoenix_table_3",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 3,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 3,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "SELECT COUNT(*), sum(group_id) FROM phoenix_table WHERE event_type='TCPV4' AND dummy2=dummy4 AND external_ip LIKE '192.%' AND uuid='e2db917d0cc6e53f' AND md5 LIKE '%b67%' AND process_unique_key='15996'",
+        "expected_result": [
+          [
+            1,
+            5001
+          ]
+        ],
+        "query_id": "phoenix_table_4",
+        "expected_counters": {
+          "varada_match_columns": 3,
+          "varada_collect_columns": 4,
+          "prefilled_collect_columns": 2,
+          "external_match_columns": 2,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "SELECT COUNT(*) FROM phoenix_table WHERE uri='None' AND event_type='HTTP' AND uuid='e2db917d0cc6e53f' AND process_unique_key IS NOT NULL AND sha256='91a5317ac79f0716dfb35f34b2d527ccb98ab872c572240c283fe3d5838e75c8' AND dummy1 LIKE 'as%'",
+        "expected_result": [
+          0
+        ],
+        "query_id": "phoenix_table_5",
+        "expected_counters": {
+          "varada_match_columns": 4,
+          "varada_collect_columns": 4,
+          "prefilled_collect_columns": 2,
+          "external_match_columns": 2,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "SELECT event_type, COUNT(*) FROM phoenix_table WHERE sha1 LIKE 'e%' AND agent_oid LIKE '%3f' AND os_family='windows' AND mgmt='customercustomer302/28676' and mgmt_addr='customercustomer300' AND event_type LIKE 'R%' GROUP BY event_type ORDER BY event_type",
+        "expected_result": [
+          [
+            "REGKEYDELETE",
+            1
+          ],
+          [
+            "REGVALUEMODIFIED",
+            2
+          ]
+        ],
+        "query_id": "phoenix_table_6",
+        "expected_counters": {
+          "varada_match_columns": 4,
+          "varada_collect_columns": 2,
+          "prefilled_collect_columns": 2,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "SELECT COUNT(*) FROM phoenix_table WHERE image_sha1_hash LIKE '7bd045d969b8ba9d25f77c73be1dfd9f4f2e9ab%' AND sha256 LIKE '%cc8035d6e78b5d10b7ff16260d38fd1dc50a%' AND sha1='e9f30bc12ef64cc0743421b4c02251f5e6d15878' AND md5='d84a33759295eac84a292c59b1d43d75' AND image_path='None' AND image_path=command_line",
+        "expected_result": [
+          2
+        ],
+        "query_id": "phoenix_table_7",
+        "expected_counters": {
+          "varada_match_columns": 3,
+          "varada_collect_columns": 3,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 2,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "SELECT image_sha1_hash  FROM phoenix_table WHERE dummy1='asdfasdfasdfasdfasdf' AND dummy2='asdfasdfasdfasdfasdf' AND group_uid='4355767941191166720' AND agent_version like '%3.2.1.3%' AND task_name='None' AND md5<>'None' AND mgmt_id=82389 AND real_field>=679.24664 AND os_family='macOs' AND sha1 LIKE '%200%b6%' AND uri LIKE 'prefectship%'",
+        "expected_result": [
+          "0cc1d502712f1a8177905be9c41887d16d64a254"
+        ],
+        "query_id": "phoenix_table_8",
+        "expected_counters": {
+          "varada_match_columns": 51,
+          "varada_collect_columns": 60,
+          "prefilled_collect_columns": 32,
+          "external_match_columns": 48,
+          "external_collect_columns": 8
+        }
+      },
+      {
+        "query": "SELECT dummy5 FROM phoenix_table WHERE dummy1='asdfasdfasdfasdfasdf' AND dummy2='asdfasdfasdfasdfasdf' AND group_uid>='4355767941191166720' AND agent_version LIKE '%3.2.1.3%' AND network_status='connected' AND registry_id='b2ef5b3ecab1ef3f' AND registry_path LIKE '%hectoliters methiodide Halemaumau main-sheet finnesko jingals Coryneum bedrocks stridulation inspective%' AND task_name='None' AND group_uid='5859182744705413761' AND decimal_field=407.06019210922600000000000000",
+        "expected_result": [
+          "asdfasdfasdfasdfasdf"
+        ],
+        "query_id": "phoenix_table_9",
+        "expected_counters": {
+          "varada_match_columns": 36,
+          "varada_collect_columns": 54,
+          "prefilled_collect_columns": 36,
+          "external_match_columns": 45,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "SELECT parent_process_name FROM phoenix_table WHERE decimal_field<=407.06019210922600000000000000 AND event_type='TCPV4LISTEN' AND pid=15996 AND is_active='True' AND sha1 LIKE '%98%eef%9%' AND md5='048c1173efe48f46e009b041b5bbd0a2' AND image_sha1_hash='5b917598e47ed45a8139f6865dffeef1305c1fb3' AND s_addr LIKE '178.%178%' AND task_name='None' AND direction='inbound' AND dummy3='asdfasdfasdfasdfasdf' AND process_user_name='lt-27.davidson.com-user' AND double_field=664.5028216644381 AND decimal_field>=202 AND mgmt_addr LIKE '%300%'",
+        "expected_result": [
+          "vitreal thioantimona"
+        ],
+        "query_id": "phoenix_table_10",
+        "expected_counters": {
+          "varada_match_columns": 63,
+          "varada_collect_columns": 72,
+          "prefilled_collect_columns": 63,
+          "external_match_columns": 63,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "phoenix_table_min_max_q01",
+        "query": "select count(tinyint_field) from phoenix_table where tinyint_field < 0",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "phoenix_table_data_min_max_q02",
+        "query": "select count(tinyint_field) from phoenix_table where tinyint_field > 126",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "phoenix_table_min_max_q03",
+        "query": "select count(smallint_field) from phoenix_table where smallint_field < 0",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "phoenix_table_data_min_max_q04",
+        "query": "select count(smallint_field) from phoenix_table where smallint_field > 32766",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "phoenix_1716_rules",
+    "structure": [
+      {
+        "name": "event_type",
+        "type": "varchar"
+      },
+      {
+        "name": "ts__",
+        "type": "varchar"
+      },
+      {
+        "name": "pid",
+        "type": "bigint"
+      },
+      {
+        "name": "process_start_time",
+        "type": "bigint"
+      },
+      {
+        "name": "network_status",
+        "type": "varchar"
+      },
+      {
+        "name": "is_active",
+        "type": "varchar"
+      },
+      {
+        "name": "is_decommissioned",
+        "type": "varchar"
+      },
+      {
+        "name": "sha1",
+        "type": "varchar"
+      },
+      {
+        "name": "sha256",
+        "type": "varchar"
+      },
+      {
+        "name": "md5",
+        "type": "varchar"
+      },
+      {
+        "name": "image_sha1_hash",
+        "type": "varchar"
+      },
+      {
+        "name": "verb",
+        "type": "varchar"
+      },
+      {
+        "name": "source",
+        "type": "varchar"
+      },
+      {
+        "name": "uri",
+        "type": "varchar"
+      },
+      {
+        "name": "registry_id",
+        "type": "varchar"
+      },
+      {
+        "name": "registry_path",
+        "type": "varchar"
+      },
+      {
+        "name": "task_path",
+        "type": "varchar"
+      },
+      {
+        "name": "task_name",
+        "type": "varchar"
+      },
+      {
+        "name": "query_results",
+        "type": "varchar"
+      },
+      {
+        "name": "query_name",
+        "type": "varchar"
+      },
+      {
+        "name": "s_port",
+        "type": "bigint"
+      },
+      {
+        "name": "d_port",
+        "type": "bigint"
+      },
+      {
+        "name": "s_addr",
+        "type": "varchar"
+      },
+      {
+        "name": "d_addr",
+        "type": "varchar"
+      },
+      {
+        "name": "direction",
+        "type": "varchar"
+      },
+      {
+        "name": "file_name",
+        "type": "varchar"
+      },
+      {
+        "name": "is_spawner",
+        "type": "varchar"
+      },
+      {
+        "name": "parent_is_spawner",
+        "type": "varchar"
+      },
+      {
+        "name": "parent_process_unique_key",
+        "type": "bigint"
+      },
+      {
+        "name": "image_path",
+        "type": "varchar"
+      },
+      {
+        "name": "command_line",
+        "type": "varchar"
+      },
+      {
+        "name": "is_inherited_spawner",
+        "type": "varchar"
+      },
+      {
+        "name": "process_status",
+        "type": "varchar"
+      },
+      {
+        "name": "dummy1",
+        "type": "varchar"
+      },
+      {
+        "name": "dummy2",
+        "type": "varchar"
+      },
+      {
+        "name": "dummy3",
+        "type": "varchar"
+      },
+      {
+        "name": "dummy4",
+        "type": "varchar"
+      },
+      {
+        "name": "dummy5",
+        "type": "varchar"
+      },
+      {
+        "name": "agent_timestamp",
+        "type": "bigint"
+      },
+      {
+        "name": "process_unique_key",
+        "type": "varchar"
+      },
+      {
+        "name": "process_user_name",
+        "type": "varchar"
+      },
+      {
+        "name": "parent_process_start_time",
+        "type": "bigint"
+      },
+      {
+        "name": "parent_process_name",
+        "type": "varchar"
+      },
+      {
+        "name": "parent_pid",
+        "type": "bigint"
+      },
+      {
+        "name": "group_id",
+        "type": "bigint"
+      },
+      {
+        "name": "process_name",
+        "type": "varchar"
+      },
+      {
+        "name": "agent",
+        "type": "varchar"
+      },
+      {
+        "name": "agent_oid",
+        "type": "varchar"
+      },
+      {
+        "name": "agent_version",
+        "type": "varchar"
+      },
+      {
+        "name": "computer_name",
+        "type": "varchar"
+      },
+      {
+        "name": "external_ip",
+        "type": "varchar"
+      },
+      {
+        "name": "machine_type",
+        "type": "varchar"
+      },
+      {
+        "name": "os_family",
+        "type": "varchar"
+      },
+      {
+        "name": "last_logged_in_sid",
+        "type": "timestamp"
+      },
+      {
+        "name": "last_logged_in_user",
+        "type": "timestamp"
+      },
+      {
+        "name": "last_active_time",
+        "type": "timestamp"
+      },
+      {
+        "name": "uuid",
+        "type": "varchar"
+      },
+      {
+        "name": "mgmt_addr__",
+        "type": "varchar"
+      },
+      {
+        "name": "site_id",
+        "type": "varchar"
+      },
+      {
+        "name": "mgmt_id",
+        "type": "bigint"
+      },
+      {
+        "name": "mgmt",
+        "type": "varchar"
+      },
+      {
+        "name": "group_uid",
+        "type": "varchar"
+      },
+      {
+        "name": "double_field",
+        "type": "double"
+      },
+      {
+        "name": "real_field",
+        "type": "real"
+      },
+      {
+        "name": "tinyint_field",
+        "type": "tinyint"
+      },
+      {
+        "name": "smallint_field",
+        "type": "smallint"
+      },
+      {
+        "name": "decimal_field",
+        "type": "decimal",
+        "args": [
+          30,
+          26
+        ]
+      },
+      {
+        "name": "date_field",
+        "type": "date"
+      },
+      {
+        "name": "mgmt_addr",
+        "type": "varchar"
+      },
+      {
+        "name": "ts",
+        "type": "varchar"
+      }
+    ],
+    "partition_by": [
+      "mgmt_addr",
+      "ts"
+    ],
+    "data_format": "ORC",
+    "warmup_rules_file": "resources/phoenix/phoenix_1716_rules_flat.json",
+    "warm_query": "select real_field, dummy1, dummy2, group_uid, agent_version, task_name, md5 from phoenix_1716_rules",
+    "queries_data": [
+      {
+        "query": "SELECT COUNT(dummy1) FROM phoenix_1716_rules",
+        "expected_result": [
+          [
+            7126174
+          ]
+        ],
+        "query_id": "phoenix_1716_rules_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 713,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "SELECT COUNT(*), sum(real_field) FROM phoenix_1716_rules WHERE dummy1='asdfasdfasdfasdfasdf' AND dummy2='asdfasdfasdfasdfasdf' AND group_uid='4355767941191166720' AND agent_version like '%3.2.1.3%' AND task_name='None' AND md5<>'None'",
+        "expected_result": [
+          [
+            259132,
+            172862000.0
+          ]
+        ],
+        "query_id": "phoenix_1716_rules_2",
+        "expected_counters": {
+          "varada_match_columns": 3565,
+          "varada_collect_columns": 2139,
+          "prefilled_collect_columns": 2852,
+          "external_match_columns": 713,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "long_part",
+    "structure": [
+      {
+        "name": "Id",
+        "type": "integer"
+      },
+      {
+        "name": "Model",
+        "type": "varchar",
+        "args": [
+          40
+        ]
+      },
+      {
+        "name": "Year",
+        "type": "bigint"
+      },
+      {
+        "name": "ScreenSize",
+        "type": "varchar",
+        "args": [
+          20
+        ]
+      },
+      {
+        "name": "RAM",
+        "type": "varchar",
+        "args": [
+          5
+        ]
+      },
+      {
+        "name": "HDD",
+        "type": "varchar",
+        "args": [
+          10
+        ]
+      },
+      {
+        "name": "W",
+        "type": "double"
+      },
+      {
+        "name": "D",
+        "type": "double"
+      },
+      {
+        "name": "H",
+        "type": "double"
+      },
+      {
+        "name": "Weight",
+        "type": "double"
+      },
+      {
+        "name": "longlonglonglonglonglonglonglong_col1",
+        "type": "integer"
+      },
+      {
+        "name": "longlonglonglonglonglonglonglong_col2",
+        "type": "integer"
+      },
+      {
+        "name": "longlonglonglonglonglonglonglong_col3",
+        "type": "integer"
+      },
+      {
+        "name": "longlonglonglonglonglonglonglong_col4",
+        "type": "integer"
+      },
+      {
+        "name": "longlonglonglonglonglonglonglong_col5",
+        "type": "integer"
+      },
+      {
+        "name": "longlonglonglonglonglonglonglong_col6",
+        "type": "integer"
+      }
+    ],
+    "partition_by": [
+      "longlonglonglonglonglonglonglong_col1",
+      "longlonglonglonglonglonglonglong_col2",
+      "longlonglonglonglonglonglonglong_col3",
+      "longlonglonglonglonglonglonglong_col4",
+      "longlonglonglonglonglonglonglong_col5",
+      "longlonglonglonglonglonglonglong_col6"
+    ],
+    "queries_data":[
+      {
+        "query": "select count(*) from long_part",
+        "expected_result": [
+          4
+        ],
+        "query_id": "long_part_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select * from long_part where id=1",
+        "query_id": "long_part_2",
+        "expected_result": [
+          1,
+          "MacBook Pro",
+          2015,
+          "15",
+          "16GB",
+          "512GB SSD",
+          13.75,
+          9.48,
+          0.61,
+          4.02,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 9,
+          "prefilled_collect_columns": 7,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select * from long_part where id=1 and longlonglonglonglonglonglonglong_col3=3",
+        "query_id": "long_part_3",
+        "expected_result": [
+          1,
+          "MacBook Pro",
+          2015,
+          "15",
+          "16GB",
+          "512GB SSD",
+          13.75,
+          9.48,
+          0.61,
+          4.02,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 9,
+          "prefilled_collect_columns": 7,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+
+  },
+  {
+    "name" : "partition_null_values",
+    "skip": true,
+    "skip_comment": "ToDo: temporarily skipped until fixed",
+    "pt_enable": true,
+    "partition_by": [
+      "cs_sold_date_sk"
+    ],
+    "structure": [
+      {
+        "name": "_cs_sold_date_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_sold_time_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_ship_date_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_bill_customer_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_bill_cdemo_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_bill_hdemo_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_bill_addr_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_ship_customer_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_ship_cdemo_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_ship_hdemo_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_ship_addr_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_call_center_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_catalog_page_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_ship_mode_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_warehouse_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_item_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_promo_sk",
+        "type": "integer"
+      },
+      {
+        "name": "cs_order_number",
+        "type": "integer"
+      },
+      {
+        "name": "cs_quantity",
+        "type": "integer"
+      },
+      {
+        "name": "cs_wholesale_cost",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_list_price",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_sales_price",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_ext_discount_amt",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_ext_sales_price",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_ext_wholesale_cost",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_ext_list_price",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_ext_tax",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_coupon_amt",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_ext_ship_cost",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_net_paid",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_net_paid_inc_tax",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_net_paid_inc_ship",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_net_paid_inc_ship_tax",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_net_profit",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "cs_sold_date_sk",
+        "type": "integer"
+      }
+    ],
+    "queries_data":[
+      {
+        "query": "select count(*) from partition_null_values",
+        "expected_result": [
+          80892
+        ],
+        "query_id": "partition_null_values_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(cs_sold_time_sk) from partition_null_values where cs_sold_date_sk is NULL",
+        "expected_result": [
+          35893
+        ],
+        "query_id": "partition_null_values_2",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "empty_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(cs_sold_time_sk) from partition_null_values where cs_sold_date_sk is NOT NULL",
+        "expected_result": [
+          8897
+        ],
+        "query_id": "partition_null_values_3",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "empty_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(cs_sold_time_sk) from partition_null_values where cs_sold_date_sk is NULL AND cs_quantity > 50",
+        "expected_result": [
+          9012
+        ],
+        "query_id": "partition_null_values_4",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "empty_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(cs_sold_time_sk) from partition_null_values where cs_sold_date_sk is NULL OR cs_quantity > 50",
+        "expected_result": [
+          40343
+        ],
+        "query_id": "partition_null_values_5",
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 2,
+          "prefilled_collect_columns": 1,
+          "empty_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "timestamp_partition",
+    "skip": true,
+    "skip_comment": "ToDo: temporarily skipped until fixed",
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "int_1",
+        "type": "integer"
+      },
+      {
+        "name": "ts_1",
+        "type": "timestamp"
+      }
+    ],
+    "partition_by": [
+      "ts_1"
+    ],
+    "skip_partition_sync": true,
+    "comment": "we only need to run sync at table creation (already done)",
+    "warmup_rules": [
+      {
+        "colNameId": "int_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "ts_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from timestamp_partition",
+    "queries_data": [
+      {
+        "query": "select count(ts_1) from timestamp_partition where int_1<=0 AND ts_1<=CAST('2018-01-03 10:50:35.000' as timestamp)",
+        "expected_result": [
+          50000
+        ],
+        "query_id": "timestamp_partition_1",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(ts_1) from timestamp_partition where int_1>=0 AND ts_1=CAST('2000-01-07 00:00:00.000000' as timestamp)",
+        "expected_result": [
+          5000
+        ],
+        "query_id": "timestamp_partition_2",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(ts_1) from timestamp_partition where ts_1>=CAST('2001-01-07 00:00:00.000000' as timestamp) or ts_1<=CAST('2000-01-09 00:00:00' as timestamp)",
+        "expected_result": [
+          90000
+        ],
+        "query_id": "timestamp_partition_3",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "decimal_partition",
+    "skip": true,
+    "skip_comment": "ToDo: temporarily skipped until fixed",
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "int_1",
+        "type": "integer"
+      },
+      {
+        "name": "dec_1",
+        "type": "decimal",
+        "args": [
+          10,
+          2
+        ]
+      }
+    ],
+    "partition_by": [
+      "dec_1"
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "int_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "dec_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from decimal_partition",
+    "queries_data": [
+      {
+        "query": "select count(dec_1) from decimal_partition where int_1<=0 AND dec_1<=12345678.123",
+        "expected_result": [
+          5000
+        ],
+        "query_id": "decimal_partition_2",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "decimal_timestamp_partition",
+    "skip": true,
+    "skip_comment": "ToDo: temporarily skipped until fixed",
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "bigint_1",
+        "type": "bigint"
+      },
+      {
+        "name": "dec_1",
+        "type": "decimal",
+        "args": [
+          10,
+          2
+        ]
+      },
+      {
+        "name": "ts_1",
+        "type": "timestamp"
+      }
+    ],
+    "partition_by": [
+      "dec_1",
+      "ts_1"
+    ],
+    "skip_partition_sync": true,
+    "comment": "we only need to run sync at table creation (already done)",
+    "warmup_rules": [
+      {
+        "colNameId": "dec_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "ts_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from decimal_timestamp_partition",
+    "queries_data": [
+      {
+        "query": "select min(dec_1) from decimal_timestamp_partition where dec_1<=1235.5",
+        "expected_result": [
+          1234.50
+        ],
+        "query_id": "decimal_timestamp_partition_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(dec_1) from decimal_timestamp_partition where ts_1>=CAST('2000-01-03 00:00:00.000' as timestamp)",
+        "expected_result": [
+          59994
+        ],
+        "query_id": "decimal_timestamp_partition_2",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select max(dec_1), MAX(CAST(ts_1 as timestamp)) from decimal_timestamp_partition where ts_1>=CAST('2000-01-01 00:00:00.000' as timestamp) AND dec_1<=1236.5",
+        "expected_result": [
+          "1236.50", "2000-01-05 00:00:00.000"
+        ],
+        "query_id": "decimal_timestamp_partition_3",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  }
+]

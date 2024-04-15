@@ -131,10 +131,5 @@ public final class VaradaStatsRowgroup
         return new HashMap<>();
     }
 
-    public int getNumberOfMetrics()
-    {
-        return 6;
-    }
-
     private native ByteBuffer initNative(long limit);
 }

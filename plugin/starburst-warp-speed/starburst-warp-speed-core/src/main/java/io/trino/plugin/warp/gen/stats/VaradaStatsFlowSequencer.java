@@ -171,9 +171,4 @@ public final class VaradaStatsFlowSequencer
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 2;
-    }
 }

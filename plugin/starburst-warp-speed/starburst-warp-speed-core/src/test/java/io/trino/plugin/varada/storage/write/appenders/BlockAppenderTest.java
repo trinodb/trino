@@ -32,6 +32,7 @@ import io.trino.plugin.varada.storage.juffers.NullWriteJuffer;
 import io.trino.plugin.varada.storage.juffers.VarlenMdJuffer;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
 import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 import io.trino.plugin.varada.type.TypeUtils;
 import io.trino.plugin.warp.gen.constants.RecTypeCode;
 import io.trino.spi.block.Block;
@@ -125,9 +126,9 @@ public abstract class BlockAppenderTest
     void runTest(Block block, Type blockType, WarmupElementStats expectedResult, Optional<WriteDictionary> writeDictionary)
     {
         BlockPosHolder blockPosHolder = new BlockPosHolder(block, blockType, 0, block.getPositionCount());
-        WarmupElementStats warmupElementStats = new WarmupElementStats(0, null, null);
-        blockAppender.append(jufferPos, blockPosHolder, false, writeDictionary, null, warmupElementStats);
-        assertThat(warmupElementStats).isEqualTo(expectedResult);
+        WarmupElementStatsBuilder warmupElementStatsBuilder = new WarmupElementStatsBuilder();
+        blockAppender.append(jufferPos, blockPosHolder, false, writeDictionary, null, warmupElementStatsBuilder);
+        assertThat(warmupElementStatsBuilder.build()).isEqualTo(expectedResult);
     }
 
     public static VariableWidthBlockBuilder buildVarcharBlockBuilder(List<Slice> values, Type type)

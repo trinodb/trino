@@ -34,6 +34,12 @@ public interface StorageEngine
         throw new UnsupportedOperationException();
     }
 
+    // returns the warm up tx size for index
+    default int initWarmupTxSizes(int[] fixedWarmupDataTxSizes, int[] varlenWarmupDataTxSizes)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default ByteBuffer getBundleFromPool(int bufIx)
     {
         throw new UnsupportedOperationException();
@@ -85,6 +91,11 @@ public interface StorageEngine
 
     // returns offset in pages
     default void warmupClose(int txId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void warmupVerifyQueryOffset(int queryOffset, long fileCookie)
     {
         throw new UnsupportedOperationException();
     }
@@ -160,8 +171,10 @@ public interface StorageEngine
      * @param txId - transaction id
      * @param chunkIndex - chunk index to collect from
      * @param collectStateObj - collect object to retreive store/restore state mehtod ids
+     *
+     * @return 0 for success, -1 for failure
      */
-    default void collectRestoreState(int txId, int chunkIndex, StorageCollectorCallBack collectStateObj)
+    default int collectRestoreState(int txId, int chunkIndex, StorageCollectorCallBack collectStateObj)
     {
         throw new UnsupportedOperationException();
     }

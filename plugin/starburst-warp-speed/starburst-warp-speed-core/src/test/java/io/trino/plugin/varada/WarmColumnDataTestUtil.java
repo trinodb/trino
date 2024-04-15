@@ -50,7 +50,7 @@ public class WarmColumnDataTestUtil
                 .recTypeLength(recordData.recTypeLength())
                 .varadaColumn(recordData.schemaTableColumn().varadaColumn())
                 .dictionaryInfo(dictionaryInfo)
-                .warmupElementStats(new WarmupElementStats(0, Long.MIN_VALUE, Long.MAX_VALUE))
+                .warmupElementStats(WarmupElementStats.UNINITIALIZED)
                 .build();
         return WarmupElementWriteMetadata.builder()
                 .warmUpElement(warmUpElement)

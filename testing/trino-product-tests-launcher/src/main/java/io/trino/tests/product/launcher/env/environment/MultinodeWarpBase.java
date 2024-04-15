@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.tests.product.launcher.env.environment;
 
 import io.trino.tests.product.launcher.docker.DockerFiles;
@@ -67,8 +66,22 @@ public abstract class MultinodeWarpBase
 
     protected void copyTestResources(DockerContainer container)
     {
+        container.withCopyFileToContainer(forHostPath(Path.of(".", "/docker/presto-product-tests/warp/cache.json"), 493),
+                "/docker/cache.json");
         container.withCopyFileToContainer(forHostPath(Path.of(".", "/docker/presto-product-tests/warp/synthetic.json"), 493),
                 "/docker/synthetic.json");
+        container.withCopyFileToContainer(forHostPath(Path.of(".", "/docker/presto-product-tests/warp/lucene.json"), 493),
+                "/docker/lucene.json");
+        container.withCopyFileToContainer(forHostPath(Path.of(".", "/docker/presto-product-tests/warp/synth_dict.json"), 493),
+                "/docker/synth_dict.json");
+        container.withCopyFileToContainer(forHostPath(Path.of(".", "/docker/presto-product-tests/warp/synth_partit.json"), 493),
+                "/docker/synth_partit.json");
+        container.withCopyFileToContainer(forHostPath(Path.of(".", "/docker/presto-product-tests/warp/synth_types.json"), 493),
+                "/docker/synth_types.json");
+        container.withCopyFileToContainer(forHostPath(Path.of(".", "/docker/presto-product-tests/warp/synthetic_mix_query.json"), 493),
+                "/docker/synthetic_mix_query.json");
+        container.withCopyFileToContainer(forHostPath(Path.of(".", "/docker/presto-product-tests/warp/synthetic_matrix.json"), 493),
+                "/docker/synthetic_matrix.json");
     }
 
     protected void configureTrinoContainer(DockerContainer container)

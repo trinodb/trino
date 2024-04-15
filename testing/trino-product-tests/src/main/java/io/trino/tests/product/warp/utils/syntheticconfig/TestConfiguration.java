@@ -88,8 +88,8 @@ public abstract class TestConfiguration
             throws Exception
     {
         return switch (tableType) {
-            case varada_iceberg -> ICEBERG_TYPE_PREFIX;
-            case varada_delta_lake -> DELTA_TYPE_PREFIX;
+            case warp_iceberg -> ICEBERG_TYPE_PREFIX;
+            case warp_delta_lake -> DELTA_TYPE_PREFIX;
             case warp -> "";
             case null -> throw new Exception(String.format("Not expected table type %s", getTableType().name()));
         };

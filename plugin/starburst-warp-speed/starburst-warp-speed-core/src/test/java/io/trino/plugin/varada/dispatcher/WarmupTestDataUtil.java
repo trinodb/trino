@@ -247,11 +247,6 @@ public class WarmupTestDataUtil
                 .collect(Collectors.toList());
     }
 
-    public static WarmUpElement createWarmupElement(String columnKey, WarmUpType warmUpType)
-    {
-        return createWarmupElement(new RegularColumn(columnKey), warmUpType);
-    }
-
     public static WarmUpElement createWarmupElement(VaradaColumn varadaColumn, WarmUpType warmUpType)
     {
         return WarmUpElement.builder()

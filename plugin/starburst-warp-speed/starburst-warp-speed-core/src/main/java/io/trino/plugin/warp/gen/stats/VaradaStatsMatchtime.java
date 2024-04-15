@@ -131,10 +131,5 @@ public final class VaradaStatsMatchtime
         return new HashMap<>();
     }
 
-    public int getNumberOfMetrics()
-    {
-        return 6;
-    }
-
     private native ByteBuffer initNative(long limit);
 }

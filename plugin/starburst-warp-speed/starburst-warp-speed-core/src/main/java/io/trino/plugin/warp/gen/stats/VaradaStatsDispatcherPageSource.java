@@ -1162,9 +1162,4 @@ public final class VaradaStatsDispatcherPageSource
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 34;
-    }
 }

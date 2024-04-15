@@ -124,15 +124,8 @@ public class QueryUtils
                     if (cacheWarmFailed > 0) {
                         return;
                     }
-                    long skippedOnDF = getDiffFromInitial(queryStatsAfter, queryStatsBefore, JMXCachingConstants.Columns.WARP_CACHE_SKIPPED_DYNAMIC_FILTER);
-                    if (skippedOnDF > 0) {
-                        logger.info("for query %s we skip on some split becase of lack of support DF", query);
-                    }
 
                     warpCache[0] = getDiffFromInitial(queryStatsAfter, queryStatsBefore, JMXCachingConstants.Columns.WARP_CACHE) - warpCache[0];
-                    if (skippedOnDF > 0) {
-                        logger.info("for query %s we skip on some split becase of lack of support DF", query);
-                    }
                     long warpCacheStarted = getDiffFromInitial(warmingStatsAfter, warmingStatsBefore, JMXCachingConstants.WarmingService.CACHE_WARM_STARTED);
                     long warpCacheAccomplished = getDiffFromInitial(warmingStatsAfter, warmingStatsBefore, JMXCachingConstants.WarmingService.CACHE_WARM_ACCOMPLISHED);
                     assertThat(warpCacheStarted).isEqualTo(warpCacheAccomplished).describedAs("warpCacheStarted=%s should be equal to warpCacheAccomplished=%s", warpCacheStarted, warpCacheAccomplished);

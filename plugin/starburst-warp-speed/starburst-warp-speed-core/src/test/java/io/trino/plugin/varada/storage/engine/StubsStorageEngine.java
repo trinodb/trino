@@ -58,6 +58,18 @@ public class StubsStorageEngine
     }
 
     @Override
+    public int initWarmupTxSizes(int[] fixedWarmupDataTxSizes, int[] varlenWarmupDataTxSizes)
+    {
+        for (int i = 0; i < fixedWarmupDataTxSizes.length; i++) {
+            fixedWarmupDataTxSizes[i] = 1024 * i;
+        }
+        for (int i = 0; i < varlenWarmupDataTxSizes.length; i++) {
+            varlenWarmupDataTxSizes[i] = 1024 * i;
+        }
+        return 1024;
+    }
+
+    @Override
     public long fileOpen(String fileName)
     {
         return 0;
@@ -110,6 +122,11 @@ public class StubsStorageEngine
     }
 
     @Override
+    public void warmupVerifyQueryOffset(int queryOffset, long fileCookie)
+    {
+    }
+
+    @Override
     public void commitRecordBufferPrepare(long weCookie)
     {
     }
@@ -157,8 +174,9 @@ public class StubsStorageEngine
     }
 
     @Override
-    public void collectRestoreState(int txId, int chunkIndex, StorageCollectorCallBack collectStateObj)
+    public int collectRestoreState(int txId, int chunkIndex, StorageCollectorCallBack collectStateObj)
     {
+        return 0;
     }
 
     @Override

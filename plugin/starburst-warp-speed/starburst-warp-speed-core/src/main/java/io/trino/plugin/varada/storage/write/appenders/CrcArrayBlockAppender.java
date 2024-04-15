@@ -18,7 +18,7 @@ import io.trino.plugin.varada.dispatcher.warmup.transform.BlockTransformer;
 import io.trino.plugin.varada.dispatcher.warmup.transform.BlockTransformerFactory;
 import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 import io.trino.plugin.warp.gen.constants.WarmUpType;
 import io.trino.spi.type.Type;
 
@@ -45,11 +45,11 @@ public class CrcArrayBlockAppender
     }
 
     @Override
-    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         Optional<BlockTransformer> blockTransformer = blockTransformerFactory.getBlockTransformer(WarmUpType.WARM_UP_TYPE_DATA, warmUpElement.getRecTypeCode());
         checkArgument(blockTransformer.isPresent());
         BlockPosHolder blockAsVarchar = blockTransformer.get().transformBlock(blockPos, filterType);
-        return stringBlockAppender.appendWithoutDictionary(jufferPos, blockAsVarchar, stopAfterOneFlush, warmUpElement, warmupElementStats);
+        return stringBlockAppender.appendWithoutDictionary(jufferPos, blockAsVarchar, stopAfterOneFlush, warmUpElement, warmupElementStatsBuilder);
     }
 }

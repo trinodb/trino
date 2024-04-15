@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.tests.product.warp;
 
 import com.google.inject.Inject;
@@ -33,7 +32,7 @@ public class TestWarpSpeedMinio
 {
     private static final String BUCKET_NAME = "product-tests-warp-speed";
     private static final String CATALOG_NAME = "warp";
-    private static final String SCHEMA_NAME = "product_tests";
+    private static final String SCHEMA_NAME = "warp_product_tests";
 
     private MinioClient client;
     private boolean initialized;

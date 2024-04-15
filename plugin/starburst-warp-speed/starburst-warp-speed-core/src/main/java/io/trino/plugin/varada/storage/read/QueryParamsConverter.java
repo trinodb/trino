@@ -109,7 +109,7 @@ public class QueryParamsConverter
         for (MatchData matchData : matchDataList) {
             if (matchData instanceof QueryMatchData queryMatchData) {
                 WarmUpElement matchDataWarmUpElement = queryMatchData.getWarmUpElement();
-                matchDataWarmUpElement.setLastUsedTimestamp(lastUsedTimestamp);
+                matchDataWarmUpElement.setUsedTimestamp(lastUsedTimestamp);
                 if (minOffsets[MATCH] > matchDataWarmUpElement.getStartOffset()) {
                     minOffsets[MATCH] = matchDataWarmUpElement.getStartOffset();
                 }
@@ -172,7 +172,7 @@ public class QueryParamsConverter
 
         for (NativeQueryCollectData nativeQueryCollectData : nativeQueryCollectDataList) {
             WarmUpElement collectDataWarmUpElement = nativeQueryCollectData.getWarmUpElement();
-            collectDataWarmUpElement.setLastUsedTimestamp(lastUsedTimestamp);
+            collectDataWarmUpElement.setUsedTimestamp(lastUsedTimestamp);
             if (minOffsets[COLLECT] > collectDataWarmUpElement.getStartOffset()) {
                 minOffsets[COLLECT] = collectDataWarmUpElement.getStartOffset();
             }

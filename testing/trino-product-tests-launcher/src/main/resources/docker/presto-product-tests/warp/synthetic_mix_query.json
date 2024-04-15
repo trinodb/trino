@@ -1,0 +1,1711 @@
+[
+  {
+    "test_info": "col3_val_0_2(tinyint) not warmed",
+    "name": "check_limit",
+    "lines": 100000,
+    "structure": [
+      {
+        "name": "col1_val_0_1",
+        "type": "smallint"
+      },
+      {
+        "name": "col2_val_0_2",
+        "type": "tinyint"
+      },
+      {
+        "name": "col3_val_0_2",
+        "type": "tinyint"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "col1_val_0_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "col2_val_0_2",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from check_limit",
+    "queries_data": [
+      {"query": "select avg(I.col1_val_0_1),avg(I.col2_val_0_2),avg(I.col3_val_0_2) from (select * from check_limit where col1_val_0_1=1 and col2_val_0_2=2 and col3_val_0_2=2 limit 1000) as I",
+        "query_id": "check_limit_01",
+        "expected_result": [[
+          1.0,
+          2.0,
+          2.0
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 2,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {"query": "select min(col1_val_0_1),max(col2_val_0_2),min(col3_val_0_2) from check_limit where col3_val_0_2 >0 or col2_val_0_2 >0 ",
+        "query_id": "check_limit_02",
+        "expected_result": [[
+          0,
+          2,
+          0
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 2,
+          "external_match_columns": 2,
+          "external_collect_columns": 1
+        }
+      },
+      {"query": "select sum(col1_val_0_1),sum(col2_val_0_2),sum(col3_val_0_2) from check_limit where col3_val_0_2 < 2",
+        "query_id": "check_limit_03",
+        "expected_result": [[
+          33499,
+          66722,
+          33345
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 3
+        }
+      },
+      {
+        "query": "select sum(col1_val_0_1),sum(col2_val_0_2),sum(col3_val_0_2) from check_limit where col1_val_0_1 < 2",
+        "query_id": "check_limit_04",
+        "expected_result": [[
+          50167,
+          100151,
+          99999
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 2,
+          "varada_match_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query" : "select * from check_limit",
+        "query_id": "check_limit_05",
+        "expected_result"  : [
+          "IGNORE"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      }
+    ],
+    "data": "resources/synthetic/check_limit.jsonl"
+  },
+  {
+    "test_info": "varchar_1(varchar) not warmed",
+    "name": "similar_char",
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "varchar_1",
+        "type": "varchar"
+      },
+      {
+        "name": "char_2",
+        "type": "char",
+        "args": [
+          20
+        ]
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "char_2",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from similar_char",
+    "queries_data": [
+      {
+        "query": "select count(*) from similar_char",
+        "query_id": "similar_char_01",
+        "expected_result":[
+          192000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns" : 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from similar_char where varchar_1='VaradaSent'",
+        "query_id": "similar_char_02",
+        "expected_result": [
+          96172
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from similar_char where char_2='VaradaVARADASentinel'",
+        "query_id": "similar_char_03",
+        "expected_result": [
+          96021
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from similar_char where char_2 like '%Varada%' OR varchar_1 like '%Varada%'",
+        "query_id": "similar_char_04",
+        "expected_result": [
+          160172
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 2,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select distinct(char_2) from similar_char where char_2 like '%Varada%' AND varchar_1 like '%Varada%'",
+        "query_id": "similar_char_05",
+        "expected_result": [
+          "VaradaVARADASentinel"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 2,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from similar_char where varchar_1 is null and char_2 is not NULL",
+        "query_id": "similar_char_06",
+        "expected_result": [
+          64000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      }
+    ],
+    "data": "resources/synthetic/similar_char.jsonl"
+  },
+  {
+    "test_info": "char_2(char[2]) not warmed",
+    "name": "eight_char",
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "char_1",
+        "type": "char",
+        "args": [
+          1
+        ]
+      },
+      {
+        "name": "char_2",
+        "type": "char",
+        "args": [
+          2
+        ]
+      },
+      {
+        "name": "char_3",
+        "type": "char",
+        "args": [
+          3
+        ]
+      },
+      {
+        "name": "char_4",
+        "type": "char",
+        "args": [
+          4
+        ]
+      },
+      {
+        "name": "char_5",
+        "type": "char",
+        "args": [
+          5
+        ]
+      },
+      {
+        "name": "char_6",
+        "type": "char",
+        "args": [
+          6
+        ]
+      },
+      {
+        "name": "char_7",
+        "type": "char",
+        "args": [
+          7
+        ]
+      },
+      {
+        "name": "char_8",
+        "type": "char",
+        "args": [
+          8
+        ]
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "char_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "char_3",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "char_4",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "char_5",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "char_6",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "char_7",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "char_8",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "data": "resources/synthetic/eight_char.jsonl",
+    "warm_query": "select * from eight_char",
+    "queries_data": [
+      {
+        "query": "select count(*) from eight_char",
+        "query_id": "eight_char_01",
+        "expected_result": [[
+          10
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns" : 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select char_2, char_3 from eight_char limit 1",
+        "query_id": "eight_char_02",
+        "expected_result": [[
+          "11", "111"
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select char_8 from eight_char where char_3='111' and char_2='11' limit 1 ",
+        "query_id": "eight_char_03",
+        "expected_result": [[
+          "11111111"
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select char_8 from eight_char where char_2='111' or char_2='11' limit 1 ",
+        "query_id": "eight_char_04",
+        "expected_result": [[
+          "11111111"
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "select sum(cast(cast(char_1 as varchar) as integer)) from eight_char where char_3='111' or char_2='11'",
+        "query_id": "eight_char_05",
+        "expected_result": [[
+          46
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 2,
+          "external_match_columns": 2,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select sum(cast(cast(char_4 as varchar) as integer)) as sum from eight_char where char_2 like '%11%' ",
+        "query_id": "eight_char_06",
+        "expected_result": [[
+          11110
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query":"select char_2, char_5 from eight_char where char_1 ='1' and char_4 = '1111' limit 1",
+        "query_id": "eight_char_07",
+        "expected_result": [[
+          "11",
+          "11111"
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      }
+    ]
+  },
+  {
+    "test_info": "RAM(varchar[5]), W(double) not warmed",
+    "name": "mac_paramsj",
+    "pt_enable": true,
+    "lines": 4,
+    "structure": [
+      {
+        "name": "Id",
+        "type": "integer"
+      },
+      {
+        "name": "Model",
+        "type": "varchar",
+        "args": [
+          40
+        ]
+      },
+      {
+        "name": "Year",
+        "type": "bigint"
+      },
+      {
+        "name": "ScreenSize",
+        "type": "varchar",
+        "args": [
+          20
+        ]
+      },
+      {
+        "name": "RAM",
+        "type": "varchar",
+        "args": [
+          5
+        ]
+      },
+      {
+        "name": "HDD",
+        "type": "varchar",
+        "args": [
+          10
+        ]
+      },
+      {
+        "name": "W",
+        "type": "double"
+      },
+      {
+        "name": "D",
+        "type": "double"
+      },
+      {
+        "name": "H",
+        "type": "double"
+      },
+      {
+        "name": "Weight",
+        "type": "double"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "Id",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "Model",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "Year",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "ScreenSize",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "HDD",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "D",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "H",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "Weight",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from mac_paramsj",
+    "queries_data": [
+      {"query": "select * from mac_paramsj",
+        "query_id": "mac_paramsj_01",
+        "expected_result" : [
+          "IGNORE"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 8,
+          "external_match_columns": 0,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "select count(*) from mac_paramsj",
+        "query_id": "mac_paramsj_02",
+        "expected_result":[4],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns" : 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select * from mac_paramsj where id=1 and RAM='16GB' and W>13",
+        "query_id": "mac_paramsj_03",
+        "expected_result":[
+          1,
+          "MacBook Pro",
+          2015,
+          "15",
+          "16GB",
+          "512GB SSD",
+          13.75,
+          9.48,
+          0.61,
+          4.02
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 7,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 2,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "select year,weight, RAM from mac_paramsj group by year, weight, RAM HAVING weight<2.5",
+        "query_id": "mac_paramsj_04",
+        "expected_result": [
+          2016,
+          2.03,
+          "8GB"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 2,
+          "varada_match_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(DISTINCT year) from mac_paramsj where w <20 ",
+        "query_id": "mac_paramsj_05",
+        "expected_result":[2],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "select year, w from mac_paramsj where RAM like '%64%'",
+        "query_id": "mac_paramsj_06",
+        "expected_result" : [
+          2017,
+          25.6
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "select distinct year, CASE when year=2015 then 'MS' else 'LP' END as name from mac_paramsj where RAM is not NULL and h> 5 order by year",
+        "query_id": "mac_paramsj_07",
+        "expected_result": [
+          2017,
+          "LP"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 2,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from mac_paramsj where CAST(screensize as double)>14 or W>13",
+        "query_id": "mac_paramsj_08",
+        "expected_result": [
+          2
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select year from mac_paramsj where Model<>'MacBook' and RAM<>'64GB' and year=2015 order by year",
+        "query_id": "mac_paramsj_09",
+        "expected_result": [
+          2015
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from mac_paramsj where Model is not null and RAM is not NULL",
+        "query_id": "mac_paramsj_10",
+        "expected_result" :[
+          4
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select h,weight from mac_paramsj where RAM='16GB' and w<>0",
+        "query_id": "mac_paramsj_11",
+        "expected_result": [0.61,4.02],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 2,
+          "external_collect_columns": 4
+        }
+      },
+      {
+        "query": "select count(*) from mac_paramsj where CAST(screensize as double)>14 and model like '%Pro%'",
+        "query_id": "mac_paramsj_12",
+        "expected_result": [
+          1
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 2,
+          "external_match_columns": 1,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(W) from mac_paramsj where CAST(screensize as double)>14 and model like '%Pro%'",
+        "query_id": "mac_paramsj_13",
+        "expected_result": [
+          1
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 2,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select id from mac_paramsj where CAST(year as varchar) = '2015'",
+        "query_id": "mac_paramsj_14",
+        "expected_result": [
+          1
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select id from mac_paramsj where cast(weight as varchar) = '4.02E0'",
+        "query_id": "mac_paramsj_15",
+        "expected_result": [
+          1
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from mac_paramsj where cast(weight as real) >= 4.02",
+        "query_id": "mac_paramsj_16",
+        "expected_result": [
+          2
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from mac_paramsj where cast(weight as real) >= 4.02  and cast(d as varchar) = '9.48E0'",
+        "query_id": "mac_paramsj_17",
+        "expected_result": [
+          1
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from mac_paramsj where cast(d as varchar) = '9.48E0' or cast(d as varchar) = '8.0E0' ",
+        "query_id": "mac_paramsj_18",
+        "expected_result": [
+          2
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from mac_paramsj where cast(weight as real) >= 4.02 or cast(weight as real) = 2.96",
+        "query_id": "mac_paramsj_19",
+        "expected_result": [
+          3
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ],
+    "data": "resources/synthetic/mac_paramsj.jsonl"
+  },
+  {
+    "test_info": "smallint_3(smallint) not warmed",
+    "name": "integer_more",
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "int_1",
+        "type": "integer"
+      },
+      {
+        "name": "bigint_2",
+        "type": "bigint"
+      },
+      {
+        "name": "smallint_3",
+        "type": "smallint"
+      },
+      {
+        "name": "tinyint_4",
+        "type": "tinyint"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "int_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "bigint_2",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "tinyint_4",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from integer_more",
+    "queries_data": [
+      {
+        "query": "select count(*) from integer_more",
+        "query_id": "integer_more_01",
+        "expected_result": [[
+          6
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns" : 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select int_1, smallint_3  from integer_more where int_1=1000000001",
+        "query_id": "integer_more_02",
+        "expected_result": [[
+          1000000001,
+          10001
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select bigint_2 from integer_more where bigint_2=100000000000000005 and smallint_3 > 10000",
+        "query_id": "integer_more_03",
+        "expected_result": [[
+          100000000000000005
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select smallint_3 from integer_more where smallint_3=10000 or tinyint_4 < 101",
+        "query_id": "integer_more_04",
+        "expected_result": [[
+          10000
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 2,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select * from integer_more where smallint_3<=10000",
+        "query_id": "integer_more_05",
+        "expected_result": [[
+          1000000000,
+          100000000000000000,
+          10000,
+          100
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 4
+        }
+      },
+      {
+        "query": "select count(*) from integer_more where smallint_3 is not NULL and int_1 is not NULL",
+        "query_id": "integer_more_06",
+        "expected_result": [[
+          6
+        ]],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      }
+    ],
+    "data": "resources/synthetic/integer_more.jsonl"
+  },
+  {
+    "test_info": "int_1(integer) not warmed",
+    "name": "onem_lines",
+    "pt_enable": true,
+    "partitions": 1000,
+    "lines": 1000000,
+    "range_filter": "int_1",
+    "structure": [
+      {
+        "name": "int_1",
+        "type": "integer"
+      },
+      {
+        "name": "bigint_2",
+        "type": "bigint"
+      },
+      {
+        "name": "smallint_3",
+        "type": "smallint"
+      },
+      {
+        "name": "tinyint_4",
+        "type": "tinyint"
+      },
+      {
+        "name": "char_5",
+        "type": "char",
+        "args": [
+          9
+        ]
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "bigint_2",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BLOOM_HIGH"
+        ]
+      },
+      {
+        "colNameId": "smallint_3",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "tinyint_4",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "char_5",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from onem_lines",
+    "queries_data": [
+      {
+        "query": "select count(*) from onem_lines",
+        "query_id": "onem_lines_01",
+        "expected_result": [
+          1000000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns" : 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from onem_lines where int_1 <> 707791655",
+        "query_id": "onem_lines_02",
+        "expected_result": [
+          999999
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from onem_lines where smallint_3 <> 3876 and int_1 <> 707791655 ",
+        "query_id": "onem_lines_03",
+        "expected_result": [
+          999978
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from onem_lines where tinyint_4<>-16 or int_1<707791 ",
+        "query_id": "onem_lines_04",
+        "expected_result" : [
+          998016
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 2,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select * from onem_lines where tinyint_4<>-16 and bigint_2 = 8148176510382645782 and tinyint_4=-33",
+        "query_id": "onem_lines_05",
+        "expected_result": [
+          526278194,
+          8148176510382645782,
+          -24919,
+          -33,
+          "Michael G"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 3,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select * from onem_lines where (bigint_2=8222672544457468077 or bigint_2 = 8148176510382645782)  and char_5 like '%Bar%'",
+        "query_id": "onem_lines_06",
+        "expected_result": [
+          1047094102,
+          8222672544457468077,
+          5966,
+          -27,
+          "Kevin Bar"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 4,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      }
+    ],
+    "view_properties": {
+      "view_name": "view_onem_lines",
+      "create_view_query": "select * from onem_lines",
+      "queries_data": [
+        {
+          "query": "select count(char_5) from view_onem_lines",
+          "query_id": "view_onem_lines_01",
+          "expected_result": [
+            1000000
+          ],
+          "expected_counters": {
+            "varada_match_columns": 0,
+            "varada_collect_columns": 1,
+            "external_match_columns": 0,
+            "external_collect_columns": 0
+          }
+        },
+        {
+          "query": "select avg(bigint_2) from view_onem_lines where smallint_3 > 12 and (char_5 > 'a' or char_5 < 'z')",
+          "query_id": "view_onem_lines_02",
+          "expected_result": [
+            -847778796555851.5
+          ],
+          "expected_counters": {
+            "varada_match_columns": 8,
+            "varada_collect_columns": 12,
+            "external_match_columns": 0,
+            "external_collect_columns": 0
+          }
+        }
+      ]
+    },
+    "data": "resources/synthetic/onem_lines.jsonl"
+  },
+  {
+    "test_info": "compressed6(char[6]) not warmed",
+    "name": "compression",
+    "pt_enable": true,
+    "lines": 250000,
+    "structure": [
+      {
+        "name": "compressed6",
+        "type": "char",
+        "args": [
+          6
+        ]
+      },
+      {
+        "name": "compressed100",
+        "type": "char",
+        "args": [
+          100
+        ]
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "compressed100",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from compression",
+    "queries_data": [
+      {
+        "query": "select count(*) from compression",
+        "query_id": "compression_01",
+        "expected_result": [
+          250000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns" : 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(compressed100) from compression where compressed6='Syrian'",
+        "query_id": "compression_02",
+        "expected_result": [
+          1224
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "select count(compressed6) from compression where compressed100 like '%Ghana%'",
+        "query_id": "compression_03",
+        "expected_result": [
+          1040
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select distinct(compressed6) from compression where compressed100 like '%Ghana%' and compressed6='Moldov'",
+        "query_id": "compression_04",
+        "expected_result": ["Moldov"],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 2,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "select count(*) from compression where compressed100 like '%Ghana%' or compressed6 = 'Bolivi'",
+        "query_id": "compression_05",
+        "expected_result": [2203],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 2,
+          "external_collect_columns": 1
+        }
+      }
+    ],
+    "data": "resources/synthetic/compression.jsonl"
+  },
+  {
+    "test_info": "bigint_2(bigint) not warmed",
+    "name": "similar_num",
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "int_1",
+        "type": "integer"
+      },
+      {
+        "name": "bigint_2",
+        "type": "bigint"
+      },
+      {
+        "name": "smallint_3",
+        "type": "smallint"
+      },
+      {
+        "name": "tinyint_4",
+        "type": "tinyint"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "int_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "smallint_3",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "tinyint_4",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from similar_num",
+    "queries_data":
+    [
+      {
+        "query": "select count(*) from similar_num",
+        "query_id": "similar_num_01",
+        "expected_result": [
+          192000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns" : 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select max(int_1), max(bigint_2), max(smallint_3), max(tinyint_4) from similar_num",
+        "query_id": "similar_num_02",
+        "expected_result": [
+          2025538073,
+          999708227608558441,
+          24545,
+          86
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 3,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select min(int_1), min(bigint_2), min(smallint_3), min(tinyint_4) from similar_num",
+        "query_id": "similar_num_03",
+        "expected_result": [
+          2025538073,
+          999708227608558441,
+          24545,
+          86
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 3,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from similar_num where int_1 = 2025538073",
+        "query_id": "similar_num_04",
+        "expected_result": [
+          96270
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from similar_num where bigint_2 = 999708227608558441",
+        "query_id": "similar_num_05",
+        "expected_result": [
+          95865
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from similar_num where bigint_2 > 999708227608558441 or bigint_2 < 999708227608558441 or int_1 = 2025538073",
+        "query_id": "similar_num_06",
+        "expected_result": [
+          96270
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 2,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from similar_num where int_1 = 2025538073 and bigint_2 = 999708227608558441",
+        "query_id": "similar_num_07",
+        "expected_result": [
+          64000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from similar_num where int_1 = 2025538073 or bigint_2 > 999708227608558440",
+        "query_id": "similar_num_08",
+        "expected_result": [
+          128135
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 2,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from similar_num where int_1 = 2025538073 and tinyint_4 = 86 or bigint_2 > 999708227608558440",
+        "query_id": "similar_num_09",
+        "expected_result": [
+          112163
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 2,
+          "external_match_columns": 3,
+          "external_collect_columns": 1
+        }
+      }
+    ],
+    "data": "resources/synthetic/similar_num.jsonl"
+  },
+  {
+    "test_info": "decimal_1(decimal) not warmed",
+    "name": "tuples_40keys",
+    "lines": 60000000,
+    "structure": [
+      {
+        "name": "int_1",
+        "type": "integer",
+        "args": [
+          true
+        ]
+      },
+      {
+        "name": "bigint_1",
+        "type": "bigint"
+      },
+      {
+        "name": "double_1",
+        "type": "double"
+      },
+      {
+        "name": "decimal_1",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      },
+      {
+        "name": "long_dec",
+        "type": "decimal",
+        "args": [
+          38,
+          12
+        ]
+      },
+      {
+        "name": "char_50",
+        "type": "char",
+        "args": [
+          50
+        ]
+      },
+      {
+        "name": "varchar_200",
+        "type": "varchar",
+        "args": [
+          200
+        ],
+        "min_length": 100
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "int_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "bigint_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "double_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "long_dec",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "char_50",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "varchar_200",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA", "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select count(varchar_200), count(char_50), count(long_dec), count(double_1), count(bigint_1), count(int_1) from tuples_40keys",
+    "queries_data": [
+      {
+        "query": "select count(*) from tuples_40keys",
+        "query_id": "tuples_40keys_01",
+        "expected_result": [
+          60000000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns" : 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(distinct(decimal_1)), count(distinct(varchar_200)) from tuples_40keys",
+        "query_id": "tuples_40keys_02",
+        "expected_result": [
+          33,
+          38
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select distinct(decimal_1), varchar_200 from tuples_40keys where varchar_200 like '%alderon%' and decimal_1=36016.30",
+        "query_id": "tuples_40keys_03",
+        "expected_result": [
+          "36016.30",
+          "Jessica CalderonG5TIx#Ee(dOSqgc558@xRezD$D7SE1FgHCJCooc(GA83FIwTk*MK))3c_@KFHh)pkXM+Y3v5G+F1tEW#WD2!HyWVzOsx5Kze7NZid)ju#9FQdfUFVusRAuPRRBOgsjIY!muNim5xEPtCVn(F5Mulkdo$L)szgUgcfxlBTDwamUK1Ct1X^SOqgc"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 2,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "select count(*) from tuples_40keys where (char_50 like '%oFQqXikhoKLhkuFxMOtX%' or varchar_200 like '%Han%') and long_dec>=97536582917822112971358208.120006728390",
+        "query_id": "tuples_40keys_05",
+        "expected_result": [
+          1500000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 3,
+          "external_match_columns": 2,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select min(long_dec), avg(decimal_1)  from tuples_40keys where decimal_1>30000",
+        "query_id": "tuples_40keys_06",
+        "expected_result": [
+          "5180424893304856987566080.000012000000",
+          "64615.14"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "select max(long_dec), max(decimal_1) from tuples_40keys where double_1 > 100",
+        "query_id": "tuples_40keys_07",
+        "expected_result": [
+          "97536582917822112971358208.120006728390",
+          "99919.99"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select long_dec, decimal_1 from tuples_40keys group by long_dec, decimal_1 having long_dec<10972615084823129343655936.123400000000",
+        "query_id": "tuples_40keys_08",
+        "expected_result": [
+          "5180424893304856987566080.000012000000",
+          "36960.85"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from tuples_40keys where decimal_1 is null and int_1=-1552097198",
+        "query_id": "tuples_40keys_09",
+        "expected_result": [
+          1500000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from tuples_40keys where (decimal_1=99919.99 or decimal_1=36104.64) and long_dec is null",
+        "query_id": "tuples_40keys_10",
+        "expected_result": [
+          1500000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select int_1, count(*) from tuples_40keys where decimal_1=62211.75 group by int_1",
+        "query_id": "tuples_40keys_11",
+        "expected_result": [
+          null,
+          1500000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 2
+        }
+      },
+      {
+        "query": "select count(*) from tuples_40keys where (int_1<=-344138893 and decimal_1=4850.35) or long_dec>=50431350506221201512202240.001630000000",
+        "query_id": "tuples_40keys_12",
+        "expected_result": [
+          25500000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from tuples_40keys where ((int_1<=-344138893 or int_1>0) and decimal_1=4850.35) or long_dec=50431350506221201512202240.001630000000",
+        "query_id": "tuples_40keys_13",
+        "expected_result": [
+          1500000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from tuples_40keys where long_dec=50431350506221201512202240.001630000000 and decimal_1=4580.35",
+        "query_id": "tuples_40keys_14",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      },
+      {
+        "query": "select count(*) from tuples_40keys where double_1>100.5 and decimal_1 is null",
+        "query_id": "tuples_40keys_04",
+        "expected_result": [
+          9000000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 1,
+          "external_collect_columns": 1
+        }
+      }
+    ],
+    "data": "resources/synthetic/tuples_40keys.jsonl"
+  }
+]

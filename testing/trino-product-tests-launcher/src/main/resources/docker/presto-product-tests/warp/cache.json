@@ -1,0 +1,105 @@
+[
+  {
+    "name": "geospatial_basic",
+    "pt_enable": true,
+    "lines": 1000000,
+    "split_count": 10,
+    "comment_type_skip": "Collect counters issue",
+    "skip_type": [
+        "warp_iceberg",
+        "warp_delta_lake"
+    ],
+    "structure": [
+      {
+        "name": "geo_point",
+        "type": "varchar"
+      },
+      {
+        "name": "geo_multipoint",
+        "type": "varchar"
+      },
+      {
+        "name": "geo_linestring",
+        "type": "varchar"
+      },
+      {
+        "name": "geo_multilinestring",
+        "type": "varchar"
+      },
+      {
+        "name": "geo_polygon",
+        "type": "varchar"
+      },
+      {
+        "name": "geo_multipolygon",
+        "type": "varchar"
+      },
+      {
+        "name": "geo_x",
+        "type": "double"
+      },
+      {
+        "name": "geo_y",
+        "type": "double"
+      }
+    ],
+    "queries_data": [
+      {
+        "query": "select count(*) from geospatial_basic",
+        "query_id": "geospatial_basic_01",
+        "expected_result": [
+          1000000
+        ],
+        "expected_counters": {
+          "warp_cache_manager": 1,
+          "skip_warp_cache_manager": 0
+        }
+      },
+      {
+        "query": "select distinct(ST_IsValid(ST_GeometryFromText(geo_point))) from geospatial_basic",
+        "query_id": "geospatial_basic_02",
+        "expected_result": [
+          true
+        ],
+        "expected_counters": {
+          "warp_cache_manager": 1,
+          "skip_warp_cache_manager": 0
+        }
+      },
+      {
+        "query": "select count(*) from geospatial_basic where ST_Contains(ST_GeometryFromText(geo_point), ST_GeometryFromText(geo_multipoint))",
+        "query_id": "geospatial_basic_03",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "warp_cache_manager": 1,
+          "skip_warp_cache_manager": 0
+        }
+      },
+      {
+        "query": "select max(ST_Area(ST_GeometryFromText(geo_polygon))) from geospatial_basic",
+        "query_id": "geospatial_basic_04",
+        "expected_result": [
+          107835.34246970105
+        ],
+        "expected_counters": {
+          "warp_cache_manager": 1,
+          "skip_warp_cache_manager": 0
+        }
+      },
+      {
+        "query": "select count(*) from geospatial_basic where ST_Contains(ST_GeometryFromText(geo_multipolygon), st_point(geo_x, geo_y))",
+        "query_id": "geospatial_basic_05",
+        "expected_result": [
+          189707
+        ],
+        "expected_counters": {
+          "warp_cache_manager": 1,
+          "skip_warp_cache_manager": 0
+        }
+      }
+    ]
+  }
+]
+

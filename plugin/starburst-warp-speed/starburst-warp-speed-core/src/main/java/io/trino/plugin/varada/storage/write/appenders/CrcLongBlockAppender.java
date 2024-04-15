@@ -16,7 +16,7 @@ package io.trino.plugin.varada.storage.write.appenders;
 import io.trino.plugin.varada.dispatcher.model.WarmUpElement;
 import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.BigintType;
 
@@ -29,7 +29,7 @@ public class CrcLongBlockAppender
     }
 
     @Override
-    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         int nullsCount = 0;
         if (blockPos.mayHaveNull()) {
@@ -40,7 +40,7 @@ public class CrcLongBlockAppender
                 }
                 else {
                     long val = blockPos.getLong();
-                    warmupElementStats.updateMinMax(val);
+                    warmupElementStatsBuilder.updateMinMax(val);
                     writeValue(jufferPos, blockPos, val);
                 }
             }
@@ -48,7 +48,7 @@ public class CrcLongBlockAppender
         else {
             for (; blockPos.inRange(); blockPos.advance()) {
                 long val = blockPos.getLong();
-                warmupElementStats.updateMinMax(val);
+                warmupElementStatsBuilder.updateMinMax(val);
                 writeValue(jufferPos, blockPos, val);
             }
         }

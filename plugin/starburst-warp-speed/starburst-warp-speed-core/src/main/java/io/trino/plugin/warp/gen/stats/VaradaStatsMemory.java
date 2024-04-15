@@ -111,10 +111,5 @@ public final class VaradaStatsMemory
         return new HashMap<>();
     }
 
-    public int getNumberOfMetrics()
-    {
-        return 4;
-    }
-
     private native ByteBuffer initNative(long limit);
 }

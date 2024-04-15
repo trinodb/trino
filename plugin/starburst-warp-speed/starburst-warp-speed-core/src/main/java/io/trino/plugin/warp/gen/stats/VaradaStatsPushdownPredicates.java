@@ -310,9 +310,4 @@ public final class VaradaStatsPushdownPredicates
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 7;
-    }
 }

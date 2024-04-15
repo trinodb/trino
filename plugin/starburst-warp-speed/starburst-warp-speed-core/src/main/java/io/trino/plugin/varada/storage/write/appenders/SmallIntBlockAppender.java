@@ -16,7 +16,7 @@ package io.trino.plugin.varada.storage.write.appenders;
 import io.trino.plugin.varada.dispatcher.model.WarmUpElement;
 import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 
 import java.nio.ShortBuffer;
 
@@ -29,7 +29,7 @@ public class SmallIntBlockAppender
     }
 
     @Override
-    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         ShortBuffer buff = (ShortBuffer) juffersWE.getRecordBuffer();
 
@@ -43,7 +43,7 @@ public class SmallIntBlockAppender
                 }
                 else {
                     short val = blockPos.getShort();
-                    warmupElementStats.updateMinMax(val);
+                    warmupElementStatsBuilder.updateMinMax(val);
                     writeValue(val, buff);
                 }
             }
@@ -51,7 +51,7 @@ public class SmallIntBlockAppender
         else {
             for (; blockPos.inRange(); blockPos.advance()) {
                 short val = blockPos.getShort();
-                warmupElementStats.updateMinMax(val);
+                warmupElementStatsBuilder.updateMinMax(val);
                 writeValue(val, buff);
             }
         }

@@ -218,9 +218,4 @@ public final class VaradaStatsPageSourceProvider
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 4;
-    }
 }

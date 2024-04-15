@@ -87,7 +87,7 @@ public class WorkerTaskExecutorService
     private ExecutorService getPrioritizeExecutorService()
     {
         int poolSize = warmupDemoterConfiguration.getPrioritizeExecutorPoolSize();
-        return new ThreadPoolExecutor(0, poolSize,
+        return new ThreadPoolExecutor(poolSize, poolSize,
                 60L, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder().setNameFormat("warp-speed-prioritize-%s").setDaemon(true).build());
@@ -99,7 +99,7 @@ public class WorkerTaskExecutorService
         BlockingQueue<Runnable> blockingQueue = new PriorityBlockingQueue<>(
                 queueSize,
                 Comparator.comparingDouble(x -> ((WorkerSubmittableTask) x).getPriority()).reversed());
-        return new ThreadPoolExecutor(0, poolSize,
+        return new ThreadPoolExecutor(poolSize, poolSize,
                 60L, TimeUnit.SECONDS,
                 blockingQueue,
                 new ThreadFactoryBuilder().setNameFormat("warp-speed-cloud-%s").setDaemon(true).build());
@@ -118,7 +118,7 @@ public class WorkerTaskExecutorService
                 queueSize,
                 Comparator.comparingDouble(x -> ((WorkerSubmittableTask) x).getPriority()).reversed());
 
-        return new ThreadPoolExecutor(0, poolSize,
+        return new ThreadPoolExecutor(poolSize, poolSize,
                 60L, TimeUnit.SECONDS,
                 blockingQueue,
                 new ThreadFactoryBuilder().setNameFormat("warp-speed-proxy-%s").setDaemon(true).build());

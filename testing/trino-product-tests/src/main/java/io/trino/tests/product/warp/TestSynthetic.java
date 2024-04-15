@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.tests.product.warp;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -45,7 +44,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TestGroups.WARP_SPEED;
+import static io.trino.tests.product.TestGroups.WARP_SPEED_HIVE;
+import static io.trino.tests.product.TestGroups.WARP_SPEED_HIVE_2;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static io.trino.tests.product.warp.utils.DemoterUtils.objectMapper;
 import static java.lang.String.format;
@@ -78,7 +78,6 @@ public class TestSynthetic
     {
         synchronized (this) {
             if (!initialized) {
-//                onTrino().executeQuery("USE warp.default");
                 onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS warp.synthetic");
                 onTrino().executeQuery("USE warp.synthetic");
                 initialized = true;
@@ -99,8 +98,92 @@ public class TestSynthetic
         return executeDataProvider("file:///docker/presto-product-tests/warp/synthetic.json");
     }
 
-    @Test(groups = {WARP_SPEED, PROFILE_SPECIFIC_TESTS}, dataProvider = "synthetic")
+    @Test(groups = {WARP_SPEED_HIVE, PROFILE_SPECIFIC_TESTS}, dataProvider = "synthetic")
     public void synthetic(TestFormat testFormat)
+            throws IOException
+    {
+        execute(testFormat);
+    }
+
+    @DataProvider
+    public Iterator<TestFormat> lucene(ITestContext context)
+            throws Exception
+    {
+        return executeDataProvider("file:///docker/presto-product-tests/warp/lucene.json");
+    }
+
+    @Test(groups = {WARP_SPEED_HIVE_2, PROFILE_SPECIFIC_TESTS}, dataProvider = "lucene")
+    public void lucene(TestFormat testFormat)
+            throws IOException
+    {
+        execute(testFormat);
+    }
+
+    @DataProvider
+    public Iterator<TestFormat> synthDict(ITestContext context)
+            throws Exception
+    {
+        return executeDataProvider("file:///docker/presto-product-tests/warp/synth_dict.json");
+    }
+
+    @Test(groups = {WARP_SPEED_HIVE_2, PROFILE_SPECIFIC_TESTS}, dataProvider = "synthDict")
+    public void synthDict(TestFormat testFormat)
+            throws IOException
+    {
+        execute(testFormat);
+    }
+
+    @DataProvider
+    public Iterator<TestFormat> synthPartit(ITestContext context)
+            throws Exception
+    {
+        return executeDataProvider("file:///docker/presto-product-tests/warp/synth_partit.json");
+    }
+
+    @Test(groups = {WARP_SPEED_HIVE_2, PROFILE_SPECIFIC_TESTS}, dataProvider = "synthPartit")
+    public void synthPartit(TestFormat testFormat)
+            throws IOException
+    {
+        execute(testFormat);
+    }
+
+    @DataProvider
+    public Iterator<TestFormat> synthTypes(ITestContext context)
+            throws Exception
+    {
+        return executeDataProvider("file:///docker/presto-product-tests/warp/synth_types.json");
+    }
+
+    @Test(groups = {WARP_SPEED_HIVE, PROFILE_SPECIFIC_TESTS}, dataProvider = "synthTypes")
+    public void synthTypes(TestFormat testFormat)
+            throws IOException
+    {
+        execute(testFormat);
+    }
+
+    @DataProvider
+    public Iterator<TestFormat> synthMixed(ITestContext context)
+            throws Exception
+    {
+        return executeDataProvider("file:///docker/presto-product-tests/warp/synthetic_mix_query.json");
+    }
+
+    @Test(groups = {WARP_SPEED_HIVE_2, PROFILE_SPECIFIC_TESTS}, dataProvider = "synthMixed")
+    public void synthMixed(TestFormat testFormat)
+            throws IOException
+    {
+        execute(testFormat);
+    }
+
+    @DataProvider
+    public Iterator<TestFormat> synthMatrix(ITestContext context)
+            throws Exception
+    {
+        return executeDataProvider("file:///docker/presto-product-tests/warp/synthetic_matrix.json");
+    }
+
+    @Test(groups = {WARP_SPEED_HIVE_2, PROFILE_SPECIFIC_TESTS}, dataProvider = "synthMatrix")
+    public void synthMatrix(TestFormat testFormat)
             throws IOException
     {
         execute(testFormat);

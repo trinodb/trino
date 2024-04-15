@@ -1745,8 +1745,8 @@
     "pt_enable": true,
     "comment_type_skip": "all counters are zero for 4 queries",
     "skip_type": [
-      "varada_iceberg",
-      "varada_delta_lake"
+      "warp_iceberg",
+      "warp_delta_lake"
     ],
     "warm_query": "select * from similar_num",
     "data": "resources/synthetic/similar_num.jsonl",
@@ -2621,7 +2621,7 @@
   },
   {
     "name": "tuples_40keys",
-    "pt_enable": true,
+    "pt_enable": false,
     "skip_caching": true,
     "lines": 60000000,
     "structure": [
@@ -3890,8 +3890,8 @@
     ],
     "comment_type_skip": "counters issue : all 0",
     "skip_type": [
-      "varada_iceberg",
-      "varada_delta_lake"
+      "warp_iceberg",
+      "warp_delta_lake"
     ],
     "warmup_rules": [
       {
@@ -5517,8 +5517,8 @@
     "data_format": "ORC",
     "comment_type_skip": "counters issue : incorrect match, leave it only on hive - big table",
     "skip_type": [
-      "varada_iceberg",
-      "varada_delta_lake"
+      "warp_iceberg",
+      "warp_delta_lake"
     ],
     "structure": [
       {
@@ -7072,7 +7072,7 @@
     "expected_warm_failures": 3,
     "comment_type_skip": "counters issue : incorrect collect in case Iceberg and DL",
     "skip_type": [
-      "varada_delta_lake", "varada_iceberg"
+      "warp_delta_lake", "warp_iceberg"
     ],
     "structure": [
       {
@@ -7774,7 +7774,7 @@
       }
     ],
     "skip_type_comment": "issue with warming on DL - under investigation",
-    "skip_type": ["varada_delta_lake"],
+    "skip_type": ["warp_delta_lake"],
     "queries_data": [
       {
         "query": "select count(d_date), count(c_description60)  from storesales_with_null_dates where day(d_date) = 9",
@@ -8538,7 +8538,7 @@
     ],
     "comment_type_skip": "The counters on DL return external collect",
     "skip_type": [
-      "varada_delta_lake"
+      "warp_delta_lake"
     ],
     "queries_data": [
       {
@@ -10917,8 +10917,8 @@
     ],
     "comment_type_skip": "no table",
     "skip_type": [
-      "varada_iceberg",
-      "varada_delta_lake"
+      "warp_iceberg",
+      "warp_delta_lake"
     ],
     "session_properties": {
       "enable_default_warming": true

@@ -38,6 +38,7 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.varada.cloudvendors.configuration.CloudVendorConfiguration;
+import io.varada.log.ShapingLogger;
 import io.varada.tools.util.StopWatch;
 
 import java.util.ArrayList;
@@ -65,6 +66,7 @@ public class WarmingManager
     private final DictionaryCacheService dictionaryCacheService;
     private final WeGroupWarmer weGroupWarmer;
     private final StorageWarmerService storageWarmerService;
+    private final ShapingLogger shapingLogger;
 
     @Inject
     public WarmingManager(
@@ -88,6 +90,12 @@ public class WarmingManager
         this.dictionaryCacheService = requireNonNull(dictionaryCacheService);
         this.weGroupWarmer = requireNonNull(weGroupWarmer);
         this.storageWarmerService = requireNonNull(storageWarmerService);
+
+        this.shapingLogger = ShapingLogger.getInstance(
+                logger,
+                globalConfiguration.getShapingLoggerThreshold(),
+                globalConfiguration.getShapingLoggerDuration(),
+                globalConfiguration.getShapingLoggerNumberOfSamples());
     }
 
     public Optional<RowGroupData> importWeGroup(ConnectorSession session, RowGroupKey rowGroupKey, List<WarmUpElement> warmWarmUpElements)
@@ -123,7 +131,15 @@ public class WarmingManager
 
         try {
             rowGroupData = rowGroupDataService.getOrCreateRowGroupData(rowGroupKey, partitionKeys);
-            locked = storageWarmerService.lockRowGroup(rowGroupData);
+            storageWarmerService.lockRowGroup(rowGroupData);
+            locked = true;
+            // get latest row group data in case it was updated
+            final RowGroupData newRowGroupData = rowGroupDataService.getOrCreateRowGroupData(rowGroupKey, partitionKeys);
+            if (newRowGroupData != rowGroupData) {
+                final RowGroupData oldRowGroupData = rowGroupData;
+                shapingLogger.warn("RowGroupData changed while under the lock, old %s, new %s", oldRowGroupData, newRowGroupData);
+                rowGroupData = newRowGroupData;
+            }
 
             try {
                 //TODO add logic of rowGroupDataService.verifyUpdatedRowGroupData

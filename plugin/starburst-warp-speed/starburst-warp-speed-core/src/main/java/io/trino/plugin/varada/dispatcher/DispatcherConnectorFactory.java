@@ -42,7 +42,6 @@ public class DispatcherConnectorFactory
         this.amazonModule = amazonModule;
     }
 
-    @SuppressWarnings("removal")
     public Connector create(
             String catalogName,
             Map<String, String> config,
@@ -50,8 +49,8 @@ public class DispatcherConnectorFactory
             Optional<List<Class<? extends InitializationModule>>> optionalModules,
             Map<String, String> proxiedConnectorInitializerMap)
     {
-        ClassLoader classLoader = this.getClass().getClassLoader();
         try {
+            ClassLoader classLoader = this.getClass().getClassLoader();
             // use the class instance from InternalDispatcherConnectorFactory's classloader
             Class<?> moduleClass = classLoader.loadClass(Module.class.getName());
 
@@ -69,6 +68,8 @@ public class DispatcherConnectorFactory
                                     throw new RuntimeException(e);
                                 }
                             }).toList());
+
+            @SuppressWarnings("unchecked")
             Pair<Connector, CacheManager> result = (Pair<Connector, CacheManager>) classLoader.loadClass(InternalDispatcherConnectorFactory.class.getName())
                     .getMethod("createConnector",
                             String.class,

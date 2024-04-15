@@ -36,8 +36,6 @@ public abstract class VaradaNativeStatsBase
         return needBuffer;
     }
 
-    public abstract int getNumberOfMetrics();
-
     public abstract void mergeWithBuffer(VaradaStatsBase varadaStatsBase);
 
     @VisibleForTesting

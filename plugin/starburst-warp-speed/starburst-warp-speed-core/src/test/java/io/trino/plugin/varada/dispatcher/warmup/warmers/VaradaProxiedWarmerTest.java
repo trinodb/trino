@@ -19,6 +19,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import io.trino.plugin.varada.TestingTxService;
 import io.trino.plugin.varada.configuration.GlobalConfiguration;
+import io.trino.plugin.varada.configuration.NativeConfiguration;
 import io.trino.plugin.varada.dispatcher.DispatcherProxiedConnectorTransformer;
 import io.trino.plugin.varada.dispatcher.DispatcherSplit;
 import io.trino.plugin.varada.dispatcher.DispatcherTableHandle;
@@ -86,6 +87,7 @@ public class VaradaProxiedWarmerTest
     private final int defaultPriority = 2;
     private final int notEmptyTTL = 2;
     private GlobalConfiguration globalConfiguration;
+    private NativeConfiguration nativeConfiguration;
     private DispatcherTableHandle dispatcherTableHandle;
     private ConnectorTransactionHandle connectorTransactionHandle;
     private ConnectorPageSourceProvider connectorPageSourceProvider;
@@ -128,6 +130,7 @@ public class VaradaProxiedWarmerTest
         globalConfiguration = new GlobalConfiguration();
         globalConfiguration.setLocalStorePath(
                 Files.createTempDirectory(this.getClass().getName()).toFile().getAbsolutePath());
+        nativeConfiguration = new NativeConfiguration();
         when(connectorPageSourceProvider.createPageSource(any(),
                 any(),
                 any(),
@@ -370,6 +373,7 @@ public class VaradaProxiedWarmerTest
                 nodeManager,
                 connectorSync,
                 globalConfiguration,
+                nativeConfiguration,
                 rowGroupDataService,
                 storageWarmerService,
                 storageWriterService);

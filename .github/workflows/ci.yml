@@ -1264,6 +1264,9 @@ jobs:
             - config: default
               suite: suite-warp-speed
               runners: [ self-hosted, sep-cicd, gha-fleet-large ]
+            - config: default
+              suite: suite-warp-speed2
+              runners: [ self-hosted, sep-cicd, gha-fleet-large ]
 
           EOF
       - name: Build PT matrix (all)

@@ -1,0 +1,1323 @@
+[
+  {
+    "name": "dict_test_100",
+    "pt_enable": true,
+    "lines": 1600000,
+    "structure": [
+      {
+        "name": "first_column",
+        "type": "integer"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "first_column",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select * from dict_test_100",
+    "data": "resources/synthetic/dict_test_100.jsonl",
+    "expected_dictionary_counters": {
+      "dictionary_failed_elements_count": 0,
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 1
+    },
+    "queries_data": [
+      {
+        "query": "select count(*) from dict_test_100 where first_column > 60",
+        "expected_result": [
+          633064
+        ],
+        "query_id": "dict_test_100_1",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_test_100 where first_column > 0",
+        "expected_result": [
+          1583880
+        ],
+        "query_id": "dict_test_100_2",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "dict_single_file_max_64k",
+    "structure": [
+      {
+        "name": "cInteger",
+        "type": "integer"
+      },
+      {
+        "name": "cBigint",
+        "type": "bigint"
+      },
+      {
+        "name": "cFloat",
+        "type": "double"
+      },
+      {
+        "name": "cChar5",
+        "type": "char",
+        "args": [
+          5
+        ]
+      },
+      {
+        "name": "cDecimal",
+        "type": "decimal",
+        "args": [
+          9,
+          2
+        ]
+      },
+      {
+        "name": "cVarchar",
+        "type": "varchar",
+        "args": [
+          120
+        ]
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "cInteger",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "cBigint",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "cFloat",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "cChar5",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "cDecimal",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "cVarchar",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      }
+    ],
+    "queries_data": [
+      {
+        "query_id": "dict_single_file_max_64k_case1_q01",
+        "query": "select count(*) from dict_single_file_max_64k",
+        "expected_result": [
+          1000000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ],
+    "expected_dictionary_counters": {
+      "dictionary_failed_elements_count": 0,
+      "dictionary_rejected_elements_count": 0,
+      "dictionary_success_elements_count": 5,
+      "write_dictionaries_count": 5
+    }
+  },
+  {
+    "name": "dict_single_file_random_values",
+    "structure": [
+      {
+        "name": "cInteger",
+        "type": "integer"
+      },
+      {
+        "name": "cBigint",
+        "type": "bigint"
+      },
+      {
+        "name": "cFloat",
+        "type": "double"
+      },
+      {
+        "name": "cChar5",
+        "type": "char",
+        "args": [
+          5
+        ]
+      },
+      {
+        "name": "cDecimal",
+        "type": "decimal",
+        "args": [
+          9,
+          2
+        ]
+      },
+      {
+        "name": "cVarchar",
+        "type": "varchar",
+        "args": [
+          120
+        ]
+      }
+    ],
+    "pt_enable": true,
+    "warmup_rules": [
+      {
+        "colNameId": "cInteger",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "cBigint",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "cFloat",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "cChar5",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "cDecimal",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "cVarchar",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      }
+    ],
+    "warm_query": "select * from dict_single_file_random_values",
+    "queries_data": [
+      {
+        "query_id": "dict_single_file_random_values_case1_q01",
+        "query": "select count(*) from dict_single_file_random_values",
+        "expected_result": [
+          1000000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_q01",
+        "query": "select count(cInteger) from dict_single_file_random_values where cInteger > 2147480000",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_q02",
+        "query": "select count(cInteger) from dict_single_file_random_values where cInteger < -2147482000",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_q03",
+        "query": "select count(cBigint) from dict_single_file_random_values where cBigint > 9223372000000000000",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_q04",
+        "query": "select count(cBigint) from dict_single_file_random_values where cBigint < -9223370000000000000",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_q05",
+        "query": "select count(cVarchar) from dict_single_file_random_values where cVarchar > 'zzzzzzzzzzzzzzzzzzzz'",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_q06",
+        "query": "select count(cVarchar) from dict_single_file_random_values where cVarchar < '!!!!!!!!!!!!!!!!!'",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_q07",
+        "query": "select count(cFloat) from dict_single_file_random_values where cFloat > 9999900000000000",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_q08",
+        "query": "select count(cFloat) from dict_single_file_random_values where cFloat < -9999900000000000",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_q09",
+        "query": "select count(cInteger) from dict_single_file_random_values where cInteger > 2147480000 and cBigint > 9223372000000000000",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 2,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_q10",
+        "query": "select count(cInteger) from dict_single_file_random_values where cInteger < -2147482000 and cBigint < -9223370000000000000",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 1,
+          "varada_match_columns": 2,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_not_supported_q01",
+        "query": "select count(cDecimal) from dict_single_file_random_values where cDecimal < -10000000000",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 0,
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "dict_single_file_random_values_data_min_max_not_supported_q02",
+        "query": "select count(cDecimal) from dict_single_file_random_values where cDecimal > 10000000000",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "filtered_by_predicate": 0,
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 1,
+          "external_collect_columns": 0
+        }
+      }
+    ],
+    "expected_dictionary_counters": {
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 5
+    }
+  },
+  {
+    "name": "dict_varchar2k",
+    "pt_enable": true,
+    "lines": 2000000,
+    "structure": [
+      {
+        "name": "varchar_2k",
+        "type": "varchar",
+        "args": [
+          2000
+        ]
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "varchar_2k",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      }
+    ],
+    "warm_query": "select count(varchar_2k) from dict_varchar2k",
+    "data": "resources/synthetic/dict_varchar2k.jsonl",
+    "expected_dictionary_counters": {
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 1
+    },
+    "queries_data": [
+      {
+        "query": "select count(*) from dict_varchar2k",
+        "expected_result": [
+          2000000
+        ],
+        "query_id": "dict_varchar2k_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "long_varchar_dict",
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "fix_col",
+        "type": "integer"
+      },
+      {
+        "name": "long_varchar",
+        "type": "varchar"
+      }
+    ],
+    "data_format": "ORC",
+    "warmup_rules": [
+      {
+        "colNameId": "long_varchar",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "fix_col",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "expected_dictionary_counters": {
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 1
+    },
+    "queries_data":[
+      {
+        "query": "select count(*) from long_varchar_dict",
+        "expected_result": [
+          2000000
+        ],
+        "query_id": "long_varchar_dict_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select max(length(long_varchar)), count(distinct('path')) from long_varchar_dict where fix_col=1",
+        "query_id": "long_varchar_dict_2",
+        "expected_result": [
+          29840, 1
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "empty_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "dict_multifile",
+    "pt_enable": true,
+    "lines": 20000000,
+    "structure": [
+      {
+        "name": "long_dec",
+        "type": "decimal",
+        "args": [
+          38,
+          12
+        ]
+      },
+      {
+        "name": "varchar_200",
+        "type": "varchar",
+        "args": [
+          200
+        ]
+      },
+      {
+        "name": "int_1",
+        "type": "integer",
+        "args": [
+          true
+        ]
+      },
+      {
+        "name": "decimal_1",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "long_dec",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "varchar_200",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "int_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "decimal_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select count(long_dec), count(varchar_200), count(int_1), count(decimal_1) from dict_multifile",
+    "expected_dictionaries": 4,
+    "expected_chunk_rollbacks": 0,
+    "expected_dictionary_counters": {
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 3
+    },
+    "data": "resources/synthetic/dict_multifile.jsonl",
+    "queries_data": [
+      {
+        "query": "select count(*) from dict_multifile",
+        "expected_result": [
+          20000000
+        ],
+        "query_id": "dict_multifile_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_multifile where int_1>=1938028767 and decimal_1<=34056.82 and varchar_200 like 'B%'",
+        "expected_result": [
+          21440
+        ],
+        "query_id": "dict_multifile_2",
+        "expected_counters": {
+          "varada_match_columns": 3,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_multifile where long_dec=91767912969886978325610496.000000000000",
+        "expected_result": [
+          500830
+        ],
+        "query_id": "dict_multifile_3",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select avg(decimal_1) from dict_multifile",
+        "expected_result": [
+          41478.55
+        ],
+        "query_id": "dict_multifile_4",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_multifile where ceil(decimal_1)>=14455",
+        "expected_result": [
+          15004180
+        ],
+        "query_id": "dict_multifile_5",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_multifile where ceil(decimal_1)>=14455 and ceil(long_dec)>9176791296",
+        "expected_result": [
+          15004180
+        ],
+        "query_id": "dict_multifile_6",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select avg(decimal_1) from dict_multifile where ceil(decimal_1)>34056 or ceil(long_dec)>9176791296",
+        "expected_result": [
+          41478.55
+        ],
+        "query_id": "dict_multifile_7",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_multifile where ceil(decimal_1)>=14455 and ceil(decimal_1)<=75767",
+        "expected_result": [
+          10500880
+        ],
+        "query_id": "dict_multifile_8",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_multifile where ceil(decimal_1)<=14455 OR ceil(decimal_1)>=75767",
+        "expected_result": [
+          9996390
+        ],
+        "query_id": "dict_multifile_9",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_multifile where is_nan(decimal_1)",
+        "expected_result": [
+          0
+        ],
+        "query_id": "dict_multifile_10",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_multifile where is_nan(long_dec)",
+        "expected_result": [
+          0
+        ],
+        "query_id": "dict_multifile_11",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "dict_mix_types_max_keys",
+    "pt_enable": true,
+    "lines": 1500000,
+    "structure": [
+      {
+        "name": "cLongDecimal",
+        "type": "decimal",
+        "args": [
+          38,
+          12
+        ]
+      },
+      {
+        "name": "cVarchar",
+        "type": "varchar",
+        "args": [
+          200
+        ],
+        "min_length": 1
+      },
+      {
+        "name": "cInteger",
+        "type": "integer"
+      },
+      {
+        "name": "cChar",
+        "type": "char",
+        "args": [
+          50
+        ]
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "cLongDecimal",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "cVarchar",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "cInteger",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "cChar",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select count(cLongDecimal), count(cVarchar), count(cInteger), count(cChar) from dict_mix_types_max_keys",
+    "data": "resources/synthetic/dict_mix_types_max_keys.jsonl",
+    "expected_dictionary_counters": {
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 3
+    },
+    "queries_data": [
+      {
+        "query": "select count(*) from dict_mix_types_max_keys",
+        "expected_result": [
+          1500000
+        ],
+        "query_id": "dict_mix_types_max_keys_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select cchar,count(*) from dict_mix_types_max_keys group by cchar having count(*)>43 order by cchar",
+        "expected_result": [
+          ["ROqU5BPHn+6!#UYm56W&sdKtIx)HGhj88+Gd1OcnX%rRtBqJD9",44],
+          ["y*U+(14)UUrwf1Z)sR$5(D(l*n4%66)86@G$DeUMymR7lltfDZ",44]
+        ],
+        "query_id": "dict_mix_types_max_keys_2",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_mix_types_max_keys where cchar='%G7XR&$s#5uWzIn^vX(OYEe$)5+1xE&f6uJDmrueR6j7VQ5dhH' and cinteger<0",
+        "expected_result": [
+          21
+        ],
+        "query_id": "dict_mix_types_max_keys_3",
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "dict_304chunks",
+    "pt_enable": true,
+    "lines": 19922944,
+    "structure": [
+      {
+        "name": "str1",
+        "type": "varchar"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "str1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      }
+    ],
+    "warm_query": "select count(str1) from dict_304chunks",
+    "data": "resources/synthetic/dict_304chunks.jsonl",
+    "expected_dictionary_counters": {
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 1
+    },
+    "queries_data": [
+      {
+        "query": "select count(*) from dict_304chunks",
+        "expected_result": [
+          19922944
+        ],
+        "query_id": "dict_304chunks_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(distinct str1) from dict_304chunks",
+        "expected_result": [
+          10
+        ],
+        "query_id": "dict_304chunks_2",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select str1,count(*) from dict_304chunks where str1 like 'A%' GROUP BY str1",
+        "expected_result": [
+          "AzTfsx1234",
+          1968275
+        ],
+        "query_id": "dict_304chunks_3",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "dict_304chunks_4single",
+    "pt_enable": true,
+    "lines": 19922944,
+    "structure": [
+      {
+        "name": "str1",
+        "type": "varchar"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "str1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      }
+    ],
+    "warm_query": "select count(str1) from dict_304chunks_4single",
+    "data": "resources/synthetic/dict_304chunks_4single.jsonl",
+    "expected_dictionary_counters": {
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 1
+    },
+    "queries_data": [
+      {
+        "query": "select count(*) from dict_304chunks_4single",
+        "expected_result": [
+          19922944
+        ],
+        "query_id": "dict_304chunks_4single_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(distinct str1) from dict_304chunks_4single",
+        "expected_result": [
+          10
+        ],
+        "query_id": "dict_304chunks_4single_2",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select str1,count(*) from dict_304chunks_4single where str1 like 'a7T!Tfsx12' group by str1",
+        "expected_result": [
+          "a7T!Tfsx12",
+          1967018
+        ],
+        "query_id": "dict_304chunks_4single_3",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "dict_long_varchar",
+    "pt_enable": true,
+    "lines": 37486592,
+    "structure": [
+      {
+        "name": "str1",
+        "type": "varchar"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "str1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      }
+    ],
+    "warm_query": "select count(str1) from dict_long_varchar",
+    "data": "resources/synthetic/dict_long_varchar.jsonl",
+    "expected_dictionary_counters": {
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 1
+    },
+    "queries_data": [
+      {
+        "query": "select count(*) from dict_long_varchar",
+        "expected_result": [
+          37486592
+        ],
+        "query_id": "dict_long_varchar_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(distinct str1) from dict_long_varchar",
+        "expected_result": [
+          25
+        ],
+        "query_id": "dict_long_varchar_2",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_long_varchar where str1 like 'AMA_HAMR_F_336.Gen%'",
+        "expected_result": [
+          1442242
+        ],
+        "query_id": "dict_long_varchar_3",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "dict_wide_table_mix_types",
+    "pt_enable": true,
+    "lines": 5000000,
+    "structure": [
+      {
+        "name": "cLongDecimal",
+        "type": "decimal",
+        "args": [
+          38,
+          12
+        ]
+      },
+      {
+        "name": "cVarchar",
+        "type": "varchar",
+        "args": [
+          200
+        ],
+        "min_length": 1
+      },
+      {
+        "name": "cInteger",
+        "type": "integer"
+      },
+      {
+        "name": "cDecimal",
+        "type": "decimal",
+        "args": [
+          7,
+          2
+        ]
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "cLongDecimal",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "cVarchar",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "cInteger",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "cDecimal",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "warm_query": "select count(cLongDecimal), count(cVarchar), count(cInteger), count(cDecimal) from dict_wide_table_mix_types",
+    "data": "resources/synthetic/dict_wide_table_mix_types.jsonl",
+    "expected_dictionary_counters": {
+      "dictionary_rejected_elements_count": 0,
+      "write_dictionaries_count": 3
+    },
+    "queries_data": [
+      {
+        "query": "select count(*) from dict_wide_table_mix_types",
+        "expected_result": [
+          5000000
+        ],
+        "query_id": "dict_wide_table_mix_types_1",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select max(cLongDecimal) from dict_wide_table_mix_types",
+        "expected_result": [
+          "97906764876260793485623296.000006000000"
+        ],
+        "query_id": "dict_wide_table_mix_types_2",
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_wide_table_mix_types where cLongDecimal between 44839773406496042715709446.000000000900 and 70249231895807481016745984.000000012000",
+        "expected_result": [
+          1249732
+        ],
+        "query_id": "dict_wide_table_mix_types_3",
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from dict_wide_table_mix_types where cVarchar='5VF@Bmqz8MZuxHt%MMA#7xKEU8xPY@&m6aT4DsG@naJV' and cLongDecimal=44839773406496042715709446.000000000900 and cInteger>0",
+        "expected_result": [
+          6326
+        ],
+        "query_id": "dict_wide_table_mix_types_4",
+        "expected_counters": {
+          "varada_match_columns": 3,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {"name":  "pack_test",
+    "structure":[
+      {
+        "name": "col_int",
+        "type": "integer"
+      },
+      {
+        "name": "col_smallint",
+        "type": "smallint"
+      },
+      {
+        "name": "col_bigint",
+        "type": "bigint"
+      },
+      {
+        "name": "col_varchar",
+        "type": "varchar"
+      }
+    ],
+    "pt_enable": true,
+    "queries_data":[
+      {
+        "query_id": "pack_test_1",
+        "query": "select count(*) from pack_test",
+        "counter_issue": "We have issue with counters (except the first query) ",
+        "expected_result": [
+          262144
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "pack_test_2",
+        "query": "select col_int, col_smallint, col_bigint, col_varchar from pack_test where col_int > 29500  and col_smallint < -10000 and col_bigint > 1000000000000000000 and col_varchar like '%Nan%'",
+        "expected_result": [
+          30838,
+          -28832,
+          5755779564639179451,
+          "Nancy CallahanD_UFq+"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 4,
+          "varada_collect_columns": 4,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "pack_test_3",
+        "query": "select col_int, col_smallint, col_bigint, col_varchar  from pack_test where col_int > 32360  and col_smallint < -10000 and col_bigint > 1000000000000000000 and col_varchar like 'And%'",
+        "expected_result": [
+          32461,
+          -26296,
+          1911188442842832350,
+          "Andrew LewisDdMxqgpQ"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 4,
+          "varada_collect_columns": 4,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "pack_test_4",
+        "query": "select col_int, col_smallint, col_bigint, col_varchar  from pack_test where col_int < -25000  and col_smallint < -30000 and col_bigint > 1000 and col_varchar like 'Ba%'",
+        "expected_result": [
+          -28847,
+          -30934,
+          379337504042130252,
+          "Barry GouldPRRkyRN7S"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 4,
+          "varada_collect_columns": 4,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ],
+    "data": "resources/synthetic/pack.jsonl"
+  }
+]

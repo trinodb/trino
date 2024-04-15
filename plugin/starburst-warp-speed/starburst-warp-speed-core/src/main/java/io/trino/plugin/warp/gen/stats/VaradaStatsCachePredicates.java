@@ -194,9 +194,4 @@ public final class VaradaStatsCachePredicates
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 3;
-    }
 }

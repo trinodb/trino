@@ -211,10 +211,5 @@ public final class VaradaStatsFastwarming
         return new HashMap<>();
     }
 
-    public int getNumberOfMetrics()
-    {
-        return 14;
-    }
-
     private native ByteBuffer initNative(long limit);
 }

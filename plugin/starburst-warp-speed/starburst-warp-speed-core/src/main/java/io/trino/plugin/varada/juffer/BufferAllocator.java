@@ -89,6 +89,9 @@ public class BufferAllocator
     private int[] varlenRecordBufferSizes;
     private int[] fixedCollectTxSizes;
     private int[] varlenCollectTxSizes;
+    private int[] fixedWarmupDataTxSizes;
+    private int[] varlenWarmupDataTxSizes;
+    private int warmupIndexTxSize;
 
     @Inject
     public BufferAllocator(StorageEngine storageEngine,
@@ -209,14 +212,19 @@ public class BufferAllocator
 
         this.dataTempBufferSize = storageEngineConstants.getWarmupDataTempBufferSize();
         this.indexTempBufferSize = storageEngineConstants.getWarmupIndexTempBufferSize();
-
         this.extRecBuffSize = storageEngineConstants.getRecordBufferMaxSize();
+
+        // NOTE: all the array sizes above are with a +1 size to allow accessing them with the record length as index to the array without the need to -1
+        // since 0 is not a valid length and the maximal value is
         this.fixedRecordBufferSizes = new int[maxRecLenForFixedRecordBuffer + 1]; // largest case is long decimal
         this.varlenRecordBufferSizes = new int[maxRecLenForVarlenRecordBuffer + 1];
         storageEngine.initRecordBufferSizes(fixedRecordBufferSizes, varlenRecordBufferSizes);
         this.fixedCollectTxSizes = new int[maxRecLenForFixedTxSize + 1]; // largest case is long decimal
         this.varlenCollectTxSizes = new int[maxRecLenForVarlenTxSize + 1];
         storageEngine.initCollectTxSizes(fixedCollectTxSizes, varlenCollectTxSizes);
+        this.fixedWarmupDataTxSizes = new int[maxRecLenForFixedTxSize + 1]; // largest case is long decimal
+        this.varlenWarmupDataTxSizes = new int[maxRecLenForVarlenTxSize + 1];
+        warmupIndexTxSize = storageEngine.initWarmupTxSizes(fixedWarmupDataTxSizes, varlenWarmupDataTxSizes);
 
         int warmBufferSize = buffTypeSizes[JbufType.JBUF_TYPE_NULL.ordinal()] +
                 buffTypeSizes[JbufType.JBUF_TYPE_CHUNKS_MAP.ordinal()] +
@@ -579,6 +587,19 @@ public class BufferAllocator
             return varlenCollectTxSizes[Math.min(recTypeLength, maxRecLenForVarlenTxSize)];
         }
         return fixedCollectTxSizes[Math.min(recTypeLength, maxRecLenForFixedTxSize)];
+    }
+
+    public int getWarmupDataTxSize(RecTypeCode recTypeCode, int recTypeLength)
+    {
+        if (TypeUtils.isVarlenStr(recTypeCode)) {
+            return varlenWarmupDataTxSizes[Math.min(recTypeLength, maxRecLenForVarlenTxSize)];
+        }
+        return fixedWarmupDataTxSizes[Math.min(recTypeLength, maxRecLenForFixedTxSize)];
+    }
+
+    public int getWarmupIndexTxSize()
+    {
+        return warmupIndexTxSize;
     }
 
     public int getQueryNullBufferSize(RecTypeCode recTypeCode)

@@ -103,10 +103,5 @@ public final class VaradaStatsConnector
         return new HashMap<>();
     }
 
-    public int getNumberOfMetrics()
-    {
-        return 3;
-    }
-
     private native ByteBuffer initNative(long limit);
 }

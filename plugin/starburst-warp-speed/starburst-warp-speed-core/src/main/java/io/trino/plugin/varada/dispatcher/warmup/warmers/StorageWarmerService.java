@@ -36,6 +36,7 @@ import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -162,22 +163,48 @@ public class StorageWarmerService
         storageEngine.fileTruncate(fileCookie, currentOffset);
     }
 
-    public void fileClose(long fileCookie, RowGroupData rowGroupData)
+    public void fileClose(long fileCookie, Optional<RowGroupData> rowGroupData)
     {
         if (fileCookie != INVALID_FILE_COOKIE) {
             try {
                 storageEngine.fileClose(fileCookie);
             }
             catch (Exception e) {
-                rowGroupDataService.deleteData(rowGroupData, true);
-                String rowGroupFilePath = rowGroupData.getRowGroupKey().stringFileNameRepresentation(globalConfiguration.getLocalStorePath());
-                logger.error(e, String.format("failed to close file %s", rowGroupFilePath));
+                if (rowGroupData.isPresent()) {
+                    rowGroupDataService.deleteData(rowGroupData.get(), true);
+                    String rowGroupFilePath = rowGroupData.get().getRowGroupKey().stringFileNameRepresentation(globalConfiguration.getLocalStorePath());
+                    logger.error(e, String.format("failed to close file %s", rowGroupFilePath));
+                }
             }
         }
-        else { // we failed in opening the file
-            rowGroupDataService.deleteData(rowGroupData, true);
-            String rowGroupFilePath = rowGroupData.getRowGroupKey().stringFileNameRepresentation(globalConfiguration.getLocalStorePath());
+        else if (rowGroupData.isPresent()) { // we failed in opening the file
+            rowGroupDataService.deleteData(rowGroupData.get(), true);
+            String rowGroupFilePath = rowGroupData.get().getRowGroupKey().stringFileNameRepresentation(globalConfiguration.getLocalStorePath());
             logger.error(String.format("failed to open file %s", rowGroupFilePath));
+        }
+    }
+
+    public void verifyQueryOffsets(RowGroupKey rowGroupKey, List<WarmUpElement> validWarmUpElements)
+    {
+        long fileCookie = INVALID_FILE_COOKIE;
+        try {
+            if ((validWarmUpElements.size() > 0) && (validWarmUpElements.get(0).getTotalRecords() < 32 * 1024)) {
+                fileCookie = fileOpen(rowGroupKey);
+                for (WarmUpElement warmUpElement : validWarmUpElements) {
+                    int queryOffset = warmUpElement.getQueryOffset();
+                    if (queryOffset > 0) { // @TODO there are issues with offset zero should be investigated
+                        logger.debug("verifying offset %d WE %s", queryOffset, warmUpElement);
+                        storageEngine.warmupVerifyQueryOffset(queryOffset, fileCookie);
+                    }
+                }
+            }
+        }
+        catch (Exception e) {
+            logger.error(e, "failed to verify query offsets for %s", validWarmUpElements);
+            throw new RuntimeException(e);
+        }
+        finally {
+            fileClose(fileCookie, Optional.empty());
         }
     }
 
@@ -188,15 +215,11 @@ public class StorageWarmerService
         }
     }
 
-    public boolean lockRowGroup(RowGroupData rowGroupData)
+    public void lockRowGroup(RowGroupData rowGroupData)
             throws InterruptedException
     {
-        boolean locked = false;
-        if (rowGroupData != null) {
-            rowGroupData.getLock().writeLock();
-            locked = true;
-        }
-        return locked;
+        requireNonNull(rowGroupData);
+        rowGroupData.getLock().writeLock();
     }
 
     public void finishWarm(boolean releaseTx)

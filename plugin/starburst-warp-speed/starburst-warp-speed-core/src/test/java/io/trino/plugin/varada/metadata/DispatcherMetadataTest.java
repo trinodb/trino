@@ -43,10 +43,12 @@ import io.trino.plugin.varada.expression.rewrite.coordinator.varadatonative.Nati
 import io.trino.plugin.varada.metrics.MetricsManager;
 import io.trino.plugin.varada.storage.engine.StubsStorageEngineConstants;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
@@ -70,6 +72,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -127,10 +130,12 @@ public class DispatcherMetadataTest
                 DispatcherMetadata.class,
                 Set.of(
                         // Deprecated methods
+                        ConnectorMetadata.class.getMethod("createView", ConnectorSession.class, SchemaTableName.class, ConnectorViewDefinition.class, boolean.class),
                         ConnectorMetadata.class.getMethod("applyJoin", ConnectorSession.class, JoinType.class, ConnectorTableHandle.class, ConnectorTableHandle.class, List.class, Map.class, Map.class, JoinStatistics.class),
                         ConnectorMetadata.class.getMethod("getTableHandle", ConnectorSession.class, SchemaTableName.class),
                         ConnectorMetadata.class.getMethod("streamTableColumns", ConnectorSession.class, SchemaTablePrefix.class),
-                        ConnectorMetadata.class.getMethod("listTableColumns", ConnectorSession.class, SchemaTablePrefix.class)));
+                        ConnectorMetadata.class.getMethod("listTableColumns", ConnectorSession.class, SchemaTablePrefix.class),
+                        ConnectorMetadata.class.getMethod("finishInsert", ConnectorSession.class, ConnectorInsertTableHandle.class, Collection.class, Collection.class)));
     }
 
     @Test

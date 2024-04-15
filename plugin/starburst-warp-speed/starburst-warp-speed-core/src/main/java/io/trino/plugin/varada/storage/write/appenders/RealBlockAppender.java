@@ -16,7 +16,7 @@ package io.trino.plugin.varada.storage.write.appenders;
 import io.trino.plugin.varada.dispatcher.model.WarmUpElement;
 import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 
 import java.nio.IntBuffer;
 
@@ -29,7 +29,7 @@ public class RealBlockAppender
     }
 
     @Override
-    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         IntBuffer buff = (IntBuffer) juffersWE.getRecordBuffer();
 
@@ -44,7 +44,7 @@ public class RealBlockAppender
                 else {
                     int val = blockPos.getInt();
                     Float floatVal = Float.intBitsToFloat(val);
-                    warmupElementStats.updateMinMax(floatVal);
+                    warmupElementStatsBuilder.updateMinMax(floatVal);
                     writeValue(val, buff);
                 }
             }
@@ -53,7 +53,7 @@ public class RealBlockAppender
             for (; blockPos.inRange(); blockPos.advance()) {
                 int val = blockPos.getInt();
                 Float floatVal = Float.intBitsToFloat(val);
-                warmupElementStats.updateMinMax(floatVal);
+                warmupElementStatsBuilder.updateMinMax(floatVal);
                 writeValue(val, buff);
             }
         }

@@ -83,7 +83,7 @@ public class RangeMatcher
 
             if (warmUpElement.isPresent() &&
                     warmUpElement.get().getRecTypeCode().isSupportedFiltering() &&
-                    warmUpElement.get().getWarmupElementStats().isValidRange() &&
+                    warmUpElement.get().getWarmupElementStats().isInitialized() &&
                     isNotFunction(context.getVaradaExpressionData()) &&
                     !warmUpElement.get().getVaradaColumn().isTransformedColumn() &&
                     domain.getValues() instanceof SortedRangeSet sortedRangeSet &&

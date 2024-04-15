@@ -519,11 +519,9 @@ public final class VaradaStatsWarmupExportService
     @Override
     protected Map<String, Object> statePrintFields()
     {
-        return new HashMap<>();
-    }
-
-    public int getNumberOfMetrics()
-    {
-        return 13;
+        Map<String, Object> res = new HashMap<>();
+        res.put("export_time", getexport_time());
+        res.put("export_time_Count", getexport_time_Count());
+        return res;
     }
 }

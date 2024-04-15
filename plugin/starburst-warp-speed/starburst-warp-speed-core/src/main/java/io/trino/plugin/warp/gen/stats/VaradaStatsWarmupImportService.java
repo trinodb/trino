@@ -520,9 +520,4 @@ public final class VaradaStatsWarmupImportService
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 13;
-    }
 }

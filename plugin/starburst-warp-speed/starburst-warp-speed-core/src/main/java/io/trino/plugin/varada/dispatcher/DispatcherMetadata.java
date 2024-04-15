@@ -516,12 +516,6 @@ public class DispatcherMetadata
         return proxiedConnectorMetadata.supportsMissingColumnsOnInsert();
     }
 
-    @SuppressWarnings("deprecation")
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
-    {
-        return proxiedConnectorMetadata.finishInsert(session, insertHandle, fragments, computedStatistics);
-    }
-
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
@@ -591,12 +585,6 @@ public class DispatcherMetadata
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         proxiedConnectorMetadata.createView(session, viewName, definition, viewProperties, replace);
-    }
-
-    @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
-    {
-        proxiedConnectorMetadata.createView(session, viewName, definition, replace);
     }
 
     @Override

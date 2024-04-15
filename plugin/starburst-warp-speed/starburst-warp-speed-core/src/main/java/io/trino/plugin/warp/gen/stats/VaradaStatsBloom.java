@@ -181,10 +181,5 @@ public final class VaradaStatsBloom
         return new HashMap<>();
     }
 
-    public int getNumberOfMetrics()
-    {
-        return 11;
-    }
-
     private native ByteBuffer initNative(long limit);
 }

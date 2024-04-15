@@ -397,7 +397,9 @@ public class DispatcherPageSourceFactory
     private void updateUsageForEmptyRowGroupData(RowGroupData rowGroupData)
     {
         long lastUsedTimestamp = Instant.now().toEpochMilli();
-        rowGroupData.getWarmUpElements().forEach(warmUpElement -> warmUpElement.setLastUsedTimestamp(lastUsedTimestamp));
+        rowGroupData.getWarmUpElements().forEach(warmUpElement -> {
+            warmUpElement.setUsedTimestamp(lastUsedTimestamp);
+        });
     }
 
     private ConnectorPageSource createProxiedConnectorPageSource(

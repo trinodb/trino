@@ -957,11 +957,9 @@ public final class VaradaStatsWarmingService
     @Override
     protected Map<String, Object> statePrintFields()
     {
-        return new HashMap<>();
-    }
-
-    public int getNumberOfMetrics()
-    {
-        return 27;
+        Map<String, Object> res = new HashMap<>();
+        res.put("execution_time_nano", getexecution_time_nano());
+        res.put("execution_time_nano_Count", getexecution_time_nano_Count());
+        return res;
     }
 }

@@ -272,6 +272,7 @@ public class WarmUtils
         String name = testFormat.name();
         List<TestFormat.Column> structure = testFormat.structure();
         StringBuilder tableDefinition = new StringBuilder();
+
         for (int i = 0; i < structure.size(); i++) {
             TestFormat.Column column = structure.get(i);
             String fieldName = column.name();
@@ -284,8 +285,15 @@ public class WarmUtils
             tableDefinition.append(fieldDefinition);
         }
 
+        String dataFormat = testFormat.data_format();
+
+        if (dataFormat == null || dataFormat.isEmpty()) {
+            dataFormat = "PARQUET";
+        }
+
         List<Object> bucketedBy = testFormat.bucketed_by();
         String bucketedByStr = "ARRAY[]";
+
         if (bucketedBy != null && !bucketedBy.isEmpty()) {
             StringBuilder bucketedByBuilder = new StringBuilder("ARRAY[");
             for (int i = 0; i < bucketedBy.size(); i++) {
@@ -299,10 +307,11 @@ public class WarmUtils
         }
 
         int bucketCount = testFormat.bucket_count();
+
         return String.format("CREATE TABLE IF NOT EXISTS warp.synthetic.%s (%s) " +
                         "WITH (external_location='s3://warp-speed-us-east1-systemtests/synthetic/%s'," +
-                        "format='PARQUET',partitioned_by=ARRAY[],bucketed_by=%s,bucket_count=%d)",
-                name, tableDefinition.toString(), name, bucketedByStr, bucketCount);
+                        "format='%s',partitioned_by=ARRAY[],bucketed_by=%s,bucket_count=%d)",
+                name, tableDefinition.toString(), name, dataFormat, bucketedByStr, bucketCount);
     }
 
     public void createTable(TestFormat testFormat)
@@ -344,7 +353,7 @@ public class WarmUtils
         }
         else if (fieldType.equals("char") || fieldType.equals("decimal")) {
             if (args.size() == 3) {
-                args = args.subList(1, args.size());
+                args = args.subList(0, args.size() - 1);
             }
             else if (args.size() > 3) {
                 throw new RuntimeException();

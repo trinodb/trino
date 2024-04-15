@@ -65,8 +65,6 @@ public final class TestGroups
     public static final String POSTGRESQL = "postgresql";
     public static final String SQLSERVER = "sqlserver";
     public static final String STARBURST_SNOWFLAKE = "starburst_snowflake";
-    public static final String WARP_SPEED = "warp_speed";
-    public static final String WARP_SPEED_MINIO = "warp_speed_minio";
     public static final String SYNAPSE = "synapse";
     public static final String SAP_HANA = "sap-hana";
     public static final String LDAP = "ldap";
@@ -106,6 +104,12 @@ public final class TestGroups
     public static final String PARQUET = "parquet";
     public static final String IGNITE = "ignite";
     public static final String HIVE_CACHE_SUBQUERIES = "hive-cache-subqueries";
+    public static final String WARP_SPEED_HIVE = "warp-speed-hive";
+    public static final String WARP_SPEED_HIVE_2 = "warp-speed-hive-2";
+    public static final String WARP_SPEED_DELTA_LAKE = "warp-speed-delta-lake";
+    public static final String WARP_SPEED_ICEBERG = "warp-speed-iceberg";
+    public static final String WARP_SPEED_CACHE = "warp-speed-cache";
+    public static final String WARP_SPEED_MINIO = "warp-speed-minio";
 
     private TestGroups() {}
 

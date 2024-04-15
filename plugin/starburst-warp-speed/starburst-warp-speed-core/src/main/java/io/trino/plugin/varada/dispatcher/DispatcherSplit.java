@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -153,9 +154,9 @@ public class DispatcherSplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return proxyConnectorSplit.getInfo();
+        return proxyConnectorSplit.getSplitInfo();
     }
 
     @Override

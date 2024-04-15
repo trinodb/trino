@@ -20,7 +20,7 @@ import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.juffers.ChunkMap;
 import io.trino.plugin.varada.storage.juffers.CrcJuffer;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 import io.trino.plugin.varada.warmup.exceptions.WarmupException;
 
 import java.nio.ByteBuffer;
@@ -52,20 +52,20 @@ public abstract class BlockAppender
             boolean stopAfterOneFlush,
             Optional<WriteDictionary> writeDictionary,
             WarmUpElement warmUpElement,
-            WarmupElementStats warmupElementStats)
+            WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         AppendResult result;
         if (writeDictionary.isEmpty()) {
-            result = appendWithoutDictionary(jufferPos, blockPos, stopAfterOneFlush, warmUpElement, warmupElementStats);
+            result = appendWithoutDictionary(jufferPos, blockPos, stopAfterOneFlush, warmUpElement, warmupElementStatsBuilder);
         }
         else {
-            result = appendWithDictionary(blockPos, stopAfterOneFlush, writeDictionary.get(), warmupElementStats);
+            result = appendWithDictionary(blockPos, stopAfterOneFlush, writeDictionary.get(), warmupElementStatsBuilder);
         }
-        warmupElementStats.incNullCount(result.nullsCount());
+        warmupElementStatsBuilder.incNullCount(result.nullsCount());
         return result;
     }
 
-    abstract AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStats warmupElementStats);
+    abstract AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStatsBuilder warmupElementStatsBuilder);
 
     public void writeChunkMapValuesIntoChunkMapJuffer(List<ChunkMap> chunkMapList)
     {
@@ -95,7 +95,7 @@ public abstract class BlockAppender
         }
     }
 
-    AppendResult appendWithDictionary(BlockPosHolder blockPos, boolean stopAfterOneFlush, WriteDictionary writeDictionary, WarmupElementStats warmupElementStats)
+    AppendResult appendWithDictionary(BlockPosHolder blockPos, boolean stopAfterOneFlush, WriteDictionary writeDictionary, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         throw new UnsupportedOperationException();
     }

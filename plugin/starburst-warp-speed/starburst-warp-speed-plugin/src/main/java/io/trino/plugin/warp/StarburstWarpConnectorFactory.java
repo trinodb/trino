@@ -30,6 +30,9 @@ import io.trino.plugin.warp.extension.di.WarpExtensionModule;
 import io.trino.plugin.warp.proxiedconnector.deltalake.DeltaLakeProxiedConnectorInitializer;
 import io.trino.plugin.warp.proxiedconnector.hive.HiveProxiedConnectorInitializer;
 import io.trino.plugin.warp.proxiedconnector.iceberg.IcebergProxiedConnectorInitializer;
+import io.trino.spi.cache.CacheManager;
+import io.trino.spi.cache.CacheManagerContext;
+import io.trino.spi.cache.CacheManagerFactory;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -44,7 +47,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class StarburstWarpConnectorFactory
-        implements ConnectorFactory
+        implements ConnectorFactory, CacheManagerFactory
 {
     private final DispatcherConnectorFactory dispatcherConnectorFactory;
     private final LicenseManager licenseManager;
@@ -93,6 +96,12 @@ public class StarburstWarpConnectorFactory
                 Map.of(ProxiedConnectorConfiguration.DELTA_LAKE_CONNECTOR_NAME, DeltaLakeProxiedConnectorInitializer.class.getName(),
                         ProxiedConnectorConfiguration.HIVE_CONNECTOR_NAME, HiveProxiedConnectorInitializer.class.getName(),
                         ProxiedConnectorConfiguration.ICEBERG_CONNECTOR_NAME, IcebergProxiedConnectorInitializer.class.getName())));
+    }
+
+    @Override
+    public CacheManager create(Map<String, String> config, CacheManagerContext context)
+    {
+        return dispatcherConnectorFactory.getCacheManager();
     }
 
     public static class WarpCorkModule

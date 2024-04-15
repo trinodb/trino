@@ -23,6 +23,7 @@ import com.google.inject.Singleton;
 import io.airlift.log.Logger;
 import io.trino.plugin.varada.VaradaSessionProperties;
 import io.trino.plugin.varada.configuration.GlobalConfiguration;
+import io.trino.plugin.varada.configuration.NativeConfiguration;
 import io.trino.plugin.varada.dictionary.DictionaryWarmInfo;
 import io.trino.plugin.varada.dispatcher.DispatcherProxiedConnectorTransformer;
 import io.trino.plugin.varada.dispatcher.DispatcherSplit;
@@ -66,6 +67,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -83,6 +85,7 @@ public class VaradaProxiedWarmer
     private final VaradaPageSinkFactory varadaPageSinkFactory;
     private final ConnectorSync connectorSync;
     private final GlobalConfiguration globalConfiguration;
+    private final NativeConfiguration nativeConfiguration;
 
     private final RowGroupDataService rowGroupDataService;
     private final StorageWarmerService storageWarmerService;
@@ -94,6 +97,7 @@ public class VaradaProxiedWarmer
             NodeManager nodeManager,
             ConnectorSync connectorSync,
             GlobalConfiguration globalConfiguration,
+            NativeConfiguration nativeConfiguration,
             RowGroupDataService rowGroupDataService,
             StorageWarmerService storageWarmerService,
             StorageWriterService storageWriterService)
@@ -103,6 +107,7 @@ public class VaradaProxiedWarmer
         this.nodeIdentifier = requireNonNull(nodeManager).getCurrentNode().getNodeIdentifier();
         this.connectorSync = requireNonNull(connectorSync);
         this.globalConfiguration = requireNonNull(globalConfiguration);
+        this.nativeConfiguration = requireNonNull(nativeConfiguration);
         this.rowGroupDataService = requireNonNull(rowGroupDataService);
         this.storageWarmerService = requireNonNull(storageWarmerService);
         this.storageWriterService = requireNonNull(storageWriterService);
@@ -194,8 +199,18 @@ public class VaradaProxiedWarmer
                         if (fileOffset == warmSinkResult.offset()) { // if we failed, we re-open the tx since we might had a native exception
                             txId = storageWarmerService.warmupOpen(txId);
                         }
-                        fileOffset = warmSinkResult.offset();
+                        else {
+                            fileOffset = warmSinkResult.offset() + 1; // @TODO should be removed. adding 1 more page as a safety zone
+                        }
                         rowGroupData = rowGroupDataService.updateRowGroupData(rowGroupData, warmSinkResult.warmUpElement(), fileOffset, rowCount);
+
+                        if (nativeConfiguration.getEnableWarmDelay() && (rowCount < 100000)) {
+                            try {
+                                Thread.sleep(5000);
+                            }
+                            catch (Exception e) {
+                            }
+                        }
                     }
                     catch (Exception e) {
                         if (pageSink != null) {
@@ -230,7 +245,7 @@ public class VaradaProxiedWarmer
                     logger.error(e, "failed to release warming resources file %s", rowGroupFilePath);
                 }
             }
-            storageWarmerService.fileClose(fileCookie, rowGroupData);
+            storageWarmerService.fileClose(fileCookie, Optional.of(rowGroupData));
         }
         return rowGroupData;
     }

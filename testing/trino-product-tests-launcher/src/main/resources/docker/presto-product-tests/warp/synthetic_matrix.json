@@ -1,0 +1,1081 @@
+[
+  {
+    "name": "matrix",
+    "warm_query": "select * from matrix",
+    "pt_enable": true,
+    "lines": 84992,
+    "structure": [
+      {
+        "name": "id",
+        "type": "integer"
+      },
+      {
+        "name": "r_integer",
+        "type": "integer"
+      },
+      {
+        "name": "r_bigint",
+        "type": "bigint"
+      },
+      {
+        "name": "r_bigint_bm_index",
+        "type": "bigint",
+        "args": [
+          0,
+          100
+        ]
+      },
+      {
+        "name": "varlen60to70",
+        "type": "varchar",
+        "args": [
+          70,
+          60
+        ]
+      },
+      {
+        "name": "n_decimal",
+        "type": "decimal",
+        "args": [
+          7,
+          2,
+          false
+        ]
+      },
+      {
+        "name": "n_long_decimal",
+        "type": "decimal",
+        "args": [
+          30,
+          2,
+          false
+        ]
+      },
+      {
+        "name": "p_float",
+        "type": "double"
+      },
+      {
+        "name": "n_float",
+        "type": "double",
+        "args": [
+          null,
+          null,
+          false
+        ]
+      },
+      {
+        "name": "s_float",
+        "type": "double",
+        "args": [
+          6,
+          4
+        ]
+      },
+      {
+        "name": "s_real",
+        "type": "real",
+        "args": [
+          5,
+          3,
+          null
+        ]
+      },
+      {
+        "name": "str_date",
+        "type": "date"
+      },
+      {
+        "name": "str_time",
+        "type": "timestamp"
+      },
+      {
+        "name": "char4",
+        "type": "char",
+        "args": [
+          4
+        ]
+      },
+      {
+        "name": "char5",
+        "type": "char",
+        "args": [
+          5
+        ]
+      },
+      {
+        "name": "true_or_false",
+        "type": "boolean"
+      },
+      {
+        "name": "char16",
+        "type": "char",
+        "args": [
+          16
+        ]
+      },
+      {
+        "name": "char20",
+        "type": "char",
+        "args": [
+          20
+        ]
+      },
+      {
+        "name": "varchar32",
+        "type": "varchar",
+        "args": [
+          32
+        ]
+      },
+      {
+        "name": "bool_or_null",
+        "type": "boolean",
+        "args": [
+          true
+        ]
+      },
+      {
+        "name": "char64",
+        "type": "char",
+        "args": [
+          64
+        ]
+      },
+      {
+        "name": "int_or_null",
+        "type": "integer",
+        "args": [
+          true
+        ]
+      },
+      {
+        "name": "n_tinyint",
+        "type": "tinyint"
+      },
+      {
+        "name": "n_smallint",
+        "type": "smallint"
+      },
+      {
+        "name": "end_null",
+        "type": "integer"
+      }
+    ],
+    "queries": {
+      "select count(bool_or_null) from matrix": [
+        70865
+      ],
+      "select count(bool_or_null) from matrix where bool_or_null is null": [
+        0
+      ],
+      "select count(*), count(bool_or_null) from matrix where bool_or_null in (true, false) or bool_or_null is null": [
+        84992,
+        70865
+      ],
+      "select true_or_false, count(*) as cnt from matrix where r_bigint_bm_index=64 group by true_or_false order by true_or_false, cnt desc": [
+        false,
+        433,
+        true,
+        420
+      ],
+      "select count(bool_or_null) from matrix where bool_or_null = True or bool_or_null is null": [
+        35533
+      ],
+      "select count(bool_or_null) from matrix where bool_or_null = False or bool_or_null is null": [
+        35332
+      ],
+      "select count(*) from matrix where bool_or_null = True": [
+        35533
+      ],
+      "select count(*) from matrix where bool_or_null = False": [
+        35332
+      ],
+      "select count(char4) from matrix": [
+        84992
+      ],
+      "select max(char4) from matrix": [
+        "_9Zz"
+      ],
+      "select count(char5) from matrix": [
+        84992
+      ],
+      "select max(char5) from matrix": [
+        "z_9Ym"
+      ],
+      "select count(char16) from matrix": [
+        84992
+      ],
+      "select max(char16) from matrix": [
+        "zzkwdP5ZC6xl_%Nj"
+      ],
+      "select count(varchar32) from matrix": [
+        84992
+      ],
+      "select max(varchar32) from matrix": [
+        "Zoe ScottrEse4@$TK!_4(C!wMZ%HAMc"
+      ],
+      "select count(varlen60to70) from matrix": [
+        84992
+      ],
+      "select max(varlen60to70) from matrix": [
+        "Zoe Youngfoy%qkg@djKJe0PCu_YksNT+kaeoUyVh&Owszt#IEtQpZO_9!9!alRtl"
+      ],
+      "select count(char4) from matrix where char4 in ('_1Yj')": [
+        1
+      ],
+      "select count(char4) from matrix where char4 in ('$3Wk', '_8Wu', '%3Jf', '(4Vz')": [
+        4
+      ],
+      "select count(char4) from matrix where char4 in ('_3As', '%4Bv', '^0Tx', '$4Wi', '$6Nk', '_0Hd', '!6Sx', '*6Gi')": [
+        9
+      ],
+      "select max(char4) from matrix where char4 in ('&1Ne')": [
+        "&1Ne"
+      ],
+      "select max(char4) from matrix where char4 in ('@7Fj', '#1Uu', '!2De', ')8Kx')": [
+        "@7Fj"
+      ],
+      "select max(char4) from matrix where char4 in ('(9Bf', '&7Na', '*9Mp', '(8Kc', ')7Wj', '%9Ck', '*8Dv', '%3Ji')": [
+        "*9Mp"
+      ],
+      "select count(char5) from matrix where char5 in ('&@2Jq')": [
+        1
+      ],
+      "select count(char5) from matrix where char5 in ('+u1Oi', '*b2Qf', '!72Ck', '(96Qx')": [
+        1
+      ],
+      "select count(char5) from matrix where char5 in ('^4Dv%', '+7Oh+', '($0Kk', '%8Dhg', '!5YLo', '$%1Aq', '(3Dpk', '8+9Vs')": [
+        1
+      ],
+      "select max(char5) from matrix where char5 in ('*+5Qb')": [
+        "*+5Qb"
+      ],
+      "select max(char5) from matrix where char5 in ('Y#4Xx', '!j0Dy', ')0(Dl', '4(3Qk')": [
+        "4(3Qk"
+      ],
+      "select max(char5) from matrix where char5 in ('@V5Ai', 'Z^4Ge', '$f4Sz', '!B1Pv', '__6Bv', '#5QYb', '$v7Zp', '@4rJz')": [
+        "@4rJz"
+      ],
+      "select count(char16) from matrix where char16 in ('g7GjBORw(ae$&2nT')": [
+        1
+      ],
+      "select count(char16) from matrix where char16 in ('u+0MoM5NWcAd&HA^', 'XkHe524vfV)9qTik', 'q7h5nV*Zx5$$5Kqi', 'zxjy7W_rp@X2oOmu')": [
+        1
+      ],
+      "select count(char16) from matrix where char16 in ('p!U@GRslwp@9^nxv', '8(rKiCnu#CDIL2SX', ')z9tLu1k(F9KPsKk', 'o^%#F3eR%ZsxqcSp', '!uteLPzg73vTrDW+', 'HQL1yMMx(%#61ZTd', 'T+5$YDQuY9N70HkM', '%)fOT7cz$o5Gtr70')": [
+        1
+      ],
+      "select max(char16) from matrix where char16 in ('%E3nz2scd5MiNqIf')": [
+        "%E3nz2scd5MiNqIf"
+      ],
+      "select max(char16) from matrix where char16 in ('CT!#l$X&Ek2I&5^n', 'Be3Y+D(0!fB3BDbk', 'Xh!0Qfzk&R_0wGRN', '!_sBRONb@3SZ#j+a')": [
+        "!_sBRONb@3SZ#j+a"
+      ],
+      "select max(char16) from matrix where char16 in ('0fTI&NPtoEhvH9f8', 'L^R1dIUDdY8O01ab', ')ln$XoaNN+)1h^j+', '%8s4G^z3H%eb3qUu', '^KG*6)KsE(eU7c%%', 's1JTM5m4)dP2GCc^', '&9s_MbuzGKDQ5GMz', 'W4ED2NHfjKw(QJy4')": [
+        "W4ED2NHfjKw(QJy4"
+      ],
+      "select count(varchar32) from matrix where varchar32 in ('Miss Melissa Ortiz DDSG&7dQbr1M^')": [
+        1
+      ],
+      "select count(varchar32) from matrix where varchar32 in ('(QY@K8+YPvsHGHLbjOMi02lx)iR%pmXh', '&Fc4QE5JWM*kH8vkgS$yPpCFRVZjpkZ5', 'ssOGbtIoP1^kBXBL+e5*^lY@tR)kwZp_', 'Nathan BanksRWcBLw$#K(5)Fd1QfBRu')": [
+        1
+      ],
+      "select count(varchar32) from matrix where varchar32 in ('T(aJCLLJ+TH(jnCSJi32!vyBuIpNkUer', '%#W56yOrD#3n4Zq5mm*nLyxR*Qr829Ko', 'p4#)mnxB9)M**hAm+ymmHKWsNrr^g0Ju', 'K_oe3J1F2v!SrFDqL1u3IQMfj5Q4EJGh', 'rQxA#5&Ze_cl1@Qxy1pfSMsbqPf#y7I0', 'gUso98Kq_CAs2Qhgl9D5R8CQ_M2@^c+9', 'Ku4iO6Tn+Eof#qKF_)s^saGBq5IKIoDr', 'Lauren Johnson(g&jinnsk@UT1lniB0')": [
+        1
+      ],
+      "select max(varchar32) from matrix where varchar32 in ('Ashley Morgan0YpqlUBkt1U&1LpbMAB')": [
+        "Ashley Morgan0YpqlUBkt1U&1LpbMAB"
+      ],
+      "select max(varchar32) from matrix where varchar32 in ('0(FXMrlPEG@MGTx8tA6BR&deE_$NmUCH', '(vI&psV8+HDrzPK#l5W$u0UZ#Efc*Vd8', 'kCgSVht*pUljclQj!g)Iog8WybG@S2&x', 'Michelle Moses2T#DqO*e$FX$I)rEcv')": [
+        "Michelle Moses2T#DqO*e$FX$I)rEcv"
+      ],
+      "select max(varchar32) from matrix where varchar32 in ('9rqbWGvo9*nUeMIv^a2OEuZyf!YauzOv', 'VHQ0C9EEj(&x1!c$c8Wr2ba%tzGg%(ba', '_fVdMcXZ$EqVO1eZ6d&UgkYpQ%Uq4nYz', 'UO6Vqk5udkySU+2oj%EDOYbwYqE_I9AG', '67jxx2Qz+H0)7AaTL6WwPI^&Fg#x1T8f', 'fK5W7Iek*%&T58(rKPxE)$PvgMZX+QEy', 'ZSVFGYJt#cp15wO1x%g)9MLUf+lXUI6K', 'Mrs. Melinda FitzpatrickWpK7g$T&')": [
+        "Mrs. Melinda FitzpatrickWpK7g$T&"
+      ],
+      "select count(varlen60to70) from matrix where varlen60to70 in ('Veronica Davenport01lq*bYY)#Bfd@0BXs0G^v%1RA+BuFLIR(l7Q_dV_@1wvs')": [
+        1
+      ],
+      "select count(varlen60to70) from matrix where varlen60to70 in ('wLpi1rKx!3XSSv@bINvAC^S^tueh3Ef5kT+WKMTjj_XNUA&i*$&YKTBX1uqh!lFD7$MFf', 'tztBd&3pzzThVmqJmL#8+nJVenY4aDQ!%)z+Tbqu8IpaYd+^LAawRtNvmTu!MJeJgb0XA', 'sI#S^JJFq+A%_XAfyq7e89orK3Np)UGC#CNWfP8fyU)DGoxk^QqMGbxHLXX!Wq$^SWy2S', 'Bradley Mcleanea1C(Z8p!GwiB3PMfM^xLaL%TKR6x#@UGdEfk00d0T@qQTZA7t07*sj')": [
+        1
+      ],
+      "select count(varlen60to70) from matrix where varlen60to70 in ('dnaV*IZhJ65_JIeZtThL9WNG^+Wa82zC&NE13W3M(WCI9@sBSd^cC^Dlbd$JKXBoT', 'T&At*nGB7A$GYSxWVUnYkcKNhM0Ae#F6u7garfYHZKOqN58GLV#ktcPUht%ICVVwY', 'Rf8$FEKlX)B0IeL3Q#(%#f#&6lCs+Xx_BGkX0Oyy&oY1QvgoTUx4%5Urxgr3(60eT', 'E$v6iq2NAUtDzC(VIwYoii+vWrfnlvW%MM_5IgvzDx!OCZVvQ7W@J9arenW9FeTC@', '*ZL+%zMfz71l*Mi*Uc6Z%d^nz7D5a!oM9KaG2V#5541hSO3Ah0#nuYV86CPd2xSg%', '(%y9X!j&bt#LgK6ul8e9xf6%_SaQ4jN*p(4YTo&2NFxc(&OH@ImUsVUgxODujQNC0', '7^ryCH*$Un26rL#M6lkWZ%AxCNvjbkKyjucF@%d4@jw@bG@o6wBBOH9XmidirB2#j', 'Jeremy Hubbardo*YITl+$ad%9JE)w8lz2Yjs)$ZoJ#vm2)Im+&t)%G%EKpZz5#d7')": [
+        1
+      ],
+      "select max(varlen60to70) from matrix where varlen60to70 in ('Linda WellsoOPkT%qP*zPX0)(B&tzPT)KroE3_+*BiQGa3x1eMdeuaH_4Jy')": [
+        "Linda WellsoOPkT%qP*zPX0)(B&tzPT)KroE3_+*BiQGa3x1eMdeuaH_4Jy"
+      ],
+      "select max(varlen60to70) from matrix where varlen60to70 in ('^@GGLhsyP3ARd7@UAum8OMX55b+J@e1DNJ*bpm_5I3pq5eFb!q9AtyW2jcdc', 'K6JiH!hJOkXE448kmel#cNG!&XXDeeEp0V+Iog&SM(m8OUfpsiME!v5GRF3p', 'ybGTcW5E%n7+BLuUFGIbEvO3!C)tLIz8j+E34RT#T2Jmdtde2jbOeOCS1lLX', 'Susan Chavez(j_5AxgnJ0EGZ0_x6#Omll$IPzTGw_yZ9kzV7*i#)QhgdyU9')": [
+        "Susan Chavez(j_5AxgnJ0EGZ0_x6#Omll$IPzTGw_yZ9kzV7*i#)QhgdyU9"
+      ],
+      "select max(varlen60to70) from matrix where varlen60to70 in ('z!#3a^1!*D4$Z@WA(@FYb%xL(FBfup$mSeBV0Y*o*_1aQvsK$TM7#XAIlyFsB7', '5PljlcTbaCF&zp7e+r+vzTSJbTnzmFYQgZg89_UZ1NTFb8_BLdLC(PwcNX+%r_', 'hafL9VY*N2m$+yuyT1To2bEc&o6RP)jCN_RnxHHUbu82mg6lm@((LN1xV$az8R', 'lbxgFQTd)hl)rQ3t7GPEA+TRb8Y!s5FCnb0)+E_l7uqzy9wDyQ7PZEZIb@2RFE', ')C9$wAqQL294vkVZLH9Z9HHR_3AN%Ua$m9@!$ip61($^EER2O(J+48QuFkUctw', 'mTp$4R8YasYdnDwhOm*lT@0K**7$ELwtnIAOfoEwrxs6QO6P7%Hjdp8@O(DZM^', 'N_d26WouaXILilEpC6#VQWa6cr7vSp03KcPG^ZPt9u$wh)T8JmxMGRl)3%Z+_A', 'Brandy JonesDsl9^ih!bTJa!jXc5QuTh3B3YT7q&LpiTm^Tt+7v_1QHxnvkal')": [
+        "Brandy JonesDsl9^ih!bTJa!jXc5QuTh3B3YT7q&LpiTm^Tt+7v_1QHxnvkal"
+      ],
+      "select count(char4) from matrix where char4 <> ')5In'": [
+        84990
+      ],
+      "select count(char4) from matrix where char4 = '&1Hl'": [
+        2
+      ],
+      "select max(char4) from matrix where char4 <> '!2Lu'": [
+        "_9Zz"
+      ],
+      "select max(char4) from matrix where char4 = '%6Dj'": [
+        "%6Dj"
+      ],
+      "select count(char5) from matrix where char5 <> '6(4Bw'": [
+        84991
+      ],
+      "select count(char5) from matrix where char5 = '^71Tu'": [
+        1
+      ],
+      "select max(char5) from matrix where char5 <> '6^4Ry'": [
+        "z_9Ym"
+      ],
+      "select max(char5) from matrix where char5 = 'A@0Fx'": [
+        "A@0Fx"
+      ],
+      "select count(char16) from matrix where char16 <> 'Xb2M#vbt8t22Cxc4'": [
+        84991
+      ],
+      "select count(char16) from matrix where char16 = '^)15eIrUty$V_#Ji'": [
+        1
+      ],
+      "select max(char16) from matrix where char16 <> '(3f9J1j$5nj&B_lC'": [
+        "zzkwdP5ZC6xl_%Nj"
+      ],
+      "select max(char16) from matrix where char16 = '!WsfpFMK@9EF$Eyx'": [
+        "!WsfpFMK@9EF$Eyx"
+      ],
+      "select count(varchar32) from matrix where varchar32 <> 'Jodi JonesLGVN+$eBpd1Pow#Y#4G$I)'": [
+        84991
+      ],
+      "select count(varchar32) from matrix where varchar32 = 'Erica DodsonskDO)y7lxD05(#OUO)CI'": [
+        1
+      ],
+      "select max(varchar32) from matrix where varchar32 <> 'Jenna Hale0fg07loJw&3p(&Gy!va*p('": [
+        "Zoe ScottrEse4@$TK!_4(C!wMZ%HAMc"
+      ],
+      "select max(varchar32) from matrix where varchar32 = 'Stephen Townsend+HpJE#oD@HWW*$DN'": [
+        "Stephen Townsend+HpJE#oD@HWW*$DN"
+      ],
+      "select count(varlen60to70) from matrix where varlen60to70 <> 'David Shepherd3$4j1+@SDG7tqyjBTqWTN@y7f)UwHtgfz5OKleSlcK*1*Yl%t1qY'": [
+        84991
+      ],
+      "select count(varlen60to70) from matrix where varlen60to70 = 'John VillanuevaGCfF4FGlfCm6hATF_Z9u@YHdS$@833Cto_yzxKf@y(jZ+Qd$D_LfWk'": [
+        1
+      ],
+      "select max(varlen60to70) from matrix where varlen60to70 <> 'Robert EvansS)vh6)4#_Ei0*b8_uTQx8vEw*vpZHDtp6L1bSho6%&gGVk*R+)kp'": [
+        "Zoe Youngfoy%qkg@djKJe0PCu_YksNT+kaeoUyVh&Owszt#IEtQpZO_9!9!alRtl"
+      ],
+      "select max(varlen60to70) from matrix where varlen60to70 = 'Anthony McdonaldkZ5JwMkk5Y6Oh1aT#q%MYvV0(8M+Uf$*wzr23RYoh%#cZzV$d+xlFj'": [
+        "Anthony McdonaldkZ5JwMkk5Y6Oh1aT#q%MYvV0(8M+Uf$*wzr23RYoh%#cZzV$d+xlFj"
+      ],
+      "select count(end_null) from matrix": [
+        0
+      ],
+      "select count(n_tinyint) from matrix where n_tinyint > 68":  [
+        19473
+      ],
+      "select count(int_or_null) from matrix": [
+        70937
+      ],
+      "select count(*) from matrix where int_or_null != 1414277766 or int_or_null is null": [
+        84991
+      ],
+      "select count(end_null), count(*) from matrix where end_null is not null": [
+        0,
+        0
+      ],
+      "select count(int_or_null), count(*) from matrix where int_or_null is not null": [
+        70937,
+        70937
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null and id > 75775 and id < 75776": [
+        null,
+        0
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null and id > 62907 and id < 62908": [
+        null,
+        0
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null and id > 13978 and id < 13980": [
+        13979,
+        1
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null and id > 32383 and id < 32393": [
+        291492,
+        9
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null and id > 67735 and id < 67739": [
+        203211,
+        3
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null and id > 3022 and id < 3122": [
+        270427,
+        88
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null and id > 1768 and id < 1776": [
+        12404,
+        7
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null and id > 38495 and id < 39495": [
+        32521556,
+        834
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null and id > 27672 and id < 27688": [
+        332156,
+        12
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null and id > 57092 and id < 67092": [
+        518469936,
+        8350
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null or id > 22163 and id < 22164": [
+        3016454919,
+        70937
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null or id > 21884 and id < 21885": [
+        3016454919,
+        70937
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null or id > 68467 and id < 68469": [
+        3016454919,
+        70937
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null or id > 15586 and id < 15596": [
+        3016454919,
+        70937
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null or id > 84533 and id < 84537": [
+        3016539453,
+        70938
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null or id > 39774 and id < 39874": [
+        3017131973,
+        70954
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null or id > 50401 and id < 50409": [
+        3016555724,
+        70939
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null or id > 70515 and id < 71515": [
+        3025900428,
+        71070
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null or id > 31509 and id < 31525": [
+        3016549479,
+        70940
+      ],
+      "select sum(id), count(*) from matrix where int_or_null is not null or id > 18604 and id < 28604": [
+        3054588738,
+        72554
+      ],
+      "select count(end_null), count(*) from matrix where end_null is null": [
+        0,
+        84992
+      ],
+      "select count(int_or_null), count(*) from matrix where int_or_null is null": [
+        0,
+        14055
+      ],
+      "select count(int_or_null), count(*) from matrix where int_or_null > 1887516544 or int_or_null is null": [
+        4329,
+        18384
+      ],
+      "select count(int_or_null), count(*) from matrix where int_or_null < 1252517900 or int_or_null is null": [
+        56094,
+        70149
+      ],
+      "select count(int_or_null), count(*) from matrix where int_or_null >= -1158411023 or int_or_null is null": [
+        54638,
+        68693
+      ],
+      "select count(int_or_null), count(*) from matrix where int_or_null <= 8192 or int_or_null is null": [
+        35558,
+        49613
+      ],
+      "select count(int_or_null), count(*) from matrix where int_or_null = 8192 or int_or_null is null": [
+        0,
+        14055
+      ],
+      "select count(n_decimal) from matrix where n_decimal between -44354.75 and -7382.40": [
+        31121
+      ],
+      "select sum(n_decimal) from matrix where n_decimal between -32404.98 and -18530.85": [
+        -298176742.86
+      ],
+      "select count(s_float) from matrix where s_float between 53.4084 and 56.8054": [
+        2959
+      ],
+      "select sum(s_float) from matrix where s_float between 8.1187 and 63.3149": [
+        1681833.7919999978
+      ],
+      "select count(r_bigint_bm_index) from matrix where r_bigint_bm_index between 58 and 91": [
+        28331
+      ],
+      "select sum(r_bigint_bm_index) from matrix where r_bigint_bm_index between 3 and 62": [
+        1647175
+      ],
+      "select count(s_real) from matrix where s_real between -39.737 and 27.918  ": [
+        28597
+      ],
+      "select sum(s_real) from matrix where s_real between -65.49 and -44.43  ": [
+        -492478.28
+      ],
+      "select count(n_decimal) from matrix where (n_decimal between -22189.88 and -2717.57) or (n_decimal between -55152.58 and -38583.58)": [
+        30744
+      ],
+      "select count(n_decimal) from matrix where (n_decimal between -79670.33 and -6683.28) or (n_decimal between -59250.89 and -13587.23) or (n_decimal between -74373.20 and -2900.12) or (n_decimal between -36685.14 and -25045.48) or (n_decimal between -73672.91 and -39630.49)": [
+        65106
+      ],
+      "select count(n_decimal) from matrix where (n_decimal between -26597.63 and -16004.54) or (n_decimal between -60837.28 and -31501.14) or (n_decimal between -58463.90 and -20832.39) or (n_decimal between -93514.60 and -61287.52) or (n_decimal between -54935.95 and -31018.50) or (n_decimal between -28018.46 and -21026.51) or (n_decimal between -30171.34 and -16910.90) or (n_decimal between -80350.65 and -51851.60) or (n_decimal between -79331.12 and -16343.14)": [
+        65767
+      ],
+      "select sum(n_decimal) from matrix where (n_decimal between -88978.80 and -77218.10) or (n_decimal between -84951.35 and -56797.55)": [
+        "-2003919890.92"
+      ],
+      "select sum(n_decimal) from matrix where (n_decimal between -14569.20 and -2412.18) or (n_decimal between -46296.26 and -12851.93 ) or (n_decimal between -73403.80 and -70929.32) or (n_decimal between -91422.98 and -52342.35) or (n_decimal between -48215.68 and -14322.64)": [
+        "-3376760221.82"
+      ],
+      "select sum(n_decimal) from matrix where (n_decimal between -92919.44 and -87277.57) or (n_decimal between -51126.58 and -30145.47) or (n_decimal between -81432.30 and -24877.28) or (n_decimal between -55790.57 and -54292.32) or (n_decimal between -48548.76 and -24088.70) or (n_decimal between -90974.28 and -65609.39) or (n_decimal between -75023.74 and -65550.50) or (n_decimal between -79373.11 and -1871.43) or (n_decimal between -50157.58 and -15254.46)": [
+        "-3671452890.41"
+      ],
+      "select count(s_float) from matrix where (s_float between 24.6668 and 29.9761 ) or (s_float between 23.5172 and 68.46 )": [
+        38342
+      ],
+      "select count(s_float) from matrix where (s_float between 54.5369 and 92.4321) or (s_float between 34.5539 and 87.6985) or (s_float between 7.1816 and 87.4869) or (s_float between 47.137 and 79.4765) or (s_float between 22.4724 and 54.4987)": [
+        72367
+      ],
+      "select count(s_float) from matrix where (s_float between 40.95 and 91.834) or (s_float between 29.757 and 42.2528 ) or (s_float between 83.3584 and 85.9693) or (s_float between 91.689 and 96.3268) or (s_float between 15.8524 and 93.1589 ) or (s_float between 59.6175 and 90.2506) or (s_float between 56.7368 and 99.2107) or (s_float between 28.3798 and 81.812 ) or (s_float between 2.5385 and 60.169 )": [
+        82129
+      ],
+      "select sum(s_float) from matrix where (s_float between 17.836 and 33.1595 ) or (s_float between 67.7421 and 90.3083 )": [
+        1832867.8190000008
+      ],
+      "select sum(s_float) from matrix where (s_float between 41.3487 and 79.3033) or (s_float between 29.7552 and 83.168) or (s_float between 37.2722 and 58.583) or (s_float between 24.1631 and 97.1) or (s_float between 5.2261 and 41.6204)": [
+        3993572.3609000016
+      ],
+      "select sum(s_float) from matrix where (s_float between 91.8496 and 69.8336) or (s_float between 32.1422 and 74.5901) or (s_float between 18.26 and 84.5024) or (s_float between 64.5944 and 91.1346) or (s_float between 99.8897 and 86.8115) or (s_float between 58.3723 and 79.7409) or (s_float between 14.1918 and 94.3116) or (s_float between 25.237 and 2.5589) or (s_float between 11.256 and 91.3143)": [
+        3723852.9226999986
+      ],
+      "select count(r_bigint_bm_index) from matrix where (r_bigint_bm_index between 6 and 79) or (r_bigint_bm_index between 53 and 75)": [
+        62311
+      ],
+      "select count(r_bigint_bm_index) from matrix where (r_bigint_bm_index between 16 and 99) or (r_bigint_bm_index between 43 and 30) or (r_bigint_bm_index between 23 and 38) or (r_bigint_bm_index between 43 and 8) or (r_bigint_bm_index between 76 and 53)": [
+        70656
+      ],
+      "select count(r_bigint_bm_index) from matrix where (r_bigint_bm_index between 93 and 37) or (r_bigint_bm_index between 42 and 44) or (r_bigint_bm_index between 84 and 89) or (r_bigint_bm_index between 57 and 68) or (r_bigint_bm_index between 17 and 77) or (r_bigint_bm_index between 94 and 75) or (r_bigint_bm_index between 82 and 9) or (r_bigint_bm_index between 71 and 88) or (r_bigint_bm_index between 96 and 95)": [
+        61359
+      ],
+      "select sum(r_bigint_bm_index) from matrix where (r_bigint_bm_index between 59 and 63) or (r_bigint_bm_index between 28 and 81)": [
+        2461801
+      ],
+      "select sum(r_bigint_bm_index) from matrix where (r_bigint_bm_index between 8 and 18) or (r_bigint_bm_index between 66 and 32) or (r_bigint_bm_index between 14 and 25) or (r_bigint_bm_index between 94 and 68) or (r_bigint_bm_index between 87 and 82)": [
+        252446
+      ],
+      "select sum(r_bigint_bm_index) from matrix where (r_bigint_bm_index between 52 and 28) or (r_bigint_bm_index between 19 and 61) or (r_bigint_bm_index between 10 and 91) or (r_bigint_bm_index between 63 and 71) or (r_bigint_bm_index between 36 and 24) or (r_bigint_bm_index between 6 and 28) or (r_bigint_bm_index between 11 and 60) or (r_bigint_bm_index between 20 and 67) or (r_bigint_bm_index between 53 and 64)": [
+        3491946
+      ],
+      "select count(s_real) from matrix where (s_real between 32.776 and 88.451) or (s_real between -32.964 and -25.913)": [
+        26646
+      ],
+      "select count(s_real) from matrix where (s_real between -0.486 and 29.815) or (s_real between -17.938 and 14.76 ) or (s_real between -54.358 and -19.728) or (s_real between -76.934 and 10.588) or (s_real between 37.539 and 99.204)": [
+        71482
+      ],
+      "select count(s_real) from matrix where (s_real between -25.911 and 58.432) or (s_real between -57.967 and 33.155) or (s_real between -87.993 and 44.771) or (s_real between -86.825 and 89.525) or (s_real between 69.838 and 78.174 ) or (s_real between -30.277 and 15.959) or (s_real between -47.666 and 10.106) or (s_real between -79.744 and -8.3) or (s_real between -7.233 and 92.988)": [
+        76856
+      ],
+      "select sum(s_real) from matrix where (s_real between -81.281 and -16.608 ) or (s_real between 48.384 and 74.928)": [
+        -636254.7
+      ],
+      "select sum(s_real) from matrix where (s_real between 40.8 and 95.337) or (s_real between -94.923 and 65.106) or (s_real between -78.118 and -40.794) or (s_real between -23.971 and 50.181) or (s_real between -25.27 and 37.777)": [
+        12623.954
+      ],
+      "select sum(s_real) from matrix where (s_real between -76.981 and -27.224) or (s_real between -96.907 and -76.702) or (s_real between -39.118 and 96.98) or (s_real between -70.142 and -28.433) or (s_real between -61.99 and 49.541) or (s_real between -28.527 and 54.657) or (s_real between -65.732 and 44.387 ) or (s_real between -92.36 and 40.514) or (s_real between -6.132 and 76.597)": [
+        2925.2974
+      ],
+      "select count(n_decimal) from matrix": [
+        84992
+      ],
+      "select sum(n_decimal) from matrix": [
+        "-4251141190.14"
+      ],
+      "select count(s_float) from matrix": [
+        84992
+      ],
+      "select sum(s_float) from matrix": [
+        4256974.919500006
+      ],
+      "select count(r_bigint_bm_index) from matrix": [
+        84992
+      ],
+      "select sum(r_bigint_bm_index) from matrix": [
+        4231285
+      ],
+      "select count(s_real) from matrix": [
+        84992
+      ],
+      "select sum(s_real) from matrix": [
+        131.47038
+      ],
+      "select count(n_decimal) from matrix where n_decimal in (-62903.79)": [
+        1
+      ],
+      "select count(n_decimal) from matrix where n_decimal in (418147, 479917, -780287, -42942.87)": [
+        1
+      ],
+      "select count(n_decimal) from matrix where n_decimal in (67332, -50869, -71455, -46821, -80658, 51204, -51465, -9981.86)": [
+        1
+      ],
+      "select sum(n_decimal) from matrix where n_decimal in (-50567.70)": [
+        "-50567.70"
+      ],
+      "select sum(n_decimal) from matrix where n_decimal in (-44161, 6556, -29981, -2920.29)": [
+        "-2920.29"
+      ],
+      "select sum(n_decimal) from matrix where n_decimal in (-970170, 189296, -320257, 283384, 942179, -163809, -24794, -98681.15)": [
+        "-98681.15"
+      ],
+      "select count(s_float) from matrix where s_float in (39.4792)": [
+        1
+      ],
+      "select count(s_float) from matrix where s_float in (47, 72, -34, 91.355)": [
+        2
+      ],
+      "select count(s_float) from matrix where s_float in (-65, 25, 97, 54, -37, 79, -28, 63.1532)": [
+        1
+      ],
+      "select sum(s_float) from matrix where s_float in (11.6844)": [
+        11.6844
+      ],
+      "select sum(s_float) from matrix where s_float in (8, -41, -83, 94.5927)": [
+        94.5927
+      ],
+      "select sum(s_float) from matrix where s_float in (-3, -5, -4, 7, 4, 9, -3, 7.5555)": [
+        14.5555
+      ],
+      "select count(r_bigint_bm_index) from matrix where r_bigint_bm_index in (74)": [
+        822
+      ],
+      "select count(r_bigint_bm_index) from matrix where r_bigint_bm_index in (8, -80, -85, 85)": [
+        1698
+      ],
+      "select count(r_bigint_bm_index) from matrix where r_bigint_bm_index in (15, -50, 70, 81, -61, -4, -23, 63)": [
+        3334
+      ],
+      "select sum(r_bigint_bm_index) from matrix where r_bigint_bm_index in (6)": [
+        5226
+      ],
+      "select sum(r_bigint_bm_index) from matrix where r_bigint_bm_index in (10, 7, 9, 6)": [
+        26938
+      ],
+      "select sum(r_bigint_bm_index) from matrix where r_bigint_bm_index in (-84, 96, -37, 48, 68, -31, 75, 95)": [
+        322751
+      ],
+      "select count(s_real) from matrix where s_real in (-86.751)": [
+        1
+      ],
+      "select count(s_real) from matrix where s_real in (780, 898, 362, -52.507)": [
+        1
+      ],
+      "select count(s_real) from matrix where s_real in (4, 57, 27, 60, -88, -50, 9, 23.446)": [
+        3
+      ],
+      "select sum(s_real) from matrix where s_real in (-99.935)": [
+        -99.935
+      ],
+      "select sum(s_real) from matrix where s_real in (54, -44, -52, 64.981)": [
+        33.962006
+      ],
+      "select sum(s_real) from matrix where s_real in (295, 616, -701, 800, -152, -743, 837, -22.836)": [
+        -45.672
+      ],
+      "select count(n_decimal) from matrix where n_decimal > -87775.78": [
+        74649
+      ],
+      "select count(n_decimal) from matrix where n_decimal < -2877.00": [
+        82496
+      ],
+      "select count(n_decimal) from matrix where n_decimal >= -16504.22": [
+        14174
+      ],
+      "select count(n_decimal) from matrix where n_decimal <= -59893.60": [
+        34224
+      ],
+      "select count(n_decimal) from matrix where n_decimal = -98922.87": [
+        1
+      ],
+      "select sum(n_decimal) from matrix where n_decimal > -39148.20": [
+        "-644085805.42"
+      ],
+      "select sum(n_decimal) from matrix where n_decimal < -35912.30": [
+        "-3706714914.95"
+      ],
+      "select sum(n_decimal) from matrix where n_decimal >= -24763.27": [
+        "-260381487.43"
+      ],
+      "select sum(n_decimal) from matrix where n_decimal <= -65744.87": [
+        "-2424501922.47"
+      ],
+      "select sum(n_decimal) from matrix where n_decimal = -30554.30": [
+        "-30554.30"
+      ],
+      "select count(s_float) from matrix where s_float > 14.444": [
+        72790
+      ],
+      "select count(s_float) from matrix where s_float < 0.1457": [
+        53
+      ],
+      "select count(s_float) from matrix where s_float >= 10.2252": [
+        76398
+      ],
+      "select count(s_float) from matrix where s_float <= 26.423": [
+        22284
+      ],
+      "select count(s_float) from matrix where s_float = 67.3504": [
+        1
+      ],
+      "select sum(s_float) from matrix where s_float > 6.9018": [
+        4236149.073200003
+      ],
+      "select sum(s_float) from matrix where s_float < 19.5206": [
+        161983.8889
+      ],
+      "select sum(s_float) from matrix where s_float >= 80.2481": [
+        1524538.4475
+      ],
+      "select sum(s_float) from matrix where s_float <= 8.91": [
+        33652.84870000001
+      ],
+      "select sum(s_float) from matrix where s_float = 52.3459": [
+        52.3459
+      ],
+      "select count(r_bigint_bm_index) from matrix where r_bigint_bm_index > 44": [
+        46884
+      ],
+      "select count(r_bigint_bm_index) from matrix where r_bigint_bm_index < 41": [
+        34727
+      ],
+      "select count(r_bigint_bm_index) from matrix where r_bigint_bm_index >= 88": [
+        10820
+      ],
+      "select count(r_bigint_bm_index) from matrix where r_bigint_bm_index <= 9": [
+        8518
+      ],
+      "select count(r_bigint_bm_index) from matrix where r_bigint_bm_index = 38": [
+        821
+      ],
+      "select sum(r_bigint_bm_index) from matrix where r_bigint_bm_index > 59": [
+        2737927
+      ],
+      "select sum(r_bigint_bm_index) from matrix where r_bigint_bm_index < 18": [
+        129220
+      ],
+      "select sum(r_bigint_bm_index) from matrix where r_bigint_bm_index >= 81": [
+        1513738
+      ],
+      "select sum(r_bigint_bm_index) from matrix where r_bigint_bm_index <= 96": [
+        3903031
+      ],
+      "select sum(r_bigint_bm_index) from matrix where r_bigint_bm_index = 55": [
+        48730
+      ],
+      "select count(s_real) from matrix where s_real > 58.905": [
+        17627
+      ],
+      "select count(s_real) from matrix where s_real < -12.587": [
+        37183
+      ],
+      "select count(s_real) from matrix where s_real >= -99.62": [
+        84831
+      ],
+      "select count(s_real) from matrix where s_real <= 59.522": [
+        67638
+      ],
+      "select count(s_real) from matrix where s_real = -30.833": [
+        3
+      ],
+      "select sum(s_real) from matrix where s_real > -74.134": [
+        967706.7
+      ],
+      "select sum(s_real) from matrix where s_real < -15.98": [
+        -2078624.0
+      ],
+      "select sum(s_real) from matrix where s_real >= 23.142": [
+        2021448.1
+      ],
+      "select sum(s_real) from matrix where s_real <= -17.98": [
+        -2063634.0
+      ],
+      "select sum(s_real) from matrix where s_real = 99.185": [
+        99.185
+      ],
+      "select count(*) from matrix": [
+        84992
+      ],
+      "select count(str_time), count(n_decimal), sum(n_decimal), count(n_decimal) from matrix where (str_date >= date('2000-12-15')) and (s_float > 73.9186) and (s_real < 38.65) and (n_decimal > -99462.86) and (s_real < 53.86) and (s_float <= 60.2592)": [
+        0,
+        0,
+        null,
+        0
+      ],
+      "select sum(s_float), count(str_date), count(char16), count(char4) from matrix where (n_decimal <= -54852.68) and (s_float >= 53.3206) and (str_time > timestamp '2018-10-05 00:19:03.000') and (s_real > -19.767)": [
+        31274.2808,
+        408,
+        408,
+        408
+      ],
+      "select count(char16) from matrix where (n_decimal < -54852.679) and n_long_decimal < -95454734329500000000000000.00 and (s_float > 53.32059) and (str_time > timestamp '2018-10-05 00:19:03.000') and str_date >= date('1980-12-15') and (s_real > -19.767)": [
+        303
+      ],
+      "select count(str_date), count(str_date), count(varchar32), sum(s_float), count(char4), sum(s_float) from matrix where (n_decimal < -20095.90) and (str_time >= timestamp '1982-04-15 13:12:27.000') and (str_date <= date('1971-01-24')) and (s_float >= 5.6546) and (n_decimal >= -46557.46) and (str_date <= date('1993-01-20'))": [
+        303,
+        303,
+        303,
+        16250.1033,
+        303,
+        16250.1033
+      ],
+      "select count(char4), count(varchar32), count(char4), sum(n_decimal), count(s_float) from matrix where (s_real < -21.793) and (s_real < 94.892) and (str_time > timestamp '1995-08-05 06:18:06.000') and (str_time > timestamp '2003-04-12 06:41:56.000')": [
+        11344,
+        11344,
+        11344,
+        "-570010836.89",
+        11344
+      ],
+      "select count(n_decimal), count(str_time), count(n_decimal), count(str_time), count(varchar32), count(s_float) from matrix where (s_real >= 46.157) and (str_date >= date('2010-10-12')) and (s_real > 98.891) and (n_decimal <= -95376.94)": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "select count(char4), sum(s_real) from matrix where (str_date > date('1980-02-25')) and (s_float < 79.3594) and (s_real < -57.797)": [
+        11488,
+        -906699.8
+      ],
+      "select count(str_time), count(varchar32), sum(s_float), count(char16), count(str_date) from matrix where (str_time > timestamp '1970-04-14 13:26:04.000') and (s_real < 41.589) and (str_date <= date('1984-01-30'))": [
+        16537,
+        16537,
+        829892.6099999993,
+        16537,
+        16537
+      ],
+      "select count(str_date), count(char4), count(s_real), count(char16) from matrix where (str_time <= timestamp '1979-03-24 14:10:52.000') and (n_decimal >= -84385.26) and (s_float <= 27.2639) and (n_decimal >= -50862.27) and (str_date > date('1997-08-11'))": [
+        955,
+        955,
+        955,
+        955
+      ],
+      "select sum(n_decimal), count(s_real), count(char4) from matrix where (str_time >= timestamp '1971-07-27 18:34:10.000') and (s_float < 90.7523) and (str_date >= date('2005-12-21')) and (s_float <= 75.1024)": [
+        "-888298472.38",
+        17897,
+        17897
+      ],
+      "select count(varchar32), sum(s_float), count(str_date), sum(s_real), count(char4) from matrix where (n_decimal <= -43498.29) and (n_decimal <= -37478.62) and (str_time < timestamp '1991-02-02 07:53:34.000') and (s_real > 84.54)": [
+        1574,
+        78028.5016,
+        1574,
+        145398.97,
+        1574
+      ],
+      "select count(s_real), count(varchar32) from matrix where (s_real > 89.161) and (s_real <= -98.732) and (s_real >= -52.842) and (n_decimal < -94772.36)": [
+        0,
+        0
+      ],
+      "select sum(s_real), count(varchar32), sum(s_real), count(str_date), count(n_decimal), count(varchar32) from matrix where (s_real > -37.563) and (s_float >= 62.1811) and (s_float <= 46.496) and (s_real >= -63.413) and (s_float <= 42.6731) and (str_date <= date('2019-09-12'))": [
+        null,
+        0,
+        null,
+        0,
+        0,
+        0
+      ],
+      "select count(char4), count(n_decimal), count(str_date), count(str_time), count(str_time), count(s_real) from matrix where (n_decimal >= -67264.22) and (s_float < 12.3264) and (s_real >= 37.745)": [
+        2203,
+        2203,
+        2203,
+        2203,
+        2203,
+        2203
+      ],
+      "select count(str_date), count(str_date), count(str_date), count(str_time), count(char4), count(s_float) from matrix where (n_decimal < -2807.75) and (s_real <= -10.57) and (s_float >= 49.9832) and (s_float > 48.4182) and (str_date >= date('1992-02-10'))": [
+        10523,
+        10523,
+        10523,
+        10523,
+        10523,
+        10523
+      ],
+      "select count(str_time), count(str_date) from matrix where (str_time >= timestamp '2013-01-07 17:56:45.000') and (str_time >= timestamp '2001-12-13 12:08:54.000') and (s_real > -88.45)": [
+        11830,
+        11830
+      ],
+      "select count(str_date), count(str_time), count(str_date), count(s_real), count(n_decimal) from matrix where (s_real <= -55.245) and (str_time <= timestamp '1980-08-02 00:10:37.000') and (n_decimal < -33622.44)": [
+        2602,
+        2602,
+        2602,
+        2602,
+        2602
+      ],
+      "select count(str_date) from matrix where str_date between date('1980-07-25') and date('2008-01-07') ": [
+        46182
+      ],
+      "select max(str_date) from matrix where str_date between date('1986-02-07') and date('2007-09-06')": [
+        "2007-09-06"
+      ],
+      "select count(str_time) from matrix where str_time between timestamp '1975-05-29 17:08:11.000' and timestamp '1984-11-26 10:57:55.000'": [
+        15675
+      ],
+      "select max(str_time) from matrix where str_time between timestamp '1994-01-14 03:54:02.000' and timestamp '2016-11-17 15:51:59.000'": [
+        "2016-11-17 15:51:59.000"
+      ],
+      "select count(str_date) from matrix where (str_date between date('1980-06-08') and date('2018-10-10') ) or (str_date between date('1980-12-11') and date('2011-01-12'))": [
+        64479
+      ],
+      "select count(str_date) from matrix where (str_date between date('1985-09-24') and date('2014-02-19')) or (str_date between date('1985-07-25') and date('1987-11-03')) or (str_date between date('1975-10-25') and date('2003-01-25')) or (str_date between date('1978-06-25') and date('1986-03-01')) or (str_date between date('1997-08-06') and date('2006-03-30'))": [
+        64493
+      ],
+      "select count(str_date) from matrix where (str_date between date('1980-06-11') and date('1981-02-16')) or (str_date between date('1995-12-02') and date('2005-02-17')) or (str_date between date('1985-03-22') and date('2018-07-09')) or (str_date between date('1987-06-04') and date('1990-06-12')) or (str_date between date('1986-11-01') and date('2015-01-14')) or (str_date between date('1974-02-06') and date('2002-01-20')) or (str_date between date('2004-12-22') and date('2017-11-06')) or (str_date between date('2012-12-02') and date('2016-03-28')) or (str_date between date('1983-10-31') and date('1987-05-27'))": [
+        74818
+      ],
+      "select max(str_date) from matrix where (str_date between date('1987-06-14') and date('1992-10-30') ) or (str_date between date('1979-01-18') and date('2013-06-22'))": [
+        "2013-06-22"
+      ],
+      "select max(str_date) from matrix where (str_date between date('1975-07-18') and date('1984-10-02')) or (str_date between date('1980-04-06') and date('1985-04-19')) or (str_date between date('1972-06-26') and date('1977-11-27')) or (str_date between date('1996-05-03') and date('2011-12-16')) or (str_date between date('1992-05-05') and date('1995-03-19'))": [
+        "2011-12-16"
+      ],
+      "select max(str_date) from matrix where (str_date between date('1970-02-19') and date('1981-07-24')) or (str_date between date('1979-02-06') and date('1987-01-01')) or (str_date between date('1997-02-24') and date('2015-09-19')) or (str_date between date('1982-08-29') and date('2005-09-21')) or (str_date between date('1998-03-02') and date('2017-12-10')) or (str_date between date('1973-03-18') and date('1996-05-13')) or (str_date between date('1970-04-01') and date('2003-02-28')) or (str_date between date('1981-07-20') and date('1991-04-25')) or (str_date between date('1975-05-08') and date('2002-02-26'))": [
+        "2017-12-10"
+      ],
+      "select count(str_time) from matrix where (str_time between timestamp '2005-11-10 06:59:44.000' and timestamp '2018-01-07 06:41:34.000') or (str_time between timestamp '1977-01-08 17:34:48.000' and timestamp '2007-09-09 09:27:44.000')": [
+        69000
+      ],
+      "select count(str_time) from matrix where (str_time between timestamp '2013-03-20 08:32:39.000' and timestamp '2018-01-26 01:55:37.000') or (str_time between timestamp '1972-05-08 17:52:26.000' and timestamp '1989-02-27 16:39:26.000') or (str_time between timestamp '1984-02-13 08:45:32.000' and timestamp '2010-09-07 08:50:27.000') or (str_time between timestamp '2008-11-21 21:40:38.000' and timestamp '2014-06-02 21:57:34.000') or (str_time between timestamp '1978-07-12 20:37:59.000' and timestamp '2007-08-30 14:46:01.000')": [
+        76982
+      ],
+      "select count(str_time) from matrix where (str_time between timestamp '1980-01-21 08:04:31.000' and timestamp '1984-09-04 20:07:55.000') or (str_time between timestamp '1972-08-28 18:50:40.000' and timestamp '2006-05-25 19:23:01.000') or (str_time between timestamp '1973-10-22 22:36:44.000' and timestamp '2002-02-28 17:14:49.000') or (str_time between timestamp '2016-01-19 22:16:28.000' and timestamp '2019-04-01 12:55:35.000') or (str_time between timestamp '1986-10-03 02:39:27.000' and timestamp '2010-02-20 15:00:08.000') or (str_time between timestamp '1990-05-23 07:49:01.000' and timestamp '1999-08-21 14:33:55.000') or (str_time between timestamp '2012-01-09 00:49:04.000' and timestamp '2013-05-19 23:07:58.000') or (str_time between timestamp '1981-11-05 15:49:52.000' and timestamp '2019-05-02 00:55:01.000') or (str_time between timestamp '1978-03-31 21:14:16.000' and timestamp '2001-02-12 13:13:25.000')": [
+        78556
+      ],
+      "select max(str_time) from matrix where (str_time between timestamp '1994-01-15 06:39:37.000' and timestamp '2008-05-28 20:32:59.000') or (str_time between timestamp '2007-12-07 03:06:02.000' and timestamp '2019-05-28 01:42:57.000')": [
+        "2019-05-28 01:42:57.000"
+      ],
+      "select max(str_time) from matrix where (str_time between timestamp '1974-06-09 05:01:21.000' and timestamp '1985-02-27 06:14:34.000') or (str_time between timestamp '1983-04-12 03:20:01.000' and timestamp '1998-03-05 06:21:07.000') or (str_time between timestamp '2003-08-04 02:51:15.000' and timestamp '2017-02-10 10:50:25.000') or (str_time between timestamp '1983-08-07 10:50:13.000' and timestamp '2000-07-29 14:30:35.000') or (str_time between timestamp '1990-06-01 17:44:28.000' and timestamp '2017-07-16 01:57:56.000')": [
+        "2017-07-16 01:57:56.000"
+      ],
+      "select max(str_time) from matrix where (str_time between timestamp '1985-02-15 11:53:34.000' and timestamp '1999-08-04 04:36:12.000') or (str_time between timestamp '1994-01-09 10:45:16.000' and timestamp '1994-05-20 19:41:53.000') or (str_time between timestamp '1980-11-27 05:04:12.000' and timestamp '1999-07-23 18:35:35.000') or (str_time between timestamp '1995-02-18 11:48:28.000' and timestamp '2014-04-15 00:51:16.000') or (str_time between timestamp '1976-06-06 19:42:54.000' and timestamp '1976-11-29 00:41:44.000') or (str_time between timestamp '1996-02-09 08:41:31.000' and timestamp '1997-04-16 04:32:54.000') or (str_time between timestamp '1994-11-13 06:28:22.000' and timestamp '2020-07-25 03:48:59.000') or (str_time between timestamp '1985-04-09 09:24:09.000' and timestamp '2002-10-21 20:30:01.000') or (str_time between timestamp '1996-04-21 05:29:30.000' and timestamp '2005-09-06 12:18:00.000')": [
+        "2020-07-25 03:48:59.000"
+      ],
+      "select count(str_date) from matrix": [
+        84992
+      ],
+      "select max(str_date) from matrix": [
+        "2020-07-29"
+      ],
+      "select count(str_time) from matrix": [
+        84992
+      ],
+      "select max(str_time) from matrix": [
+        "2020-07-29 03:26:51.000"
+      ],
+      "select count(str_date) from matrix where str_date in (date('2020-07-28'), date('2020-07-29'), date('2006-03-16'))": [
+        11
+      ],
+      "select count(str_date) from matrix where str_date in (date('2020-07-25'), date('2020-07-26'), date('2020-07-27'), date('2020-07-28'), date('2020-07-29'), date('1974-01-10'))": [
+        26
+      ],
+      "select count(str_date) from matrix where str_date in (date('2020-07-21'), date('2020-07-22'), date('2020-07-23'), date('2020-07-24'), date('2020-07-25'), date('2020-07-26'), date('2020-07-27'), date('2020-07-28'), date('2020-07-29'), date('2018-06-04'))": [
+        39
+      ],
+      "select max(str_date) from matrix where str_date in (date('2020-07-28'), date('2020-07-29'), date('1982-03-21'))": [
+        "2020-07-29"
+      ],
+      "select max(str_date) from matrix where str_date in (date('2020-07-25'), date('2020-07-26'), date('2020-07-27'), date('2020-07-28'), date('2020-07-29'), date('1986-04-30'))": [
+        "2020-07-29"
+      ],
+      "select max(str_date) from matrix where str_date in (date('2020-07-21'), date('2020-07-22'), date('2020-07-23'), date('2020-07-24'), date('2020-07-25'), date('2020-07-26'), date('2020-07-27'), date('2020-07-28'), date('2020-07-29'), date('2017-03-01'))": [
+        "2020-07-29"
+      ],
+      "select count(str_time) from matrix where str_time in (timestamp '2020-07-28 10:24:58', timestamp '2020-07-29 10:24:58', timestamp '2003-03-25 21:00:35.000')": [
+        1
+      ],
+      "select count(str_time) from matrix where str_time in (timestamp '2020-07-25 10:25:02', timestamp '2020-07-26 10:25:02', timestamp '2020-07-27 10:25:02', timestamp '2020-07-28 10:25:02', timestamp '2020-07-29 10:25:02', timestamp '2003-06-02 04:33:25.000')": [
+        1
+      ],
+      "select count(str_time) from matrix where str_time in (timestamp '2020-07-21 10:25:05', timestamp '2020-07-22 10:25:05', timestamp '2020-07-23 10:25:05', timestamp '2020-07-24 10:25:05', timestamp '2020-07-25 10:25:05', timestamp '2020-07-26 10:25:05', timestamp '2020-07-27 10:25:05', timestamp '2020-07-28 10:25:05', timestamp '2020-07-29 10:25:05', timestamp '2017-08-11 03:56:26.000')": [
+        1
+      ],
+      "select max(str_time) from matrix where str_time in (timestamp '2020-07-28 10:25:09', timestamp '2020-07-29 10:25:09', timestamp '1995-08-11 07:37:31.000')": [
+        "1995-08-11 07:37:31.000"
+      ],
+      "select max(str_time) from matrix where str_time in (timestamp '2020-07-25 10:25:13', timestamp '2020-07-26 10:25:13', timestamp '2020-07-27 10:25:13', timestamp '2020-07-28 10:25:13', timestamp '2020-07-29 10:25:13', timestamp '2007-12-17 21:24:44.000')": [
+        "2007-12-17 21:24:44.000"
+      ],
+      "select max(str_time) from matrix where str_time in (timestamp '2020-07-21 10:25:17', timestamp '2020-07-22 10:25:17', timestamp '2020-07-23 10:25:17', timestamp '2020-07-24 10:25:17', timestamp '2020-07-25 10:25:17', timestamp '2020-07-26 10:25:17', timestamp '2020-07-27 10:25:17', timestamp '2020-07-28 10:25:17', timestamp '2020-07-29 10:25:17', timestamp '1998-08-24 04:16:54.000')": [
+        "1998-08-24 04:16:54.000"
+      ],
+      "select count(str_date) from matrix where str_date > date('1985-10-20')": [
+        58333
+      ],
+      "select count(str_date) from matrix where str_date < date('1970-05-25')": [
+        681
+      ],
+      "select count(str_date) from matrix where str_date >= date('1994-11-27')": [
+        43221
+      ],
+      "select count(str_date) from matrix where str_date <= date('2002-08-30')": [
+        54837
+      ],
+      "select count(str_date) from matrix where str_date = date('1990-11-30')": [
+        3
+      ],
+      "select max(str_date) from matrix where str_date > date('2003-10-23')": [
+        "2020-07-29"
+      ],
+      "select max(str_date) from matrix where str_date < date('1988-11-28')": [
+        "1988-11-27"
+      ],
+      "select max(str_date) from matrix where str_date >= date('2012-07-19')": [
+        "2020-07-29"
+      ],
+      "select max(str_date) from matrix where str_date <= date('1980-02-25')": [
+        "1980-02-25"
+      ],
+      "select max(str_date) from matrix where str_date = date('1973-02-22')": [
+        "1973-02-22"
+      ],
+      "select count(str_time) from matrix where str_time > timestamp '2002-12-08 14:19:49.000'": [
+        29727
+      ],
+      "select count(str_time) from matrix where str_time < timestamp '2017-04-22 03:21:00.000'": [
+        79573
+      ],
+      "select count(str_time) from matrix where str_time >= timestamp '2002-11-25 09:24:23.000'": [
+        29785
+      ],
+      "select count(str_time) from matrix where str_time <= timestamp '1974-03-09 21:56:57.000'": [
+        6959
+      ],
+      "select count(str_time) from matrix where str_time = timestamp '1984-07-31 22:49:32.000'": [
+        1
+      ],
+      "select max(str_time) from matrix where str_time > timestamp '1986-03-21 11:19:29.000'": [
+        "2020-07-29 03:26:51.000"
+      ],
+      "select max(str_time) from matrix where str_time < timestamp '2016-11-04 12:13:29.000'": [
+        "2016-11-04 01:28:18.000"
+      ],
+      "select max(str_time) from matrix where str_time >= timestamp '2017-04-28 01:29:37.000'": [
+        "2020-07-29 03:26:51.000"
+      ],
+      "select max(str_time) from matrix where str_time <= timestamp '1979-11-09 17:21:31.000'": [
+        "1979-11-09 17:21:31.000"
+      ],
+      "select max(str_time) from matrix where str_time = timestamp '1983-05-25 10:12:37.000'": [
+        "1983-05-25 10:12:37.000"
+      ]
+    }
+  }
+]

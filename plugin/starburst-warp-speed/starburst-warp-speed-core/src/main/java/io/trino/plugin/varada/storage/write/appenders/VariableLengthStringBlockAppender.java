@@ -21,7 +21,7 @@ import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.engine.StorageEngineConstants;
 import io.trino.plugin.varada.storage.juffers.ExtendedJuffer;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 import io.trino.plugin.varada.util.SliceUtils;
 import io.trino.plugin.varada.warmup.exceptions.WarmupException;
 import io.trino.spi.type.Type;
@@ -60,7 +60,7 @@ public class VariableLengthStringBlockAppender
     }
 
     @Override
-    public AppendResult appendWithDictionary(BlockPosHolder blockPos, boolean stopAfterOneFlush, WriteDictionary writeDictionary, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithDictionary(BlockPosHolder blockPos, boolean stopAfterOneFlush, WriteDictionary writeDictionary, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         ShortBuffer buff = (ShortBuffer) juffersWE.getRecordBuffer();
         Function<Slice, Slice> sliceConverter = SliceUtils.getSliceConverter(filterType, weRecTypeLength, false, true);
@@ -74,7 +74,7 @@ public class VariableLengthStringBlockAppender
                 }
                 else {
                     Slice slice = getSlice(blockPos, sliceConverter);
-                    warmupElementStats.updateMinMax(slice);
+                    warmupElementStatsBuilder.updateMinMax(slice);
                     writeValue(writeDictionary, buff, slice);
                 }
             }
@@ -82,7 +82,7 @@ public class VariableLengthStringBlockAppender
         else {
             for (; blockPos.inRange(); blockPos.advance()) {
                 Slice slice = getSlice(blockPos, sliceConverter);
-                warmupElementStats.updateMinMax(slice);
+                warmupElementStatsBuilder.updateMinMax(slice);
                 writeValue(writeDictionary, buff, slice);
             }
         }
@@ -110,7 +110,7 @@ public class VariableLengthStringBlockAppender
     }
 
     @Override
-    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         ByteBuffer recordBuff = (ByteBuffer) juffersWE.getRecordBuffer();
         int recBuffSize = juffersWE.getRecBuffSize();
@@ -186,7 +186,7 @@ public class VariableLengthStringBlockAppender
             }
             else {
                 advanceNullBuff();
-                warmupElementStats.updateMinMax(value);
+                warmupElementStatsBuilder.updateMinMax(value);
                 if (att.extLen > 0) {
                     // handle extended string
                     // update min-max

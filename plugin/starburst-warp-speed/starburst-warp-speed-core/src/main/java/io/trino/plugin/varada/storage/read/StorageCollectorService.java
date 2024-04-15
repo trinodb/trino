@@ -19,6 +19,7 @@ import io.trino.plugin.varada.juffer.BufferAllocator;
 import io.trino.plugin.varada.metrics.MetricsManager;
 import io.trino.plugin.varada.storage.engine.StorageEngine;
 import io.trino.plugin.varada.storage.engine.StorageEngineConstants;
+import io.trino.plugin.varada.storage.engine.nativeimpl.NativeInterrupt;
 import io.trino.plugin.varada.storage.juffers.ReadJuffersWarmUpElement;
 import io.trino.plugin.varada.storage.read.fill.BlockFiller;
 import io.trino.plugin.varada.storage.read.fill.BlockFillersFactory;
@@ -26,6 +27,7 @@ import io.trino.plugin.warp.gen.constants.QueryResultType;
 import io.trino.plugin.warp.gen.constants.RecordBufferState;
 import io.trino.plugin.warp.gen.constants.RecordIndexListHeader;
 import io.trino.plugin.warp.gen.stats.VaradaStatsDictionary;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 
@@ -35,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static io.trino.plugin.varada.VaradaErrorCode.VARADA_UNRECOVERABLE_COLLECT_FAILED;
 import static io.trino.plugin.varada.dictionary.DictionaryCacheService.DICTIONARY_STAT_GROUP;
 import static java.util.Objects.requireNonNull;
 
@@ -70,6 +73,7 @@ public class StorageCollectorService
     }
 
     // returns indication if anything is collected in the buffer and if the buffer is full
+    @NativeInterrupt
     CollectFromStorageResult collectFromStorage(CollectOpenResult collectOpenResult,
             boolean isMatchGetNumRanges,
             boolean chunkPrepared,
@@ -85,12 +89,22 @@ public class StorageCollectorService
             // get next chunk to collect and check if its already done on buffer
             int chunkIndex = storageCollectorArgs.chunksQueue().getCurrent();
             boolean chunkWasPrepared = chunkPrepared;
-            boolean bufferIsFull = chunksQueueService.prepareNextChunk(storageCollectorArgs.chunksQueue(),
+            int ret = chunksQueueService.prepareNextChunk(storageCollectorArgs.chunksQueue(),
                     chunkPrepared,
                     collectOpenResult.collectTxId(),
                     collectOpenResult.rowsLimit(),
                     numCollectedRows,
                     collectOpenResult.outResultType());
+            if (ret == -1) {
+                throw new TrinoException(VARADA_UNRECOVERABLE_COLLECT_FAILED,
+                        String.format("prepareNextChunk failed unexpectedly collectTxId %d chunkIx %d resetPoint %d numCollectedRows %d rowsLimit %d",
+                        collectOpenResult.collectTxId(),
+                        storageCollectorArgs.chunksQueue().getCurrent(),
+                        storageCollectorArgs.chunksQueue().getCurrentResetPoint(),
+                        numCollectedRows,
+                        collectOpenResult.rowsLimit()));
+            }
+            boolean bufferIsFull = (ret > 0);
             chunkPrepared = true;
             if (bufferIsFull) { // if returns true we need to stop for query result optimization
                 numToCollect = 0;
@@ -141,6 +155,7 @@ public class StorageCollectorService
         else {
             collectBufferState = (numCollectedRows > 0) ? CollectBufferState.COLLECT_BUFFER_STATE_PARTIAL : CollectBufferState.COLLECT_BUFFER_STATE_EMPTY;
         }
+
         return new CollectFromStorageResult(collectBufferState, chunkPrepared, numCollectedRows);
     }
 

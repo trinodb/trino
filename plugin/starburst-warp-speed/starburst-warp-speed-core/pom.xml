@@ -454,33 +454,4 @@
             </plugin>
         </plugins>
     </build>
-    <profiles>
-        <profile>
-            <id>xslt</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <configuration>
-                            <executable>${project.basedir}/scripts/generate.sh</executable>
-                            <commandlineArgs>${project.basedir}</commandlineArgs>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>generate-stats</id>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <phase>generate-sources</phase>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

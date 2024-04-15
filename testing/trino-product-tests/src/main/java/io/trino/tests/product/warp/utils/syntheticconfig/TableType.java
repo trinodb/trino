@@ -16,6 +16,6 @@ package io.trino.tests.product.warp.utils.syntheticconfig;
 public enum TableType
 {
     warp,
-    varada_iceberg,
-    varada_delta_lake
+    warp_iceberg,
+    warp_delta_lake
 }

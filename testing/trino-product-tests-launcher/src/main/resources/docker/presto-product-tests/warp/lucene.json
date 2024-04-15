@@ -1,0 +1,1853 @@
+[
+  {
+    "name": "lucene_similar_varchar",
+    "pt_enable": true,
+    "structure": [
+      {
+        "type": "varchar",
+        "name": "varchar_1"
+      },
+      {
+        "type": "varchar",
+        "name": "char_2",
+        "args": [
+          20
+        ]
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "varchar_1",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "char_2",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      }
+    ],
+    "warm_query": "select * from lucene_similar_varchar",
+    "queries_data": [
+      {
+        "query_id": "lucene_similar_varchar_q01",
+        "query": "select count(*) from lucene_similar_varchar where char_2 like 'Varada%'",
+        "expected_result": [
+          96021
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_similar_varchar_q02",
+        "query": "select count(*) from lucene_similar_varchar where char_2 is NULL",
+        "expected_result": [
+          95979
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_similar_varchar_q03",
+        "query": "select count(*) from lucene_similar_varchar where char_2 like 'aaa%' ",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_similar_varchar_q04",
+        "query": "select count(*) from lucene_similar_varchar where char_2 is NULL or char_2 like 'Varada%'",
+        "expected_result": [
+          192000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_regexp_similar_varchar_q05",
+        "query": "select count(*) from lucene_similar_varchar where regexp_like(char_2, 'Vi?ar?ada.*')",
+        "expected_result": [
+          96021
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_regexp_similar_varchar_q06",
+        "query": "select count(*) from lucene_similar_varchar where regexp_like(char_2, 'a{3,4}.*')",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_regexp_similar_varchar_q07",
+        "query": "select count(*) from lucene_similar_varchar where char_2 is NULL or regexp_like(char_2, 'Vara?da.*')",
+        "expected_result": [
+          192000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_similar_varchar_q08",
+        "query": "select count(*) from lucene_similar_varchar where char_2 is NULL or char_2 > 'Var'",
+        "expected_result": [
+          192000
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_similar_varchar_q10",
+        "query": "select count(*) from lucene_similar_varchar where char_2 < 'Var'",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0,
+          "non_trivial_alternative_chosen": 1
+        }
+      }
+    ]
+  },
+  {
+    "name": "lucene_storesalesflat",
+    "pt_enable": true,
+    "structure": [
+      {
+        "name": "ss_sold_date_sk",
+        "type": "integer"
+      },
+      {
+        "name": "ss_sold_time_sk",
+        "type": "integer"
+      },
+      {
+        "name": "ss_item_sk",
+        "type": "integer"
+      },
+      {
+        "name": "ss_customer_sk",
+        "type": "integer"
+      },
+      {
+        "name": "ss_cdemo_sk",
+        "type": "integer"
+      },
+      {
+        "name": "ss_hdemo_sk",
+        "type": "integer"
+      },
+      {
+        "name": "ss_addr_sk",
+        "type": "integer"
+      },
+      {
+        "name": "ss_store_sk",
+        "type": "integer"
+      },
+      {
+        "name": "ss_promo_sk",
+        "type": "integer"
+      },
+      {
+        "name": "ss_ticket_number",
+        "type": "bigint"
+      },
+      {
+        "name": "ss_quantity",
+        "type": "integer"
+      },
+      {
+        "name": "ss_wholesale_cost",
+        "type": "double"
+      },
+      {
+        "name": "ss_list_price",
+        "type": "double"
+      },
+      {
+        "name": "ss_sales_price",
+        "type": "double"
+      },
+      {
+        "name": "ss_ext_discount_amt",
+        "type": "double"
+      },
+      {
+        "name": "ss_ext_sales_price",
+        "type": "double"
+      },
+      {
+        "name": "ss_ext_wholesale_cost",
+        "type": "double"
+      },
+      {
+        "name": "ss_ext_list_price",
+        "type": "double"
+      },
+      {
+        "name": "ss_ext_tax",
+        "type": "double"
+      },
+      {
+        "name": "ss_coupon_amt",
+        "type": "double"
+      },
+      {
+        "name": "ss_net_paid",
+        "type": "double"
+      },
+      {
+        "name": "ss_net_paid_inc_tax",
+        "type": "double"
+      },
+      {
+        "name": "ss_net_profit",
+        "type": "double"
+      },
+      {
+        "name": "d_date",
+        "type": "date"
+      },
+      {
+        "name": "d_year",
+        "type": "integer"
+      },
+      {
+        "name": "d_quater",
+        "type": "integer"
+      },
+      {
+        "name": "t_am_pm",
+        "type": "char",
+        "args": [
+          2
+        ]
+      },
+      {
+        "name": "c_description100",
+        "type": "varchar",
+        "args": [
+          100
+        ]
+      },
+      {
+        "name": "c_string_num",
+        "type": "varchar",
+        "args": [
+          4
+        ]
+      },
+      {
+        "name": "c_town",
+        "type": "varchar",
+        "args": [
+          15
+        ]
+      },
+      {
+        "name": "c_description200",
+        "type": "varchar",
+        "args": [
+          300
+        ]
+      },
+      {
+        "name": "c_jibrish30",
+        "type": "varchar",
+        "args": [
+          30
+        ]
+      },
+      {
+        "name": "c_description60",
+        "type": "varchar",
+        "args": [
+          60
+        ]
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "d_date",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA"
+        ]
+      },
+      {
+        "colNameId": "c_description100",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "c_description60",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      }
+    ],
+    "queries_data": [
+      {
+        "query_id": "lucene_storesalesflat_q01",
+        "query": "select count(d_date) from lucene_storesalesflat where c_description100 like '% good %' ",
+        "expected_result": [
+          1898
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_storesalesflat_q02",
+        "query": "select count(d_date) from lucene_storesalesflat where c_description100 like '%as.%' or c_description100 like '%;%' ",
+        "expected_result": [
+          14920
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_storesalesflat_q03",
+        "query": "select count(d_date) from lucene_storesalesflat where c_description100 is NULL or c_description100 like '%new%' ",
+        "expected_result": [
+          7857
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_storesalesflat_q04",
+        "query": "select count(d_date) from lucene_storesalesflat where c_description100 = 'Quite strong homes' or c_description100 like '%new%' ",
+        "expected_result": [
+          4940
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_storesalesflat_q05",
+        "query": "select count(d_date) from lucene_storesalesflat where c_description100 > 'Quite strong homes' or c_description100 like '%new%' ",
+        "expected_result": [
+          29215
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_storesalesflat_q06",
+        "query": "select count(d_date) from lucene_storesalesflat where c_description60 is NULL and c_description100 like '%new%'",
+        "expected_result": [
+          114
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 2,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_storesalesflat_q07",
+        "query": "select count(d_date) from lucene_storesalesflat where c_description100 > 'Quite strong homes'",
+        "expected_result": [
+          25088
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0,
+          "non_trivial_alternative_chosen": 1
+        }
+      }
+    ]
+  },
+  {
+    "name": "lucene_wix",
+    "pt_enable": true,
+    "structure": [
+      {
+        "type": "bigint",
+        "name": "active_user_code_loaded"
+      },
+      {
+        "type": "integer",
+        "name": "apps_on_site"
+      },
+      {
+        "type": "varchar",
+        "name": "browser_family"
+      },
+      {
+        "type": "varchar",
+        "name": "browser_version"
+      },
+      {
+        "type": "varchar",
+        "name": "caching"
+      },
+      {
+        "type": "varchar",
+        "name": "city"
+      },
+      {
+        "type": "bigint",
+        "name": "cnt_router_ds"
+      },
+      {
+        "type": "integer",
+        "name": "connect_js_ts"
+      },
+      {
+        "type": "integer",
+        "name": "connect_ts"
+      },
+      {
+        "type": "varchar",
+        "name": "country_code"
+      },
+      {
+        "type": "integer",
+        "name": "data_center"
+      },
+      {
+        "type": "date",
+        "name": "date"
+      },
+      {
+        "type": "varchar",
+        "name": "device_type"
+      },
+      {
+        "type": "integer",
+        "name": "dns_js_ts"
+      },
+      {
+        "type": "integer",
+        "name": "dns_ts"
+      },
+      {
+        "type": "varchar",
+        "name": "ip"
+      },
+      {
+        "type": "integer",
+        "name": "is_bot"
+      },
+      {
+        "type": "integer",
+        "name": "is_identified_as_bot"
+      },
+      {
+        "type": "integer",
+        "name": "is_in_iframe"
+      },
+      {
+        "type": "integer",
+        "name": "is_page_widget"
+      },
+      {
+        "type": "integer",
+        "name": "is_platform_loaded"
+      },
+      {
+        "type": "integer",
+        "name": "is_premium_site"
+      },
+      {
+        "type": "integer",
+        "name": "is_rollout"
+      },
+      {
+        "type": "integer",
+        "name": "is_server_side"
+      },
+      {
+        "type": "integer",
+        "name": "is_supported_browser"
+      },
+      {
+        "type": "integer",
+        "name": "is_suspected_as_bot"
+      },
+      {
+        "type": "varchar",
+        "name": "isp"
+      },
+      {
+        "type": "integer",
+        "name": "load_ts"
+      },
+      {
+        "type": "bigint",
+        "name": "max_page"
+      },
+      {
+        "type": "bigint",
+        "name": "mesh_ts"
+      },
+      {
+        "type": "bigint",
+        "name": "mesh_tts"
+      },
+      {
+        "type": "varchar",
+        "name": "msid"
+      },
+      {
+        "type": "real",
+        "name": "navigation_type"
+      },
+      {
+        "type": "varchar",
+        "name": "network_type"
+      },
+      {
+        "type": "real",
+        "name": "number_of_widgets"
+      },
+      {
+        "type": "real",
+        "name": "number_of_widgets_interactive"
+      },
+      {
+        "type": "real",
+        "name": "number_of_widgets_visible"
+      },
+      {
+        "type": "varchar",
+        "name": "os_name"
+      },
+      {
+        "type": "varchar",
+        "name": "page_id"
+      },
+      {
+        "type": "bigint",
+        "name": "page_interactive"
+      },
+      {
+        "type": "integer",
+        "name": "page_success"
+      },
+      {
+        "type": "varchar",
+        "name": "page_widget_id"
+      },
+      {
+        "type": "bigint",
+        "name": "page_widget_interactive"
+      },
+      {
+        "type": "bigint",
+        "name": "page_widget_visible"
+      },
+      {
+        "type": "bigint",
+        "name": "read_ds"
+      },
+      {
+        "type": "integer",
+        "name": "redirect_ts"
+      },
+      {
+        "type": "varchar",
+        "name": "request_id"
+      },
+      {
+        "type": "integer",
+        "name": "response_js_ts"
+      },
+      {
+        "type": "integer",
+        "name": "response_ts"
+      },
+      {
+        "type": "bigint",
+        "name": "santush_flow"
+      },
+      {
+        "type": "timestamp",
+        "name": "site_date_created"
+      },
+      {
+        "type": "varchar",
+        "name": "site_type",
+        "args": [
+          6
+        ]
+      },
+      {
+        "type": "integer",
+        "name": "ssl_js_ts"
+      },
+      {
+        "type": "integer",
+        "name": "ssl_ts"
+      },
+      {
+        "type": "integer",
+        "name": "ssr_ts"
+      },
+      {
+        "type": "integer",
+        "name": "ttfb_js_ts"
+      },
+      {
+        "type": "integer",
+        "name": "ttfb_ts"
+      },
+      {
+        "type": "varchar",
+        "name": "uuid"
+      },
+      {
+        "type": "bigint",
+        "name": "viewer_interactive"
+      },
+      {
+        "type": "integer",
+        "name": "viewer_interactive_success"
+      },
+      {
+        "type": "bigint",
+        "name": "viewer_interactive_tts"
+      },
+      {
+        "type": "integer",
+        "name": "viewer_js_loaded_success"
+      },
+      {
+        "type": "bigint",
+        "name": "viewer_js_loaded_ts"
+      },
+      {
+        "type": "bigint",
+        "name": "viewer_js_loaded_tts"
+      },
+      {
+        "type": "integer",
+        "name": "viewer_mesh_success"
+      },
+      {
+        "type": "varchar",
+        "name": "viewer_name"
+      },
+      {
+        "type": "integer",
+        "name": "viewer_start_loading_success"
+      },
+      {
+        "type": "varchar",
+        "name": "viewer_version"
+      },
+      {
+        "type": "bigint",
+        "name": "viewer_visible"
+      },
+      {
+        "type": "integer",
+        "name": "viewer_visible_success"
+      },
+      {
+        "type": "bigint",
+        "name": "viewer_visible_tts"
+      },
+      {
+        "type": "varchar",
+        "name": "vsi"
+      },
+      {
+        "type": "bigint",
+        "name": "write_ds"
+      },
+      {
+        "type": "varchar",
+        "name": "browser"
+      },
+      {
+        "type": "varchar",
+        "name": "browser_name"
+      },
+      {
+        "type": "timestamp",
+        "name": "date_created"
+      },
+      {
+        "type": "varchar",
+        "name": "geo"
+      },
+      {
+        "type": "timestamp",
+        "name": "last_update_date"
+      },
+      {
+        "type": "varchar",
+        "name": "page_url"
+      },
+      {
+        "type": "varchar",
+        "name": "region"
+      },
+      {
+        "type": "varchar",
+        "name": "url"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "city",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "connect_js_ts",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "region",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      },
+      {
+        "colNameId": "caching",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "url",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "page_url",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "browser_family",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "country_code",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      }
+    ],
+    "queries_data": [
+      {
+        "query_id": "lucene_wix_q01",
+        "query": "select count(*) from lucene_wix where city like 'Queen%' ",
+        "expected_result": [
+          33788
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q02",
+        "query": "select count(*) from lucene_wix where city like 'Queen %' ",
+        "expected_result": [
+          548
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q03",
+        "query": "select count(*) from lucene_wix where city like 'queen%' ",
+        "expected_result": [
+          0
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q04",
+        "query": "select count(*) from lucene_wix where city like 'Al%to%' ",
+        "expected_result": [
+          2364
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q05",
+        "query": "select count(*) from lucene_wix where city like '%es' ",
+        "expected_result": [
+          73250
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q06",
+        "query": "select count(*) from lucene_wix where city like '%os%es' ",
+        "expected_result": [
+          58144
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q07",
+        "query": "select count(*) from lucene_wix where city like 'Sa%' or city like 'New%' ",
+        "expected_result": [
+          297682
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q08",
+        "query": "select count(*) from lucene_wix where city like 'San%' and city like '%Mo%' ",
+        "expected_result": [
+          1344
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q09",
+        "query": "select count(*) from lucene_wix where city like 'Santa%' and connect_js_ts > 1000 ",
+        "expected_result": [
+          7916
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q10",
+        "query": "select count(*) from lucene_wix where city like '%ant%' or connect_js_ts > 1002 ",
+        "expected_result": [
+          454194
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q11",
+        "query": "select count(*) from lucene_wix where city like '_os%' ",
+        "expected_result": [
+          76768
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q12",
+        "query": "select count(*) from lucene_wix where city like 'L_ Q%' ",
+        "expected_result": [
+          622
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q13",
+        "query": "select count(*) from lucene_wix where city like 'L__ %' ",
+        "expected_result": [
+          68888
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q14",
+        "query": "select * from lucene_wix where city like 'Santa%' and connect_js_ts > 1000 ",
+        "expected_result": [
+          "IGNORE"
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 8,
+          "external_match_columns": 0,
+          "external_collect_columns": 73
+        }
+      },
+      {
+        "query_id": "lucene_wix_q15",
+        "query": "select count(*) from lucene_wix where url like 'https://3%50%.com%mypage' ",
+        "expected_result": [
+          11432
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q16",
+        "query": "select count(*) from lucene_wix where url not like 'https://3%50%.com%mypage'  ",
+        "expected_result": [
+          2085720
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q17",
+        "query": "select count(*) from lucene_wix where browser_family like 'Other%' ",
+        "expected_result": [
+          125906
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q18",
+        "query": "select count(*) from lucene_wix where browser_family not like '%rome' and country_code='US' ",
+        "expected_result": [
+          565290
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 1,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q19",
+        "query": "select count(*) from lucene_wix where browser_family = 'Safari' ",
+        "expected_result": [
+          207722
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q20",
+        "query": "select count(*) from lucene_wix where caching like '' ",
+        "expected_result": [
+          1046896
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q21",
+        "query": "select count(*) from lucene_wix where caching like '%,%' ",
+        "expected_result": [
+          525214
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q22",
+        "query": "select count(*) from lucene_wix where caching like '%none' and city like '%Los%' and page_url like 'http%6692381%' ",
+        "expected_result": [
+          2
+        ],
+        "expected_counters": {
+          "varada_match_columns": 3,
+          "varada_collect_columns": 3,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q23",
+        "query": "select count(*) from lucene_wix where caching like '%none' and (city like '%Los%' or city like '%El%') and page_url like 'http%6692381%' ",
+        "expected_result": [
+          2
+        ],
+        "expected_counters": {
+          "varada_match_columns": 3,
+          "varada_collect_columns": 3,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q24",
+        "query": "select count(*) from lucene_wix where city like '%ant%' or region LIKE '%i%' ",
+        "expected_result": [
+          874384
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 2,
+          "external_match_columns": 2,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q25",
+        "query": "select count(*) from lucene_wix where city LIKE '%ant%' and region LIKE '%i%' ",
+        "expected_result": [
+          9764
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 2,
+          "external_match_columns": 1,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q26",
+        "query": "select count(*) from lucene_wix where city < 'a'",
+        "expected_result": [
+          2097152
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0,
+          "non_trivial_alternative_chosen": 1
+        }
+      },
+      {
+        "query_id": "lucene_wix_q27",
+        "query": "select count(*) from lucene_wix where city >= 'Queen' and city < 'Queeo'",
+        "expected_result": [
+          33788
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q28",
+        "query": "select count(*) from lucene_wix where city is not null",
+        "expected_result": [
+          2097152
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_wix_q29",
+        "query": "select count(city) from lucene_wix where city not like '%New%'",
+        "expected_result": [
+          1947386
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "lucene_special_char",
+    "pt_enable": true,
+    "structure": [
+      {
+        "type": "varchar",
+        "name": "varspecial"
+      }
+    ],
+    "data": "resources/synthetic/lucene_special_char.jsonl",
+    "warm_query": "select * from lucene_special_char",
+    "warmup_rules": [
+      {
+        "colNameId": "varspecial",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      }
+    ],
+    "queries_data": [
+      {
+        "query_id": "lucene_special_q01",
+        "query": "select count(*) from lucene_special_char ",
+        "expected_result": [
+          4
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns" : 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_special_q02",
+        "query": "select count(*) from lucene_special_char where varspecial like '%{}%'",
+        "expected_result": [
+          3
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_special_q03",
+        "query": "select count(*) from lucene_special_char where varspecial like '%+-&&||!(){}[]^%'",
+        "expected_result": [
+          3
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_special_q04",
+        "query": "select count(*) from lucene_special_char where varspecial like '%~*?:\\\\%'",
+        "expected_result": [
+          3
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_special_q05",
+        "query": "select count(*) from lucene_special_char where varspecial like '%\"%'",
+        "expected_result": [
+          3
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query_id": "lucene_special_q07",
+        "query": "select count(*) from lucene_special_char where substr(varspecial ,10) = '{}[]^\\\"~*?:\\\\'",
+        "expected_result": [
+          1
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "wide_lucene",
+    "structure": [
+      {
+        "name": "some_varchar",
+        "type": "varchar"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "some_varchar",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      }
+    ],
+    "expected_warm_failures": 2,
+    "queries_data": [
+      {
+        "query": "select count(*) from wide_lucene",
+        "query_id": "wide_lucene_01",
+        "expected_result": [
+          [
+            34
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns" : 4,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from wide_lucene where some_varchar like '%ert%'",
+        "query_id": "wide_lucene_02",
+        "expected_result": [
+          [
+            2
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 4,
+          "external_match_columns": 2,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from wide_lucene where some_varchar = 'Anne Wheeler5084*ztlLat3'",
+        "query_id": "wide_lucene_03",
+        "expected_result": [
+          [
+            2
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 2,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 2,
+          "external_collect_columns": 0
+        }
+      }
+    ],
+    "data": "resources/synthetic/wide_lucene_copy.jsonl"
+  },
+  {
+    "name": "wide_lucene_with_int",
+    "structure": [
+      {
+        "name": "some_varchar",
+        "type": "varchar"
+      },
+      {
+        "name": "some_int",
+        "type": "integer"
+      }
+    ],
+    "warmup_rules": [
+      {
+        "colNameId": "some_varchar",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      },
+      {
+        "colNameId": "some_int",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_DATA",
+          "WARM_UP_TYPE_BASIC"
+        ]
+      }
+    ],
+    "expected_warm_failures": 1,
+    "queries_data": [
+      {
+        "query": "select count(some_varchar), count(some_int) from wide_lucene_with_int",
+        "query_id": "wide_lucene_with_int_01",
+        "expected_result": [
+          [
+            34, 34
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },{
+        "query": "select count(some_int) from wide_lucene_with_int",
+        "query_id": "wide_lucene_with_int_02",
+        "expected_result": [
+          [
+             34
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "wide_lucene_100k",
+    "description": "skipped in PT, test takes too much time",
+    "structure": [
+      {
+        "name": "a",
+        "type": "varchar"
+      }
+    ],
+    "data_format": "ORC",
+    "comment": "Temporary removing WARM_UP_TYPE_DATA from the warmup",
+    "warmup_rules": [
+      {
+        "colNameId": "a",
+        "predicates": [],
+        "warmUpTypes": [
+          "WARM_UP_TYPE_LUCENE"
+        ]
+      }
+    ],
+    "queries_data": [
+      {
+        "query": "select count(*) from wide_lucene_100k",
+        "query_id": "wide_lucene_100k_01",
+        "expected_result": [
+          [
+            100000
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 0,
+          "empty_collect_columns" : 29,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from wide_lucene_100k where a like '%ert%'",
+        "query_id": "wide_lucene_100k_02",
+        "expected_result": [
+          [
+            100000
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 29,
+          "varada_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 29
+        }
+      },
+      {
+        "query": "select count(*) from wide_lucene_100k where a = 'Anne Wheeler5084*ztlLat3'",
+        "query_id": "wide_lucene_100k_03",
+        "expected_result": [
+          [
+            0
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 29,
+          "varada_collect_columns": 0,
+          "prefilled_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "varchar_grater_255",
+    "description": "skipped in PT, test takes too much time",
+    "structure": [
+      {
+        "name": "col_1",
+        "type": "varchar"
+      },
+      {
+        "name": "col_2",
+        "type": "varchar"
+      },
+      {
+        "name": "col_3",
+        "type": "varchar"
+      },
+      {
+        "name": "col_4",
+        "type": "varchar"
+      },
+      {
+        "name": "col_5",
+        "type": "varchar"
+      },
+      {
+        "name": "col_6",
+        "type": "varchar"
+      },
+      {
+        "name": "col_7",
+        "type": "varchar"
+      },
+      {
+        "name": "col_8",
+        "type": "varchar"
+      },
+      {
+        "name": "col_9",
+        "type": "varchar"
+      },
+      {
+        "name": "col_10",
+        "type": "varchar"
+      }
+    ],
+    "queries_data": [
+      {
+        "query": "select count(col_1) from varchar_grater_255",
+        "query_id": "varchar_grater_255_01",
+        "expected_result": [
+          [
+            11000000
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(col_1) from varchar_grater_255 where col_1 like '%Ronald%' and col_2 like '%Melissa%'",
+        "query_id": "varchar_grater_255_02",
+        "expected_result": [
+          [
+            264
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(col_1) from varchar_grater_255 where col_1 like '%Ronald%' or col_2 like '%Melissa%' or col_10 like '%Olivia%'",
+        "query_id": "varchar_grater_255_03",
+        "expected_result": [
+          [
+            123035
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 3,
+          "varada_collect_columns": 3,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(col_1) from varchar_grater_255 where col_1 like 'Ronald%' and col_2 like 'Melissa%' and col_10 not like 'Timothy%'",
+        "query_id": "varchar_grater_255_04",
+        "expected_result": [
+          [
+            220
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 3,
+          "varada_collect_columns": 3,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(col_1) from varchar_grater_255 where col_1 like '%Ronald%' or col_2 like '%Melissa%' or col_3 like '%Robert%' or col_4 like '%Sandra%' or col_5 like '%Joshua%' or col_6 like '%Amanda%' or col_7 like '%Alyssa%' or col_8 like '%Json%' or col_9 like '%David%' or col_10 like '%Olivia%'",
+        "query_id": "varchar_grater_255_05",
+        "expected_result": [
+          [
+            714538
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 10,
+          "varada_collect_columns": 10,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(col_3) from varchar_grater_255 where col_3='Denise PatelQSHmD1sVFL_kJGVS6U2+E3H7YuOT2p61*o$_X7ClV(WR%fWeIt59Atv!^188xO!#Sb8r2@ca9O^veSoNV+G^M(^LCCAUL+ShC(*KrcWp$s&nOeC#*a*GKFgA3FnZ4n0Tq(fFR)_7WkTd#ZLK@VDyAYJ!H0%tCU+hwlh#v^VB9ip*Z6XlZe$Bal)jc8pa2+Pw^x5&2#T5v#R(nwu79hRLFO_v5c*9+Y&v4R94yt$X&&)94p()POEvPk(E2fR#U5EbWe*rgoSLjcC5O93Nc5_NVO+nF6PIy'",
+        "query_id": "varchar_grater_255_06",
+        "expected_result": [
+          [
+            11
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "prefilled_collect_columns": 1,
+          "varada_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(col_1) from varchar_grater_255  where col_1<'D'",
+        "query_id": "varchar_grater_255_07",
+        "expected_result": [
+          [
+            2389101
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "varchar_grater_255_2",
+    "structure": [
+      {
+        "name": "col_1",
+        "type": "varchar"
+      },
+      {
+        "name": "col_2",
+        "type": "varchar"
+      },
+      {
+        "name": "col_3",
+        "type": "varchar"
+      },
+      {
+        "name": "col_4",
+        "type": "varchar"
+      },
+      {
+        "name": "col_5",
+        "type": "varchar"
+      },
+      {
+        "name": "col_6",
+        "type": "varchar"
+      },
+      {
+        "name": "col_7",
+        "type": "varchar"
+      },
+      {
+        "name": "col_8",
+        "type": "varchar"
+      },
+      {
+        "name": "col_9",
+        "type": "varchar"
+      },
+      {
+        "name": "col_10",
+        "type": "varchar"
+      }
+    ],
+    "long_warmup": true,
+    "long_demote": true,
+    "queries_data": [
+      {
+        "query": "select count(col_1) from varchar_grater_255_2",
+        "query_id": "varchar_grater_255_2_01",
+        "expected_result": [
+          [
+            9900001
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(col_1) from varchar_grater_255_2 where col_1 like '%FHD46Q%' and col_2 like '%YQeNb%'",
+        "query_id": "varchar_grater_255_2_02",
+        "expected_result": [
+          [
+            3
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 2,
+          "varada_collect_columns": 2,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(col_1) from varchar_grater_255_2 where col_1 like '%FHD46Q%' or col_2 like '%YQeNb%' or col_10 like '%WWPJE%'",
+        "query_id": "varchar_grater_255_2_03",
+        "expected_result": [
+          [
+            7976
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 3,
+          "varada_collect_columns": 3,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(col_10) from varchar_grater_255_2 where col_1 like '%FHD4%' and col_2 like '%YQ%' and col_10 not like '%AIr%'",
+        "query_id": "varchar_grater_255_2_04",
+        "expected_result": [
+          [
+            19
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 3,
+          "varada_collect_columns": 3,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(col_1) from varchar_grater_255_2 where col_1 like '%FHD%' or col_2 like '%YQ%' or col_3 like '%AIr%' or col_4 like '%S%' or col_5 like '%J%' or col_6 like '%AM%' or col_7 like '%Al%' or col_8 like '%Js%' or col_9 like '%Da%' or col_10 like '%Ol%'",
+        "query_id": "varchar_grater_255_2_05",
+        "expected_result": [
+          [
+            9879878
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 10,
+          "varada_collect_columns": 10,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(col_1) from varchar_grater_255_2  where col_1<'D'",
+        "query_id": "varchar_grater_255_2_07",
+        "expected_result": [
+          [
+            2072275
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count(*) from varchar_grater_255_2  where col_3 is not null",
+        "query_id": "varchar_grater_255_2_08",
+        "expected_result": [
+          [
+            9700003
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 1,
+          "varada_collect_columns": 0,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      },
+      {
+        "query": "select count (distinct col_10) from varchar_grater_255_2",
+        "query_id": "varchar_grater_255_2_09",
+        "expected_result": [
+          [
+            1100
+          ]
+        ],
+        "expected_counters": {
+          "varada_match_columns": 0,
+          "varada_collect_columns": 1,
+          "external_match_columns": 0,
+          "external_collect_columns": 0
+        }
+      }
+    ]
+  }
+]

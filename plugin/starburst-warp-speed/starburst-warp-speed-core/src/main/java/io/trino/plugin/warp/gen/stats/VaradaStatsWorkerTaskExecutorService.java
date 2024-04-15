@@ -281,9 +281,4 @@ public final class VaradaStatsWorkerTaskExecutorService
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 6;
-    }
 }

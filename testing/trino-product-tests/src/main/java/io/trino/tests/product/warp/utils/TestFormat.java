@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.tests.product.warp.utils;
 
 import io.trino.plugin.varada.api.warmup.WarmUpType;
@@ -21,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public record TestFormat(String name, int lines, String table_name, List<Column> structure, List<WarmupRule> warmup_rules,
+public record TestFormat(String name, int lines, String table_name, List<Column> structure, String data_format, List<WarmupRule> warmup_rules,
                          Map<String, Object> session_properties, String warm_query, boolean skip, boolean pt_enable, boolean skip_caching,
                          List<QueryData> queries_data, WarmTypeForStrings warm_type_for_strings, String description,
                          int expected_warm_failures, Map<String, Long> expected_dictionary_counters, List<TableType> skip_type,
@@ -53,6 +52,7 @@ public record TestFormat(String name, int lines, String table_name, List<Column>
                 .lines(testFormat.lines())
                 .tableName(testFormat.table_name())
                 .structure(testFormat.structure())
+                .dataFormat(testFormat.data_format())
                 .warmupRules(testFormat.warmup_rules())
                 .sessionProperties(testFormat.session_properties())
                 .warmQuery(testFormat.warm_query())
@@ -72,7 +72,7 @@ public record TestFormat(String name, int lines, String table_name, List<Column>
                 .expectedDLDictionaryCounters(testFormat.dl_expected_dictionary_counters());
     }
 
-    //The test format that we got from the json, should be changed in case table type other than warp (DL or Icebrg)
+    //The test format that we got from the json, should be changed in case table type other than warp (DL or Iceberg)
     //was provided in the test command line
     //The table name, expected results and expected counters sometimes are affect by table type
     public TestFormat withTableType(String updatedName, TableType tableType)
@@ -92,10 +92,10 @@ public record TestFormat(String name, int lines, String table_name, List<Column>
             updatedTableName = updatedName;
         }
 
-        if (tableType == TableType.varada_delta_lake && dl_expected_dictionary_counters != null) {
+        if (tableType == TableType.warp_delta_lake && dl_expected_dictionary_counters != null) {
             updatedDictionaryCounters = dl_expected_dictionary_counters;
         }
-        else if (tableType == TableType.varada_iceberg && iceberg_expected_dictionary_counters != null) {
+        else if (tableType == TableType.warp_iceberg && iceberg_expected_dictionary_counters != null) {
             updatedDictionaryCounters = iceberg_expected_dictionary_counters;
         }
 
@@ -117,7 +117,7 @@ public record TestFormat(String name, int lines, String table_name, List<Column>
         if (updatedName != null && !updatedName.isEmpty()) {
             updatedQuery = queryData.query().replace(getTableName(), updatedName);
         }
-        if (tableType == TableType.varada_delta_lake) {
+        if (tableType == TableType.warp_delta_lake) {
             if (queryData.expected_dl_result() != null) {
                 expectedResult = new ArrayList<>(queryData.expected_dl_result());
             }
@@ -125,7 +125,7 @@ public record TestFormat(String name, int lines, String table_name, List<Column>
                 expectedCounters = queryData.dl_expected_counters();
             }
         }
-        else if (tableType == TableType.varada_iceberg) {
+        else if (tableType == TableType.warp_iceberg) {
             if (queryData.expected_iceberg_result() != null) {
                 expectedResult = new ArrayList<>(queryData.expected_iceberg_result());
             }
@@ -145,6 +145,7 @@ public record TestFormat(String name, int lines, String table_name, List<Column>
         private int lines;
         private String tableName;
         private List<Column> structure;
+        private String dataFormat;
         private List<WarmupRule> warmupRules;
         private Map<String, Object> sessionProperties;
         private String warmQuery;
@@ -189,6 +190,12 @@ public record TestFormat(String name, int lines, String table_name, List<Column>
         public Builder structure(List<Column> structure)
         {
             this.structure = structure;
+            return this;
+        }
+
+        public Builder dataFormat(String dataFormat)
+        {
+            this.dataFormat = dataFormat;
             return this;
         }
 
@@ -296,7 +303,7 @@ public record TestFormat(String name, int lines, String table_name, List<Column>
 
         public TestFormat build()
         {
-            return new TestFormat(name, lines, tableName, structure, warmupRules, sessionProperties, warmQuery,
+            return new TestFormat(name, lines, tableName, structure, dataFormat, warmupRules, sessionProperties, warmQuery,
                     skip, ptEnable, skipCaching, queriesData, warmTypeForStrings, description,
                     expectedWarmFailures, expectedDictionaryCounters, skipType, expectedIcebergDictionaryCounters,
                     expectedDLDictionaryCounters, splitCount, bucketedBy, bucketCount);

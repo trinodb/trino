@@ -305,9 +305,4 @@ public final class VaradaStatsTxService
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 7;
-    }
 }

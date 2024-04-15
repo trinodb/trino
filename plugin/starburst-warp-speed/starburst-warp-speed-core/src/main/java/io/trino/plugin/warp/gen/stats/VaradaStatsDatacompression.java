@@ -91,10 +91,5 @@ public final class VaradaStatsDatacompression
         return new HashMap<>();
     }
 
-    public int getNumberOfMetrics()
-    {
-        return 2;
-    }
-
     private native ByteBuffer initNative(long limit);
 }

@@ -151,10 +151,5 @@ public final class VaradaStatsCollecttime
         return new HashMap<>();
     }
 
-    public int getNumberOfMetrics()
-    {
-        return 8;
-    }
-
     private native ByteBuffer initNative(long limit);
 }

@@ -38,6 +38,7 @@ import io.trino.plugin.varada.dispatcher.warmup.warmers.StorageWarmerService;
 import io.trino.plugin.varada.dispatcher.warmup.warmers.WarmingManager;
 import io.trino.plugin.varada.dispatcher.warmup.warmers.WarmupElementsCreator;
 import io.trino.plugin.varada.expression.TransformFunction;
+import io.trino.plugin.varada.juffer.BufferAllocator;
 import io.trino.plugin.varada.juffer.StorageEngineTxService;
 import io.trino.plugin.varada.metrics.MetricsManager;
 import io.trino.plugin.varada.storage.engine.ConnectorSync;
@@ -139,6 +140,7 @@ public class ProxyExecutionTaskTest
                 rowGroupDataService,
                 metricsManager,
                 mock(StorageEngineConstants.class),
+                mock(BufferAllocator.class),
                 new TestingConnectorProxiedConnectorTransformer(), globalConfiguration);
     }
 

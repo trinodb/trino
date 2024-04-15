@@ -19,7 +19,7 @@ import io.trino.plugin.varada.dispatcher.warmup.transform.BlockTransformer;
 import io.trino.plugin.varada.dispatcher.warmup.transform.BlockTransformerFactory;
 import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 import io.trino.spi.type.Type;
 
 import java.util.Optional;
@@ -45,18 +45,18 @@ public class ArrayBlockAppender
     }
 
     @Override
-    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         Optional<BlockTransformer> blockTransformer = blockTransformerFactory.getBlockTransformer(warmUpElement.getWarmUpType(), warmUpElement.getRecTypeCode());
         checkArgument(blockTransformer.isPresent());
         BlockPosHolder blockAsVarchar = blockTransformer.get().transformBlock(blockPos, filterType);
-        AppendResult result = varcharBlockAppender.appendWithoutDictionary(jufferPos, blockAsVarchar, stopAfterOneFlush, warmUpElement, warmupElementStats);
+        AppendResult result = varcharBlockAppender.appendWithoutDictionary(jufferPos, blockAsVarchar, stopAfterOneFlush, warmUpElement, warmupElementStatsBuilder);
         blockPos.seek(blockAsVarchar.getPos());
         return result;
     }
 
     @Override
-    public AppendResult appendWithDictionary(BlockPosHolder blockPos, boolean stopAfterOneFlush, WriteDictionary writeDictionary, WarmupElementStats warmupElementStats)
+    public AppendResult appendWithDictionary(BlockPosHolder blockPos, boolean stopAfterOneFlush, WriteDictionary writeDictionary, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         throw new UnsupportedOperationException("Dictionary is not supported for arrays, Should not happen");
     }

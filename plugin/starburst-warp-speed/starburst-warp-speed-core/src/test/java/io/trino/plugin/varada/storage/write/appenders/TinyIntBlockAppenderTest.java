@@ -15,6 +15,7 @@ package io.trino.plugin.varada.storage.write.appenders;
 
 import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 import io.trino.plugin.warp.gen.constants.RecTypeCode;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
@@ -76,8 +77,8 @@ class TinyIntBlockAppenderTest
             assertThrows(UnsupportedOperationException.class, () -> {
                 when(writeJuffersWarmUpElement.getRecordBuffer()).thenReturn(ShortBuffer.allocate(100));
                 BlockPosHolder blockPosHolder = new BlockPosHolder(block, blockType, 0, block.getPositionCount());
-                WarmupElementStats warmupElementStats = new WarmupElementStats(0, null, null);
-                blockAppender.appendWithDictionary(blockPosHolder, false, getWriteDictionary(recTypeCode).get(), warmupElementStats);
+                WarmupElementStatsBuilder warmupElementStatsBuilder = new WarmupElementStatsBuilder();
+                blockAppender.appendWithDictionary(blockPosHolder, false, getWriteDictionary(recTypeCode).get(), warmupElementStatsBuilder);
             });
         }
     }

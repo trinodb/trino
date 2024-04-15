@@ -102,6 +102,9 @@ public class NativeStorageEngine
     public native void initCollectTxSizes(int[] fixedCollectTxSizes, int[] varlenCollectTxSizes);
 
     @Override
+    public native int initWarmupTxSizes(int[] fixedWarmupDataTxSizes, int[] varlenWarmupDataTxSizes);
+
+    @Override
     public native long fileOpen(String fileName);
 
     @Override
@@ -128,6 +131,9 @@ public class NativeStorageEngine
 
     @Override
     public native void warmupClose(int txId);
+
+    @Override
+    public native void warmupVerifyQueryOffset(int queryOffset, long fileCookie);
 
     @Override
     public native void commitRecordBufferPrepare(long weCookie);
@@ -161,7 +167,7 @@ public class NativeStorageEngine
             int numMatchWes, int[] weMatchTree, int numLucenes, LuceneMatcher[] luceneMatchers, long matchBitmapAddress, int minOffset, long[][] outMatchColBuffIds);
 
     @Override
-    public native void collectRestoreState(int txId, int chunkIndex, StorageCollectorCallBack collectStateObj);
+    public native int collectRestoreState(int txId, int chunkIndex, StorageCollectorCallBack collectStateObj);
 
     @Override
     public native long match(int txId, int nextState, short[] outMatchedChunksIndexes, int[] outMatchBitmapResetPoints);

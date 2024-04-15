@@ -18,7 +18,7 @@ import io.trino.plugin.varada.dispatcher.model.WarmUpElement;
 import io.trino.plugin.varada.expression.VaradaConstant;
 import io.trino.plugin.varada.juffer.BlockPosHolder;
 import io.trino.plugin.varada.storage.juffers.WriteJuffersWarmUpElement;
-import io.trino.plugin.varada.storage.write.WarmupElementStats;
+import io.trino.plugin.varada.storage.write.WarmupElementStatsBuilder;
 
 public class CrcMapBlockAppender
         extends CrcBlockAppender
@@ -33,7 +33,7 @@ public class CrcMapBlockAppender
     }
 
     @Override
-    AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStats warmupElementStats)
+    AppendResult appendWithoutDictionary(int jufferPos, BlockPosHolder blockPos, boolean stopAfterOneFlush, WarmUpElement warmUpElement, WarmupElementStatsBuilder warmupElementStatsBuilder)
     {
         TransformedColumn transformedColumn = (TransformedColumn) warmUpElement.getVaradaColumn();
         VaradaConstant key = transformedColumn.getTransformFunction().transformParams().get(0);

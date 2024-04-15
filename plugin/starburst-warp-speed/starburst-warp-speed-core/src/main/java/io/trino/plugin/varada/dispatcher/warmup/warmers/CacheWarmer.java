@@ -144,7 +144,8 @@ public class CacheWarmer
             pageSink = varadaPageSinkFactory.create(storageWriterSplitConfiguration);
 
             RowGroupData rowGroupData = rowGroupDataService.getOrCreateRowGroupData(tempRowGroupKey, Collections.emptyMap());
-            locked = storageWarmerService.lockRowGroup(rowGroupData);
+            storageWarmerService.lockRowGroup(rowGroupData);
+            locked = true;
             storageWarmerService.createFile(tempRowGroupKey);
             fileCookie = storageWarmerService.fileOpen(tempRowGroupKey);
             txId = storageWarmerService.warmupOpen(txId);

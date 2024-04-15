@@ -23,7 +23,7 @@ import io.varada.cloudvendors.configuration.StoreType;
 
 public class WarmUtils
 {
-    public static final int FAST_WARMING_VERSION = 5;
+    public static final int FAST_WARMING_VERSION = 6;
 
     private static final Logger logger = Logger.get(WarmUtils.class);
 

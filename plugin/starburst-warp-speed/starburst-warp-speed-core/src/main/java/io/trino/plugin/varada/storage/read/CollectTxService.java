@@ -36,6 +36,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.varada.VaradaErrorCode.VARADA_TX_ALLOCATION_FAILED;
+import static io.trino.plugin.varada.VaradaErrorCode.VARADA_UNRECOVERABLE_COLLECT_FAILED;
 
 public class CollectTxService
 {
@@ -145,7 +146,12 @@ public class CollectTxService
         if (chunksQueueService.storeRestoreRequired(storageCollectorArgs.chunksQueue())) {
             rangeFillerService.restoreRowList(rangeData, storeRowListSize, storeRowListType, storageCollectorArgs.storeRowListBuff());
             restoredChunkIndex = storageCollectorArgs.chunksQueue().getCurrent();
-            storageEngine.collectRestoreState(collectTxId, restoredChunkIndex, storageCollectorCallBack);
+            if (storageEngine.collectRestoreState(collectTxId, restoredChunkIndex, storageCollectorCallBack) < 0) {
+                throw new TrinoException(VARADA_UNRECOVERABLE_COLLECT_FAILED,
+                        String.format("failed to restore collect state restoredChunkIndex %d numChunks %d",
+                        restoredChunkIndex,
+                        storageCollectorArgs.numChunks()));
+            }
         }
 
         logger.debug("collectOpen collectTxId %d rowsLimit %d numChunks %d numCollectElements %d restoredChunkIndex %d",
@@ -170,12 +176,22 @@ public class CollectTxService
         boolean bufferIsFull = false;
         Optional<int[]> chunksWithBitmapsToStoreOpt = Optional.empty();
         if (chunksQueueService.storeRestoreRequired(storageCollectorArgs.chunksQueue())) {
-            bufferIsFull = chunksQueueService.prepareNextChunk(storageCollectorArgs.chunksQueue(),
+            int ret = chunksQueueService.prepareNextChunk(storageCollectorArgs.chunksQueue(),
                     chunkPrepared,
                     collectOpenResult.collectTxId(),
                     collectOpenResult.rowsLimit(),
                     numCollectedRows,
                     collectOpenResult.outResultType()); // will be done only if needed
+            if (ret == -1) {
+                throw new TrinoException(VARADA_UNRECOVERABLE_COLLECT_FAILED,
+                        String.format("prepareNextChunk failed unexpectedly collectTxId %d chunkIx %d resetPoint %d numCollectedRows %d rowsLimit %d",
+                        collectOpenResult.collectTxId(),
+                        storageCollectorArgs.chunksQueue().getCurrent(),
+                        storageCollectorArgs.chunksQueue().getCurrentResetPoint(),
+                        numCollectedRows,
+                        collectOpenResult.rowsLimit()));
+            }
+            bufferIsFull = (ret > 0);
             chunksWithBitmapsToStoreOpt = storageCollectorArgs.chunksQueue().getChunkIndexesWithBitmap();
             storeRowListResult = rangeFillerService.storeRowList(storageCollectorArgs, collectOpenResult.rangeData());
         }

@@ -15,128 +15,40 @@ package io.trino.plugin.varada.storage.write;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.slice.Slice;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public class WarmupElementStats
 {
-    private boolean firstTime;
-    private int nullsCount;
-    private Object maxValue;
-    private Object minValue;
+    public static final WarmupElementStats UNINITIALIZED = new WarmupElementStats(false, 0, null, null);
+
+    private final boolean initialized;
+    private final int nullsCount;
+    private final Object maxValue;
+    private final Object minValue;
+
+    public WarmupElementStats(int nullsCount, Object minValue, Object maxValue)
+    {
+        this(true, nullsCount, minValue, maxValue);
+    }
 
     @JsonCreator
-    public WarmupElementStats(@JsonProperty("nullsCount") int nullsCount,
+    public WarmupElementStats(
+            @JsonProperty("initialized") boolean initialized,
+            @JsonProperty("nullsCount") int nullsCount,
             @JsonProperty("minValue") Object minValue,
             @JsonProperty("maxValue") Object maxValue)
     {
+        this.initialized = initialized;
         this.nullsCount = nullsCount;
         this.maxValue = maxValue;
         this.minValue = minValue;
-        this.firstTime = true;
     }
 
-    public void updateMinMax(long val)
+    @JsonProperty("initialized")
+    public boolean isInitialized()
     {
-        if (firstTime) {
-            handleFirstTime(val);
-        }
-        else {
-            this.minValue = Math.min((long) this.minValue, val);
-            this.maxValue = Math.max((long) this.maxValue, val);
-        }
-    }
-
-    public void updateMinMax(short val)
-    {
-        if (firstTime) {
-            handleFirstTime(val);
-        }
-        else {
-            this.minValue = (short) Math.min((short) this.minValue, val);
-            this.maxValue = (short) Math.max((short) this.maxValue, val);
-        }
-    }
-
-    public void updateMinMax(int val)
-    {
-        if (firstTime) {
-            handleFirstTime(val);
-        }
-        else {
-            this.minValue = Math.min((int) this.minValue, val);
-            this.maxValue = Math.max((int) this.maxValue, val);
-        }
-    }
-
-    public void updateMinMax(Double val)
-    {
-        if (val.isNaN()) {
-            return;
-        }
-        if (firstTime) {
-            handleFirstTime(val);
-        }
-        else {
-            this.minValue = Math.min((double) this.minValue, val);
-            this.maxValue = Math.max((double) this.maxValue, val);
-        }
-    }
-
-    public void updateMinMax(Float val)
-    {
-        if (val.isNaN()) {
-            return;
-        }
-        if (firstTime) {
-            handleFirstTime(val);
-        }
-        else {
-            this.minValue = Math.min((float) this.minValue, val);
-            this.maxValue = Math.max((float) this.maxValue, val);
-        }
-    }
-
-    public void updateMinMax(byte val)
-    {
-        if (firstTime) {
-            handleFirstTime(val);
-        }
-        else {
-            this.minValue = (byte) Math.min((byte) this.minValue, val);
-            this.maxValue = (byte) Math.max((byte) this.maxValue, val);
-        }
-    }
-
-    public void updateMinMax(Slice val)
-    {
-        if (firstTime) {
-            handleFirstTime(val);
-        }
-        else {
-            if (val.compareTo(((Slice) this.minValue)) < 0) {
-                this.minValue = val;
-            }
-            if (val.compareTo(((Slice) this.maxValue)) > 0) {
-                this.maxValue = val;
-            }
-        }
-    }
-
-    private void handleFirstTime(Object val)
-    {
-        checkArgument(val != null, "adding min/max value must be non-null");
-        this.minValue = val;
-        this.maxValue = val;
-        firstTime = false;
-    }
-
-    public void incNullCount(int nullsCount)
-    {
-        this.nullsCount += nullsCount;
+        return initialized;
     }
 
     @JsonProperty("nullsCount")
@@ -157,12 +69,6 @@ public class WarmupElementStats
         return maxValue;
     }
 
-    public boolean isValidRange()
-    {
-        //case all values are null it never init
-        return maxValue != null && minValue != null;
-    }
-
     @Override
     public boolean equals(Object obj)
     {
@@ -173,7 +79,8 @@ public class WarmupElementStats
             return false;
         }
         var that = (WarmupElementStats) obj;
-        return this.nullsCount == that.nullsCount &&
+        return this.initialized == that.initialized &&
+                this.nullsCount == that.nullsCount &&
                 Objects.equals(this.maxValue, that.maxValue) &&
                 Objects.equals(this.minValue, that.minValue);
     }
@@ -181,13 +88,14 @@ public class WarmupElementStats
     @Override
     public int hashCode()
     {
-        return Objects.hash(nullsCount, maxValue, minValue);
+        return Objects.hash(initialized, nullsCount, maxValue, minValue);
     }
 
     @Override
     public String toString()
     {
         return "WarmupElementStats[" +
+                "initialized=" + initialized + ", " +
                 "nullsCount=" + nullsCount + ", " +
                 "maxValue=" + maxValue + ", " +
                 "minValue=" + minValue + ']';

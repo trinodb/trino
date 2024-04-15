@@ -29,6 +29,7 @@ import io.trino.plugin.varada.dispatcher.model.WarmUpElementState;
 import io.trino.plugin.varada.dispatcher.services.RowGroupDataService;
 import io.trino.plugin.varada.dispatcher.warmup.WarmupProperties;
 import io.trino.plugin.varada.expression.TransformFunction;
+import io.trino.plugin.varada.juffer.BufferAllocator;
 import io.trino.plugin.varada.metrics.MetricsManager;
 import io.trino.plugin.varada.storage.engine.StorageEngineConstants;
 import io.trino.plugin.varada.storage.write.WarmupElementStats;
@@ -69,6 +70,7 @@ public class WarmupElementsCreatorTest
                 mock(RowGroupDataService.class),
                 mock(MetricsManager.class),
                 mock(StorageEngineConstants.class),
+                mock(BufferAllocator.class),
                 new TestingConnectorProxiedConnectorTransformer(),
                 new GlobalConfiguration());
     }
@@ -108,7 +110,7 @@ public class WarmupElementsCreatorTest
                         .warmUpType(WARM_UP_TYPE_DATA)
                         .exportState(ExportState.NOT_EXPORTED)
                         .state(WarmUpElementState.VALID)
-                        .warmupElementStats(new WarmupElementStats(0, null, null))
+                        .warmupElementStats(WarmupElementStats.UNINITIALIZED)
                         .build(),
                 WarmUpElement.builder()
                         .recTypeCode(REC_TYPE_INTEGER)
@@ -117,7 +119,7 @@ public class WarmupElementsCreatorTest
                         .warmUpType(WARM_UP_TYPE_DATA)
                         .exportState(ExportState.NOT_EXPORTED)
                         .state(WarmUpElementState.VALID)
-                        .warmupElementStats(new WarmupElementStats(0, null, null))
+                        .warmupElementStats(WarmupElementStats.UNINITIALIZED)
                         .build(),
                 WarmUpElement.builder()
                         .recTypeCode(REC_TYPE_INTEGER)
@@ -126,7 +128,7 @@ public class WarmupElementsCreatorTest
                         .warmUpType(WARM_UP_TYPE_DATA)
                         .exportState(ExportState.NOT_EXPORTED)
                         .state(WarmUpElementState.VALID)
-                        .warmupElementStats(new WarmupElementStats(0, null, null))
+                        .warmupElementStats(WarmupElementStats.UNINITIALIZED)
                         .build());
     }
 
@@ -175,7 +177,7 @@ public class WarmupElementsCreatorTest
                         .warmUpType(WARM_UP_TYPE_LUCENE)
                         .exportState(ExportState.NOT_EXPORTED)
                         .state(WarmUpElementState.VALID)
-                        .warmupElementStats(new WarmupElementStats(0, null, null))
+                        .warmupElementStats(WarmupElementStats.UNINITIALIZED)
                         .build(),
                 WarmUpElement.builder()
                         .recTypeCode(REC_TYPE_INTEGER)
@@ -184,7 +186,7 @@ public class WarmupElementsCreatorTest
                         .warmUpType(WARM_UP_TYPE_DATA)
                         .exportState(ExportState.NOT_EXPORTED)
                         .state(WarmUpElementState.VALID)
-                        .warmupElementStats(new WarmupElementStats(0, null, null))
+                        .warmupElementStats(WarmupElementStats.UNINITIALIZED)
                         .build(),
                 WarmUpElement.builder()
                         .recTypeCode(REC_TYPE_INTEGER)
@@ -193,7 +195,7 @@ public class WarmupElementsCreatorTest
                         .warmUpType(WARM_UP_TYPE_BASIC)
                         .exportState(ExportState.NOT_EXPORTED)
                         .state(WarmUpElementState.VALID)
-                        .warmupElementStats(new WarmupElementStats(0, null, null))
+                        .warmupElementStats(WarmupElementStats.UNINITIALIZED)
                         .build(),
                 WarmUpElement.builder()
                         .recTypeCode(REC_TYPE_INTEGER)
@@ -202,7 +204,7 @@ public class WarmupElementsCreatorTest
                         .warmUpType(WARM_UP_TYPE_DATA)
                         .exportState(ExportState.NOT_EXPORTED)
                         .state(WarmUpElementState.VALID)
-                        .warmupElementStats(new WarmupElementStats(0, null, null))
+                        .warmupElementStats(WarmupElementStats.UNINITIALIZED)
                         .build(),
                 WarmUpElement.builder()
                         .recTypeCode(REC_TYPE_INTEGER)
@@ -210,7 +212,7 @@ public class WarmupElementsCreatorTest
                         .varadaColumn(new RegularColumn(low))
                         .warmUpType(WARM_UP_TYPE_DATA)
                         .exportState(ExportState.NOT_EXPORTED)
-                        .warmupElementStats(new WarmupElementStats(0, null, null))
+                        .warmupElementStats(WarmupElementStats.UNINITIALIZED)
                         .state(WarmUpElementState.VALID)
                         .build());
     }
@@ -254,7 +256,7 @@ public class WarmupElementsCreatorTest
                         .warmUpType(WARM_UP_TYPE_DATA)
                         .exportState(ExportState.NOT_EXPORTED)
                         .state(WarmUpElementState.VALID)
-                        .warmupElementStats(new WarmupElementStats(0, null, null))
+                        .warmupElementStats(WarmupElementStats.UNINITIALIZED)
                         .build(),
                 WarmUpElement.builder()
                         .recTypeCode(REC_TYPE_INTEGER)
@@ -262,7 +264,7 @@ public class WarmupElementsCreatorTest
                         .varadaColumn(new RegularColumn(low))
                         .warmUpType(WARM_UP_TYPE_DATA)
                         .exportState(ExportState.NOT_EXPORTED)
-                        .warmupElementStats(new WarmupElementStats(0, null, null))
+                        .warmupElementStats(WarmupElementStats.UNINITIALIZED)
                         .state(WarmUpElementState.VALID)
                         .build());
     }

@@ -165,9 +165,4 @@ public final class VaradaStatsExceptionThrower
     {
         return new HashMap<>();
     }
-
-    public int getNumberOfMetrics()
-    {
-        return 2;
-    }
 }
