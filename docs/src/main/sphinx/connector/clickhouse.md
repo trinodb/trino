@@ -360,5 +360,5 @@ The connector supports pushdown for a number of operations:
 ```{include} pushdown-correctness-behavior.fragment
 ```
 
-```{include} no-pushdown-text-type.fragment
+```{include} no-inequality-pushdown-text-type.fragment
 ```
