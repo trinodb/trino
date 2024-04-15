@@ -20,6 +20,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
@@ -63,6 +64,7 @@ import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.sql.relational.SpecialForm.Form.AND;
+import static io.trino.sql.relational.SpecialForm.Form.ARRAY_CONSTRUCTOR;
 import static io.trino.sql.relational.SpecialForm.Form.BETWEEN;
 import static io.trino.sql.relational.SpecialForm.Form.BIND;
 import static io.trino.sql.relational.SpecialForm.Form.COALESCE;
@@ -472,6 +474,17 @@ public final class SqlToRowExpressionTranslator
                     .collect(toImmutableList());
             Type returnType = ((Expression) node).type();
             return new SpecialForm(ROW_CONSTRUCTOR, returnType, arguments);
+        }
+
+        @Override
+        protected RowExpression visitArray(Array node, Void context)
+        {
+            return new SpecialForm(
+                    ARRAY_CONSTRUCTOR,
+                    node.type(),
+                    node.elements().stream()
+                            .map(value -> process(value, context))
+                            .collect(toImmutableList()));
         }
     }
 }

@@ -6198,25 +6198,6 @@ public abstract class AbstractTestEngineOnlyQueries
                 .isFalse();
     }
 
-    @Test
-    public void testLargePivot()
-    {
-        int arrayConstructionLimit = 254;
-
-        MaterializedResult result = computeActual(pivotQuery(arrayConstructionLimit));
-        assertThat(result.getRowCount())
-                .as("row count")
-                .isEqualTo(arrayConstructionLimit);
-
-        MaterializedRow row = result.getMaterializedRows().get(0);
-        assertThat(row.getFieldCount())
-                .as("field count")
-                .isEqualTo(arrayConstructionLimit + 2);
-
-        // Verify that arrayConstructionLimit is the current limit so that the test stays relevant and prevents regression if we improve in the future.
-        assertQueryFails(pivotQuery(arrayConstructionLimit + 1), "Too many arguments for array constructor");
-    }
-
     private static String pivotQuery(int columnsCount)
     {
         String fields = IntStream.range(0, columnsCount)

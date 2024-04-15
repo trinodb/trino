@@ -135,6 +135,9 @@ public class RowExpressionCompiler
                 case ROW_CONSTRUCTOR:
                     generator = new RowConstructorCodeGenerator(specialForm);
                     break;
+                case ARRAY_CONSTRUCTOR:
+                    generator = new ArrayConstructorCodeGenerator(specialForm);
+                    break;
                 case BIND:
                     generator = new BindCodeGenerator(specialForm, compiledLambdaMap, context.getLambdaInterface().get());
                     break;
