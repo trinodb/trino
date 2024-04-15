@@ -21,6 +21,7 @@ import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import com.google.protobuf.ByteString;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.NodeManager;
@@ -37,7 +38,11 @@ import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.arrow.vector.ipc.ReadChannel;
+import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -57,6 +62,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
+import static org.apache.arrow.vector.ipc.message.MessageSerializer.deserializeSchema;
 
 public class BigQuerySplitManager
         implements ConnectorSplitManager
@@ -151,7 +157,7 @@ public class BigQuerySplitManager
         ReadSession readSession = readSessionCreator.create(session, remoteTableId, ImmutableList.copyOf(projectedColumnsNames), filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
-                .map(stream -> BigQuerySplit.forStream(stream.getName(), readSessionCreator.getSchemaAsString(readSession), columns, OptionalInt.of(stream.getSerializedSize())))
+                .map(stream -> BigQuerySplit.forStream(stream.getName(), getSchemaAsString(readSession), columns, OptionalInt.of(stream.getSerializedSize())))
                 .collect(toImmutableList());
     }
 
@@ -192,6 +198,25 @@ public class BigQuerySplitManager
         }
         catch (BigQueryException e) {
             throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, "Failed to compute empty projection", e);
+        }
+    }
+
+    private String getSchemaAsString(ReadSession readSession)
+    {
+        if (arrowSerializationEnabled) {
+            return deserializeArrowSchema(readSession.getArrowSchema().getSerializedSchema());
+        }
+        return readSession.getAvroSchema().getSchema();
+    }
+
+    private static String deserializeArrowSchema(ByteString serializedSchema)
+    {
+        try {
+            return deserializeSchema(new ReadChannel(new ByteArrayReadableSeekableByteChannel(serializedSchema.toByteArray())))
+                    .toJson();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }
