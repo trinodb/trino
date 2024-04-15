@@ -21,7 +21,6 @@ import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
-import com.google.protobuf.ByteString;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
@@ -30,11 +29,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
-import org.apache.arrow.vector.ipc.ReadChannel;
-import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,7 +42,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.stream.Collectors.toList;
-import static org.apache.arrow.vector.ipc.message.MessageSerializer.deserializeSchema;
 
 // A helper class, also handles view materialization
 public class ReadSessionCreator
@@ -116,25 +110,6 @@ public class ReadSessionCreator
                             .abortOn(failure -> !BigQueryUtil.isRetryable(failure))
                             .build())
                     .get(() -> bigQueryReadClient.createReadSession(createReadSessionRequest));
-        }
-    }
-
-    public String getSchemaAsString(ReadSession readSession)
-    {
-        if (arrowSerializationEnabled) {
-            return deserializeArrowSchema(readSession.getArrowSchema().getSerializedSchema());
-        }
-        return readSession.getAvroSchema().getSchema();
-    }
-
-    private static String deserializeArrowSchema(ByteString serializedSchema)
-    {
-        try {
-            return deserializeSchema(new ReadChannel(new ByteArrayReadableSeekableByteChannel(serializedSchema.toByteArray())))
-                    .toJson();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
     }
 
