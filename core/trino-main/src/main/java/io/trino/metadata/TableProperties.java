@@ -24,7 +24,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.PartitioningHandle;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -73,53 +72,15 @@ public class TableProperties
         return tableProperties.getDiscretePredicates();
     }
 
-    public static class TablePartitioning
+    public record TablePartitioning(
+            PartitioningHandle partitioningHandle,
+            List<ColumnHandle> partitioningColumns,
+            boolean singleSplitPerPartition)
     {
-        private final PartitioningHandle partitioningHandle;
-        private final List<ColumnHandle> partitioningColumns;
-        private final boolean singleSplitPerPartition;
-
-        public TablePartitioning(PartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns, boolean singleSplitPerPartition)
+        public TablePartitioning
         {
-            this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
-            this.partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
-            this.singleSplitPerPartition = singleSplitPerPartition;
-        }
-
-        public PartitioningHandle getPartitioningHandle()
-        {
-            return partitioningHandle;
-        }
-
-        public List<ColumnHandle> getPartitioningColumns()
-        {
-            return partitioningColumns;
-        }
-
-        public boolean isSingleSplitPerPartition()
-        {
-            return singleSplitPerPartition;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TablePartitioning that = (TablePartitioning) o;
-            return singleSplitPerPartition == that.singleSplitPerPartition &&
-                    Objects.equals(partitioningHandle, that.partitioningHandle) &&
-                    Objects.equals(partitioningColumns, that.partitioningColumns);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(partitioningHandle, partitioningColumns, singleSplitPerPartition);
+            requireNonNull(partitioningHandle, "partitioningHandle is null");
+            partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
         }
     }
 }

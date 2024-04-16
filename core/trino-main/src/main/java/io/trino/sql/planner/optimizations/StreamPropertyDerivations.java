@@ -321,10 +321,10 @@ public final class StreamPropertyDerivations
                     .forEach(entry -> constants.add(entry.getKey()));
 
             Optional<Set<Symbol>> partitioningSymbols = layout.getTablePartitioning().flatMap(partitioning -> {
-                if (!partitioning.isSingleSplitPerPartition()) {
+                if (!partitioning.singleSplitPerPartition()) {
                     return Optional.empty();
                 }
-                Optional<Set<Symbol>> symbols = getNonConstantSymbols(partitioning.getPartitioningColumns(), assignments, constants);
+                Optional<Set<Symbol>> symbols = getNonConstantSymbols(partitioning.partitioningColumns(), assignments, constants);
                 // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
                 // the connector does not guarantee a single split in this case (since it might not understand
                 // that the value is a constant).
