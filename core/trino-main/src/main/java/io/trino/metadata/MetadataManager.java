@@ -2763,7 +2763,7 @@ public final class MetadataManager
     {
         Optional<ConnectorTableVersion> connectorVersion = Optional.empty();
         if (version.isPresent()) {
-            connectorVersion = Optional.of(new ConnectorTableVersion(version.get().getPointerType(), version.get().getObjectType(), version.get().getPointer()));
+            connectorVersion = Optional.of(new ConnectorTableVersion(version.get().pointerType(), version.get().objectType(), version.get().pointer()));
         }
         return connectorVersion;
     }

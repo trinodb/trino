@@ -5860,9 +5860,9 @@ class StatementAnalyzer
 
         private void validateVersionPointer(QueryPeriod queryPeriod, TableVersion extractedVersion)
         {
-            Type type = extractedVersion.getObjectType();
-            Object pointer = extractedVersion.getPointer();
-            if (extractedVersion.getPointerType() == PointerType.TEMPORAL) {
+            Type type = extractedVersion.objectType();
+            Object pointer = extractedVersion.pointer();
+            if (extractedVersion.pointerType() == PointerType.TEMPORAL) {
                 // Before checking if the connector supports the version type, verify that version is a valid time-based type
                 if (!(type instanceof TimestampWithTimeZoneType ||
                         type instanceof TimestampType ||
