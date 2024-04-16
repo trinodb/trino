@@ -217,7 +217,7 @@ public class TableCommentSystemTable
             }
         }
 
-        return new RelationComment(true, metadata.getTableMetadata(session, redirectionAware.tableHandle().get()).getMetadata().getComment());
+        return new RelationComment(true, metadata.getTableMetadata(session, redirectionAware.tableHandle().get()).metadata().getComment());
     }
 
     private record RelationComment(boolean found, Optional<String> comment)

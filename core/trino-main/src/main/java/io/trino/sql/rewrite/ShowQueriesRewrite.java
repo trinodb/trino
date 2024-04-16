@@ -688,7 +688,7 @@ public final class ShowQueriesRewrite
 
                 QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(objectName);
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetTableName);
-                ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle).getMetadata();
+                ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle).metadata();
 
                 Collection<PropertyMetadata<?>> allColumnProperties = columnPropertyManager.getAllProperties(tableHandle.getCatalogHandle());
 

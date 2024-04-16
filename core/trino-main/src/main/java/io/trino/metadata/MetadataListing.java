@@ -325,7 +325,7 @@ public final class MetadataListing
                         throw e;
                     }
 
-                    List<ColumnMetadata> columns = metadata.getTableMetadata(session, targetTableHandle).getColumns();
+                    List<ColumnMetadata> columns = metadata.getTableMetadata(session, targetTableHandle).columns();
 
                     Set<String> allowedColumns = accessControl.filterColumns(
                                     session.toSecurityContext(),

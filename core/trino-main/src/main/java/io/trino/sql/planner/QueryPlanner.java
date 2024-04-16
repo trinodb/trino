@@ -521,7 +521,7 @@ class QueryPlanner
         TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, handle);
         ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
         ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
-        tableMetadata.getMetadata().getColumns().stream()
+        tableMetadata.metadata().getColumns().stream()
                 .filter(column -> !column.isHidden())
                 .forEach(columnMetadata -> {
                     typeBuilder.add(columnMetadata.getType());
@@ -569,7 +569,7 @@ class QueryPlanner
                 new MergeTarget(
                         handle,
                         Optional.empty(),
-                        tableMetadata.getTable(),
+                        tableMetadata.table(),
                         paradigmAndTypes),
                 projectNode.getOutputSymbols(),
                 partitioningScheme,
