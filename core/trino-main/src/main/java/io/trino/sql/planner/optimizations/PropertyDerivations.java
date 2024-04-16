@@ -894,12 +894,12 @@ public final class PropertyDerivations
         {
             if (layout.getTablePartitioning().isPresent() && node.isUseConnectorNodePartitioning()) {
                 TablePartitioning tablePartitioning = layout.getTablePartitioning().get();
-                if (assignments.keySet().containsAll(tablePartitioning.getPartitioningColumns())) {
-                    List<Symbol> arguments = tablePartitioning.getPartitioningColumns().stream()
+                if (assignments.keySet().containsAll(tablePartitioning.partitioningColumns())) {
+                    List<Symbol> arguments = tablePartitioning.partitioningColumns().stream()
                             .map(assignments::get)
                             .collect(toImmutableList());
 
-                    return partitionedOn(tablePartitioning.getPartitioningHandle(), arguments);
+                    return partitionedOn(tablePartitioning.partitioningHandle(), arguments);
                 }
             }
             return arbitraryPartition();
