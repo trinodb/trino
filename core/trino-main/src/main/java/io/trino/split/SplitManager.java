@@ -112,18 +112,18 @@ public class SplitManager
 
     public SplitSource getSplits(Session session, Span parentSpan, TableFunctionHandle function)
     {
-        CatalogHandle catalogHandle = function.getCatalogHandle();
+        CatalogHandle catalogHandle = function.catalogHandle();
         ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogHandle);
 
         ConnectorSplitSource source;
         try (var ignore = scopedSpan(tracer.spanBuilder("SplitManager.getSplits")
                 .setParent(Context.current().with(parentSpan))
-                .setAttribute(TrinoAttributes.FUNCTION, function.getFunctionHandle().toString())
+                .setAttribute(TrinoAttributes.FUNCTION, function.functionHandle().toString())
                 .startSpan())) {
             source = splitManager.getSplits(
-                    function.getTransactionHandle(),
+                    function.transactionHandle(),
                     session.toConnectorSession(catalogHandle),
-                    function.getFunctionHandle());
+                    function.functionHandle());
         }
 
         SplitSource splitSource = new ConnectorAwareSplitSource(catalogHandle, source);
