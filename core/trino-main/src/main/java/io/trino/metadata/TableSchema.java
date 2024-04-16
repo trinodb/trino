@@ -23,46 +23,30 @@ import java.util.List;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.util.Objects.requireNonNull;
 
-public final class TableSchema
+public record TableSchema(CatalogName catalogName, ConnectorTableSchema tableSchema)
 {
-    private final CatalogName catalogName;
-    private final ConnectorTableSchema tableSchema;
-
-    public TableSchema(CatalogName catalogName, ConnectorTableSchema tableSchema)
+    public TableSchema
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(tableSchema, "metadata is null");
-
-        this.catalogName = catalogName;
-        this.tableSchema = tableSchema;
     }
 
-    public QualifiedObjectName getQualifiedName()
+    public QualifiedObjectName qualifiedName()
     {
         return new QualifiedObjectName(catalogName.toString(), tableSchema.getTable().getSchemaName(), tableSchema.getTable().getTableName());
     }
 
-    public CatalogName getCatalogName()
-    {
-        return catalogName;
-    }
-
-    public ConnectorTableSchema getTableSchema()
-    {
-        return tableSchema;
-    }
-
-    public SchemaTableName getTable()
+    public SchemaTableName table()
     {
         return tableSchema.getTable();
     }
 
-    public List<ColumnSchema> getColumns()
+    public List<ColumnSchema> columns()
     {
         return tableSchema.getColumns();
     }
 
-    public ColumnSchema getColumn(String name)
+    public ColumnSchema column(String name)
     {
         return tableSchema.getColumns().stream()
                 .filter(columnMetadata -> columnMetadata.getName().equals(name))
