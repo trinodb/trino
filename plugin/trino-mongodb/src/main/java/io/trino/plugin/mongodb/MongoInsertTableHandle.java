@@ -43,6 +43,6 @@ public record MongoInsertTableHandle(
     @JsonIgnore
     public Optional<RemoteTableName> getTemporaryRemoteTableName()
     {
-        return temporaryTableName.map(tableName -> new RemoteTableName(remoteTableName.getDatabaseName(), tableName));
+        return temporaryTableName.map(tableName -> new RemoteTableName(remoteTableName.databaseName(), tableName));
     }
 }
