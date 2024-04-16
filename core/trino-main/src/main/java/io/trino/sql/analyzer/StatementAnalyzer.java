@@ -590,10 +590,10 @@ class StatementAnalyzer
 
             TableSchema tableSchema = metadata.getTableSchema(session, targetTableHandle.get());
 
-            List<ColumnSchema> columns = tableSchema.getColumns().stream()
+            List<ColumnSchema> columns = tableSchema.columns().stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
-            List<String> checkConstraints = tableSchema.getTableSchema().getCheckConstraints();
+            List<String> checkConstraints = tableSchema.tableSchema().getCheckConstraints();
 
             for (ColumnSchema column : columns) {
                 if (accessControl.getColumnMask(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isPresent()) {
@@ -650,7 +650,7 @@ class StatementAnalyzer
                     newTableLayout));
 
             List<Type> tableTypes = insertColumns.stream()
-                    .map(insertColumn -> tableSchema.getColumn(insertColumn).getType())
+                    .map(insertColumn -> tableSchema.column(insertColumn).getType())
                     .collect(toImmutableList());
 
             List<Type> queryTypes = queryScope.getRelationType().getVisibleFields().stream()
@@ -831,7 +831,7 @@ class StatementAnalyzer
             accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
 
             TableSchema tableSchema = metadata.getTableSchema(session, handle);
-            for (ColumnSchema tableColumn : tableSchema.getColumns()) {
+            for (ColumnSchema tableColumn : tableSchema.columns()) {
                 if (accessControl.getColumnMask(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
                 }
@@ -852,7 +852,7 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), analysis.getScope(table).getRelationType())
                     .build();
             analyzeFiltersAndMasks(table, tableName, analysis.getScope(table).getRelationType(), accessControlScope);
-            analyzeCheckConstraints(table, tableName, accessControlScope, tableSchema.getTableSchema().getCheckConstraints());
+            analyzeCheckConstraints(table, tableName, accessControlScope, tableSchema.tableSchema().getCheckConstraints());
             analysis.registerTable(table, Optional.of(handle), tableName, session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
             createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of());
@@ -2644,7 +2644,7 @@ class StatementAnalyzer
         {
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
-            for (ColumnSchema column : tableSchema.getColumns()) {
+            for (ColumnSchema column : tableSchema.columns()) {
                 Field field = Field.newQualified(
                         table.getName(),
                         Optional.of(column.getName()),
@@ -3368,7 +3368,7 @@ class StatementAnalyzer
 
             TableSchema tableSchema = metadata.getTableSchema(session, handle);
 
-            List<ColumnSchema> allColumns = tableSchema.getColumns();
+            List<ColumnSchema> allColumns = tableSchema.columns();
             Map<String, ColumnSchema> columns = allColumns.stream()
                     .collect(toImmutableMap(ColumnSchema::getName, Function.identity()));
 
@@ -3413,7 +3413,7 @@ class StatementAnalyzer
 
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.UPDATE);
             update.getWhere().ifPresent(where -> analyzeWhere(update, tableScope, where));
-            analyzeCheckConstraints(table, tableName, tableScope, tableSchema.getTableSchema().getCheckConstraints());
+            analyzeCheckConstraints(table, tableName, tableScope, tableSchema.tableSchema().getCheckConstraints());
             analysis.registerTable(table, redirection.tableHandle(), tableName, session.getIdentity().getUser(), tableScope, Optional.empty());
 
             ImmutableList.Builder<ExpressionAnalysis> analysesBuilder = ImmutableList.builder();
@@ -3501,7 +3501,7 @@ class StatementAnalyzer
 
             TableSchema tableSchema = metadata.getTableSchema(session, targetTableHandle);
 
-            List<ColumnSchema> dataColumnSchemas = tableSchema.getColumns().stream()
+            List<ColumnSchema> dataColumnSchemas = tableSchema.columns().stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
 
@@ -3534,7 +3534,7 @@ class StatementAnalyzer
             Scope targetTableScope = analyzer.analyzeForUpdate(relation, Optional.of(mergeScope), UpdateKind.MERGE);
             Scope sourceTableScope = process(merge.getSource(), mergeScope);
             Scope joinScope = createAndAssignScope(merge, Optional.of(mergeScope), targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
-            analyzeCheckConstraints(table, tableName, targetTableScope, tableSchema.getTableSchema().getCheckConstraints());
+            analyzeCheckConstraints(table, tableName, targetTableScope, tableSchema.tableSchema().getCheckConstraints());
             analysis.registerTable(table, redirection.tableHandle(), tableName, session.getIdentity().getUser(), targetTableScope, Optional.empty());
 
             for (ColumnSchema column : dataColumnSchemas) {
@@ -3659,7 +3659,7 @@ class StatementAnalyzer
             }
             Map<ColumnHandle, Integer> columnHandleFieldNumbers = columnHandleFieldNumbersBuilder.buildOrThrow();
 
-            List<ColumnSchema> dataColumnSchemas = tableSchema.getColumns().stream()
+            List<ColumnSchema> dataColumnSchemas = tableSchema.columns().stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
             Optional<TableLayout> insertLayout = metadata.getInsertLayout(session, handle);
