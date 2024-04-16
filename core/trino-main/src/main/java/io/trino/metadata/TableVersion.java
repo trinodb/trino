@@ -16,31 +16,4 @@ package io.trino.metadata;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.type.Type;
 
-public class TableVersion
-{
-    private final PointerType pointerType;
-    private final Type objectType;
-    private final Object pointer;
-
-    public TableVersion(PointerType pointerType, Type objectType, Object pointer)
-    {
-        this.pointerType = pointerType;
-        this.objectType = objectType;
-        this.pointer = pointer;
-    }
-
-    public PointerType getPointerType()
-    {
-        return pointerType;
-    }
-
-    public Type getObjectType()
-    {
-        return objectType;
-    }
-
-    public Object getPointer()
-    {
-        return pointer;
-    }
-}
+public record TableVersion(PointerType pointerType, Type objectType, Object pointer) {}
