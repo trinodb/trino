@@ -446,6 +446,7 @@ public class HiveTableHandle
                 Objects.equals(tableName, that.tableName) &&
                 Objects.equals(tableParameters, that.tableParameters) &&
                 Objects.equals(partitionColumns, that.partitionColumns) &&
+                Objects.equals(dataColumns, that.dataColumns) &&
                 Objects.equals(partitionNames, that.partitionNames) &&
                 Objects.equals(partitions, that.partitions) &&
                 Objects.equals(compactEffectivePredicate, that.compactEffectivePredicate) &&
@@ -453,8 +454,11 @@ public class HiveTableHandle
                 Objects.equals(bucketHandle, that.bucketHandle) &&
                 Objects.equals(bucketFilter, that.bucketFilter) &&
                 Objects.equals(analyzePartitionValues, that.analyzePartitionValues) &&
+                Objects.equals(constraintColumns, that.constraintColumns) &&
                 Objects.equals(transaction, that.transaction) &&
-                Objects.equals(projectedColumns, that.projectedColumns);
+                Objects.equals(projectedColumns, that.projectedColumns) &&
+                recordScannedFiles == that.recordScannedFiles &&
+                Objects.equals(maxScannedFileSize, that.maxScannedFileSize);
     }
 
     @Override
@@ -465,6 +469,7 @@ public class HiveTableHandle
                 tableName,
                 tableParameters,
                 partitionColumns,
+                dataColumns,
                 partitionNames,
                 partitions,
                 compactEffectivePredicate,
@@ -472,8 +477,11 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
+                constraintColumns,
                 transaction,
-                projectedColumns);
+                projectedColumns,
+                recordScannedFiles,
+                maxScannedFileSize);
     }
 
     @Override
