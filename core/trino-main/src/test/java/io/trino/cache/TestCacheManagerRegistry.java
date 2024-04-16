@@ -138,6 +138,9 @@ public class TestCacheManagerRegistry
         @Override
         public long revokeMemory(long bytesToRevoke)
         {
+            if (this.bytesToRevoke.isPresent()) {
+                return 0L;
+            }
             this.bytesToRevoke = OptionalLong.of(bytesToRevoke);
             return bytesToRevoke;
         }

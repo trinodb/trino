@@ -250,18 +250,34 @@ public class CacheManagerRegistry
         }
         executor.submit(() -> {
             revokeRequested.set(false);
-            long bytesToRevoke = (long) (-memoryPool.getFreeBytes() + (memoryPool.getMaxBytes() * (1.0 - revokingTarget)));
-            if (bytesToRevoke > 0) {
-                long revokedBytes;
-                try (TimeStat.BlockTimer ignore = cacheStats.recordRevokeMemoryTime()) {
-                    revokedBytes = cacheManager.revokeMemory(bytesToRevoke);
-                }
-                if (revokedBytes > 0) {
-                    sizeOfRevokedMemoryDistribution.add(revokedBytes);
-                    nonEmptyRevokeCount.incrementAndGet();
+            do {
+                if (!revokeMemory()) {
+                    return;
                 }
             }
+            while (memoryRevokingNeeded(0));
         });
+    }
+
+    private boolean revokeMemory()
+    {
+        long bytesToRevoke = -memoryPool.getFreeBytes() + (long) (memoryPool.getMaxBytes() * (1.0 - revokingTarget));
+        if (bytesToRevoke <= 0) {
+            return false;
+        }
+
+        long revokedBytes;
+        try (TimeStat.BlockTimer ignore = cacheStats.recordRevokeMemoryTime()) {
+            revokedBytes = cacheManager.revokeMemory(bytesToRevoke);
+        }
+
+        if (revokedBytes > 0) {
+            sizeOfRevokedMemoryDistribution.add(revokedBytes);
+            nonEmptyRevokeCount.incrementAndGet();
+            return true;
+        }
+
+        return false;
     }
 
     private boolean memoryRevokingNeeded(long additionalRevocableBytes)
