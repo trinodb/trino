@@ -68,10 +68,10 @@ public final class TypeValidator
                 Aggregation aggregation = entry.getValue();
                 switch (step) {
                     case SINGLE -> {
-                        checkSignature(symbol, aggregation.getResolvedFunction().getSignature());
-                        checkCall(symbol, aggregation.getResolvedFunction().getSignature(), aggregation.getArguments());
+                        checkSignature(symbol, aggregation.getResolvedFunction().signature());
+                        checkCall(symbol, aggregation.getResolvedFunction().signature(), aggregation.getArguments());
                     }
-                    case FINAL -> checkSignature(symbol, aggregation.getResolvedFunction().getSignature());
+                    case FINAL -> checkSignature(symbol, aggregation.getResolvedFunction().signature());
                     case PARTIAL, INTERMEDIATE -> {
                         // TODO
                     }
@@ -130,8 +130,8 @@ public final class TypeValidator
         private void checkWindowFunctions(Map<Symbol, WindowNode.Function> functions)
         {
             functions.forEach((symbol, function) -> {
-                checkSignature(symbol, function.getResolvedFunction().getSignature());
-                checkCall(symbol, function.getResolvedFunction().getSignature(), function.getArguments());
+                checkSignature(symbol, function.getResolvedFunction().signature());
+                checkCall(symbol, function.getResolvedFunction().signature(), function.getArguments());
             });
         }
 

@@ -80,7 +80,7 @@ public final class CanonicalizeExpressionRewriter
         @Override
         public Expression rewriteCall(Call node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            CatalogSchemaFunctionName functionName = node.function().getName();
+            CatalogSchemaFunctionName functionName = node.function().name();
 
             if (functionName.equals(MULTIPLY_BUILTIN_FUNCTION) ||
                     functionName.equals(ADD_BUILTIN_FUNCTION)) {
@@ -92,8 +92,8 @@ public final class CanonicalizeExpressionRewriter
                             plannerContext.getMetadata().resolveOperator(
                                     getOperator(functionName),
                                     ImmutableList.of(
-                                            node.function().getSignature().getArgumentType(1),
-                                            node.function().getSignature().getArgumentType(0))),
+                                            node.function().signature().getArgumentType(1),
+                                            node.function().signature().getArgumentType(0))),
                             ImmutableList.of(right, left));
                 }
                 else {

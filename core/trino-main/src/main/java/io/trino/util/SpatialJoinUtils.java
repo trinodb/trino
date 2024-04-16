@@ -52,7 +52,7 @@ public final class SpatialJoinUtils
 
     private static boolean isSupportedSpatialFunction(Call call)
     {
-        CatalogSchemaFunctionName functionName = call.function().getName();
+        CatalogSchemaFunctionName functionName = call.function().name();
         return functionName.equals(builtinFunctionName(ST_CONTAINS)) ||
                 functionName.equals(builtinFunctionName(ST_WITHIN)) ||
                 functionName.equals(builtinFunctionName(ST_INTERSECTS));
@@ -96,7 +96,7 @@ public final class SpatialJoinUtils
     private static boolean isSTDistance(Expression expression)
     {
         if (expression instanceof Call call) {
-            return call.function().getName().equals(builtinFunctionName(ST_DISTANCE));
+            return call.function().name().equals(builtinFunctionName(ST_DISTANCE));
         }
 
         return false;

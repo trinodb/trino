@@ -86,8 +86,8 @@ public class WindowFilterPushDown
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
-            rowNumberFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("row_number", ImmutableList.of()).getFunctionId();
-            rankFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("rank", ImmutableList.of()).getFunctionId();
+            rowNumberFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("row_number", ImmutableList.of()).functionId();
+            rankFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("rank", ImmutableList.of()).functionId();
         }
 
         @Override
@@ -282,7 +282,7 @@ public class WindowFilterPushDown
                 return false;
             }
             Symbol rankingSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            FunctionId functionId = node.getWindowFunctions().get(rankingSymbol).getResolvedFunction().getFunctionId();
+            FunctionId functionId = node.getWindowFunctions().get(rankingSymbol).getResolvedFunction().functionId();
             return functionId.equals(rowNumberFunctionId) && node.getOrderingScheme().isEmpty();
         }
 
@@ -292,7 +292,7 @@ public class WindowFilterPushDown
                 return Optional.empty();
             }
             Symbol rankingSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            FunctionId functionId = node.getWindowFunctions().get(rankingSymbol).getResolvedFunction().getFunctionId();
+            FunctionId functionId = node.getWindowFunctions().get(rankingSymbol).getResolvedFunction().functionId();
             if (functionId.equals(rowNumberFunctionId)) {
                 return Optional.of(ROW_NUMBER);
             }

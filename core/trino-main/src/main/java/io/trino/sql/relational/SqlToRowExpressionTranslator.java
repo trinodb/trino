@@ -431,8 +431,8 @@ public final class SqlToRowExpressionTranslator
             ResolvedFunction resolvedFunction = metadata.resolveOperator(EQUAL, ImmutableList.of(first.getType(), second.getType()));
             List<ResolvedFunction> functionDependencies = ImmutableList.<ResolvedFunction>builder()
                     .add(resolvedFunction)
-                    .add(metadata.getCoercion(first.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
-                    .add(metadata.getCoercion(second.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
+                    .add(metadata.getCoercion(first.getType(), resolvedFunction.signature().getArgumentTypes().get(0)))
+                    .add(metadata.getCoercion(second.getType(), resolvedFunction.signature().getArgumentTypes().get(0)))
                     .build();
 
             return new SpecialForm(

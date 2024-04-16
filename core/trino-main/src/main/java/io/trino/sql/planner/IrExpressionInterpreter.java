@@ -596,7 +596,7 @@ public class IrExpressionInterpreter
         protected Expression visitCall(Call node, SymbolResolver context)
         {
             ResolvedFunction function = node.function();
-            if (function.getName().getFunctionName().equals(mangleOperatorName(NEGATION))) {
+            if (function.name().getFunctionName().equals(mangleOperatorName(NEGATION))) {
                 return processNegation(node, context);
             }
 
@@ -604,7 +604,7 @@ public class IrExpressionInterpreter
                     .map(argument -> processWithExceptionHandling(argument, context))
                     .toList();
 
-            FunctionNullability nullability = function.getFunctionNullability();
+            FunctionNullability nullability = function.functionNullability();
             for (int i = 0; i < arguments.size(); i++) {
                 Expression argument = arguments.get(i);
                 if (isConstantNull(argument) && !nullability.isArgumentNullable(i)) {
@@ -613,9 +613,9 @@ public class IrExpressionInterpreter
             }
 
             if ((evaluate ||
-                    function.isDeterministic() && // constant fold non-deterministic functions only in evaluation mode
+                    function.deterministic() && // constant fold non-deterministic functions only in evaluation mode
                             !isDynamicFilter(node) &&
-                            !function.getName().equals(FAIL_NAME) &&
+                            !function.name().equals(FAIL_NAME) &&
                             arguments.stream().allMatch(e -> e instanceof Constant || e instanceof Lambda && isDeterministic(e)))) {
                 List<Object> argumentValues = arguments.stream()
                         .map(argument -> switch (argument) {
@@ -678,7 +678,7 @@ public class IrExpressionInterpreter
 
             return switch (value) {
                 case Constant constant -> new Constant(negation.type(), functionInvoker.invoke(negation.function(), connectorSession, ImmutableList.of(constant.value())));
-                case Call inner when inner.function().getName().equals(builtinFunctionName(NEGATION)) -> inner.arguments().getFirst(); // double negation
+                case Call inner when inner.function().name().equals(builtinFunctionName(NEGATION)) -> inner.arguments().getFirst(); // double negation
                 case Expression inner -> new Call(negation.function(), ImmutableList.of(inner));
             };
         }

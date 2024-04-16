@@ -76,7 +76,7 @@ public final class SpecialForm
     {
         String mangleOperatorName = mangleOperatorName(operator);
         for (ResolvedFunction function : functionDependencies) {
-            if (function.getSignature().getName().getFunctionName().equalsIgnoreCase(mangleOperatorName)) {
+            if (function.signature().getName().getFunctionName().equalsIgnoreCase(mangleOperatorName)) {
                 return function;
             }
         }
@@ -90,7 +90,7 @@ public final class SpecialForm
         }
         BoundSignature boundSignature = new BoundSignature(builtinFunctionName(CAST), toType, ImmutableList.of(fromType));
         for (ResolvedFunction function : functionDependencies) {
-            if (function.getSignature().equals(boundSignature)) {
+            if (function.signature().equals(boundSignature)) {
                 return Optional.of(function);
             }
         }

@@ -1318,8 +1318,8 @@ public class TracingMetadata
     public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         Span span = startSpan("getAggregationFunctionMetadata")
-                .setAttribute(TrinoAttributes.CATALOG, resolvedFunction.getCatalogHandle().getCatalogName().toString())
-                .setAttribute(TrinoAttributes.FUNCTION, resolvedFunction.getSignature().getName().toString());
+                .setAttribute(TrinoAttributes.CATALOG, resolvedFunction.catalogHandle().getCatalogName().toString())
+                .setAttribute(TrinoAttributes.FUNCTION, resolvedFunction.signature().getName().toString());
         try (var ignored = scopedSpan(span)) {
             return delegate.getAggregationFunctionMetadata(session, resolvedFunction);
         }

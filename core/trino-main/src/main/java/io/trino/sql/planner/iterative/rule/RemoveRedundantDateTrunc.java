@@ -64,7 +64,7 @@ public class RemoveRedundantDateTrunc
         @Override
         public Expression rewriteCall(Call node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            CatalogSchemaFunctionName functionName = node.function().getName();
+            CatalogSchemaFunctionName functionName = node.function().name();
             if (functionName.equals(builtinFunctionName("date_trunc")) && node.arguments().size() == 2) {
                 Expression unitExpression = node.arguments().get(0);
                 Expression argument = node.arguments().get(1);

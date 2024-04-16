@@ -114,18 +114,18 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitCall(Call node, Void context)
         {
-            if (node.function().getName().equals(builtinFunctionName(NEGATION))) {
+            if (node.function().name().equals(builtinFunctionName(NEGATION))) {
                 SymbolStatsEstimate stats = process(node.arguments().getFirst());
                 return SymbolStatsEstimate.buildFrom(stats)
                         .setLowValue(-stats.getHighValue())
                         .setHighValue(-stats.getLowValue())
                         .build();
             }
-            else if (node.function().getName().equals(builtinFunctionName(ADD)) ||
-                    node.function().getName().equals(builtinFunctionName(SUBTRACT)) ||
-                    node.function().getName().equals(builtinFunctionName(MULTIPLY)) ||
-                    node.function().getName().equals(builtinFunctionName(DIVIDE)) ||
-                    node.function().getName().equals(builtinFunctionName(MODULUS))) {
+            else if (node.function().name().equals(builtinFunctionName(ADD)) ||
+                    node.function().name().equals(builtinFunctionName(SUBTRACT)) ||
+                    node.function().name().equals(builtinFunctionName(MULTIPLY)) ||
+                    node.function().name().equals(builtinFunctionName(DIVIDE)) ||
+                    node.function().name().equals(builtinFunctionName(MODULUS))) {
                 return processArithmetic(node);
             }
 
@@ -214,11 +214,11 @@ public class ScalarStatsCalculator
                 result.setLowValue(NaN)
                         .setHighValue(NaN);
             }
-            else if (node.function().getName().equals(builtinFunctionName(DIVIDE)) && rightLow < 0 && rightHigh > 0) {
+            else if (node.function().name().equals(builtinFunctionName(DIVIDE)) && rightLow < 0 && rightHigh > 0) {
                 result.setLowValue(Double.NEGATIVE_INFINITY)
                         .setHighValue(Double.POSITIVE_INFINITY);
             }
-            else if (node.function().getName().equals(builtinFunctionName(MODULUS))) {
+            else if (node.function().name().equals(builtinFunctionName(MODULUS))) {
                 double maxDivisor = max(abs(rightLow), abs(rightHigh));
                 if (leftHigh <= 0) {
                     result.setLowValue(max(-maxDivisor, leftLow))
@@ -234,10 +234,10 @@ public class ScalarStatsCalculator
                 }
             }
             else {
-                double v1 = operate(node.function().getName(), leftLow, rightLow);
-                double v2 = operate(node.function().getName(), leftLow, rightHigh);
-                double v3 = operate(node.function().getName(), leftHigh, rightLow);
-                double v4 = operate(node.function().getName(), leftHigh, rightHigh);
+                double v1 = operate(node.function().name(), leftLow, rightLow);
+                double v2 = operate(node.function().name(), leftLow, rightHigh);
+                double v3 = operate(node.function().name(), leftHigh, rightLow);
+                double v4 = operate(node.function().name(), leftHigh, rightHigh);
                 double lowValue = min(v1, v2, v3, v4);
                 double highValue = max(v1, v2, v3, v4);
 

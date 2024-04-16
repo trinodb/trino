@@ -151,7 +151,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveBuiltinFunction("abs", fromTypes(sourceType)).getSignature().getReturnType();
+                    resultType = metadata.resolveBuiltinFunction("abs", fromTypes(sourceType)).signature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path abs() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());
@@ -171,7 +171,7 @@ public class JsonPathAnalyzer
             if (leftType != null && rightType != null) {
                 BoundSignature signature;
                 try {
-                    signature = metadata.resolveOperator(OperatorType.valueOf(node.getOperator().name()), ImmutableList.of(leftType, rightType)).getSignature();
+                    signature = metadata.resolveOperator(OperatorType.valueOf(node.getOperator().name()), ImmutableList.of(leftType, rightType)).signature();
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "invalid operand types (%s and %s) in JSON path arithmetic binary expression: %s", leftType.getDisplayName(), rightType.getDisplayName(), e.getMessage());
@@ -198,7 +198,7 @@ public class JsonPathAnalyzer
                 }
                 Type resultType;
                 try {
-                    resultType = metadata.resolveOperator(NEGATION, ImmutableList.of(sourceType)).getSignature().getReturnType();
+                    resultType = metadata.resolveOperator(NEGATION, ImmutableList.of(sourceType)).signature().getReturnType();
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "invalid operand type (%s) in JSON path arithmetic unary expression: %s", sourceType.getDisplayName(), e.getMessage());
@@ -229,7 +229,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveBuiltinFunction("ceiling", fromTypes(sourceType)).getSignature().getReturnType();
+                    resultType = metadata.resolveBuiltinFunction("ceiling", fromTypes(sourceType)).signature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path ceiling() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());
@@ -309,7 +309,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveBuiltinFunction("floor", fromTypes(sourceType)).getSignature().getReturnType();
+                    resultType = metadata.resolveBuiltinFunction("floor", fromTypes(sourceType)).signature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path floor() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());

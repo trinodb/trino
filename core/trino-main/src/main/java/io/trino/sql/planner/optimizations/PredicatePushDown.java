@@ -1146,11 +1146,11 @@ public class PredicatePushDown
                     expression instanceof Constant ||
                     (expression instanceof Cast cast && isSimpleExpression(cast.expression(), allowArithmeticBinaryExpression)) ||
                     (allowArithmeticBinaryExpression && expression instanceof Call arithmeticExpression &&
-                            (arithmeticExpression.function().getName().equals(builtinFunctionName(ADD)) ||
-                                    arithmeticExpression.function().getName().equals(builtinFunctionName(SUBTRACT)) ||
-                                    arithmeticExpression.function().getName().equals(builtinFunctionName(MULTIPLY)) ||
-                                    arithmeticExpression.function().getName().equals(builtinFunctionName(DIVIDE)) ||
-                                    arithmeticExpression.function().getName().equals(builtinFunctionName(MODULUS))) &&
+                            (arithmeticExpression.function().name().equals(builtinFunctionName(ADD)) ||
+                                    arithmeticExpression.function().name().equals(builtinFunctionName(SUBTRACT)) ||
+                                    arithmeticExpression.function().name().equals(builtinFunctionName(MULTIPLY)) ||
+                                    arithmeticExpression.function().name().equals(builtinFunctionName(DIVIDE)) ||
+                                    arithmeticExpression.function().name().equals(builtinFunctionName(MODULUS))) &&
                             isSimpleExpression(arithmeticExpression.arguments().get(0), false) &&
                             isSimpleExpression(arithmeticExpression.arguments().get(1), false));
         }

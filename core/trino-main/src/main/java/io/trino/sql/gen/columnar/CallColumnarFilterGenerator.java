@@ -78,7 +78,7 @@ public class CallColumnarFilterGenerator
 
     public CallColumnarFilterGenerator(CallExpression callExpression, FunctionManager functionManager)
     {
-        callExpression.getResolvedFunction().getSignature().getArgumentTypes().forEach(type -> {
+        callExpression.getResolvedFunction().signature().getArgumentTypes().forEach(type -> {
             if (type instanceof FunctionType) {
                 throw new UnsupportedOperationException(format("Function with argument type %s is not supported", type));
             }
@@ -91,7 +91,7 @@ public class CallColumnarFilterGenerator
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(ColumnarFilter.class.getSimpleName() + callExpression.getResolvedFunction().getSignature().getName(), Optional.empty()),
+                makeClassName(ColumnarFilter.class.getSimpleName() + callExpression.getResolvedFunction().signature().getName(), Optional.empty()),
                 type(Object.class),
                 type(ColumnarFilter.class));
         CallSiteBinder callSiteBinder = new CallSiteBinder();
@@ -100,7 +100,7 @@ public class CallColumnarFilterGenerator
 
         generateGetInputChannels(callSiteBinder, classDefinition, callExpression);
 
-        FunctionNullability functionNullability = callExpression.getResolvedFunction().getFunctionNullability();
+        FunctionNullability functionNullability = callExpression.getResolvedFunction().functionNullability();
         if (functionNullability.getArgumentNullable().stream().noneMatch(nullable -> nullable)) {
             generateFilterRangeMethod(callSiteBinder, classDefinition, callExpression);
             generateFilterListMethod(callSiteBinder, classDefinition, callExpression);
@@ -393,7 +393,7 @@ public class CallColumnarFilterGenerator
     {
         List<RowExpression> arguments = callExpression.getArguments();
         ResolvedFunction resolvedFunction = callExpression.getResolvedFunction();
-        String functionName = resolvedFunction.getSignature().getName().getFunctionName();
+        String functionName = resolvedFunction.signature().getName().getFunctionName();
         BytecodeBlock block = new BytecodeBlock()
                 .setDescription("invoke " + functionName);
 

@@ -154,7 +154,7 @@ public class StatisticsAggregationPlanner
 
     private static ColumnStatisticsAggregation createAggregation(ResolvedFunction resolvedFunction, Symbol input, Type inputType)
     {
-        Type resolvedType = getOnlyElement(resolvedFunction.getSignature().getArgumentTypes());
+        Type resolvedType = getOnlyElement(resolvedFunction.signature().getArgumentTypes());
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
@@ -164,7 +164,7 @@ public class StatisticsAggregationPlanner
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()),
-                resolvedFunction.getSignature().getReturnType());
+                resolvedFunction.signature().getReturnType());
     }
 
     public static class TableStatisticAggregation

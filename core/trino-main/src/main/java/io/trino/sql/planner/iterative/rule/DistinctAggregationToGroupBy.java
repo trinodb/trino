@@ -286,7 +286,7 @@ public class DistinctAggregationToGroupBy
                             functionResolver.resolveFunction(
                                     context.getSession(),
                                     QualifiedName.of("arbitrary"),
-                                    fromTypes(originalAggregation.getResolvedFunction().getSignature().getReturnType()),
+                                    fromTypes(originalAggregation.getResolvedFunction().signature().getReturnType()),
                                     new AllowAllAccessControl()),
                             ImmutableList.of(innerAggregationOutputSymbol.toSymbolReference()),
                             false,
@@ -295,7 +295,7 @@ public class DistinctAggregationToGroupBy
                             Optional.empty());
                     Symbol outerAggregationOutputSymbol = origalAggregationOutputSymbol;
                     // handle 0 on empty input aggregations
-                    CatalogSchemaFunctionName name = originalAggregation.getResolvedFunction().getSignature().getName();
+                    CatalogSchemaFunctionName name = originalAggregation.getResolvedFunction().signature().getName();
                     if (name.equals(COUNT_NAME) || name.equals(COUNT_IF_NAME) || name.equals(APPROX_DISTINCT_NAME)) {
                         Symbol coalesceSymbol = symbolAllocator.newSymbol("coalesce_expr", origalAggregationOutputSymbol.type());
                         outerAggregationOutputSymbol = coalesceSymbol;

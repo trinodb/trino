@@ -93,6 +93,6 @@ public interface ExpressionEvaluator
 
     static boolean isNotExpression(CallExpression callExpression)
     {
-        return callExpression.getResolvedFunction().getName().getFunctionName().equals("not");
+        return callExpression.getResolvedFunction().name().getFunctionName().equals("not");
     }
 }

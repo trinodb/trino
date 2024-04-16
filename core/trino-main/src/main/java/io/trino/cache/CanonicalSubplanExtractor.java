@@ -180,7 +180,7 @@ public final class CanonicalSubplanExtractor
                             && !aggregation.isDistinct()
                             && aggregation.getFilter().isEmpty()
                             && aggregation.getOrderingScheme().isEmpty()
-                            && aggregation.getResolvedFunction().isDeterministic());
+                            && aggregation.getResolvedFunction().deterministic());
 
             if (!allSupportedAggregations) {
                 canonicalizeRecursively(source);

@@ -170,8 +170,8 @@ public class TestingFunctionResolution
         return inTransaction(session -> {
             ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, parameterTypes);
             return new TestingAggregationFunction(
-                    resolvedFunction.getSignature(),
-                    resolvedFunction.getFunctionNullability(),
+                    resolvedFunction.signature(),
+                    resolvedFunction.functionNullability(),
                     plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction));
         });
     }

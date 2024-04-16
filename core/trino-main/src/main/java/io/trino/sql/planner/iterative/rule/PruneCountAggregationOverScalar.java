@@ -60,13 +60,13 @@ public class PruneCountAggregationOverScalar
         if (!parent.hasDefaultOutput() || parent.getOutputSymbols().size() != 1) {
             return Result.empty();
         }
-        FunctionId countFunctionId = metadata.resolveBuiltinFunction("count", ImmutableList.of()).getFunctionId();
+        FunctionId countFunctionId = metadata.resolveBuiltinFunction("count", ImmutableList.of()).functionId();
         Map<Symbol, AggregationNode.Aggregation> assignments = parent.getAggregations();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             requireNonNull(aggregation, "aggregation is null");
             ResolvedFunction resolvedFunction = aggregation.getResolvedFunction();
-            if (!countFunctionId.equals(resolvedFunction.getFunctionId())) {
+            if (!countFunctionId.equals(resolvedFunction.functionId())) {
                 return Result.empty();
             }
         }
