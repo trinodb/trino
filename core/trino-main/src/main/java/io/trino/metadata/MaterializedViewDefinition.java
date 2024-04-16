@@ -68,7 +68,7 @@ public class MaterializedViewDefinition
                 getCatalog(),
                 getSchema(),
                 getColumns().stream()
-                        .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType(), column.getComment()))
+                        .map(column -> new ConnectorMaterializedViewDefinition.Column(column.name(), column.type(), column.comment()))
                         .collect(toImmutableList()),
                 getGracePeriod(),
                 getComment(),

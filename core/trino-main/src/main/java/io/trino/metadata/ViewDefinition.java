@@ -102,7 +102,7 @@ public class ViewDefinition
                 catalog,
                 schema,
                 columns.stream()
-                        .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), column.getType(), column.getComment()))
+                        .map(column -> new ConnectorViewDefinition.ViewColumn(column.name(), column.type(), column.comment()))
                         .collect(toImmutableList()),
                 comment,
                 runAsIdentity.map(Identity::getUser),
