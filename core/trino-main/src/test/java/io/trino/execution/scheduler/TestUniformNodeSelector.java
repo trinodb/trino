@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import io.airlift.testing.TestingTicker;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
@@ -43,9 +42,9 @@ import org.junit.jupiter.api.TestInstance;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -66,7 +65,7 @@ public class TestUniformNodeSelector
 {
     private static final InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false);
     private static final InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
-    private final Set<Split> splits = new LinkedHashSet<>();
+    private final List<Split> splits = new ArrayList<>();
     private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;
@@ -154,7 +153,7 @@ public class TestUniformNodeSelector
             nodeTaskMap.addTask(node, remoteTask);
             taskMap.put(node, remoteTask);
         }
-        Set<Split> unassignedSplits = Sets.difference(splits, new HashSet<>(assignments1.values()));
+        List<Split> unassignedSplits = difference(splits, ImmutableList.copyOf(assignments1.values()));
         assertThat(unassignedSplits.size()).isEqualTo(18);
         // It's possible to add new assignments because split queue was upscaled
         Multimap<InternalNode, Split> assignments2 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
@@ -202,7 +201,7 @@ public class TestUniformNodeSelector
             nodeTaskMap.addTask(node, remoteTask);
             taskMap.put(node, remoteTask);
         }
-        Set<Split> unassignedSplits = Sets.difference(splits, new HashSet<>(assignments1.values()));
+        List<Split> unassignedSplits = difference(splits, ImmutableList.copyOf(assignments1.values()));
         assertThat(unassignedSplits.size()).isEqualTo(140);
 
         // assign splits, mark all splits running to trigger adjustment
@@ -214,7 +213,7 @@ public class TestUniformNodeSelector
                     .build());
             remoteTask.startSplits(remoteTask.getPartitionedSplitsInfo().getCount()); // mark all task running
         }
-        unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments2.values()));
+        unassignedSplits = difference(unassignedSplits, ImmutableList.copyOf(assignments2.values()));
         assertThat(unassignedSplits.size()).isEqualTo(100); // 140 (unassigned splits) - (2 (queue size adjustment) * 10 (minPendingSplitsPerTask)) * 2 (nodes)
 
         // assign splits without setting all splits running
@@ -225,12 +224,12 @@ public class TestUniformNodeSelector
                     .putAll(new PlanNodeId("sourceId"), assignments3.get(node))
                     .build());
         }
-        unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments3.values()));
+        unassignedSplits = difference(unassignedSplits, ImmutableList.copyOf(assignments3.values()));
         assertThat(unassignedSplits.size()).isEqualTo(20); // 100 (unassigned splits) - (4 (queue size adjustment) * 10 (minPendingSplitsPerTask)) * 2 (nodes)
 
         // compute assignments with exhausted nodes
         Multimap<InternalNode, Split> assignments4 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
-        unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments4.values()));
+        unassignedSplits = difference(unassignedSplits, ImmutableList.copyOf(assignments4.values()));
         assertThat(unassignedSplits.size()).isEqualTo(20); // no new split assignments, queued are more than 0
     }
 
@@ -256,7 +255,7 @@ public class TestUniformNodeSelector
             nodeTaskMap.addTask(node, remoteTask);
             taskMap.put(node, remoteTask);
         }
-        Set<Split> unassignedSplits = Sets.difference(splits, new HashSet<>(assignments1.values()));
+        List<Split> unassignedSplits = difference(splits, ImmutableList.copyOf(assignments1.values()));
         assertThat(unassignedSplits.size()).isEqualTo(140);
 
         // assign splits, mark all splits for node1 running to trigger adjustment
@@ -270,7 +269,7 @@ public class TestUniformNodeSelector
                 remoteTask.startSplits(remoteTask.getPartitionedSplitsInfo().getCount());
             }
         }
-        unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments2.values()));
+        unassignedSplits = difference(unassignedSplits, ImmutableList.copyOf(assignments2.values()));
         assertThat(unassignedSplits.size()).isEqualTo(120);
         assertThat(assignments2.get(node1).size()).isEqualTo(20); // 2x max pending
         assertThat(assignments2.containsKey(node2)).isFalse();
@@ -286,7 +285,7 @@ public class TestUniformNodeSelector
                 remoteTask.startSplits(remoteTask.getPartitionedSplitsInfo().getCount());
             }
         }
-        unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments3.values()));
+        unassignedSplits = difference(unassignedSplits, ImmutableList.copyOf(assignments3.values()));
         assertThat(unassignedSplits.size()).isEqualTo(80);
         assertThat(assignments3.get(node1).size()).isEqualTo(40); // 4x max pending
         assertThat(assignments2.containsKey(node2)).isFalse();
@@ -313,5 +312,12 @@ public class TestUniformNodeSelector
         }
 
         return new NodeMap(byHostAndPort.build(), byHost.build(), ImmutableSetMultimap.of(), coordinatorNodeIds);
+    }
+
+    private static <T> List<T> difference(List<T> left, List<T> right)
+    {
+        List<T> retVal = new ArrayList<>(left);
+        retVal.removeAll(right);
+        return retVal;
     }
 }

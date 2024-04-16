@@ -59,12 +59,10 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -101,7 +99,7 @@ public class BenchmarkNodeScheduler
         List<RemoteTask> remoteTasks = ImmutableList.copyOf(data.getTaskMap().values());
         Iterator<MockRemoteTaskFactory.MockRemoteTask> finishingTask = Iterators.cycle(data.getTaskMap().values());
         Iterator<Split> splits = data.getSplits().iterator();
-        Set<Split> batch = new HashSet<>();
+        List<Split> batch = new ArrayList<>();
         while (splits.hasNext() || !batch.isEmpty()) {
             Multimap<InternalNode, Split> assignments = data.getNodeSelector().computeAssignments(batch, remoteTasks).getAssignments();
             for (InternalNode node : assignments.keySet()) {

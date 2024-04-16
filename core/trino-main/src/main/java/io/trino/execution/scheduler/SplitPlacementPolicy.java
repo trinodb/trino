@@ -17,11 +17,10 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 
 import java.util.List;
-import java.util.Set;
 
 public interface SplitPlacementPolicy
 {
-    SplitPlacementResult computeAssignments(Set<Split> splits);
+    SplitPlacementResult computeAssignments(List<Split> splits);
 
     void lockDownNodes();
 
