@@ -145,8 +145,8 @@ public class CounterBasedAnonymizer
     public String anonymize(IndexHandle indexHandle)
     {
         return formatMap(ImmutableMap.of(
-                "catalog", anonymize(indexHandle.getCatalogHandle().getCatalogName().toString(), ObjectType.CATALOG),
-                "connectorHandleType", indexHandle.getConnectorHandle().getClass().getSimpleName()));
+                "catalog", anonymize(indexHandle.catalogHandle().getCatalogName().toString(), ObjectType.CATALOG),
+                "connectorHandleType", indexHandle.connectorHandle().getClass().getSimpleName()));
     }
 
     @Override
