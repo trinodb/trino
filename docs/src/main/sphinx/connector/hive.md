@@ -195,8 +195,10 @@ Hive connector documentation.
   - JVM default
 * - `hive.timestamp-precision`
   - Specifies the precision to use for Hive columns of type `TIMESTAMP`.
-    Possible values are `MILLISECONDS`, `MICROSECONDS` and `NANOSECONDS`. Values
-    with higher precision than configured are rounded.
+    Possible values are `MILLISECONDS`, `MICROSECONDS` and `NANOSECONDS`. 
+    Values with higher precision than configured are rounded. The equivalent
+    [catalog session property](/sql/set-session) is `timestamp_precision` for
+    session specific use.
   - `MILLISECONDS`
 * - `hive.temporary-staging-directory-enabled`
   - Controls whether the temporary staging directory configured at
