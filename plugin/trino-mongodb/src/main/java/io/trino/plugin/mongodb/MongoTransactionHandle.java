@@ -13,62 +13,22 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
-import java.util.Objects;
 import java.util.UUID;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class MongoTransactionHandle
+public record MongoTransactionHandle(UUID uuid)
         implements ConnectorTransactionHandle
 {
-    private final UUID uuid;
-
     public MongoTransactionHandle()
     {
         this(UUID.randomUUID());
     }
 
-    @JsonCreator
-    public MongoTransactionHandle(@JsonProperty("uuid") UUID uuid)
+    public MongoTransactionHandle
     {
-        this.uuid = requireNonNull(uuid, "uuid is null");
-    }
-
-    @JsonProperty
-    public UUID getUuid()
-    {
-        return uuid;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        MongoTransactionHandle other = (MongoTransactionHandle) obj;
-        return Objects.equals(uuid, other.uuid);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(uuid);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("uuid", uuid)
-                .toString();
+        requireNonNull(uuid, "uuid is null");
     }
 }
