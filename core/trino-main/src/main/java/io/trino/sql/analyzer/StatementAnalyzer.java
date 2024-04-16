@@ -1665,8 +1665,8 @@ class StatementAnalyzer
             TableFunctionMetadata tableFunctionMetadata = resolveTableFunction(node)
                     .orElseThrow(() -> semanticException(FUNCTION_NOT_FOUND, node, "Table function '%s' not registered", node.getName()));
 
-            ConnectorTableFunction function = tableFunctionMetadata.getFunction();
-            CatalogHandle catalogHandle = tableFunctionMetadata.getCatalogHandle();
+            ConnectorTableFunction function = tableFunctionMetadata.function();
+            CatalogHandle catalogHandle = tableFunctionMetadata.catalogHandle();
 
             Node errorLocation = node;
             if (!node.getArguments().isEmpty()) {
