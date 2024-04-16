@@ -49,11 +49,11 @@ public class TestDropColumnTask
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("a", BIGINT), new ColumnMetadata("b", BIGINT));
 
         getFutureValue(executeDropColumn(asQualifiedName(tableName), QualifiedName.of("b"), false, false));
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("a", BIGINT));
     }
 
@@ -63,7 +63,7 @@ public class TestDropColumnTask
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("test", BIGINT));
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropColumn(asQualifiedName(tableName), QualifiedName.of("test"), false, false)))
@@ -109,7 +109,7 @@ public class TestDropColumnTask
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
 
         getFutureValue(executeDropColumn(asQualifiedName(tableName), QualifiedName.of("c"), false, true));
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("a", BIGINT), new ColumnMetadata("b", BIGINT));
     }
 
@@ -119,7 +119,7 @@ public class TestDropColumnTask
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new Field(Optional.of("a"), BIGINT), new Field(Optional.of("a"), BIGINT)), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .isEqualTo(ImmutableList.of(new ColumnMetadata("col", RowType.rowType(
                         new Field(Optional.of("a"), BIGINT), new Field(Optional.of("a"), BIGINT)))));
 
@@ -134,7 +134,7 @@ public class TestDropColumnTask
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new Field(Optional.of("a"), BIGINT)), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("col", RowType.rowType(new Field(Optional.of("a"), BIGINT))));
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropColumn(asQualifiedName(tableName), QualifiedName.of("col", "a"), false, false)))

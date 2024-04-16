@@ -721,7 +721,7 @@ class StatementAnalyzer
             analysis.setSkipMaterializedViewRefresh(metadata.getMaterializedViewFreshness(session, name).getFreshness() == FRESH);
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle);
-            List<String> insertColumns = tableMetadata.getColumns().stream()
+            List<String> insertColumns = tableMetadata.columns().stream()
                     .filter(column -> !column.isHidden())
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
@@ -734,7 +734,7 @@ class StatementAnalyzer
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
             List<Type> tableTypes = insertColumns.stream()
-                    .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
+                    .map(insertColumn -> tableMetadata.column(insertColumn).getType())
                     .collect(toImmutableList());
 
             Stream<Column> columns = Streams.zip(
@@ -1257,7 +1257,7 @@ class StatementAnalyzer
             }
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
+            for (ColumnMetadata tableColumn : tableMetadata.columns()) {
                 if (accessControl.getColumnMask(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with column masks");
                 }
@@ -3682,7 +3682,7 @@ class StatementAnalyzer
                     .map(fieldIndexes::get)
                     .collect(toImmutableList());
 
-            Set<ColumnHandle> nonNullableColumnHandles = metadata.getTableMetadata(session, handle).getColumns().stream()
+            Set<ColumnHandle> nonNullableColumnHandles = metadata.getTableMetadata(session, handle).columns().stream()
                     .filter(column -> !column.isNullable())
                     .map(ColumnMetadata::getName)
                     .map(allColumnHandles::get)
