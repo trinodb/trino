@@ -203,13 +203,16 @@ public class TestOAuth2WebUiAuthenticationFilterWithRefreshTokens
 
     protected void assertTokenIsExpired(String claimsJws)
     {
-        assertThatThrownBy(() -> newJwtParserBuilder()
-                .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
-                        URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
-                        new JettyHttpClient(new HttpClientConfig()
-                                .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath())))))
-                .build()
-                .parseClaimsJws(claimsJws));
+        HttpClientConfig httpClientConfig = new HttpClientConfig()
+                .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath());
+        try (JettyHttpClient httpClient = new JettyHttpClient(httpClientConfig)) {
+            assertThatThrownBy(() -> newJwtParserBuilder()
+                    .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
+                            URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
+                            httpClient)))
+                    .build()
+                    .parseClaimsJws(claimsJws));
+        }
     }
 
     private void accessUi(OkHttpClient httpClient)
