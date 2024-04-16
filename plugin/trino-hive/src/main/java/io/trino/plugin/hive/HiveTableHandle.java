@@ -53,8 +53,8 @@ public class HiveTableHandle
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<List<String>>> analyzePartitionValues;
-    private final Set<ColumnHandle> constraintColumns;
-    private final Set<ColumnHandle> projectedColumns;
+    private final Set<HiveColumnHandle> constraintColumns;
+    private final Set<HiveColumnHandle> projectedColumns;
     private final AcidTransaction transaction;
     private final boolean recordScannedFiles;
     private final Optional<Long> maxScannedFileSize;
@@ -131,7 +131,7 @@ public class HiveTableHandle
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
             Optional<List<List<String>>> analyzePartitionValues,
-            Set<ColumnHandle> constraintColumns,
+            Set<HiveColumnHandle> constraintColumns,
             AcidTransaction transaction,
             boolean recordScannedFiles,
             Optional<Long> maxSplitFileSize)
@@ -150,7 +150,7 @@ public class HiveTableHandle
                 bucketFilter,
                 analyzePartitionValues,
                 constraintColumns,
-                ImmutableSet.<ColumnHandle>builder().addAll(partitionColumns).addAll(dataColumns).build(),
+                ImmutableSet.<HiveColumnHandle>builder().addAll(partitionColumns).addAll(dataColumns).build(),
                 transaction,
                 recordScannedFiles,
                 maxSplitFileSize);
@@ -169,8 +169,8 @@ public class HiveTableHandle
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
             Optional<List<List<String>>> analyzePartitionValues,
-            Set<ColumnHandle> constraintColumns,
-            Set<ColumnHandle> projectedColumns,
+            Set<HiveColumnHandle> constraintColumns,
+            Set<HiveColumnHandle> projectedColumns,
             AcidTransaction transaction,
             boolean recordScannedFiles,
             Optional<Long> maxSplitFileSize)
@@ -239,7 +239,7 @@ public class HiveTableHandle
                 maxScannedFileSize);
     }
 
-    public HiveTableHandle withProjectedColumns(Set<ColumnHandle> projectedColumns)
+    public HiveTableHandle withProjectedColumns(Set<HiveColumnHandle> projectedColumns)
     {
         return new HiveTableHandle(
                 schemaName,
@@ -397,14 +397,14 @@ public class HiveTableHandle
 
     // do not serialize constraint columns as they are not needed on workers
     @JsonIgnore
-    public Set<ColumnHandle> getConstraintColumns()
+    public Set<HiveColumnHandle> getConstraintColumns()
     {
         return constraintColumns;
     }
 
     // do not serialize projected columns as they are not needed on workers
     @JsonIgnore
-    public Set<ColumnHandle> getProjectedColumns()
+    public Set<HiveColumnHandle> getProjectedColumns()
     {
         return projectedColumns;
     }

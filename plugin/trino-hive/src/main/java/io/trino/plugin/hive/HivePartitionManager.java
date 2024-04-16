@@ -17,7 +17,6 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
@@ -169,7 +168,12 @@ public class HivePartitionManager
                 partitions.getBucketHandle(),
                 partitions.getBucketFilter(),
                 handle.getAnalyzePartitionValues(),
-                Sets.union(handle.getConstraintColumns(), constraint.getPredicateColumns().orElseGet(ImmutableSet::of)),
+                ImmutableSet.<HiveColumnHandle>builder()
+                        .addAll(handle.getConstraintColumns())
+                        .addAll(constraint.getPredicateColumns().orElseGet(ImmutableSet::of).stream()
+                                .map(HiveColumnHandle.class::cast)
+                                .collect(toImmutableList()))
+                        .build(),
                 handle.getProjectedColumns(),
                 handle.getTransaction(),
                 handle.isRecordScannedFiles(),
