@@ -481,6 +481,12 @@ public class HiveTableHandle
     {
         StringBuilder builder = new StringBuilder();
         builder.append(schemaName).append(":").append(tableName);
+        if (!constraintColumns.isEmpty()) {
+            builder.append(" constraint on ");
+            builder.append(constraintColumns.stream()
+                    .map(HiveColumnHandle::getName)
+                    .collect(joining(", ", "[", "]")));
+        }
         bucketHandle.ifPresent(bucket -> {
             builder.append(" buckets=").append(bucket.getReadBucketCount());
             if (!bucket.getSortedBy().isEmpty()) {
