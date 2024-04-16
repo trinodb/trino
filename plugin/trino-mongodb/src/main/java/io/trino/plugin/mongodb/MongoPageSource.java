@@ -108,7 +108,7 @@ public class MongoPageSource
             List<MongoColumnHandle> columns)
     {
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.columnTypes = columns.stream().map(MongoColumnHandle::getType).collect(toList());
+        this.columnTypes = columns.stream().map(MongoColumnHandle::type).collect(toList());
         this.cursor = mongoSession.execute(tableHandle, columns);
         currentDoc = null;
 
@@ -381,7 +381,7 @@ public class MongoPageSource
 
     private static Object getColumnValue(Document document, MongoColumnHandle mongoColumnHandle)
     {
-        Object value = document.get(mongoColumnHandle.getBaseName());
+        Object value = document.get(mongoColumnHandle.baseName());
         if (mongoColumnHandle.isBaseColumn()) {
             return value;
         }
@@ -389,7 +389,7 @@ public class MongoPageSource
             return getDbRefValue(dbRefValue, mongoColumnHandle);
         }
         Document documentValue = (Document) value;
-        for (String dereferenceName : mongoColumnHandle.getDereferenceNames()) {
+        for (String dereferenceName : mongoColumnHandle.dereferenceNames()) {
             // When parent field itself is null
             if (documentValue == null) {
                 return null;
@@ -408,11 +408,11 @@ public class MongoPageSource
 
     private static Object getDbRefValue(DBRef dbRefValue, MongoColumnHandle columnHandle)
     {
-        if (columnHandle.getType() instanceof RowType) {
+        if (columnHandle.type() instanceof RowType) {
             return dbRefValue;
         }
-        checkArgument(columnHandle.isDbRefField(), "columnHandle is not a dbRef field: %s", columnHandle);
-        List<String> dereferenceNames = columnHandle.getDereferenceNames();
+        checkArgument(columnHandle.dbRefField(), "columnHandle is not a dbRef field: %s", columnHandle);
+        List<String> dereferenceNames = columnHandle.dereferenceNames();
         checkState(!dereferenceNames.isEmpty(), "dereferenceNames is empty");
         String leafColumnName = dereferenceNames.getLast();
         return switch (leafColumnName) {

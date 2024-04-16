@@ -167,7 +167,7 @@ public class MongoSession
             .buildOrThrow();
 
     private static final Ordering<MongoColumnHandle> COLUMN_HANDLE_ORDERING = Ordering
-            .from(Comparator.comparingInt(columnHandle -> columnHandle.getDereferenceNames().size()));
+            .from(Comparator.comparingInt(columnHandle -> columnHandle.dereferenceNames().size()));
 
     private final TypeManager typeManager;
     private final MongoClient client;
@@ -567,12 +567,12 @@ public class MongoSession
     private static boolean parentColumnExists(List<MongoColumnHandle> existingColumns, MongoColumnHandle column)
     {
         for (MongoColumnHandle existingColumn : existingColumns) {
-            List<String> existingColumnDereferenceNames = existingColumn.getDereferenceNames();
+            List<String> existingColumnDereferenceNames = existingColumn.dereferenceNames();
             verify(
-                    column.getDereferenceNames().size() >= existingColumnDereferenceNames.size(),
+                    column.dereferenceNames().size() >= existingColumnDereferenceNames.size(),
                     "Selected column's dereference size must be greater than or equal to the existing column's dereference size");
-            if (existingColumn.getBaseName().equals(column.getBaseName())
-                    && column.getDereferenceNames().subList(0, existingColumnDereferenceNames.size()).equals(existingColumnDereferenceNames)) {
+            if (existingColumn.baseName().equals(column.baseName())
+                    && column.dereferenceNames().subList(0, existingColumnDereferenceNames.size()).equals(existingColumnDereferenceNames)) {
                 return true;
             }
         }
@@ -607,7 +607,7 @@ public class MongoSession
     private static Optional<Document> buildPredicate(MongoColumnHandle column, Domain domain)
     {
         String name = column.getQualifiedName();
-        Type type = column.getType();
+        Type type = column.type();
         if (domain.getValues().isNone() && domain.isNullAllowed()) {
             return Optional.of(documentOf(name, isNullPredicate()));
         }
@@ -841,7 +841,7 @@ public class MongoSession
         Document metadata = new Document(TABLE_NAME_KEY, remoteTableName);
 
         ArrayList<Document> fields = new ArrayList<>();
-        if (!columns.stream().anyMatch(c -> c.getBaseName().equals("_id"))) {
+        if (!columns.stream().anyMatch(c -> c.baseName().equals("_id"))) {
             fields.add(new MongoColumnHandle("_id", ImmutableList.of(), OBJECT_ID, true, false, Optional.empty()).getDocument());
         }
 

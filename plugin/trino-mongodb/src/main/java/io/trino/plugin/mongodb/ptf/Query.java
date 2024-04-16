@@ -141,7 +141,7 @@ public class Query
 
             Descriptor returnedType = new Descriptor(columns.stream()
                     .map(MongoColumnHandle.class::cast)
-                    .map(column -> new Descriptor.Field(column.getBaseName(), Optional.of(column.getType())))
+                    .map(column -> new Descriptor.Field(column.baseName(), Optional.of(column.type())))
                     .collect(toImmutableList()));
 
             QueryFunctionHandle handle = new QueryFunctionHandle(tableHandle);

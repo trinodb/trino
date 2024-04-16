@@ -309,11 +309,11 @@ public class TestMongoProjectionPushdownPlans
             Type type)
     {
         return new MongoColumnHandle(
-                baseColumnHandle.getBaseName(),
+                baseColumnHandle.baseName(),
                 dereferenceNames,
                 type,
-                baseColumnHandle.isHidden(),
-                baseColumnHandle.isDbRefField(),
-                baseColumnHandle.getComment());
+                baseColumnHandle.hidden(),
+                baseColumnHandle.dbRefField(),
+                baseColumnHandle.comment());
     }
 }
