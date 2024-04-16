@@ -229,7 +229,7 @@ public class CounterBasedAnonymizer
     private String anonymize(InsertTarget target)
     {
         return anonymize(
-                target.getHandle().getCatalogHandle().getCatalogName().toString(),
+                target.getHandle().catalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }
@@ -245,7 +245,7 @@ public class CounterBasedAnonymizer
     private String anonymize(RefreshMaterializedViewTarget target)
     {
         return anonymize(
-                target.getInsertHandle().getCatalogHandle().getCatalogName().toString(),
+                target.getInsertHandle().catalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }

@@ -699,7 +699,7 @@ public class IoPlanPrinter
             }
             else if (writerTarget instanceof InsertTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandle().getCatalogHandle().getCatalogName().toString(),
+                        target.getHandle().catalogHandle().getCatalogName().toString(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
@@ -711,7 +711,7 @@ public class IoPlanPrinter
             }
             else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
-                        target.getInsertHandle().getCatalogHandle().getCatalogName().toString(),
+                        target.getInsertHandle().catalogHandle().getCatalogName().toString(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
