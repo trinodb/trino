@@ -3799,7 +3799,7 @@ public abstract class BaseIcebergConnectorTest
                 // Unenforced predicate is simplified during split generation, but not reflected here
                 ImmutableMap.of("col1", multipleValues(BIGINT, values)));
 
-        assertUpdate("DROP TABLE " + tableName.getObjectName());
+        assertUpdate("DROP TABLE " + tableName.objectName());
     }
 
     @Test

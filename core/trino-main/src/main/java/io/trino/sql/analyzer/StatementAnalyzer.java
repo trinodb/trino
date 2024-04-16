@@ -693,7 +693,7 @@ class StatementAnalyzer
             accessControl.checkCanRefreshMaterializedView(session.toSecurityContext(), name);
             analysis.setUpdateType("REFRESH MATERIALIZED VIEW");
 
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, refreshMaterializedView, name.getCatalogName());
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, refreshMaterializedView, name.catalogName());
             if (metadata.delegateMaterializedViewRefreshToConnector(session, name)) {
                 analysis.setDelegatedRefreshMaterializedView(name);
                 analysis.setUpdateTarget(
@@ -874,7 +874,7 @@ class StatementAnalyzer
             analysis.setUpdateTarget(tableHandle.getCatalogHandle().getVersion(), tableName, Optional.empty(), Optional.empty());
 
             validateProperties(node.getProperties(), scope);
-            String catalogName = tableName.getCatalogName();
+            String catalogName = tableName.catalogName();
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName);
 
             Map<String, Object> analyzeProperties = analyzePropertyManager.getProperties(
@@ -931,7 +931,7 @@ class StatementAnalyzer
 
             validateProperties(node.getProperties(), scope);
 
-            String catalogName = targetTable.getCatalogName();
+            String catalogName = targetTable.catalogName();
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName);
             Map<String, Object> properties = tablePropertyManager.getProperties(
                     catalogName,
@@ -1041,7 +1041,7 @@ class StatementAnalyzer
 
             validateColumns(node, queryScope.getRelationType());
 
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, viewName.getCatalogName());
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, viewName.catalogName());
             analysis.setUpdateType("CREATE VIEW");
             analysis.setUpdateTarget(
                     catalogHandle.getVersion(),
@@ -1265,7 +1265,7 @@ class StatementAnalyzer
 
             Scope tableScope = analyze(table);
 
-            String catalogName = tableName.getCatalogName();
+            String catalogName = tableName.catalogName();
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName);
             TableProcedureMetadata procedureMetadata = tableProceduresRegistry.resolve(catalogHandle, procedureName);
 
@@ -1451,7 +1451,7 @@ class StatementAnalyzer
 
             validateColumns(node, queryScope.getRelationType());
 
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, viewName.getCatalogName());
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, viewName.catalogName());
             analysis.setUpdateType("CREATE MATERIALIZED VIEW");
             analysis.setUpdateTarget(
                     catalogHandle.getVersion(),
@@ -2142,7 +2142,7 @@ class StatementAnalyzer
                     if (candidates.isEmpty()) {
                         // qualify the name using current schema and catalog
                         QualifiedObjectName fullyQualifiedName = createQualifiedObjectName(session, name.getOriginalParts().get(0), name);
-                        candidates = qualifiedInputs.get(QualifiedName.of(fullyQualifiedName.getCatalogName(), fullyQualifiedName.getSchemaName(), fullyQualifiedName.getObjectName()));
+                        candidates = qualifiedInputs.get(QualifiedName.of(fullyQualifiedName.catalogName(), fullyQualifiedName.schemaName(), fullyQualifiedName.objectName()));
                     }
                     if (candidates.isEmpty()) {
                         throw semanticException(INVALID_COPARTITIONING, name.getOriginalParts().get(0), "No table argument found for name: %s", name);
@@ -2256,7 +2256,7 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
-            analysis.setRelationName(table, QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName()));
+            analysis.setRelationName(table, QualifiedName.of(name.catalogName(), name.schemaName(), name.objectName()));
 
             Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
             if (optionalMaterializedView.isPresent()) {
@@ -2290,9 +2290,9 @@ class StatementAnalyzer
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName);
 
             if (tableHandle.isEmpty()) {
-                getRequiredCatalogHandle(metadata, session, table, targetTableName.getCatalogName());
-                if (!metadata.schemaExists(session, new CatalogSchemaName(targetTableName.getCatalogName(), targetTableName.getSchemaName()))) {
-                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema '%s' does not exist", targetTableName.getSchemaName());
+                getRequiredCatalogHandle(metadata, session, table, targetTableName.catalogName());
+                if (!metadata.schemaExists(session, new CatalogSchemaName(targetTableName.catalogName(), targetTableName.schemaName()))) {
+                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema '%s' does not exist", targetTableName.schemaName());
                 }
                 throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", targetTableName);
             }
@@ -2390,8 +2390,8 @@ class StatementAnalyzer
         {
             for (String constraint : constraints) {
                 ViewExpression expression = ViewExpression.builder()
-                        .catalog(name.getCatalogName())
-                        .schema(name.getSchemaName())
+                        .catalog(name.catalogName())
+                        .schema(name.schemaName())
                         .expression(constraint)
                         .build();
                 analyzeCheckConstraint(table, name, accessControlScope, expression);
@@ -4718,7 +4718,7 @@ class StatementAnalyzer
             tableFieldsMap.asMap().forEach((table, tableFields) -> {
                 Set<String> accessibleColumns = accessControl.filterColumns(
                                 session.toSecurityContext(),
-                                table.getCatalogName(),
+                                table.catalogName(),
                                 ImmutableMap.of(
                                         table.asSchemaTableName(),
                                         tableFields.stream()
@@ -4967,7 +4967,7 @@ class StatementAnalyzer
                         .withSpecializedAccessControl(viewAccessControl)
                         .createStatementAnalyzer(analysis, viewSession, warningCollector, CorrelationSupport.ALLOWED);
                 Scope queryScope = analyzer.analyze(query);
-                return queryScope.getRelationType().withAlias(name.getObjectName(), null);
+                return queryScope.getRelationType().withAlias(name.objectName(), null);
             }
             catch (RuntimeException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Failed analyzing stored view '%s': %s", name, e.getMessage());

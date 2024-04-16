@@ -177,9 +177,9 @@ public class MaterializedViewSystemTable
             }
 
             displayTable.addRow(createMaterializedViewRow(
-                    name.getCatalogName(),
-                    name.getSchemaName(),
-                    name.getObjectName(),
+                    name.catalogName(),
+                    name.schemaName(),
+                    name.objectName(),
                     definition.getStorageTable()
                             .map(CatalogSchemaTableName::getCatalogName)
                             .orElse(""),

@@ -95,8 +95,8 @@ public class RenameTableTask
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         QualifiedObjectName source = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
         QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget());
-        if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
-            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.getCatalogName());
+        if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
+            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }
         if (metadata.isMaterializedView(session, target)) {
             throw semanticException(GENERIC_USER_ERROR, statement, "Target table '%s' does not exist, but a materialized view with that name exists.", target);
@@ -107,7 +107,7 @@ public class RenameTableTask
         if (metadata.getTableHandle(session, target).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }
-        if (!tableHandle.getCatalogHandle().getCatalogName().toString().equals(target.getCatalogName())) {
+        if (!tableHandle.getCatalogHandle().getCatalogName().toString().equals(target.catalogName())) {
             throw semanticException(NOT_SUPPORTED, statement, "Table rename across catalogs is not supported");
         }
         accessControl.checkCanRenameTable(session.toSecurityContext(), source, target);
@@ -126,8 +126,8 @@ public class RenameTableTask
 
         List<String> parts = target.getParts().reversed();
         String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : source.getSchemaName();
-        String catalogName = (parts.size() > 2) ? parts.get(2) : source.getCatalogName();
+        String schemaName = (parts.size() > 1) ? parts.get(1) : source.schemaName();
+        String catalogName = (parts.size() > 2) ? parts.get(2) : source.catalogName();
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }

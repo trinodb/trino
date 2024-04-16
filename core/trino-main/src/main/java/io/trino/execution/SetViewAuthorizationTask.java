@@ -64,13 +64,13 @@ public class SetViewAuthorizationTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
-        getRequiredCatalogHandle(metadata, session, statement, viewName.getCatalogName());
+        getRequiredCatalogHandle(metadata, session, statement, viewName.catalogName());
         if (!metadata.isView(session, viewName)) {
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        checkRoleExists(session, statement, metadata, principal, Optional.of(viewName.getCatalogName()).filter(catalog -> metadata.isCatalogManagedSecurity(session, catalog)));
+        checkRoleExists(session, statement, metadata, principal, Optional.of(viewName.catalogName()).filter(catalog -> metadata.isCatalogManagedSecurity(session, catalog)));
 
         accessControl.checkCanSetViewAuthorization(session.toSecurityContext(), viewName, principal);
 
