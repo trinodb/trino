@@ -296,15 +296,12 @@ public final class HiveBucketing
     public static BucketingVersion getBucketingVersion(Map<String, String> tableProperties)
     {
         String bucketingVersion = tableProperties.getOrDefault(TABLE_BUCKETING_VERSION, "1");
-        switch (bucketingVersion) {
-            case "1":
-                return BUCKETING_V1;
-            case "2":
-                return BUCKETING_V2;
-            default:
-                // org.apache.hadoop.hive.ql.exec.Utilities.getBucketingVersion is more permissive and treats any non-number as "1"
-                throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, format("Unsupported bucketing version: '%s'", bucketingVersion));
-        }
+        return switch (bucketingVersion) {
+            case "1" -> BUCKETING_V1;
+            case "2" -> BUCKETING_V2;
+            // org.apache.hadoop.hive.ql.exec.Utilities.getBucketingVersion is more permissive and treats any non-number as "1"
+            default -> throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, format("Unsupported bucketing version: '%s'", bucketingVersion));
+        };
     }
 
     public static boolean isSupportedBucketing(Table table)
@@ -328,26 +325,11 @@ public final class HiveBucketing
             case PRIMITIVE:
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
-                switch (primitiveCategory) {
-                    case BOOLEAN:
-                    case BYTE:
-                    case SHORT:
-                    case INT:
-                    case LONG:
-                    case FLOAT:
-                    case DOUBLE:
-                    case STRING:
-                    case VARCHAR:
-                    case DATE:
-                        return true;
-                    case BINARY:
-                    case TIMESTAMP:
-                    case DECIMAL:
-                    case CHAR:
-                        return false;
-                    default:
-                        throw new UnsupportedOperationException("Unknown type " + type);
-                }
+                return switch (primitiveCategory) {
+                    case BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, STRING, VARCHAR, DATE -> true;
+                    case BINARY, TIMESTAMP, DECIMAL, CHAR -> false;
+                    default -> throw new UnsupportedOperationException("Unknown type " + type);
+                };
             case LIST:
                 return isTypeSupportedForBucketing(((ListTypeInfo) type).getListElementTypeInfo());
             case MAP:

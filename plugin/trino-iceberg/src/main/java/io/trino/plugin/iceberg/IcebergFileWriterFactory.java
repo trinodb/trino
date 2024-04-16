@@ -124,17 +124,12 @@ public class IcebergFileWriterFactory
             MetricsConfig metricsConfig,
             Map<String, String> storageProperties)
     {
-        switch (fileFormat) {
-            case PARQUET:
-                // TODO use metricsConfig https://github.com/trinodb/trino/issues/9791
-                return createParquetWriter(MetricsConfig.getDefault(), fileSystem, outputPath, icebergSchema, session);
-            case ORC:
-                return createOrcWriter(metricsConfig, fileSystem, outputPath, icebergSchema, session, storageProperties, getOrcStringStatisticsLimit(session));
-            case AVRO:
-                return createAvroWriter(fileSystem, outputPath, icebergSchema, session);
-            default:
-                throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
-        }
+        return switch (fileFormat) {
+            // TODO use metricsConfig https://github.com/trinodb/trino/issues/9791
+            case PARQUET -> createParquetWriter(MetricsConfig.getDefault(), fileSystem, outputPath, icebergSchema, session);
+            case ORC -> createOrcWriter(metricsConfig, fileSystem, outputPath, icebergSchema, session, storageProperties, getOrcStringStatisticsLimit(session));
+            case AVRO -> createAvroWriter(fileSystem, outputPath, icebergSchema, session);
+        };
     }
 
     public IcebergFileWriter createPositionDeleteWriter(
@@ -144,16 +139,11 @@ public class IcebergFileWriterFactory
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties)
     {
-        switch (fileFormat) {
-            case PARQUET:
-                return createParquetWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session);
-            case ORC:
-                return createOrcWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
-            case AVRO:
-                return createAvroWriter(fileSystem, outputPath, POSITION_DELETE_SCHEMA, session);
-            default:
-                throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
-        }
+        return switch (fileFormat) {
+            case PARQUET -> createParquetWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session);
+            case ORC -> createOrcWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
+            case AVRO -> createAvroWriter(fileSystem, outputPath, POSITION_DELETE_SCHEMA, session);
+        };
     }
 
     private IcebergFileWriter createParquetWriter(

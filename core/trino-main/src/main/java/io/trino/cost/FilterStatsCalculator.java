@@ -159,13 +159,10 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitLogical(Logical node, Void context)
         {
-            switch (node.operator()) {
-                case AND:
-                    return estimateLogicalAnd(node.terms());
-                case OR:
-                    return estimateLogicalOr(node.terms());
-            }
-            throw new IllegalArgumentException("Unexpected binary operator: " + node.operator());
+            return switch (node.operator()) {
+                case AND -> estimateLogicalAnd(node.terms());
+                case OR -> estimateLogicalOr(node.terms());
+            };
         }
 
         private PlanNodeStatsEstimate estimateLogicalAnd(List<Expression> terms)

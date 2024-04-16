@@ -37,23 +37,13 @@ public final class StandardFunctionResolution
 
     public ResolvedFunction comparisonFunction(Comparison.Operator operator, Type leftType, Type rightType)
     {
-        OperatorType operatorType;
-        switch (operator) {
-            case EQUAL:
-                operatorType = EQUAL;
-                break;
-            case LESS_THAN:
-                operatorType = LESS_THAN;
-                break;
-            case LESS_THAN_OR_EQUAL:
-                operatorType = LESS_THAN_OR_EQUAL;
-                break;
-            case IS_DISTINCT_FROM:
-                operatorType = IS_DISTINCT_FROM;
-                break;
-            default:
-                throw new IllegalStateException("Unsupported comparison operator type: " + operator);
-        }
+        OperatorType operatorType = switch (operator) {
+            case EQUAL -> EQUAL;
+            case LESS_THAN -> LESS_THAN;
+            case LESS_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL;
+            case IS_DISTINCT_FROM -> IS_DISTINCT_FROM;
+            default -> throw new IllegalStateException("Unsupported comparison operator type: " + operator);
+        };
 
         return metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
     }

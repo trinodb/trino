@@ -226,16 +226,12 @@ public class MemoryManagerConfig
 
         public static LowMemoryQueryKillerPolicy fromString(String value)
         {
-            switch (value.toLowerCase(ENGLISH)) {
-                case "none":
-                    return NONE;
-                case "total-reservation":
-                    return TOTAL_RESERVATION;
-                case "total-reservation-on-blocked-nodes":
-                    return TOTAL_RESERVATION_ON_BLOCKED_NODES;
-            }
-
-            throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+            return switch (value.toLowerCase(ENGLISH)) {
+                case "none" -> NONE;
+                case "total-reservation" -> TOTAL_RESERVATION;
+                case "total-reservation-on-blocked-nodes" -> TOTAL_RESERVATION_ON_BLOCKED_NODES;
+                default -> throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+            };
         }
     }
 
@@ -248,16 +244,12 @@ public class MemoryManagerConfig
 
         public static LowMemoryTaskKillerPolicy fromString(String value)
         {
-            switch (value.toLowerCase(ENGLISH)) {
-                case "none":
-                    return NONE;
-                case "total-reservation-on-blocked-nodes":
-                    return TOTAL_RESERVATION_ON_BLOCKED_NODES;
-                case "least-waste":
-                    return LEAST_WASTE;
-            }
-
-            throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+            return switch (value.toLowerCase(ENGLISH)) {
+                case "none" -> NONE;
+                case "total-reservation-on-blocked-nodes" -> TOTAL_RESERVATION_ON_BLOCKED_NODES;
+                case "least-waste" -> LEAST_WASTE;
+                default -> throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+            };
         }
     }
 }

@@ -37,14 +37,11 @@ final class S3ClientFactory
 
     public AmazonS3 createS3Client(String serverType)
     {
-        switch (serverType) {
-            case AWS_S3_SERVER_TYPE:
-                return createAwsS3Client();
-            case MINIO_S3_SERVER_TYPE:
-                return createMinioS3Client();
-            default:
-                throw new IllegalArgumentException("Invalid value '" + serverType + "' for the s3 server type");
-        }
+        return switch (serverType) {
+            case AWS_S3_SERVER_TYPE -> createAwsS3Client();
+            case MINIO_S3_SERVER_TYPE -> createMinioS3Client();
+            default -> throw new IllegalArgumentException("Invalid value '" + serverType + "' for the s3 server type");
+        };
     }
 
     private AmazonS3 createAwsS3Client()

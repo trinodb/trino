@@ -311,45 +311,31 @@ public final class DateTimeFunctions
     private static DateTimeField getDateField(ISOChronology chronology, Slice unit)
     {
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "day":
-                return chronology.dayOfMonth();
-            case "week":
-                return chronology.weekOfWeekyear();
-            case "month":
-                return chronology.monthOfYear();
-            case "quarter":
-                return QUARTER_OF_YEAR.getField(chronology);
-            case "year":
-                return chronology.year();
-        }
-        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid DATE field");
+        return switch (unitString) {
+            case "day" -> chronology.dayOfMonth();
+            case "week" -> chronology.weekOfWeekyear();
+            case "month" -> chronology.monthOfYear();
+            case "quarter" -> QUARTER_OF_YEAR.getField(chronology);
+            case "year" -> chronology.year();
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid DATE field");
+        };
     }
 
     public static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
     {
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                return chronology.millisOfSecond();
-            case "second":
-                return chronology.secondOfMinute();
-            case "minute":
-                return chronology.minuteOfHour();
-            case "hour":
-                return chronology.hourOfDay();
-            case "day":
-                return chronology.dayOfMonth();
-            case "week":
-                return chronology.weekOfWeekyear();
-            case "month":
-                return chronology.monthOfYear();
-            case "quarter":
-                return QUARTER_OF_YEAR.getField(chronology);
-            case "year":
-                return chronology.year();
-        }
-        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIMESTAMP field");
+        return switch (unitString) {
+            case "millisecond" -> chronology.millisOfSecond();
+            case "second" -> chronology.secondOfMinute();
+            case "minute" -> chronology.minuteOfHour();
+            case "hour" -> chronology.hourOfDay();
+            case "day" -> chronology.dayOfMonth();
+            case "week" -> chronology.weekOfWeekyear();
+            case "month" -> chronology.monthOfYear();
+            case "quarter" -> QUARTER_OF_YEAR.getField(chronology);
+            case "year" -> chronology.year();
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIMESTAMP field");
+        };
     }
 
     @Description("Parses the specified date/time by the given format")

@@ -71,16 +71,11 @@ public class NodeSchedulerConfig
     private static NodeSchedulerPolicy toNodeSchedulerPolicy(String nodeSchedulerPolicy)
     {
         // "legacy" and "flat" are here for backward compatibility
-        switch (nodeSchedulerPolicy.toLowerCase(ENGLISH)) {
-            case "legacy":
-            case "uniform":
-                return NodeSchedulerPolicy.UNIFORM;
-            case "flat":
-            case "topology":
-                return NodeSchedulerPolicy.TOPOLOGY;
-            default:
-                throw new IllegalArgumentException("Unknown node scheduler policy: " + nodeSchedulerPolicy);
-        }
+        return switch (nodeSchedulerPolicy.toLowerCase(ENGLISH)) {
+            case "legacy", "uniform" -> NodeSchedulerPolicy.UNIFORM;
+            case "flat", "topology" -> NodeSchedulerPolicy.TOPOLOGY;
+            default -> throw new IllegalArgumentException("Unknown node scheduler policy: " + nodeSchedulerPolicy);
+        };
     }
 
     @Min(1)

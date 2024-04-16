@@ -281,17 +281,12 @@ public class PinotLegacyDataFetcher
         private long getEstimatedColumnSizeInBytes(DataSchema.ColumnDataType dataType)
         {
             if (dataType.isNumber()) {
-                switch (dataType) {
-                    case LONG:
-                        return Long.BYTES;
-                    case FLOAT:
-                        return Float.BYTES;
-                    case DOUBLE:
-                        return Double.BYTES;
-                    case INT:
-                    default:
-                        return Integer.BYTES;
-                }
+                return switch (dataType) {
+                    case LONG -> Long.BYTES;
+                    case FLOAT -> Float.BYTES;
+                    case DOUBLE -> Double.BYTES;
+                    default -> Integer.BYTES;
+                };
             }
             return estimatedNonNumericColumnSize;
         }

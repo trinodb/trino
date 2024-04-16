@@ -117,16 +117,11 @@ public class StartTransactionTask
 
     private static IsolationLevel convertLevel(Isolation.Level level)
     {
-        switch (level) {
-            case SERIALIZABLE:
-                return IsolationLevel.SERIALIZABLE;
-            case REPEATABLE_READ:
-                return IsolationLevel.REPEATABLE_READ;
-            case READ_COMMITTED:
-                return IsolationLevel.READ_COMMITTED;
-            case READ_UNCOMMITTED:
-                return IsolationLevel.READ_UNCOMMITTED;
-        }
-        throw new AssertionError("Unhandled isolation level: " + level);
+        return switch (level) {
+            case SERIALIZABLE -> IsolationLevel.SERIALIZABLE;
+            case REPEATABLE_READ -> IsolationLevel.REPEATABLE_READ;
+            case READ_COMMITTED -> IsolationLevel.READ_COMMITTED;
+            case READ_UNCOMMITTED -> IsolationLevel.READ_UNCOMMITTED;
+        };
     }
 }

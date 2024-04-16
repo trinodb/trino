@@ -81,16 +81,11 @@ public final class SpatialJoinUtils
 
     private static boolean isSupportedSpatialComparison(Comparison expression)
     {
-        switch (expression.operator()) {
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-                return isSTDistance(expression.left());
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
-                return isSTDistance(expression.right());
-            default:
-                return false;
-        }
+        return switch (expression.operator()) {
+            case LESS_THAN, LESS_THAN_OR_EQUAL -> isSTDistance(expression.left());
+            case GREATER_THAN, GREATER_THAN_OR_EQUAL -> isSTDistance(expression.right());
+            default -> false;
+        };
     }
 
     private static boolean isSTDistance(Expression expression)

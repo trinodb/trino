@@ -49,17 +49,15 @@ public final class JdbcJoinPushdownUtil
         }
 
         JoinPushdownStrategy joinPushdownStrategy = getJoinPushdownStrategy(session);
-        switch (joinPushdownStrategy) {
-            case EAGER:
-                return result;
-
-            case AUTOMATIC:
+        return switch (joinPushdownStrategy) {
+            case EAGER -> result;
+            case AUTOMATIC -> {
                 if (shouldPushDownJoinCostAware(session, joinType, leftSource, rightSource, statistics)) {
-                    return result;
+                    yield result;
                 }
-                return Optional.empty();
-        }
-        throw new IllegalArgumentException("Unsupported joinPushdownStrategy: " + joinPushdownStrategy);
+                yield Optional.empty();
+            }
+        };
     }
 
     /**

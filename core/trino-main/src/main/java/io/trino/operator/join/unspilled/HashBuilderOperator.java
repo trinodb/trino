@@ -222,17 +222,11 @@ public class HashBuilderOperator
     @Override
     public ListenableFuture<Void> isBlocked()
     {
-        switch (state) {
-            case CONSUMING_INPUT:
-                return NOT_BLOCKED;
-
-            case LOOKUP_SOURCE_BUILT:
-                return lookupSourceNotNeeded.orElseThrow(() -> new IllegalStateException("Lookup source built, but disposal future not set"));
-
-            case CLOSED:
-                return NOT_BLOCKED;
-        }
-        throw new IllegalStateException("Unhandled state: " + state);
+        return switch (state) {
+            case CONSUMING_INPUT -> NOT_BLOCKED;
+            case LOOKUP_SOURCE_BUILT -> lookupSourceNotNeeded.orElseThrow(() -> new IllegalStateException("Lookup source built, but disposal future not set"));
+            case CLOSED -> NOT_BLOCKED;
+        };
     }
 
     @Override

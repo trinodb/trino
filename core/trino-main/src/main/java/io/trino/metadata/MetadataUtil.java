@@ -162,41 +162,30 @@ public final class MetadataUtil
     public static TrinoPrincipal createPrincipal(Session session, GrantorSpecification specification)
     {
         GrantorSpecification.Type type = specification.getType();
-        switch (type) {
-            case PRINCIPAL:
-                return createPrincipal(specification.getPrincipal().get());
-            case CURRENT_USER:
-                return new TrinoPrincipal(USER, session.getIdentity().getUser());
-            case CURRENT_ROLE:
-                // TODO: will be implemented once the "SET ROLE" statement is introduced
-                throw new UnsupportedOperationException("CURRENT_ROLE is not yet supported");
-        }
-        throw new IllegalArgumentException("Unsupported type: " + type);
+        return switch (type) {
+            case PRINCIPAL -> createPrincipal(specification.getPrincipal().get());
+            case CURRENT_USER -> new TrinoPrincipal(USER, session.getIdentity().getUser());
+            // TODO: will be implemented once the "SET ROLE" statement is introduced
+            case CURRENT_ROLE -> throw new UnsupportedOperationException("CURRENT_ROLE is not yet supported");
+        };
     }
 
     public static TrinoPrincipal createPrincipal(PrincipalSpecification specification)
     {
         PrincipalSpecification.Type type = specification.getType();
-        switch (type) {
-            case UNSPECIFIED:
-            case USER:
-                return new TrinoPrincipal(USER, specification.getName().getValue());
-            case ROLE:
-                return new TrinoPrincipal(ROLE, specification.getName().getValue());
-        }
-        throw new IllegalArgumentException("Unsupported type: " + type);
+        return switch (type) {
+            case UNSPECIFIED, USER -> new TrinoPrincipal(USER, specification.getName().getValue());
+            case ROLE -> new TrinoPrincipal(ROLE, specification.getName().getValue());
+        };
     }
 
     public static PrincipalSpecification createPrincipal(TrinoPrincipal principal)
     {
         PrincipalType type = principal.getType();
-        switch (type) {
-            case USER:
-                return new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(principal.getName()));
-            case ROLE:
-                return new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(principal.getName()));
-        }
-        throw new IllegalArgumentException("Unsupported type: " + type);
+        return switch (type) {
+            case USER -> new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(principal.getName()));
+            case ROLE -> new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(principal.getName()));
+        };
     }
 
     public static boolean tableExists(Metadata metadata, Session session, String table)

@@ -646,22 +646,15 @@ public final class DomainTranslator
         private static Optional<ExtractionResult> createComparisonExtractionResult(Comparison.Operator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
         {
             if (value == null) {
-                switch (comparisonOperator) {
-                    case EQUAL:
-                    case GREATER_THAN:
-                    case GREATER_THAN_OR_EQUAL:
-                    case LESS_THAN:
-                    case LESS_THAN_OR_EQUAL:
-                    case NOT_EQUAL:
-                        return Optional.of(new ExtractionResult(TupleDomain.none(), TRUE));
-
-                    case IS_DISTINCT_FROM:
+                return switch (comparisonOperator) {
+                    case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, NOT_EQUAL -> Optional.of(new ExtractionResult(TupleDomain.none(), TRUE));
+                    case IS_DISTINCT_FROM -> {
                         Domain domain = complementIfNecessary(Domain.notNull(type), complement);
-                        return Optional.of(new ExtractionResult(
+                        yield Optional.of(new ExtractionResult(
                                 TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)),
                                 TRUE));
-                }
-                throw new AssertionError("Unhandled operator: " + comparisonOperator);
+                    }
+                };
             }
             if (type.isOrderable()) {
                 return extractOrderableDomain(comparisonOperator, type, value, complement)

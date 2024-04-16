@@ -60,23 +60,15 @@ public enum GeometryType
     private static GeometryType getForInternalLibraryName(String type)
     {
         requireNonNull(type, "type is null");
-        switch (type) {
-            case "Point":
-                return POINT;
-            case "MultiPoint":
-                return MULTI_POINT;
-            case "LineString":
-                return LINE_STRING;
-            case "MultiLineString":
-                return MULTI_LINE_STRING;
-            case "Polygon":
-                return POLYGON;
-            case "MultiPolygon":
-                return MULTI_POLYGON;
-            case "GeometryCollection":
-                return GEOMETRY_COLLECTION;
-            default:
-                throw new IllegalArgumentException("Invalid Geometry Type: " + type);
-        }
+        return switch (type) {
+            case "Point" -> POINT;
+            case "MultiPoint" -> MULTI_POINT;
+            case "LineString" -> LINE_STRING;
+            case "MultiLineString" -> MULTI_LINE_STRING;
+            case "Polygon" -> POLYGON;
+            case "MultiPolygon" -> MULTI_POLYGON;
+            case "GeometryCollection" -> GEOMETRY_COLLECTION;
+            default -> throw new IllegalArgumentException("Invalid Geometry Type: " + type);
+        };
     }
 }

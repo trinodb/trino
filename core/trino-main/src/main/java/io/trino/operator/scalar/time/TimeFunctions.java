@@ -87,18 +87,13 @@ public class TimeFunctions
     {
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
 
-        switch (unitString) {
-            case "millisecond":
-                return time / PICOSECONDS_PER_MILLISECOND * PICOSECONDS_PER_MILLISECOND;
-            case "second":
-                return time / PICOSECONDS_PER_SECOND * PICOSECONDS_PER_SECOND;
-            case "minute":
-                return time / PICOSECONDS_PER_MINUTE * PICOSECONDS_PER_MINUTE;
-            case "hour":
-                return time / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        return switch (unitString) {
+            case "millisecond" -> time / PICOSECONDS_PER_MILLISECOND * PICOSECONDS_PER_MILLISECOND;
+            case "second" -> time / PICOSECONDS_PER_SECOND * PICOSECONDS_PER_SECOND;
+            case "minute" -> time / PICOSECONDS_PER_MINUTE * PICOSECONDS_PER_MINUTE;
+            case "hour" -> time / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        };
     }
 
     @Description("Add the specified amount of time to the given time")
@@ -111,24 +106,14 @@ public class TimeFunctions
             @SqlType(StandardTypes.BIGINT) long value,
             @SqlType("time(p)") long time)
     {
-        long delta = value;
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                delta = (delta % MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND;
-                break;
-            case "second":
-                delta = (delta % SECONDS_PER_DAY) * PICOSECONDS_PER_SECOND;
-                break;
-            case "minute":
-                delta = (delta % MINUTES_PER_DAY) * PICOSECONDS_PER_MINUTE;
-                break;
-            case "hour":
-                delta = (delta % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
-                break;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        long delta = switch (unitString) {
+            case "millisecond" -> (value % MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND;
+            case "second" -> (value % SECONDS_PER_DAY) * PICOSECONDS_PER_SECOND;
+            case "minute" -> (value % MINUTES_PER_DAY) * PICOSECONDS_PER_MINUTE;
+            case "hour" -> (value % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        };
 
         long result = TimeOperators.add(time, delta);
 
@@ -148,17 +133,12 @@ public class TimeFunctions
     {
         long delta = time2 - time1;
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                return delta / PICOSECONDS_PER_MILLISECOND;
-            case "second":
-                return delta / PICOSECONDS_PER_SECOND;
-            case "minute":
-                return delta / PICOSECONDS_PER_MINUTE;
-            case "hour":
-                return delta / PICOSECONDS_PER_HOUR;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        return switch (unitString) {
+            case "millisecond" -> delta / PICOSECONDS_PER_MILLISECOND;
+            case "second" -> delta / PICOSECONDS_PER_SECOND;
+            case "minute" -> delta / PICOSECONDS_PER_MINUTE;
+            case "hour" -> delta / PICOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        };
     }
 }

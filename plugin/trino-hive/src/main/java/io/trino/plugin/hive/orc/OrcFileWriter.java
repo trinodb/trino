@@ -282,12 +282,10 @@ public final class OrcFileWriter
 
     private int getOrcOperation(AcidTransaction transaction)
     {
-        switch (transaction.getOperation()) {
-            case INSERT:
-                return 0;
-            default:
-                throw new VerifyException("In getOrcOperation, the transaction operation is not allowed, transaction " + transaction);
-        }
+        return switch (transaction.getOperation()) {
+            case INSERT -> 0;
+            default -> throw new VerifyException("In getOrcOperation, the transaction operation is not allowed, transaction " + transaction);
+        };
     }
 
     private Block buildAcidRowIdsColumn(int positionCount)

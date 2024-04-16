@@ -82,19 +82,14 @@ public class HivePrivilegeInfo
 
     public static HivePrivilege toHivePrivilege(Privilege privilege)
     {
-        switch (privilege) {
-            case SELECT:
-                return SELECT;
-            case INSERT:
-                return INSERT;
-            case DELETE:
-                return DELETE;
-            case UPDATE:
-                return UPDATE;
-            case CREATE:// Hive does not support CREATE privilege
-            default:
-                throw new IllegalArgumentException("Unexpected privilege: " + privilege);
-        }
+        return switch (privilege) {
+            case SELECT -> SELECT;
+            case INSERT -> INSERT;
+            case DELETE -> DELETE;
+            case UPDATE -> UPDATE;
+            // Hive does not support CREATE privilege
+            default -> throw new IllegalArgumentException("Unexpected privilege: " + privilege);
+        };
     }
 
     public boolean isContainedIn(HivePrivilegeInfo hivePrivilegeInfo)
@@ -106,19 +101,13 @@ public class HivePrivilegeInfo
 
     public Set<PrivilegeInfo> toPrivilegeInfo()
     {
-        switch (hivePrivilege) {
-            case SELECT:
-                return ImmutableSet.of(new PrivilegeInfo(Privilege.SELECT, isGrantOption()));
-            case INSERT:
-                return ImmutableSet.of(new PrivilegeInfo(Privilege.INSERT, isGrantOption()));
-            case DELETE:
-                return ImmutableSet.of(new PrivilegeInfo(Privilege.DELETE, isGrantOption()));
-            case UPDATE:
-                return ImmutableSet.of(new PrivilegeInfo(Privilege.UPDATE, isGrantOption()));
-            case OWNERSHIP:
-                return ImmutableSet.of();
-        }
-        throw new IllegalArgumentException("Unsupported hivePrivilege: " + hivePrivilege);
+        return switch (hivePrivilege) {
+            case SELECT -> ImmutableSet.of(new PrivilegeInfo(Privilege.SELECT, isGrantOption()));
+            case INSERT -> ImmutableSet.of(new PrivilegeInfo(Privilege.INSERT, isGrantOption()));
+            case DELETE -> ImmutableSet.of(new PrivilegeInfo(Privilege.DELETE, isGrantOption()));
+            case UPDATE -> ImmutableSet.of(new PrivilegeInfo(Privilege.UPDATE, isGrantOption()));
+            case OWNERSHIP -> ImmutableSet.of();
+        };
     }
 
     @Override

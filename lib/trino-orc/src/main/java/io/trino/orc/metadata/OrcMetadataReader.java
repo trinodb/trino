@@ -556,47 +556,27 @@ public class OrcMetadataReader
 
     private static OrcTypeKind toTypeKind(OrcProto.Type.Kind typeKind)
     {
-        switch (typeKind) {
-            case BOOLEAN:
-                return OrcTypeKind.BOOLEAN;
-            case BYTE:
-                return OrcTypeKind.BYTE;
-            case SHORT:
-                return OrcTypeKind.SHORT;
-            case INT:
-                return OrcTypeKind.INT;
-            case LONG:
-                return OrcTypeKind.LONG;
-            case FLOAT:
-                return OrcTypeKind.FLOAT;
-            case DOUBLE:
-                return OrcTypeKind.DOUBLE;
-            case STRING:
-                return OrcTypeKind.STRING;
-            case BINARY:
-                return OrcTypeKind.BINARY;
-            case TIMESTAMP:
-                return OrcTypeKind.TIMESTAMP;
-            case TIMESTAMP_INSTANT:
-                return OrcTypeKind.TIMESTAMP_INSTANT;
-            case LIST:
-                return OrcTypeKind.LIST;
-            case MAP:
-                return OrcTypeKind.MAP;
-            case STRUCT:
-                return OrcTypeKind.STRUCT;
-            case UNION:
-                return OrcTypeKind.UNION;
-            case DECIMAL:
-                return OrcTypeKind.DECIMAL;
-            case DATE:
-                return OrcTypeKind.DATE;
-            case VARCHAR:
-                return OrcTypeKind.VARCHAR;
-            case CHAR:
-                return OrcTypeKind.CHAR;
-        }
-        throw new IllegalStateException(typeKind + " stream type not implemented yet");
+        return switch (typeKind) {
+            case BOOLEAN -> OrcTypeKind.BOOLEAN;
+            case BYTE -> OrcTypeKind.BYTE;
+            case SHORT -> OrcTypeKind.SHORT;
+            case INT -> OrcTypeKind.INT;
+            case LONG -> OrcTypeKind.LONG;
+            case FLOAT -> OrcTypeKind.FLOAT;
+            case DOUBLE -> OrcTypeKind.DOUBLE;
+            case STRING -> OrcTypeKind.STRING;
+            case BINARY -> OrcTypeKind.BINARY;
+            case TIMESTAMP -> OrcTypeKind.TIMESTAMP;
+            case TIMESTAMP_INSTANT -> OrcTypeKind.TIMESTAMP_INSTANT;
+            case LIST -> OrcTypeKind.LIST;
+            case MAP -> OrcTypeKind.MAP;
+            case STRUCT -> OrcTypeKind.STRUCT;
+            case UNION -> OrcTypeKind.UNION;
+            case DECIMAL -> OrcTypeKind.DECIMAL;
+            case DATE -> OrcTypeKind.DATE;
+            case VARCHAR -> OrcTypeKind.VARCHAR;
+            case CHAR -> OrcTypeKind.CHAR;
+        };
     }
 
     // This method assumes type attributes have no duplicate key
@@ -646,17 +626,12 @@ public class OrcMetadataReader
 
     private static ColumnEncodingKind toColumnEncodingKind(OrcProto.ColumnEncoding.Kind columnEncodingKind)
     {
-        switch (columnEncodingKind) {
-            case DIRECT:
-                return ColumnEncodingKind.DIRECT;
-            case DIRECT_V2:
-                return ColumnEncodingKind.DIRECT_V2;
-            case DICTIONARY:
-                return ColumnEncodingKind.DICTIONARY;
-            case DICTIONARY_V2:
-                return ColumnEncodingKind.DICTIONARY_V2;
-        }
-        throw new IllegalStateException(columnEncodingKind + " stream encoding not implemented yet");
+        return switch (columnEncodingKind) {
+            case DIRECT -> ColumnEncodingKind.DIRECT;
+            case DIRECT_V2 -> ColumnEncodingKind.DIRECT_V2;
+            case DICTIONARY -> ColumnEncodingKind.DICTIONARY;
+            case DICTIONARY_V2 -> ColumnEncodingKind.DICTIONARY_V2;
+        };
     }
 
     private static CompressionKind toCompression(OrcProto.CompressionKind compression)

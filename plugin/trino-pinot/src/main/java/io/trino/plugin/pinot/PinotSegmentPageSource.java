@@ -267,19 +267,13 @@ public class PinotSegmentPageSource
         // Note columnType in the dataTable could be different from the original columnType in the columnHandle.
         // e.g. when original column type is int/long and aggregation value is requested, the returned dataType from Pinot would be double.
         // So need to cast it back to the original columnType.
-        switch (dataType) {
-            case DOUBLE:
-                return (long) currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
-            case INT:
-                return currentDataTable.getDataTable().getInt(rowIndex, columnIndex);
-            case FLOAT:
-                return floatToIntBits(currentDataTable.getDataTable().getFloat(rowIndex, columnIndex));
-            case LONG:
-            case TIMESTAMP:
-                return currentDataTable.getDataTable().getLong(rowIndex, columnIndex);
-            default:
-                throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), format("Unexpected pinot type: '%s'", dataType));
-        }
+        return switch (dataType) {
+            case DOUBLE -> (long) currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
+            case INT -> currentDataTable.getDataTable().getInt(rowIndex, columnIndex);
+            case FLOAT -> floatToIntBits(currentDataTable.getDataTable().getFloat(rowIndex, columnIndex));
+            case LONG, TIMESTAMP -> currentDataTable.getDataTable().getLong(rowIndex, columnIndex);
+            default -> throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), format("Unexpected pinot type: '%s'", dataType));
+        };
     }
 
     private double getDouble(int rowIndex, int columnIndex)

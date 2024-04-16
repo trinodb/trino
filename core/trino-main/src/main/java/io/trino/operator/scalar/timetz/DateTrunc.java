@@ -61,17 +61,12 @@ public final class DateTrunc
     {
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
 
-        switch (unitString) {
-            case "millisecond":
-                return picos / PICOSECONDS_PER_MILLISECOND * PICOSECONDS_PER_MILLISECOND;
-            case "second":
-                return picos / PICOSECONDS_PER_SECOND * PICOSECONDS_PER_SECOND;
-            case "minute":
-                return picos / PICOSECONDS_PER_MINUTE * PICOSECONDS_PER_MINUTE;
-            case "hour":
-                return picos / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        return switch (unitString) {
+            case "millisecond" -> picos / PICOSECONDS_PER_MILLISECOND * PICOSECONDS_PER_MILLISECOND;
+            case "second" -> picos / PICOSECONDS_PER_SECOND * PICOSECONDS_PER_SECOND;
+            case "minute" -> picos / PICOSECONDS_PER_MINUTE * PICOSECONDS_PER_MINUTE;
+            case "hour" -> picos / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        };
     }
 }

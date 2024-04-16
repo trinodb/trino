@@ -318,14 +318,10 @@ public class JsonValueFunction
 
     private static Object handleSpecialCase(long behavior, Object defaultValue, Supplier<TrinoException> error)
     {
-        switch (EmptyOrErrorBehavior.values()[(int) behavior]) {
-            case NULL:
-                return null;
-            case ERROR:
-                throw error.get();
-            case DEFAULT:
-                return defaultValue;
-        }
-        throw new IllegalStateException("unexpected behavior");
+        return switch (EmptyOrErrorBehavior.values()[(int) behavior]) {
+            case NULL -> null;
+            case ERROR -> throw error.get();
+            case DEFAULT -> defaultValue;
+        };
     }
 }

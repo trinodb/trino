@@ -78,15 +78,12 @@ public class HivePrincipal
     private static String canonicalName(PrincipalType type, String name)
     {
         requireNonNull(name, "name is null");
-        switch (type) {
-            case USER:
-                // In Hive user names are case sensitive
-                return name;
-            case ROLE:
-                // In Hive role names are case insensitive
-                return name.toLowerCase(ENGLISH);
-        }
-        throw new IllegalArgumentException("Unsupported type: " + type);
+        return switch (type) {
+            // In Hive user names are case sensitive
+            case USER -> name;
+            // In Hive role names are case insensitive
+            case ROLE -> name.toLowerCase(ENGLISH);
+        };
     }
 
     @JsonProperty
