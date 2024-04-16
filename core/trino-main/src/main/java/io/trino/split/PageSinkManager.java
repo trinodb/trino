@@ -60,8 +60,8 @@ public class PageSinkManager
     public ConnectorPageSink createPageSink(Session session, TableExecuteHandle tableHandle, ConnectorPageSinkId pageSinkId)
     {
         // assumes connectorId and catalog are the same
-        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getCatalogHandle());
-        return providerFor(tableHandle.getCatalogHandle()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle(), pageSinkId);
+        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.catalogHandle());
+        return providerFor(tableHandle.catalogHandle()).createPageSink(tableHandle.transactionHandle(), connectorSession, tableHandle.connectorHandle(), pageSinkId);
     }
 
     @Override

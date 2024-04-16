@@ -1605,8 +1605,8 @@ public class TracingMetadata
     {
         Span span = startSpan(methodName);
         if (span.isRecording()) {
-            span.setAttribute(TrinoAttributes.CATALOG, handle.getCatalogHandle().getCatalogName().toString());
-            span.setAttribute(TrinoAttributes.HANDLE, handle.getConnectorHandle().toString());
+            span.setAttribute(TrinoAttributes.CATALOG, handle.catalogHandle().getCatalogName().toString());
+            span.setAttribute(TrinoAttributes.HANDLE, handle.connectorHandle().toString());
         }
         return span;
     }

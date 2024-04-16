@@ -321,21 +321,21 @@ public final class MetadataManager
     @Override
     public Optional<TableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
     {
-        CatalogHandle catalogHandle = tableExecuteHandle.getCatalogHandle();
+        CatalogHandle catalogHandle = tableExecuteHandle.catalogHandle();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
-        return metadata.getLayoutForTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.getConnectorHandle())
+        return metadata.getLayoutForTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.connectorHandle())
                 .map(layout -> new TableLayout(catalogHandle, catalogMetadata.getTransactionHandleFor(catalogHandle), layout));
     }
 
     @Override
     public BeginTableExecuteResult<TableExecuteHandle, TableHandle> beginTableExecute(Session session, TableExecuteHandle tableExecuteHandle, TableHandle sourceHandle)
     {
-        CatalogHandle catalogHandle = tableExecuteHandle.getCatalogHandle();
+        CatalogHandle catalogHandle = tableExecuteHandle.catalogHandle();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> connectorBeginResult = metadata.beginTableExecute(session.toConnectorSession(), tableExecuteHandle.getConnectorHandle(), sourceHandle.getConnectorHandle());
+        BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> connectorBeginResult = metadata.beginTableExecute(session.toConnectorSession(), tableExecuteHandle.connectorHandle(), sourceHandle.getConnectorHandle());
 
         return new BeginTableExecuteResult<>(
                 tableExecuteHandle.withConnectorHandle(connectorBeginResult.getTableExecuteHandle()),
@@ -345,17 +345,17 @@ public final class MetadataManager
     @Override
     public void finishTableExecute(Session session, TableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
-        CatalogHandle catalogHandle = tableExecuteHandle.getCatalogHandle();
+        CatalogHandle catalogHandle = tableExecuteHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
-        metadata.finishTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.getConnectorHandle(), fragments, tableExecuteState);
+        metadata.finishTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.connectorHandle(), fragments, tableExecuteState);
     }
 
     @Override
     public void executeTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
     {
-        CatalogHandle catalogHandle = tableExecuteHandle.getCatalogHandle();
+        CatalogHandle catalogHandle = tableExecuteHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
-        metadata.executeTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.getConnectorHandle());
+        metadata.executeTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.connectorHandle());
     }
 
     @Override
