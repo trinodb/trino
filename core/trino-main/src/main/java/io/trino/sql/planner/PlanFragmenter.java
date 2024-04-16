@@ -143,7 +143,7 @@ public class PlanFragmenter
             Map<ExchangeSourceId, SubPlan> unchangedSubPlans)
     {
         List<CatalogProperties> activeCatalogs = transactionManager.getActiveCatalogs(session.getTransactionId().orElseThrow()).stream()
-                .map(CatalogInfo::getCatalogHandle)
+                .map(CatalogInfo::catalogHandle)
                 .flatMap(catalogHandle -> catalogManager.getCatalogProperties(catalogHandle).stream())
                 .collect(toImmutableList());
         Map<FunctionId, IrRoutine> languageScalarFunctions = languageFunctionManager.serializeFunctionsForWorkers(session);

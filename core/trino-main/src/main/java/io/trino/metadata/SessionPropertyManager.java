@@ -134,8 +134,8 @@ public final class SessionPropertyManager
         }
 
         for (CatalogInfo catalogInfo : catalogInfos) {
-            CatalogHandle catalogHandle = catalogInfo.getCatalogHandle();
-            String catalogName = catalogInfo.getCatalogName();
+            CatalogHandle catalogHandle = catalogInfo.catalogHandle();
+            String catalogName = catalogInfo.catalogName();
             Map<String, String> connectorProperties = session.getCatalogProperties(catalogName);
 
             for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.getService(catalogHandle)).values()) {
