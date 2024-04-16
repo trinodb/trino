@@ -255,7 +255,7 @@ public class PushFilterThroughCountAggregation
             return false;
         }
 
-        BoundSignature signature = aggregation.getResolvedFunction().getSignature();
+        BoundSignature signature = aggregation.getResolvedFunction().signature();
         return signature.getArgumentTypes().isEmpty() && signature.getName().equals(COUNT_NAME);
     }
 

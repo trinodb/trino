@@ -1375,7 +1375,7 @@ public class ExpressionAnalyzer
             }
 
             if (node.getArguments().size() > 127) {
-                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.getSignature().getName().getFunctionName());
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.signature().getName().getFunctionName());
             }
 
             if (node.getOrderBy().isPresent()) {
@@ -1387,7 +1387,7 @@ public class ExpressionAnalyzer
                 }
             }
 
-            BoundSignature signature = function.getSignature();
+            BoundSignature signature = function.signature();
             for (int i = 0; i < argumentTypes.size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type expectedType = signature.getArgumentTypes().get(i);
@@ -1655,7 +1655,7 @@ public class ExpressionAnalyzer
                 }
                 throw e;
             }
-            BoundSignature signature = function.getSignature();
+            BoundSignature signature = function.signature();
             Type expectedSortKeyType = signature.getArgumentTypes().getFirst();
             if (!expectedSortKeyType.equals(sortKeyType)) {
                 if (!typeCoercion.canCoerce(sortKeyType, expectedSortKeyType)) {
@@ -2159,7 +2159,7 @@ public class ExpressionAnalyzer
             String functionName = node.getSpecification().getFunctionName();
             ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction(functionName, fromTypes(actualTypes));
 
-            List<Type> expectedTypes = function.getSignature().getArgumentTypes();
+            List<Type> expectedTypes = function.signature().getArgumentTypes();
             checkState(expectedTypes.size() == actualTypes.size(), "wrong argument number in the resolved signature");
 
             Type actualTrimSourceType = actualTypes.getFirst();
@@ -2173,7 +2173,7 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            return setExpressionType(node, function.getSignature().getReturnType());
+            return setExpressionType(node, function.signature().getReturnType());
         }
 
         @Override
@@ -2664,7 +2664,7 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
             resolvedFunctions.put(NodeRef.of(node), function);
-            Type type = function.getSignature().getReturnType();
+            Type type = function.signature().getReturnType();
 
             return setExpressionType(node, type);
         }
@@ -2773,7 +2773,7 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            return function.getSignature().getReturnType();
+            return function.signature().getReturnType();
         }
 
         @Override
@@ -2842,7 +2842,7 @@ public class ExpressionAnalyzer
             jsonOutputFunctions.put(NodeRef.of(node), outputFunction);
 
             // cast the output value to the declared returned type if necessary
-            Type outputType = outputFunction.getSignature().getReturnType();
+            Type outputType = outputFunction.signature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
                     plannerContext.getMetadata().getCoercion(outputType, returnedType);
@@ -2871,7 +2871,7 @@ public class ExpressionAnalyzer
             // resolve function to read the context item as JSON
             JsonFormat inputFormat = jsonPathInvocation.getInputFormat();
             ResolvedFunction inputFunction = getInputFunction(inputType, inputFormat, inputExpression);
-            Type expectedType = inputFunction.getSignature().getArgumentType(0);
+            Type expectedType = inputFunction.signature().getArgumentType(0);
             coerceType(inputExpression, inputType, expectedType, format("%s function input argument", functionName));
             jsonInputFunctions.put(NodeRef.of(inputExpression), inputFunction);
 
@@ -2917,7 +2917,7 @@ public class ExpressionAnalyzer
                 if (parameterFormat.isPresent()) {
                     // resolve function to read the parameter as JSON
                     ResolvedFunction parameterInputFunction = getInputFunction(parameterType, parameterFormat.get(), parameter);
-                    Type expectedParameterType = parameterInputFunction.getSignature().getArgumentType(0);
+                    Type expectedParameterType = parameterInputFunction.signature().getArgumentType(0);
                     coerceType(parameter, parameterType, expectedParameterType, format("%s function JSON path parameter", functionName));
                     jsonInputFunctions.put(NodeRef.of(parameter), parameterInputFunction);
                     passedType = JSON_2016;
@@ -3083,7 +3083,7 @@ public class ExpressionAnalyzer
                     }
                     // resolve function to read the value as JSON
                     ResolvedFunction inputFunction = getInputFunction(valueType, format.get(), value);
-                    Type expectedValueType = inputFunction.getSignature().getArgumentType(0);
+                    Type expectedValueType = inputFunction.signature().getArgumentType(0);
                     coerceType(value, valueType, expectedValueType, "value passed to JSON_OBJECT function");
                     jsonInputFunctions.put(NodeRef.of(value), inputFunction);
                     valueType = JSON_2016;
@@ -3148,7 +3148,7 @@ public class ExpressionAnalyzer
             jsonOutputFunctions.put(NodeRef.of(node), outputFunction);
 
             // cast the output value to the declared returned type if necessary
-            Type outputType = outputFunction.getSignature().getReturnType();
+            Type outputType = outputFunction.signature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
                     plannerContext.getMetadata().getCoercion(outputType, returnedType);
@@ -3195,7 +3195,7 @@ public class ExpressionAnalyzer
                 if (format.isPresent()) {
                     // resolve function to read the value as JSON
                     ResolvedFunction inputFunction = getInputFunction(elementType, format.get(), element);
-                    Type expectedElementType = inputFunction.getSignature().getArgumentType(0);
+                    Type expectedElementType = inputFunction.signature().getArgumentType(0);
                     coerceType(element, elementType, expectedElementType, "value passed to JSON_ARRAY function");
                     jsonInputFunctions.put(NodeRef.of(element), inputFunction);
                     elementType = JSON_2016;
@@ -3258,7 +3258,7 @@ public class ExpressionAnalyzer
             jsonOutputFunctions.put(NodeRef.of(node), outputFunction);
 
             // cast the output value to the declared returned type if necessary
-            Type outputType = outputFunction.getSignature().getReturnType();
+            Type outputType = outputFunction.signature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
                     plannerContext.getMetadata().getCoercion(outputType, returnedType);
@@ -3280,7 +3280,7 @@ public class ExpressionAnalyzer
 
             BoundSignature operatorSignature;
             try {
-                operatorSignature = plannerContext.getMetadata().resolveOperator(operatorType, argumentTypes.build()).getSignature();
+                operatorSignature = plannerContext.getMetadata().resolveOperator(operatorType, argumentTypes.build()).signature();
             }
             catch (OperatorNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, e, "%s", e.getMessage());

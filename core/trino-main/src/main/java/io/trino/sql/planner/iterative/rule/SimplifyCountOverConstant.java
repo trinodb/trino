@@ -103,7 +103,7 @@ public class SimplifyCountOverConstant
 
     private boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs)
     {
-        BoundSignature signature = aggregation.getResolvedFunction().getSignature();
+        BoundSignature signature = aggregation.getResolvedFunction().signature();
         if (!signature.getName().equals(COUNT_NAME) || signature.getArgumentTypes().size() != 1) {
             return false;
         }

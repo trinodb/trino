@@ -106,7 +106,7 @@ public final class NullabilityAnalyzer
         @Override
         protected Void visitCall(Call node, AtomicBoolean result)
         {
-            if (node.function().getFunctionNullability().isReturnNullable()) {
+            if (node.function().functionNullability().isReturnNullable()) {
                 result.set(true);
             }
 

@@ -336,7 +336,7 @@ class PathEvaluationVisitor
             throw new PathEvaluationException(e);
         }
 
-        return ImmutableList.of(TypedValue.fromValueAsObject(operators.getOperator().getSignature().getReturnType(), result));
+        return ImmutableList.of(TypedValue.fromValueAsObject(operators.getOperator().signature().getReturnType(), result));
     }
 
     @Override

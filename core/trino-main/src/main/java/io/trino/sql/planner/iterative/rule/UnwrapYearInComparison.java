@@ -115,7 +115,7 @@ public class UnwrapYearInComparison
             Expression value = in.value();
 
             if (!(value instanceof Call call) ||
-                    !call.function().getName().equals(builtinFunctionName("year")) ||
+                    !call.function().name().equals(builtinFunctionName("year")) ||
                     call.arguments().size() != 1) {
                 return in;
             }
@@ -141,7 +141,7 @@ public class UnwrapYearInComparison
             // Expect year on the left side and value on the right side of the comparison.
             // This is provided by CanonicalizeExpressionRewriter.
             if (!(expression.left() instanceof Call call) ||
-                    !call.function().getName().equals(builtinFunctionName("year")) ||
+                    !call.function().name().equals(builtinFunctionName("year")) ||
                     call.arguments().size() != 1) {
                 return expression;
             }

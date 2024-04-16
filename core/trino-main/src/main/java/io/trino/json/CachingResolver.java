@@ -80,7 +80,7 @@ public class CachingResolver
             return RESOLUTION_ERROR;
         }
 
-        BoundSignature signature = operator.getSignature();
+        BoundSignature signature = operator.signature();
 
         Optional<ResolvedFunction> leftCast = Optional.empty();
         if (!signature.getArgumentTypes().get(0).equals(leftType)) {

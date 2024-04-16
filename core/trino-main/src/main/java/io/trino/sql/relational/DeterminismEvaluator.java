@@ -43,7 +43,7 @@ public final class DeterminismEvaluator
         public Boolean visitCall(CallExpression call, Void context)
         {
             ResolvedFunction resolvedFunction = call.getResolvedFunction();
-            if (!resolvedFunction.isDeterministic()) {
+            if (!resolvedFunction.deterministic()) {
                 return false;
             }
 
