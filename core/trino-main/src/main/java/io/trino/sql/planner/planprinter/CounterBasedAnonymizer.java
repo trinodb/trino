@@ -209,7 +209,7 @@ public class CounterBasedAnonymizer
     @Override
     public String anonymize(TableHandle tableHandle)
     {
-        return anonymize(tableHandle.getCatalogHandle().getCatalogName().toString(), ObjectType.CATALOG);
+        return anonymize(tableHandle.catalogHandle().getCatalogName().toString(), ObjectType.CATALOG);
     }
 
     @Override
@@ -237,7 +237,7 @@ public class CounterBasedAnonymizer
     private String anonymize(MergeTarget target)
     {
         return anonymize(
-                target.getHandle().getCatalogHandle().getCatalogName().toString(),
+                target.getHandle().catalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }

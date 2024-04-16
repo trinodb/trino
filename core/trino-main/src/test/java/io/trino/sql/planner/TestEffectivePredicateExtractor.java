@@ -147,7 +147,7 @@ public class TestEffectivePredicateExtractor
                     TEST_CATALOG_HANDLE,
                     TestingConnectorTransactionHandle.INSTANCE,
                     new ConnectorTableProperties(
-                            ((PredicatedTableHandle) handle.getConnectorHandle()).getPredicate(),
+                            ((PredicatedTableHandle) handle.connectorHandle()).getPredicate(),
                             Optional.empty(),
                             Optional.empty(),
                             ImmutableList.of()));

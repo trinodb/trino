@@ -96,7 +96,7 @@ public class AddColumnTask
             return immediateVoidFuture();
         }
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
-        CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
 
         QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().orElse(originalTableName);
 

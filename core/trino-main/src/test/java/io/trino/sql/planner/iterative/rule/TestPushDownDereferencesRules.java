@@ -351,7 +351,7 @@ public class TestPushDownDereferencesRules
                                                 "a", expression(new Reference(nestedRowType, "a")),
                                                 "b", expression(new Reference(ROW_TYPE, "b"))),
                                         tableScan(
-                                                testTable.getConnectorHandle()::equals,
+                                                testTable.connectorHandle()::equals,
                                                 TupleDomain.all(),
                                                 ImmutableMap.of(
                                                         "a", new TpchColumnHandle("a", nestedRowType)::equals,

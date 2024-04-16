@@ -444,7 +444,7 @@ public abstract class BaseDataDefinitionTaskTest
 
         private SchemaTableName getTableName(TableHandle tableHandle)
         {
-            return ((TestingTableHandle) tableHandle.getConnectorHandle()).getTableName();
+            return ((TestingTableHandle) tableHandle.connectorHandle()).getTableName();
         }
 
         @Override

@@ -578,7 +578,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 transaction,
                 getSession(icebergConfig),
                 split,
-                tableHandle.getConnectorHandle(),
+                tableHandle.connectorHandle(),
                 columns,
                 dynamicFilter);
     }

@@ -155,7 +155,7 @@ public class TestDetermineTableScanNodePartitioning
                 })
                 .matches(
                         tableScan(
-                                tableHandle.getConnectorHandle()::equals,
+                                tableHandle.connectorHandle()::equals,
                                 TupleDomain.all(),
                                 ImmutableMap.of(
                                         "A", COLUMN_HANDLE_A::equals,
