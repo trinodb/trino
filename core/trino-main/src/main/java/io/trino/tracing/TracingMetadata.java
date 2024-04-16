@@ -1562,9 +1562,9 @@ public class TracingMetadata
     private Span startSpan(String methodName, QualifiedObjectName table)
     {
         return startSpan(methodName)
-                .setAttribute(TrinoAttributes.CATALOG, table.getCatalogName())
-                .setAttribute(TrinoAttributes.SCHEMA, table.getSchemaName())
-                .setAttribute(TrinoAttributes.TABLE, table.getObjectName());
+                .setAttribute(TrinoAttributes.CATALOG, table.catalogName())
+                .setAttribute(TrinoAttributes.SCHEMA, table.schemaName())
+                .setAttribute(TrinoAttributes.TABLE, table.objectName());
     }
 
     private Span startSpan(String methodName, CatalogSchemaTableName table)

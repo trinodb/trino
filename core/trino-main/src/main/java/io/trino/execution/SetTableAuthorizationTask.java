@@ -67,7 +67,7 @@ public class SetTableAuthorizationTask
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
 
-        getRequiredCatalogHandle(metadata, session, statement, tableName.getCatalogName());
+        getRequiredCatalogHandle(metadata, session, statement, tableName.catalogName());
         RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirection.tableHandle().isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
@@ -77,7 +77,7 @@ public class SetTableAuthorizationTask
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        checkRoleExists(session, statement, metadata, principal, Optional.of(tableName.getCatalogName()).filter(catalog -> metadata.isCatalogManagedSecurity(session, catalog)));
+        checkRoleExists(session, statement, metadata, principal, Optional.of(tableName.catalogName()).filter(catalog -> metadata.isCatalogManagedSecurity(session, catalog)));
 
         accessControl.checkCanSetTableAuthorization(session.toSecurityContext(), tableName, principal);
 

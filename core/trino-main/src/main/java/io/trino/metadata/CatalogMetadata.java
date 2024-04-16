@@ -137,7 +137,7 @@ public class CatalogMetadata
 
     public CatalogHandle getCatalogHandle(Session session, QualifiedObjectName table)
     {
-        if (table.getSchemaName().equals(INFORMATION_SCHEMA_NAME)) {
+        if (table.schemaName().equals(INFORMATION_SCHEMA_NAME)) {
             return informationSchemaTransaction.getCatalogHandle();
         }
 
