@@ -341,25 +341,5 @@ public final class PolymorphicScalarFunctionBuilder
         }
     }
 
-    static class MethodAndNativeContainerTypes
-    {
-        private final Method method;
-        private final List<Optional<Class<?>>> explicitNativeContainerTypes;
-
-        MethodAndNativeContainerTypes(Method method, List<Optional<Class<?>>> explicitNativeContainerTypes)
-        {
-            this.method = method;
-            this.explicitNativeContainerTypes = explicitNativeContainerTypes;
-        }
-
-        public Method getMethod()
-        {
-            return method;
-        }
-
-        List<Optional<Class<?>>> getExplicitNativeContainerTypes()
-        {
-            return explicitNativeContainerTypes;
-        }
-    }
+    record MethodAndNativeContainerTypes(Method method, List<Optional<Class<?>>> explicitNativeContainerTypes) {}
 }
