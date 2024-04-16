@@ -123,11 +123,11 @@ public class CreateViewTask
             owner = Optional.empty();
         }
 
-        String catalogName = name.getCatalogName();
+        String catalogName = name.catalogName();
         CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, statement, catalogName);
 
         Map<String, Object> properties = viewPropertyManager.getProperties(
-                name.getCatalogName(),
+                name.catalogName(),
                 catalogHandle,
                 statement.getProperties(),
                 session,

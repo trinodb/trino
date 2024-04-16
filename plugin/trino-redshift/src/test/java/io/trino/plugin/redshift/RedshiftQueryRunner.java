@@ -206,7 +206,7 @@ public final class RedshiftQueryRunner
     {
         Set<String> existingTables = queryRunner.listTables(session, session.getCatalog().orElseThrow(), session.getSchema().orElseThrow())
                 .stream()
-                .map(QualifiedObjectName::getObjectName)
+                .map(QualifiedObjectName::objectName)
                 .collect(toUnmodifiableSet());
 
         Streams.stream(tables)

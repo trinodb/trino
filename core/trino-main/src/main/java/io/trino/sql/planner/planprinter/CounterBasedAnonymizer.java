@@ -129,7 +129,7 @@ public class CounterBasedAnonymizer
     @Override
     public String anonymize(QualifiedObjectName objectName)
     {
-        return anonymize(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName());
+        return anonymize(objectName.catalogName(), objectName.schemaName(), objectName.objectName());
     }
 
     @Override

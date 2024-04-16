@@ -456,7 +456,7 @@ public class LogicalPlanner
 
         List<Symbol> visibleFieldMappings = visibleFields(plan);
 
-        String catalogName = destination.getCatalogName();
+        String catalogName = destination.catalogName();
         CatalogHandle catalogHandle = metadata.getCatalogHandle(session, catalogName)
                 .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, query, "Destination catalog '%s' not found", catalogName));
 

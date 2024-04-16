@@ -212,7 +212,7 @@ public class TableCommentSystemTable
         if (redirectionAware.redirectedTableName().isPresent()) {
             QualifiedObjectName redirectedRelationName = redirectionAware.redirectedTableName().get();
             SchemaTableName redirectedTableName = redirectedRelationName.asSchemaTableName();
-            if (!accessControl.filterTables(session.toSecurityContext(), redirectedRelationName.getCatalogName(), ImmutableSet.of(redirectedTableName)).contains(redirectedTableName)) {
+            if (!accessControl.filterTables(session.toSecurityContext(), redirectedRelationName.catalogName(), ImmutableSet.of(redirectedTableName)).contains(redirectedTableName)) {
                 return new RelationComment(false, Optional.empty());
             }
         }

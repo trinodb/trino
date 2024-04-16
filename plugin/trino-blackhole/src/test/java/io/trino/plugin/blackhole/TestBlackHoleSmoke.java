@@ -104,7 +104,7 @@ public class TestBlackHoleSmoke
 
         List<QualifiedObjectName> tableNames = listBlackHoleTables();
         assertThat(tableNames).hasSize(1);
-        assertThat(tableNames.get(0).getObjectName()).isEqualTo("nation");
+        assertThat(tableNames.get(0).objectName()).isEqualTo("nation");
 
         assertThatQueryReturnsValue("INSERT INTO nation SELECT * FROM tpch.tiny.nation", 25L);
 
