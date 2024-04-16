@@ -76,8 +76,8 @@ public class InternalMetadataProvider
         return viewColumns.stream()
                 .map(viewColumn ->
                         ColumnSchema.builder()
-                                .setName(viewColumn.getName())
-                                .setType(typeManager.getType(viewColumn.getType()))
+                                .setName(viewColumn.name())
+                                .setType(typeManager.getType(viewColumn.type()))
                                 .build())
                 .collect(toImmutableList());
     }

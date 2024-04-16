@@ -15,39 +15,18 @@ package io.trino.metadata;
 
 import io.trino.spi.type.TypeId;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class ViewColumn
+public record ViewColumn(String name, TypeId type, Optional<String> comment)
 {
-    private final String name;
-    private final TypeId type;
-
-    private final Optional<String> comment;
-
-    public ViewColumn(String name, TypeId type, Optional<String> comment)
+    public ViewColumn
     {
-        this.name = requireNonNull(name, "name is null");
-        this.type = requireNonNull(type, "type is null");
-        this.comment = requireNonNull(comment, "comment is null");
-    }
-
-    public String getName()
-    {
-        return name;
-    }
-
-    public TypeId getType()
-    {
-        return type;
-    }
-
-    public Optional<String> getComment()
-    {
-        return comment;
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(comment, "comment is null");
     }
 
     @Override
@@ -58,24 +37,5 @@ public final class ViewColumn
                 .add("type", type)
                 .add("comment", comment.orElse(null))
                 .toString();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ViewColumn that = (ViewColumn) o;
-        return Objects.equals(name, that.name) && Objects.equals(type, that.type) && Objects.equals(comment, that.comment);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name, type, comment);
     }
 }
