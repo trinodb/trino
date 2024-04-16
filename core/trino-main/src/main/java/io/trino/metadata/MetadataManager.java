@@ -1160,13 +1160,13 @@ public final class MetadataManager
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
         List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
                 .filter(handle -> handle.getCatalogHandle().equals(catalogHandle))
                 .map(TableHandle::getConnectorHandle)
                 .collect(toImmutableList());
-        return metadata.finishInsert(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), sourceConnectorHandles, fragments, computedStatistics);
+        return metadata.finishInsert(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), sourceConnectorHandles, fragments, computedStatistics);
     }
 
     @Override
@@ -1220,7 +1220,7 @@ public final class MetadataManager
             List<TableHandle> sourceTableHandles,
             List<String> sourceTableFunctions)
     {
-        CatalogHandle catalogHandle = insertHandle.getCatalogHandle();
+        CatalogHandle catalogHandle = insertHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
 
         List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
@@ -1229,7 +1229,7 @@ public final class MetadataManager
         return metadata.finishRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
                 tableHandle.getConnectorHandle(),
-                insertHandle.getConnectorHandle(),
+                insertHandle.connectorHandle(),
                 fragments,
                 computedStatistics,
                 sourceConnectorHandles,
