@@ -248,7 +248,7 @@ public class BeginTableWrite
             if (target instanceof MergeTarget merge) {
                 MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
                 return new MergeTarget(
-                        mergeHandle.getTableHandle(),
+                        mergeHandle.tableHandle(),
                         Optional.of(mergeHandle),
                         merge.getSchemaTableName(),
                         merge.getMergeParadigmAndTypes());
