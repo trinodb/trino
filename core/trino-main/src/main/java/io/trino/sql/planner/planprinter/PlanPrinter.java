@@ -2161,7 +2161,7 @@ public class PlanPrinter
                 .map(anonymizer::anonymize)
                 .collect(toImmutableList());
         String arguments = Joiner.on(", ").join(anonymizedArguments);
-        if (aggregation.getArguments().isEmpty() && COUNT_NAME.equals(aggregation.getResolvedFunction().getSignature().getName())) {
+        if (aggregation.getArguments().isEmpty() && COUNT_NAME.equals(aggregation.getResolvedFunction().signature().getName())) {
             arguments = "*";
         }
         if (aggregation.isDistinct()) {
@@ -2189,7 +2189,7 @@ public class PlanPrinter
 
     private static String formatFunctionName(ResolvedFunction function)
     {
-        CatalogSchemaFunctionName name = function.getSignature().getName();
+        CatalogSchemaFunctionName name = function.signature().getName();
         if (isInlineFunction(name) || isBuiltinFunctionName(name)) {
             return name.getFunctionName();
         }

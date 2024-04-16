@@ -88,7 +88,7 @@ public class ExpressionOptimizer
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {
-            if (call.getResolvedFunction().getSignature().getName().equals(builtinFunctionName(CAST))) {
+            if (call.getResolvedFunction().signature().getName().equals(builtinFunctionName(CAST))) {
                 call = rewriteCast(call);
             }
 
@@ -97,7 +97,7 @@ public class ExpressionOptimizer
                     .collect(toImmutableList());
 
             // TODO: optimize function calls with lambda arguments. For example, apply(x -> x + 2, 1)
-            if (arguments.stream().allMatch(ConstantExpression.class::isInstance) && call.getResolvedFunction().isDeterministic()) {
+            if (arguments.stream().allMatch(ConstantExpression.class::isInstance) && call.getResolvedFunction().deterministic()) {
                 List<Object> constantArguments = arguments.stream()
                         .map(ConstantExpression.class::cast)
                         .map(ConstantExpression::getValue)
@@ -192,7 +192,7 @@ public class ExpressionOptimizer
         {
             if (call.getArguments().get(0) instanceof CallExpression innerCall) {
                 // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
-                if (innerCall.getResolvedFunction().getSignature().getName().equals(JSON_PARSE_NAME)) {
+                if (innerCall.getResolvedFunction().signature().getName().equals(JSON_PARSE_NAME)) {
                     checkArgument(innerCall.getType().equals(JSON));
                     checkArgument(innerCall.getArguments().size() == 1);
                     Type returnType = call.getType();

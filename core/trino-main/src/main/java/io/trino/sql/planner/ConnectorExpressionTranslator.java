@@ -299,7 +299,7 @@ public final class ConnectorExpressionTranslator
             ResolvedFunctionCallBuilder builder = ResolvedFunctionCallBuilder.builder(resolved);
             for (int i = 0; i < arguments.size(); i++) {
                 ConnectorExpression argument = arguments.get(i);
-                Type formalType = resolved.getSignature().getArgumentTypes().get(i);
+                Type formalType = resolved.signature().getArgumentTypes().get(i);
                 Type argumentType = argument.getType();
                 Optional<Expression> translated = translate(argument);
                 if (translated.isEmpty()) {
@@ -637,7 +637,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            CatalogSchemaFunctionName functionName = node.function().getName();
+            CatalogSchemaFunctionName functionName = node.function().name();
             checkArgument(!isDynamicFilterFunction(functionName), "Dynamic filter has no meaning for a connector, it should not be translated into ConnectorExpression");
 
             if (functionName.equals(builtinFunctionName(LIKE_FUNCTION_NAME))) {
@@ -711,7 +711,7 @@ public final class ConnectorExpressionTranslator
                     arguments.add(new io.trino.spi.expression.Constant(Slices.utf8Slice(matcher.getEscape().get().toString()), createVarcharType(1)));
                 }
             }
-            else if (patternArgument instanceof Call call && call.function().getName().equals(builtinFunctionName(LIKE_PATTERN_FUNCTION_NAME))) {
+            else if (patternArgument instanceof Call call && call.function().name().equals(builtinFunctionName(LIKE_PATTERN_FUNCTION_NAME))) {
                 Optional<ConnectorExpression> translatedPattern = process(call.arguments().get(0));
                 if (translatedPattern.isEmpty()) {
                     return Optional.empty();

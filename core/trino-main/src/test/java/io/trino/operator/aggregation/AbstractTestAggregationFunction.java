@@ -173,7 +173,7 @@ public abstract class AbstractTestAggregationFunction
             oldStart = start;
             oldWidth = width;
 
-            Type outputType = resolvedFunction.getSignature().getReturnType();
+            Type outputType = resolvedFunction.signature().getReturnType();
             BlockBuilder blockBuilder = outputType.createBlockBuilder(null, 1000);
             aggregation.evaluateFinal(blockBuilder);
             Block block = blockBuilder.build();
@@ -189,9 +189,9 @@ public abstract class AbstractTestAggregationFunction
     {
         try {
             Constructor<? extends WindowAccumulator> constructor = generateWindowAccumulatorClass(
-                    resolvedFunction.getSignature(),
+                    resolvedFunction.signature(),
                     aggregationImplementation,
-                    resolvedFunction.getFunctionNullability());
+                    resolvedFunction.functionNullability());
             return constructor.newInstance(ImmutableList.of());
         }
         catch (ReflectiveOperationException e) {

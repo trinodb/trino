@@ -164,8 +164,8 @@ public class TestRealAverageAggregation
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction(getFunctionName(), fromTypes(getFunctionParameterTypes()));
         AggregationImplementation aggregationImplementation = functionResolution.getPlannerContext().getFunctionManager().getAggregationImplementation(resolvedFunction);
         WindowAccumulator aggregation = createWindowAccumulator(resolvedFunction, aggregationImplementation);
-        assertThat(resolvedFunction.getSignature().getReturnType().toString().contains("real")).isTrue();
-        assertThat(resolvedFunction.getSignature().getName().toString().contains("avg")).isTrue();
+        assertThat(resolvedFunction.signature().getReturnType().toString().contains("real")).isTrue();
+        assertThat(resolvedFunction.signature().getName().toString().contains("avg")).isTrue();
         int oldStart = 0;
         int oldWidth = 0;
         for (int start = 0; start < totalPositions; ++start) {
@@ -189,7 +189,7 @@ public class TestRealAverageAggregation
             oldStart = start;
             oldWidth = width;
 
-            Type outputType = resolvedFunction.getSignature().getReturnType();
+            Type outputType = resolvedFunction.signature().getReturnType();
             BlockBuilder blockBuilder = outputType.createBlockBuilder(null, 1000);
             aggregation.evaluateFinal(blockBuilder);
             Block block = blockBuilder.build();
@@ -229,7 +229,7 @@ public class TestRealAverageAggregation
             oldStart = start;
             oldWidth = width;
 
-            Type outputType = resolvedFunction.getSignature().getReturnType();
+            Type outputType = resolvedFunction.signature().getReturnType();
             BlockBuilder blockBuilder = outputType.createBlockBuilder(null, 1000);
             aggregation2.evaluateFinal(blockBuilder);
             Block block = blockBuilder.build();

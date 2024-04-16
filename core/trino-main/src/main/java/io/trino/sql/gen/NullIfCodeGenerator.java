@@ -54,8 +54,8 @@ public class NullIfCodeGenerator
         List<ResolvedFunction> functionDependencies = specialForm.getFunctionDependencies();
         checkArgument(functionDependencies.size() <= 3);
         equalsFunction = specialForm.getOperatorDependency(EQUAL);
-        firstCast = specialForm.getCastDependency(first.getType(), equalsFunction.getSignature().getArgumentTypes().get(0));
-        secondCast = specialForm.getCastDependency(second.getType(), equalsFunction.getSignature().getArgumentTypes().get(0));
+        firstCast = specialForm.getCastDependency(first.getType(), equalsFunction.signature().getArgumentTypes().get(0));
+        secondCast = specialForm.getCastDependency(second.getType(), equalsFunction.signature().getArgumentTypes().get(0));
     }
 
     @Override

@@ -73,7 +73,7 @@ public class StatisticAggregations
                     .map(plannerContext.getTypeManager()::getType)
                     .collect(toImmutableList());
             Type intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.get(0) : RowType.anonymous(intermediateTypes);
-            Symbol partialSymbol = symbolAllocator.newSymbol(resolvedFunction.getSignature().getName().getFunctionName(), intermediateType);
+            Symbol partialSymbol = symbolAllocator.newSymbol(resolvedFunction.signature().getName().getFunctionName(), intermediateType);
             mappings.put(entry.getKey(), partialSymbol);
             partialAggregation.put(partialSymbol, new Aggregation(
                     resolvedFunction,

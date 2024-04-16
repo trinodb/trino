@@ -133,7 +133,7 @@ final class Util
             return Optional.empty();
         }
 
-        BoundSignature signature = getOnlyElement(node.getWindowFunctions().values()).getResolvedFunction().getSignature();
+        BoundSignature signature = getOnlyElement(node.getWindowFunctions().values()).getResolvedFunction().signature();
         if (!signature.getArgumentTypes().isEmpty()) {
             return Optional.empty();
         }

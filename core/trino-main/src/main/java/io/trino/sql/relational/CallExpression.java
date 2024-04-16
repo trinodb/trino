@@ -52,7 +52,7 @@ public final class CallExpression
     @Override
     public Type getType()
     {
-        return resolvedFunction.getSignature().getReturnType();
+        return resolvedFunction.signature().getReturnType();
     }
 
     @JsonProperty
@@ -64,7 +64,7 @@ public final class CallExpression
     @Override
     public String toString()
     {
-        return resolvedFunction.getSignature().getName() + "(" + Joiner.on(", ").join(arguments) + ")";
+        return resolvedFunction.signature().getName() + "(" + Joiner.on(", ").join(arguments) + ")";
     }
 
     @Override

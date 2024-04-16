@@ -79,7 +79,7 @@ public class RewriteSpatialPartitioningAggregation
     private static boolean hasSpatialPartitioningAggregation(AggregationNode aggregationNode)
     {
         return aggregationNode.getAggregations().values().stream()
-                .anyMatch(aggregation -> aggregation.getResolvedFunction().getSignature().getName().equals(NAME) && aggregation.getArguments().size() == 1);
+                .anyMatch(aggregation -> aggregation.getResolvedFunction().signature().getName().equals(NAME) && aggregation.getArguments().size() == 1);
     }
 
     @Override
@@ -99,7 +99,7 @@ public class RewriteSpatialPartitioningAggregation
         ImmutableMap.Builder<Symbol, Expression> envelopeAssignments = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            CatalogSchemaFunctionName name = aggregation.getResolvedFunction().getSignature().getName();
+            CatalogSchemaFunctionName name = aggregation.getResolvedFunction().signature().getName();
             if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
                 Expression geometry = getOnlyElement(aggregation.getArguments());
                 Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", plannerContext.getTypeManager().getType(GEOMETRY_TYPE_SIGNATURE));
@@ -153,6 +153,6 @@ public class RewriteSpatialPartitioningAggregation
             return false;
         }
 
-        return call.function().getFunctionId().equals(stEnvelopeFunction.getFunctionId());
+        return call.function().functionId().equals(stEnvelopeFunction.functionId());
     }
 }

@@ -79,14 +79,14 @@ public class ArraySortAfterArrayDistinct
         public Expression rewriteCall(Call node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             Call rewritten = treeRewriter.defaultRewrite(node, context);
-            if (node.function().getName().equals(ARRAY_DISTINCT_NAME) &&
+            if (node.function().name().equals(ARRAY_DISTINCT_NAME) &&
                     getOnlyElement(rewritten.arguments()) instanceof Call) {
                 Expression expression = getOnlyElement(rewritten.arguments());
                 Call call = (Call) expression;
                 ResolvedFunction resolvedFunction = call.function();
-                if (resolvedFunction.getName().equals(ARRAY_SORT_NAME)) {
+                if (resolvedFunction.name().equals(ARRAY_SORT_NAME)) {
                     List<Expression> arraySortArguments = call.arguments();
-                    List<Type> arraySortArgumentsTypes = resolvedFunction.getSignature().getArgumentTypes();
+                    List<Type> arraySortArgumentsTypes = resolvedFunction.signature().getArgumentTypes();
 
                     Call arrayDistinctCall = BuiltinFunctionCallBuilder.resolve(metadata)
                             .setName(ArrayDistinctFunction.NAME)
