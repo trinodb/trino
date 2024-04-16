@@ -202,7 +202,7 @@ public class CheckpointEntryIterator
             this.columnsWithMinMaxStats = columnsWithStats(schema, this.metadataEntry.getOriginalPartitionColumns());
             Predicate<String> columnStatsFilterFunction = addStatsMinMaxColumnFilter.orElseThrow();
             this.columnsWithMinMaxStats = columnsWithMinMaxStats.stream()
-                    .filter(column -> columnStatsFilterFunction.test(column.getName()))
+                    .filter(column -> columnStatsFilterFunction.test(column.name()))
                     .collect(toImmutableList());
         }
 
@@ -686,8 +686,8 @@ public class CheckpointEntryIterator
 
         for (int i = 0; i < eligibleColumns.size(); i++) {
             DeltaLakeColumnMetadata metadata = eligibleColumns.get(i);
-            String name = metadata.getPhysicalName();
-            Type type = metadata.getPhysicalColumnType();
+            String name = metadata.physicalName();
+            Type type = metadata.physicalColumnType();
 
             ValueBlock fieldBlock = row.getUnderlyingFieldBlock(i);
             int fieldIndex = row.getUnderlyingFieldPosition(i);
@@ -729,15 +729,15 @@ public class CheckpointEntryIterator
             if (fieldBlock.isNull(fieldIndex)) {
                 continue;
             }
-            if (metadata.getType() instanceof RowType) {
+            if (metadata.type() instanceof RowType) {
                 if (checkpointRowStatisticsWritingEnabled) {
                     // RowType column statistics are not used for query planning, but need to be copied when writing out new Checkpoint files.
-                    values.put(metadata.getPhysicalName(), getRow(fieldBlock, fieldIndex));
+                    values.put(metadata.physicalName(), getRow(fieldBlock, fieldIndex));
                 }
                 continue;
             }
 
-            values.put(metadata.getPhysicalName(), getLongField(row, i));
+            values.put(metadata.physicalName(), getLongField(row, i));
         }
         return values.buildOrThrow();
     }

@@ -188,7 +188,7 @@ public class DeltaLakeSplitManager
                 .collect(toImmutableSet());
         List<DeltaLakeColumnMetadata> schema = extractSchema(metadataEntry, tableHandle.getProtocolEntry(), typeManager);
         List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
-                .filter(column -> predicatedColumnNames.contains(column.getName()))
+                .filter(column -> predicatedColumnNames.contains(column.name()))
                 .collect(toImmutableList());
         return validDataFiles
                 .flatMap(addAction -> {

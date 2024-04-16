@@ -137,18 +137,18 @@ public class CheckpointSchemaManager
         List<DeltaLakeColumnMetadata> allColumns = extractSchema(metadataEntry, protocolEntry, typeManager);
         List<DeltaLakeColumnMetadata> minMaxColumns = columnsWithStats(metadataEntry, protocolEntry, typeManager);
         minMaxColumns = minMaxColumns.stream()
-                .filter(column -> addStatsMinMaxColumnFilter.test(column.getName()))
+                .filter(column -> addStatsMinMaxColumnFilter.test(column.name()))
                 .collect(toImmutableList());
         boolean deletionVectorEnabled = isDeletionVectorEnabled(metadataEntry, protocolEntry);
 
         ImmutableList.Builder<RowType.Field> minMaxFields = ImmutableList.builder();
         for (DeltaLakeColumnMetadata dataColumn : minMaxColumns) {
-            Type type = dataColumn.getPhysicalColumnType();
+            Type type = dataColumn.physicalColumnType();
             if (type instanceof TimestampWithTimeZoneType) {
-                minMaxFields.add(RowType.field(dataColumn.getPhysicalName(), TIMESTAMP_MILLIS));
+                minMaxFields.add(RowType.field(dataColumn.physicalName(), TIMESTAMP_MILLIS));
             }
             else {
-                minMaxFields.add(RowType.field(dataColumn.getPhysicalName(), type));
+                minMaxFields.add(RowType.field(dataColumn.physicalName(), type));
             }
         }
 
@@ -164,7 +164,7 @@ public class CheckpointSchemaManager
 
         statsColumns.add(RowType.field(
                 "nullCount",
-                RowType.from(allColumns.stream().map(column -> buildNullCountType(Optional.of(column.getPhysicalName()), column.getPhysicalColumnType())).collect(toImmutableList()))));
+                RowType.from(allColumns.stream().map(column -> buildNullCountType(Optional.of(column.physicalName()), column.physicalColumnType())).collect(toImmutableList()))));
 
         MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
         ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();

@@ -419,9 +419,9 @@ public class TransactionLogAccess
     public static ImmutableList<DeltaLakeColumnMetadata> columnsWithStats(List<DeltaLakeColumnMetadata> schema, List<String> partitionColumns)
     {
         return schema.stream()
-                .filter(column -> !partitionColumns.contains(column.getName()))
+                .filter(column -> !partitionColumns.contains(column.name()))
                 .filter(column -> {
-                    Type type = column.getType();
+                    Type type = column.type();
                     return !(type instanceof MapType || type instanceof ArrayType || type.equals(BooleanType.BOOLEAN) || type.equals(VarbinaryType.VARBINARY));
                 })
                 .collect(toImmutableList());

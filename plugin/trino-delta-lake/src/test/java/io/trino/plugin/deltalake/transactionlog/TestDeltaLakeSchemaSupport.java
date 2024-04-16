@@ -112,7 +112,7 @@ public class TestDeltaLakeSchemaSupport
     private void testSinglePrimitiveFieldSchema(String json, ColumnMetadata metadata)
     {
         List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
-                .map(DeltaLakeColumnMetadata::getColumnMetadata)
+                .map(DeltaLakeColumnMetadata::columnMetadata)
                 .collect(toImmutableList());
         assertThat(schema.size()).isEqualTo(1);
         assertThat(schema.get(0)).isEqualTo(metadata);
@@ -142,7 +142,7 @@ public class TestDeltaLakeSchemaSupport
         String json = Files.readString(Path.of(expected.toURI()));
 
         List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
-                .map(DeltaLakeColumnMetadata::getColumnMetadata)
+                .map(DeltaLakeColumnMetadata::columnMetadata)
                 .collect(toImmutableList());
         assertThat(schema.size()).isEqualTo(5);
         // asserting on the string representations, since they're more readable
@@ -253,7 +253,7 @@ public class TestDeltaLakeSchemaSupport
         String json = Files.readString(Path.of(expected.toURI()));
 
         List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
-                .map(DeltaLakeColumnMetadata::getColumnMetadata)
+                .map(DeltaLakeColumnMetadata::columnMetadata)
                 .collect(toImmutableList());
 
         DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
