@@ -65,7 +65,7 @@ public class InternalMetadataProvider
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, qualifiedName);
         if (tableHandle.isPresent()) {
-            return Optional.of(metadata.getTableSchema(session, tableHandle.get()).getTableSchema());
+            return Optional.of(metadata.getTableSchema(session, tableHandle.get()).tableSchema());
         }
 
         return Optional.empty();
