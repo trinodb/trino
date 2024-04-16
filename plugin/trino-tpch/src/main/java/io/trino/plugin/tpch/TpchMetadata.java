@@ -574,19 +574,13 @@ public class TpchMetadata
     public static Type getTrinoType(TpchColumn<?> column, DecimalTypeMapping decimalTypeMapping)
     {
         TpchColumnType tpchType = column.getType();
-        switch (tpchType.getBase()) {
-            case IDENTIFIER:
-                return BIGINT;
-            case INTEGER:
-                return INTEGER;
-            case DATE:
-                return DATE;
-            case DOUBLE:
-                return decimalTypeMapping.getMappedType();
-            case VARCHAR:
-                return createVarcharType((int) (long) tpchType.getPrecision().orElseThrow());
-        }
-        throw new IllegalArgumentException("Unsupported type " + tpchType);
+        return switch (tpchType.getBase()) {
+            case IDENTIFIER -> BIGINT;
+            case INTEGER -> INTEGER;
+            case DATE -> DATE;
+            case DOUBLE -> decimalTypeMapping.getMappedType();
+            case VARCHAR -> createVarcharType((int) (long) tpchType.getPrecision().orElseThrow());
+        };
     }
 
     private static long calculateTotalRows(int scaleBase, double scaleFactor)

@@ -259,16 +259,12 @@ public final class ProtobufUtils
 
     public static Label getLabel(Field.Label label)
     {
-        switch (label) {
-            case OPTIONAL:
-                return Label.LABEL_OPTIONAL;
-            case REPEATED:
-                return Label.LABEL_REPEATED;
-            case REQUIRED:
-                return Label.LABEL_REQUIRED;
-            default:
-                throw new IllegalArgumentException("Unknown label");
-        }
+        return switch (label) {
+            case OPTIONAL -> Label.LABEL_OPTIONAL;
+            case REPEATED -> Label.LABEL_REPEATED;
+            case REQUIRED -> Label.LABEL_REQUIRED;
+            default -> throw new IllegalArgumentException("Unknown label");
+        };
     }
 
     private static String getNameForMapField(String fieldName)

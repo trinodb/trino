@@ -49,18 +49,13 @@ public class DateDiff
     {
         long nanos = normalize(right) - normalize(left);
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                return nanos / NANOSECONDS_PER_MILLISECOND;
-            case "second":
-                return nanos / NANOSECONDS_PER_SECOND;
-            case "minute":
-                return nanos / NANOSECONDS_PER_MINUTE;
-            case "hour":
-                return nanos / NANOSECONDS_PER_HOUR;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        return switch (unitString) {
+            case "millisecond" -> nanos / NANOSECONDS_PER_MILLISECOND;
+            case "second" -> nanos / NANOSECONDS_PER_SECOND;
+            case "minute" -> nanos / NANOSECONDS_PER_MINUTE;
+            case "hour" -> nanos / NANOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        };
     }
 
     @LiteralParameters({"x", "p"})
@@ -72,17 +67,12 @@ public class DateDiff
     {
         long picos = normalize(right) - normalize(left);
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                return picos / PICOSECONDS_PER_MILLISECOND;
-            case "second":
-                return picos / PICOSECONDS_PER_SECOND;
-            case "minute":
-                return picos / PICOSECONDS_PER_MINUTE;
-            case "hour":
-                return picos / PICOSECONDS_PER_HOUR;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        return switch (unitString) {
+            case "millisecond" -> picos / PICOSECONDS_PER_MILLISECOND;
+            case "second" -> picos / PICOSECONDS_PER_SECOND;
+            case "minute" -> picos / PICOSECONDS_PER_MINUTE;
+            case "hour" -> picos / PICOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        };
     }
 }

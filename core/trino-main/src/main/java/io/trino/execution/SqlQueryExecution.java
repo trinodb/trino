@@ -529,67 +529,59 @@ public class SqlQueryExecution
                 rootFragment.getTypes());
 
         RetryPolicy retryPolicy = getRetryPolicy(getSession());
-        QueryScheduler scheduler;
-        switch (retryPolicy) {
-            case QUERY:
-            case NONE:
-                scheduler = new PipelinedQueryScheduler(
-                        stateMachine,
-                        plan.getRoot(),
-                        nodePartitioningManager,
-                        nodeScheduler,
-                        remoteTaskFactory,
-                        plan.isSummarizeTaskInfos(),
-                        scheduleSplitBatchSize,
-                        queryExecutor,
-                        schedulerExecutor,
-                        failureDetector,
-                        nodeTaskMap,
-                        executionPolicy,
-                        tracer,
-                        schedulerStats,
-                        dynamicFilterService,
-                        tableExecuteContextManager,
-                        plannerContext.getMetadata(),
-                        splitSourceFactory,
-                        coordinatorTaskManager);
-                break;
-            case TASK:
-                scheduler = new EventDrivenFaultTolerantQueryScheduler(
-                        stateMachine,
-                        plannerContext.getMetadata(),
-                        remoteTaskFactory,
-                        taskDescriptorStorage,
-                        eventDrivenTaskSourceFactory,
-                        plan.isSummarizeTaskInfos(),
-                        nodeTaskMap,
-                        queryExecutor,
-                        schedulerExecutor,
-                        tracer,
-                        schedulerStats,
-                        partitionMemoryEstimatorFactory,
-                        outputStatsEstimatorFactory,
-                        nodePartitioningManager,
-                        exchangeManagerRegistry.getExchangeManager(),
-                        nodeAllocatorService,
-                        failureDetector,
-                        dynamicFilterService,
-                        taskExecutionStats,
-                        new AdaptivePlanner(
-                                stateMachine.getSession(),
-                                plannerContext,
-                                adaptivePlanOptimizers,
-                                planFragmenter,
-                                DISTRIBUTED_PLAN_SANITY_CHECKER,
-                                stateMachine.getWarningCollector(),
-                                planOptimizersStatsCollector,
-                                tableStatsProvider),
-                        stageExecutionStats,
-                        plan.getRoot());
-                break;
-            default:
-                throw new IllegalArgumentException("Unexpected retry policy: " + retryPolicy);
-        }
+        QueryScheduler scheduler = switch (retryPolicy) {
+            case QUERY, NONE -> new PipelinedQueryScheduler(
+                    stateMachine,
+                    plan.getRoot(),
+                    nodePartitioningManager,
+                    nodeScheduler,
+                    remoteTaskFactory,
+                    plan.isSummarizeTaskInfos(),
+                    scheduleSplitBatchSize,
+                    queryExecutor,
+                    schedulerExecutor,
+                    failureDetector,
+                    nodeTaskMap,
+                    executionPolicy,
+                    tracer,
+                    schedulerStats,
+                    dynamicFilterService,
+                    tableExecuteContextManager,
+                    plannerContext.getMetadata(),
+                    splitSourceFactory,
+                    coordinatorTaskManager);
+            case TASK -> new EventDrivenFaultTolerantQueryScheduler(
+                    stateMachine,
+                    plannerContext.getMetadata(),
+                    remoteTaskFactory,
+                    taskDescriptorStorage,
+                    eventDrivenTaskSourceFactory,
+                    plan.isSummarizeTaskInfos(),
+                    nodeTaskMap,
+                    queryExecutor,
+                    schedulerExecutor,
+                    tracer,
+                    schedulerStats,
+                    partitionMemoryEstimatorFactory,
+                    outputStatsEstimatorFactory,
+                    nodePartitioningManager,
+                    exchangeManagerRegistry.getExchangeManager(),
+                    nodeAllocatorService,
+                    failureDetector,
+                    dynamicFilterService,
+                    taskExecutionStats,
+                    new AdaptivePlanner(
+                            stateMachine.getSession(),
+                            plannerContext,
+                            adaptivePlanOptimizers,
+                            planFragmenter,
+                            DISTRIBUTED_PLAN_SANITY_CHECKER,
+                            stateMachine.getWarningCollector(),
+                            planOptimizersStatsCollector,
+                            tableStatsProvider),
+                    stageExecutionStats,
+                    plan.getRoot());
+        };
 
         queryScheduler.set(scheduler);
         stateMachine.addQueryInfoStateChangeListener(queryInfo -> {

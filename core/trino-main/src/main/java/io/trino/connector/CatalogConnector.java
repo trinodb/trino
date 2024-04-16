@@ -80,16 +80,11 @@ public class CatalogConnector
 
     public ConnectorServices getMaterializedConnector(CatalogHandleType type)
     {
-        switch (type) {
-            case NORMAL:
-                return catalogConnector;
-            case INFORMATION_SCHEMA:
-                return informationSchemaConnector;
-            case SYSTEM:
-                return systemConnector;
-            default:
-                throw new IllegalArgumentException("Unknown type " + type);
-        }
+        return switch (type) {
+            case NORMAL -> catalogConnector;
+            case INFORMATION_SCHEMA -> informationSchemaConnector;
+            case SYSTEM -> systemConnector;
+        };
     }
 
     public void shutdown()

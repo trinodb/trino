@@ -115,74 +115,59 @@ class MessageTypeConverter
     private static org.apache.parquet.format.Type getType(PrimitiveType.PrimitiveTypeName type)
     {
         switch (type) {
-            case INT64:
+            case INT64 -> {
                 return Type.INT64;
-            case INT32:
+            }
+            case INT32 -> {
                 return Type.INT32;
-            case BOOLEAN:
+            }
+            case BOOLEAN -> {
                 return Type.BOOLEAN;
-            case BINARY:
+            }
+            case BINARY -> {
                 return Type.BYTE_ARRAY;
-            case FLOAT:
+            }
+            case FLOAT -> {
                 return Type.FLOAT;
-            case DOUBLE:
+            }
+            case DOUBLE -> {
                 return Type.DOUBLE;
-            case INT96:
+            }
+            case INT96 -> {
                 return Type.INT96;
-            case FIXED_LEN_BYTE_ARRAY:
+            }
+            case FIXED_LEN_BYTE_ARRAY -> {
                 return Type.FIXED_LEN_BYTE_ARRAY;
+            }
         }
         throw new RuntimeException("Unknown primitive type " + type);
     }
 
     private static ConvertedType getConvertedType(OriginalType type)
     {
-        switch (type) {
-            case UTF8:
-                return ConvertedType.UTF8;
-            case MAP:
-                return ConvertedType.MAP;
-            case MAP_KEY_VALUE:
-                return ConvertedType.MAP_KEY_VALUE;
-            case LIST:
-                return ConvertedType.LIST;
-            case ENUM:
-                return ConvertedType.ENUM;
-            case DECIMAL:
-                return ConvertedType.DECIMAL;
-            case DATE:
-                return ConvertedType.DATE;
-            case TIME_MICROS:
-                return ConvertedType.TIME_MICROS;
-            case TIME_MILLIS:
-                return ConvertedType.TIME_MILLIS;
-            case TIMESTAMP_MILLIS:
-                return ConvertedType.TIMESTAMP_MILLIS;
-            case TIMESTAMP_MICROS:
-                return ConvertedType.TIMESTAMP_MICROS;
-            case INTERVAL:
-                return ConvertedType.INTERVAL;
-            case INT_8:
-                return ConvertedType.INT_8;
-            case INT_16:
-                return ConvertedType.INT_16;
-            case INT_32:
-                return ConvertedType.INT_32;
-            case INT_64:
-                return ConvertedType.INT_64;
-            case UINT_8:
-                return ConvertedType.UINT_8;
-            case UINT_16:
-                return ConvertedType.UINT_16;
-            case UINT_32:
-                return ConvertedType.UINT_32;
-            case UINT_64:
-                return ConvertedType.UINT_64;
-            case JSON:
-                return ConvertedType.JSON;
-            case BSON:
-                return ConvertedType.BSON;
-        }
-        throw new RuntimeException("Unknown original type " + type);
+        return switch (type) {
+            case UTF8 -> ConvertedType.UTF8;
+            case MAP -> ConvertedType.MAP;
+            case MAP_KEY_VALUE -> ConvertedType.MAP_KEY_VALUE;
+            case LIST -> ConvertedType.LIST;
+            case ENUM -> ConvertedType.ENUM;
+            case DECIMAL -> ConvertedType.DECIMAL;
+            case DATE -> ConvertedType.DATE;
+            case TIME_MICROS -> ConvertedType.TIME_MICROS;
+            case TIME_MILLIS -> ConvertedType.TIME_MILLIS;
+            case TIMESTAMP_MILLIS -> ConvertedType.TIMESTAMP_MILLIS;
+            case TIMESTAMP_MICROS -> ConvertedType.TIMESTAMP_MICROS;
+            case INTERVAL -> ConvertedType.INTERVAL;
+            case INT_8 -> ConvertedType.INT_8;
+            case INT_16 -> ConvertedType.INT_16;
+            case INT_32 -> ConvertedType.INT_32;
+            case INT_64 -> ConvertedType.INT_64;
+            case UINT_8 -> ConvertedType.UINT_8;
+            case UINT_16 -> ConvertedType.UINT_16;
+            case UINT_32 -> ConvertedType.UINT_32;
+            case UINT_64 -> ConvertedType.UINT_64;
+            case JSON -> ConvertedType.JSON;
+            case BSON -> ConvertedType.BSON;
+        };
     }
 }

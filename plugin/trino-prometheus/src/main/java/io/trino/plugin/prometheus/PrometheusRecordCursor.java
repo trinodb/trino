@@ -120,15 +120,12 @@ public class PrometheusRecordCursor
         checkState(fields != null, "Cursor has not been advanced yet");
 
         int columnIndex = fieldToColumnIndex[field];
-        switch (columnIndex) {
-            case 0:
-                return getSqlMapFromMap(columnHandles.get(columnIndex).getColumnType(), fields.getLabels());
-            case 1:
-                return fields.getTimestamp();
-            case 2:
-                return fields.getValue();
-        }
-        return null;
+        return switch (columnIndex) {
+            case 0 -> getSqlMapFromMap(columnHandles.get(columnIndex).getColumnType(), fields.getLabels());
+            case 1 -> fields.getTimestamp();
+            case 2 -> fields.getValue();
+            default -> null;
+        };
     }
 
     @Override

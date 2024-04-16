@@ -223,20 +223,14 @@ public final class ShardOrganizerUtil
     private static Object getValue(ResultSet resultSet, Type type, String columnName, JDBCType jdbcType)
             throws SQLException
     {
-        switch (jdbcType) {
-            case BOOLEAN:
-                return resultSet.getBoolean(columnName);
-            case INTEGER:
-                return resultSet.getInt(columnName);
-            case BIGINT:
-                return resultSet.getLong(columnName);
-            case DOUBLE:
-                return resultSet.getDouble(columnName);
-            case VARBINARY:
-                return wrappedBuffer(resultSet.getBytes(columnName)).toStringUtf8();
-            default:
-                throw new IllegalArgumentException("Unhandled type: " + type);
-        }
+        return switch (jdbcType) {
+            case BOOLEAN -> resultSet.getBoolean(columnName);
+            case INTEGER -> resultSet.getInt(columnName);
+            case BIGINT -> resultSet.getLong(columnName);
+            case DOUBLE -> resultSet.getDouble(columnName);
+            case VARBINARY -> wrappedBuffer(resultSet.getBytes(columnName)).toStringUtf8();
+            default -> throw new IllegalArgumentException("Unhandled type: " + type);
+        };
     }
 
     static OrganizationSet createOrganizationSet(long tableId, Set<ShardIndexInfo> shardsToCompact)

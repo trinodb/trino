@@ -353,20 +353,18 @@ public class HiveWriterFactory
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
                 }
                 else {
-                    switch (insertExistingPartitionsBehavior) {
-                        case APPEND:
+                    writeInfo = switch (insertExistingPartitionsBehavior) {
+                        case APPEND -> {
                             updateMode = UpdateMode.APPEND;
-                            writeInfo = locationService.getTableWriteInfo(locationHandle, false);
-                            break;
-                        case OVERWRITE:
+                            yield locationService.getTableWriteInfo(locationHandle, false);
+                        }
+                        case OVERWRITE -> {
                             updateMode = UpdateMode.OVERWRITE;
-                            writeInfo = locationService.getTableWriteInfo(locationHandle, true);
-                            break;
-                        case ERROR:
-                            throw new TrinoException(HIVE_TABLE_READ_ONLY, "Unpartitioned Hive tables are immutable");
-                        default:
-                            throw new IllegalArgumentException("Unsupported insert existing table behavior: " + insertExistingPartitionsBehavior);
-                    }
+                            yield locationService.getTableWriteInfo(locationHandle, true);
+                        }
+                        case ERROR -> throw new TrinoException(HIVE_TABLE_READ_ONLY, "Unpartitioned Hive tables are immutable");
+                        default -> throw new IllegalArgumentException("Unsupported insert existing table behavior: " + insertExistingPartitionsBehavior);
+                    };
                 }
 
                 schema.putAll(getHiveSchema(table));
@@ -670,14 +668,10 @@ public class HiveWriterFactory
     private String computeAcidSubdir(AcidTransaction transaction)
     {
         long writeId = transaction.getWriteId();
-        switch (transaction.getOperation()) {
-            case INSERT:
-            case CREATE_TABLE:
-            case MERGE:
-                return deltaSubdir(writeId, 0);
-            default:
-                throw new UnsupportedOperationException("transaction operation is " + transaction.getOperation());
-        }
+        return switch (transaction.getOperation()) {
+            case INSERT, CREATE_TABLE, MERGE -> deltaSubdir(writeId, 0);
+            default -> throw new UnsupportedOperationException("transaction operation is " + transaction.getOperation());
+        };
     }
 
     private String computeFileName(OptionalInt bucketNumber)

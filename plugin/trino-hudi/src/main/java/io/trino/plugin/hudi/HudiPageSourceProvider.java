@@ -304,33 +304,22 @@ public class HudiPageSourceProvider
         String partitionValue = partitionKey.getValue();
         String baseType = partitionDataType.getBase();
         try {
-            switch (baseType) {
-                case TINYINT:
-                case SMALLINT:
-                case INTEGER:
-                case BIGINT:
-                    return Optional.of(parseLong(partitionValue));
-                case REAL:
-                    return Optional.of((long) floatToRawIntBits(parseFloat(partitionValue)));
-                case DOUBLE:
-                    return Optional.of(parseDouble(partitionValue));
-                case VARCHAR:
-                case VARBINARY:
-                    return Optional.of(utf8Slice(partitionValue));
-                case DATE:
-                    return Optional.of(LocalDate.parse(partitionValue, DateTimeFormatter.ISO_LOCAL_DATE).toEpochDay());
-                case TIMESTAMP:
-                    return Optional.of(Timestamp.valueOf(partitionValue).toLocalDateTime().toEpochSecond(ZoneOffset.UTC) * 1_000);
-                case BOOLEAN:
+            return switch (baseType) {
+                case TINYINT, SMALLINT, INTEGER, BIGINT -> Optional.of(parseLong(partitionValue));
+                case REAL -> Optional.of((long) floatToRawIntBits(parseFloat(partitionValue)));
+                case DOUBLE -> Optional.of(parseDouble(partitionValue));
+                case VARCHAR, VARBINARY -> Optional.of(utf8Slice(partitionValue));
+                case DATE -> Optional.of(LocalDate.parse(partitionValue, DateTimeFormatter.ISO_LOCAL_DATE).toEpochDay());
+                case TIMESTAMP -> Optional.of(Timestamp.valueOf(partitionValue).toLocalDateTime().toEpochSecond(ZoneOffset.UTC) * 1_000);
+                case BOOLEAN -> {
                     checkArgument(partitionValue.equalsIgnoreCase("true") || partitionValue.equalsIgnoreCase("false"));
-                    return Optional.of(Boolean.valueOf(partitionValue));
-                case DECIMAL:
-                    return Optional.of(Decimals.parse(partitionValue).getObject());
-                default:
-                    throw new TrinoException(
-                            HUDI_INVALID_PARTITION_VALUE,
-                            format("Unsupported data type '%s' for partition column %s", partitionDataType, partitionColumnName));
-            }
+                    yield Optional.of(Boolean.valueOf(partitionValue));
+                }
+                case DECIMAL -> Optional.of(Decimals.parse(partitionValue).getObject());
+                default -> throw new TrinoException(
+                        HUDI_INVALID_PARTITION_VALUE,
+                        format("Unsupported data type '%s' for partition column %s", partitionDataType, partitionColumnName));
+            };
         }
         catch (IllegalArgumentException | DateTimeParseException e) {
             throw new TrinoException(

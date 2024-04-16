@@ -13,7 +13,6 @@
  */
 package io.trino.operator.window;
 
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSupplier;
@@ -70,17 +69,12 @@ public class ReflectionWindowFunctionSupplier
 
         List<Integer> argumentChannels = IntStream.range(0, argumentCount).boxed().collect(toImmutableList());
         try {
-            switch (constructorType) {
-                case NO_INPUTS:
-                    return constructor.newInstance();
-                case IGNORE_NULLS:
-                    return constructor.newInstance(ignoreNulls);
-                case INPUTS:
-                    return constructor.newInstance(argumentChannels);
-                case INPUTS_IGNORE_NULLS:
-                    return constructor.newInstance(argumentChannels, ignoreNulls);
-            }
-            throw new VerifyException("Unhandled constructor type: " + constructorType);
+            return switch (constructorType) {
+                case NO_INPUTS -> constructor.newInstance();
+                case IGNORE_NULLS -> constructor.newInstance(ignoreNulls);
+                case INPUTS -> constructor.newInstance(argumentChannels);
+                case INPUTS_IGNORE_NULLS -> constructor.newInstance(argumentChannels, ignoreNulls);
+            };
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);

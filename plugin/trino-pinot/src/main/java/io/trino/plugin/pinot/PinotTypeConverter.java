@@ -91,66 +91,46 @@ public class PinotTypeConverter
 
     private Type toTrinoType(FieldSpec.DataType dataType, Optional<DateTimeFormatSpec> formatSpec)
     {
-        switch (dataType) {
-            case BOOLEAN:
-                return BooleanType.BOOLEAN;
-            case FLOAT:
-                return RealType.REAL;
-            case DOUBLE:
-                return DoubleType.DOUBLE;
-            case INT:
+        return switch (dataType) {
+            case BOOLEAN -> BooleanType.BOOLEAN;
+            case FLOAT -> RealType.REAL;
+            case DOUBLE -> DoubleType.DOUBLE;
+            case INT -> {
                 if (formatSpec.map(PinotTypeConverter::isDateType).orElse(false)) {
-                    return DateType.DATE;
+                    yield DateType.DATE;
                 }
-                return IntegerType.INTEGER;
-            case LONG:
+                yield IntegerType.INTEGER;
+            }
+            case LONG -> {
                 if (formatSpec.map(PinotTypeConverter::isDateType).orElse(false)) {
-                    return DateType.DATE;
+                    yield DateType.DATE;
                 }
-                return BigintType.BIGINT;
-            case STRING:
-                return VarcharType.VARCHAR;
-            case JSON:
-                return jsonTypeSupplier.get();
-            case BYTES:
-                return VarbinaryType.VARBINARY;
-            case TIMESTAMP:
-                return TimestampType.TIMESTAMP_MILLIS;
-            default:
-                break;
-        }
-        throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "Unsupported type conversion for pinot data type: " + dataType);
+                yield BigintType.BIGINT;
+            }
+            case STRING -> VarcharType.VARCHAR;
+            case JSON -> jsonTypeSupplier.get();
+            case BYTES -> VarbinaryType.VARBINARY;
+            case TIMESTAMP -> TimestampType.TIMESTAMP_MILLIS;
+            default -> throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "Unsupported type conversion for pinot data type: " + dataType);
+        };
     }
 
     public Type toTrinoType(DataSchema.ColumnDataType columnDataType)
     {
-        switch (columnDataType) {
-            case INT:
-                return IntegerType.INTEGER;
-            case LONG:
-                return BigintType.BIGINT;
-            case FLOAT:
-                return RealType.REAL;
-            case DOUBLE:
-                return DoubleType.DOUBLE;
-            case STRING:
-                return VarcharType.VARCHAR;
-            case JSON:
-                return jsonTypeSupplier.get();
-            case BYTES:
-                return VarbinaryType.VARBINARY;
-            case INT_ARRAY:
-                return new ArrayType(IntegerType.INTEGER);
-            case LONG_ARRAY:
-                return new ArrayType(BigintType.BIGINT);
-            case DOUBLE_ARRAY:
-                return new ArrayType(DoubleType.DOUBLE);
-            case STRING_ARRAY:
-                return new ArrayType(VarcharType.VARCHAR);
-            default:
-                break;
-        }
-        throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "Unsupported column data type: " + columnDataType);
+        return switch (columnDataType) {
+            case INT -> IntegerType.INTEGER;
+            case LONG -> BigintType.BIGINT;
+            case FLOAT -> RealType.REAL;
+            case DOUBLE -> DoubleType.DOUBLE;
+            case STRING -> VarcharType.VARCHAR;
+            case JSON -> jsonTypeSupplier.get();
+            case BYTES -> VarbinaryType.VARBINARY;
+            case INT_ARRAY -> new ArrayType(IntegerType.INTEGER);
+            case LONG_ARRAY -> new ArrayType(BigintType.BIGINT);
+            case DOUBLE_ARRAY -> new ArrayType(DoubleType.DOUBLE);
+            case STRING_ARRAY -> new ArrayType(VarcharType.VARCHAR);
+            default -> throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "Unsupported column data type: " + columnDataType);
+        };
     }
 
     public boolean isJsonType(Type type)

@@ -109,13 +109,10 @@ public final class EncodedPolylineFunctions
         OGCGeometry geometry = deserialize(input);
         validateType("encode_polyline", geometry, EnumSet.of(LINE_STRING, MULTI_POINT));
         GeometryType geometryType = GeometryType.getForEsriGeometryType(geometry.geometryType());
-        switch (geometryType) {
-            case LINE_STRING:
-            case MULTI_POINT:
-                return encodePolyline((MultiVertexGeometry) geometry.getEsriGeometry());
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unexpected geometry type: " + geometryType);
-        }
+        return switch (geometryType) {
+            case LINE_STRING, MULTI_POINT -> encodePolyline((MultiVertexGeometry) geometry.getEsriGeometry());
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unexpected geometry type: " + geometryType);
+        };
     }
 
     private static Slice encodePolyline(MultiVertexGeometry multiVertexGeometry)

@@ -47,25 +47,16 @@ public enum GeometrySerializationType
 
     public static GeometrySerializationType getForCode(int code)
     {
-        switch (code) {
-            case 0:
-                return POINT;
-            case 1:
-                return MULTI_POINT;
-            case 2:
-                return LINE_STRING;
-            case 3:
-                return MULTI_LINE_STRING;
-            case 4:
-                return POLYGON;
-            case 5:
-                return MULTI_POLYGON;
-            case 6:
-                return GEOMETRY_COLLECTION;
-            case 7:
-                return ENVELOPE;
-            default:
-                throw new IllegalArgumentException("Invalid type code: " + code);
-        }
+        return switch (code) {
+            case 0 -> POINT;
+            case 1 -> MULTI_POINT;
+            case 2 -> LINE_STRING;
+            case 3 -> MULTI_LINE_STRING;
+            case 4 -> POLYGON;
+            case 5 -> MULTI_POLYGON;
+            case 6 -> GEOMETRY_COLLECTION;
+            case 7 -> ENVELOPE;
+            default -> throw new IllegalArgumentException("Invalid type code: " + code);
+        };
     }
 }

@@ -52,31 +52,19 @@ public class OperatorNotFoundException
 
     private static String formatErrorMessage(OperatorType operatorType, List<? extends Type> argumentTypes, Optional<TypeSignature> returnType)
     {
-        switch (operatorType) {
-            case ADD:
-            case SUBTRACT:
-            case MULTIPLY:
-            case DIVIDE:
-            case MODULUS:
-            case EQUAL:
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-                return format("Cannot apply operator: %s %s %s", argumentTypes.get(0), operatorType.getOperator(), argumentTypes.get(1));
-            case NEGATION:
-                return format("Cannot negate %s", argumentTypes.get(0));
-            case IS_DISTINCT_FROM:
-                return format("Cannot check if %s is distinct from %s", argumentTypes.get(0), argumentTypes.get(1));
-            case CAST:
-                return format("Cannot cast %s to %s", argumentTypes.get(0), returnType.orElseThrow());
-            case SUBSCRIPT:
-                return format("Cannot use %s for subscript of %s", argumentTypes.get(1), argumentTypes.get(0));
-            default:
-                return format(
-                        "Operator '%s'%s cannot be applied to %s",
-                        operatorType.getOperator(),
-                        returnType.map(value -> ":" + value).orElse(""),
-                        Joiner.on(", ").join(argumentTypes));
-        }
+        return switch (operatorType) {
+            case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS, EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL ->
+                    format("Cannot apply operator: %s %s %s", argumentTypes.get(0), operatorType.getOperator(), argumentTypes.get(1));
+            case NEGATION -> format("Cannot negate %s", argumentTypes.get(0));
+            case IS_DISTINCT_FROM -> format("Cannot check if %s is distinct from %s", argumentTypes.get(0), argumentTypes.get(1));
+            case CAST -> format("Cannot cast %s to %s", argumentTypes.get(0), returnType.orElseThrow());
+            case SUBSCRIPT -> format("Cannot use %s for subscript of %s", argumentTypes.get(1), argumentTypes.get(0));
+            default -> format(
+                    "Operator '%s'%s cannot be applied to %s",
+                    operatorType.getOperator(),
+                    returnType.map(value -> ":" + value).orElse(""),
+                    Joiner.on(", ").join(argumentTypes));
+        };
     }
 
     public OperatorType getOperatorType()

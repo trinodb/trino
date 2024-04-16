@@ -103,15 +103,10 @@ public final class PageFieldsToInputParametersRewriter
         @Override
         public RowExpression visitSpecialForm(SpecialForm specialForm, Boolean unconditionallyEvaluated)
         {
-            switch (specialForm.getForm()) {
-                case IF:
-                case SWITCH:
-                case BETWEEN:
-                case AND:
-                case OR:
-                case COALESCE:
+            return switch (specialForm.getForm()) {
+                case IF, SWITCH, BETWEEN, AND, OR, COALESCE -> {
                     List<RowExpression> arguments = specialForm.getArguments();
-                    return new SpecialForm(
+                    yield new SpecialForm(
                             specialForm.getForm(),
                             specialForm.getType(),
                             IntStream.range(0, arguments.size()).boxed()
@@ -119,23 +114,15 @@ public final class PageFieldsToInputParametersRewriter
                                     .map(index -> arguments.get(index).accept(this, index == 0 && unconditionallyEvaluated))
                                     .collect(toImmutableList()),
                             specialForm.getFunctionDependencies());
-                case BIND:
-                case IN:
-                case WHEN:
-                case IS_NULL:
-                case NULL_IF:
-                case DEREFERENCE:
-                case ARRAY_CONSTRUCTOR:
-                case ROW_CONSTRUCTOR:
-                    return new SpecialForm(
-                            specialForm.getForm(),
-                            specialForm.getType(),
-                            specialForm.getArguments().stream()
-                                    .map(expression -> expression.accept(this, unconditionallyEvaluated))
-                                    .collect(toImmutableList()),
-                            specialForm.getFunctionDependencies());
-            }
-            throw new IllegalArgumentException("Unsupported special form " + specialForm.getForm());
+                }
+                case BIND, IN, WHEN, IS_NULL, NULL_IF, DEREFERENCE, ROW_CONSTRUCTOR, ARRAY_CONSTRUCTOR -> new SpecialForm(
+                        specialForm.getForm(),
+                        specialForm.getType(),
+                        specialForm.getArguments().stream()
+                                .map(expression -> expression.accept(this, unconditionallyEvaluated))
+                                .collect(toImmutableList()),
+                        specialForm.getFunctionDependencies());
+            };
         }
 
         @Override
