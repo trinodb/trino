@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createAbfsDeltaLakeQueryRunner;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDockerizedDeltaLakeQueryRunner;
 import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
@@ -84,12 +84,17 @@ public class TestDeltaLakeAdlsStorage
                         "/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.toString()))
                 .build());
         hiveHadoop.start();
-        return createAbfsDeltaLakeQueryRunner(
+        return createDockerizedDeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA_NAME,
                 ImmutableMap.of(),
-                ImmutableMap.of("delta.register-table-procedure.enabled", "true"),
-                hiveHadoop);
+                ImmutableMap.of(),
+                ImmutableMap.of(
+                        "hive.azure.abfs-storage-account", account,
+                        "hive.azure.abfs-access-key", accessKey,
+                        "delta.register-table-procedure.enabled", "true"),
+                hiveHadoop,
+                queryRunner -> {});
     }
 
     private Path createHadoopCoreSiteXmlTempFileWithAbfsSettings()

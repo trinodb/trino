@@ -186,28 +186,6 @@ public final class DeltaLakeQueryRunner
                 additionalSetup);
     }
 
-    public static QueryRunner createAbfsDeltaLakeQueryRunner(
-            String catalogName,
-            String schemaName,
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            HiveHadoop testingHadoop)
-            throws Exception
-    {
-        return createDockerizedDeltaLakeQueryRunner(
-                catalogName,
-                schemaName,
-                ImmutableMap.of(),
-                extraProperties,
-                ImmutableMap.<String, String>builder()
-                        .put("hive.azure.abfs-storage-account", requiredNonEmptySystemProperty("testing.azure-abfs-account"))
-                        .put("hive.azure.abfs-access-key", requiredNonEmptySystemProperty("testing.azure-abfs-access-key"))
-                        .putAll(connectorProperties)
-                        .buildOrThrow(),
-                testingHadoop,
-                queryRunner -> {});
-    }
-
     public static QueryRunner createDockerizedDeltaLakeQueryRunner(
             String catalogName,
             String schemaName,
