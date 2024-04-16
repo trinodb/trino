@@ -893,11 +893,10 @@ public class HiveMetadata
             return TableStatistics.empty();
         }
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        Set<ColumnHandle> projectedColumns = hiveTableHandle.getProjectedColumns();
+        Set<HiveColumnHandle> projectedColumns = hiveTableHandle.getProjectedColumns();
         // Return column statistics only for projectedColumns
         // plus, since column statistics are not supported for non-primitive types in hive, filter those out
         Map<String, ColumnHandle> columns = projectedColumns.stream()
-                .map(columnHandle -> (HiveColumnHandle) columnHandle)
                 .filter(entry -> !entry.isHidden() && entry.getHiveType().getCategory() == PRIMITIVE)
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
 
@@ -3093,7 +3092,7 @@ public class HiveMetadata
         if (isQueryPartitionFilterRequiredForTable(session, handle.getSchemaTableName()) && handle.getAnalyzePartitionValues().isEmpty() && handle.getEnforcedConstraint().isAll()) {
             List<HiveColumnHandle> partitionColumns = handle.getPartitionColumns();
             if (!partitionColumns.isEmpty()) {
-                Set<ColumnHandle> referencedColumns = handle.getConstraintColumns();
+                Set<HiveColumnHandle> referencedColumns = handle.getConstraintColumns();
                 if (Collections.disjoint(referencedColumns, partitionColumns)) {
                     String partitionColumnNames = partitionColumns.stream()
                             .map(HiveColumnHandle::getName)
@@ -3129,7 +3128,9 @@ public class HiveMetadata
         HiveTableHandle hiveTableHandle = (HiveTableHandle) handle;
         // all references are simple variables
         if (columnProjections.values().stream().allMatch(ProjectedColumnRepresentation::isVariable)) {
-            Set<ColumnHandle> projectedColumns = ImmutableSet.copyOf(assignments.values());
+            Set<HiveColumnHandle> projectedColumns = assignments.values().stream()
+                    .map(HiveColumnHandle.class::cast)
+                    .collect(toImmutableSet());
             if (hiveTableHandle.getProjectedColumns().equals(projectedColumns)) {
                 return Optional.empty();
             }
@@ -3148,13 +3149,13 @@ public class HiveMetadata
 
         Map<String, Assignment> newAssignments = new HashMap<>();
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
-        ImmutableSet.Builder<ColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<HiveColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
 
         for (Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
             ConnectorExpression expression = entry.getKey();
             ProjectedColumnRepresentation projectedColumn = entry.getValue();
 
-            ColumnHandle projectedColumnHandle;
+            HiveColumnHandle projectedColumnHandle;
             String projectedColumnName;
 
             // See if input already contains a columnhandle for this projected column, avoid creating duplicates.
@@ -3162,13 +3163,13 @@ public class HiveMetadata
 
             if (existingColumn.isPresent()) {
                 projectedColumnName = existingColumn.get();
-                projectedColumnHandle = assignments.get(projectedColumnName);
+                projectedColumnHandle = (HiveColumnHandle) assignments.get(projectedColumnName);
             }
             else {
                 // Create a new column handle
                 HiveColumnHandle oldColumnHandle = (HiveColumnHandle) assignments.get(projectedColumn.getVariable().getName());
                 projectedColumnHandle = createProjectedColumnHandle(oldColumnHandle, projectedColumn.getDereferenceIndices());
-                projectedColumnName = ((HiveColumnHandle) projectedColumnHandle).getName();
+                projectedColumnName = projectedColumnHandle.getName();
             }
 
             Variable projectedColumnVariable = new Variable(projectedColumnName, expression.getType());
