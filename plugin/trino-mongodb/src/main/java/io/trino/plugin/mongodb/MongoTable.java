@@ -18,68 +18,15 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class MongoTable
+public record MongoTable(MongoTableHandle tableHandle, List<MongoColumnHandle> columns, List<MongoIndex> indexes, Optional<String> comment)
 {
-    private final MongoTableHandle tableHandle;
-    private final List<MongoColumnHandle> columns;
-    private final List<MongoIndex> indexes;
-    private final Optional<String> comment;
-
-    public MongoTable(MongoTableHandle tableHandle, List<MongoColumnHandle> columns, List<MongoIndex> indexes, Optional<String> comment)
+    public MongoTable
     {
-        this.tableHandle = tableHandle;
-        this.columns = ImmutableList.copyOf(columns);
-        this.indexes = ImmutableList.copyOf(indexes);
-        this.comment = requireNonNull(comment, "comment is null");
-    }
-
-    public MongoTableHandle getTableHandle()
-    {
-        return tableHandle;
-    }
-
-    public List<MongoColumnHandle> getColumns()
-    {
-        return columns;
-    }
-
-    public List<MongoIndex> getIndexes()
-    {
-        return indexes;
-    }
-
-    public Optional<String> getComment()
-    {
-        return comment;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return tableHandle.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (!(obj instanceof MongoTable)) {
-            return false;
-        }
-        MongoTable that = (MongoTable) obj;
-        return this.tableHandle.equals(that.tableHandle);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("tableHandle", tableHandle)
-                .toString();
+        requireNonNull(tableHandle, "tableHandle is null");
+        columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        indexes = ImmutableList.copyOf(requireNonNull(indexes, "indexes is null"));
+        requireNonNull(comment, "comment is null");
     }
 }
