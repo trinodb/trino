@@ -455,7 +455,7 @@ public class LogicalPlanner
         ImmutableMap.Builder<Symbol, ColumnHandle> symbolToColumnHandle = ImmutableMap.builder();
         ImmutableMap.Builder<String, Symbol> columnNameToSymbol = ImmutableMap.builder();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable);
-        for (ColumnMetadata column : tableMetadata.getColumns()) {
+        for (ColumnMetadata column : tableMetadata.columns()) {
             Symbol symbol = symbolAllocator.newSymbol(column.getName(), column.getType());
             tableScanOutputs.add(symbol);
             symbolToColumnHandle.put(symbol, columnHandles.get(column.getName()));
@@ -563,7 +563,7 @@ public class LogicalPlanner
         boolean supportsMissingColumnsOnInsert = metadata.supportsMissingColumnsOnInsert(session, tableHandle);
         ImmutableList.Builder<ColumnMetadata> insertedColumnsBuilder = ImmutableList.builder();
 
-        for (ColumnMetadata column : tableMetadata.getColumns()) {
+        for (ColumnMetadata column : tableMetadata.columns()) {
             if (column.isHidden()) {
                 continue;
             }
@@ -629,7 +629,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.getCatalogHandle(), tableMetadata.getMetadata());
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.getCatalogHandle(), tableMetadata.metadata());
 
         if (materializedViewRefreshWriterTarget.isPresent()) {
             return createTableWriterPlan(
@@ -1010,7 +1010,7 @@ public class LogicalPlanner
         PlanNode sourcePlanRoot = sourcePlanBuilder.getRoot();
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-        List<String> columnNames = tableMetadata.getColumns().stream()
+        List<String> columnNames = tableMetadata.columns().stream()
                 .filter(column -> !column.isHidden()) // todo this filter is redundant
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());

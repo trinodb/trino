@@ -68,11 +68,11 @@ public class TestDropNotNullConstraintConstraintTask
 
         metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(notNullColumn("a", BIGINT), notNullColumn("b", BIGINT));
 
         getFutureValue(executeDropNotNullConstraint(asQualifiedName(tableName), identifier("b"), false));
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(notNullColumn("a", BIGINT), nullableColumn("b", BIGINT));
     }
 

@@ -240,14 +240,14 @@ public class CreateTableTask
                         throw semanticException(NOT_SUPPORTED, statement, "Only one LIKE clause can specify INCLUDING PROPERTIES");
                     }
                     includingProperties = true;
-                    inheritedProperties = likeTableMetadata.getMetadata().getProperties();
+                    inheritedProperties = likeTableMetadata.metadata().getProperties();
                 }
 
                 try {
                     accessControl.checkCanSelectFromColumns(
                             session.toSecurityContext(),
                             likeTableName,
-                            likeTableMetadata.getColumns().stream()
+                            likeTableMetadata.columns().stream()
                                     .map(ColumnMetadata::getName)
                                     .collect(toImmutableSet()));
                 }
@@ -263,7 +263,7 @@ public class CreateTableTask
                     }
                 }
 
-                likeTableMetadata.getColumns().stream()
+                likeTableMetadata.columns().stream()
                         .filter(column -> !column.isHidden())
                         .forEach(column -> {
                             if (columns.containsKey(column.getName().toLowerCase(Locale.ENGLISH))) {

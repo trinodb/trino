@@ -628,7 +628,7 @@ public final class MetadataManager
                                 return Optional.of(RelationColumnsMetadata.forRedirectedTable(schemaTableName));
                             }
                             if (redirectionAware.tableHandle().isPresent()) {
-                                return Optional.of(RelationColumnsMetadata.forTable(schemaTableName, getTableMetadata(session, redirectionAware.tableHandle().get()).getColumns()));
+                                return Optional.of(RelationColumnsMetadata.forTable(schemaTableName, getTableMetadata(session, redirectionAware.tableHandle().get()).columns()));
                             }
                         }
                         catch (RuntimeException e) {
