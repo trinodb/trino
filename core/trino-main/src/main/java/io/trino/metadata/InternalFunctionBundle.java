@@ -41,10 +41,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -280,54 +278,12 @@ public class InternalFunctionBundle
         }
     }
 
-    private static class FunctionKey
+    private record FunctionKey(FunctionId functionId, BoundSignature boundSignature)
     {
-        private final FunctionId functionId;
-        private final BoundSignature boundSignature;
-
-        public FunctionKey(FunctionId functionId, BoundSignature boundSignature)
+        private FunctionKey
         {
-            this.functionId = requireNonNull(functionId, "functionId is null");
-            this.boundSignature = requireNonNull(boundSignature, "boundSignature is null");
-        }
-
-        public FunctionId getFunctionId()
-        {
-            return functionId;
-        }
-
-        public BoundSignature getBoundSignature()
-        {
-            return boundSignature;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            FunctionKey that = (FunctionKey) o;
-            return functionId.equals(that.functionId) &&
-                    boundSignature.equals(that.boundSignature);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(functionId, boundSignature);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("functionId", functionId)
-                    .add("boundSignature", boundSignature)
-                    .toString();
+            requireNonNull(functionId, "functionId is null");
+            requireNonNull(boundSignature, "boundSignature is null");
         }
     }
 }
