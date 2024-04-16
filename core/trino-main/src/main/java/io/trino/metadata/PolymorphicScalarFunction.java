@@ -76,7 +76,7 @@ class PolymorphicScalarFunction
             for (MethodAndNativeContainerTypes candidateMethod : candidateMethodsGroup.getMethods()) {
                 if (matchesParameterAndReturnTypes(candidateMethod, functionBinding.getBoundSignature(), choice.argumentConventions(), choice.returnConvention())) {
                     if (matchingMethod.isPresent()) {
-                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getMethod().getName() + " and " + candidateMethod.getMethod().getName() + ") for parameter types " + functionBinding.getBoundSignature().getArgumentTypes());
+                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().method().getName() + " and " + candidateMethod.method().getName() + ") for parameter types " + functionBinding.getBoundSignature().getArgumentTypes());
                     }
 
                     matchingMethod = Optional.of(candidateMethod);
@@ -87,7 +87,7 @@ class PolymorphicScalarFunction
         checkState(matchingMethod.isPresent(), "no matching method for parameter types %s", functionBinding.getBoundSignature());
 
         List<Object> extraParameters = computeExtraParameters(matchingMethodsGroup.get(), context);
-        MethodHandle methodHandle = applyExtraParameters(matchingMethod.get().getMethod(), extraParameters, choice.argumentConventions());
+        MethodHandle methodHandle = applyExtraParameters(matchingMethod.get().method(), extraParameters, choice.argumentConventions());
         return new ScalarImplementationChoice(
                 choice.returnConvention(),
                 choice.argumentConventions(),
@@ -102,7 +102,7 @@ class PolymorphicScalarFunction
             List<InvocationArgumentConvention> argumentConventions,
             InvocationReturnConvention returnConvention)
     {
-        Method method = methodAndNativeContainerTypes.getMethod();
+        Method method = methodAndNativeContainerTypes.method();
         checkState(method.getParameterCount() >= boundSignature.getArity(),
                 "method %s has not enough arguments: %s (should have at least %s)", method.getName(), method.getParameterCount(), boundSignature.getArity());
 
@@ -125,7 +125,7 @@ class PolymorphicScalarFunction
                     actualType = Primitives.wrap(resolvedType.getJavaType());
                     break;
                 case BLOCK_POSITION:
-                    Optional<Class<?>> explicitNativeContainerTypes = methodAndNativeContainerTypes.getExplicitNativeContainerTypes().get(i);
+                    Optional<Class<?>> explicitNativeContainerTypes = methodAndNativeContainerTypes.explicitNativeContainerTypes().get(i);
                     if (explicitNativeContainerTypes.isPresent()) {
                         expectedType = explicitNativeContainerTypes.get();
                     }
