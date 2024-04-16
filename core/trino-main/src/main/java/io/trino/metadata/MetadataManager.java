@@ -1318,9 +1318,9 @@ public final class MetadataManager
     @Override
     public void finishMerge(Session session, MergeHandle mergeHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        CatalogHandle catalogHandle = mergeHandle.getTableHandle().getCatalogHandle();
+        CatalogHandle catalogHandle = mergeHandle.tableHandle().getCatalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
-        metadata.finishMerge(session.toConnectorSession(catalogHandle), mergeHandle.getConnectorMergeHandle(), fragments, computedStatistics);
+        metadata.finishMerge(session.toConnectorSession(catalogHandle), mergeHandle.connectorMergeHandle(), fragments, computedStatistics);
     }
 
     @Override

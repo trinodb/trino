@@ -832,9 +832,9 @@ public class TracingMetadata
     @Override
     public void finishMerge(Session session, MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        Span span = startSpan("finishMerge", tableHandle.getTableHandle().getCatalogHandle().getCatalogName());
+        Span span = startSpan("finishMerge", tableHandle.tableHandle().getCatalogHandle().getCatalogName());
         if (span.isRecording()) {
-            span.setAttribute(TrinoAttributes.TABLE, tableHandle.getTableHandle().getConnectorHandle().toString());
+            span.setAttribute(TrinoAttributes.TABLE, tableHandle.tableHandle().getConnectorHandle().toString());
         }
         try (var ignored = scopedSpan(span)) {
             delegate.finishMerge(session, tableHandle, fragments, computedStatistics);
