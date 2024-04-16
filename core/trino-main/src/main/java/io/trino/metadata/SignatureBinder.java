@@ -1048,14 +1048,12 @@ public class SignatureBinder
         EXACT, IMPLICIT_COERCION, EXPLICIT_COERCION_TO, EXPLICIT_COERCION_FROM
     }
 
-    private static final class FunctionTypeVariables
+    private record FunctionTypeVariables(FunctionBinding functionBinding)
             implements TypeVariables
     {
-        private final FunctionBinding functionBinding;
-
-        public FunctionTypeVariables(FunctionBinding functionBinding)
+        private FunctionTypeVariables
         {
-            this.functionBinding = requireNonNull(functionBinding, "functionBinding is null");
+            requireNonNull(functionBinding, "functionBinding is null");
         }
 
         @Override
