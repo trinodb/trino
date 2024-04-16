@@ -22,48 +22,32 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class TableMetadata
+public record TableMetadata(CatalogName catalogName, ConnectorTableMetadata metadata)
 {
-    private final CatalogName catalogName;
-    private final ConnectorTableMetadata metadata;
-
-    public TableMetadata(CatalogName catalogName, ConnectorTableMetadata metadata)
+    public TableMetadata
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(metadata, "metadata is null");
-
-        this.catalogName = catalogName;
-        this.metadata = metadata;
     }
 
-    public QualifiedObjectName getQualifiedName()
+    public QualifiedObjectName qualifiedName()
     {
         return new QualifiedObjectName(catalogName.toString(), metadata.getTable().getSchemaName(), metadata.getTable().getTableName());
     }
 
-    public CatalogName getCatalogName()
-    {
-        return catalogName;
-    }
-
-    public ConnectorTableMetadata getMetadata()
-    {
-        return metadata;
-    }
-
-    public SchemaTableName getTable()
+    public SchemaTableName table()
     {
         return metadata.getTable();
     }
 
-    public List<ColumnMetadata> getColumns()
+    public List<ColumnMetadata> columns()
     {
         return metadata.getColumns();
     }
 
-    public ColumnMetadata getColumn(String name)
+    public ColumnMetadata column(String name)
     {
-        return getColumns().stream()
+        return columns().stream()
                 .filter(columnMetadata -> columnMetadata.getName().equals(name))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Invalid column name: " + name));

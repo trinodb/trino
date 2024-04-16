@@ -47,11 +47,11 @@ public class TestCommentTask
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
-        assertThat(metadata.getTableMetadata(testSession, metadata.getTableHandle(testSession, tableName).get()).getMetadata().getComment())
+        assertThat(metadata.getTableMetadata(testSession, metadata.getTableHandle(testSession, tableName).get()).metadata().getComment())
                 .isEmpty();
 
         getFutureValue(setComment(TABLE, asQualifiedName(tableName), Optional.of("new comment")));
-        assertThat(metadata.getTableMetadata(testSession, metadata.getTableHandle(testSession, tableName).get()).getMetadata().getComment())
+        assertThat(metadata.getTableMetadata(testSession, metadata.getTableHandle(testSession, tableName).get()).metadata().getComment())
                 .isEqualTo(Optional.of("new comment"));
     }
 
@@ -119,7 +119,7 @@ public class TestCommentTask
 
         getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).get();
-        ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(testSession, tableHandle).getMetadata();
+        ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(testSession, tableHandle).metadata();
         assertThat(Optional.ofNullable(connectorTableMetadata.getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment()))
                 .isEqualTo(Optional.of("new test column comment"));
     }
