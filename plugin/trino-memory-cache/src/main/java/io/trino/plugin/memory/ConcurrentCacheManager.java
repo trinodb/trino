@@ -122,7 +122,14 @@ public class ConcurrentCacheManager
         shuffle(shuffledManagers);
 
         revokeLock.writeLock().lock();
+        // acquire exclusive lock for each MemoryCacheManager
+        for (MemoryCacheManager manager : cacheManagers) {
+            manager.getLock().writeLock().lock();
+        }
         try {
+            // MemoryCacheManager must be locked first, then ConcurrentCacheManager to avoid deadlock
+            // because MemoryCacheManager#finishStoreChannels will try to update memory usage
+            // while keeping write lock on MemoryCacheManager.
             synchronized (this) {
                 long initialAllocatedMemory = allocatedMemory;
                 int elementsToRevoke = minElementsToRevoke;
@@ -144,6 +151,9 @@ public class ConcurrentCacheManager
             }
         }
         finally {
+            for (MemoryCacheManager manager : cacheManagers) {
+                manager.getLock().writeLock().unlock();
+            }
             revokeLock.writeLock().unlock();
         }
     }
