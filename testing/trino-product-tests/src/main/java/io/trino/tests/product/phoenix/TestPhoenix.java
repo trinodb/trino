@@ -17,6 +17,8 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.util.UUID;
+
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.PHOENIX;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -26,17 +28,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestPhoenix
         extends ProductTest
 {
-    @Test(groups = {PHOENIX, PROFILE_SPECIFIC_TESTS})
+    // TODO: https://github.com/trinodb/trino/issues/21824
+    @Test(groups = {PHOENIX, PROFILE_SPECIFIC_TESTS}, timeOut = 30_000L, enabled = false)
     public void testCreateTableAsSelect()
     {
-        QueryResult result = onTrino().executeQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        String tableName = "nation_" + UUID.randomUUID().toString().replace("-", "");
+        QueryResult result = onTrino().executeQuery("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation".formatted(tableName));
         try {
             assertThat(result).updatedRowsCountIsEqualTo(25);
-            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM nation"))
+            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM " + tableName))
                     .containsOnly(row(25));
         }
         finally {
-            onTrino().executeQuery("DROP TABLE nation");
+            onTrino().executeQuery("DROP TABLE " + tableName);
         }
     }
 }

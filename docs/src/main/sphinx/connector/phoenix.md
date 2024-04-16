@@ -20,7 +20,7 @@ To query HBase data through Phoenix, you need:
 
 - Network access from the Trino coordinator and workers to the ZooKeeper
   servers. The default port is 2181.
-- A compatible version of Phoenix: all 5.x versions starting from 5.1.0 are supported.
+- A compatible version of Phoenix: all 5.x versions starting from 5.2.0 are supported.
 
 ## Configuration
 
