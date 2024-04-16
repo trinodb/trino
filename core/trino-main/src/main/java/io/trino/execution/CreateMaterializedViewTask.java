@@ -122,7 +122,7 @@ public class CreateMaterializedViewTask
                 .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId(), Optional.empty()))
                 .collect(toImmutableList());
 
-        String catalogName = name.getCatalogName();
+        String catalogName = name.catalogName();
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
 
         Map<String, Object> properties = materializedViewPropertyManager.getProperties(

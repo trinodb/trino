@@ -82,8 +82,8 @@ public class RenameViewTask
         }
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
-        if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
-            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.getCatalogName());
+        if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
+            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }
         if (metadata.isMaterializedView(session, target)) {
             throw semanticException(GENERIC_USER_ERROR, statement, "Target view '%s' does not exist, but a materialized view with that name exists.", target);
@@ -94,7 +94,7 @@ public class RenameViewTask
         if (metadata.getTableHandle(session, target).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target view '%s' does not exist, but a table with that name exists.", target);
         }
-        if (!viewName.getCatalogName().equals(target.getCatalogName())) {
+        if (!viewName.catalogName().equals(target.catalogName())) {
             throw semanticException(NOT_SUPPORTED, statement, "View rename across catalogs is not supported");
         }
 

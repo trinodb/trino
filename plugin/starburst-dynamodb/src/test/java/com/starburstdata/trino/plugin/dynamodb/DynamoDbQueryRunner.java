@@ -149,14 +149,14 @@ public final class DynamoDbQueryRunner
         QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, tpchTable.getTableName().toLowerCase(ENGLISH));
 
         long start = System.nanoTime();
-        log.info("Running import for %s", table.getObjectName());
-        @Language("SQL") String sql = format("CREATE TABLE IF NOT EXISTS %s WITH (%s) AS SELECT * FROM %s", table.getObjectName(), getCreateTableProperties(tpchTable), table);
+        log.info("Running import for %s", table.objectName());
+        @Language("SQL") String sql = format("CREATE TABLE IF NOT EXISTS %s WITH (%s) AS SELECT * FROM %s", table.objectName(), getCreateTableProperties(tpchTable), table);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Imported %s rows for %s in %s", rows, table.objectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
 
         assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue())
                 .as("Table is not loaded properly: %s", table)
-                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table.getObjectName()).getOnlyValue());
+                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table.objectName()).getOnlyValue());
     }
 
     private static String getCreateTableProperties(TpchTable<?> table)

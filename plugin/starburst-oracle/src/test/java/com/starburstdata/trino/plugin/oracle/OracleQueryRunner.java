@@ -101,7 +101,7 @@ public final class OracleQueryRunner
     private static synchronized void provisionTables(Session session, String catalogName, QueryRunner queryRunner, Iterable<TpchTable<?>> tables)
     {
         Set<String> existingTables = queryRunner.listTables(session, catalogName, session.getSchema().orElse(USER)).stream()
-                .map(QualifiedObjectName::getObjectName)
+                .map(QualifiedObjectName::objectName)
                 .collect(toImmutableSet());
 
         Streams.stream(tables)

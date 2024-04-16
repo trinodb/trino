@@ -195,38 +195,38 @@ public final class SalesforceQueryRunner
         // If not, the table is truncated and then re-loaded
 
         @Language("SQL") String sql;
-        if (!queryRunner.tableExists(session, salesforceQualifiedTable.getObjectName() + "__c")) {
-            log.info("Table %s does not exist, running CTAS", salesforceQualifiedTable.getObjectName());
-            sql = format("CREATE TABLE %s AS SELECT * FROM %s", salesforceQualifiedTable.getObjectName(), tpchQualifiedTable);
+        if (!queryRunner.tableExists(session, salesforceQualifiedTable.objectName() + "__c")) {
+            log.info("Table %s does not exist, running CTAS", salesforceQualifiedTable.objectName());
+            sql = format("CREATE TABLE %s AS SELECT * FROM %s", salesforceQualifiedTable.objectName(), tpchQualifiedTable);
         }
         else {
-            log.info("Table %s exists, checking row count", salesforceQualifiedTable.getObjectName());
+            log.info("Table %s exists, checking row count", salesforceQualifiedTable.objectName());
             long expectedCount = (long) queryRunner.execute(session, "SELECT count(*) FROM " + tpchQualifiedTable).getOnlyValue();
-            long actualCount = (long) queryRunner.execute(session, "SELECT count(*) FROM " + salesforceQualifiedTable.getObjectName() + "__c").getOnlyValue();
+            long actualCount = (long) queryRunner.execute(session, "SELECT count(*) FROM " + salesforceQualifiedTable.objectName() + "__c").getOnlyValue();
 
             if (expectedCount == actualCount) {
-                log.info("Table %s already exists and is loaded correctly", salesforceQualifiedTable.getObjectName());
+                log.info("Table %s already exists and is loaded correctly", salesforceQualifiedTable.objectName());
                 return;
             }
 
-            log.info("Table %s exists, truncating table and reloading data", salesforceQualifiedTable.getObjectName());
-            truncateTable(salesforceQualifiedTable.getObjectName().toLowerCase(ENGLISH));
+            log.info("Table %s exists, truncating table and reloading data", salesforceQualifiedTable.objectName());
+            truncateTable(salesforceQualifiedTable.objectName().toLowerCase(ENGLISH));
 
             String columnDefinition = table.getColumns().stream().map(TpchColumn::getSimplifiedColumnName).collect(joining("__c, ", "", "__c"));
             String columnMappings = table.getColumns().stream().map(TpchColumn::getSimplifiedColumnName).map(name -> format("%s AS %s__c", name, name)).collect(joining(", "));
-            sql = format("INSERT INTO %s__c (%s) SELECT %s FROM %s", salesforceQualifiedTable.getObjectName(), columnDefinition, columnMappings, tpchQualifiedTable);
+            sql = format("INSERT INTO %s__c (%s) SELECT %s FROM %s", salesforceQualifiedTable.objectName(), columnDefinition, columnMappings, tpchQualifiedTable);
         }
 
         // Run either the CREATE or INSERT and assert that it is loaded correctly, failing if it is not
         long start = System.nanoTime();
-        log.info("Running import for %s", salesforceQualifiedTable.getObjectName());
+        log.info("Running import for %s", salesforceQualifiedTable.objectName());
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-        log.info("Imported %s rows for %s in %s", rows, salesforceQualifiedTable.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Imported %s rows for %s in %s", rows, salesforceQualifiedTable.objectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
 
-        log.info("Running assertion for %s", salesforceQualifiedTable.getObjectName());
+        log.info("Running assertion for %s", salesforceQualifiedTable.objectName());
         assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + tpchQualifiedTable).getOnlyValue())
                 .as("Table is not loaded properly: %s", salesforceQualifiedTable)
-                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + salesforceQualifiedTable.getObjectName() + "__c").getOnlyValue());
+                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + salesforceQualifiedTable.objectName() + "__c").getOnlyValue());
     }
 
     public static class Builder

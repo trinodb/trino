@@ -275,7 +275,7 @@ public final class MetadataManager
             return Optional.empty();
         }
 
-        return getOptionalCatalogMetadata(session, table.getCatalogName()).flatMap(catalogMetadata -> {
+        return getOptionalCatalogMetadata(session, table.catalogName()).flatMap(catalogMetadata -> {
             CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
@@ -365,7 +365,7 @@ public final class MetadataManager
         requireNonNull(session, "session is null");
         requireNonNull(tableName, "tableName is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.catalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
 
@@ -531,7 +531,7 @@ public final class MetadataManager
                 }
                 metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(table -> !isExternalInformationSchema(catalogHandle, table.getSchemaName()))
+                        .filter(table -> !isExternalInformationSchema(catalogHandle, table.schemaName()))
                         .forEach(tables::add);
             }
         }
@@ -826,7 +826,7 @@ public final class MetadataManager
     @Override
     public void renameTable(Session session, TableHandle tableHandle, CatalogSchemaTableName sourceTableName, QualifiedObjectName newTableName)
     {
-        String catalogName = newTableName.getCatalogName();
+        String catalogName = newTableName.catalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         if (!tableHandle.getCatalogHandle().equals(catalogHandle)) {
@@ -858,7 +858,7 @@ public final class MetadataManager
     @Override
     public void setViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.setViewComment(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), comment);
@@ -867,7 +867,7 @@ public final class MetadataManager
     @Override
     public void setViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.setViewColumnComment(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), columnName, comment);
@@ -1173,7 +1173,7 @@ public final class MetadataManager
     @Override
     public boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName)
     {
-        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, viewName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         return metadata.delegateMaterializedViewRefreshToConnector(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName());
@@ -1182,7 +1182,7 @@ public final class MetadataManager
     @Override
     public ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName)
     {
-        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, viewName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         return asVoid(toListenableFuture(metadata.refreshMaterializedView(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName())));
@@ -1365,7 +1365,7 @@ public final class MetadataManager
                 ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
                 metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(view -> !isExternalInformationSchema(catalogHandle, view.getSchemaName()))
+                        .filter(view -> !isExternalInformationSchema(catalogHandle, view.schemaName()))
                         .forEach(views::add);
             }
         }
@@ -1460,7 +1460,7 @@ public final class MetadataManager
     public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
         Optional<ConnectorViewDefinition> connectorView = getViewInternal(session, viewName);
-        if (connectorView.isEmpty() || connectorView.get().isRunAsInvoker() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
+        if (connectorView.isEmpty() || connectorView.get().isRunAsInvoker() || isCatalogManagedSecurity(session, viewName.catalogName())) {
             return connectorView.map(view -> createViewDefinition(viewName, view, view.getOwner().map(Identity::ofUser)));
         }
 
@@ -1473,7 +1473,7 @@ public final class MetadataManager
     @Override
     public Map<String, Object> getViewProperties(Session session, QualifiedObjectName viewName)
     {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName);
@@ -1514,7 +1514,7 @@ public final class MetadataManager
             return Optional.empty();
         }
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName);
@@ -1529,7 +1529,7 @@ public final class MetadataManager
     @Override
     public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
@@ -1542,10 +1542,10 @@ public final class MetadataManager
     @Override
     public void renameView(Session session, QualifiedObjectName source, QualifiedObjectName target)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, target.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, target.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        if (!source.getCatalogName().equals(target.getCatalogName())) {
+        if (!source.catalogName().equals(target.catalogName())) {
             throw new TrinoException(SYNTAX_ERROR, "Cannot rename views across catalogs");
         }
 
@@ -1573,7 +1573,7 @@ public final class MetadataManager
     @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
@@ -1592,7 +1592,7 @@ public final class MetadataManager
             boolean replace,
             boolean ignoreExisting)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
@@ -1611,7 +1611,7 @@ public final class MetadataManager
     @Override
     public void dropMaterializedView(Session session, QualifiedObjectName viewName)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
@@ -1645,7 +1645,7 @@ public final class MetadataManager
                 ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
                 metadata.listMaterializedViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(materializedView -> !isExternalInformationSchema(catalogHandle, materializedView.getSchemaName()))
+                        .filter(materializedView -> !isExternalInformationSchema(catalogHandle, materializedView.schemaName()))
                         .forEach(materializedViews::add);
             }
         }
@@ -1710,7 +1710,7 @@ public final class MetadataManager
             return Optional.empty();
         }
 
-        if (isCatalogManagedSecurity(session, viewName.getCatalogName())) {
+        if (isCatalogManagedSecurity(session, viewName.catalogName())) {
             String runAsUser = connectorView.get().getOwner().orElseThrow(() -> new TrinoException(INVALID_VIEW, "Owner not set for a run-as invoker view: " + viewName));
             return Optional.of(createMaterializedViewDefinition(connectorView.get(), Identity.ofUser(runAsUser)));
         }
@@ -1743,7 +1743,7 @@ public final class MetadataManager
             return Optional.empty();
         }
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName);
@@ -1758,7 +1758,7 @@ public final class MetadataManager
     @Override
     public Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName viewName, MaterializedViewDefinition materializedViewDefinition)
     {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName);
@@ -1776,7 +1776,7 @@ public final class MetadataManager
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName)
     {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName);
@@ -1791,10 +1791,10 @@ public final class MetadataManager
     @Override
     public void renameMaterializedView(Session session, QualifiedObjectName source, QualifiedObjectName target)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, target.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, target.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        if (!source.getCatalogName().equals(target.getCatalogName())) {
+        if (!source.catalogName().equals(target.catalogName())) {
             throw new TrinoException(SYNTAX_ERROR, "Cannot rename materialized views across catalogs");
         }
 
@@ -1807,7 +1807,7 @@ public final class MetadataManager
     @Override
     public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
@@ -1817,7 +1817,7 @@ public final class MetadataManager
     @Override
     public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.setMaterializedViewColumnComment(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), columnName, comment);
@@ -1856,7 +1856,7 @@ public final class MetadataManager
         visitedTableNames.add(tableName);
 
         for (int count = 0; count < MAX_TABLE_REDIRECTIONS; count++) {
-            Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+            Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.catalogName());
 
             if (catalog.isEmpty()) {
                 // Stop redirection
@@ -1908,11 +1908,11 @@ public final class MetadataManager
         }
 
         // Redirected table must exist
-        if (getCatalogHandle(session, targetTableName.getCatalogName()).isEmpty()) {
-            throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target catalog '%s' does not exist", tableName, targetTableName, targetTableName.getCatalogName()));
+        if (getCatalogHandle(session, targetTableName.catalogName()).isEmpty()) {
+            throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target catalog '%s' does not exist", tableName, targetTableName, targetTableName.catalogName()));
         }
-        if (!schemaExists(session, new CatalogSchemaName(targetTableName.getCatalogName(), targetTableName.getSchemaName()))) {
-            throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target schema '%s' does not exist", tableName, targetTableName, targetTableName.getSchemaName()));
+        if (!schemaExists(session, new CatalogSchemaName(targetTableName.catalogName(), targetTableName.schemaName()))) {
+            throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target schema '%s' does not exist", tableName, targetTableName, targetTableName.schemaName()));
         }
         throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target table '%s' does not exist", tableName, targetTableName, targetTableName));
     }
@@ -2320,7 +2320,7 @@ public final class MetadataManager
     @Override
     public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.catalogName());
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
             systemSecurityMetadata.grantTablePrivileges(session, tableName, privileges, grantee, grantOption);
             return;
@@ -2334,7 +2334,7 @@ public final class MetadataManager
     @Override
     public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.catalogName());
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
             systemSecurityMetadata.denyTablePrivileges(session, tableName, privileges, grantee);
             return;
@@ -2348,7 +2348,7 @@ public final class MetadataManager
     @Override
     public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.catalogName());
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
             systemSecurityMetadata.revokeTablePrivileges(session, tableName, privileges, grantee, grantOption);
             return;
@@ -2603,7 +2603,7 @@ public final class MetadataManager
     @Override
     public boolean languageFunctionExists(Session session, QualifiedObjectName name, String signatureToken)
     {
-        return getOptionalCatalogMetadata(session, name.getCatalogName())
+        return getOptionalCatalogMetadata(session, name.catalogName())
                 .map(catalogMetadata -> {
                     ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
                     ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
@@ -2615,7 +2615,7 @@ public final class MetadataManager
     @Override
     public void createLanguageFunction(Session session, QualifiedObjectName name, LanguageFunction function, boolean replace)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, name.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, name.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
@@ -2625,7 +2625,7 @@ public final class MetadataManager
     @Override
     public void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, name.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, name.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
@@ -2765,7 +2765,7 @@ public final class MetadataManager
     @Override
     public WriterScalingOptions getNewTableWriterScalingOptions(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, tableName);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
         return metadata.getNewTableWriterScalingOptions(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName(), tableProperties);
@@ -2796,7 +2796,7 @@ public final class MetadataManager
 
     private static boolean cannotExist(QualifiedObjectName name)
     {
-        return name.getCatalogName().isEmpty() || name.getSchemaName().isEmpty() || name.getObjectName().isEmpty();
+        return name.catalogName().isEmpty() || name.schemaName().isEmpty() || name.objectName().isEmpty();
     }
 
     public static MetadataManager createTestMetadataManager()

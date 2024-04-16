@@ -184,9 +184,9 @@ public final class DescribeOutputRewrite
 
             return row(
                     new StringLiteral(columnName),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getCatalogName).orElse("")),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getSchemaName).orElse("")),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getObjectName).orElse("")),
+                    new StringLiteral(originTable.map(QualifiedObjectName::catalogName).orElse("")),
+                    new StringLiteral(originTable.map(QualifiedObjectName::schemaName).orElse("")),
+                    new StringLiteral(originTable.map(QualifiedObjectName::objectName).orElse("")),
                     new StringLiteral(getDisplayLabel(field.getType(), isOmitDateTimeTypePrecision(session))),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));

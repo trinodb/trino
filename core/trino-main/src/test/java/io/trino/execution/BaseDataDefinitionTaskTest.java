@@ -181,7 +181,7 @@ public abstract class BaseDataDefinitionTaskTest
 
     protected static QualifiedName asQualifiedName(QualifiedObjectName qualifiedObjectName)
     {
-        return QualifiedName.of(qualifiedObjectName.getCatalogName(), qualifiedObjectName.getSchemaName(), qualifiedObjectName.getObjectName());
+        return QualifiedName.of(qualifiedObjectName.catalogName(), qualifiedObjectName.schemaName(), qualifiedObjectName.objectName());
     }
 
     protected MaterializedViewDefinition someMaterializedView()

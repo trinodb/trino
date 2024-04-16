@@ -349,18 +349,18 @@ public final class HiveQueryRunner
     {
         long start = System.nanoTime();
         @Language("SQL") String sql;
-        switch (tableName.getObjectName()) {
+        switch (tableName.objectName()) {
             case "part":
             case "partsupp":
             case "supplier":
             case "nation":
             case "region":
-                sql = format("CREATE TABLE %s AS SELECT * FROM %s", tableName.getObjectName(), tableName);
+                sql = format("CREATE TABLE %s AS SELECT * FROM %s", tableName.objectName(), tableName);
                 break;
             case "lineitem":
                 sql = format(
                         "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
-                        tableName.getObjectName(),
+                        tableName.objectName(),
                         columnNaming.getName(table.getColumn("orderkey")),
                         tableName);
                 break;
@@ -368,7 +368,7 @@ public final class HiveQueryRunner
             case "orders":
                 sql = format(
                         "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
-                        tableName.getObjectName(),
+                        tableName.objectName(),
                         columnNaming.getName(table.getColumn("custkey")),
                         tableName);
                 break;
