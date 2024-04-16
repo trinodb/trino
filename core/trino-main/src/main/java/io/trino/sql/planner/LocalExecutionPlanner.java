@@ -1628,9 +1628,9 @@ public class LocalExecutionPlanner
                 OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(
                         context.getNextOperatorId(),
                         node.getId(),
-                        node.getHandle().getCatalogHandle(),
+                        node.getHandle().catalogHandle(),
                         processorProvider,
-                        node.getHandle().getFunctionHandle());
+                        node.getHandle().functionHandle());
                 return new PhysicalOperation(operatorFactory, makeLayout(node));
             }
 
@@ -1677,8 +1677,8 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     processorProvider,
-                    node.getHandle().getCatalogHandle(),
-                    node.getHandle().getFunctionHandle(),
+                    node.getHandle().catalogHandle(),
+                    node.getHandle().functionHandle(),
                     properChannelsCount,
                     toIntExact(passThroughSourcesCount),
                     requiredChannels,

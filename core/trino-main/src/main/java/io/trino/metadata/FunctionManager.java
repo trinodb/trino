@@ -159,7 +159,7 @@ public class FunctionManager
 
     public TableFunctionProcessorProvider getTableFunctionProcessorProvider(TableFunctionHandle tableFunctionHandle)
     {
-        CatalogHandle catalogHandle = tableFunctionHandle.getCatalogHandle();
+        CatalogHandle catalogHandle = tableFunctionHandle.catalogHandle();
 
         FunctionProvider provider;
         if (catalogHandle.equals(GlobalSystemConnector.CATALOG_HANDLE)) {
@@ -170,7 +170,7 @@ public class FunctionManager
             checkArgument(provider != null, "No function provider for catalog: '%s'", catalogHandle);
         }
 
-        return provider.getTableFunctionProcessorProvider(tableFunctionHandle.getFunctionHandle());
+        return provider.getTableFunctionProcessorProvider(tableFunctionHandle.functionHandle());
     }
 
     private FunctionDependencies getFunctionDependencies(ResolvedFunction resolvedFunction)

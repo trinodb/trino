@@ -551,7 +551,7 @@ public class TestJsonTable
             getPlanTester().inTransaction(transactionSession -> {
                 Plan queryPlan = getPlanTester().createPlan(transactionSession, sql, ImmutableList.of(), CREATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 TableFunctionNode tableFunctionNode = (TableFunctionNode) getOnlyElement(PlanNodeSearcher.searchFrom(queryPlan.getRoot()).where(TableFunctionNode.class::isInstance).findAll());
-                JsonTablePlanNode actualPlan = ((JsonTable.JsonTableFunctionHandle) tableFunctionNode.getHandle().getFunctionHandle()).processingPlan();
+                JsonTablePlanNode actualPlan = ((JsonTable.JsonTableFunctionHandle) tableFunctionNode.getHandle().functionHandle()).processingPlan();
                 assertThat(actualPlan)
                         .usingComparator(planComparator())
                         .isEqualTo(expectedPlan);

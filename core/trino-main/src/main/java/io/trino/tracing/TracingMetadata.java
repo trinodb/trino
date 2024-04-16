@@ -1037,8 +1037,8 @@ public class TracingMetadata
     public Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle)
     {
         Span span = startSpan("applyTableFunction")
-                .setAttribute(TrinoAttributes.CATALOG, handle.getCatalogHandle().getCatalogName().toString())
-                .setAttribute(TrinoAttributes.HANDLE, handle.getFunctionHandle().toString());
+                .setAttribute(TrinoAttributes.CATALOG, handle.catalogHandle().getCatalogName().toString())
+                .setAttribute(TrinoAttributes.HANDLE, handle.functionHandle().toString());
         try (var ignored = scopedSpan(span)) {
             return delegate.applyTableFunction(session, handle);
         }

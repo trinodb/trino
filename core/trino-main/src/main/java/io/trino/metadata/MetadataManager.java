@@ -2068,12 +2068,12 @@ public final class MetadataManager
     @Override
     public Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle)
     {
-        CatalogHandle catalogHandle = handle.getCatalogHandle();
+        CatalogHandle catalogHandle = handle.catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
 
-        return metadata.applyTableFunction(session.toConnectorSession(catalogHandle), handle.getFunctionHandle())
+        return metadata.applyTableFunction(session.toConnectorSession(catalogHandle), handle.functionHandle())
                 .map(result -> new TableFunctionApplicationResult<>(
-                        new TableHandle(catalogHandle, result.getTableHandle(), handle.getTransactionHandle()),
+                        new TableHandle(catalogHandle, result.getTableHandle(), handle.transactionHandle()),
                         result.getColumnHandles()));
     }
 
