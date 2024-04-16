@@ -853,7 +853,7 @@ public class DeltaLakeMetadata
     {
         ImmutableList.Builder<DeltaLakeColumnHandle> columns = ImmutableList.builder();
         extractSchema(deltaMetadata, protocolEntry, typeManager).stream()
-                .map(column -> toColumnHandle(column.getName(), column.getType(), column.getFieldId(), column.getPhysicalName(), column.getPhysicalColumnType(), deltaMetadata.getLowercasePartitionColumns()))
+                .map(column -> toColumnHandle(column.name(), column.type(), column.fieldId(), column.physicalName(), column.physicalColumnType(), deltaMetadata.getLowercasePartitionColumns()))
                 .forEach(columns::add);
         columns.add(pathColumnHandle());
         columns.add(fileSizeColumnHandle());
@@ -1432,7 +1432,7 @@ public class DeltaLakeMetadata
                         .max(Long::compare)
                         .map(Instant::ofEpochMilli);
                 Map<String, String> physicalColumnMapping = DeltaLakeSchemaSupport.getColumnMetadata(schemaString, typeManager, columnMappingMode).stream()
-                        .map(e -> Map.entry(e.getName(), e.getPhysicalName()))
+                        .map(e -> Map.entry(e.name(), e.physicalName()))
                         .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
                 updateTableStatistics(
@@ -1701,7 +1701,7 @@ public class DeltaLakeMetadata
         Map<String, String> lowerCaseToExactColumnNames = getExactColumnNames(metadataEntry).stream()
                 .collect(toImmutableMap(name -> name.toLowerCase(ENGLISH), name -> name));
         Map<String, String> physicalColumnNameMapping = columns.stream()
-                .collect(toImmutableMap(DeltaLakeColumnMetadata::getName, DeltaLakeColumnMetadata::getPhysicalName));
+                .collect(toImmutableMap(DeltaLakeColumnMetadata::name, DeltaLakeColumnMetadata::physicalName));
 
         DeltaLakeTable deltaTable = DeltaLakeTable.builder(metadataEntry, protocolEntry)
                 .removeColumn(dropColumnName)
@@ -1996,7 +1996,7 @@ public class DeltaLakeMetadata
                         computedStatistics,
                         getExactColumnNames(handle.metadataEntry()),
                         Optional.of(extractSchema(handle.metadataEntry(), handle.protocolEntry(), typeManager).stream()
-                                .collect(toImmutableMap(DeltaLakeColumnMetadata::getName, DeltaLakeColumnMetadata::getPhysicalName))),
+                                .collect(toImmutableMap(DeltaLakeColumnMetadata::name, DeltaLakeColumnMetadata::physicalName))),
                         true);
             }
         }
@@ -3305,7 +3305,7 @@ public class DeltaLakeMetadata
         }
 
         List<DeltaLakeColumnMetadata> columnsMetadata = extractSchema(metadata, handle.getProtocolEntry(), typeManager);
-        Set<String> allColumnNames = columnsMetadata.stream().map(columnMetadata -> columnMetadata.getName().toLowerCase(ENGLISH)).collect(Collectors.toSet());
+        Set<String> allColumnNames = columnsMetadata.stream().map(columnMetadata -> columnMetadata.name().toLowerCase(ENGLISH)).collect(Collectors.toSet());
         Optional<Set<String>> analyzeColumnNames = getColumnNames(analyzeProperties);
         if (analyzeColumnNames.isPresent()) {
             Set<String> columnNames = analyzeColumnNames.get();
@@ -3349,7 +3349,7 @@ public class DeltaLakeMetadata
                 handle.getReadVersion(),
                 handle.isTimeTravel());
         TableStatisticsMetadata statisticsMetadata = getStatisticsCollectionMetadata(
-                columnsMetadata.stream().map(DeltaLakeColumnMetadata::getColumnMetadata).collect(toImmutableList()),
+                columnsMetadata.stream().map(DeltaLakeColumnMetadata::columnMetadata).collect(toImmutableList()),
                 analyzeColumnNames.orElse(allColumnNames),
                 statistics.isPresent(),
                 false);
@@ -3462,7 +3462,7 @@ public class DeltaLakeMetadata
         }
         Optional<Instant> maxFileModificationTime = getMaxFileModificationTime(computedStatistics);
         Map<String, String> physicalColumnNameMapping = extractSchema(tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), typeManager).stream()
-                .collect(toImmutableMap(DeltaLakeColumnMetadata::getName, DeltaLakeColumnMetadata::getPhysicalName));
+                .collect(toImmutableMap(DeltaLakeColumnMetadata::name, DeltaLakeColumnMetadata::physicalName));
         updateTableStatistics(
                 session,
                 Optional.of(analyzeHandle),
@@ -3980,9 +3980,9 @@ public class DeltaLakeMetadata
         return addFileEntry.getStats()
                 .map(deltaLakeFileStatistics -> withColumnDomains(
                         schema.stream()
-                                .filter(column -> canUseInPredicate(column.getColumnMetadata()))
+                                .filter(column -> canUseInPredicate(column.columnMetadata()))
                                 .collect(toImmutableMap(
-                                        column -> DeltaLakeMetadata.toColumnHandle(column.getName(), column.getType(), column.getFieldId(), column.getPhysicalName(), column.getPhysicalColumnType(), canonicalPartitionColumns),
+                                        column -> DeltaLakeMetadata.toColumnHandle(column.name(), column.type(), column.fieldId(), column.physicalName(), column.physicalColumnType(), canonicalPartitionColumns),
                                         column -> buildColumnDomain(column, deltaLakeFileStatistics, canonicalPartitionColumns)))))
                 .orElseGet(TupleDomain::all);
     }
@@ -4005,47 +4005,47 @@ public class DeltaLakeMetadata
 
     private static Domain buildColumnDomain(DeltaLakeColumnMetadata column, DeltaLakeFileStatistics stats, List<String> canonicalPartitionColumns)
     {
-        Optional<Long> nullCount = stats.getNullCount(column.getPhysicalName());
+        Optional<Long> nullCount = stats.getNullCount(column.physicalName());
         if (nullCount.isEmpty()) {
             // No stats were collected for this column; this can happen in 2 scenarios:
             // 1. The column didn't exist in the schema when the data file was created
             // 2. The column does exist in the file, but Spark property 'delta.dataSkippingNumIndexedCols'
             //    was used to limit the number of columns for which stats are collected
             // Since we don't know which scenario we're dealing with, we can't make a decision to prune.
-            return Domain.all(column.getType());
+            return Domain.all(column.type());
         }
         if (stats.getNumRecords().equals(nullCount)) {
-            return Domain.onlyNull(column.getType());
+            return Domain.onlyNull(column.type());
         }
 
         boolean hasNulls = nullCount.get() > 0;
-        DeltaLakeColumnHandle deltaLakeColumnHandle = toColumnHandle(column.getName(), column.getType(), column.getFieldId(), column.getPhysicalName(), column.getPhysicalColumnType(), canonicalPartitionColumns);
+        DeltaLakeColumnHandle deltaLakeColumnHandle = toColumnHandle(column.name(), column.type(), column.fieldId(), column.physicalName(), column.physicalColumnType(), canonicalPartitionColumns);
         Optional<Object> minValue = stats.getMinColumnValue(deltaLakeColumnHandle);
-        if (minValue.isPresent() && isFloatingPointNaN(column.getType(), minValue.get())) {
-            return allValues(column.getType(), hasNulls);
+        if (minValue.isPresent() && isFloatingPointNaN(column.type(), minValue.get())) {
+            return allValues(column.type(), hasNulls);
         }
-        if (isNotFinite(minValue, column.getType())) {
+        if (isNotFinite(minValue, column.type())) {
             minValue = Optional.empty();
         }
         Optional<Object> maxValue = stats.getMaxColumnValue(deltaLakeColumnHandle);
-        if (maxValue.isPresent() && isFloatingPointNaN(column.getType(), maxValue.get())) {
-            return allValues(column.getType(), hasNulls);
+        if (maxValue.isPresent() && isFloatingPointNaN(column.type(), maxValue.get())) {
+            return allValues(column.type(), hasNulls);
         }
-        if (isNotFinite(maxValue, column.getType())) {
+        if (isNotFinite(maxValue, column.type())) {
             maxValue = Optional.empty();
         }
         if (minValue.isPresent() && maxValue.isPresent()) {
             return Domain.create(
-                    ofRanges(range(column.getType(), minValue.get(), true, maxValue.get(), true)),
+                    ofRanges(range(column.type(), minValue.get(), true, maxValue.get(), true)),
                     hasNulls);
         }
         if (minValue.isPresent()) {
-            return Domain.create(ofRanges(greaterThanOrEqual(column.getType(), minValue.get())), hasNulls);
+            return Domain.create(ofRanges(greaterThanOrEqual(column.type(), minValue.get())), hasNulls);
         }
 
         return maxValue
-                .map(value -> Domain.create(ofRanges(lessThanOrEqual(column.getType(), value)), hasNulls))
-                .orElseGet(() -> Domain.all(column.getType()));
+                .map(value -> Domain.create(ofRanges(lessThanOrEqual(column.type(), value)), hasNulls))
+                .orElseGet(() -> Domain.all(column.type()));
     }
 
     private static boolean isNotFinite(Optional<Object> value, Type type)

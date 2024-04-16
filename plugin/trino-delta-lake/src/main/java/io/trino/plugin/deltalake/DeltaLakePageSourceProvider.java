@@ -160,15 +160,15 @@ public class DeltaLakePageSourceProvider
             // using ArrayList because partition values can be null
             partitionValues = Optional.of(new ArrayList<>());
             Map<String, DeltaLakeColumnMetadata> columnsMetadataByName = extractSchema(table.getMetadataEntry(), table.getProtocolEntry(), typeManager).stream()
-                    .collect(toImmutableMap(DeltaLakeColumnMetadata::getName, Function.identity()));
+                    .collect(toImmutableMap(DeltaLakeColumnMetadata::name, Function.identity()));
             for (String partitionColumnName : table.getMetadataEntry().getOriginalPartitionColumns()) {
                 DeltaLakeColumnMetadata partitionColumn = columnsMetadataByName.get(partitionColumnName);
                 checkState(partitionColumn != null, "Partition column %s not found", partitionColumnName);
                 Optional<String> value = switch (columnMappingMode) {
                     case NONE:
-                        yield partitionKeys.get(partitionColumn.getName());
+                        yield partitionKeys.get(partitionColumn.name());
                     case ID, NAME:
-                        yield partitionKeys.get(partitionColumn.getPhysicalName());
+                        yield partitionKeys.get(partitionColumn.physicalName());
                     default:
                         throw new IllegalStateException("Unknown column mapping mode");
                 };
