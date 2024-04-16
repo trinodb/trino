@@ -87,7 +87,7 @@ public class WorkProcessorSourceOperatorAdapter
 
         Map<String, String> splitInfo = split.getInfo();
         if (!splitInfo.isEmpty()) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogHandle(), splitInfo)));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.catalogHandle(), splitInfo)));
         }
 
         splitBuffer.add(split);

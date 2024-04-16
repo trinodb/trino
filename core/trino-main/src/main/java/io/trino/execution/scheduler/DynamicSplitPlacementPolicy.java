@@ -18,7 +18,6 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 
 import java.util.List;
-import java.util.Set;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -36,7 +35,7 @@ public class DynamicSplitPlacementPolicy
     }
 
     @Override
-    public SplitPlacementResult computeAssignments(Set<Split> splits)
+    public SplitPlacementResult computeAssignments(List<Split> splits)
     {
         return nodeSelector.computeAssignments(splits, remoteTasks.get());
     }
