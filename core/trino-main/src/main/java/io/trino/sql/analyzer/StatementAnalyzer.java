@@ -2544,11 +2544,11 @@ class StatementAnalyzer
             List<Field> viewFields = columns.stream()
                     .map(column -> Field.newQualified(
                             table.getName(),
-                            Optional.of(column.getName()),
+                            Optional.of(column.name()),
                             getViewColumnType(column, name, table),
                             false,
                             Optional.of(name),
-                            Optional.of(column.getName()),
+                            Optional.of(column.name()),
                             false))
                     .collect(toImmutableList());
 
@@ -5005,13 +5005,13 @@ class StatementAnalyzer
                             i));
                 }
                 String fieldName = field.getName().orElseThrow();
-                if (!column.getName().equalsIgnoreCase(fieldName)) {
+                if (!column.name().equalsIgnoreCase(fieldName)) {
                     return Optional.of(format(
                             "column [%s] of type %s projected from query view at position %s has a different name from column [%s] of type %s stored in view definition",
                             fieldName,
                             field.getType(),
                             i,
-                            column.getName(),
+                            column.name(),
                             type));
                 }
                 if (!typeCoercion.canCoerce(field.getType(), type)) {
@@ -5020,7 +5020,7 @@ class StatementAnalyzer
                             fieldName,
                             field.getType(),
                             i,
-                            column.getName(),
+                            column.name(),
                             type));
                 }
             }
@@ -5031,10 +5031,10 @@ class StatementAnalyzer
         private Type getViewColumnType(ViewColumn column, QualifiedObjectName name, Node node)
         {
             try {
-                return plannerContext.getTypeManager().getType(column.getType());
+                return plannerContext.getTypeManager().getType(column.type());
             }
             catch (TypeNotFoundException e) {
-                throw semanticException(INVALID_VIEW, node, e, "Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), name);
+                throw semanticException(INVALID_VIEW, node, e, "Unknown type '%s' for column '%s' in view: %s", column.type(), column.name(), name);
             }
         }
 

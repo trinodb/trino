@@ -134,7 +134,7 @@ public class TestCommentTask
         assertThat(metadata.isView(testSession, viewName)).isTrue();
 
         getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
-        assertThat(metadata.getView(testSession, viewName).get().getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment())
+        assertThat(metadata.getView(testSession, viewName).get().getColumns().stream().filter(column -> "test".equals(column.name())).collect(onlyElement()).comment())
                 .isEqualTo(Optional.of("new test column comment"));
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(COLUMN, missingColumnName, Optional.of("comment for missing column"))))
@@ -153,7 +153,7 @@ public class TestCommentTask
         QualifiedName missingColumnName = qualifiedColumnName("existing_materialized_view", "missing");
 
         getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
-        assertThat(metadata.getMaterializedView(testSession, materializedViewName).get().getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment())
+        assertThat(metadata.getMaterializedView(testSession, materializedViewName).get().getColumns().stream().filter(column -> "test".equals(column.name())).collect(onlyElement()).comment())
                 .isEqualTo(Optional.of("new test column comment"));
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(COLUMN, missingColumnName, Optional.of("comment for missing column"))))
