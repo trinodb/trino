@@ -835,7 +835,7 @@ public class TableWriterNode
         @Override
         public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
         {
-            return metadata.getMaxWriterTasks(session, executeHandle.getCatalogHandle().getCatalogName().toString());
+            return metadata.getMaxWriterTasks(session, executeHandle.catalogHandle().getCatalogName().toString());
         }
 
         @Override

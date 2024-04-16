@@ -215,7 +215,7 @@ public class CounterBasedAnonymizer
     @Override
     public String anonymize(TableExecuteHandle tableHandle)
     {
-        return anonymize(tableHandle.getCatalogHandle().getCatalogName().toString(), ObjectType.CATALOG);
+        return anonymize(tableHandle.catalogHandle().getCatalogName().toString(), ObjectType.CATALOG);
     }
 
     private String anonymize(CreateTarget target)
@@ -253,7 +253,7 @@ public class CounterBasedAnonymizer
     private String anonymize(TableExecuteTarget target)
     {
         return anonymize(
-                target.getExecuteHandle().getCatalogHandle().getCatalogName().toString(),
+                target.getExecuteHandle().catalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }
