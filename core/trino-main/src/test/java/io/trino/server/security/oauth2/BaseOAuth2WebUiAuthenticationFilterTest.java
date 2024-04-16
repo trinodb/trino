@@ -271,10 +271,10 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
 
         // access UI and follow redirects in order to get OAuth2 cookie
         try (Response response = httpClient.newCall(
-                new Request.Builder()
-                        .url(uiUri.toURL())
-                        .get()
-                        .build())
+                        new Request.Builder()
+                                .url(uiUri.toURL())
+                                .get()
+                                .build())
                 .execute()) {
             assertThat(response.code()).isEqualTo(SC_OK);
             assertThat(response.request().url().toString()).isEqualTo(uiUri.toString());
