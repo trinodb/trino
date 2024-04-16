@@ -27,24 +27,12 @@ public enum IsolationLevel
 
     public boolean meetsRequirementOf(IsolationLevel requirement)
     {
-        switch (this) {
-            case READ_UNCOMMITTED:
-                return requirement == READ_UNCOMMITTED;
-
-            case READ_COMMITTED:
-                return requirement == READ_UNCOMMITTED ||
-                        requirement == READ_COMMITTED;
-
-            case REPEATABLE_READ:
-                return requirement == READ_UNCOMMITTED ||
-                        requirement == READ_COMMITTED ||
-                        requirement == REPEATABLE_READ;
-
-            case SERIALIZABLE:
-                return true;
-        }
-
-        throw new AssertionError("Unhandled isolation level: " + this);
+        return switch (this) {
+            case READ_UNCOMMITTED -> requirement == READ_UNCOMMITTED;
+            case READ_COMMITTED -> requirement == READ_UNCOMMITTED || requirement == READ_COMMITTED;
+            case REPEATABLE_READ -> requirement == READ_UNCOMMITTED || requirement == READ_COMMITTED || requirement == REPEATABLE_READ;
+            case SERIALIZABLE -> true;
+        };
     }
 
     @Override

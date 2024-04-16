@@ -545,91 +545,53 @@ public final class KuduTableProperties
 
     public static ColumnSchema.CompressionAlgorithm lookupCompression(String compression)
     {
-        switch (compression.toLowerCase(Locale.ENGLISH)) {
-            case "default":
-            case "default_compression":
-                return ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION;
-            case "no":
-            case "no_compression":
-                return ColumnSchema.CompressionAlgorithm.NO_COMPRESSION;
-            case "lz4":
-                return ColumnSchema.CompressionAlgorithm.LZ4;
-            case "snappy":
-                return ColumnSchema.CompressionAlgorithm.SNAPPY;
-            case "zlib":
-                return ColumnSchema.CompressionAlgorithm.ZLIB;
-            default:
-                throw new IllegalArgumentException();
-        }
+        return switch (compression.toLowerCase(Locale.ENGLISH)) {
+            case "default", "default_compression" -> ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION;
+            case "no", "no_compression" -> ColumnSchema.CompressionAlgorithm.NO_COMPRESSION;
+            case "lz4" -> ColumnSchema.CompressionAlgorithm.LZ4;
+            case "snappy" -> ColumnSchema.CompressionAlgorithm.SNAPPY;
+            case "zlib" -> ColumnSchema.CompressionAlgorithm.ZLIB;
+            default -> throw new IllegalArgumentException();
+        };
     }
 
     public static String lookupCompressionString(ColumnSchema.CompressionAlgorithm algorithm)
     {
-        switch (algorithm) {
-            case DEFAULT_COMPRESSION:
-                return "default";
-            case NO_COMPRESSION:
-                return "no";
-            case LZ4:
-                return "lz4";
-            case SNAPPY:
-                return "snappy";
-            case ZLIB:
-                return "zlib";
-            default:
-                return "unknown";
-        }
+        return switch (algorithm) {
+            case DEFAULT_COMPRESSION -> "default";
+            case NO_COMPRESSION -> "no";
+            case LZ4 -> "lz4";
+            case SNAPPY -> "snappy";
+            case ZLIB -> "zlib";
+            default -> "unknown";
+        };
     }
 
     public static ColumnSchema.Encoding lookupEncoding(String encoding)
     {
-        switch (encoding.toLowerCase(Locale.ENGLISH)) {
-            case "auto":
-            case "auto_encoding":
-                return ColumnSchema.Encoding.AUTO_ENCODING;
-            case "bitshuffle":
-            case "bit_shuffle":
-                return ColumnSchema.Encoding.BIT_SHUFFLE;
-            case "dictionary":
-            case "dict_encoding":
-                return ColumnSchema.Encoding.DICT_ENCODING;
-            case "plain":
-            case "plain_encoding":
-                return ColumnSchema.Encoding.PLAIN_ENCODING;
-            case "prefix":
-            case "prefix_encoding":
-                return ColumnSchema.Encoding.PREFIX_ENCODING;
-            case "runlength":
-            case "run_length":
-            case "run length":
-            case "rle":
-                return ColumnSchema.Encoding.RLE;
-            case "group_varint":
-                return ColumnSchema.Encoding.GROUP_VARINT;
-            default:
-                throw new IllegalArgumentException();
-        }
+        return switch (encoding.toLowerCase(Locale.ENGLISH)) {
+            case "auto", "auto_encoding" -> ColumnSchema.Encoding.AUTO_ENCODING;
+            case "bitshuffle", "bit_shuffle" -> ColumnSchema.Encoding.BIT_SHUFFLE;
+            case "dictionary", "dict_encoding" -> ColumnSchema.Encoding.DICT_ENCODING;
+            case "plain", "plain_encoding" -> ColumnSchema.Encoding.PLAIN_ENCODING;
+            case "prefix", "prefix_encoding" -> ColumnSchema.Encoding.PREFIX_ENCODING;
+            case "runlength", "run_length", "run length", "rle" -> ColumnSchema.Encoding.RLE;
+            case "group_varint" -> ColumnSchema.Encoding.GROUP_VARINT;
+            default -> throw new IllegalArgumentException();
+        };
     }
 
     public static String lookupEncodingString(ColumnSchema.Encoding encoding)
     {
-        switch (encoding) {
-            case AUTO_ENCODING:
-                return "auto";
-            case BIT_SHUFFLE:
-                return "bitshuffle";
-            case DICT_ENCODING:
-                return "dictionary";
-            case PLAIN_ENCODING:
-                return "plain";
-            case PREFIX_ENCODING:
-                return "prefix";
-            case RLE:
-                return "runlength";
-            case GROUP_VARINT:
-                return "group_varint";
-            default:
-                return "unknown";
-        }
+        return switch (encoding) {
+            case AUTO_ENCODING -> "auto";
+            case BIT_SHUFFLE -> "bitshuffle";
+            case DICT_ENCODING -> "dictionary";
+            case PLAIN_ENCODING -> "plain";
+            case PREFIX_ENCODING -> "prefix";
+            case RLE -> "runlength";
+            case GROUP_VARINT -> "group_varint";
+            default -> "unknown";
+        };
     }
 }

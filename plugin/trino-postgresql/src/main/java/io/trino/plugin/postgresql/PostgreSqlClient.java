@@ -1103,18 +1103,10 @@ public class PostgreSqlClient
         if (isVarchar) {
             // PostgreSQL is case sensitive by default, but orders varchars differently
             JoinCondition.Operator operator = joinCondition.getOperator();
-            switch (operator) {
-                case LESS_THAN:
-                case LESS_THAN_OR_EQUAL:
-                case GREATER_THAN:
-                case GREATER_THAN_OR_EQUAL:
-                    return isEnableStringPushdownWithCollate(session);
-                case EQUAL:
-                case NOT_EQUAL:
-                case IS_DISTINCT_FROM:
-                    return true;
-            }
-            return false;
+            return switch (operator) {
+                case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> isEnableStringPushdownWithCollate(session);
+                case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM -> true;
+            };
         }
 
         return true;

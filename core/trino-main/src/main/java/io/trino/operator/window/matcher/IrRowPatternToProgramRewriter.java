@@ -81,16 +81,16 @@ public class IrRowPatternToProgramRewriter
         @Override
         protected Void visitIrAnchor(IrAnchor node, Void context)
         {
-            switch (node.getType()) {
-                case PARTITION_START:
+            return switch (node.getType()) {
+                case PARTITION_START -> {
                     instructions.add(new MatchStart());
-                    return null;
-                case PARTITION_END:
+                    yield null;
+                }
+                case PARTITION_END -> {
                     instructions.add(new MatchEnd());
-                    return null;
-                default:
-                    throw new IllegalStateException("unexpected anchor type: " + node.getType());
-            }
+                    yield null;
+                }
+            };
         }
 
         @Override

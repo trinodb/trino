@@ -79,23 +79,17 @@ public class ServerInfoResource
             throws WebApplicationException
     {
         requireNonNull(state, "state is null");
-        switch (state) {
-            case SHUTTING_DOWN:
+        return switch (state) {
+            case SHUTTING_DOWN -> {
                 shutdownHandler.requestShutdown();
-                return Response.ok().build();
-            case ACTIVE:
-            case INACTIVE:
-                throw new WebApplicationException(Response
-                        .status(BAD_REQUEST)
-                        .type(MediaType.TEXT_PLAIN)
-                        .entity(format("Invalid state transition to %s", state))
-                        .build());
-            default:
-                return Response.status(BAD_REQUEST)
-                        .type(TEXT_PLAIN)
-                        .entity(format("Invalid state %s", state))
-                        .build();
-        }
+                yield Response.ok().build();
+            }
+            case ACTIVE, INACTIVE -> throw new WebApplicationException(Response
+                    .status(BAD_REQUEST)
+                    .type(MediaType.TEXT_PLAIN)
+                    .entity(format("Invalid state transition to %s", state))
+                    .build());
+        };
     }
 
     @ResourceSecurity(PUBLIC)

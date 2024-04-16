@@ -216,22 +216,14 @@ public class TpcdsMetadata
 
     public static Type getTrinoType(ColumnType tpcdsType)
     {
-        switch (tpcdsType.getBase()) {
-            case IDENTIFIER:
-                return BigintType.BIGINT;
-            case INTEGER:
-                return IntegerType.INTEGER;
-            case DATE:
-                return DateType.DATE;
-            case DECIMAL:
-                return createDecimalType(tpcdsType.getPrecision().get(), tpcdsType.getScale().get());
-            case CHAR:
-                return createCharType(tpcdsType.getPrecision().get());
-            case VARCHAR:
-                return createVarcharType(tpcdsType.getPrecision().get());
-            case TIME:
-                return TimeType.TIME_MILLIS;
-        }
-        throw new IllegalArgumentException("Unsupported TPC-DS type " + tpcdsType);
+        return switch (tpcdsType.getBase()) {
+            case IDENTIFIER -> BigintType.BIGINT;
+            case INTEGER -> IntegerType.INTEGER;
+            case DATE -> DateType.DATE;
+            case DECIMAL -> createDecimalType(tpcdsType.getPrecision().get(), tpcdsType.getScale().get());
+            case CHAR -> createCharType(tpcdsType.getPrecision().get());
+            case VARCHAR -> createVarcharType(tpcdsType.getPrecision().get());
+            case TIME -> TimeType.TIME_MILLIS;
+        };
     }
 }

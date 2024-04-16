@@ -90,19 +90,13 @@ public class OrcOutputBuffer
     @Nullable
     private static Compressor getCompressor(CompressionKind compression)
     {
-        switch (compression) {
-            case NONE:
-                return null;
-            case SNAPPY:
-                return new SnappyCompressor();
-            case ZLIB:
-                return new DeflateCompressor();
-            case LZ4:
-                return new Lz4Compressor();
-            case ZSTD:
-                return new ZstdCompressor();
-        }
-        throw new IllegalArgumentException("Unsupported compression " + compression);
+        return switch (compression) {
+            case NONE -> null;
+            case SNAPPY -> new SnappyCompressor();
+            case ZLIB -> new DeflateCompressor();
+            case LZ4 -> new Lz4Compressor();
+            case ZSTD -> new ZstdCompressor();
+        };
     }
 
     public long getOutputDataSize()

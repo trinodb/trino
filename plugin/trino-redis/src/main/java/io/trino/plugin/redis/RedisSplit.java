@@ -175,14 +175,11 @@ public final class RedisSplit
 
     public static RedisDataType toRedisDataType(String dataFormat)
     {
-        switch (dataFormat) {
-            case "hash":
-                return RedisDataType.HASH;
-            case "zset":
-                return RedisDataType.ZSET;
-            default:
-                return RedisDataType.STRING;
-        }
+        return switch (dataFormat) {
+            case "hash" -> RedisDataType.HASH;
+            case "zset" -> RedisDataType.ZSET;
+            default -> RedisDataType.STRING;
+        };
     }
 
     @Override

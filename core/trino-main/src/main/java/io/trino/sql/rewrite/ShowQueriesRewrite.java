@@ -887,17 +887,13 @@ public final class ShowQueriesRewrite
         private static String getFunctionType(FunctionMetadata function)
         {
             FunctionKind kind = function.getKind();
-            switch (kind) {
-                case AGGREGATE:
-                    return "aggregate";
-                case WINDOW:
-                    return "window";
-                case SCALAR:
-                    return "scalar";
-                case TABLE:
-                    throw new IllegalArgumentException("Unexpected function kind: " + kind); // TODO https://github.com/trinodb/trino/issues/12550
-            }
-            throw new IllegalArgumentException("Unsupported function kind: " + kind);
+            return switch (kind) {
+                case AGGREGATE -> "aggregate";
+                case WINDOW -> "window";
+                case SCALAR -> "scalar";
+                // TODO https://github.com/trinodb/trino/issues/12550
+                case TABLE -> throw new IllegalArgumentException("Unexpected function kind: " + kind);
+            };
         }
 
         @Override

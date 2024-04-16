@@ -111,15 +111,11 @@ public class PinotExpressionRewriter
 
     private static ExpressionContext rewriteExpression(ExpressionContext expressionContext, Context context)
     {
-        switch (expressionContext.getType()) {
-            case LITERAL:
-                return expressionContext;
-            case IDENTIFIER:
-                return forIdentifier(getColumnHandle(expressionContext.getIdentifier(), context.getSchemaTableName(), context.getColumnHandles()).getColumnName());
-            case FUNCTION:
-                return forFunction(rewriteFunction(expressionContext.getFunction(), context));
-        }
-        throw new PinotException(PINOT_EXCEPTION, Optional.empty(), format("Unsupported expression type '%s'", expressionContext.getType()));
+        return switch (expressionContext.getType()) {
+            case LITERAL -> expressionContext;
+            case IDENTIFIER -> forIdentifier(getColumnHandle(expressionContext.getIdentifier(), context.getSchemaTableName(), context.getColumnHandles()).getColumnName());
+            case FUNCTION -> forFunction(rewriteFunction(expressionContext.getFunction(), context));
+        };
     }
 
     private static FunctionContext rewriteFunction(FunctionContext functionContext, Context context)

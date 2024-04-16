@@ -61,15 +61,12 @@ public final class JwkDecoder
             return Optional.empty();
         }
         String keyId = key.getKid().get();
-        switch (key.getKty()) {
-            case "RSA":
-                return tryDecodeRsaKey(keyId, key);
-            case "EC":
-                return tryDecodeEcKey(keyId, key);
-            default:
-                // ignore non unknown keys
-                return Optional.empty();
-        }
+        return switch (key.getKty()) {
+            case "RSA" -> tryDecodeRsaKey(keyId, key);
+            case "EC" -> tryDecodeEcKey(keyId, key);
+            // ignore non unknown keys
+            default -> Optional.empty();
+        };
     }
 
     public static Optional<JwkRsaPublicKey> tryDecodeRsaKey(String keyId, Key key)

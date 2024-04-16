@@ -331,15 +331,11 @@ public final class DiscoveryNodeManager
     @Override
     public Set<InternalNode> getNodes(NodeState state)
     {
-        switch (state) {
-            case ACTIVE:
-                return getAllNodes().getActiveNodes();
-            case INACTIVE:
-                return getAllNodes().getInactiveNodes();
-            case SHUTTING_DOWN:
-                return getAllNodes().getShuttingDownNodes();
-        }
-        throw new IllegalArgumentException("Unknown node state " + state);
+        return switch (state) {
+            case ACTIVE -> getAllNodes().getActiveNodes();
+            case INACTIVE -> getAllNodes().getInactiveNodes();
+            case SHUTTING_DOWN -> getAllNodes().getShuttingDownNodes();
+        };
     }
 
     @Override

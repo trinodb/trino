@@ -308,31 +308,31 @@ public final class DynamicFilters
                 return domain;
             }
             Range span = domain.getValues().getRanges().getSpan();
-            switch (operator) {
-                case EQUAL:
+            return switch (operator) {
+                case EQUAL -> {
                     if (nullAllowed) {
-                        return Domain.create(domain.getValues(), true);
+                        yield Domain.create(domain.getValues(), true);
                     }
-                    return domain;
-                case LESS_THAN: {
+                    yield domain;
+                }
+                case LESS_THAN -> {
                     Range range = Range.lessThan(span.getType(), span.getHighBoundedValue());
-                    return Domain.create(ValueSet.ofRanges(range), false);
+                    yield Domain.create(ValueSet.ofRanges(range), false);
                 }
-                case LESS_THAN_OR_EQUAL: {
+                case LESS_THAN_OR_EQUAL -> {
                     Range range = Range.lessThanOrEqual(span.getType(), span.getHighBoundedValue());
-                    return Domain.create(ValueSet.ofRanges(range), false);
+                    yield Domain.create(ValueSet.ofRanges(range), false);
                 }
-                case GREATER_THAN: {
+                case GREATER_THAN -> {
                     Range range = Range.greaterThan(span.getType(), span.getLowBoundedValue());
-                    return Domain.create(ValueSet.ofRanges(range), false);
+                    yield Domain.create(ValueSet.ofRanges(range), false);
                 }
-                case GREATER_THAN_OR_EQUAL: {
+                case GREATER_THAN_OR_EQUAL -> {
                     Range range = Range.greaterThanOrEqual(span.getType(), span.getLowBoundedValue());
-                    return Domain.create(ValueSet.ofRanges(range), false);
+                    yield Domain.create(ValueSet.ofRanges(range), false);
                 }
-                default:
-                    throw new IllegalArgumentException("Unsupported dynamic filtering comparison operator: " + operator);
-            }
+                default -> throw new IllegalArgumentException("Unsupported dynamic filtering comparison operator: " + operator);
+            };
         }
     }
 

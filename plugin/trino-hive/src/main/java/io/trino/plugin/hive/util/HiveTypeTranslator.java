@@ -228,40 +228,26 @@ public final class HiveTypeTranslator
     @Nullable
     private static Type fromPrimitiveType(PrimitiveTypeInfo typeInfo, HiveTimestampPrecision timestampPrecision)
     {
-        switch (typeInfo.getPrimitiveCategory()) {
-            case BOOLEAN:
-                return BOOLEAN;
-            case BYTE:
-                return TINYINT;
-            case SHORT:
-                return SMALLINT;
-            case INT:
-                return INTEGER;
-            case LONG:
-                return BIGINT;
-            case FLOAT:
-                return REAL;
-            case DOUBLE:
-                return DOUBLE;
-            case STRING:
-                return createUnboundedVarcharType();
-            case VARCHAR:
-                return createVarcharType(((VarcharTypeInfo) typeInfo).getLength());
-            case CHAR:
-                return createCharType(((CharTypeInfo) typeInfo).getLength());
-            case DATE:
-                return DATE;
-            case TIMESTAMP:
-                return createTimestampType(timestampPrecision.getPrecision());
-            case TIMESTAMPLOCALTZ:
-                return createTimestampWithTimeZoneType(timestampPrecision.getPrecision());
-            case BINARY:
-                return VARBINARY;
-            case DECIMAL:
+        return switch (typeInfo.getPrimitiveCategory()) {
+            case BOOLEAN -> BOOLEAN;
+            case BYTE -> TINYINT;
+            case SHORT -> SMALLINT;
+            case INT -> INTEGER;
+            case LONG -> BIGINT;
+            case FLOAT -> REAL;
+            case DOUBLE -> DOUBLE;
+            case STRING -> createUnboundedVarcharType();
+            case VARCHAR -> createVarcharType(((VarcharTypeInfo) typeInfo).getLength());
+            case CHAR -> createCharType(((CharTypeInfo) typeInfo).getLength());
+            case DATE -> DATE;
+            case TIMESTAMP -> createTimestampType(timestampPrecision.getPrecision());
+            case TIMESTAMPLOCALTZ -> createTimestampWithTimeZoneType(timestampPrecision.getPrecision());
+            case BINARY -> VARBINARY;
+            case DECIMAL -> {
                 DecimalTypeInfo decimalTypeInfo = (DecimalTypeInfo) typeInfo;
-                return createDecimalType(decimalTypeInfo.precision(), decimalTypeInfo.scale());
-            default:
-                return null;
-        }
+                yield createDecimalType(decimalTypeInfo.precision(), decimalTypeInfo.scale());
+            }
+            default -> null;
+        };
     }
 }

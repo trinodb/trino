@@ -132,18 +132,14 @@ public final class SqlToRowExpressionTranslator
             RowExpression right = process(node.right(), context);
             Operator operator = node.operator();
 
-            switch (node.operator()) {
-                case NOT_EQUAL:
-                    return new CallExpression(
-                            metadata.resolveBuiltinFunction("not", fromTypes(BOOLEAN)),
-                            ImmutableList.of(visitComparisonExpression(Operator.EQUAL, left, right)));
-                case GREATER_THAN:
-                    return visitComparisonExpression(Operator.LESS_THAN, right, left);
-                case GREATER_THAN_OR_EQUAL:
-                    return visitComparisonExpression(Operator.LESS_THAN_OR_EQUAL, right, left);
-                default:
-                    return visitComparisonExpression(operator, left, right);
-            }
+            return switch (node.operator()) {
+                case NOT_EQUAL -> new CallExpression(
+                        metadata.resolveBuiltinFunction("not", fromTypes(BOOLEAN)),
+                        ImmutableList.of(visitComparisonExpression(Operator.EQUAL, left, right)));
+                case GREATER_THAN -> visitComparisonExpression(Operator.LESS_THAN, right, left);
+                case GREATER_THAN_OR_EQUAL -> visitComparisonExpression(Operator.LESS_THAN_OR_EQUAL, right, left);
+                default -> visitComparisonExpression(operator, left, right);
+            };
         }
 
         private RowExpression visitComparisonExpression(Operator operator, RowExpression left, RowExpression right)
@@ -202,17 +198,11 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitLogical(Logical node, Void context)
         {
-            Form form;
-            switch (node.operator()) {
-                case AND:
-                    form = AND;
-                    break;
-                case OR:
-                    form = OR;
-                    break;
-                default:
-                    throw new IllegalStateException("Unknown logical operator: " + node.operator());
-            }
+            Form form = switch (node.operator()) {
+                case AND -> AND;
+                case OR -> OR;
+            };
+
             return new SpecialForm(
                     form,
                     BOOLEAN,

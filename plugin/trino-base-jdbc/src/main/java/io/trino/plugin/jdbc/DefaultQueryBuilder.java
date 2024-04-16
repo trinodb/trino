@@ -359,17 +359,12 @@ public class DefaultQueryBuilder
 
     protected String formatJoinType(JoinType joinType)
     {
-        switch (joinType) {
-            case INNER:
-                return "INNER JOIN";
-            case LEFT_OUTER:
-                return "LEFT JOIN";
-            case RIGHT_OUTER:
-                return "RIGHT JOIN";
-            case FULL_OUTER:
-                return "FULL JOIN";
-        }
-        throw new IllegalStateException("Unsupported join type: " + joinType);
+        return switch (joinType) {
+            case INNER -> "INNER JOIN";
+            case LEFT_OUTER -> "LEFT JOIN";
+            case RIGHT_OUTER -> "RIGHT JOIN";
+            case FULL_OUTER -> "FULL JOIN";
+        };
     }
 
     protected String getRelation(JdbcClient client, RemoteTableName remoteTableName)

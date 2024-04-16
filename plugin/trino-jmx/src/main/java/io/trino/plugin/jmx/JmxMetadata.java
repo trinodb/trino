@@ -292,26 +292,11 @@ public class JmxMetadata
 
     private static Type getColumnType(MBeanAttributeInfo attribute)
     {
-        switch (attribute.getType()) {
-            case "boolean":
-            case "java.lang.Boolean":
-                return BOOLEAN;
-            case "byte":
-            case "java.lang.Byte":
-            case "short":
-            case "java.lang.Short":
-            case "int":
-            case "java.lang.Integer":
-            case "long":
-            case "java.lang.Long":
-                return BIGINT;
-            case "java.lang.Number":
-            case "float":
-            case "java.lang.Float":
-            case "double":
-            case "java.lang.Double":
-                return DOUBLE;
-        }
-        return createUnboundedVarcharType();
+        return switch (attribute.getType()) {
+            case "boolean", "java.lang.Boolean" -> BOOLEAN;
+            case "byte", "java.lang.Byte", "short", "java.lang.Short", "int", "java.lang.Integer", "long", "java.lang.Long" -> BIGINT;
+            case "java.lang.Number", "float", "java.lang.Float", "double", "java.lang.Double" -> DOUBLE;
+            default -> createUnboundedVarcharType();
+        };
     }
 }

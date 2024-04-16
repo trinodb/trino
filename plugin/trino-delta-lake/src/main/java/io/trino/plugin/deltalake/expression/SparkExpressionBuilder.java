@@ -57,24 +57,16 @@ public class SparkExpressionBuilder
 
     private static ArithmeticBinaryExpression.Operator getArithmeticBinaryOperator(Token operator)
     {
-        switch (operator.getType()) {
-            case SparkExpressionBaseParser.PLUS:
-                return ArithmeticBinaryExpression.Operator.ADD;
-            case SparkExpressionBaseParser.MINUS:
-                return ArithmeticBinaryExpression.Operator.SUBTRACT;
-            case SparkExpressionBaseParser.ASTERISK:
-                return ArithmeticBinaryExpression.Operator.MULTIPLY;
-            case SparkExpressionBaseParser.SLASH:
-                return ArithmeticBinaryExpression.Operator.DIVIDE;
-            case SparkExpressionBaseParser.PERCENT:
-                return ArithmeticBinaryExpression.Operator.MODULUS;
-            case SparkExpressionBaseParser.AMPERSAND:
-                return ArithmeticBinaryExpression.Operator.BITWISE_AND;
-            case SparkExpressionBaseParser.CIRCUMFLEX:
-                return ArithmeticBinaryExpression.Operator.BITWISE_XOR;
-        }
-
-        throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());
+        return switch (operator.getType()) {
+            case SparkExpressionBaseParser.PLUS -> ArithmeticBinaryExpression.Operator.ADD;
+            case SparkExpressionBaseParser.MINUS -> ArithmeticBinaryExpression.Operator.SUBTRACT;
+            case SparkExpressionBaseParser.ASTERISK -> ArithmeticBinaryExpression.Operator.MULTIPLY;
+            case SparkExpressionBaseParser.SLASH -> ArithmeticBinaryExpression.Operator.DIVIDE;
+            case SparkExpressionBaseParser.PERCENT -> ArithmeticBinaryExpression.Operator.MODULUS;
+            case SparkExpressionBaseParser.AMPERSAND -> ArithmeticBinaryExpression.Operator.BITWISE_AND;
+            case SparkExpressionBaseParser.CIRCUMFLEX -> ArithmeticBinaryExpression.Operator.BITWISE_XOR;
+            default -> throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());
+        };
     }
 
     @Override

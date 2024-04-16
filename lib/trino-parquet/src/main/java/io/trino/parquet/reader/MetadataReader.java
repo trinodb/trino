@@ -363,25 +363,16 @@ public final class MetadataReader
 
     private static PrimitiveTypeName getTypeName(Type type)
     {
-        switch (type) {
-            case BYTE_ARRAY:
-                return PrimitiveTypeName.BINARY;
-            case INT64:
-                return PrimitiveTypeName.INT64;
-            case INT32:
-                return PrimitiveTypeName.INT32;
-            case BOOLEAN:
-                return PrimitiveTypeName.BOOLEAN;
-            case FLOAT:
-                return PrimitiveTypeName.FLOAT;
-            case DOUBLE:
-                return PrimitiveTypeName.DOUBLE;
-            case INT96:
-                return PrimitiveTypeName.INT96;
-            case FIXED_LEN_BYTE_ARRAY:
-                return PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
-        }
-        throw new IllegalArgumentException("Unknown type " + type);
+        return switch (type) {
+            case BYTE_ARRAY -> PrimitiveTypeName.BINARY;
+            case INT64 -> PrimitiveTypeName.INT64;
+            case INT32 -> PrimitiveTypeName.INT32;
+            case BOOLEAN -> PrimitiveTypeName.BOOLEAN;
+            case FLOAT -> PrimitiveTypeName.FLOAT;
+            case DOUBLE -> PrimitiveTypeName.DOUBLE;
+            case INT96 -> PrimitiveTypeName.INT96;
+            case FIXED_LEN_BYTE_ARRAY -> PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
+        };
     }
 
     private static void validateFileMetadata(ParquetDataSourceId dataSourceId, org.apache.parquet.hadoop.metadata.FileMetaData fileMetaData, Optional<ParquetWriteValidation> parquetWriteValidation)

@@ -61,18 +61,11 @@ public final class Threads
             sb.append(format("\tat %s\n", first));
             LockInfo lockInfo = thread.getLockInfo();
             if (lockInfo != null) {
-                String lockVerb;
-                switch (thread.getThreadState()) {
-                    case BLOCKED:
-                        lockVerb = "blocked";
-                        break;
-                    case WAITING:
-                    case TIMED_WAITING:
-                        lockVerb = "waiting";
-                        break;
-                    default:
-                        lockVerb = "(unexpected lock info)";
-                }
+                String lockVerb = switch (thread.getThreadState()) {
+                    case BLOCKED -> "blocked";
+                    case WAITING, TIMED_WAITING -> "waiting";
+                    default -> "(unexpected lock info)";
+                };
                 sb.append(format("\t-  %s on %s\n", lockVerb, lockInfo));
             }
 
