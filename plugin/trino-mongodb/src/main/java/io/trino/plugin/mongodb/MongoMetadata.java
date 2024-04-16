@@ -157,7 +157,7 @@ public class MongoMetadata
     {
         requireNonNull(tableName, "tableName is null");
         try {
-            return mongoSession.getTable(tableName).getTableHandle();
+            return mongoSession.getTable(tableName).tableHandle();
         }
         catch (TableNotFoundException e) {
             log.debug(e, "Table(%s) not found", tableName);
@@ -191,7 +191,7 @@ public class MongoMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MongoTableHandle table = (MongoTableHandle) tableHandle;
-        List<MongoColumnHandle> columns = mongoSession.getTable(table.schemaTableName()).getColumns();
+        List<MongoColumnHandle> columns = mongoSession.getTable(table.schemaTableName()).columns();
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (MongoColumnHandle columnHandle : columns) {
@@ -423,8 +423,8 @@ public class MongoMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> insertedColumns, RetryMode retryMode)
     {
         MongoTable table = mongoSession.getTable(((MongoTableHandle) tableHandle).schemaTableName());
-        MongoTableHandle handle = table.getTableHandle();
-        List<MongoColumnHandle> columns = table.getColumns();
+        MongoTableHandle handle = table.tableHandle();
+        List<MongoColumnHandle> columns = table.columns();
         List<MongoColumnHandle> handleColumns = columns.stream()
                 .filter(column -> !column.isHidden())
                 .peek(column -> validateColumnNameForInsert(column.getBaseName()))
@@ -542,7 +542,7 @@ public class MongoMetadata
         MongoTable tableInfo = mongoSession.getTable(tableHandle.schemaTableName());
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
 
-        for (MongoIndex index : tableInfo.getIndexes()) {
+        for (MongoIndex index : tableInfo.indexes()) {
             for (MongodbIndexKey key : index.getKeys()) {
                 if (key.getSortOrder().isEmpty()) {
                     continue;
@@ -827,11 +827,11 @@ public class MongoMetadata
     {
         MongoTable mongoTable = mongoSession.getTable(tableName);
 
-        List<ColumnMetadata> columns = mongoTable.getColumns().stream()
+        List<ColumnMetadata> columns = mongoTable.columns().stream()
                 .map(MongoColumnHandle::toColumnMetadata)
                 .collect(toImmutableList());
 
-        return new ConnectorTableMetadata(tableName, columns, ImmutableMap.of(), mongoTable.getComment());
+        return new ConnectorTableMetadata(tableName, columns, ImmutableMap.of(), mongoTable.comment());
     }
 
     private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)
