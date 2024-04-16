@@ -411,16 +411,23 @@ public abstract class BaseFailureRecoveryTest
             }
         }
 
-        assertThat(remainingTemporaryTables.isEmpty())
-                .as("There should be no remaining tmp_trino tables that are queryable. They are:\n%s",
-                        remainingTemporaryTables.entrySet().stream()
-                                .map(entry -> "\tFor queryId [%s] (prefix [%s]) remaining tables: [%s]\n\t\tWith errors: [%s]".formatted(
-                                        entry.getKey(),
-                                        temporaryTableNamePrefix(entry.getKey()),
-                                        Joiner.on(",").join(entry.getValue()),
-                                        Joiner.on("],\n[").join(assertionErrorMessages.get(entry.getKey())).replace("\n", "\n\t\t\t")))
-                                .collect(joining("\n")))
-                .isTrue();
+        if (checkNoRemainingTmpTables()) {
+            assertThat(remainingTemporaryTables.isEmpty())
+                    .as("There should be no remaining tmp_trino tables that are queryable. They are:\n%s",
+                            remainingTemporaryTables.entrySet().stream()
+                                    .map(entry -> "\tFor queryId [%s] (prefix [%s]) remaining tables: [%s]\n\t\tWith errors: [%s]".formatted(
+                                            entry.getKey(),
+                                            temporaryTableNamePrefix(entry.getKey()),
+                                            Joiner.on(",").join(entry.getValue()),
+                                            Joiner.on("],\n[").join(assertionErrorMessages.get(entry.getKey())).replace("\n", "\n\t\t\t")))
+                                    .collect(joining("\n")))
+                    .isTrue();
+        }
+    }
+
+    protected boolean checkNoRemainingTmpTables()
+    {
+        return true;
     }
 
     protected class FailureRecoveryAssert
