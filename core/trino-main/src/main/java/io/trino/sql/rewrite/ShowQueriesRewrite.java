@@ -690,7 +690,7 @@ public final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetTableName);
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle).metadata();
 
-                Collection<PropertyMetadata<?>> allColumnProperties = columnPropertyManager.getAllProperties(tableHandle.getCatalogHandle());
+                Collection<PropertyMetadata<?>> allColumnProperties = columnPropertyManager.getAllProperties(tableHandle.catalogHandle());
 
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
@@ -706,7 +706,7 @@ public final class ShowQueriesRewrite
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
-                Collection<PropertyMetadata<?>> allTableProperties = tablePropertyManager.getAllProperties(tableHandle.getCatalogHandle());
+                Collection<PropertyMetadata<?>> allTableProperties = tablePropertyManager.getAllProperties(tableHandle.catalogHandle());
                 List<Property> propertyNodes = buildProperties(targetTableName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateTable createTable = new CreateTable(

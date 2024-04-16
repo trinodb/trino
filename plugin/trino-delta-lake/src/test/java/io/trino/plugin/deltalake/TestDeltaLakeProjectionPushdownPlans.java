@@ -179,7 +179,7 @@ public class TestDeltaLakeProjectionPushdownPlans
         assertPlan(
                 "SELECT col0.x expr_x, col0.y expr_y FROM " + testTable,
                 any(tableScan(
-                        equalTo(((DeltaLakeTableHandle) tableHandle.get().getConnectorHandle()).withProjectedColumns(Set.of(columnX, columnY))),
+                        equalTo(((DeltaLakeTableHandle) tableHandle.get().connectorHandle()).withProjectedColumns(Set.of(columnX, columnY))),
                         TupleDomain.all(),
                         ImmutableMap.of("col0.x", equalTo(columnX), "col0.y", equalTo(columnY)))));
 
@@ -251,7 +251,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                                             .right(
                                                     anyTree(
                                                             tableScan(
-                                                                    equalTo(((DeltaLakeTableHandle) tableHandle.get().getConnectorHandle()).withProjectedColumns(Set.of(column1Handle))),
+                                                                    equalTo(((DeltaLakeTableHandle) tableHandle.get().connectorHandle()).withProjectedColumns(Set.of(column1Handle))),
                                                                     TupleDomain.all(),
                                                                     ImmutableMap.of("s_expr_1", equalTo(column1Handle)))));
                                 }))));

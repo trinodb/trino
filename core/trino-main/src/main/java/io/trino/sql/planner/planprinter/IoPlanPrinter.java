@@ -705,7 +705,7 @@ public class IoPlanPrinter
             }
             else if (writerTarget instanceof MergeTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandle().getCatalogHandle().getCatalogName().toString(),
+                        target.getHandle().catalogHandle().getCatalogName().toString(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }

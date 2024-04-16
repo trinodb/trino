@@ -80,7 +80,7 @@ public final class TaskTestUtils
 
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
 
-    private static final CatalogHandle CATALOG_HANDLE = TEST_TABLE_HANDLE.getCatalogHandle();
+    private static final CatalogHandle CATALOG_HANDLE = TEST_TABLE_HANDLE.catalogHandle();
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CATALOG_HANDLE, TestingSplit.createLocalSplit()));
 

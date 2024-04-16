@@ -73,7 +73,7 @@ public class SplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        CatalogHandle catalogHandle = table.getCatalogHandle();
+        CatalogHandle catalogHandle = table.catalogHandle();
         ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogHandle);
         if (!isAllowPushdownIntoConnectors(session)) {
             dynamicFilter = DynamicFilter.EMPTY;
@@ -84,12 +84,12 @@ public class SplitManager
         ConnectorSplitSource source;
         try (var ignore = scopedSpan(tracer.spanBuilder("SplitManager.getSplits")
                 .setParent(Context.current().with(parentSpan))
-                .setAttribute(TrinoAttributes.TABLE, table.getConnectorHandle().toString())
+                .setAttribute(TrinoAttributes.TABLE, table.connectorHandle().toString())
                 .startSpan())) {
             source = splitManager.getSplits(
-                    table.getTransaction(),
+                    table.transaction(),
                     connectorSession,
-                    table.getConnectorHandle(),
+                    table.connectorHandle(),
                     dynamicFilter,
                     constraint);
         }

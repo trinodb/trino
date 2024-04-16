@@ -107,7 +107,7 @@ public class RenameTableTask
         if (metadata.getTableHandle(session, target).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }
-        if (!tableHandle.getCatalogHandle().getCatalogName().toString().equals(target.catalogName())) {
+        if (!tableHandle.catalogHandle().getCatalogName().toString().equals(target.catalogName())) {
             throw semanticException(NOT_SUPPORTED, statement, "Table rename across catalogs is not supported");
         }
         accessControl.checkCanRenameTable(session.toSecurityContext(), source, target);

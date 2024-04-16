@@ -742,7 +742,7 @@ public class SqlQueryExecution
             // Allow set session statements and queries on internal system connectors to run without waiting
             Collection<TableHandle> tables = analysis.getTables();
             return !tables.stream()
-                    .map(TableHandle::getCatalogHandle)
+                    .map(TableHandle::catalogHandle)
                     .allMatch(catalogName -> catalogName.getType().isInternal());
         }
         return true;

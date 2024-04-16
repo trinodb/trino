@@ -671,7 +671,7 @@ class StatementAnalyzer
                     Column::new);
 
             analysis.setUpdateTarget(
-                    targetTableHandle.get().getCatalogHandle().getVersion(),
+                    targetTableHandle.get().catalogHandle().getVersion(),
                     targetTable,
                     Optional.empty(),
                     Optional.of(Streams.zip(
@@ -846,7 +846,7 @@ class StatementAnalyzer
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
             analysis.setUpdateType("DELETE");
-            analysis.setUpdateTarget(handle.getCatalogHandle().getVersion(), tableName, Optional.of(table), Optional.empty());
+            analysis.setUpdateTarget(handle.catalogHandle().getVersion(), tableName, Optional.of(table), Optional.empty());
             Scope accessControlScope = Scope.builder()
                     .withRelationType(RelationId.anonymous(), analysis.getScope(table).getRelationType())
                     .build();
@@ -871,7 +871,7 @@ class StatementAnalyzer
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
 
             analysis.setUpdateType("ANALYZE");
-            analysis.setUpdateTarget(tableHandle.getCatalogHandle().getVersion(), tableName, Optional.empty(), Optional.empty());
+            analysis.setUpdateTarget(tableHandle.catalogHandle().getVersion(), tableName, Optional.empty(), Optional.empty());
 
             validateProperties(node.getProperties(), scope);
             String catalogName = tableName.catalogName();
@@ -923,7 +923,7 @@ class StatementAnalyzer
                             true,
                             false));
                     analysis.setUpdateType("CREATE TABLE");
-                    analysis.setUpdateTarget(targetTableHandle.get().getCatalogHandle().getVersion(), targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
+                    analysis.setUpdateTarget(targetTableHandle.get().catalogHandle().getVersion(), targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
                     return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
                 }
                 throw semanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
@@ -3459,7 +3459,7 @@ class StatementAnalyzer
             }
 
             analysis.setUpdateTarget(
-                    handle.getCatalogHandle().getVersion(),
+                    handle.catalogHandle().getVersion(),
                     tableName,
                     Optional.of(table),
                     Optional.of(updatedColumnSchemas.stream()
@@ -3630,7 +3630,7 @@ class StatementAnalyzer
                     .map(columnHandle -> new OutputColumn(new Column(columnHandle, dataColumnTypes.get(columnHandle).toString()), ImmutableSet.of()))
                     .collect(toImmutableList());
 
-            analysis.setUpdateTarget(targetTableHandle.getCatalogHandle().getVersion(), tableName, Optional.of(table), Optional.of(updatedColumns));
+            analysis.setUpdateTarget(targetTableHandle.catalogHandle().getVersion(), tableName, Optional.of(table), Optional.of(updatedColumns));
             List<List<ColumnHandle>> mergeCaseColumnHandles = buildCaseColumnLists(merge, dataColumnSchemas, allColumnHandles);
 
             createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles);
