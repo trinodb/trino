@@ -44,7 +44,7 @@ public interface NodeSelector
      * If we cannot find an assignment for a split, it is not included in the map. Also returns a future indicating when
      * to reattempt scheduling of this batch of splits, if some of them could not be scheduled.
      */
-    SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks);
+    SplitPlacementResult computeAssignments(List<Split> splits, List<RemoteTask> existingTasks);
 
     /**
      * Identifies the nodes for running the specified splits based on a precomputed fixed partitioning.
@@ -54,5 +54,5 @@ public interface NodeSelector
      * If we cannot find an assignment for a split, it is not included in the map. Also returns a future indicating when
      * to reattempt scheduling of this batch of splits, if some of them could not be scheduled.
      */
-    SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap);
+    SplitPlacementResult computeAssignments(List<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap);
 }
