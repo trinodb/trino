@@ -1501,7 +1501,7 @@ class RelationPlanner
 
                 // cast to declared returned type
                 Type expectedType = jsonTableRelationType.getFieldByIndex(i).getType();
-                Type resultType = outputFunction.getSignature().getReturnType();
+                Type resultType = outputFunction.signature().getReturnType();
                 if (!resultType.equals(expectedType)) {
                     result = new Cast(result, expectedType);
                 }

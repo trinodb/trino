@@ -62,7 +62,7 @@ public class InternalFunctionDependencies
         this.specialization = specialization;
         this.types = ImmutableMap.copyOf(typeDependencies);
         this.functions = functionDependencies.stream()
-                .filter(function -> !isOperatorName(function.getSignature().getName().getFunctionName()))
+                .filter(function -> !isOperatorName(function.signature().getName().getFunctionName()))
                 .collect(toImmutableMap(FunctionKey::new, identity()));
         this.operators = functionDependencies.stream()
                 .filter(InternalFunctionDependencies::isOperator)
@@ -91,7 +91,7 @@ public class InternalFunctionDependencies
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(functionKey.toString());
         }
-        return resolvedFunction.getFunctionNullability();
+        return resolvedFunction.functionNullability();
     }
 
     @Override
@@ -102,7 +102,7 @@ public class InternalFunctionDependencies
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(operatorKey.toString());
         }
-        return resolvedFunction.getFunctionNullability();
+        return resolvedFunction.functionNullability();
     }
 
     @Override
@@ -113,7 +113,7 @@ public class InternalFunctionDependencies
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(castKey.toString());
         }
-        return resolvedFunction.getFunctionNullability();
+        return resolvedFunction.functionNullability();
     }
 
     @Override
@@ -191,13 +191,13 @@ public class InternalFunctionDependencies
 
     private static boolean isOperator(ResolvedFunction function)
     {
-        CatalogSchemaFunctionName name = function.getSignature().getName();
+        CatalogSchemaFunctionName name = function.signature().getName();
         return isBuiltinFunctionName(name) && isOperatorName(name.getFunctionName()) && unmangleOperator(name.getFunctionName()) != CAST;
     }
 
     private static boolean isCast(ResolvedFunction function)
     {
-        CatalogSchemaFunctionName name = function.getSignature().getName();
+        CatalogSchemaFunctionName name = function.signature().getName();
         return isBuiltinFunctionName(name) && isOperatorName(name.getFunctionName()) && unmangleOperator(name.getFunctionName()) == CAST;
     }
 
@@ -208,8 +208,8 @@ public class InternalFunctionDependencies
 
         private FunctionKey(ResolvedFunction resolvedFunction)
         {
-            name = resolvedFunction.getSignature().getName();
-            argumentTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+            name = resolvedFunction.signature().getName();
+            argumentTypes = resolvedFunction.signature().getArgumentTypes().stream()
                     .map(Type::getTypeSignature)
                     .collect(toImmutableList());
         }
@@ -256,8 +256,8 @@ public class InternalFunctionDependencies
 
         private OperatorKey(ResolvedFunction resolvedFunction)
         {
-            operatorType = unmangleOperator(resolvedFunction.getSignature().getName().getFunctionName());
-            argumentTypes = toTypeSignatures(resolvedFunction.getSignature().getArgumentTypes());
+            operatorType = unmangleOperator(resolvedFunction.signature().getName().getFunctionName());
+            argumentTypes = toTypeSignatures(resolvedFunction.signature().getArgumentTypes());
         }
 
         private OperatorKey(OperatorType operatorType, List<TypeSignature> argumentTypes)
@@ -302,8 +302,8 @@ public class InternalFunctionDependencies
 
         private CastKey(ResolvedFunction resolvedFunction)
         {
-            fromType = resolvedFunction.getSignature().getArgumentTypes().get(0).getTypeSignature();
-            toType = resolvedFunction.getSignature().getReturnType().getTypeSignature();
+            fromType = resolvedFunction.signature().getArgumentTypes().get(0).getTypeSignature();
+            toType = resolvedFunction.signature().getReturnType().getTypeSignature();
         }
 
         private CastKey(TypeSignature fromType, TypeSignature toType)

@@ -1212,7 +1212,7 @@ public class Analysis
     public List<RoutineInfo> getRoutines()
     {
         return resolvedFunctions.values().stream()
-                .map(value -> new RoutineInfo(value.function.getSignature().getName().getFunctionName(), value.getAuthorization()))
+                .map(value -> new RoutineInfo(value.function.signature().getName().getFunctionName(), value.getAuthorization()))
                 .collect(toImmutableList());
     }
 

@@ -185,7 +185,7 @@ public final class DynamicFilters
 
     private static boolean isDynamicFilterFunction(Call call)
     {
-        return isDynamicFilterFunction(call.function().getName());
+        return isDynamicFilterFunction(call.function().name());
     }
 
     public static boolean isDynamicFilterFunction(CatalogSchemaFunctionName functionName)

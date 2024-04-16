@@ -301,23 +301,23 @@ public final class SqlRoutineHash
 
         private void hashResolvedFunction(ResolvedFunction function)
         {
-            BoundSignature signature = function.getSignature();
+            BoundSignature signature = function.signature();
             hashString(signature.getName().toString());
             hashType(signature.getReturnType());
             hasher.putInt(signature.getArgumentTypes().size());
             signature.getArgumentTypes().forEach(this::hashType);
 
-            hashString(function.getCatalogHandle().getId());
-            hashString(function.getFunctionId().toString());
+            hashString(function.catalogHandle().getId());
+            hashString(function.functionId().toString());
 
-            hasher.putInt(function.getTypeDependencies().size());
-            function.getTypeDependencies().forEach((typeSignature, type) -> {
+            hasher.putInt(function.typeDependencies().size());
+            function.typeDependencies().forEach((typeSignature, type) -> {
                 hashString(typeSignature.toString());
                 hashType(type);
             });
 
-            hasher.putInt(function.getFunctionDependencies().size());
-            function.getFunctionDependencies().forEach(this::hashResolvedFunction);
+            hasher.putInt(function.functionDependencies().size());
+            function.functionDependencies().forEach(this::hashResolvedFunction);
         }
 
         private void hashString(String string)

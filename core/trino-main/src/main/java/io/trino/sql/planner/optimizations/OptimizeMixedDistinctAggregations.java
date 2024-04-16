@@ -176,7 +176,7 @@ public class OptimizeMixedDistinctAggregations
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty());
-                    CatalogSchemaFunctionName signatureName = aggregation.getResolvedFunction().getSignature().getName();
+                    CatalogSchemaFunctionName signatureName = aggregation.getResolvedFunction().signature().getName();
                     if (signatureName.equals(COUNT_NAME) || signatureName.equals(COUNT_IF_NAME) || signatureName.equals(APPROX_DISTINCT_NAME)) {
                         Symbol newSymbol = symbolAllocator.newSymbol("expr", entry.getKey().type());
                         aggregations.put(newSymbol, newAggregation);

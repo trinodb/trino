@@ -277,7 +277,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return actual.function().getName().equals(expected.function().getName()) &&
+        return actual.function().name().equals(expected.function().name()) &&
                 process(actual.arguments(), expected.arguments());
     }
 

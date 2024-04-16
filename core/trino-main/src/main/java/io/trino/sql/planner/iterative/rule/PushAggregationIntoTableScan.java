@@ -227,7 +227,7 @@ public class PushAggregationIntoTableScan
 
     private static AggregateFunction toAggregateFunction(AggregationNode.Aggregation aggregation)
     {
-        BoundSignature signature = aggregation.getResolvedFunction().getSignature();
+        BoundSignature signature = aggregation.getResolvedFunction().signature();
 
         ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
         for (int i = 0; i < aggregation.getArguments().size(); i++) {

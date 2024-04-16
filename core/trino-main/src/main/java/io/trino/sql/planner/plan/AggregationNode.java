@@ -480,11 +480,11 @@ public class AggregationNode
         {
             int expectedArgumentCount;
             if (step == SINGLE || step == Step.PARTIAL) {
-                expectedArgumentCount = resolvedFunction.getSignature().getArgumentTypes().size();
+                expectedArgumentCount = resolvedFunction.signature().getArgumentTypes().size();
             }
             else {
                 // Intermediate and final steps get the intermediate value and the lambda functions
-                expectedArgumentCount = 1 + (int) resolvedFunction.getSignature().getArgumentTypes().stream()
+                expectedArgumentCount = 1 + (int) resolvedFunction.signature().getArgumentTypes().stream()
                         .filter(FunctionType.class::isInstance)
                         .count();
             }
@@ -493,7 +493,7 @@ public class AggregationNode
                     expectedArgumentCount == arguments.size(),
                     "%s aggregation function %s has %s arguments, but %s arguments were provided to function call",
                     step,
-                    resolvedFunction.getSignature(),
+                    resolvedFunction.signature(),
                     expectedArgumentCount,
                     arguments.size());
         }

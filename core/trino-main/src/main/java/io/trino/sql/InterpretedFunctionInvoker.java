@@ -60,7 +60,7 @@ public class InterpretedFunctionInvoker
      */
     public Object invoke(ResolvedFunction function, ConnectorSession session, List<Object> arguments)
     {
-        ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(function, getInvocationConvention(function.getSignature(), function.getFunctionNullability()));
+        ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(function, getInvocationConvention(function.signature(), function.functionNullability()));
         MethodHandle method = implementation.getMethodHandle();
 
         List<Object> actualArguments = new ArrayList<>();
@@ -85,11 +85,11 @@ public class InterpretedFunctionInvoker
             Object argument = arguments.get(i);
 
             // if argument is null and function does not handle nulls, result is null
-            if (argument == null && !function.getFunctionNullability().isArgumentNullable(i)) {
+            if (argument == null && !function.functionNullability().isArgumentNullable(i)) {
                 return null;
             }
 
-            if (function.getSignature().getArgumentTypes().get(i) instanceof FunctionType) {
+            if (function.signature().getArgumentTypes().get(i) instanceof FunctionType) {
                 argument = asInterfaceInstance(implementation.getLambdaInterfaces().get(lambdaArgumentIndex), (MethodHandle) argument);
                 lambdaArgumentIndex++;
             }

@@ -2564,15 +2564,15 @@ public final class MetadataManager
     {
         Signature functionSignature;
         AggregationFunctionMetadata aggregationFunctionMetadata;
-        if (resolvedFunction.getCatalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
-            functionSignature = functions.getFunctionMetadata(resolvedFunction.getFunctionId()).getSignature();
-            aggregationFunctionMetadata = functions.getAggregationFunctionMetadata(resolvedFunction.getFunctionId());
+        if (resolvedFunction.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
+            functionSignature = functions.getFunctionMetadata(resolvedFunction.functionId()).getSignature();
+            aggregationFunctionMetadata = functions.getAggregationFunctionMetadata(resolvedFunction.functionId());
         }
         else {
-            ConnectorSession connectorSession = session.toConnectorSession(resolvedFunction.getCatalogHandle());
-            ConnectorMetadata metadata = getMetadata(session, resolvedFunction.getCatalogHandle());
-            functionSignature = metadata.getFunctionMetadata(connectorSession, resolvedFunction.getFunctionId()).getSignature();
-            aggregationFunctionMetadata = metadata.getAggregationFunctionMetadata(connectorSession, resolvedFunction.getFunctionId());
+            ConnectorSession connectorSession = session.toConnectorSession(resolvedFunction.catalogHandle());
+            ConnectorMetadata metadata = getMetadata(session, resolvedFunction.catalogHandle());
+            functionSignature = metadata.getFunctionMetadata(connectorSession, resolvedFunction.functionId()).getSignature();
+            aggregationFunctionMetadata = metadata.getAggregationFunctionMetadata(connectorSession, resolvedFunction.functionId());
         }
 
         AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
@@ -2581,7 +2581,7 @@ public final class MetadataManager
         }
 
         if (!aggregationFunctionMetadata.getIntermediateTypes().isEmpty()) {
-            FunctionBinding functionBinding = toFunctionBinding(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionSignature);
+            FunctionBinding functionBinding = toFunctionBinding(resolvedFunction.functionId(), resolvedFunction.signature(), functionSignature);
             aggregationFunctionMetadata.getIntermediateTypes().stream()
                     .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
                     .forEach(builder::intermediateType);

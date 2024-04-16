@@ -84,7 +84,7 @@ public class SymbolAllocator
     public Symbol newSymbol(Expression expression)
     {
         String nameHint = switch (expression) {
-            case Call call -> call.function().getName().getFunctionName();
+            case Call call -> call.function().name().getFunctionName();
             case Reference reference -> reference.name();
             default -> "expr";
         };

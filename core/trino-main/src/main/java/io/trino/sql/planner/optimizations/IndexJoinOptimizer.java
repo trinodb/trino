@@ -355,7 +355,7 @@ public class IndexJoinOptimizer
         {
             if (!node.getWindowFunctions().values().stream()
                     .map(Function::getResolvedFunction)
-                    .map(ResolvedFunction::getFunctionKind)
+                    .map(ResolvedFunction::functionKind)
                     .allMatch(AGGREGATE::equals)) {
                 return node;
             }

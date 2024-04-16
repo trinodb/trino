@@ -157,7 +157,7 @@ public class SqlRoutineAnalyzer
 
         Analysis analysis = visitor.getAnalysis();
 
-        boolean actuallyDeterministic = analysis.getResolvedFunctions().stream().allMatch(ResolvedFunction::isDeterministic);
+        boolean actuallyDeterministic = analysis.getResolvedFunctions().stream().allMatch(ResolvedFunction::deterministic);
 
         boolean declaredDeterministic = getDeterministic(function).orElse(true);
         if (!declaredDeterministic && actuallyDeterministic) {

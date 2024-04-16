@@ -1034,7 +1034,7 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitCall(Call node, Boolean complement)
         {
-            CatalogSchemaFunctionName name = node.function().getName();
+            CatalogSchemaFunctionName name = node.function().name();
             if (name.equals(builtinFunctionName("starts_with"))) {
                 Optional<ExtractionResult> result = tryVisitStartsWithFunction(node, complement);
                 if (result.isPresent()) {

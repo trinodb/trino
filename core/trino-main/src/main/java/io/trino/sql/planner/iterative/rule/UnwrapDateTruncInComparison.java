@@ -137,7 +137,7 @@ public class UnwrapDateTruncInComparison
             // This is provided by CanonicalizeExpressionRewriter.
 
             if (!(expression.left() instanceof Call call) ||
-                    !call.function().getName().equals(builtinFunctionName("date_trunc")) ||
+                    !call.function().name().equals(builtinFunctionName("date_trunc")) ||
                     call.arguments().size() != 2) {
                 return expression;
             }
