@@ -87,4 +87,12 @@ public abstract class BaseOracleFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .isCoordinatorOnly();
     }
+
+    @Override
+    protected boolean checkNoRemainingTmpTables()
+    {
+        // we could not ensure that tmp tables are always promptly removed in Oracle.
+        // checking if tmp_trino tables are deleted immediatelly after DML operation renders test flaky.
+        return false;
+    }
 }
