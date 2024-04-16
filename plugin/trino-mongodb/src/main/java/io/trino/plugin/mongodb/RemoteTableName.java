@@ -13,60 +13,13 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
-public final class RemoteTableName
+public record RemoteTableName(String databaseName, String collectionName)
 {
-    private final String databaseName;
-    private final String collectionName;
-
-    @JsonCreator
-    public RemoteTableName(@JsonProperty String databaseName, @JsonProperty String collectionName)
+    public RemoteTableName
     {
-        this.databaseName = requireNonNull(databaseName, "databaseName is null");
-        this.collectionName = requireNonNull(collectionName, "collectionName is null");
-    }
-
-    @JsonProperty
-    public String getDatabaseName()
-    {
-        return databaseName;
-    }
-
-    @JsonProperty
-    public String getCollectionName()
-    {
-        return collectionName;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        RemoteTableName that = (RemoteTableName) o;
-        return databaseName.equals(that.databaseName) &&
-                collectionName.equals(that.collectionName);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(databaseName, collectionName);
-    }
-
-    @Override
-    public String toString()
-    {
-        return databaseName + "." + collectionName;
+        requireNonNull(databaseName, "databaseName is null");
+        requireNonNull(collectionName, "collectionName is null");
     }
 }
