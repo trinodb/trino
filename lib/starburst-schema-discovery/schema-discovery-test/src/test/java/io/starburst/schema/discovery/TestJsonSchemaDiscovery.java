@@ -157,4 +157,13 @@ public class TestJsonSchemaDiscovery
         assertThat(schemaColumnsFull.columns()).isNotEmpty();
         assertThat(schemaColumnsFull.columns().get(0).type()).isEqualTo(new HiveType(HIVE_STRING));
     }
+
+    @Test
+    public void testUnparsableFieldTypeShouldBeSkipped()
+    {
+        ImmutableMap<String, String> options = ImmutableMap.of(GeneralOptions.SAMPLE_LINES_MODULO, "1");
+        DiscoveredColumns schemaColumns = JsonSchemaDiscovery.INSTANCE.discoverColumns(Util.testFile("json/unparsable_type.json"), options);
+        assertThat(schemaColumns.columns()).isNotEmpty();
+        assertThat(schemaColumns.columns().get(0).type()).isEqualTo(new HiveType(structType(ImmutableList.of("parseableField"), ImmutableList.of(HIVE_STRING))));
+    }
 }

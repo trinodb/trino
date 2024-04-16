@@ -18,6 +18,7 @@ import io.starburst.schema.discovery.infer.InferType;
 import io.starburst.schema.discovery.infer.NullType;
 import io.starburst.schema.discovery.infer.TypeCoercion;
 import io.starburst.schema.discovery.internal.Column;
+import io.starburst.schema.discovery.internal.HiveType;
 import io.starburst.schema.discovery.internal.HiveTypes;
 import io.starburst.schema.discovery.options.GeneralOptions;
 import io.starburst.schema.discovery.options.OptionsMap;
@@ -177,7 +178,22 @@ class JsonInferSchema
         if (isNullType(typeInfo)) {
             return Optional.empty();
         }
+        if (!isParseable(typeInfo)) {
+            return Optional.empty();
+        }
         return HiveTypes.toColumn(name, typeInfo);
+    }
+
+    private boolean isParseable(TypeInfo typeInfo)
+    {
+        try {
+            String typeInfoString = typeInfo.toString();
+            HiveType.valueOf(typeInfoString);
+            return true;
+        }
+        catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     private Map<String, TypeInfo> buildStartTypeMap(List<String> columnNames)
