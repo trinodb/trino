@@ -62,8 +62,8 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.phoenix.jdbc.ConnectionInfo;
 import org.apache.phoenix.jdbc.PhoenixDriver;
-import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver;
 
 import java.sql.SQLException;
 import java.util.Map;
@@ -82,6 +82,7 @@ import static io.trino.plugin.phoenix5.ConfigurationInstantiator.newEmptyConfigu
 import static io.trino.plugin.phoenix5.PhoenixClient.DEFAULT_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
 import static java.util.Objects.requireNonNull;
+import static org.apache.phoenix.util.ReadOnlyProps.EMPTY_PROPS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class PhoenixClientModule
@@ -195,7 +196,7 @@ public class PhoenixClientModule
             connectionProperties.setProperty(entry.getKey(), entry.getValue());
         }
 
-        PhoenixEmbeddedDriver.ConnectionInfo connectionInfo = PhoenixEmbeddedDriver.ConnectionInfo.create(config.getConnectionUrl());
+        ConnectionInfo connectionInfo = ConnectionInfo.create(config.getConnectionUrl(), EMPTY_PROPS, new Properties());
         connectionInfo.asProps().asMap().forEach(connectionProperties::setProperty);
         return connectionProperties;
     }
