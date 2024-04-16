@@ -53,7 +53,7 @@ import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_INTERNAL_ERROR;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_SPLIT_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.apache.phoenix.coprocessor.BaseScannerRegionObserver.EXPECTED_UPPER_REGION_KEY;
+import static org.apache.phoenix.coprocessorclient.BaseScannerRegionObserverConstants.EXPECTED_UPPER_REGION_KEY;
 
 public class PhoenixSplitManager
         implements ConnectorSplitManager

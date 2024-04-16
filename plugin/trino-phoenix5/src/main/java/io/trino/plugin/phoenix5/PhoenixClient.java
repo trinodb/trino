@@ -209,7 +209,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hbase.HConstants.FOREVER;
-import static org.apache.phoenix.coprocessor.BaseScannerRegionObserver.SKIP_REGION_BOUNDARY_CHECK;
+import static org.apache.phoenix.coprocessorclient.BaseScannerRegionObserverConstants.SKIP_REGION_BOUNDARY_CHECK;
 import static org.apache.phoenix.util.PhoenixRuntime.getTable;
 import static org.apache.phoenix.util.SchemaUtil.ESCAPE_CHARACTER;
 import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;

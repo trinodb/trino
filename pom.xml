@@ -54,8 +54,6 @@
         <module>lib/trino-memory-context</module>
         <module>lib/trino-orc</module>
         <module>lib/trino-parquet</module>
-        <!-- TODO(https://github.com/trinodb/trino/issues/13051): Remove whole module when Phoenix5 is released -->
-        <module>lib/trino-phoenix5-patched</module>
         <module>lib/trino-plugin-toolkit</module>
         <module>lib/trino-record-decoder</module>
         <module>plugin/trino-accumulo</module>
@@ -186,7 +184,7 @@
         <dep.aws-sdk.version>1.12.715</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
-        <dep.docker.images.version>93</dep.docker.images.version>
+        <dep.docker.images.version>94</dep.docker.images.version>
         <dep.drift.version>1.21</dep.drift.version>
         <dep.errorprone.version>2.27.1</dep.errorprone.version>
         <dep.flyway.version>10.12.0</dep.flyway.version>
@@ -1281,13 +1279,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-password-authenticators</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <!-- TODO(https://github.com/trinodb/trino/issues/13051): Remove when Phoenix5 is released -->
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-phoenix5-patched</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
