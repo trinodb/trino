@@ -221,7 +221,7 @@ public class CounterBasedAnonymizer
     private String anonymize(CreateTarget target)
     {
         return anonymize(
-                target.getHandle().getCatalogHandle().getCatalogName().toString(),
+                target.getHandle().catalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }

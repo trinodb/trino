@@ -602,9 +602,9 @@ public class TracingMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        Span span = startSpan("finishCreateTable", tableHandle.getCatalogHandle().getCatalogName());
+        Span span = startSpan("finishCreateTable", tableHandle.catalogHandle().getCatalogName());
         if (span.isRecording()) {
-            span.setAttribute(TrinoAttributes.TABLE, tableHandle.getConnectorHandle().toString());
+            span.setAttribute(TrinoAttributes.TABLE, tableHandle.connectorHandle().toString());
         }
         try (var ignored = scopedSpan(span)) {
             return delegate.finishCreateTable(session, tableHandle, fragments, computedStatistics);
