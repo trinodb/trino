@@ -800,8 +800,8 @@ WITH (format='CSV',
   -
 * - `orc_bloom_filter_columns`
   - Comma separated list of columns to use for ORC bloom filter. It improves the
-    performance of queries using range predicates when reading ORC files.
-    Requires ORC format.
+    performance of queries using equality predicates, such as `=`, `IN` and
+    small range predicates, when reading ORC files. Requires ORC format.
   - `[]`
 * - `orc_bloom_filter_fpp`
   - The ORC bloom filters false positive probability. Requires ORC format.
