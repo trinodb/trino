@@ -35,7 +35,7 @@ public class TestSqlServerParallelQueries
         extends AbstractTestQueryFramework
 {
     private static final String COLUMN = "col";
-    protected TestingSqlServer sqlServer;
+    private TestingSqlServer sqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()
