@@ -1063,9 +1063,9 @@ public final class MetadataManager
     @Override
     public void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
-        CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
-        catalogMetadata.getMetadata(session).finishStatisticsCollection(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), computedStatistics);
+        catalogMetadata.getMetadata(session).finishStatisticsCollection(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), computedStatistics);
     }
 
     @Override

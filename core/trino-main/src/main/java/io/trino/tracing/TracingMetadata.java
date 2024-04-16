@@ -650,9 +650,9 @@ public class TracingMetadata
     @Override
     public void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
-        Span span = startSpan("finishStatisticsCollection", tableHandle.getCatalogHandle().getCatalogName());
+        Span span = startSpan("finishStatisticsCollection", tableHandle.catalogHandle().getCatalogName());
         if (span.isRecording()) {
-            span.setAttribute(TrinoAttributes.TABLE, tableHandle.getConnectorHandle().toString());
+            span.setAttribute(TrinoAttributes.TABLE, tableHandle.connectorHandle().toString());
         }
         try (var ignored = scopedSpan(span)) {
             delegate.finishStatisticsCollection(session, tableHandle, computedStatistics);

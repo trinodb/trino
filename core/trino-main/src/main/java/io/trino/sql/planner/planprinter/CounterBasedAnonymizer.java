@@ -200,7 +200,7 @@ public class CounterBasedAnonymizer
     {
         if (target instanceof WriteStatisticsHandle) {
             return anonymize(
-                    ((WriteStatisticsHandle) target).getHandle().getCatalogHandle().getCatalogName().toString(),
+                    ((WriteStatisticsHandle) target).getHandle().catalogHandle().getCatalogName().toString(),
                     ObjectType.CATALOG);
         }
         throw new UnsupportedOperationException("Anonymization is not supported for WriterTarget type: " + target.getClass().getSimpleName());
