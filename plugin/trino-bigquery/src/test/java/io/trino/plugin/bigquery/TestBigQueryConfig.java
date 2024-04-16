@@ -63,7 +63,7 @@ public class TestBigQueryConfig
                 .put("bigquery.parent-project-id", "ppid")
                 .put("bigquery.parallelism", "20")
                 .put("bigquery.views-enabled", "true")
-                .put("bigquery.experimental.arrow-serialization.enabled", "true")
+                .put("bigquery.arrow-serialization.enabled", "true")
                 .put("bigquery.view-expire-duration", "30m")
                 .put("bigquery.skip-view-materialization", "true")
                 .put("bigquery.view-materialization-project", "vmproject")

@@ -42,7 +42,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.bigquery.BigQueryConfig.EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED;
+import static io.trino.plugin.bigquery.BigQueryConfig.ARROW_SERIALIZATION_ENABLED;
 import static java.lang.annotation.ElementType.CONSTRUCTOR;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
@@ -151,7 +151,7 @@ public class BigQueryConnectorModule
 
             if (!openedModules.contains("java.base/java.nio")) {
                 binder.addError(
-                        "BigQuery connector requires additional JVM arguments to run when '" + EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED + "' is enabled. " +
+                        "BigQuery connector requires additional JVM arguments to run when '" + ARROW_SERIALIZATION_ENABLED + "' is enabled. " +
                                 "Please add '--add-opens=java.base/java.nio=ALL-UNNAMED' to the JVM configuration.");
             }
         }
