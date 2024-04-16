@@ -433,14 +433,14 @@ public class MongoMetadata
                 .addAll(columns)
                 .add(pageSinkIdColumn)
                 .build();
-        RemoteTableName temporaryTable = new RemoteTableName(remoteTableName.getDatabaseName(), generateTemporaryTableName(session));
+        RemoteTableName temporaryTable = new RemoteTableName(remoteTableName.databaseName(), generateTemporaryTableName(session));
         mongoSession.createTable(temporaryTable, allTemporaryTableColumns, Optional.empty());
         closer.register(() -> mongoSession.dropTable(temporaryTable));
 
         return new MongoOutputTableHandle(
                 remoteTableName,
                 handleColumns,
-                Optional.of(temporaryTable.getCollectionName()),
+                Optional.of(temporaryTable.collectionName()),
                 Optional.of(pageSinkIdColumn.getBaseName()));
     }
 
@@ -490,7 +490,7 @@ public class MongoMetadata
         return new MongoInsertTableHandle(
                 handle.remoteTableName(),
                 handleColumns,
-                Optional.of(temporaryTable.getCollectionName()),
+                Optional.of(temporaryTable.collectionName()),
                 Optional.of(pageSinkIdColumn.getBaseName()));
     }
 
@@ -522,7 +522,7 @@ public class MongoMetadata
 
         try {
             // Create the temporary page sink ID table
-            RemoteTableName pageSinkIdsTable = new RemoteTableName(temporaryTable.getDatabaseName(), generateTemporaryTableName(session));
+            RemoteTableName pageSinkIdsTable = new RemoteTableName(temporaryTable.databaseName(), generateTemporaryTableName(session));
             MongoColumnHandle pageSinkIdColumn = new MongoColumnHandle(pageSinkIdColumnName, ImmutableList.of(), TRINO_PAGE_SINK_ID_COLUMN_TYPE, false, false, Optional.empty());
             mongoSession.createTable(pageSinkIdsTable, ImmutableList.of(pageSinkIdColumn), Optional.empty());
             closer.register(() -> mongoSession.dropTable(pageSinkIdsTable));
@@ -536,10 +536,10 @@ public class MongoMetadata
 
             MongoCollection<Document> temporaryCollection = mongoSession.getCollection(temporaryTable);
             temporaryCollection.aggregate(ImmutableList.of(
-                    lookup(pageSinkIdsTable.getCollectionName(), pageSinkIdColumnName, pageSinkIdColumnName, "page_sink_id"),
+                    lookup(pageSinkIdsTable.collectionName(), pageSinkIdColumnName, pageSinkIdColumnName, "page_sink_id"),
                     match(ne("page_sink_id", ImmutableList.of())),
                     project(exclude("page_sink_id")),
-                    merge(targetTable.getCollectionName())))
+                    merge(targetTable.collectionName())))
                     .toCollection();
         }
         finally {
