@@ -197,12 +197,12 @@ public class DeltaLakePageSinkProvider
         Set<String> partitionKeys = mergeTableHandle.tableHandle().getMetadataEntry().getOriginalPartitionColumns().stream().collect(toImmutableSet());
         List<DeltaLakeColumnHandle> tableColumns = extractSchema(metadataEntry, protocolEntry, typeManager).stream()
                 .map(metadata -> new DeltaLakeColumnHandle(
-                        metadata.getName(),
-                        metadata.getType(),
-                        metadata.getFieldId(),
-                        metadata.getPhysicalName(),
-                        metadata.getPhysicalColumnType(),
-                        partitionKeys.contains(metadata.getName()) ? PARTITION_KEY : REGULAR,
+                        metadata.name(),
+                        metadata.type(),
+                        metadata.fieldId(),
+                        metadata.physicalName(),
+                        metadata.physicalColumnType(),
+                        partitionKeys.contains(metadata.name()) ? PARTITION_KEY : REGULAR,
                         Optional.empty()))
                 .collect(toImmutableList());
         List<DeltaLakeColumnHandle> allColumns = ImmutableList.<DeltaLakeColumnHandle>builder()
