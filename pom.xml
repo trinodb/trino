@@ -2682,7 +2682,7 @@
             <plugin>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-maven-plugin</artifactId>
-                <version>13</version>
+                <version>14</version>
                 <extensions>true</extensions>
             </plugin>
 
