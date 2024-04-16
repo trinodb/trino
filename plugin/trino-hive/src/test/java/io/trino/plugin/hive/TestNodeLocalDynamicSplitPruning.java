@@ -165,7 +165,7 @@ class TestNodeLocalDynamicSplitPruning
                 transaction,
                 getSession(hiveConfig),
                 split,
-                tableHandle.getConnectorHandle(),
+                tableHandle.connectorHandle(),
                 ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE, PARTITION_HIVE_COLUMN_HANDLE),
                 dynamicFilter);
     }

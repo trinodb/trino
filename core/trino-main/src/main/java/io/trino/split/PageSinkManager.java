@@ -69,8 +69,8 @@ public class PageSinkManager
     {
         // assumes connectorId and catalog are the same
         TableHandle tableHandle = mergeHandle.tableHandle();
-        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getCatalogHandle());
-        return providerFor(tableHandle.getCatalogHandle()).createMergeSink(tableHandle.getTransaction(), connectorSession, mergeHandle.connectorMergeHandle(), pageSinkId);
+        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.catalogHandle());
+        return providerFor(tableHandle.catalogHandle()).createMergeSink(tableHandle.transaction(), connectorSession, mergeHandle.connectorMergeHandle(), pageSinkId);
     }
 
     private ConnectorPageSinkProvider providerFor(CatalogHandle catalogHandle)

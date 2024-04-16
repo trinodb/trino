@@ -94,8 +94,8 @@ public class NoMemoryAwarePartitionMemoryEstimator
 
         private static boolean isMetadataTableScan(TableScanNode tableScanNode)
         {
-            return (tableScanNode.getTable().getConnectorHandle() instanceof InformationSchemaTableHandle) ||
-                    (tableScanNode.getTable().getCatalogHandle().getCatalogName().toString().equals(GlobalSystemConnector.NAME) && (tableScanNode.getTable().getConnectorHandle() instanceof SystemTableHandle));
+            return (tableScanNode.getTable().connectorHandle() instanceof InformationSchemaTableHandle) ||
+                    (tableScanNode.getTable().catalogHandle().getCatalogName().toString().equals(GlobalSystemConnector.NAME) && (tableScanNode.getTable().connectorHandle() instanceof SystemTableHandle));
         }
     }
 }

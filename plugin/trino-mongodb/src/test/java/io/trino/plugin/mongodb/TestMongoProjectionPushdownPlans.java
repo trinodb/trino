@@ -150,7 +150,7 @@ public class TestMongoProjectionPushdownPlans
         Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
         assertThat(tableHandle).as("expected the table handle to be present").isPresent();
 
-        MongoTableHandle mongoTableHandle = (MongoTableHandle) tableHandle.get().getConnectorHandle();
+        MongoTableHandle mongoTableHandle = (MongoTableHandle) tableHandle.get().connectorHandle();
         Map<String, ColumnHandle> columns = getColumnHandles(session, completeTableName);
 
         MongoColumnHandle column0Handle = (MongoColumnHandle) columns.get("col0");
@@ -247,7 +247,7 @@ public class TestMongoProjectionPushdownPlans
         Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
         assertThat(tableHandle).as("expected the table handle to be present").isPresent();
 
-        MongoTableHandle mongoTableHandle = (MongoTableHandle) tableHandle.get().getConnectorHandle();
+        MongoTableHandle mongoTableHandle = (MongoTableHandle) tableHandle.get().connectorHandle();
         Map<String, ColumnHandle> columns = getColumnHandles(session, completeTableName);
 
         RowType rowType = RowType.rowType(

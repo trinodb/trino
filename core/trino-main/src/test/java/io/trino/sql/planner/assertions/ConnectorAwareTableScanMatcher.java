@@ -63,7 +63,7 @@ public class ConnectorAwareTableScanMatcher
 
         TupleDomain<ColumnHandle> actual = tableScanNode.getEnforcedConstraint();
 
-        boolean tableMatches = expectedTable.test(tableScanNode.getTable().getConnectorHandle());
+        boolean tableMatches = expectedTable.test(tableScanNode.getTable().connectorHandle());
         boolean domainsMatch = domainsMatch(expectedEnforcedConstraint, actual);
         boolean statisticMatch = expectedStatistics.test(tableScanNode.getStatistics());
 

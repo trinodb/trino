@@ -3532,12 +3532,12 @@ public class TestAnalyzer
         // Materialized view redirects to "t1"
         Analysis analysis = analyze("SELECT * FROM table_view_and_materialized_view");
         TableHandle handle = getOnlyElement(analysis.getTables());
-        assertThat(((TestingTableHandle) handle.getConnectorHandle()).getTableName().getTableName()).isEqualTo("t1");
+        assertThat(((TestingTableHandle) handle.connectorHandle()).getTableName().getTableName()).isEqualTo("t1");
 
         // View redirects to "t2"
         analysis = analyze("SELECT * FROM table_and_view");
         handle = getOnlyElement(analysis.getTables());
-        assertThat(((TestingTableHandle) handle.getConnectorHandle()).getTableName().getTableName()).isEqualTo("t2");
+        assertThat(((TestingTableHandle) handle.connectorHandle()).getTableName().getTableName()).isEqualTo("t2");
     }
 
     @Test
