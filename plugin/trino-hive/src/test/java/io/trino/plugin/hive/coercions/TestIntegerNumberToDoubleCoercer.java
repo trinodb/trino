@@ -29,6 +29,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIntegerNumberToDoubleCoercer
 {
@@ -68,15 +69,33 @@ public class TestIntegerNumberToDoubleCoercer
         assertDoubleCoercion(BIGINT, 0L, 0D);
         assertDoubleCoercion(BIGINT, 128L, 128D);
         assertDoubleCoercion(BIGINT, -128L, -128D);
-        assertDoubleCoercion(BIGINT, Long.MAX_VALUE, 9223372036854775807D);
-        assertDoubleCoercion(BIGINT, Long.MIN_VALUE, -9223372036854775808D);
+        assertDoubleCoercion(BIGINT, (long) Integer.MAX_VALUE, 2147483647D);
+        assertDoubleCoercion(BIGINT, (long) Integer.MIN_VALUE, -2147483648D);
+        assertDoubleCoercion(BIGINT, 4503599627370495L, 4503599627370495D);
+        assertDoubleCoercion(BIGINT, -4503599627370496L, -4503599627370496D);
+
+        assertDoubleCoercionFailure(BIGINT, 4503599627370496L);
+        assertDoubleCoercionFailure(BIGINT, -4503599627370497L);
+        assertDoubleCoercionFailure(BIGINT, Long.MAX_VALUE);
+        assertDoubleCoercionFailure(BIGINT, Long.MIN_VALUE);
     }
 
     private static void assertDoubleCoercion(Type fromType, Object valueToBeCoerced, Double expectedValue)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(DOUBLE), new CoercionUtils.CoercionContext(DEFAULT_PRECISION, false)).orElseThrow()
-                .apply(nativeValueToBlock(fromType, valueToBeCoerced));
+        Block coercedValue = createIntegerToDoubleCoercer(fromType, valueToBeCoerced);
         assertThat(blockToNativeValue(DOUBLE, coercedValue))
                 .isEqualTo(expectedValue);
+    }
+
+    private static void assertDoubleCoercionFailure(Type fromType, Object valueToBeCoerced)
+    {
+        assertThatThrownBy(() -> createIntegerToDoubleCoercer(fromType, valueToBeCoerced))
+                .hasMessageContaining("Cannot read value '%s' as DOUBLE".formatted(valueToBeCoerced));
+    }
+
+    private static Block createIntegerToDoubleCoercer(Type fromType, Object valueToBeCoerced)
+    {
+        return createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(DOUBLE), new CoercionUtils.CoercionContext(DEFAULT_PRECISION, false)).orElseThrow()
+                .apply(nativeValueToBlock(fromType, valueToBeCoerced));
     }
 }
