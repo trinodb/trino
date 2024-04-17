@@ -20,7 +20,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.testing.AbstractTestAggregations;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 import org.junit.jupiter.api.Test;
 
 import java.util.function.Predicate;
@@ -41,7 +41,7 @@ public class TestAggregations
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build();
+        QueryRunner queryRunner = TpchQueryRunner.builder().build();
 
         queryRunner.installPlugin(new MemoryPlugin());
         queryRunner.createCatalog("memory", "memory");
