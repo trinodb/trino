@@ -638,6 +638,7 @@ public class DistributedQueryRunner
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
+        private List<CheckedConsumer<QueryRunner, ? extends Exception>> additionalEngineSetup = new ArrayList<>();
         private List<CheckedConsumer<QueryRunner, ? extends Exception>> additionalSetup = new ArrayList<>();
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
@@ -713,9 +714,31 @@ public class DistributedQueryRunner
         }
 
         /**
-         * Additional configuration to be applied on {@link QueryRunner} being built.
-         * Invoked after engine configuration is applied, but before connector-specific configurations
-         * (if any) are applied.
+         * Add additional configuration to be applied on {@link QueryRunner} being built.
+         * Invoked after engine is configured but before any subclass provided {@link #configure configuration}.
+         */
+        @CanIgnoreReturnValue
+        public SELF addAdditionalEngineSetup(CheckedConsumer<QueryRunner, ? extends Exception> additionalEngineSetup)
+        {
+            this.additionalEngineSetup.add(requireNonNull(additionalEngineSetup, "additionalEngineSetup is null"));
+            return self();
+        }
+
+        /**
+         * Replace additional configuration to be applied on {@link QueryRunner} being built with the new list.
+         * Invoked after engine is configured but before any subclass provided {@link #configure configuration}.
+         */
+        @CanIgnoreReturnValue
+        public SELF setAdditionalEngineSetup(List<CheckedConsumer<QueryRunner, ? extends Exception>> additionalEngineSetup)
+        {
+            // note: additional copy via ImmutableList so that if fails on nulls
+            this.additionalEngineSetup = new ArrayList<>(ImmutableList.copyOf(requireNonNull(additionalEngineSetup, "additionalEngineSetup is null")));
+            return self();
+        }
+
+        /**
+         * Add additional configuration to be applied on {@link QueryRunner} being built.
+         * Invoked after engine is configured and after any subclass provided {@link #configure configuration}.
          */
         @CanIgnoreReturnValue
         public SELF addAdditionalSetup(CheckedConsumer<QueryRunner, ? extends Exception> additionalSetup)
@@ -724,6 +747,10 @@ public class DistributedQueryRunner
             return self();
         }
 
+        /**
+         * Replace additional configuration to be applied on {@link QueryRunner} being built with the new list.
+         * Invoked after engine is configured and after any subclass provided {@link #configure configuration}.
+         */
         @CanIgnoreReturnValue
         public SELF setAdditionalSetup(List<CheckedConsumer<QueryRunner, ? extends Exception>> additionalSetup)
         {
@@ -863,6 +890,7 @@ public class DistributedQueryRunner
                     testingTrinoClientFactory);
 
             try {
+                configure(queryRunner);
                 for (CheckedConsumer<QueryRunner, ? extends Exception> setup : additionalSetup) {
                     setup.accept(queryRunner);
                 }
@@ -874,6 +902,13 @@ public class DistributedQueryRunner
 
             return queryRunner;
         }
+
+        /**
+         * Invoked after engine configuration is applied and before additional setup is invoked.
+         */
+        protected void configure(DistributedQueryRunner queryRunner)
+                throws Exception
+        {}
 
         protected static Map<String, String> addProperties(Map<String, String> properties, Map<String, String> update)
         {

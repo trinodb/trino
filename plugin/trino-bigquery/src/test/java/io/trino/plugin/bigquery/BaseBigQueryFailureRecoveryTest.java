@@ -47,7 +47,7 @@ public abstract class BaseBigQueryFailureRecoveryTest
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setInitialTables(requiredTpchTables)
-                .addAdditionalSetup(runner -> {
+                .addAdditionalEngineSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", ImmutableMap.<String, String>builder()
                             .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")

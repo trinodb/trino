@@ -55,19 +55,10 @@ public final class TpchQueryRunner
         }
 
         @Override
-        public DistributedQueryRunner build()
-                throws Exception
+        protected void configure(DistributedQueryRunner queryRunner)
         {
-            DistributedQueryRunner queryRunner = super.build();
-            try {
-                queryRunner.installPlugin(new TpchPlugin());
-                queryRunner.createCatalog("tpch", "tpch", connectorProperties);
-                return queryRunner;
-            }
-            catch (Exception e) {
-                queryRunner.close();
-                throw e;
-            }
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch", connectorProperties);
         }
     }
 

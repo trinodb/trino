@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
@@ -131,25 +130,15 @@ public final class IcebergQueryRunner
         }
 
         @Override
-        public DistributedQueryRunner build()
-                throws Exception
+        protected void configure(DistributedQueryRunner queryRunner)
         {
-            DistributedQueryRunner queryRunner = super.build();
-            try {
-                queryRunner.installPlugin(new TpchPlugin());
-                queryRunner.createCatalog("tpch", "tpch");
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
 
-                Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
-                queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
-                queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());
-                schemaInitializer.orElseGet(() -> SchemaInitializer.builder().build()).accept(queryRunner);
-
-                return queryRunner;
-            }
-            catch (Exception e) {
-                closeAllSuppress(e, queryRunner);
-                throw e;
-            }
+            Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
+            queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
+            queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());
+            schemaInitializer.orElseGet(() -> SchemaInitializer.builder().build()).accept(queryRunner);
         }
     }
 

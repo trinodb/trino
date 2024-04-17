@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -67,29 +66,21 @@ public abstract class KafkaQueryRunnerBuilder
     }
 
     @Override
-    public final DistributedQueryRunner build()
+    protected void configure(DistributedQueryRunner queryRunner)
             throws Exception
     {
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.kafka", Level.WARN);
 
-        DistributedQueryRunner queryRunner = super.build();
-        try {
-            testingKafka.start();
-            preInit(queryRunner);
-            queryRunner.installPlugin(new KafkaPlugin(extensions));
-            // note: additional copy via ImmutableList so that if fails on nulls
-            Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
-            kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
-            kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
-            queryRunner.createCatalog(catalogName, "kafka", kafkaProperties);
-            postInit(queryRunner);
-            return queryRunner;
-        }
-        catch (RuntimeException e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+        testingKafka.start();
+        preInit(queryRunner);
+        queryRunner.installPlugin(new KafkaPlugin(extensions));
+        // note: additional copy via ImmutableList so that if fails on nulls
+        Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
+        kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
+        kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
+        queryRunner.createCatalog(catalogName, "kafka", kafkaProperties);
+        postInit(queryRunner);
     }
 
     protected void preInit(QueryRunner queryRunner)
