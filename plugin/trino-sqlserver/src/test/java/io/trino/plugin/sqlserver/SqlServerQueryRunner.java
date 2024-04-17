@@ -70,7 +70,7 @@ public final class SqlServerQueryRunner
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession(testingSqlServer.getUsername()))
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
-                .setAdditionalSetup(moreSetup)
+                .setAdditionalSetup(moreSetup::accept)
                 .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
