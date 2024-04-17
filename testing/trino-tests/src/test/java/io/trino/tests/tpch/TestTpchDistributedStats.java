@@ -47,7 +47,7 @@ public class TestTpchDistributedStats
     public void setup()
             throws Exception
     {
-        QueryRunner runner = TpchQueryRunnerBuilder.builder()
+        QueryRunner runner = TpchQueryRunner.builder()
                 .withConnectorProperties(Map.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name()))
                 .amendSession(builder -> builder
                         // Stats for non-EXPLAIN queries are not collected by default

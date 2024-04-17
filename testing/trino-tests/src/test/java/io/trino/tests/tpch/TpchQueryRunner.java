@@ -14,19 +14,68 @@
 package io.trino.tests.tpch;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+
+import java.util.Map;
+
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunner
 {
     private TpchQueryRunner() {}
 
+    public static TpchQueryRunnerBuilder builder()
+    {
+        return new TpchQueryRunnerBuilder();
+    }
+
+    public static final class TpchQueryRunnerBuilder
+            extends DistributedQueryRunner.Builder<TpchQueryRunnerBuilder>
+    {
+        private Map<String, String> connectorProperties = ImmutableMap.of();
+
+        private TpchQueryRunnerBuilder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("tpch")
+                    .setSchema("tiny")
+                    .build());
+        }
+
+        @CanIgnoreReturnValue
+        public TpchQueryRunnerBuilder withConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties = ImmutableMap.copyOf(connectorProperties);
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch", connectorProperties);
+                return queryRunner;
+            }
+            catch (Exception e) {
+                queryRunner.close();
+                throw e;
+            }
+        }
+    }
+
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+        QueryRunner queryRunner = builder()
                 .setExtraProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.http.port", "8080")
                         .put("sql.default-catalog", "tpch")

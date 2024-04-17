@@ -16,7 +16,7 @@ package io.trino.tests;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestJoinQueries;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -29,7 +29,7 @@ public class TestJoinQueriesWithoutDynamicFiltering
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunner.builder()
                 .setExtraProperties(ImmutableMap.of("enable-dynamic-filtering", "false"))
                 .build();
     }

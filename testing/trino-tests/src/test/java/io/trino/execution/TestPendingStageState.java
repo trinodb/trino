@@ -16,7 +16,7 @@ package io.trino.execution;
 import io.airlift.units.Duration;
 import io.trino.spi.QueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ public class TestPendingStageState
     public void setup()
             throws Exception
     {
-        queryRunner = TpchQueryRunnerBuilder.builder()
+        queryRunner = TpchQueryRunner.builder()
                 .withConnectorProperties(Map.of(TPCH_SPLITS_PER_NODE, "10000"))
                 .build();
     }

@@ -18,7 +18,7 @@ import io.trino.client.StageStats;
 import io.trino.client.StatementStats;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -30,7 +30,7 @@ public class TestStatementStats
     public void testUniqueNodeCounts()
             throws Exception
     {
-        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+        try (QueryRunner queryRunner = TpchQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.of("query-manager.required-workers", "2"))
                 .setNodeCount(2)
                 .build()) {
