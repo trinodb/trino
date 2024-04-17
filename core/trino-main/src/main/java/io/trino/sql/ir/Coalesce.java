@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.ir.IrUtils.validateType;
@@ -60,5 +61,15 @@ public record Coalesce(List<Expression> operands)
     public List<? extends Expression> children()
     {
         return operands;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "Coalesce(" +
+                operands.stream()
+                        .map(Expression::toString)
+                        .collect(Collectors.joining(", ")) +
+                ")";
     }
 }
