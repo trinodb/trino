@@ -95,7 +95,7 @@ public class WorkerTaskExecutorService
 
     private ExecutorService getCloudExecutorService()
     {
-        int poolSize = warmupDemoterConfiguration.getCloudExecutorPollSize();
+        int poolSize = warmupDemoterConfiguration.getCloudExecutorPoolSize();
         BlockingQueue<Runnable> blockingQueue = new PriorityBlockingQueue<>(
                 queueSize,
                 Comparator.comparingDouble(x -> ((WorkerSubmittableTask) x).getPriority()).reversed());
@@ -107,7 +107,7 @@ public class WorkerTaskExecutorService
 
     private ScheduledExecutorService getScheduledCloudExecutorService()
     {
-        int poolSize = warmupDemoterConfiguration.getCloudExecutorPollSize();
+        int poolSize = warmupDemoterConfiguration.getCloudExecutorPoolSize();
         return new ScheduledThreadPoolExecutor(poolSize);
     }
 

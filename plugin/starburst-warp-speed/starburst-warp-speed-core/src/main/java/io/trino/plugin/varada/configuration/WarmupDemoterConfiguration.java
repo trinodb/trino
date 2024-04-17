@@ -35,7 +35,7 @@ public class WarmupDemoterConfiguration
     private int maxRetriesAcquireThread = 300;
     private int tasksExecutorQueueSize = 2_000_000;
     private int prioritizeExecutorPoolSize = 1000;
-    private int cloudExecutorPollSize = 200;
+    private int cloudExecutorPoolSize = 200;
     private boolean enableDemote = true;
 
     public double getMaxUsageThresholdPercentage()
@@ -182,16 +182,16 @@ public class WarmupDemoterConfiguration
         this.prioritizeExecutorPoolSize = prioritizeExecutorPoolSize;
     }
 
-    public int getCloudExecutorPollSize()
+    public int getCloudExecutorPoolSize()
     {
-        return cloudExecutorPollSize;
+        return cloudExecutorPoolSize;
     }
 
     @LegacyConfig(LOCAL_DATA_STORAGE_PREFIX + "config.task.cloud-executor-pool-size")
     @Config(WARP_SPEED_PREFIX + "config.task.cloud-executor-pool-size")
-    public void setCloudExecutorPollSize(int cloudExecutorPollSize)
+    public void setCloudExecutorPoolSize(int cloudExecutorPoolSize)
     {
-        this.cloudExecutorPollSize = cloudExecutorPollSize;
+        this.cloudExecutorPoolSize = cloudExecutorPoolSize;
     }
 
     public boolean isEnableDemote()
@@ -219,7 +219,7 @@ public class WarmupDemoterConfiguration
                 ", epsilon=" + epsilon +
                 ", tasksExecutorQueueSize=" + tasksExecutorQueueSize +
                 ", enableDemote=" + enableDemote +
-                ", cloudExecutorPollSize=" + cloudExecutorPollSize +
+                ", cloudExecutorPoolSize=" + cloudExecutorPoolSize +
                 ", prioritizeExecutorPoolSize=" + prioritizeExecutorPoolSize +
                 '}';
     }
