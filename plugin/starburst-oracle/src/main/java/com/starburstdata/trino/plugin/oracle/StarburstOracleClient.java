@@ -13,6 +13,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.starburstdata.trino.plugin.license.LicenseManager;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeException;
+import dev.failsafe.RetryPolicy;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -44,6 +47,7 @@ import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import oracle.jdbc.OracleConnection;
+import oracle.jdbc.OracleDatabaseException;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
@@ -72,6 +76,12 @@ public class StarburstOracleClient
         extends OracleClient
 {
     private static final int DEFAULT_ROW_FETCH_SIZE = 1000;
+    private static final int CONCURRENT_DDL_OPERATION_ERROR_NUMBER = 12847;
+    // Retry in case of ORA-12847: retry parsing due to concurrent DDL operation
+    private static final RetryPolicy<Object> RETRY_POLICY = RetryPolicy.builder()
+            .handleIf(e -> e.getCause() instanceof OracleDatabaseException ode && ode.getOracleErrorNumber() == CONCURRENT_DDL_OPERATION_ERROR_NUMBER)
+            .withMaxRetries(3)
+            .build();
 
     private final boolean synonymsEnabled;
     private final boolean statisticsEnabled;
@@ -182,6 +192,21 @@ public class StarburstOracleClient
             throw e;
         }
         return connection;
+    }
+
+    @Override
+    public ResultSet getTables(Connection connection, Optional<String> remoteSchemaName, Optional<String> remoteTableName)
+            throws SQLException
+    {
+        try {
+            return Failsafe.with(RETRY_POLICY).get(() -> super.getTables(connection, remoteSchemaName, remoteTableName));
+        }
+        catch (FailsafeException ex) {
+            if (ex.getCause() instanceof SQLException) {
+                throw (SQLException) ex.getCause();
+            }
+            throw ex;
+        }
     }
 
     @Override
