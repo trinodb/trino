@@ -197,70 +197,59 @@ public final class HiveQueryRunner
         }
 
         @Override
-        public DistributedQueryRunner build()
-                throws Exception
+        protected void configure(DistributedQueryRunner queryRunner)
         {
-            DistributedQueryRunner queryRunner = super.build();
+            queryRunner.installPlugin(new TpchPlugin());
+            Map<String, String> tpchCatalogProperties = ImmutableMap.<String, String>builder()
+                    .put("tpch.column-naming", tpchColumnNaming.name())
+                    .put("tpch.double-type-mapping", tpchDecimalTypeMapping.name())
+                    .buildOrThrow();
+            queryRunner.createCatalog("tpch", "tpch", tpchCatalogProperties);
 
-            try {
-                queryRunner.installPlugin(new TpchPlugin());
-                Map<String, String> tpchCatalogProperties = ImmutableMap.<String, String>builder()
-                        .put("tpch.column-naming", tpchColumnNaming.name())
-                        .put("tpch.double-type-mapping", tpchDecimalTypeMapping.name())
-                        .buildOrThrow();
-                queryRunner.createCatalog("tpch", "tpch", tpchCatalogProperties);
-
-                if (tpcdsCatalogEnabled) {
-                    queryRunner.installPlugin(new TpcdsPlugin());
-                    queryRunner.createCatalog("tpcds", "tpcds");
-                }
-
-                Optional<HiveMetastore> metastore = this.metastore.map(factory -> factory.apply(queryRunner));
-                Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
-
-                if (metastore.isEmpty() && !hiveProperties.buildOrThrow().containsKey("hive.metastore")) {
-                    hiveProperties.put("hive.metastore", "file");
-                    hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
-                }
-
-                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore));
-
-                Map<String, String> hiveProperties = new HashMap<>();
-                if (!skipTimezoneSetup) {
-                    assertThat(DateTimeZone.getDefault())
-                            .describedAs("Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments")
-                            .isEqualTo(TIME_ZONE);
-                    hiveProperties.put("hive.rcfile.time-zone", TIME_ZONE.getID());
-                    hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getID());
-                }
-                hiveProperties.put("hive.max-partitions-per-scan", "1000");
-                hiveProperties.put("hive.max-partitions-for-eager-load", "1000");
-                hiveProperties.put("hive.security", "sql-standard");
-                hiveProperties.putAll(this.hiveProperties.buildOrThrow());
-
-                if (tpchBucketedCatalogEnabled) {
-                    Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
-                            .putAll(hiveProperties)
-                            .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
-                            .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
-                            .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
-                            .buildOrThrow();
-                    hiveBucketedProperties = new HashMap<>(hiveBucketedProperties);
-                    hiveBucketedProperties.put("hive.compression-codec", "NONE"); // so that the file is splittable
-                    queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
-                }
-
-                queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
-
-                if (createTpchSchemas) {
-                    populateData(queryRunner);
-                }
-
-                return queryRunner;
+            if (tpcdsCatalogEnabled) {
+                queryRunner.installPlugin(new TpcdsPlugin());
+                queryRunner.createCatalog("tpcds", "tpcds");
             }
-            catch (Exception e) {
-                queryRunner.close();
-                throw e;
+
+            Optional<HiveMetastore> metastore = this.metastore.map(factory -> factory.apply(queryRunner));
+            Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
+
+            if (metastore.isEmpty() && !hiveProperties.buildOrThrow().containsKey("hive.metastore")) {
+                hiveProperties.put("hive.metastore", "file");
+                hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
+            }
+
+            queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore));
+
+            Map<String, String> hiveProperties = new HashMap<>();
+            if (!skipTimezoneSetup) {
+                assertThat(DateTimeZone.getDefault())
+                        .describedAs("Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments")
+                        .isEqualTo(TIME_ZONE);
+                hiveProperties.put("hive.rcfile.time-zone", TIME_ZONE.getID());
+                hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getID());
+            }
+            hiveProperties.put("hive.max-partitions-per-scan", "1000");
+            hiveProperties.put("hive.max-partitions-for-eager-load", "1000");
+            hiveProperties.put("hive.security", "sql-standard");
+            hiveProperties.putAll(this.hiveProperties.buildOrThrow());
+
+            if (tpchBucketedCatalogEnabled) {
+                Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
+                        .putAll(hiveProperties)
+                        .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
+                        .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
+                        .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
+                        .buildOrThrow();
+                hiveBucketedProperties = new HashMap<>(hiveBucketedProperties);
+                hiveBucketedProperties.put("hive.compression-codec", "NONE"); // so that the file is splittable
+                queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
+            }
+
+            queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
+
+            if (createTpchSchemas) {
+                populateData(queryRunner);
             }
         }
 

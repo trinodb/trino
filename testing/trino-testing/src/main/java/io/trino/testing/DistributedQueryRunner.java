@@ -714,8 +714,7 @@ public class DistributedQueryRunner
 
         /**
          * Additional configuration to be applied on {@link QueryRunner} being built.
-         * Invoked after engine configuration is applied, but before connector-specific configurations
-         * (if any) are applied.
+         * Invoked after engine configuration is applied.
          */
         @CanIgnoreReturnValue
         public SELF addAdditionalSetup(CheckedConsumer<QueryRunner, ? extends Exception> additionalSetup)
@@ -863,6 +862,7 @@ public class DistributedQueryRunner
                     testingTrinoClientFactory);
 
             try {
+                configure(queryRunner);
                 for (CheckedConsumer<QueryRunner, ? extends Exception> setup : additionalSetup) {
                     setup.accept(queryRunner);
                 }
@@ -874,6 +874,13 @@ public class DistributedQueryRunner
 
             return queryRunner;
         }
+
+        /**
+         * Invoked after engine configuration is applied and before additional setup is invoked.
+         */
+        protected void configure(DistributedQueryRunner queryRunner)
+                throws Exception
+        {}
 
         protected static Map<String, String> addProperties(Map<String, String> properties, Map<String, String> update)
         {

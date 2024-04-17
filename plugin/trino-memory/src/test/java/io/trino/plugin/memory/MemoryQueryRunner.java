@@ -27,7 +27,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -94,26 +93,15 @@ public final class MemoryQueryRunner
         }
 
         @Override
-        public DistributedQueryRunner build()
-                throws Exception
+        protected void configure(DistributedQueryRunner queryRunner)
         {
-            DistributedQueryRunner queryRunner = super.build();
+            queryRunner.installPlugin(new MemoryPlugin());
+            queryRunner.createCatalog(CATALOG, "memory", memoryProperties.buildOrThrow());
 
-            try {
-                queryRunner.installPlugin(new MemoryPlugin());
-                queryRunner.createCatalog(CATALOG, "memory", memoryProperties.buildOrThrow());
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
-                queryRunner.installPlugin(new TpchPlugin());
-                queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
-
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), initialTables);
-
-                return queryRunner;
-            }
-            catch (Exception e) {
-                closeAllSuppress(e, queryRunner);
-                throw e;
-            }
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), initialTables);
         }
 
         private static Session createSession()
