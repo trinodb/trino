@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.spi.QueryId;
 import io.trino.testing.QueryRunner;
@@ -24,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
+
+import java.util.Map;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryRunnerUtil.createQuery;
@@ -46,8 +47,9 @@ public class TestPendingStageState
     public void setup()
             throws Exception
     {
-        queryRunner = TpchQueryRunnerBuilder.builder().buildWithoutCatalogs();
-        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "10000"));
+        queryRunner = TpchQueryRunnerBuilder.builder()
+                .withConnectorProperties(Map.of(TPCH_SPLITS_PER_NODE, "10000"))
+                .build();
     }
 
     @Test
