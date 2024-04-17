@@ -54,7 +54,6 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.Result;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
@@ -170,10 +169,7 @@ public class TestPageFieldsToInputParametersRewriter
                     expression,
                     sourceLayout,
                     PLANNER_CONTEXT.getMetadata(),
-                    PLANNER_CONTEXT.getFunctionManager(),
-                    PLANNER_CONTEXT.getTypeManager(),
-                    TEST_SESSION,
-                    true);
+                    PLANNER_CONTEXT.getTypeManager());
         }
     }
 }

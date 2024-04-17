@@ -2045,7 +2045,7 @@ public class LocalExecutionPlanner
 
         private RowExpression toRowExpression(Expression expression, Map<Symbol, Integer> layout)
         {
-            return SqlToRowExpressionTranslator.translate(expression, layout, metadata, plannerContext.getFunctionManager(), plannerContext.getTypeManager(), session, true);
+            return SqlToRowExpressionTranslator.translate(expression, layout, metadata, plannerContext.getTypeManager());
         }
 
         @Override

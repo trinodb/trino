@@ -14,8 +14,6 @@
 package io.trino.sql.relational;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.Session;
-import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
@@ -45,7 +43,6 @@ import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.SpecialForm.Form;
-import io.trino.sql.relational.optimizer.ExpressionOptimizer;
 import io.trino.type.TypeCoercion;
 
 import java.util.List;
@@ -87,20 +84,12 @@ public final class SqlToRowExpressionTranslator
             Expression expression,
             Map<Symbol, Integer> layout,
             Metadata metadata,
-            FunctionManager functionManager,
-            TypeManager typeManager,
-            Session session,
-            boolean optimize)
+            TypeManager typeManager)
     {
         Visitor visitor = new Visitor(metadata, typeManager, layout);
         RowExpression result = visitor.process(expression, null);
 
         requireNonNull(result, "result is null");
-
-        if (optimize) {
-            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata, functionManager, session);
-            return optimizer.optimize(result);
-        }
 
         return result;
     }
