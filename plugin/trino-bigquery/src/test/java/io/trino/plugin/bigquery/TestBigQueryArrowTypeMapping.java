@@ -25,7 +25,7 @@ public class TestBigQueryArrowTypeMapping
             throws Exception
     {
         return BigQueryQueryRunner.builder()
-                .setConnectorProperties(Map.of("bigquery.skip-view-materialization", "true", "bigquery.arrow-serialization.enabled", "true"))
+                .setConnectorProperties(Map.of("bigquery.skip-view-materialization", "true"))
                 .build();
     }
 }

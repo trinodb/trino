@@ -97,9 +97,7 @@ This is a feature which introduces support for using Apache Arrow
 as the serialization format when reading from BigQuery.  Please note there are
 a few caveats:
 
-- Using Apache Arrow serialization is disabled by default. In order to enable
-  it, set the `bigquery.arrow-serialization.enabled`
-  configuration property to `true` and add
+- Using Apache Arrow serialization is enabled by default. Add
   `--add-opens=java.base/java.nio=ALL-UNNAMED` to the Trino
   {ref}`jvm-config`.
 
@@ -184,8 +182,8 @@ a few caveats:
   - `false`
 * - `bigquery.arrow-serialization.enabled`
   - Enable using Apache Arrow serialization when reading data from BigQuery. 
-    Please read this [section](bigquery-arrow-serialization-support) before enabling this feature.
-  - `false`
+    Please read this [section](bigquery-arrow-serialization-support) before using this feature.
+  - `true`
 * - `bigquery.rpc-proxy.enabled`
   - Use a proxy for communication with BigQuery.
   - `false`

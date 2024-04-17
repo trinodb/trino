@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -42,7 +42,11 @@ public class TestBigQueryAvroConnectorTest
             throws Exception
     {
         return BigQueryQueryRunner.builder()
-                .setConnectorProperties(Map.of("bigquery.job.label-name", "trino_query", "bigquery.job.label-format", "q_$QUERY_ID__t_$TRACE_TOKEN"))
+                .setConnectorProperties(ImmutableMap.<String, String>builder()
+                        .put("bigquery.arrow-serialization.enabled", "false")
+                        .put("bigquery.job.label-name", "trino_query")
+                        .put("bigquery.job.label-format", "q_$QUERY_ID__t_$TRACE_TOKEN")
+                        .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

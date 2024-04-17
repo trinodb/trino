@@ -46,7 +46,7 @@ public class BigQueryConfig
     private Optional<String> parentProjectId = Optional.empty();
     private Optional<Integer> parallelism = Optional.empty();
     private boolean viewsEnabled;
-    private boolean arrowSerializationEnabled;
+    private boolean arrowSerializationEnabled = true;
     private Duration viewExpireDuration = new Duration(24, HOURS);
     private boolean skipViewMaterialization;
     private boolean viewMaterializationWithFilter;
