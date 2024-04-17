@@ -14,6 +14,8 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
@@ -37,6 +39,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestAzureBlobFileSystem
         extends ProductTest
 {
+    @Inject
+    @Named("databases.presto.abfs_schema")
+    private String schema;
     private String schemaLocation;
 
     @BeforeMethodWithContext
@@ -44,7 +49,7 @@ public class TestAzureBlobFileSystem
     {
         String container = requireNonNull(System.getenv("ABFS_CONTAINER"), "Environment variable not set: ABFS_CONTAINER");
         String account = requireNonNull(System.getenv("ABFS_ACCOUNT"), "Environment variable not set: ABFS_ACCOUNT");
-        schemaLocation = format("abfs://%s@%s.dfs.core.windows.net/%s", container, account, "test_" + randomNameSuffix());
+        schemaLocation = format("abfs://%s@%s.dfs.core.windows.net/%s", container, account, schema);
 
         onHive().executeQuery("dfs -rm -f -r " + schemaLocation);
         onHive().executeQuery("dfs -mkdir -p " + schemaLocation);
