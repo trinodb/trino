@@ -115,7 +115,7 @@ public final class RedshiftQueryRunner
         QueryRunner runner = DistributedQueryRunner.builder(session)
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
-                .setAdditionalSetup(additionalSetup::accept)
+                .addAdditionalSetup(additionalSetup::accept)
                 .build();
         try {
             runner.installPlugin(new TpchPlugin());

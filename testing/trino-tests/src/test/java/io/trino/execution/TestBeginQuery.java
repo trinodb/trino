@@ -69,7 +69,7 @@ public class TestBeginQuery
                 .build();
 
         return DistributedQueryRunner.builder(session)
-                .setAdditionalSetup(runner -> {
+                .addAdditionalSetup(runner -> {
                     runner.installPlugin(new TestingPlugin(metadata));
                     runner.installPlugin(new TpchPlugin());
                     runner.createCatalog("test", "test", ImmutableMap.of());

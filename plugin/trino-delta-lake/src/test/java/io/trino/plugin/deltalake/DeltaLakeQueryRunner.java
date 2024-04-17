@@ -225,7 +225,7 @@ public final class DeltaLakeQueryRunner
 
         return builder(session)
                 .setCatalogName(catalogName)
-                .setAdditionalSetup(additionalSetup::accept)
+                .addAdditionalSetup(additionalSetup::accept)
                 .setCoordinatorProperties(coordinatorProperties)
                 .addExtraProperties(extraProperties)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()

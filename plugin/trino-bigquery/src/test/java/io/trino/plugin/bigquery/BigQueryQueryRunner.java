@@ -84,7 +84,7 @@ public final class BigQueryQueryRunner
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
                     .setCoordinatorProperties(coordinatorProperties)
-                    .setAdditionalSetup(moreSetup::accept)
+                    .addAdditionalSetup(moreSetup::accept)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());
