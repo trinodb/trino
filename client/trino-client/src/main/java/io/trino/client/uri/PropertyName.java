@@ -62,6 +62,7 @@ public enum PropertyName
     SESSION_PROPERTIES("sessionProperties"),
     SOURCE("source"),
     EXPLICIT_PREPARE("explicitPrepare"),
+    DISABLE_FOLLOW_REDIRECTS("disableFollowRedirects"),
     DNS_RESOLVER("dnsResolver"),
     DNS_RESOLVER_CONTEXT("dnsResolverContext"),
     HOSTNAME_IN_CERTIFICATE("hostnameInCertificate"),

@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.trino.client.OkHttpUtil.REDIRECT_FAILURE_MESSAGE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -45,12 +46,15 @@ public class ExternalAuthenticator
     private final Duration timeout;
     private final KnownToken knownToken;
 
-    public ExternalAuthenticator(RedirectHandler redirect, TokenPoller tokenPoller, KnownToken knownToken, Duration timeout)
+    private final boolean followRedirects;
+
+    public ExternalAuthenticator(RedirectHandler redirect, TokenPoller tokenPoller, KnownToken knownToken, Duration timeout, boolean followRedirects)
     {
         this.tokenPoller = requireNonNull(tokenPoller, "tokenPoller is null");
         this.redirectHandler = requireNonNull(redirect, "redirect is null");
         this.knownToken = requireNonNull(knownToken, "knownToken is null");
         this.timeout = requireNonNull(timeout, "timeout is null");
+        this.followRedirects = followRedirects;
     }
 
     @Nullable
@@ -76,11 +80,17 @@ public class ExternalAuthenticator
             throws IOException
     {
         Optional<Token> token = knownToken.getToken();
+        Response response;
         if (token.isPresent()) {
-            return chain.proceed(withBearerToken(chain.request(), token.get()));
+            response = chain.proceed(withBearerToken(chain.request(), token.get()));
         }
-
-        return chain.proceed(chain.request());
+        else {
+            response = chain.proceed(chain.request());
+        }
+        if (response.isRedirect() && !followRedirects) {
+            throw new ClientException(REDIRECT_FAILURE_MESSAGE);
+        }
+        return response;
     }
 
     private static Request withBearerToken(Request request, Token token)

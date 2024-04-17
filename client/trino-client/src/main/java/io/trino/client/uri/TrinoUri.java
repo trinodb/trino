@@ -69,6 +69,7 @@ import static io.trino.client.uri.ConnectionProperties.ASSUME_LITERAL_UNDERSCORE
 import static io.trino.client.uri.ConnectionProperties.CLIENT_INFO;
 import static io.trino.client.uri.ConnectionProperties.CLIENT_TAGS;
 import static io.trino.client.uri.ConnectionProperties.DISABLE_COMPRESSION;
+import static io.trino.client.uri.ConnectionProperties.DISABLE_FOLLOW_REDIRECTS;
 import static io.trino.client.uri.ConnectionProperties.DNS_RESOLVER;
 import static io.trino.client.uri.ConnectionProperties.DNS_RESOLVER_CONTEXT;
 import static io.trino.client.uri.ConnectionProperties.EXPLICIT_PREPARE;
@@ -170,6 +171,7 @@ public class TrinoUri
     private Optional<Map<String, String>> sessionProperties;
     private Optional<String> source;
     private Optional<Boolean> explicitPrepare;
+    private Optional<Boolean> disableFollowRedirects;
 
     private Optional<String> catalog = Optional.empty();
     private Optional<String> schema = Optional.empty();
@@ -223,7 +225,8 @@ public class TrinoUri
             Optional<String> traceToken,
             Optional<Map<String, String>> sessionProperties,
             Optional<String> source,
-            Optional<Boolean> explicitPrepare)
+            Optional<Boolean> explicitPrepare,
+            Optional<Boolean> disableFollowRedirects)
             throws SQLException
     {
         this.uri = requireNonNull(uri, "uri is null");
@@ -277,6 +280,7 @@ public class TrinoUri
         this.sessionProperties = SESSION_PROPERTIES.getValueOrDefault(urlProperties, sessionProperties);
         this.source = SOURCE.getValueOrDefault(urlProperties, source);
         this.explicitPrepare = EXPLICIT_PREPARE.getValueOrDefault(urlProperties, explicitPrepare);
+        this.disableFollowRedirects = DISABLE_FOLLOW_REDIRECTS.getValueOrDefault(urlProperties, disableFollowRedirects);
 
         properties = buildProperties();
 
@@ -363,6 +367,7 @@ public class TrinoUri
         traceToken.ifPresent(value -> properties.setProperty(PropertyName.TRACE_TOKEN.toString(), value));
         source.ifPresent(value -> properties.setProperty(PropertyName.SOURCE.toString(), value));
         explicitPrepare.ifPresent(value -> properties.setProperty(PropertyName.EXPLICIT_PREPARE.toString(), value.toString()));
+        disableFollowRedirects.ifPresent(value -> properties.setProperty(PropertyName.DISABLE_FOLLOW_REDIRECTS.toString(), Boolean.toString(value)));
         return properties;
     }
 
@@ -423,6 +428,7 @@ public class TrinoUri
         this.sessionProperties = SESSION_PROPERTIES.getValue(properties);
         this.source = SOURCE.getValue(properties);
         this.explicitPrepare = EXPLICIT_PREPARE.getValue(properties);
+        this.disableFollowRedirects = DISABLE_FOLLOW_REDIRECTS.getValue(properties);
 
         // enable SSL by default for the trino schema and the standard port
         useSecureConnection = ssl.orElse(uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443));
@@ -610,11 +616,13 @@ public class TrinoUri
             setupHttpProxy(builder, httpProxy);
 
             String password = this.password.orElse("");
+            boolean followRedirects = disableFollowRedirects.map(v -> !v).orElse(true);
+            builder.followRedirects(followRedirects);
             if (!password.isEmpty()) {
                 if (!useSecureConnection) {
                     throw new SQLException("TLS/SSL is required for authentication with username and password");
                 }
-                builder.addInterceptor(basicAuth(getRequiredUser(), password));
+                builder.addNetworkInterceptor(basicAuth(getRequiredUser(), password, followRedirects));
             }
 
             if (useSecureConnection) {
@@ -666,7 +674,7 @@ public class TrinoUri
                 if (!useSecureConnection) {
                     throw new SQLException("TLS/SSL required for authentication using an access token");
                 }
-                builder.addNetworkInterceptor(tokenAuth(accessToken.get()));
+                builder.addNetworkInterceptor(tokenAuth(accessToken.get(), followRedirects));
             }
 
             if (externalAuthentication.orElse(false)) {
@@ -691,7 +699,7 @@ public class TrinoUri
                         .orElseGet(() -> configuredHandler.orElseThrow(() -> new RuntimeException("External authentication redirect handler is not configured")));
 
                 ExternalAuthenticator authenticator = new ExternalAuthenticator(
-                        redirectHandler, poller, knownTokenCache.create(), timeout);
+                        redirectHandler, poller, knownTokenCache.create(), timeout, followRedirects);
 
                 builder.authenticator(authenticator);
                 builder.addNetworkInterceptor(authenticator);
@@ -941,6 +949,7 @@ public class TrinoUri
         private Map<String, String> sessionProperties;
         private String source;
         private Boolean explicitPrepare;
+        private Boolean disableFollowRedirects;
 
         private Builder() {}
 
@@ -1235,6 +1244,12 @@ public class TrinoUri
             return this;
         }
 
+        public Builder setDisableFollowRedirects(Boolean disableFollowRedirects)
+        {
+            this.disableFollowRedirects = requireNonNull(disableFollowRedirects, "disableFollowRedirects is null");
+            return this;
+        }
+
         public TrinoUri build()
                 throws SQLException
         {
@@ -1284,7 +1299,8 @@ public class TrinoUri
                     Optional.ofNullable(traceToken),
                     Optional.ofNullable(sessionProperties),
                     Optional.ofNullable(source),
-                    Optional.ofNullable(explicitPrepare));
+                    Optional.ofNullable(explicitPrepare),
+                    Optional.ofNullable(disableFollowRedirects));
         }
     }
 }

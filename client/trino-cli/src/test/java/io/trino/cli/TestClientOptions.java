@@ -269,6 +269,18 @@ public class TestClientOptions
     }
 
     @Test
+    public void testFollowRedirects()
+    {
+        Console console = createConsole("--disable-follow-redirects");
+        ClientOptions options = console.clientOptions;
+        assertThat(options.disableFollowRedirects).isTrue();
+
+        console = createConsole("--disable-follow-redirects=false");
+        options = console.clientOptions;
+        assertThat(options.disableFollowRedirects).isFalse();
+    }
+
+    @Test
     public void testThreePartPropertyName()
     {
         assertThatThrownBy(() -> new ClientSessionProperty("foo.bar.baz=value"))

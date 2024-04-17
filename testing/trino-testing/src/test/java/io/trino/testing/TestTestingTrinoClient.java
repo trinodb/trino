@@ -94,7 +94,7 @@ public class TestTestingTrinoClient
     public void testAuthenticationWithForwarding()
     {
         OkHttpClient httpClient = new OkHttpClient.Builder()
-                .addInterceptor(OkHttpUtil.basicAuth(TEST_USER, PASSWORD))
+                .addNetworkInterceptor(OkHttpUtil.basicAuth(TEST_USER, PASSWORD, true))
                 .addInterceptor(httpsForwarded())
                 .build();
 
@@ -108,7 +108,7 @@ public class TestTestingTrinoClient
     public void testAuthenticationWithoutForwarding()
     {
         OkHttpClient httpClient = new OkHttpClient.Builder()
-                .addInterceptor(OkHttpUtil.basicAuth(TEST_USER, PASSWORD))
+                .addNetworkInterceptor(OkHttpUtil.basicAuth(TEST_USER, PASSWORD, true))
                 .build();
 
         try (TestingTrinoClient client = new TestingTrinoClient(server, session, httpClient)) {

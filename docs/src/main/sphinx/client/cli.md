@@ -148,6 +148,8 @@ mode:
     processing statistics.
 * - `--disable-auto-suggestion`
   - Disables autocomplete suggestions.
+* - `--disable-follow-redirects`
+  - Set to `true` to turn off client redirects. Defaults to `false`.
 * - `--disable-compression`
   - Disables compression of query results.
 * - `--editing-mode`

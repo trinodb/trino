@@ -248,4 +248,6 @@ may not be specified using both methods.
     `PREPARE <statement>` followed by `EXECUTE <statement>`. This reduces
     network overhead and uses smaller HTTP headers and requires Trino 431 or
     greater.
+* - `disableFollowRedirects`
+  - Set to `true` to turn off client redirects. Defaults to `false`. 
 :::

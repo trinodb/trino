@@ -23,6 +23,7 @@ import java.util.Properties;
 
 import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
 import static io.trino.client.uri.PropertyName.DISABLE_COMPRESSION;
+import static io.trino.client.uri.PropertyName.DISABLE_FOLLOW_REDIRECTS;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
 import static io.trino.client.uri.PropertyName.HTTP_PROXY;
 import static io.trino.client.uri.PropertyName.SOCKS_PROXY;
@@ -353,6 +354,21 @@ public class TestTrinoDriverUri
 
         Properties properties = parameters.getProperties();
         assertThat(properties.getProperty(SSL_USE_SYSTEM_TRUST_STORE.toString())).isEqualTo("true");
+    }
+
+    @Test
+    public void testUriWithFollowRedirects()
+            throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080?disableFollowRedirects=true");
+        Properties properties = parameters.getProperties();
+        assertThat(properties.getProperty(DISABLE_FOLLOW_REDIRECTS.toString())).isEqualTo("true");
+
+        parameters = createDriverUri("jdbc:trino://localhost:8080?disableFollowRedirects=false");
+        properties = parameters.getProperties();
+        assertThat(properties.getProperty(DISABLE_FOLLOW_REDIRECTS.toString())).isEqualTo("false");
+
+        assertInvalid("jdbc:trino://localhost:8080?disableFollowRedirects=INVALIDVALUE", "Connection property disableFollowRedirects value is invalid: INVALIDVALUE");
     }
 
     @Test
