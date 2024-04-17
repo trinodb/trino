@@ -36,13 +36,17 @@ import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
 import io.trino.cache.EvictableCacheBuilder;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.mongodb.expression.MongoConnectorExpressionRewriterBuilder;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -148,6 +152,8 @@ public class MongoSession
     private final Cache<SchemaTableName, MongoTable> tableCache;
     private final String implicitPrefix;
 
+    private final ConnectorExpressionRewriter<Document> connectorExpressionRewriter;
+
     public MongoSession(TypeManager typeManager, MongoClient client, MongoClientConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -160,6 +166,8 @@ public class MongoSession
         this.tableCache = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(1, MINUTES)  // TODO: Configure
                 .build();
+
+        this.connectorExpressionRewriter = MongoConnectorExpressionRewriterBuilder.build();
     }
 
     public void shutdown()
@@ -631,6 +639,11 @@ public class MongoSession
         return Optional.of(orPredicate(disjuncts.stream()
                 .map(disjunct -> new Document(name, disjunct))
                 .collect(toImmutableList())));
+    }
+
+    public Optional<Document> convertExpression(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
     private static Document documentOf(String key, Object value)

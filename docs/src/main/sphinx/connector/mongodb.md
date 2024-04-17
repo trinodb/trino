@@ -39,28 +39,29 @@ will create a catalog named `sales` using the configured connector.
 
 The following configuration properties are available:
 
-| Property name                            | Description                                                                |
-| ---------------------------------------- | -------------------------------------------------------------------------- |
-| `mongodb.connection-url`                 | The connection url that the driver uses to connect to a MongoDB deployment |
-| `mongodb.schema-collection`              | A collection which contains schema information                             |
-| `mongodb.case-insensitive-name-matching` | Match database and collection names case insensitively                     |
-| `mongodb.min-connections-per-host`       | The minimum size of the connection pool per host                           |
-| `mongodb.connections-per-host`           | The maximum size of the connection pool per host                           |
-| `mongodb.max-wait-time`                  | The maximum wait time                                                      |
-| `mongodb.max-connection-idle-time`       | The maximum idle time of a pooled connection                               |
-| `mongodb.connection-timeout`             | The socket connect timeout                                                 |
-| `mongodb.socket-timeout`                 | The socket timeout                                                         |
-| `mongodb.tls.enabled`                    | Use TLS/SSL for connections to mongod/mongos                               |
-| `mongodb.tls.keystore-path`              | Path to the  or JKS key store                                              |
-| `mongodb.tls.truststore-path`            | Path to the  or JKS trust store                                            |
-| `mongodb.tls.keystore-password`          | Password for the key store                                                 |
-| `mongodb.tls.truststore-password`        | Password for the trust store                                               |
-| `mongodb.read-preference`                | The read preference                                                        |
-| `mongodb.write-concern`                  | The write concern                                                          |
-| `mongodb.required-replica-set`           | The required replica set name                                              |
-| `mongodb.cursor-batch-size`              | The number of elements to return in a batch                                |
-| `mongodb.allow-local-scheduling`         | Assign MongoDB splits to a specific worker                                 |
-| `mongodb.dynamic-filtering.wait-timeout` | Duration to wait for completion of dynamic filters during split generation |
+| Property name                                 | Description                                                                |
+|-----------------------------------------------|----------------------------------------------------------------------------|
+| `mongodb.connection-url`                      | The connection url that the driver uses to connect to a MongoDB deployment |
+| `mongodb.schema-collection`                   | A collection which contains schema information                             |
+| `mongodb.case-insensitive-name-matching`      | Match database and collection names case insensitively                     |
+| `mongodb.min-connections-per-host`            | The minimum size of the connection pool per host                           |
+| `mongodb.connections-per-host`                | The maximum size of the connection pool per host                           |
+| `mongodb.max-wait-time`                       | The maximum wait time                                                      |
+| `mongodb.max-connection-idle-time`            | The maximum idle time of a pooled connection                               |
+| `mongodb.connection-timeout`                  | The socket connect timeout                                                 |
+| `mongodb.socket-timeout`                      | The socket timeout                                                         |
+| `mongodb.tls.enabled`                         | Use TLS/SSL for connections to mongod/mongos                               |
+| `mongodb.tls.keystore-path`                   | Path to the  or JKS key store                                              |
+| `mongodb.tls.truststore-path`                 | Path to the  or JKS trust store                                            |
+| `mongodb.tls.keystore-password`               | Password for the key store                                                 |
+| `mongodb.tls.truststore-password`             | Password for the trust store                                               |
+| `mongodb.read-preference`                     | The read preference                                                        |
+| `mongodb.write-concern`                       | The write concern                                                          |
+| `mongodb.required-replica-set`                | The required replica set name                                              |
+| `mongodb.cursor-batch-size`                   | The number of elements to return in a batch                                |
+| `mongodb.allow-local-scheduling`              | Assign MongoDB splits to a specific worker                                 |
+| `mongodb.dynamic-filtering.wait-timeout`      | Duration to wait for completion of dynamic filters during split generation |
+| `mongodb.complex-expression-pushdown-enabled` | Allow complex expression pushdown                                          |
 
 ### `mongodb.connection-url`
 
@@ -219,6 +220,12 @@ This property is optional, and defaults to false.
 Duration to wait for completion of dynamic filters during split generation.
 
 This property is optional; the default is `5s`.
+
+### `mongodb.complex-expression-pushdown-enabled`
+
+Allow complex expression pushdown.
+
+This property is optional; the default is `true`.
 
 (table-definition-label)=
 

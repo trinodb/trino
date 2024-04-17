@@ -53,6 +53,7 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -89,6 +90,14 @@ public final class TypeUtils
                 || type instanceof DecimalType
                 || type instanceof ObjectIdType
                 || PUSHDOWN_SUPPORTED_PRIMITIVE_TYPES.contains(type);
+    }
+
+    public static boolean isPushdownSupportedArrayElementType(Type type)
+    {
+        if (type == TIME_MILLIS || type == VARBINARY) {
+            return false;
+        }
+        return isPushdownSupportedType(type);
     }
 
     public static Optional<Object> translateValue(Object trinoNativeValue, Type type)
