@@ -86,7 +86,7 @@ public class WorkerTaskExecutorService
 
     private ExecutorService getPrioritizeExecutorService()
     {
-        int poolSize = warmupDemoterConfiguration.getPrioritizeExecutorPollSize();
+        int poolSize = warmupDemoterConfiguration.getPrioritizeExecutorPoolSize();
         return new ThreadPoolExecutor(0, poolSize,
                 60L, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(queueSize),
