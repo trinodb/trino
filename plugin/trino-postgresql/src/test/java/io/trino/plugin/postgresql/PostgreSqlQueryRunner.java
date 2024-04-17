@@ -13,7 +13,8 @@
  */
 package io.trino.plugin.postgresql;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
@@ -23,13 +24,14 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
 public final class PostgreSqlQueryRunner
 {
@@ -37,58 +39,64 @@ public final class PostgreSqlQueryRunner
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static QueryRunner createPostgreSqlQueryRunner(
-            TestingPostgreSqlServer server,
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static Builder builder(TestingPostgreSqlServer server)
     {
-        return createPostgreSqlQueryRunner(server, extraProperties, Map.of(), connectorProperties, tables, runner -> {});
+        return new Builder()
+                .addConnectorProperties(Map.of(
+                        "connection-url", server.getJdbcUrl(),
+                        "connection-user", server.getUser(),
+                        "connection-password", server.getPassword(),
+                        "postgresql.include-system-tables", "true"));
     }
 
-    public static QueryRunner createPostgreSqlQueryRunner(
-            TestingPostgreSqlServer server,
-            Map<String, String> extraProperties,
-            Map<String, String> coordinatorProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables,
-            Consumer<QueryRunner> moreSetup)
-            throws Exception
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        QueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
-                    .setCoordinatorProperties(coordinatorProperties)
-                    .setAdditionalSetup(moreSetup)
-                    .build();
+        private final Map<String, String> connectorProperties = new HashMap<>();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            // note: additional copy via ImmutableList so that if fails on nulls
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-user", server.getUser());
-            connectorProperties.putIfAbsent("connection-password", server.getPassword());
-            connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
-            //connectorProperties.putIfAbsent("postgresql.experimental.enable-string-pushdown-with-collate", "true");
-
-            queryRunner.installPlugin(new PostgreSqlPlugin());
-            queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
-
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-
-            return queryRunner;
+        private Builder()
+        {
+            super(createSession());
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner, server);
-            throw e;
+
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties.putAll(connectorProperties);
+            return this;
+        }
+
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                queryRunner.installPlugin(new PostgreSqlPlugin());
+                queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
+
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), initialTables);
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
         }
     }
 
-    public static Session createSession()
+    private static Session createSession()
     {
         return testSessionBuilder()
                 .setCatalog("postgresql")
@@ -99,11 +107,9 @@ public final class PostgreSqlQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = createPostgreSqlQueryRunner(
-                new TestingPostgreSqlServer(true),
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                TpchTable.getTables());
+        QueryRunner queryRunner = builder(new TestingPostgreSqlServer(true))
+                .setExtraProperties(Map.of("http-server.http.port", "8080"))
+                .build();
 
         queryRunner.installPlugin(new JmxPlugin());
         queryRunner.createCatalog("jmx", "jmx");

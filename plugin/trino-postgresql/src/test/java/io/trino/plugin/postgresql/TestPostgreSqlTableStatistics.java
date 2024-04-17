@@ -23,9 +23,9 @@ import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
-import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
@@ -42,16 +42,10 @@ public class TestPostgreSqlTableStatistics
             throws Exception
     {
         postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
-        return createPostgreSqlQueryRunner(
-                postgreSqlServer,
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("connection-url", postgreSqlServer.getJdbcUrl())
-                        .put("connection-user", postgreSqlServer.getUser())
-                        .put("connection-password", postgreSqlServer.getPassword())
-                        .put("case-insensitive-name-matching", "true")
-                        .buildOrThrow(),
-                ImmutableList.of(ORDERS));
+        return PostgreSqlQueryRunner.builder(postgreSqlServer)
+                .addConnectorProperties(Map.of("case-insensitive-name-matching", "true"))
+                .setInitialTables(List.of(ORDERS))
+                .build();
     }
 
     @Test

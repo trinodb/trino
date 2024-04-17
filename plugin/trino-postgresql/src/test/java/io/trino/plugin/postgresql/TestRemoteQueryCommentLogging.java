@@ -14,13 +14,13 @@
 package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import java.util.Map;
+
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,13 +37,10 @@ public class TestRemoteQueryCommentLogging
             throws Exception
     {
         postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
-        QueryRunner queryRunner = createPostgreSqlQueryRunner(
-                postgreSqlServer,
-                ImmutableMap.of(),
-                ImmutableMap.of("query.comment-format", "query executed by $USER"),
-                ImmutableList.of(CUSTOMER, NATION));
-
-        return queryRunner;
+        return PostgreSqlQueryRunner.builder(postgreSqlServer)
+                .addConnectorProperties(Map.of("query.comment-format", "query executed by $USER"))
+                .setInitialTables(ImmutableList.of(CUSTOMER, NATION))
+                .build();
     }
 
     @Test
