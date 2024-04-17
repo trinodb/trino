@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.mysql;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.QueryRunner;
@@ -23,7 +22,6 @@ import java.nio.file.Path;
 
 import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.REFRESH_PERIOD_DURATION;
 import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
-import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static java.util.Objects.requireNonNull;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
@@ -40,15 +38,13 @@ public class TestMySqlCaseInsensitiveMapping
     {
         mappingFile = createRuleBasedIdentifierMappingFile();
         mySqlServer = closeAfterClass(new TestingMySqlServer());
-        return createMySqlQueryRunner(
-                mySqlServer,
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
+        return MySqlQueryRunner.builder(mySqlServer)
+                .addConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("case-insensitive-name-matching", "true")
                         .put("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
                         .put("case-insensitive-name-matching.config-file.refresh-period", REFRESH_PERIOD_DURATION.toString())
-                        .buildOrThrow(),
-                ImmutableList.of());
+                        .buildOrThrow())
+                .build();
     }
 
     @Override
