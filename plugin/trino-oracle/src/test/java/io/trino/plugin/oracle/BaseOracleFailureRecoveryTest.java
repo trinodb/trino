@@ -46,9 +46,9 @@ public abstract class BaseOracleFailureRecoveryTest
             Map<String, String> coordinatorProperties)
             throws Exception
     {
-        TestingOracleServer oracleServer = new TestingOracleServer();
+        TestingOracleServer oracleServer = closeAfterClass(new TestingOracleServer());
         return createOracleQueryRunner(
-                closeAfterClass(oracleServer),
+                oracleServer,
                 configProperties,
                 coordinatorProperties,
                 ImmutableMap.<String, String>builder()

@@ -53,10 +53,10 @@ public class TestHiveTaskFailureRecoveryTest
             throws Exception
     {
         String bucketName = "test-hive-insert-overwrite-" + randomNameSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
-        this.hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+        this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
 
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
+        this.minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomNameSuffix()));
         minioStorage.start();
 
         return S3HiveQueryRunner.builder(hiveMinioDataLake)
@@ -74,13 +74,7 @@ public class TestHiveTaskFailureRecoveryTest
     public void destroy()
             throws Exception
     {
-        if (hiveMinioDataLake != null) {
-            hiveMinioDataLake.close();
-            hiveMinioDataLake = null;
-        }
-        if (minioStorage != null) {
-            minioStorage.close();
-            minioStorage = null;
-        }
+        hiveMinioDataLake = null; // closed by closeAfterClass
+        minioStorage = null; // closed by closeAfterClass
     }
 }
