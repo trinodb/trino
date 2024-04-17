@@ -18,8 +18,6 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
 public record OutputTableHandle(
@@ -34,27 +32,6 @@ public record OutputTableHandle(
         requireNonNull(tableName, "tableName is null");
         requireNonNull(transactionHandle, "transactionHandle is null");
         requireNonNull(connectorHandle, "connectorHandle is null");
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(catalogHandle, transactionHandle, connectorHandle);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        OutputTableHandle other = (OutputTableHandle) obj;
-        return Objects.equals(this.catalogHandle, other.catalogHandle) &&
-                Objects.equals(this.transactionHandle, other.transactionHandle) &&
-                Objects.equals(this.connectorHandle, other.connectorHandle);
     }
 
     @Override
