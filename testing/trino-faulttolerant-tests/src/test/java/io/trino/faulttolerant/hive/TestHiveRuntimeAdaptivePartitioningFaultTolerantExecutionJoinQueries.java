@@ -41,7 +41,7 @@ public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionJoinQuerie
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
         return HiveQueryRunner.builder()
                 .setExtraProperties(extraPropertiesWithRuntimeAdaptivePartitioning.buildOrThrow())
-                .setAdditionalSetup(runner -> {
+                .addAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", ImmutableMap.of("exchange.base-directories",
                             System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));

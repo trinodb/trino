@@ -51,7 +51,7 @@ public class TestMetadataOnlyQueries
 
         DistributedQueryRunner queryRunner = MemoryQueryRunner.builder()
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
-                .setAdditionalSetup(runner -> {
+                .addAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", exchangeManagerProperties);
                 })

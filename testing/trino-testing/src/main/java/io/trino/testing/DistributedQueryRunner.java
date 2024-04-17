@@ -63,6 +63,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -637,7 +638,7 @@ public class DistributedQueryRunner
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
-        private CheckedConsumer<QueryRunner, ? extends Exception> additionalSetup = queryRunner -> {};
+        private List<CheckedConsumer<QueryRunner, ? extends Exception>> additionalSetup = new ArrayList<>();
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
@@ -717,9 +718,17 @@ public class DistributedQueryRunner
          * (if any) are applied.
          */
         @CanIgnoreReturnValue
-        public SELF setAdditionalSetup(CheckedConsumer<QueryRunner, ? extends Exception> additionalSetup)
+        public SELF addAdditionalSetup(CheckedConsumer<QueryRunner, ? extends Exception> additionalSetup)
         {
-            this.additionalSetup = requireNonNull(additionalSetup, "additionalSetup is null");
+            this.additionalSetup.add(requireNonNull(additionalSetup, "additionalSetup is null"));
+            return self();
+        }
+
+        @CanIgnoreReturnValue
+        public SELF setAdditionalSetup(List<CheckedConsumer<QueryRunner, ? extends Exception>> additionalSetup)
+        {
+            // note: additional copy via ImmutableList so that if fails on nulls
+            this.additionalSetup = new ArrayList<>(ImmutableList.copyOf(requireNonNull(additionalSetup, "additionalSetup is null")));
             return self();
         }
 
@@ -854,7 +863,9 @@ public class DistributedQueryRunner
                     testingTrinoClientFactory);
 
             try {
-                additionalSetup.accept(queryRunner);
+                for (CheckedConsumer<QueryRunner, ? extends Exception> setup : additionalSetup) {
+                    setup.accept(queryRunner);
+                }
             }
             catch (Throwable e) {
                 closeAllSuppress(e, queryRunner);

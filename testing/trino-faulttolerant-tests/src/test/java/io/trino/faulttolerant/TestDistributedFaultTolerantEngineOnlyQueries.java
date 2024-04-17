@@ -42,7 +42,7 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
 
         QueryRunner queryRunner = MemoryQueryRunner.builder()
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
-                .setAdditionalSetup(runner -> {
+                .addAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", exchangeManagerProperties);
                 })

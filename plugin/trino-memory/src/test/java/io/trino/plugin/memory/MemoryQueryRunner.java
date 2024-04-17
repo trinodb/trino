@@ -154,7 +154,7 @@ public final class MemoryQueryRunner
                             .put("retry-policy", "TASK")
                             .put("fault-tolerant-execution-task-memory", "1GB")
                             .buildOrThrow())
-                    .setAdditionalSetup(runner -> {
+                    .addAdditionalSetup(runner -> {
                         runner.installPlugin(new FileSystemExchangePlugin());
                         runner.loadExchangeManager("filesystem", exchangeManagerProperties);
                     })

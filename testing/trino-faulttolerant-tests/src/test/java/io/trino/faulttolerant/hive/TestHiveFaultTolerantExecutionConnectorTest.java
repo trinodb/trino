@@ -49,7 +49,7 @@ public class TestHiveFaultTolerantExecutionConnectorTest
 
         return createHiveQueryRunner(HiveQueryRunner.builder()
                 .setExtraProperties(getExtraProperties())
-                .setAdditionalSetup(runner -> {
+                .addAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 }));

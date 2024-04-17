@@ -65,7 +65,7 @@ public final class MySqlQueryRunner
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
-                .setAdditionalSetup(moreSetup::accept)
+                .addAdditionalSetup(moreSetup::accept)
                 .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());

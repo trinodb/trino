@@ -66,7 +66,7 @@ public class TestIcebergGlueCatalogMaterializedView
                                 .withClonedTpchTables(ImmutableList.of())
                                 .withSchemaName(schemaName)
                                 .build())
-                .setAdditionalSetup(queryRunner -> {
+                .addAdditionalSetup(queryRunner -> {
                     queryRunner.createCatalog("iceberg_legacy_mv", "iceberg", Map.of(
                             "iceberg.catalog.type", "glue",
                             "hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath(),

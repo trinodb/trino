@@ -46,7 +46,7 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
 
         return super.createQueryRunnerBuilder()
                 .addExtraProperties(getExtraProperties())
-                .setAdditionalSetup(runner -> {
+                .addAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 });

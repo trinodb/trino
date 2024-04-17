@@ -43,7 +43,7 @@ public class TestHiveFaultTolerantExecutionTest
 
         return HiveQueryRunner.builder()
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
-                .setAdditionalSetup(runner -> {
+                .addAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })

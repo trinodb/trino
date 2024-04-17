@@ -54,7 +54,7 @@ public class TestTableFunctionInvocation
                         .setCatalog(TESTING_CATALOG)
                         .setSchema(TABLE_FUNCTION_SCHEMA)
                         .build())
-                .setAdditionalSetup(queryRunner -> {
+                .addAdditionalSetup(queryRunner -> {
                     queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                             .withTableFunctions(ImmutableSet.of(
                                     new TestingTableFunctions.SimpleTableFunctionWithAccessControl(),

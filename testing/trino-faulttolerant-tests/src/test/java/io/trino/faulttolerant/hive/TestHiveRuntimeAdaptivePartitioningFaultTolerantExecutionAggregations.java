@@ -35,7 +35,7 @@ public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionAggregatio
 
         return HiveQueryRunner.builder()
                 .setExtraProperties(extraPropertiesWithRuntimeAdaptivePartitioning.buildOrThrow())
-                .setAdditionalSetup(runner -> {
+                .addAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", ImmutableMap.of("exchange.base-directories",
                             System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));

@@ -53,7 +53,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
                 .buildOrThrow();
 
         return DistributedQueryRunner.builder(getDefaultSession())
-                .setAdditionalSetup(runner -> {
+                .addAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", exchangeManagerProperties);
                 })

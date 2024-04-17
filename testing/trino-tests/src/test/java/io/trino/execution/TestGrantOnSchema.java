@@ -47,7 +47,7 @@ public class TestGrantOnSchema
             throws Exception
     {
         return DistributedQueryRunner.builder(admin)
-                .setAdditionalSetup(queryRunner -> {
+                .addAdditionalSetup(queryRunner -> {
                     MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                             .withListSchemaNames(session -> ImmutableList.of("information_schema", "default"))
                             .withListTables((session, schema) ->
