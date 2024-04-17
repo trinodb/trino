@@ -46,7 +46,6 @@ import java.util.Map;
 
 import static com.google.cloud.bigquery.BigQuery.DatasetDeleteOption.deleteContents;
 import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -94,35 +93,26 @@ public final class BigQueryQueryRunner
         }
 
         @Override
-        public DistributedQueryRunner build()
-                throws Exception
+        protected void configure(DistributedQueryRunner queryRunner)
         {
-            DistributedQueryRunner queryRunner = super.build();
-            try {
-                queryRunner.installPlugin(new TpchPlugin());
-                queryRunner.createCatalog("tpch", "tpch");
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
 
-                // note: additional copy via ImmutableList so that if fails on nulls
-                Map<String, String> connectorProperties = new HashMap<>(ImmutableMap.copyOf(this.connectorProperties));
-                connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
-                connectorProperties.putIfAbsent("bigquery.view-expire-duration", "30m");
-                connectorProperties.putIfAbsent("bigquery.rpc-retries", "4");
-                connectorProperties.putIfAbsent("bigquery.rpc-retry-delay", "200ms");
-                connectorProperties.putIfAbsent("bigquery.rpc-retry-delay-multiplier", "1.5");
-                connectorProperties.putIfAbsent("bigquery.rpc-timeout", "8s");
+            // note: additional copy via ImmutableList so that if fails on nulls
+            Map<String, String> connectorProperties = new HashMap<>(ImmutableMap.copyOf(this.connectorProperties));
+            connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
+            connectorProperties.putIfAbsent("bigquery.view-expire-duration", "30m");
+            connectorProperties.putIfAbsent("bigquery.rpc-retries", "4");
+            connectorProperties.putIfAbsent("bigquery.rpc-retry-delay", "200ms");
+            connectorProperties.putIfAbsent("bigquery.rpc-retry-delay-multiplier", "1.5");
+            connectorProperties.putIfAbsent("bigquery.rpc-timeout", "8s");
 
-                queryRunner.installPlugin(new BigQueryPlugin());
-                queryRunner.createCatalog("bigquery", "bigquery", connectorProperties);
+            queryRunner.installPlugin(new BigQueryPlugin());
+            queryRunner.createCatalog("bigquery", "bigquery", connectorProperties);
 
-                queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
-                queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), initialTables);
-                return queryRunner;
-            }
-            catch (Throwable e) {
-                closeAllSuppress(e, queryRunner);
-                throw e;
-            }
+            queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
+            queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), initialTables);
         }
     }
 

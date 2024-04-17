@@ -24,7 +24,6 @@ import io.trino.tpch.TpchTable;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
@@ -55,28 +54,20 @@ public final class OracleQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        QueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
-                    .setCoordinatorProperties(coordinatorProperties)
-                    .addAdditionalSetup(moreSetup::accept)
-                    .build();
+        return DistributedQueryRunner.builder(createSession())
+                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .addAdditionalSetup(moreSetup::accept)
+                .addAdditionalSetup(queryRunner -> {
+                    queryRunner.installPlugin(new TpchPlugin());
+                    queryRunner.createCatalog("tpch", "tpch");
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+                    queryRunner.installPlugin(new OraclePlugin());
+                    queryRunner.createCatalog("oracle", "oracle", connectorProperties);
 
-            queryRunner.installPlugin(new OraclePlugin());
-            queryRunner.createCatalog("oracle", "oracle", connectorProperties);
-
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner, server);
-            throw e;
-        }
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+                })
+                .build();
     }
 
     public static Session createSession()

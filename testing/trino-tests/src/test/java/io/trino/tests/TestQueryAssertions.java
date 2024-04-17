@@ -35,7 +35,6 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Throwables.getCausalChain;
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.AGGREGATION_PUSHDOWN_ENABLED;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -54,20 +53,12 @@ public class TestQueryAssertions
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
+        return DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog("jdbc")
                         .setSchema("public")
                         .build())
+                .addAdditionalSetup(this::configureCatalog)
                 .build();
-        try {
-            configureCatalog(queryRunner);
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
-
-        return queryRunner;
     }
 
     protected void configureCatalog(QueryRunner queryRunner)

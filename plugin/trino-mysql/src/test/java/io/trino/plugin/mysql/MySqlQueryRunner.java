@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -72,25 +71,15 @@ public final class MySqlQueryRunner
         }
 
         @Override
-        public DistributedQueryRunner build()
-                throws Exception
+        protected void configure(DistributedQueryRunner queryRunner)
         {
-            DistributedQueryRunner queryRunner = super.build();
-            try {
-                queryRunner.installPlugin(new TpchPlugin());
-                queryRunner.createCatalog("tpch", "tpch");
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
 
-                queryRunner.installPlugin(new MySqlPlugin());
-                queryRunner.createCatalog("mysql", "mysql", connectorProperties);
+            queryRunner.installPlugin(new MySqlPlugin());
+            queryRunner.createCatalog("mysql", "mysql", connectorProperties);
 
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), initialTables);
-
-                return queryRunner;
-            }
-            catch (Throwable e) {
-                closeAllSuppress(e, queryRunner);
-                throw e;
-            }
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), initialTables);
         }
     }
 

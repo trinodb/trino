@@ -47,7 +47,7 @@ public abstract class BasePostgresFailureRecoveryTest
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(configProperties)
                 .setInitialTables(requiredTpchTables)
-                .addAdditionalSetup(runner -> {
+                .addAdditionalEngineSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", ImmutableMap.of(
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));

@@ -28,7 +28,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -67,33 +66,27 @@ public final class SqlServerQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession(testingSqlServer.getUsername()))
+        return DistributedQueryRunner.builder(createSession(testingSqlServer.getUsername()))
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .addAdditionalSetup(moreSetup::accept)
+                .addAdditionalSetup(queryRunner -> {
+                    queryRunner.installPlugin(new TpchPlugin());
+                    queryRunner.createCatalog("tpch", "tpch");
+
+                    // note: additional copy via ImmutableList so that if fails on nulls
+                    Map<String, String> effectiveProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+                    effectiveProperties.putIfAbsent("connection-url", testingSqlServer.getJdbcUrl());
+                    effectiveProperties.putIfAbsent("connection-user", testingSqlServer.getUsername());
+                    effectiveProperties.putIfAbsent("connection-password", testingSqlServer.getPassword());
+
+                    queryRunner.installPlugin(new SqlServerPlugin());
+                    queryRunner.createCatalog(CATALOG, "sqlserver", effectiveProperties);
+                    log.info("%s catalog properties: %s", CATALOG, effectiveProperties);
+
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(testingSqlServer.getUsername()), tables);
+                })
                 .build();
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            // note: additional copy via ImmutableList so that if fails on nulls
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("connection-url", testingSqlServer.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-user", testingSqlServer.getUsername());
-            connectorProperties.putIfAbsent("connection-password", testingSqlServer.getPassword());
-
-            queryRunner.installPlugin(new SqlServerPlugin());
-            queryRunner.createCatalog(CATALOG, "sqlserver", connectorProperties);
-            log.info("%s catalog properties: %s", CATALOG, connectorProperties);
-
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(testingSqlServer.getUsername()), tables);
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
     }
 
     private static Session createSession(String username)

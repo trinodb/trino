@@ -29,7 +29,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -60,31 +59,24 @@ public final class MongoQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        QueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
-                    .setCoordinatorProperties(coordinatorProperties)
-                    .addAdditionalSetup(moreSetup::accept)
-                    .build();
+        return DistributedQueryRunner.builder(createSession())
+                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .addAdditionalSetup(moreSetup::accept)
+                .addAdditionalSetup(queryRunner -> {
+                    queryRunner.installPlugin(new TpchPlugin());
+                    queryRunner.createCatalog("tpch", "tpch");
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+                    Map<String, String> effectiveProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+                    effectiveProperties.putIfAbsent("mongodb.connection-url", server.getConnectionString().toString());
 
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("mongodb.connection-url", server.getConnectionString().toString());
+                    queryRunner.installPlugin(new MongoPlugin());
+                    queryRunner.createCatalog("mongodb", "mongodb", effectiveProperties);
+                    queryRunner.execute("CREATE SCHEMA mongodb." + TPCH_SCHEMA);
 
-            queryRunner.installPlugin(new MongoPlugin());
-            queryRunner.createCatalog("mongodb", "mongodb", connectorProperties);
-            queryRunner.execute("CREATE SCHEMA mongodb." + TPCH_SCHEMA);
-
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+                })
+                .build();
     }
 
     public static Session createSession()
