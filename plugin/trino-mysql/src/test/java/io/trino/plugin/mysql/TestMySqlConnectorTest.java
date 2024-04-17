@@ -13,10 +13,8 @@
  */
 package io.trino.plugin.mysql;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
-import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMySqlConnectorTest
@@ -27,7 +25,9 @@ public class TestMySqlConnectorTest
             throws Exception
     {
         mySqlServer = closeAfterClass(new TestingMySqlServer(false));
-        return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return MySqlQueryRunner.builder(mySqlServer)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override
