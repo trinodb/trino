@@ -619,7 +619,7 @@
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-core</artifactId>
-            <version>24.0.2</version>
+            <version>24.0.3</version>
             <scope>test</scope>
         </dependency>
 
