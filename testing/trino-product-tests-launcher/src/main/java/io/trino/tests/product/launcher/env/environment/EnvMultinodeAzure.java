@@ -30,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
@@ -43,7 +44,6 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class EnvMultinodeAzure
         extends EnvironmentProvider
 {
-    private final DockerFiles dockerFiles;
     private final DockerFiles.ResourceProvider configDir;
     private final String hadoopBaseImage;
     private final String hadoopImagesVersion;
@@ -52,7 +52,6 @@ public class EnvMultinodeAzure
     public EnvMultinodeAzure(DockerFiles dockerFiles, StandardMultinode standardMultinode, Hadoop hadoop, EnvironmentConfig environmentConfig)
     {
         super(ImmutableList.of(standardMultinode, hadoop));
-        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-azure");
         requireNonNull(environmentConfig, "environmentConfig is null");
         hadoopBaseImage = environmentConfig.getHadoopBaseImage();
@@ -63,6 +62,7 @@ public class EnvMultinodeAzure
     public void extendEnvironment(Environment.Builder builder)
     {
         String dockerImageName = hadoopBaseImage + ":" + hadoopImagesVersion;
+        String schema = "test_" + randomNameSuffix();
 
         builder.configureContainer(HADOOP, container -> {
             container.setDockerImageName(dockerImageName);
@@ -70,8 +70,15 @@ public class EnvMultinodeAzure
                     forHostPath(getCoreSiteOverrideXml()),
                     "/docker/presto-product-tests/conf/environment/multinode-azure/core-site-overrides.xml");
             container.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-azure/apply-azure-config.sh")),
+                    forHostPath(configDir.getPath("apply-azure-config.sh")),
                     CONTAINER_HADOOP_INIT_D + "apply-azure-config.sh");
+            container
+                    .withEnv("ABFS_CONTAINER", requireEnv("ABFS_CONTAINER"))
+                    .withEnv("ABFS_ACCOUNT", requireEnv("ABFS_ACCOUNT"))
+                    .withEnv("ABFS_SCHEMA", schema);
+            container.withCopyFileToContainer(
+                    forHostPath(configDir.getPath("update-location.sh")),
+                    CONTAINER_HADOOP_INIT_D + "update-location.sh");
         });
 
         builder.configureContainer(COORDINATOR, container -> container
@@ -82,9 +89,17 @@ public class EnvMultinodeAzure
                 .withEnv("ABFS_ACCOUNT", requireEnv("ABFS_ACCOUNT"))
                 .withEnv("ABFS_ACCESS_KEY", requireEnv("ABFS_ACCESS_KEY")));
 
+        String temptoConfig = "/docker/presto-product-tests/conf/tempto/tempto-configuration-abfs.yaml";
         builder.configureContainer(TESTS, container -> container
                 .withEnv("ABFS_CONTAINER", requireEnv("ABFS_CONTAINER"))
-                .withEnv("ABFS_ACCOUNT", requireEnv("ABFS_ACCOUNT")));
+                .withEnv("ABFS_ACCOUNT", requireEnv("ABFS_ACCOUNT"))
+                .withCopyFileToContainer(
+                        forHostPath(getTemptoConfiguration(schema)),
+                        temptoConfig)
+                .withEnv("TEMPTO_CONFIG_FILES", temptoConfigFiles ->
+                        temptoConfigFiles
+                                .map(files -> files + "," + temptoConfig)
+                                .orElse(temptoConfig)));
 
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
     }
@@ -99,6 +114,24 @@ public class EnvMultinodeAzure
             coreSiteXml.deleteOnExit();
             Files.writeString(coreSiteXml.toPath(), coreSite);
             return coreSiteXml.toPath();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private Path getTemptoConfiguration(String schema)
+    {
+        try {
+            File temptoConfiguration = Files.createTempFile("tempto-configuration", ".yaml", PosixFilePermissions.asFileAttribute(fromString("rwxrwxrwx"))).toFile();
+            temptoConfiguration.deleteOnExit();
+            String contents = """
+databases:
+    presto:
+        abfs_schema: "%s"
+                    """.formatted(schema);
+            Files.writeString(temptoConfiguration.toPath(), contents);
+            return temptoConfiguration.toPath();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
