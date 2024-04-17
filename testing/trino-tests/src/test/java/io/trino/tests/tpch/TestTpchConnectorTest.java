@@ -45,7 +45,7 @@ public class TestTpchConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder().build();
+        return TpchQueryRunner.builder().build();
     }
 
     @Override
