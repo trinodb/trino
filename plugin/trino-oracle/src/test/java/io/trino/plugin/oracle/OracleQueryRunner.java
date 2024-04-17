@@ -60,7 +60,7 @@ public final class OracleQueryRunner
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
                     .setCoordinatorProperties(coordinatorProperties)
-                    .setAdditionalSetup(moreSetup)
+                    .setAdditionalSetup(moreSetup::accept)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());

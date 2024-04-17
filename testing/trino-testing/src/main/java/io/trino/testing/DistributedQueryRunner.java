@@ -72,7 +72,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -638,7 +637,7 @@ public class DistributedQueryRunner
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
-        private Consumer<QueryRunner> additionalSetup = queryRunner -> {};
+        private CheckedConsumer<QueryRunner, ? extends Exception> additionalSetup = queryRunner -> {};
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
@@ -718,7 +717,7 @@ public class DistributedQueryRunner
          * (if any) are applied.
          */
         @CanIgnoreReturnValue
-        public SELF setAdditionalSetup(Consumer<QueryRunner> additionalSetup)
+        public SELF setAdditionalSetup(CheckedConsumer<QueryRunner, ? extends Exception> additionalSetup)
         {
             this.additionalSetup = requireNonNull(additionalSetup, "additionalSetup is null");
             return self();
@@ -885,5 +884,11 @@ public class DistributedQueryRunner
     public interface TestingTrinoClientFactory
     {
         TestingTrinoClient create(TestingTrinoServer server, Session session);
+    }
+
+    public interface CheckedConsumer<T, E extends Exception>
+    {
+        void accept(T input)
+                throws E;
     }
 }
