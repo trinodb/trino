@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
@@ -37,10 +37,9 @@ public class TestBigQueryArrowSerialization
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BigQueryQueryRunner.createQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of("bigquery.arrow-serialization.enabled", "true"),
-                ImmutableList.of());
+        return BigQueryQueryRunner.builder()
+                .setConnectorProperties(Map.of("bigquery.arrow-serialization.enabled", "true"))
+                .build();
     }
 
     @Test

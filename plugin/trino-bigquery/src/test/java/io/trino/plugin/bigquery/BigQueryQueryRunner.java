@@ -26,8 +26,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -43,7 +43,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import static com.google.cloud.bigquery.BigQuery.DatasetDeleteOption.deleteContents;
 import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
@@ -62,67 +61,69 @@ public final class BigQueryQueryRunner
 
     private BigQueryQueryRunner() {}
 
-    public static QueryRunner createQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static Builder builder()
     {
-        return createQueryRunner(extraProperties, ImmutableMap.of(), connectorProperties, tables, runner -> {});
+        return new Builder();
     }
 
-    public static QueryRunner createQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> coordinatorProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables,
-            Consumer<QueryRunner> moreSetup)
-            throws Exception
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        QueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
-                    .setCoordinatorProperties(coordinatorProperties)
-                    .setAdditionalSetup(moreSetup)
-                    .build();
+        private Map<String, String> connectorProperties = ImmutableMap.of();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            // note: additional copy via ImmutableList so that if fails on nulls
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
-            connectorProperties.putIfAbsent("bigquery.view-expire-duration", "30m");
-            connectorProperties.putIfAbsent("bigquery.rpc-retries", "4");
-            connectorProperties.putIfAbsent("bigquery.rpc-retry-delay", "200ms");
-            connectorProperties.putIfAbsent("bigquery.rpc-retry-delay-multiplier", "1.5");
-            connectorProperties.putIfAbsent("bigquery.rpc-timeout", "8s");
-
-            queryRunner.installPlugin(new BigQueryPlugin());
-            queryRunner.createCatalog(
-                    "bigquery",
-                    "bigquery",
-                    connectorProperties);
-
-            queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
-            queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-
-            return queryRunner;
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("bigquery")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
-    }
 
-    public static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("bigquery")
-                .setSchema(TPCH_SCHEMA)
-                .build();
+        @CanIgnoreReturnValue
+        public Builder setConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties = connectorProperties;
+            return this;
+        }
+
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                // note: additional copy via ImmutableList so that if fails on nulls
+                Map<String, String> connectorProperties = new HashMap<>(ImmutableMap.copyOf(this.connectorProperties));
+                connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
+                connectorProperties.putIfAbsent("bigquery.view-expire-duration", "30m");
+                connectorProperties.putIfAbsent("bigquery.rpc-retries", "4");
+                connectorProperties.putIfAbsent("bigquery.rpc-retry-delay", "200ms");
+                connectorProperties.putIfAbsent("bigquery.rpc-retry-delay-multiplier", "1.5");
+                connectorProperties.putIfAbsent("bigquery.rpc-timeout", "8s");
+
+                queryRunner.installPlugin(new BigQueryPlugin());
+                queryRunner.createCatalog("bigquery", "bigquery", connectorProperties);
+
+                queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
+                queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), initialTables);
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     public static class BigQuerySqlExecutor
@@ -211,10 +212,10 @@ public final class BigQueryQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = createQueryRunner(
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                TpchTable.getTables());
+        QueryRunner queryRunner = BigQueryQueryRunner.builder()
+                .setExtraProperties(Map.of("http-server.http.port", "8080"))
+                .setInitialTables(TpchTable.getTables())
+                .build();
         Logger log = Logger.get(BigQueryQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
