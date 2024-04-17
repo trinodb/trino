@@ -1502,8 +1502,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                         coordinatorStage ? 1 : maxTaskExecutionAttempts,
                         schedulingPriority,
                         eager,
+                        speculative,
                         dynamicFilterService);
-                execution.setSpeculative(speculative);
 
                 stageExecutions.put(execution.getStageId(), execution);
 
@@ -1923,7 +1923,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private boolean exchangeClosed;
 
         private final long startTime = System.currentTimeMillis();
-        private OptionalLong nonSpeculativeSwitchTime = OptionalLong.empty();
+        private OptionalLong nonSpeculativeSwitchTime;
 
         private MemoryRequirements initialMemoryRequirements;
 
@@ -1940,6 +1940,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 int maxTaskExecutionAttempts,
                 int schedulingPriority,
                 boolean eager,
+                boolean speculative,
                 DynamicFilterService dynamicFilterService)
         {
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
@@ -1954,6 +1955,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.maxTaskExecutionAttempts = maxTaskExecutionAttempts;
             this.schedulingPriority = schedulingPriority;
             this.eager = eager;
+            this.speculative = speculative;
+            this.nonSpeculativeSwitchTime = speculative ? OptionalLong.empty() : OptionalLong.of(System.currentTimeMillis());
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             outputDataSize = new long[sinkPartitioningScheme.getPartitionCount()];
             sinkOutputSelectorBuilder = ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchange.getId()));
