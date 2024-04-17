@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -56,36 +55,28 @@ public final class PostgreSqlQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        QueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
-                    .setCoordinatorProperties(coordinatorProperties)
-                    .addAdditionalSetup(moreSetup::accept)
-                    .build();
+        return DistributedQueryRunner.builder(createSession())
+                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .addAdditionalSetup(moreSetup::accept)
+                .addAdditionalSetup(queryRunner -> {
+                    queryRunner.installPlugin(new TpchPlugin());
+                    queryRunner.createCatalog("tpch", "tpch");
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+                    // note: additional copy via ImmutableList so that if fails on nulls
+                    Map<String, String> effectiveProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+                    effectiveProperties.putIfAbsent("connection-url", server.getJdbcUrl());
+                    effectiveProperties.putIfAbsent("connection-user", server.getUser());
+                    effectiveProperties.putIfAbsent("connection-password", server.getPassword());
+                    effectiveProperties.putIfAbsent("postgresql.include-system-tables", "true");
+                    //connectorProperties.putIfAbsent("postgresql.experimental.enable-string-pushdown-with-collate", "true");
 
-            // note: additional copy via ImmutableList so that if fails on nulls
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-user", server.getUser());
-            connectorProperties.putIfAbsent("connection-password", server.getPassword());
-            connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
-            //connectorProperties.putIfAbsent("postgresql.experimental.enable-string-pushdown-with-collate", "true");
+                    queryRunner.installPlugin(new PostgreSqlPlugin());
+                    queryRunner.createCatalog("postgresql", "postgresql", effectiveProperties);
 
-            queryRunner.installPlugin(new PostgreSqlPlugin());
-            queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
-
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner, server);
-            throw e;
-        }
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+                })
+                .build();
     }
 
     public static Session createSession()

@@ -38,7 +38,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTable;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -112,40 +111,35 @@ public final class RedshiftQueryRunner
             Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
-        QueryRunner runner = DistributedQueryRunner.builder(session)
+        return DistributedQueryRunner.builder(session)
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .addAdditionalSetup(additionalSetup::accept)
+                .addAdditionalSetup(runner -> {
+                    runner.installPlugin(new TpchPlugin());
+                    runner.createCatalog(TPCH_CATALOG, "tpch", Map.of());
+
+                    Map<String, String> properties = new HashMap<>(connectorProperties);
+                    properties.putIfAbsent("connection-url", JDBC_URL);
+                    properties.putIfAbsent("connection-user", JDBC_USER);
+                    properties.putIfAbsent("connection-password", JDBC_PASSWORD);
+
+                    runner.installPlugin(new RedshiftPlugin());
+                    runner.createCatalog(TEST_CATALOG, CONNECTOR_NAME, properties);
+
+                    executeInRedshiftWithRetry("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
+                    createUserIfNotExists(NON_GRANTED_USER, JDBC_PASSWORD);
+                    createUserIfNotExists(GRANTED_USER, JDBC_PASSWORD);
+
+                    executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON DATABASE %s TO %s", TEST_DATABASE, GRANTED_USER));
+                    executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
+
+                    provisionTables(session, runner, tables);
+
+                    // This step is necessary for product tests
+                    executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
+                })
                 .build();
-        try {
-            runner.installPlugin(new TpchPlugin());
-            runner.createCatalog(TPCH_CATALOG, "tpch", Map.of());
-
-            Map<String, String> properties = new HashMap<>(connectorProperties);
-            properties.putIfAbsent("connection-url", JDBC_URL);
-            properties.putIfAbsent("connection-user", JDBC_USER);
-            properties.putIfAbsent("connection-password", JDBC_PASSWORD);
-
-            runner.installPlugin(new RedshiftPlugin());
-            runner.createCatalog(TEST_CATALOG, CONNECTOR_NAME, properties);
-
-            executeInRedshiftWithRetry("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
-            createUserIfNotExists(NON_GRANTED_USER, JDBC_PASSWORD);
-            createUserIfNotExists(GRANTED_USER, JDBC_PASSWORD);
-
-            executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON DATABASE %s TO %s", TEST_DATABASE, GRANTED_USER));
-            executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
-
-            provisionTables(session, runner, tables);
-
-            // This step is necessary for product tests
-            executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, runner);
-            throw e;
-        }
-        return runner;
     }
 
     private static Session createSession()

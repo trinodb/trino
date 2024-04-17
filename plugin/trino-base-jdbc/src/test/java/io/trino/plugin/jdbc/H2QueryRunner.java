@@ -28,7 +28,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -70,28 +69,20 @@ public final class H2QueryRunner
             Module module)
             throws Exception
     {
-        QueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setCoordinatorProperties(coordinatorProperties)
-                    .build();
+        return DistributedQueryRunner.builder(createSession())
+                .setCoordinatorProperties(coordinatorProperties)
+                .addAdditionalSetup(queryRunner -> {
+                    queryRunner.installPlugin(new TpchPlugin());
+                    queryRunner.createCatalog("tpch", "tpch");
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+                    createSchema(properties, "tpch");
 
-            createSchema(properties, "tpch");
+                    queryRunner.installPlugin(new JdbcPlugin("base_jdbc", module));
+                    queryRunner.createCatalog("jdbc", "base_jdbc", properties);
 
-            queryRunner.installPlugin(new JdbcPlugin("base_jdbc", module));
-            queryRunner.createCatalog("jdbc", "base_jdbc", properties);
-
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+                })
+                .build();
     }
 
     private static void createSchema(Map<String, String> properties, String schema)

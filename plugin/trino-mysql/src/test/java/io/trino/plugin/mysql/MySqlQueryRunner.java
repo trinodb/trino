@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -62,32 +61,26 @@ public final class MySqlQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        return DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .addAdditionalSetup(moreSetup::accept)
+                .addAdditionalSetup(queryRunner -> {
+                    queryRunner.installPlugin(new TpchPlugin());
+                    queryRunner.createCatalog("tpch", "tpch");
+
+                    // note: additional copy via ImmutableList so that if fails on nulls
+                    Map<String, String> effectiveProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+                    effectiveProperties.putIfAbsent("connection-url", server.getJdbcUrl());
+                    effectiveProperties.putIfAbsent("connection-user", server.getUsername());
+                    effectiveProperties.putIfAbsent("connection-password", server.getPassword());
+
+                    queryRunner.installPlugin(new MySqlPlugin());
+                    queryRunner.createCatalog("mysql", "mysql", effectiveProperties);
+
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+                })
                 .build();
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            // note: additional copy via ImmutableList so that if fails on nulls
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-user", server.getUsername());
-            connectorProperties.putIfAbsent("connection-password", server.getPassword());
-
-            queryRunner.installPlugin(new MySqlPlugin());
-            queryRunner.createCatalog("mysql", "mysql", connectorProperties);
-
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
     }
 
     private static Session createSession()

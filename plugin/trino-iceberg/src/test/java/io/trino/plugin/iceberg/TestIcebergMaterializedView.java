@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,38 +38,33 @@ public class TestIcebergMaterializedView
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = IcebergQueryRunner.builder()
+        return IcebergQueryRunner.builder()
+                .addAdditionalSetup(queryRunner -> {
+                    metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
+                            .getInstance(HiveMetastoreFactory.class)
+                            .createMetastore(Optional.empty());
+
+                    queryRunner.createCatalog("iceberg2", "iceberg", Map.of(
+                            "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                            "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg2-catalog").toString(),
+                            "iceberg.hive-catalog-name", "hive"));
+
+                    secondIceberg = Session.builder(queryRunner.getDefaultSession())
+                            .setCatalog("iceberg2")
+                            .build();
+
+                    queryRunner.createCatalog("iceberg_legacy_mv", "iceberg", Map.of(
+                            "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                            "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toString(),
+                            "iceberg.hive-catalog-name", "hive",
+                            "iceberg.materialized-views.hide-storage-table", "false"));
+
+                    queryRunner.execute(secondIceberg, "CREATE SCHEMA " + secondIceberg.getSchema().orElseThrow());
+
+                    queryRunner.installPlugin(createMockConnectorPlugin());
+                    queryRunner.createCatalog("mock", "mock");
+                })
                 .build();
-        try {
-            metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
-                    .getInstance(HiveMetastoreFactory.class)
-                    .createMetastore(Optional.empty());
-
-            queryRunner.createCatalog("iceberg2", "iceberg", Map.of(
-                    "iceberg.catalog.type", "TESTING_FILE_METASTORE",
-                    "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg2-catalog").toString(),
-                    "iceberg.hive-catalog-name", "hive"));
-
-            secondIceberg = Session.builder(queryRunner.getDefaultSession())
-                    .setCatalog("iceberg2")
-                    .build();
-
-            queryRunner.createCatalog("iceberg_legacy_mv", "iceberg", Map.of(
-                    "iceberg.catalog.type", "TESTING_FILE_METASTORE",
-                    "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toString(),
-                    "iceberg.hive-catalog-name", "hive",
-                    "iceberg.materialized-views.hide-storage-table", "false"));
-
-            queryRunner.execute(secondIceberg, "CREATE SCHEMA " + secondIceberg.getSchema().orElseThrow());
-
-            queryRunner.installPlugin(createMockConnectorPlugin());
-            queryRunner.createCatalog("mock", "mock");
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
-        return queryRunner;
     }
 
     @Override

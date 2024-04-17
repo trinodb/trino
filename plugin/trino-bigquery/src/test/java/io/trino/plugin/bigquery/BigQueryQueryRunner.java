@@ -47,7 +47,6 @@ import java.util.function.Consumer;
 
 import static com.google.cloud.bigquery.BigQuery.DatasetDeleteOption.deleteContents;
 import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -79,42 +78,31 @@ public final class BigQueryQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        QueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
-                    .setCoordinatorProperties(coordinatorProperties)
-                    .addAdditionalSetup(moreSetup::accept)
-                    .build();
+        return DistributedQueryRunner.builder(createSession())
+                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .addAdditionalSetup(moreSetup::accept)
+                .addAdditionalSetup(queryRunner -> {
+                    queryRunner.installPlugin(new TpchPlugin());
+                    queryRunner.createCatalog("tpch", "tpch");
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+                    // note: additional copy via ImmutableList so that if fails on nulls
+                    Map<String, String> effectiveProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+                    effectiveProperties.putIfAbsent("bigquery.views-enabled", "true");
+                    effectiveProperties.putIfAbsent("bigquery.view-expire-duration", "30m");
+                    effectiveProperties.putIfAbsent("bigquery.rpc-retries", "4");
+                    effectiveProperties.putIfAbsent("bigquery.rpc-retry-delay", "200ms");
+                    effectiveProperties.putIfAbsent("bigquery.rpc-retry-delay-multiplier", "1.5");
+                    effectiveProperties.putIfAbsent("bigquery.rpc-timeout", "8s");
 
-            // note: additional copy via ImmutableList so that if fails on nulls
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
-            connectorProperties.putIfAbsent("bigquery.view-expire-duration", "30m");
-            connectorProperties.putIfAbsent("bigquery.rpc-retries", "4");
-            connectorProperties.putIfAbsent("bigquery.rpc-retry-delay", "200ms");
-            connectorProperties.putIfAbsent("bigquery.rpc-retry-delay-multiplier", "1.5");
-            connectorProperties.putIfAbsent("bigquery.rpc-timeout", "8s");
+                    queryRunner.installPlugin(new BigQueryPlugin());
+                    queryRunner.createCatalog("bigquery", "bigquery", effectiveProperties);
 
-            queryRunner.installPlugin(new BigQueryPlugin());
-            queryRunner.createCatalog(
-                    "bigquery",
-                    "bigquery",
-                    connectorProperties);
-
-            queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
-            queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+                    queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
+                    queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+                })
+                .build();
     }
 
     public static Session createSession()
