@@ -35,7 +35,6 @@ import io.trino.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.sql.relational.StandardFunctionResolution;
-import io.trino.sql.relational.optimizer.ExpressionOptimizer;
 import io.trino.sql.routine.ir.IrBlock;
 import io.trino.sql.routine.ir.IrBreak;
 import io.trino.sql.routine.ir.IrContinue;
@@ -330,13 +329,7 @@ public final class SqlRoutinePlanner
 
             // translate to RowExpression
             TranslationVisitor translator = new TranslationVisitor(plannerContext.getMetadata(), plannerContext.getTypeManager(), ImmutableMap.of(), context.variables());
-            RowExpression rowExpression = translator.process(optimized, null);
-
-            // optimize RowExpression
-            ExpressionOptimizer optimizer = new ExpressionOptimizer(plannerContext.getMetadata(), plannerContext.getFunctionManager(), session);
-            rowExpression = optimizer.optimize(rowExpression);
-
-            return rowExpression;
+            return translator.process(optimized, null);
         }
 
         public static io.trino.sql.ir.Expression coerceIfNecessary(Analysis analysis, Expression original, io.trino.sql.ir.Expression rewritten)
