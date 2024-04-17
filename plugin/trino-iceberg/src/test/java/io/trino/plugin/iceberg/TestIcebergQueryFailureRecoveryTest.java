@@ -49,7 +49,7 @@ public class TestIcebergQueryFailureRecoveryTest
             Map<String, String> coordinatorProperties)
             throws Exception
     {
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
+        this.minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomNameSuffix()));
         minioStorage.start();
 
         return IcebergQueryRunner.builder()
@@ -67,9 +67,6 @@ public class TestIcebergQueryFailureRecoveryTest
     public void destroy()
             throws Exception
     {
-        if (minioStorage != null) {
-            minioStorage.close();
-            minioStorage = null;
-        }
+        minioStorage = null; // closed by closeAfterClass
     }
 }
