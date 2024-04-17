@@ -1064,7 +1064,35 @@ public abstract class BaseClickHouseTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("Enum('hello' = 1, 'world' = 2)", "'hello'", createUnboundedVarcharType(), "VARCHAR 'hello'")
                 .addRoundTrip("Enum('hello' = 1, 'world' = 2)", "'world'", createUnboundedVarcharType(), "VARCHAR 'world'")
-                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_enum"));
+                .addRoundTrip("Enum8('hello' = 1, 'world' = 2)", "'hello'", createUnboundedVarcharType(), "VARCHAR 'hello'")
+                .addRoundTrip("Enum8('hello' = 1, 'world' = 2)", "'world'", createUnboundedVarcharType(), "VARCHAR 'world'")
+                .addRoundTrip("Enum16('hello' = 1, 'world' = 2)", "'hello'", createUnboundedVarcharType(), "VARCHAR 'hello'")
+                .addRoundTrip("Enum16('hello' = 1, 'world' = 2)", "'world'", createUnboundedVarcharType(), "VARCHAR 'world'")
+                .addRoundTrip("Nullable(Enum('hello', 'world'))", "NULL", createUnboundedVarcharType(), "CAST(NULL AS VARCHAR)")
+                .addRoundTrip("Nullable(Enum('hello', 'world'))", "'hello'", createUnboundedVarcharType(), "VARCHAR 'hello'")
+                .addRoundTrip("Nullable(Enum('hello', 'world'))", "'world'", createUnboundedVarcharType(), "VARCHAR 'world'")
+                .addRoundTrip("Nullable(Enum8('hello', 'world'))", "NULL", createUnboundedVarcharType(), "CAST(NULL AS VARCHAR)")
+                .addRoundTrip("Nullable(Enum8('hello', 'world'))", "'hello'", createUnboundedVarcharType(), "VARCHAR 'hello'")
+                .addRoundTrip("Nullable(Enum8('hello', 'world'))", "'world'", createUnboundedVarcharType(), "VARCHAR 'world'")
+                .addRoundTrip("Nullable(Enum16('hello', 'world'))", "NULL", createUnboundedVarcharType(), "CAST(NULL AS VARCHAR)")
+                .addRoundTrip("Nullable(Enum16('hello', 'world'))", "'hello'", createUnboundedVarcharType(), "VARCHAR 'hello'")
+                .addRoundTrip("Nullable(Enum16('hello', 'world'))", "'world'", createUnboundedVarcharType(), "VARCHAR 'world'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_enum"))
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_enum2"));
+    }
+
+    @Test
+    public void testEnumFailures()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_enum_failure", "(value Enum('hello' = 1, 'world' = 2)) ENGINE=MergeTree ORDER BY tuple()")) {
+            // ClickHouse implicitly converts numeric value in text to actual internal numeric representation
+            // https://github.com/ClickHouse/ClickHouse/issues/62701
+            assertQuerySucceeds(format("SELECT value FROM %s WHERE value = '1'", table.getName()));
+            assertQuerySucceeds(format("SELECT value FROM %s WHERE value = 'hello'", table.getName()));
+
+            // ClickHouse shall fail when enum string is not exact
+            assertQueryFails(format("SELECT value FROM %s WHERE value = 'Hello'", table.getName()), ".*Unknown\\s+element.*\\n*.*");
+        }
     }
 
     @Test

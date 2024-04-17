@@ -620,8 +620,7 @@ public class ClickHouseClient
                         createUnboundedVarcharType(),
                         varcharReadFunction(createUnboundedVarcharType()),
                         varcharWriteFunction(),
-                        // TODO (https://github.com/trinodb/trino/issues/7100) Currently pushdown would not work and may require a custom bind expression
-                        DISABLE_PUSHDOWN));
+                        CLICKHOUSE_PUSHDOWN_CONTROLLER));
 
             case FixedString: // FixedString(n)
             case String:

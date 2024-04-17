@@ -846,6 +846,55 @@ public class TestClickHouseConnectorTest
                 .isFullyPushedDown();
     }
 
+    @Test
+    public void testEnumPredicatePushdown()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_enum", "(evalue Enum('hello', 'world', 'again'), ivalue Int32) ENGINE=Log")) {
+            String tableName = table.getName();
+
+            assertQuerySucceeds(format("INSERT INTO %s VALUES(VARCHAR 'hello', 10), (VARCHAR 'world', 20), (VARCHAR 'again', 30)", tableName));
+
+            // Equality check shall be pushed down
+            assertThat(query(format("SELECT ivalue FROM %s WHERE evalue = 'hello'", tableName)))
+                    .matches("VALUES INTEGER '10'")
+                    .isFullyPushedDown();
+
+            // ClickHouse does support operations like `WHERE evalue < 'world'`, which could
+            // break correctness, therefore inequality and range checks shouldn't be pushed down.
+            // This results in treating enum values as text.
+            assertThat(query(format("SELECT ivalue FROM %s WHERE evalue <> 'hello' ORDER BY ivalue", tableName)))
+                    .matches("VALUES (INTEGER '20'),(INTEGER '30')")
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query(format("SELECT ivalue FROM %s WHERE evalue BETWEEN 'again' AND 'world' ORDER BY ivalue", tableName)))
+                    .matches("VALUES (INTEGER '10'),(INTEGER '20'),(INTEGER '30')")
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            // Enum IN without domain compaction
+            assertThat(query(format("SELECT ivalue FROM %s WHERE evalue IN ('hello', 'again')", tableName)))
+                    .isFullyPushedDown();
+
+            // Enum IN with domain compaction
+            assertThat(query(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty("clickhouse", "domain_compaction_threshold", "1")
+                            .build(),
+                    format("SELECT ivalue FROM %s WHERE evalue IN ('hello', 'again')", tableName)))
+                    .matches("VALUES (INTEGER '10'),(INTEGER '30')")
+                    // Filter node is retained as no constraint is pushed into connector.
+                    // The compacted domain is a range predicate which can give wrong results
+                    // if pushed down as ClickHouse has different sort ordering for letters from Trino
+                    .isNotFullyPushedDown(
+                            node(
+                                    FilterNode.class,
+                                    // verify that no constraint is applied by the connector
+                                    tableScan(
+                                            tableHandle -> ((JdbcTableHandle) tableHandle).getConstraint().isAll(),
+                                            TupleDomain.all(),
+                                            ImmutableMap.of())));
+        }
+    }
+
     @Override
     protected OptionalInt maxTableNameLength()
     {
