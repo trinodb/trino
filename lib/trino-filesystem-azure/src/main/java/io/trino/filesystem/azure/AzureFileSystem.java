@@ -22,7 +22,6 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
-import com.azure.storage.common.Utility;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.DataLakeFileClient;
 import com.azure.storage.file.datalake.DataLakeFileSystemClient;
@@ -47,6 +46,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.azure.storage.common.Utility.urlEncode;
 import static com.azure.storage.common.implementation.Constants.HeaderConstants.ETAG_WILDCARD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -178,7 +178,7 @@ public class AzureFileSystem
         BlobContainerClient blobContainerClient = createBlobContainerClient(location);
         PagedIterable<BlobItem> blobItems = blobContainerClient.listBlobs(new ListBlobsOptions().setPrefix(location.directoryPath()), null);
         for (BlobItem item : blobItems) {
-            String blobUrl = Utility.urlEncode(item.getName());
+            String blobUrl = urlEncode(item.getName());
             blobContainerClient.getBlobClient(blobUrl).deleteIfExists();
         }
     }
@@ -216,7 +216,7 @@ public class AzureFileSystem
             createDirectoryIfNotExists(fileSystemClient, target.location().parentDirectory().path());
             dataLakeFileClient.renameWithResponse(
                     null,
-                    target.path(),
+                    urlEncode(target.path()),
                     null,
                     new DataLakeRequestConditions().setIfNoneMatch(ETAG_WILDCARD),
                     null,
@@ -353,7 +353,7 @@ public class AzureFileSystem
             if (!directoryClient.getProperties().isDirectory()) {
                 throw new IOException("Source is not a directory: " + source);
             }
-            directoryClient.rename(null, targetLocation.path());
+            directoryClient.rename(null, urlEncode(targetLocation.path()));
         }
         catch (RuntimeException e) {
             throw new IOException("Rename directory from %s to %s failed".formatted(source, target), e);
@@ -453,9 +453,7 @@ public class AzureFileSystem
 
     private BlobClient createBlobClient(AzureLocation location)
     {
-        // encode the path using the Azure url encoder utility
-        String path = Utility.urlEncode(location.path());
-        return createBlobContainerClient(location).getBlobClient(path);
+        return createBlobContainerClient(location).getBlobClient(urlEncode(location.path()));
     }
 
     private BlobContainerClient createBlobContainerClient(AzureLocation location)
@@ -490,16 +488,16 @@ public class AzureFileSystem
 
     private static DataLakeDirectoryClient createDirectoryClient(DataLakeFileSystemClient fileSystemClient, String directoryName)
     {
-        return fileSystemClient.getDirectoryClient(directoryName);
+        return fileSystemClient.getDirectoryClient(urlEncode(directoryName));
     }
 
     private static DataLakeFileClient createFileClient(DataLakeFileSystemClient fileSystemClient, String fileName)
     {
-        return fileSystemClient.getFileClient(fileName);
+        return fileSystemClient.getFileClient(urlEncode(fileName));
     }
 
     private static DataLakeDirectoryClient createDirectoryIfNotExists(DataLakeFileSystemClient fileSystemClient, String name)
     {
-        return fileSystemClient.createDirectoryIfNotExists(name);
+        return fileSystemClient.createDirectoryIfNotExists(urlEncode(name));
     }
 }
