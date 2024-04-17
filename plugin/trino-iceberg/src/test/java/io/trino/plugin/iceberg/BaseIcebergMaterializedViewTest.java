@@ -85,18 +85,9 @@ public abstract class BaseIcebergMaterializedViewTest
 
     protected abstract String getStorageMetadataLocation(String materializedViewName);
 
-    @BeforeAll
-    public void setUp()
+    protected static MockConnectorPlugin createMockConnectorPlugin()
     {
-        assertUpdate("CREATE TABLE base_table1(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
-        assertUpdate("INSERT INTO base_table1 VALUES (0, DATE '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')", 3);
-        assertUpdate("INSERT INTO base_table1 VALUES (3, DATE '2019-09-09'), (4, DATE '2019-09-10'), (5, DATE '2019-09-10')", 3);
-
-        assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
-        assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
-
-        QueryRunner queryRunner = getDistributedQueryRunner();
-        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+        return new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withTableFunctions(ImmutableSet.of(new SequenceTableFunction()))
                 .withFunctionProvider(Optional.of(new FunctionProvider()
                 {
@@ -115,8 +106,18 @@ public abstract class BaseIcebergMaterializedViewTest
                     }
                     throw new IllegalArgumentException("This ConnectorTableFunctionHandle is not supported");
                 })
-                .build()));
-        queryRunner.createCatalog("mock", "mock");
+                .build());
+    }
+
+    @BeforeAll
+    public void setUp()
+    {
+        assertUpdate("CREATE TABLE base_table1(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
+        assertUpdate("INSERT INTO base_table1 VALUES (0, DATE '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')", 3);
+        assertUpdate("INSERT INTO base_table1 VALUES (3, DATE '2019-09-09'), (4, DATE '2019-09-10'), (5, DATE '2019-09-10')", 3);
+
+        assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
+        assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
     }
 
     @Test

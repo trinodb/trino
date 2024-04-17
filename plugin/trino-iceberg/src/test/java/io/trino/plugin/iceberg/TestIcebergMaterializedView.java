@@ -62,6 +62,9 @@ public class TestIcebergMaterializedView
                     "iceberg.materialized-views.hide-storage-table", "false"));
 
             queryRunner.execute(secondIceberg, "CREATE SCHEMA " + secondIceberg.getSchema().orElseThrow());
+
+            queryRunner.installPlugin(createMockConnectorPlugin());
+            queryRunner.createCatalog("mock", "mock");
         }
         catch (Throwable e) {
             closeAllSuppress(e, queryRunner);
