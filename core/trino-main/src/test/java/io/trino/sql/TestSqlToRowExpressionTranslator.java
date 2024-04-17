@@ -56,8 +56,6 @@ public class TestSqlToRowExpressionTranslator
                 .isEqualTo(constant(null, createDecimalType(7, 2)));
         assertThat(translateAndOptimize(new Constant(createDecimalType(2), Decimals.valueOf(42))))
                 .isEqualTo(constant(42L, createDecimalType(2, 0)));
-        assertThat(translateAndOptimize(new Cast(new Constant(INTEGER, 42L), createDecimalType(7, 2))))
-                .isEqualTo(constant(4200L, createDecimalType(7, 2)));
         assertThat(translateAndOptimize(simplifyExpression(new Cast(new Constant(INTEGER, 42L), createDecimalType(7, 2)))))
                 .isEqualTo(constant(4200L, createDecimalType(7, 2)));
 
@@ -66,8 +64,6 @@ public class TestSqlToRowExpressionTranslator
                 .isEqualTo(constant(null, createDecimalType(35, 2)));
         assertThat(translateAndOptimize(new Constant(createDecimalType(30), Decimals.valueOf(new BigDecimal("123456789012345678901234567890")))))
                 .isEqualTo(constant(Decimals.valueOf(new BigDecimal("123456789012345678901234567890")), createDecimalType(30, 0)));
-        assertThat(translateAndOptimize(new Cast(new Constant(createDecimalType(30), Decimals.valueOf(new BigDecimal("123456789012345678901234567890"))), createDecimalType(35, 2))))
-                .isEqualTo(constant(Decimals.valueOf(new BigDecimal("123456789012345678901234567890.00")), createDecimalType(35, 2)));
         assertThat(translateAndOptimize(simplifyExpression(new Cast(new Constant(createDecimalType(30), Decimals.valueOf(new BigDecimal("123456789012345678901234567890"))), createDecimalType(35, 2)))))
                 .isEqualTo(constant(Decimals.valueOf(new BigDecimal("123456789012345678901234567890.00")), createDecimalType(35, 2)));
     }
@@ -78,10 +74,7 @@ public class TestSqlToRowExpressionTranslator
                 expression,
                 ImmutableMap.of(),
                 PLANNER_CONTEXT.getMetadata(),
-                PLANNER_CONTEXT.getFunctionManager(),
-                PLANNER_CONTEXT.getTypeManager(),
-                TEST_SESSION,
-                true);
+                PLANNER_CONTEXT.getTypeManager());
     }
 
     private Expression simplifyExpression(Expression expression)
