@@ -21,6 +21,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.airlift.log.Logger;
@@ -143,10 +144,10 @@ public class WarmupDemoterService
         this.enableDemote = warmupDemoterConfiguration.isEnableDemote();
         int rowGroupPoolSize = nativeConfiguration.getTaskMaxWorkerThreads();
         int rowGroupQueueSize = warmupDemoterConfiguration.getTasksExecutorQueueSize();
-        long rowGroupKeepAliveTTL = Math.min(warmupDemoterConfiguration.getTasksExecutorKeepAliveTtl(), 1000);
-        this.rowGroupExecutorService = new ThreadPoolExecutor(rowGroupPoolSize, rowGroupPoolSize,
-                rowGroupKeepAliveTTL, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(rowGroupQueueSize));
+        this.rowGroupExecutorService = new ThreadPoolExecutor(0, rowGroupPoolSize,
+                60L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(rowGroupQueueSize),
+                new ThreadFactoryBuilder().setNameFormat("warp-speed-row-group-%s").setDaemon(true).build());
         init();
     }
 

@@ -36,7 +36,6 @@ public class WarmupDemoterConfiguration
     private int tasksExecutorQueueSize = 2_000_000;
     private int prioritizeExecutorPollSize = 1000;
     private int cloudExecutorPollSize = 200;
-    private long tasksExecutorKeepAliveTtl = 1000;
     private boolean enableDemote = true;
 
     public double getMaxUsageThresholdPercentage()
@@ -195,18 +194,6 @@ public class WarmupDemoterConfiguration
         this.cloudExecutorPollSize = cloudExecutorPollSize;
     }
 
-    public long getTasksExecutorKeepAliveTtl()
-    {
-        return tasksExecutorKeepAliveTtl;
-    }
-
-    @LegacyConfig(LOCAL_DATA_STORAGE_PREFIX + "config.task.executor-keep-alive-ttl")
-    @Config(WARP_SPEED_PREFIX + "config.task.executor-keep-alive-ttl")
-    public void setTasksExecutorKeepAliveTtl(long tasksExecutorKeepAliveTtl)
-    {
-        this.tasksExecutorKeepAliveTtl = tasksExecutorKeepAliveTtl;
-    }
-
     public boolean isEnableDemote()
     {
         return enableDemote;
@@ -231,7 +218,6 @@ public class WarmupDemoterConfiguration
                 ", maxElementsToDemoteInIteration=" + maxElementsToDemoteInIteration +
                 ", epsilon=" + epsilon +
                 ", tasksExecutorQueueSize=" + tasksExecutorQueueSize +
-                ", tasksExecutorKeepAliveTtl=" + tasksExecutorKeepAliveTtl +
                 ", enableDemote=" + enableDemote +
                 ", cloudExecutorPollSize=" + cloudExecutorPollSize +
                 ", prioritizeExecutorPollSize=" + prioritizeExecutorPollSize +
