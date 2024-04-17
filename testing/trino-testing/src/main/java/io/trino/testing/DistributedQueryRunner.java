@@ -150,15 +150,18 @@ public class DistributedQueryRunner
             extraCloseables.forEach(closeable -> closer.register(() -> closeUnchecked(closeable)));
             log.debug("Created TestingDiscoveryServer in %s", nanosSince(discoveryStart));
 
-            registerNewWorker = () -> createServer(
-                    false,
-                    extraProperties,
-                    environment,
-                    additionalModule,
-                    baseDataDir,
-                    Optional.empty(),
-                    Optional.of(ImmutableList.of()),
-                    ImmutableList.of());
+            registerNewWorker = () -> {
+                @SuppressWarnings("resource")
+                TestingTrinoServer ignored = createServer(
+                        false,
+                        extraProperties,
+                        environment,
+                        additionalModule,
+                        baseDataDir,
+                        Optional.empty(),
+                        Optional.of(ImmutableList.of()),
+                        ImmutableList.of());
+            };
 
             int coordinatorCount = backupCoordinatorProperties.isEmpty() ? 1 : 2;
             checkArgument(nodeCount >= coordinatorCount, "nodeCount includes coordinator(s) count, so must be at least %s, got: %s", coordinatorCount, nodeCount);
