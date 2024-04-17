@@ -211,6 +211,12 @@ public class Signature
             return this;
         }
 
+        public Builder longVariable(String name)
+        {
+            this.longVariableConstraints.add(new LongVariableConstraint(name, name));
+            return this;
+        }
+
         public Builder argumentType(Type type)
         {
             return argumentType(type.getTypeSignature());

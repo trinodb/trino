@@ -18,10 +18,6 @@ import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.ConstantExpression;
@@ -35,20 +31,13 @@ import io.trino.sql.relational.VariableReferenceExpression;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
-import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
-import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
-import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.SpecialForm.Form.BIND;
-import static io.trino.type.JsonType.JSON;
 
 public class ExpressionOptimizer
 {
@@ -88,10 +77,6 @@ public class ExpressionOptimizer
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {
-            if (call.getResolvedFunction().signature().getName().equals(builtinFunctionName(CAST))) {
-                call = rewriteCast(call);
-            }
-
             List<RowExpression> arguments = call.getArguments().stream()
                     .map(argument -> argument.accept(this, context))
                     .collect(toImmutableList());
@@ -186,37 +171,6 @@ public class ExpressionOptimizer
         public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
         {
             return reference;
-        }
-
-        private CallExpression rewriteCast(CallExpression call)
-        {
-            if (call.getArguments().get(0) instanceof CallExpression innerCall) {
-                // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
-                if (innerCall.getResolvedFunction().signature().getName().equals(JSON_PARSE_NAME)) {
-                    checkArgument(innerCall.getType().equals(JSON));
-                    checkArgument(innerCall.getArguments().size() == 1);
-                    Type returnType = call.getType();
-                    if (returnType instanceof ArrayType) {
-                        return call(
-                                metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), VARCHAR, returnType),
-                                innerCall.getArguments());
-                    }
-                    if (returnType instanceof MapType) {
-                        return call(
-                                metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_MAP_NAME), VARCHAR, returnType),
-                                innerCall.getArguments());
-                    }
-                    if (returnType instanceof RowType) {
-                        return call(
-                                metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_ROW_NAME), VARCHAR, returnType),
-                                innerCall.getArguments());
-                    }
-                }
-            }
-
-            return call(
-                    metadata.getCoercion(call.getArguments().get(0).getType(), call.getType()),
-                    call.getArguments());
         }
     }
 }

@@ -74,6 +74,9 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
+import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
+import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
+import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -743,6 +746,7 @@ public class IrExpressionInterpreter
             Expression value = processWithExceptionHandling(node.expression(), context);
 
             return switch (value) {
+                case Call call when call.function().name().equals(builtinFunctionName("json_parse")) -> processJsonParseWithinCast(node, call);
                 case Expression expression when expression.type().equals(node.type()) -> expression;
                 case Constant constant when constant.value() == null -> new Constant(node.type(), null);
                 case Constant constant -> {
@@ -762,6 +766,18 @@ public class IrExpressionInterpreter
                     }
                 }
                 default -> new Cast(value, node.type(), node.safe());
+            };
+        }
+
+        // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
+        private Expression processJsonParseWithinCast(Cast cast, Call jsonParse)
+        {
+            Expression string = jsonParse.arguments().getFirst();
+            return switch (cast.type()) {
+                case ArrayType arrayType -> new Call(metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), string.type(), arrayType), jsonParse.arguments());
+                case MapType mapType -> new Call(metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_MAP_NAME), string.type(), mapType), jsonParse.arguments());
+                case RowType rowType -> new Call(metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_ROW_NAME), string.type(), rowType), jsonParse.arguments());
+                default -> cast;
             };
         }
 
