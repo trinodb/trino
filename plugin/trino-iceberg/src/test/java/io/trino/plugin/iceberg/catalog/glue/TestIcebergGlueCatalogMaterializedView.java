@@ -74,6 +74,9 @@ public class TestIcebergGlueCatalogMaterializedView
                 "hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath(),
                 "iceberg.materialized-views.hide-storage-table", "false"));
 
+        queryRunner.installPlugin(createMockConnectorPlugin());
+        queryRunner.createCatalog("mock", "mock");
+
         return queryRunner;
     }
 
