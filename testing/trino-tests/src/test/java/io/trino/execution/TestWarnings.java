@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.client.Warning;
 import io.trino.spi.WarningCode;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,7 +45,7 @@ public class TestWarnings
     public void setUp()
             throws Exception
     {
-        queryRunner = TpchQueryRunnerBuilder.builder()
+        queryRunner = TpchQueryRunner.builder()
                 .addExtraProperty("query.stage-count-warning-threshold", String.valueOf(STAGE_COUNT_WARNING_THRESHOLD))
                 .build();
     }

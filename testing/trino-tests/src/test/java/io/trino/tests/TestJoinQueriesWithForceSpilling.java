@@ -15,7 +15,7 @@ package io.trino.tests;
 
 import io.trino.testing.AbstractTestJoinQueries;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 
 public class TestJoinQueriesWithForceSpilling
         extends AbstractTestJoinQueries
@@ -24,7 +24,7 @@ public class TestJoinQueriesWithForceSpilling
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunner.builder()
                 .addExtraProperty("force-spilling-join-operator", "true")
                 .build();
     }

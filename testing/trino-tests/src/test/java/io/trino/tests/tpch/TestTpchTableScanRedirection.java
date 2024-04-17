@@ -32,7 +32,7 @@ public class TestTpchTableScanRedirection
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+        QueryRunner queryRunner = TpchQueryRunner.builder()
                 .withConnectorProperties(Map.of(
                         TPCH_TABLE_SCAN_REDIRECTION_CATALOG, "memory",
                         TPCH_TABLE_SCAN_REDIRECTION_SCHEMA, "test"))

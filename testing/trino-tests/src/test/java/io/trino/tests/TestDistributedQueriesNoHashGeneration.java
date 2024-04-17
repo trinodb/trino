@@ -16,7 +16,7 @@ package io.trino.tests;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 
 public class TestDistributedQueriesNoHashGeneration
         extends AbstractTestQueries
@@ -25,7 +25,7 @@ public class TestDistributedQueriesNoHashGeneration
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.of("optimizer.optimize-hash-generation", "false"))
                 .build();
     }
