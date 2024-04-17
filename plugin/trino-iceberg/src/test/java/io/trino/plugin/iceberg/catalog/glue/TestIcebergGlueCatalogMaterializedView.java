@@ -88,8 +88,8 @@ public class TestIcebergGlueCatalogMaterializedView
     {
         AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
         Table table = glueClient.getTable(new GetTableRequest()
-                .withDatabaseName(schemaName)
-                .withName(materializedViewName))
+                        .withDatabaseName(schemaName)
+                        .withName(materializedViewName))
                 .getTable();
         return getTableParameters(table).get(METADATA_LOCATION_PROP);
     }
