@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
 
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -33,10 +33,9 @@ public class TestBigQueryMetadataCaching
             throws Exception
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
-        return BigQueryQueryRunner.createQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of("bigquery.metadata.cache-ttl", "5m"),
-                ImmutableList.of());
+        return BigQueryQueryRunner.builder()
+                .setConnectorProperties(Map.of("bigquery.metadata.cache-ttl", "5m"))
+                .build();
     }
 
     @Test
