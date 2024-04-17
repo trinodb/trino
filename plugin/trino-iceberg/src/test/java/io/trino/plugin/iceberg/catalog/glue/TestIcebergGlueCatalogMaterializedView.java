@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -68,16 +69,20 @@ public class TestIcebergGlueCatalogMaterializedView
                                 .withSchemaName(schemaName)
                                 .build())
                 .build();
+        try {
+            queryRunner.createCatalog("iceberg_legacy_mv", "iceberg", Map.of(
+                    "iceberg.catalog.type", "glue",
+                    "hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath(),
+                    "iceberg.materialized-views.hide-storage-table", "false"));
 
-        queryRunner.createCatalog("iceberg_legacy_mv", "iceberg", Map.of(
-                "iceberg.catalog.type", "glue",
-                "hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath(),
-                "iceberg.materialized-views.hide-storage-table", "false"));
-
-        queryRunner.installPlugin(createMockConnectorPlugin());
-        queryRunner.createCatalog("mock", "mock");
-
-        return queryRunner;
+            queryRunner.installPlugin(createMockConnectorPlugin());
+            queryRunner.createCatalog("mock", "mock");
+            return queryRunner;
+        }
+        catch (Throwable e) {
+            closeAllSuppress(e, queryRunner);
+            throw e;
+        }
     }
 
     @Override
