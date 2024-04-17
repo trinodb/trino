@@ -73,35 +73,37 @@ class SplitProcessor
         long previousScheduledNanos = 0;
         try (SetThreadName ignored = new SetThreadName("SplitRunner-%s-%s", taskId, splitId)) {
             while (!split.isFinished()) {
-                ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
-                CpuTimer.CpuDuration elapsed = timer.elapsedTime();
+                try (var ignored2 = processSpan.makeCurrent()) {
+                    ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
+                    CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
-                long scheduledNanos = elapsed.getWall().roundTo(NANOSECONDS);
-                processSpan.setAttribute(TrinoAttributes.SPLIT_SCHEDULED_TIME_NANOS, scheduledNanos - previousScheduledNanos);
-                previousScheduledNanos = scheduledNanos;
+                    long scheduledNanos = elapsed.getWall().roundTo(NANOSECONDS);
+                    processSpan.setAttribute(TrinoAttributes.SPLIT_SCHEDULED_TIME_NANOS, scheduledNanos - previousScheduledNanos);
+                    previousScheduledNanos = scheduledNanos;
 
-                long cpuNanos = elapsed.getCpu().roundTo(NANOSECONDS);
-                processSpan.setAttribute(TrinoAttributes.SPLIT_CPU_TIME_NANOS, cpuNanos - previousCpuNanos);
-                previousCpuNanos = cpuNanos;
+                    long cpuNanos = elapsed.getCpu().roundTo(NANOSECONDS);
+                    processSpan.setAttribute(TrinoAttributes.SPLIT_CPU_TIME_NANOS, cpuNanos - previousCpuNanos);
+                    previousCpuNanos = cpuNanos;
 
-                if (!split.isFinished()) {
-                    if (blocked.isDone()) {
-                        processSpan.addEvent("yield");
-                        processSpan.end();
-                        if (!context.maybeYield()) {
-                            processSpan = null;
-                            return;
+                    if (!split.isFinished()) {
+                        if (blocked.isDone()) {
+                            processSpan.addEvent("yield");
+                            processSpan.end();
+                            if (!context.maybeYield()) {
+                                processSpan = null;
+                                return;
+                            }
                         }
-                    }
-                    else {
-                        processSpan.addEvent("blocked");
-                        processSpan.end();
-                        if (!context.block(blocked)) {
-                            processSpan = null;
-                            return;
+                        else {
+                            processSpan.addEvent("blocked");
+                            processSpan.end();
+                            if (!context.block(blocked)) {
+                                processSpan = null;
+                                return;
+                            }
                         }
+                        processSpan = newSpan(splitSpan, processSpan);
                     }
-                    processSpan = newSpan(splitSpan, processSpan);
                 }
             }
         }
