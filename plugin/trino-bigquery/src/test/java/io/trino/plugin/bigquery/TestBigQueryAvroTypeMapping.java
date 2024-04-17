@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
+
+import java.util.Map;
 
 public class TestBigQueryAvroTypeMapping
         extends BaseBigQueryTypeMapping
@@ -24,9 +24,8 @@ public class TestBigQueryAvroTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BigQueryQueryRunner.createQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of("bigquery.skip-view-materialization", "true"),
-                ImmutableList.of());
+        return BigQueryQueryRunner.builder()
+                .setConnectorProperties(Map.of("bigquery.skip-view-materialization", "true"))
+                .build();
     }
 }
