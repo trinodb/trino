@@ -19,8 +19,6 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
-
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestBigQueryArrowSerialization
@@ -37,9 +35,7 @@ public class TestBigQueryArrowSerialization
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BigQueryQueryRunner.builder()
-                .setConnectorProperties(Map.of("bigquery.arrow-serialization.enabled", "true"))
-                .build();
+        return BigQueryQueryRunner.builder().build();
     }
 
     @Test
