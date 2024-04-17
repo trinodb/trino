@@ -193,10 +193,8 @@ public class TestMinWorkerRequirement
     {
         ListeningExecutorService service = MoreExecutors.listeningDecorator(newFixedThreadPool(3));
         try (DistributedQueryRunner queryRunner = TpchQueryRunner.builder().setNodeCount(1).build()) {
-            Session session1 = testSessionBuilder()
+            Session session1 = Session.builder(queryRunner.getDefaultSession())
                     .setSystemProperty(REQUIRED_WORKERS_COUNT, "2")
-                    .setCatalog("tpch")
-                    .setSchema("tiny")
                     .build();
             ListenableFuture<MaterializedResultWithPlan> queryFuture1 = service.submit(() -> queryRunner.executeWithPlan(session1, "SELECT COUNT(*) from lineitem"));
 
