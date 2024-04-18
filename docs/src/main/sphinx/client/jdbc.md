@@ -239,7 +239,7 @@ may not be specified using both methods.
   - When enabled, the name patterns passed to `DatabaseMetaData` methods are
     treated as underscores. You can use this as a workaround for applications
     that do not escape schema or table names when passing them to
-    `DatabaseMetaData` methods as schema or table name patterns. :::
+    `DatabaseMetaData` methods as schema or table name patterns.
 * - `timezone`
   - Sets the time zone for the session using the [time zone
     passed](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/time/ZoneId.html#of(java.lang.String)).
@@ -250,3 +250,4 @@ may not be specified using both methods.
     `PREPARE <statement>` followed by `EXECUTE <statement>`. This reduces
     network overhead and uses smaller HTTP headers and requires Trino 431 or
     greater.
+:::
