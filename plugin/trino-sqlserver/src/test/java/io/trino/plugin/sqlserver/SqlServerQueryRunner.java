@@ -19,7 +19,6 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -67,7 +66,7 @@ public final class SqlServerQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession(testingSqlServer.getUsername()))
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setAdditionalSetup(moreSetup)
@@ -86,7 +85,7 @@ public final class SqlServerQueryRunner
             queryRunner.createCatalog(CATALOG, "sqlserver", connectorProperties);
             log.info("%s catalog properties: %s", CATALOG, connectorProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(testingSqlServer.getUsername()), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
             return queryRunner;
         }
@@ -96,12 +95,11 @@ public final class SqlServerQueryRunner
         }
     }
 
-    private static Session createSession(String username)
+    private static Session createSession()
     {
         return testSessionBuilder()
                 .setCatalog(CATALOG)
                 .setSchema(TEST_SCHEMA)
-                .setIdentity(Identity.ofUser(username))
                 .build();
     }
 
