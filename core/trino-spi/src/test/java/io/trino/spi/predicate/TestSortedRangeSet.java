@@ -312,13 +312,21 @@ public class TestSortedRangeSet
     private void assertOverlaps(SortedRangeSet first, SortedRangeSet second)
     {
         assertThat(first.overlaps(second)).isTrue();
+        assertThat(first.linearSearchOverlaps(second)).isTrue();
+        assertThat(first.binarySearchOverlaps(second)).isTrue();
         assertThat(second.overlaps(first)).isTrue();
+        assertThat(second.linearSearchOverlaps(first)).isTrue();
+        assertThat(second.binarySearchOverlaps(first)).isTrue();
     }
 
     private void assertDoesNotOverlap(SortedRangeSet first, SortedRangeSet second)
     {
         assertThat(first.overlaps(second)).isFalse();
+        assertThat(first.linearSearchOverlaps(second)).isFalse();
+        assertThat(first.binarySearchOverlaps(second)).isFalse();
         assertThat(second.overlaps(first)).isFalse();
+        assertThat(second.linearSearchOverlaps(first)).isFalse();
+        assertThat(second.binarySearchOverlaps(first)).isFalse();
     }
 
     @Test
