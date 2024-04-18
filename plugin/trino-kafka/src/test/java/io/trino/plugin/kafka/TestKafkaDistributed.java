@@ -25,6 +25,7 @@ public class TestKafkaDistributed
             throws Exception
     {
         TestingKafka testingKafka = closeAfterClass(TestingKafka.create());
+        testingKafka.start();
         return KafkaQueryRunner.builder(testingKafka)
                 .setTables(REQUIRED_TPCH_TABLES)
                 .build();
