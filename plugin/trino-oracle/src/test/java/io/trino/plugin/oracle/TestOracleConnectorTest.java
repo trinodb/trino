@@ -21,9 +21,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
-import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -40,17 +38,13 @@ public class TestOracleConnectorTest
             throws Exception
     {
         oracleServer = new TestingOracleServer();
-        return OracleQueryRunner.createOracleQueryRunner(
-                oracleServer,
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("connection-url", oracleServer.getJdbcUrl())
-                        .put("connection-user", TEST_USER)
-                        .put("connection-password", TEST_PASS)
+        return OracleQueryRunner.builder(oracleServer)
+                .addConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("oracle.connection-pool.enabled", "false")
                         .put("oracle.remarks-reporting.enabled", "true")
-                        .buildOrThrow(),
-                REQUIRED_TPCH_TABLES);
+                        .buildOrThrow())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @AfterAll
@@ -84,7 +78,8 @@ public class TestOracleConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return new SqlExecutor() {
+        return new SqlExecutor()
+        {
             @Override
             public boolean supportsMultiRowInsert()
             {
