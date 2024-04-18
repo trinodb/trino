@@ -17,11 +17,9 @@ import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
-import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 import static java.lang.String.format;
 
 public class TestSqlServerAutomaticJoinPushdown
@@ -34,7 +32,8 @@ public class TestSqlServerAutomaticJoinPushdown
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        return createSqlServerQueryRunner(sqlServer, Map.of(), Map.of(), List.of());
+        return SqlServerQueryRunner.builder(sqlServer)
+                .build();
     }
 
     @Override
