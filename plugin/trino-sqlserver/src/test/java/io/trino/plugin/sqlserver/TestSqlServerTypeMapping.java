@@ -13,11 +13,7 @@
  */
 package io.trino.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-
-import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 
 public class TestSqlServerTypeMapping
         extends BaseSqlServerTypeMapping
@@ -27,10 +23,7 @@ public class TestSqlServerTypeMapping
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        return createSqlServerQueryRunner(
-                sqlServer,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableList.of());
+        return SqlServerQueryRunner.builder(sqlServer)
+                .build();
     }
 }

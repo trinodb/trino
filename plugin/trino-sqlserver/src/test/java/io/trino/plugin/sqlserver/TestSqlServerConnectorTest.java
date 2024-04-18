@@ -14,7 +14,6 @@
 package io.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
@@ -27,10 +26,10 @@ import org.junit.jupiter.api.Test;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT;
 import static io.trino.plugin.sqlserver.SqlServerQueryRunner.CATALOG;
-import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE;
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -49,11 +48,10 @@ public class TestSqlServerConnectorTest
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        return createSqlServerQueryRunner(
-                sqlServer,
-                ImmutableMap.of(),
-                ImmutableMap.of("sqlserver.experimental.stored-procedure-table-function-enabled", "true"),
-                REQUIRED_TPCH_TABLES);
+        return SqlServerQueryRunner.builder(sqlServer)
+                .addConnectorProperties(Map.of("sqlserver.experimental.stored-procedure-table-function-enabled", "true"))
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override
