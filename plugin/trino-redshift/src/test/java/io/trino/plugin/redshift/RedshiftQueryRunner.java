@@ -16,6 +16,7 @@ package io.trino.plugin.redshift;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
@@ -33,9 +34,9 @@ import org.jdbi.v3.core.Jdbi;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -48,7 +49,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public final class RedshiftQueryRunner
 {
+    private RedshiftQueryRunner() {}
+
     private static final Logger log = Logger.get(RedshiftQueryRunner.class);
+
     private static final String JDBC_ENDPOINT = requireSystemProperty("test.redshift.jdbc.endpoint");
     static final String JDBC_USER = requireSystemProperty("test.redshift.jdbc.user");
     static final String JDBC_PASSWORD = requireSystemProperty("test.redshift.jdbc.password");
@@ -67,91 +71,75 @@ public final class RedshiftQueryRunner
     private static final String GRANTED_USER = "alice";
     private static final String NON_GRANTED_USER = "bob";
 
-    private RedshiftQueryRunner() {}
-
-    public static QueryRunner createRedshiftQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static Builder builder()
     {
-        return createRedshiftQueryRunner(
-                createSession(),
-                extraProperties,
-                Map.of(),
-                connectorProperties,
-                tables,
-                queryRunner -> {});
+        return new Builder();
     }
 
-    public static QueryRunner createRedshiftQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> coordinatorProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables,
-            Consumer<QueryRunner> additionalSetup)
-            throws Exception
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        return createRedshiftQueryRunner(
-                createSession(),
-                extraProperties,
-                coordinatorProperties,
-                connectorProperties,
-                tables,
-                additionalSetup);
-    }
+        private Map<String, String> connectorProperties = ImmutableMap.of();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-    public static QueryRunner createRedshiftQueryRunner(
-            Session session,
-            Map<String, String> extraProperties,
-            Map<String, String> coordinatorProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables,
-            Consumer<QueryRunner> additionalSetup)
-            throws Exception
-    {
-        QueryRunner runner = DistributedQueryRunner.builder(session)
-                .setExtraProperties(extraProperties)
-                .setCoordinatorProperties(coordinatorProperties)
-                .setAdditionalSetup(additionalSetup)
-                .build();
-        try {
-            runner.installPlugin(new TpchPlugin());
-            runner.createCatalog(TPCH_CATALOG, "tpch", Map.of());
-
-            Map<String, String> properties = new HashMap<>(connectorProperties);
-            properties.putIfAbsent("connection-url", JDBC_URL);
-            properties.putIfAbsent("connection-user", JDBC_USER);
-            properties.putIfAbsent("connection-password", JDBC_PASSWORD);
-
-            runner.installPlugin(new RedshiftPlugin());
-            runner.createCatalog(TEST_CATALOG, CONNECTOR_NAME, properties);
-
-            executeInRedshiftWithRetry("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
-            createUserIfNotExists(NON_GRANTED_USER, JDBC_PASSWORD);
-            createUserIfNotExists(GRANTED_USER, JDBC_PASSWORD);
-
-            executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON DATABASE %s TO %s", TEST_DATABASE, GRANTED_USER));
-            executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
-
-            provisionTables(runner, tables);
-
-            // This step is necessary for product tests
-            executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog(TEST_CATALOG)
+                    .setSchema(TEST_SCHEMA)
+                    .build());
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, runner);
-            throw e;
-        }
-        return runner;
-    }
 
-    private static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog(TEST_CATALOG)
-                .setSchema(TEST_SCHEMA)
-                .build();
+        @CanIgnoreReturnValue
+        public Builder setConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties = ImmutableMap.copyOf(requireNonNull(connectorProperties, "connectorProperties is null"));
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner runner = super.build();
+            try {
+                runner.installPlugin(new TpchPlugin());
+                runner.createCatalog(TPCH_CATALOG, "tpch", Map.of());
+
+                Map<String, String> properties = new HashMap<>(connectorProperties);
+                properties.putIfAbsent("connection-url", JDBC_URL);
+                properties.putIfAbsent("connection-user", JDBC_USER);
+                properties.putIfAbsent("connection-password", JDBC_PASSWORD);
+
+                runner.installPlugin(new RedshiftPlugin());
+                runner.createCatalog(TEST_CATALOG, CONNECTOR_NAME, properties);
+
+                executeInRedshiftWithRetry("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
+                createUserIfNotExists(NON_GRANTED_USER, JDBC_PASSWORD);
+                createUserIfNotExists(GRANTED_USER, JDBC_PASSWORD);
+
+                executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON DATABASE %s TO %s", TEST_DATABASE, GRANTED_USER));
+                executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
+
+                provisionTables(runner, initialTables);
+
+                // This step is necessary for product tests
+                executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
+
+                return runner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, runner);
+                throw e;
+            }
+        }
     }
 
     private static void createUserIfNotExists(String user, String password)
@@ -270,10 +258,9 @@ public final class RedshiftQueryRunner
     {
         Logging.initialize();
 
-        QueryRunner queryRunner = createRedshiftQueryRunner(
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                ImmutableList.of());
+        QueryRunner queryRunner = builder()
+                .addExtraProperty("http-server.http.port", "8080")
+                .build();
 
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
