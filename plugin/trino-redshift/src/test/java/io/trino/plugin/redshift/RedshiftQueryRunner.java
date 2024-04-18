@@ -135,7 +135,7 @@ public final class RedshiftQueryRunner
             executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON DATABASE %s TO %s", TEST_DATABASE, GRANTED_USER));
             executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
 
-            provisionTables(session, runner, tables);
+            provisionTables(runner, tables);
 
             // This step is necessary for product tests
             executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
@@ -195,8 +195,9 @@ public final class RedshiftQueryRunner
         return Jdbi.create(JDBC_URL, JDBC_USER, JDBC_PASSWORD).withHandle(callback);
     }
 
-    private static synchronized void provisionTables(Session session, QueryRunner queryRunner, Iterable<TpchTable<?>> tables)
+    private static synchronized void provisionTables(QueryRunner queryRunner, Iterable<TpchTable<?>> tables)
     {
+        Session session = queryRunner.getDefaultSession();
         Set<String> existingTables = queryRunner.listTables(session, session.getCatalog().orElseThrow(), session.getSchema().orElseThrow())
                 .stream()
                 .map(QualifiedObjectName::objectName)
