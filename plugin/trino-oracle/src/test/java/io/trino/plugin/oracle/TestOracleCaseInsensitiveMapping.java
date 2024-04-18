@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.oracle;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.QueryRunner;
@@ -24,7 +23,6 @@ import java.util.Optional;
 
 import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.REFRESH_PERIOD_DURATION;
 import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
-import static io.trino.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -43,16 +41,13 @@ public class TestOracleCaseInsensitiveMapping
     {
         mappingFile = createRuleBasedIdentifierMappingFile();
         oracleServer = closeAfterClass(new TestingOracleServer());
-        return createOracleQueryRunner(
-                oracleServer,
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .putAll(OracleQueryRunner.connectionProperties(oracleServer))
+        return OracleQueryRunner.builder(oracleServer)
+                .addConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("case-insensitive-name-matching", "true")
                         .put("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
                         .put("case-insensitive-name-matching.config-file.refresh-period", REFRESH_PERIOD_DURATION.toString())
-                        .buildOrThrow(),
-                ImmutableList.of());
+                        .buildOrThrow())
+                .build();
     }
 
     @Override
