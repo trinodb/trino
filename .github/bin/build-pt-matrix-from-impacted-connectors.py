@@ -156,11 +156,12 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
             features = tested_features(available_features, item.get("config"), item.get("suite"))
             logging.debug("matrix item features: %s", features)
             if not any(feature in impacted_features for feature in features):
-                logging.info("Excluding matrix entry due to features: %s", item)
-                result.setdefault("exclude", []).append(item)
                 if "include" in result and item in result["include"]:
-                    logging.debug("Removing from include list: %s", item)
+                    logging.info("Removing from include list: %s", item)
                     result["include"].remove(item)
+                else:
+                    logging.info("Excluding matrix entry due to features: %s", item)
+                    result.setdefault("exclude", []).append(item)
             else:
                 all_excluded = False
         if all_excluded:
@@ -241,8 +242,6 @@ class TestBuild(unittest.TestCase):
                         {"config": "B", "suite": "1"},
                         {"config": "B", "suite": "3"},
                         {"config": "C", "suite": "2"},
-                        {"config": "A", "suite": "4"},
-                        {"config": "D", "suite": "2"},
                     ],
                     "include": [
                         {"config": "D", "suite": "1"},
@@ -276,7 +275,6 @@ class TestBuild(unittest.TestCase):
                         {"config": "B", "suite": "1"},
                         {"config": "B", "suite": "3"},
                         {"config": "C", "suite": "2"},
-                        {"config": "D", "suite": "2"},
                     ],
                     "include": [
                         {"config": "A", "suite": "1", "jdk": "17"},
@@ -337,7 +335,6 @@ class TestBuild(unittest.TestCase):
                     "config": ["default"],
                     "exclude": [
                         {"config": "default", "ignore exclusion if": False},
-                        {"config": "default", "jdk": "11", "suite": "suite-oauth2"},
                     ],
                     "ignore exclusion if": [False],
                     "include": [
