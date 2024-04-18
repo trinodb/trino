@@ -39,7 +39,6 @@ import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.trino.testing.QueryAssertions.copyTable;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -229,14 +228,6 @@ public final class RedshiftQueryRunner
                 " IAM_ROLE '" + IAM_ROLE + "'" +
                 " FORMAT PARQUET";
         executeInRedshiftWithRetry(copySql);
-    }
-
-    private static void copyFromTpchCatalog(QueryRunner queryRunner, Session session, String name)
-    {
-        // This function exists in case we need to copy data from the TPCH catalog rather than S3,
-        // such as moving to a new AWS account or if the schema changes. We can swap this method out for
-        // copyFromS3 in provisionTables and then export the data again to S3.
-        copyTable(queryRunner, TPCH_CATALOG, TINY_SCHEMA_NAME, name, session);
     }
 
     private static void verifyLoadedDataHasSameSchema(Session session, QueryRunner queryRunner, TpchTable<?> tpchTable)
