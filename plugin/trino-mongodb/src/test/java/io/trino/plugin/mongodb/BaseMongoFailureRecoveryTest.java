@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
@@ -43,17 +42,16 @@ public abstract class BaseMongoFailureRecoveryTest
             Map<String, String> coordinatorProperties)
             throws Exception
     {
-        return createMongoQueryRunner(
-                closeAfterClass(new MongoServer()),
-                configProperties,
-                coordinatorProperties,
-                Map.of(),
-                requiredTpchTables,
-                runner -> {
+        return MongoQueryRunner.builder(closeAfterClass(new MongoServer()))
+                .setExtraProperties(configProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", ImmutableMap.of(
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
-                });
+                })
+                .setInitialTables(requiredTpchTables)
+                .build();
     }
 
     @Test
