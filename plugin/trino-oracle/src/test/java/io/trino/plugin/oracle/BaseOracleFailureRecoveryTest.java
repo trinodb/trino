@@ -25,9 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
-import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
-import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
@@ -47,21 +44,16 @@ public abstract class BaseOracleFailureRecoveryTest
             throws Exception
     {
         TestingOracleServer oracleServer = closeAfterClass(new TestingOracleServer());
-        return createOracleQueryRunner(
-                oracleServer,
-                configProperties,
-                coordinatorProperties,
-                ImmutableMap.<String, String>builder()
-                        .put("connection-url", oracleServer.getJdbcUrl())
-                        .put("connection-user", TEST_USER)
-                        .put("connection-password", TEST_PASS)
-                        .buildOrThrow(),
-                requiredTpchTables,
-                runner -> {
+        return OracleQueryRunner.builder(oracleServer)
+                .setExtraProperties(configProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .setInitialTables(requiredTpchTables)
+                .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", ImmutableMap.of(
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
-                });
+                })
+                .build();
     }
 
     @Test
