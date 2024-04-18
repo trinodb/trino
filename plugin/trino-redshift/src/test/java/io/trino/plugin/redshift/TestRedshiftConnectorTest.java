@@ -14,7 +14,6 @@
 package io.trino.plugin.redshift;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.QueryRunner;
@@ -34,7 +33,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.executeInRedshift;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.executeWithRedshift;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -51,12 +49,11 @@ public class TestRedshiftConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRedshiftQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of(),
+        return RedshiftQueryRunner.builder()
                 // NOTE this can cause tests to time-out if larger tables like
                 //  lineitem and orders need to be re-created.
-                REQUIRED_TPCH_TABLES);
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override

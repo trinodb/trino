@@ -37,7 +37,6 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -45,7 +44,6 @@ import static io.trino.plugin.redshift.RedshiftQueryRunner.JDBC_PASSWORD;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.JDBC_URL;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.JDBC_USER;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.executeInRedshift;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -82,7 +80,9 @@ public class TestRedshiftTableStatisticsReader
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRedshiftQueryRunner(Map.of(), Map.of(), ImmutableList.of(CUSTOMER));
+        return RedshiftQueryRunner.builder()
+                .setInitialTables(List.of(CUSTOMER))
+                .build();
     }
 
     @Test

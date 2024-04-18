@@ -13,15 +13,12 @@
  */
 package io.trino.plugin.redshift;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.executeInRedshift;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -33,10 +30,8 @@ public class TestRedshiftAutomaticJoinPushdown
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRedshiftQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableList.of());
+        return RedshiftQueryRunner.builder()
+                .build();
     }
 
     @Test
