@@ -60,13 +60,13 @@ public class TestHiveTaskFailureRecoveryTest
         minioStorage.start();
 
         return S3HiveQueryRunner.builder(hiveMinioDataLake)
-                .setInitialTables(requiredTpchTables)
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
+                .setInitialTables(requiredTpchTables)
                 .build();
     }
 

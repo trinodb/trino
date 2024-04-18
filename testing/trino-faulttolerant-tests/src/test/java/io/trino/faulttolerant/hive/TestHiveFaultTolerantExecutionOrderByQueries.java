@@ -18,6 +18,7 @@ import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestFaultTolerantExecutionOrderByQueries;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +26,6 @@ import java.util.Map;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tpch.TpchTable.getTables;
 
 public class TestHiveFaultTolerantExecutionOrderByQueries
         extends AbstractTestFaultTolerantExecutionOrderByQueries
@@ -45,7 +45,7 @@ public class TestHiveFaultTolerantExecutionOrderByQueries
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
-                .setInitialTables(getTables())
+                .setInitialTables(TpchTable.getTables())
                 .build();
     }
 

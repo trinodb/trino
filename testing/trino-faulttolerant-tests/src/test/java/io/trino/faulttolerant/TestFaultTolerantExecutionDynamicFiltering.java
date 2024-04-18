@@ -53,14 +53,14 @@ public class TestFaultTolerantExecutionDynamicFiltering
                 .buildOrThrow();
 
         return DistributedQueryRunner.builder(getDefaultSession())
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", exchangeManagerProperties);
-                })
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
                 // keep limits lower to test edge cases
                 .addExtraProperty("dynamic-filtering.small.max-distinct-values-per-driver", "10")
                 .addExtraProperty("dynamic-filtering.small.range-row-limit-per-driver", "100")
+                .setAdditionalSetup(runner -> {
+                    runner.installPlugin(new FileSystemExchangePlugin());
+                    runner.loadExchangeManager("filesystem", exchangeManagerProperties);
+                })
                 .build();
     }
 

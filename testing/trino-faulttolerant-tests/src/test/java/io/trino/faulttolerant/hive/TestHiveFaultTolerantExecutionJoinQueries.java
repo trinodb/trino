@@ -51,8 +51,8 @@ public class TestHiveFaultTolerantExecutionJoinQueries
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
-                .setInitialTables(getTables())
                 .addHiveProperty("hive.dynamic-filtering.wait-timeout", "1h")
+                .setInitialTables(getTables())
                 .build();
     }
 

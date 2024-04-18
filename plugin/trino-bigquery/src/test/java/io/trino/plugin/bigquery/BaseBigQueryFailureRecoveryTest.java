@@ -46,13 +46,13 @@ public abstract class BaseBigQueryFailureRecoveryTest
         return BigQueryQueryRunner.builder()
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
-                .setInitialTables(requiredTpchTables)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", ImmutableMap.<String, String>builder()
                             .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
                             .buildOrThrow());
                 })
+                .setInitialTables(requiredTpchTables)
                 .build();
     }
 
