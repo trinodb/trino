@@ -87,6 +87,7 @@ public final class BigQueryQueryRunner
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
