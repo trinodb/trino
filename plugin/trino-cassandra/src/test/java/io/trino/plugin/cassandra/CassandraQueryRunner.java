@@ -73,7 +73,7 @@ public final class CassandraQueryRunner
         queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
 
         createKeyspace(server.getSession(), "tpch");
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
         for (TpchTable<?> table : tables) {
             server.refreshSizeEstimates("tpch", table.getTableName());
         }

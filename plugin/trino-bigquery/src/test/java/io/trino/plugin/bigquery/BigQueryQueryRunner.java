@@ -117,7 +117,7 @@ public final class BigQueryQueryRunner
 
                 queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
                 queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), initialTables);
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
                 return queryRunner;
             }
             catch (Throwable e) {

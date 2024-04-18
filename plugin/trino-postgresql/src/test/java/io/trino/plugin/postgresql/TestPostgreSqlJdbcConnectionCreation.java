@@ -114,7 +114,7 @@ public class TestPostgreSqlJdbcConnectionCreation
                     "connection-url", server.getJdbcUrl(),
                     "connection-user", server.getUser(),
                     "connection-password", server.getPassword()));
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
             return queryRunner;
         }
         catch (Throwable e) {

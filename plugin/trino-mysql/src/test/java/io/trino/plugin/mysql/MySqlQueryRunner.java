@@ -16,7 +16,6 @@ package io.trino.plugin.mysql;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -55,7 +54,10 @@ public final class MySqlQueryRunner
 
         private Builder()
         {
-            super(createSession());
+            super(testSessionBuilder()
+                    .setCatalog("mysql")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
         }
 
         @CanIgnoreReturnValue
@@ -84,7 +86,7 @@ public final class MySqlQueryRunner
                 queryRunner.installPlugin(new MySqlPlugin());
                 queryRunner.createCatalog("mysql", "mysql", connectorProperties);
 
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), initialTables);
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
 
                 return queryRunner;
             }
@@ -93,14 +95,6 @@ public final class MySqlQueryRunner
                 throw e;
             }
         }
-    }
-
-    private static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("mysql")
-                .setSchema(TPCH_SCHEMA)
-                .build();
     }
 
     public static void main(String[] args)

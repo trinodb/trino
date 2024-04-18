@@ -270,8 +270,7 @@ public final class HiveQueryRunner
                     .createMetastore(Optional.empty());
             if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA, initialSchemasLocationBase));
-                Session session = queryRunner.getDefaultSession();
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables);
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
             }
 
             if (tpchBucketedCatalogEnabled && metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {

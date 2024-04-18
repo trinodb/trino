@@ -72,7 +72,7 @@ public final class ClickHouseQueryRunner
             queryRunner.installPlugin(new ClickHousePlugin());
             queryRunner.createCatalog("clickhouse", "clickhouse", connectorProperties);
             queryRunner.execute("CREATE SCHEMA " + TPCH_SCHEMA);
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
             return queryRunner;
         }
         catch (Throwable e) {

@@ -65,7 +65,7 @@ public final class MariaDbQueryRunner
             queryRunner.installPlugin(new MariaDbPlugin());
             queryRunner.createCatalog("mariadb", "mariadb", connectorProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
 
             return queryRunner;
         }

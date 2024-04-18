@@ -265,7 +265,7 @@ public final class DeltaLakeQueryRunner
                             "hive.metastore", "file",
                             "hive.metastore.catalog.dir", metastoreDirectory.toUri().toString()));
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, TpchTable.getTables());
             log.info("Data directory is: %s", metastoreDirectory);
 
             Logger log = Logger.get(DeltaLakeQueryRunner.class);
@@ -310,7 +310,7 @@ public final class DeltaLakeQueryRunner
                     runner -> {});
 
             queryRunner.execute("CREATE SCHEMA tpch WITH (location='s3://" + bucketName + "/tpch')");
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, TpchTable.getTables());
 
             Logger log = Logger.get(DeltaLakeQueryRunner.class);
             log.info("======== SERVER STARTED ========");

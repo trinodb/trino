@@ -78,7 +78,7 @@ public final class MongoQueryRunner
             queryRunner.createCatalog("mongodb", "mongodb", connectorProperties);
             queryRunner.execute("CREATE SCHEMA mongodb." + TPCH_SCHEMA);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
             return queryRunner;
         }
         catch (Throwable e) {
