@@ -102,6 +102,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
@@ -118,6 +119,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROP
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
@@ -167,6 +169,7 @@ import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
+import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
@@ -303,6 +306,12 @@ public final class IcebergUtil
             properties.put(ORC_BLOOM_FILTER_FPP_PROPERTY, Double.parseDouble(orcBloomFilterFpp.get()));
         }
 
+        // iceberg Parquet format bloom filter properties
+        Set<String> parquetBloomFilterColumns = getParquetBloomFilterColumns(icebergTable.properties());
+        if (!parquetBloomFilterColumns.isEmpty()) {
+            properties.put(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY, ImmutableList.copyOf(parquetBloomFilterColumns));
+        }
+
         return properties.buildOrThrow();
     }
 
@@ -317,6 +326,14 @@ public final class IcebergUtil
                 .filter(Objects::nonNull)
                 .findFirst();
         return orcBloomFilterColumns;
+    }
+
+    public static Set<String> getParquetBloomFilterColumns(Map<String, String> properties)
+    {
+        return properties.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX) && "true".equals(entry.getValue()))
+                .map(entry -> entry.getKey().substring(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX.length()))
+                .collect(toImmutableSet());
     }
 
     public static Optional<String> getOrcBloomFilterFpp(Map<String, String> properties)
@@ -776,12 +793,22 @@ public final class IcebergUtil
         propertiesBuilder.put(FORMAT_VERSION, Integer.toString(IcebergTableProperties.getFormatVersion(tableMetadata.getProperties())));
 
         // iceberg ORC format bloom filter properties used by create table
-        List<String> columns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());
-        if (!columns.isEmpty()) {
+        List<String> orcBloomFilterColumns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());
+        if (!orcBloomFilterColumns.isEmpty()) {
             checkFormatForProperty(fileFormat.toIceberg(), FileFormat.ORC, ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
-            validateOrcBloomFilterColumns(tableMetadata, columns);
-            propertiesBuilder.put(ORC_BLOOM_FILTER_COLUMNS, Joiner.on(",").join(columns));
+            validateOrcBloomFilterColumns(tableMetadata, orcBloomFilterColumns);
+            propertiesBuilder.put(ORC_BLOOM_FILTER_COLUMNS, Joiner.on(",").join(orcBloomFilterColumns));
             propertiesBuilder.put(ORC_BLOOM_FILTER_FPP, String.valueOf(IcebergTableProperties.getOrcBloomFilterFpp(tableMetadata.getProperties())));
+        }
+
+        // iceberg Parquet format bloom filter properties used by create table
+        List<String> parquetBloomFilterColumns = IcebergTableProperties.getParquetBloomFilterColumns(tableMetadata.getProperties());
+        if (!parquetBloomFilterColumns.isEmpty()) {
+            checkFormatForProperty(fileFormat.toIceberg(), FileFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
+            validateParquetBloomFilterColumns(tableMetadata, parquetBloomFilterColumns);
+            for (String column : parquetBloomFilterColumns) {
+                propertiesBuilder.put(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX + column, "true");
+            }
         }
 
         if (tableMetadata.getComment().isPresent()) {
@@ -881,6 +908,21 @@ public final class IcebergUtil
                 .collect(toImmutableSet());
         if (!allColumns.containsAll(orcBloomFilterColumns)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Orc bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
+        }
+    }
+
+    private static void validateParquetBloomFilterColumns(ConnectorTableMetadata tableMetadata, List<String> parquetBloomFilterColumns)
+    {
+        Map<String, Type> columnTypes = tableMetadata.getColumns().stream()
+                .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getType));
+        for (String column : parquetBloomFilterColumns) {
+            Type type = columnTypes.get(column);
+            if (type == null) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Parquet Bloom filter column %s not present in schema", column));
+            }
+            if (!SUPPORTED_BLOOM_FILTER_TYPES.contains(type)) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Parquet Bloom filter column %s has unsupported type %s", column, type.getDisplayName()));
+            }
         }
     }
 
