@@ -15,7 +15,7 @@ jobs:
       - uses: actions/labeler@v5
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
-          # Do not sync labels as this reverts manually added "tests:hive" label.
+          # Do not sync labels as this reverts manually added labels such as "tests:all".
           # Syncing labels requires that we define "components" labels.
           sync-labels: false
           configuration-path: .github/config/labeler-config.yml
