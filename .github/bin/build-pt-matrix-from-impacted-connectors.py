@@ -14,9 +14,7 @@ import unittest
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Filter test matrix modules using list of impacted features."
-    )
+    parser = argparse.ArgumentParser(description="Filter test matrix modules using list of impacted features.")
     parser.add_argument(
         "-m",
         "--matrix",
@@ -54,9 +52,7 @@ def main():
         help="test this script instead of executing it",
     )
     args = parser.parse_args()
-    logging.basicConfig(
-        level=args.loglevel, format="%(asctime)s %(levelname)s %(message)s"
-    )
+    logging.basicConfig(level=args.loglevel, format="%(asctime)s %(levelname)s %(message)s")
     if args.test:
         sys.argv = [sys.argv[0]]
         unittest.main()
@@ -99,9 +95,7 @@ def load_available_features_for_config(config, suites, ptl_binary_path):
         "JSON",
     ]
     logging.debug("executing: %s", " ".join(cmd))
-    process = subprocess.run(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
-    )
+    process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     logging.debug("ptl suite describe: %s", process)
     if process.returncode != 0:
         raise RuntimeError(f"ptl suite describe failed: {process}")
@@ -129,9 +123,7 @@ def load_available_features_for_config(config, suites, ptl_binary_path):
 def load_available_features(configToSuiteMap, ptl_binary_path):
     available_features = {}
     for config, suites in configToSuiteMap.items():
-        available_features.update(
-            load_available_features_for_config(config, suites, ptl_binary_path)
-        )
+        available_features.update(load_available_features_for_config(config, suites, ptl_binary_path))
     return available_features
 
 
@@ -148,9 +140,7 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
         output_file.write("\n")
         return
 
-    impacted_features = list(
-        filter(None, [line.rstrip() for line in impacted_file.readlines()])
-    )
+    impacted_features = list(filter(None, [line.rstrip() for line in impacted_file.readlines()]))
     logging.info("Read impacted_features: %s", impacted_features)
     result = copy.copy(matrix)
     items = expand_matrix(matrix)
@@ -163,9 +153,7 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
     if len(available_features) > 0:
         all_excluded = True
         for item in items:
-            features = tested_features(
-                available_features, item.get("config"), item.get("suite")
-            )
+            features = tested_features(available_features, item.get("config"), item.get("suite"))
             logging.debug("matrix item features: %s", features)
             if not any(feature in impacted_features for feature in features):
                 logging.info("Excluding matrix entry due to features: %s", item)
@@ -390,13 +378,9 @@ class TestBuild(unittest.TestCase):
         ]
         for matrix, impacted, ptl_binary_path, expected in cases:
             with self.subTest():
-                with tempfile.TemporaryFile(
+                with tempfile.TemporaryFile("w+") as matrix_file, tempfile.TemporaryFile(
                     "w+"
-                ) as matrix_file, tempfile.TemporaryFile(
-                    "w+"
-                ) as impacted_file, tempfile.TemporaryFile(
-                    "w+"
-                ) as output_file:
+                ) as impacted_file, tempfile.TemporaryFile("w+") as output_file:
                     # given
                     yaml.dump(matrix, matrix_file)
                     matrix_file.seek(0)
@@ -407,9 +391,7 @@ class TestBuild(unittest.TestCase):
                     else:
                         impacted_file_final = None
                     # when
-                    build(
-                        matrix_file, impacted_file_final, output_file, ptl_binary_path
-                    )
+                    build(matrix_file, impacted_file_final, output_file, ptl_binary_path)
                     output_file.seek(0)
                     output = json.load(output_file)
                     # then
