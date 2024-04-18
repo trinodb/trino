@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import io.opentelemetry.api.trace.Span;
@@ -40,6 +39,7 @@ import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -47,7 +47,6 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.trino.plugin.mongodb.MongoSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
@@ -63,13 +62,10 @@ public class TestMongoDynamicFiltering
             throws Exception
     {
         MongoServer server = closeAfterClass(new MongoServer());
-        return createMongoQueryRunner(
-                server,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of("mongodb.dynamic-filtering.wait-timeout", "1h"),
-                TpchTable.getTables(),
-                runner -> {});
+        return MongoQueryRunner.builder(server)
+                .addConnectorProperties(Map.of("mongodb.dynamic-filtering.wait-timeout", "1h"))
+                .setInitialTables(TpchTable.getTables())
+                .build();
     }
 
     @Test

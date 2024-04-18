@@ -13,29 +13,32 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
 public final class MongoQueryRunner
 {
+    private MongoQueryRunner() {}
+
     static {
         Logging logging = Logging.initialize();
         logging.setLevel("org.mongodb.driver", Level.OFF);
@@ -43,56 +46,62 @@ public final class MongoQueryRunner
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    private MongoQueryRunner() {}
-
-    public static QueryRunner createMongoQueryRunner(MongoServer server, Map<String, String> extraProperties, Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static Builder builder(MongoServer server)
     {
-        return createMongoQueryRunner(server, extraProperties, ImmutableMap.of(), ImmutableMap.of(), tables, runner -> {});
+        return new Builder()
+                .addConnectorProperties(Map.of("mongodb.connection-url", server.getConnectionString().toString()));
     }
 
-    public static QueryRunner createMongoQueryRunner(
-            MongoServer server,
-            Map<String, String> extraProperties,
-            Map<String, String> coordinatorProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables,
-            Consumer<QueryRunner> moreSetup)
-            throws Exception
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        QueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
-                    .setCoordinatorProperties(coordinatorProperties)
-                    .setAdditionalSetup(moreSetup)
-                    .build();
+        private final Map<String, String> connectorProperties = new HashMap<>();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("mongodb.connection-url", server.getConnectionString().toString());
-
-            queryRunner.installPlugin(new MongoPlugin());
-            queryRunner.createCatalog("mongodb", "mongodb", connectorProperties);
-            queryRunner.execute("CREATE SCHEMA mongodb." + TPCH_SCHEMA);
-
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
-            return queryRunner;
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("mongodb")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
-    }
 
-    public static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("mongodb")
-                .setSchema(TPCH_SCHEMA)
-                .build();
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties.putAll(requireNonNull(connectorProperties, "connectorProperties is null"));
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                queryRunner.installPlugin(new MongoPlugin());
+                queryRunner.createCatalog("mongodb", "mongodb", connectorProperties);
+                queryRunner.execute("CREATE SCHEMA mongodb." + TPCH_SCHEMA);
+
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     public static MongoClient createMongoClient(MongoServer server)
@@ -103,10 +112,10 @@ public final class MongoQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = createMongoQueryRunner(
-                new MongoServer(),
-                ImmutableMap.of("http-server.http.port", "8080"),
-                TpchTable.getTables());
+        QueryRunner queryRunner = builder(new MongoServer())
+                .addExtraProperty("http-server.http.port", "8080")
+                .setInitialTables(TpchTable.getTables())
+                .build();
         Logger log = Logger.get(MongoQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
