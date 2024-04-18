@@ -174,10 +174,10 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
 class TestBuild(unittest.TestCase):
     def test_build(self):
         self.maxDiff = None
-        # cases are tuples of: matrix, impacted, ptl_binary_path, expected
+        # cases are tuples of: name, matrix, impacted, ptl_binary_path, expected
         cases = [
-            # impacted features empty, all items are excluded and an empty matrix is returned
             (
+                "impacted features empty, all items are excluded and an empty matrix is returned",
                 {
                     "config": ["A", "B", "C"],
                     "suite": ["1", "2", "3"],
@@ -186,8 +186,8 @@ class TestBuild(unittest.TestCase):
                 ".github/bin/fake-ptl",
                 {},
             ),
-            # no impacted features, ptl is not called, no changes to matrix
             (
+                "no impacted features, ptl is not called, no changes to matrix",
                 {
                     "config": ["A", "B", "C"],
                     "suite": ["1", "2", "3"],
@@ -199,8 +199,8 @@ class TestBuild(unittest.TestCase):
                     "suite": ["1", "2", "3"],
                 },
             ),
-            # missing features get added to exclude list
             (
+                "missing features get added to exclude list",
                 {
                     "config": ["A", "B", "C"],
                     "suite": ["1", "2", "3"],
@@ -219,8 +219,8 @@ class TestBuild(unittest.TestCase):
                     ],
                 },
             ),
-            # missing features get removed from include list
             (
+                "missing features get removed from include list",
                 {
                     "config": ["A", "B", "C"],
                     "suite": ["1", "2", "3"],
@@ -249,8 +249,8 @@ class TestBuild(unittest.TestCase):
                     ],
                 },
             ),
-            # missing features get added to exclude list and removed from include
             (
+                "missing features get added to exclude list and removed from include",
                 {
                     "config": ["A", "B", "C"],
                     "suite": ["1", "2", "3"],
@@ -286,7 +286,7 @@ class TestBuild(unittest.TestCase):
             ),
             # integration test with real PTL
             (
-                # input matrix
+                "input matrix",
                 {
                     "config": ["default", "hdp3"],
                     "suite": ["suite-1", "suite-2", "suite-3", "suite-5"],
@@ -376,8 +376,8 @@ class TestBuild(unittest.TestCase):
                 },
             ),
         ]
-        for matrix, impacted, ptl_binary_path, expected in cases:
-            with self.subTest():
+        for name, matrix, impacted, ptl_binary_path, expected in cases:
+            with self.subTest(name):
                 with tempfile.TemporaryFile("w+") as matrix_file, tempfile.TemporaryFile(
                     "w+"
                 ) as impacted_file, tempfile.TemporaryFile("w+") as output_file:
