@@ -288,7 +288,7 @@ class TestBuild(unittest.TestCase):
             (
                 "input matrix",
                 {
-                    "config": ["default", "hdp3"],
+                    "config": ["default"],
                     "suite": ["suite-1", "suite-2", "suite-3", "suite-5"],
                     "jdk": ["11"],
                     "ignore exclusion if": [False],
@@ -308,7 +308,7 @@ class TestBuild(unittest.TestCase):
                         },
                         {
                             "config": "default",
-                            "suite": "suite-8-non-generic",
+                            "suite": "suite-hive-transactional",
                             "jdk": "11",
                         },
                         {"config": "default", "suite": "suite-tpcds", "jdk": "11"},
@@ -320,12 +320,12 @@ class TestBuild(unittest.TestCase):
                             "jdk": "11",
                         },
                         {
-                            "config": "apache-hive3",
+                            "config": "default",
                             "suite": "suite-hms-only",
                             "jdk": "11",
                         },
-                        {"config": "hdp3", "suite": "suite-1", "jdk": "17"},
-                        {"config": "hdp3", "suite": "suite-2", "jdk": "17"},
+                        {"config": "default", "suite": "suite-1", "jdk": "17"},
+                        {"config": "default", "suite": "suite-2", "jdk": "17"},
                     ],
                 },
                 # impacted features
@@ -334,7 +334,7 @@ class TestBuild(unittest.TestCase):
                 "testing/bin/ptl",
                 # expected matrix
                 {
-                    "config": ["default", "hdp3"],
+                    "config": ["default"],
                     "exclude": [
                         {"config": "default", "ignore exclusion if": False},
                         {"config": "default", "jdk": "11", "suite": "suite-oauth2"},
@@ -354,7 +354,7 @@ class TestBuild(unittest.TestCase):
                         {
                             "config": "default",
                             "jdk": "11",
-                            "suite": "suite-8-non-generic",
+                            "suite": "suite-hive-transactional",
                         },
                         {"config": "default", "jdk": "11", "suite": "suite-tpcds"},
                         {"config": "default", "jdk": "11", "suite": "suite-ldap"},
@@ -364,12 +364,12 @@ class TestBuild(unittest.TestCase):
                             "suite": "suite-compatibility",
                         },
                         {
-                            "config": "apache-hive3",
+                            "config": "default",
                             "jdk": "11",
                             "suite": "suite-hms-only",
                         },
-                        {"config": "hdp3", "jdk": "17", "suite": "suite-1"},
-                        {"config": "hdp3", "jdk": "17", "suite": "suite-2"},
+                        {"config": "default", "jdk": "17", "suite": "suite-1"},
+                        {"config": "default", "jdk": "17", "suite": "suite-2"},
                     ],
                     "jdk": ["11"],
                     "suite": ["suite-1", "suite-2", "suite-3", "suite-5"],
