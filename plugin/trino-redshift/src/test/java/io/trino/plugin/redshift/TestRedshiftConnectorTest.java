@@ -21,7 +21,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -57,7 +56,7 @@ public class TestRedshiftConnectorTest
                 ImmutableMap.of(),
                 // NOTE this can cause tests to time-out if larger tables like
                 //  lineitem and orders need to be re-created.
-                TpchTable.getTables());
+                REQUIRED_TPCH_TABLES);
     }
 
     @Override
