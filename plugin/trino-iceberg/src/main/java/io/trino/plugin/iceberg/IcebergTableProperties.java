@@ -45,6 +45,7 @@ public class IcebergTableProperties
     public static final String FORMAT_VERSION_PROPERTY = "format_version";
     public static final String ORC_BLOOM_FILTER_COLUMNS_PROPERTY = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP_PROPERTY = "orc_bloom_filter_fpp";
+    public static final String PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY = "parquet_bloom_filter_columns";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -107,6 +108,18 @@ public class IcebergTableProperties
                         orcWriterConfig.getDefaultBloomFilterFpp(),
                         IcebergTableProperties::validateOrcBloomFilterFpp,
                         false))
+                .add(new PropertyMetadata<>(
+                        PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY,
+                        "Parquet Bloom filter index columns",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ((List<?>) value).stream()
+                                .map(String.class::cast)
+                                .map(name -> name.toLowerCase(ENGLISH))
+                                .collect(toImmutableList()),
+                        value -> value))
                 .build();
     }
 
@@ -168,5 +181,11 @@ public class IcebergTableProperties
         if (fpp < 0.0 || fpp > 1.0) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, "Bloom filter fpp value must be between 0.0 and 1.0");
         }
+    }
+
+    public static List<String> getParquetBloomFilterColumns(Map<String, Object> tableProperties)
+    {
+        List<String> parquetBloomFilterColumns = (List<String>) tableProperties.get(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
+        return parquetBloomFilterColumns == null ? ImmutableList.of() : ImmutableList.copyOf(parquetBloomFilterColumns);
     }
 }

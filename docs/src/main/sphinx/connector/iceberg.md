@@ -716,6 +716,10 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
 * - `orc_bloom_filter_fpp`
   - The ORC bloom filters false positive probability. Requires ORC format.
     Defaults to `0.05`.
+* - `parquet_bloom_filter_columns`
+  - Comma-separated list of columns to use for Parquet bloom filter. It improves
+    the performance of queries using Equality and IN predicates when reading
+    Parquet files. Requires Parquet format. Defaults to `[]`.
 :::
 
 The table definition below specifies to use Parquet files, partitioning by columns
