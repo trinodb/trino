@@ -85,7 +85,7 @@ public final class SqlServerQueryRunner
             queryRunner.createCatalog(CATALOG, "sqlserver", connectorProperties);
             log.info("%s catalog properties: %s", CATALOG, connectorProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
 
             return queryRunner;
         }

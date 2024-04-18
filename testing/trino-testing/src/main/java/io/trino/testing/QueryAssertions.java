@@ -496,6 +496,15 @@ public final class QueryAssertions
             QueryRunner queryRunner,
             String sourceCatalog,
             String sourceSchema,
+            Iterable<TpchTable<?>> tables)
+    {
+        copyTpchTables(queryRunner, sourceCatalog, sourceSchema, queryRunner.getDefaultSession(), tables);
+    }
+
+    public static void copyTpchTables(
+            QueryRunner queryRunner,
+            String sourceCatalog,
+            String sourceSchema,
             Session session,
             Iterable<TpchTable<?>> tables)
     {

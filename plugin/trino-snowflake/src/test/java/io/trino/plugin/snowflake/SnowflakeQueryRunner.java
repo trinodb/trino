@@ -60,7 +60,7 @@ public final class SnowflakeQueryRunner
             queryRunner.createCatalog("snowflake", "snowflake", connectorProperties);
 
             queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
 
             return queryRunner;
         }

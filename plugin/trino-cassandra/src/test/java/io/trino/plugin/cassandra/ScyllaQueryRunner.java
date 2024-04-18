@@ -62,7 +62,7 @@ public final class ScyllaQueryRunner
             queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
 
             createKeyspace(server.getSession(), "tpch");
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession("tpch"), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
             for (TpchTable<?> table : tables) {
                 server.refreshSizeEstimates("tpch", table.getTableName());
             }

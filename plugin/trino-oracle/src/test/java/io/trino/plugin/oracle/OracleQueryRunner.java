@@ -70,6 +70,7 @@ public final class OracleQueryRunner
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
@@ -88,7 +89,7 @@ public final class OracleQueryRunner
                 queryRunner.installPlugin(new OraclePlugin());
                 queryRunner.createCatalog("oracle", "oracle", connectorProperties);
 
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), initialTables);
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
 
                 return queryRunner;
             }
