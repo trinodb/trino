@@ -46,12 +46,12 @@ public abstract class BasePostgresFailureRecoveryTest
         return PostgreSqlQueryRunner.builder(closeAfterClass(new TestingPostgreSqlServer()))
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(configProperties)
-                .setInitialTables(requiredTpchTables)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", ImmutableMap.of(
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 })
+                .setInitialTables(requiredTpchTables)
                 .build();
     }
 

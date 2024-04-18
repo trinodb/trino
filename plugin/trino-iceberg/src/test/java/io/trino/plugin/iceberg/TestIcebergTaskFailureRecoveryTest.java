@@ -53,13 +53,13 @@ public class TestIcebergTaskFailureRecoveryTest
         minioStorage.start();
 
         return IcebergQueryRunner.builder()
-                .setInitialTables(requiredTpchTables)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setExtraProperties(configProperties)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
+                .setInitialTables(requiredTpchTables)
                 .build();
     }
 

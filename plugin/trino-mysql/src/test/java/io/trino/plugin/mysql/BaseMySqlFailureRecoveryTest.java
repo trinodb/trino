@@ -46,12 +46,12 @@ public abstract class BaseMySqlFailureRecoveryTest
         return MySqlQueryRunner.builder(closeAfterClass(new TestingMySqlServer()))
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
-                .setInitialTables(requiredTpchTables)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", ImmutableMap.of(
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 })
+                .setInitialTables(requiredTpchTables)
                 .build();
     }
 
