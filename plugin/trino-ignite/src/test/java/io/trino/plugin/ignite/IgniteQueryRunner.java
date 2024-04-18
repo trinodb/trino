@@ -59,7 +59,7 @@ public final class IgniteQueryRunner
             queryRunner.installPlugin(new IgnitePlugin());
             queryRunner.createCatalog("ignite", "ignite", connectorProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
             return queryRunner;
         }
         catch (Throwable e) {

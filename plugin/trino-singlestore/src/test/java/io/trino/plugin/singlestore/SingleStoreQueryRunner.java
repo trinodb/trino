@@ -58,7 +58,7 @@ public class SingleStoreQueryRunner
             queryRunner.installPlugin(new SingleStorePlugin());
             queryRunner.createCatalog("singlestore", "singlestore", connectorProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
 
             return queryRunner;
         }

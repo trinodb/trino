@@ -16,7 +16,6 @@ package io.trino.plugin.postgresql;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -57,7 +56,10 @@ public final class PostgreSqlQueryRunner
 
         private Builder()
         {
-            super(createSession());
+            super(testSessionBuilder()
+                    .setCatalog("postgresql")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
         }
 
         @CanIgnoreReturnValue
@@ -86,7 +88,7 @@ public final class PostgreSqlQueryRunner
                 queryRunner.installPlugin(new PostgreSqlPlugin());
                 queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
 
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), initialTables);
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
 
                 return queryRunner;
             }
@@ -95,14 +97,6 @@ public final class PostgreSqlQueryRunner
                 throw e;
             }
         }
-    }
-
-    private static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("postgresql")
-                .setSchema(TPCH_SCHEMA)
-                .build();
     }
 
     public static void main(String[] args)
