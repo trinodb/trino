@@ -42,11 +42,10 @@ public class TestSqlServerTableStatistics
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        return SqlServerQueryRunner.createSqlServerQueryRunner(
-                sqlServer,
-                Map.of(),
-                Map.of("case-insensitive-name-matching", "true"),
-                List.of(ORDERS));
+        return SqlServerQueryRunner.builder(sqlServer)
+                .addConnectorProperties(Map.of("case-insensitive-name-matching", "true"))
+                .setInitialTables(List.of(ORDERS))
+                .build();
     }
 
     @Override
