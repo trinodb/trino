@@ -94,6 +94,7 @@ public class TestKafkaConnectorTest
             throws Exception
     {
         testingKafka = closeAfterClass(TestingKafka.create());
+        testingKafka.start();
         rawFormatTopic = "test_raw_" + UUID.randomUUID().toString().replaceAll("-", "_");
         headersTopic = "test_header_" + UUID.randomUUID().toString().replaceAll("-", "_");
 
