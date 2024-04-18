@@ -23,7 +23,6 @@ import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -150,15 +149,9 @@ public final class RedshiftQueryRunner
 
     private static Session createSession()
     {
-        return createSession(GRANTED_USER);
-    }
-
-    private static Session createSession(String user)
-    {
         return testSessionBuilder()
                 .setCatalog(TEST_CATALOG)
                 .setSchema(TEST_SCHEMA)
-                .setIdentity(Identity.ofUser(user))
                 .build();
     }
 
