@@ -21,7 +21,6 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
@@ -294,30 +293,5 @@ public class TestSqlServerConnectorTest
     {
         // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/10846
         executeExclusively(super::testSelectInformationSchemaColumns);
-    }
-
-    @Override
-    @Test
-    @Disabled
-    public void testComplexJoinPushdown()
-    {
-        // Join pushdown in SQL server produces different behavior depending
-        // on whether the plan contains an inner join node with a filter vs
-        // the filter on top of the join.
-        //
-        // The connector is producing column stats inconsistently, based on timing.
-        // This causes join reordering to sometimes fire before join pushdown happens.
-        // When it fires, it produces a slightly different plan that the connector
-        // accepts for pushdown, which causes the assertions to fail.
-
-        // TODO: fix join pushdown in SQL server connector by making filter(<f>, innerjoin(l, r, true)) work the same as innerjoin(l, r, <f>)
-    }
-
-    @Override
-    @Test
-    public void testJoinPushdown()
-    {
-        // TODO: fix join pushdown in SQL server connector
-        // See testComplexJoinPushdown() for explanation
     }
 }
