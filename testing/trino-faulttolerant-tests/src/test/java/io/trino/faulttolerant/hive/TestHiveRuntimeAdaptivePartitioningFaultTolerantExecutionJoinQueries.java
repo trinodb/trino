@@ -20,7 +20,6 @@ import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestFaultTolerantExecutionJoinQueries;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -47,7 +46,7 @@ public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionJoinQuerie
                             System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 })
                 .addHiveProperty("hive.dynamic-filtering.wait-timeout", "1h")
-                .setInitialTables(TpchTable.getTables())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 

@@ -24,7 +24,6 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.tpch.TpchTable;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
@@ -71,7 +70,7 @@ public abstract class BaseElasticsearchConnectorTest
     {
         return createElasticsearchQueryRunner(
                 server,
-                TpchTable.getTables(),
+                REQUIRED_TPCH_TABLES,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 catalogName);

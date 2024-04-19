@@ -28,7 +28,6 @@ import java.util.Map;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tpch.TpchTable.getTables;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -52,7 +51,7 @@ public class TestHiveFaultTolerantExecutionJoinQueries
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
                 .addHiveProperty("hive.dynamic-filtering.wait-timeout", "1h")
-                .setInitialTables(getTables())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 
