@@ -69,6 +69,10 @@ public class TestMemoryConnectorTest
                         .put("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
                         // disable semi join to inner join rewrite to test semi join operators explicitly
                         .put("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
+                        // enable CREATE FUNCTION
+                        .put("sql.path", "memory.functions")
+                        .put("sql.default-function-catalog", "memory")
+                        .put("sql.default-function-schema", "functions")
                         .buildOrThrow(),
                 ImmutableSet.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
