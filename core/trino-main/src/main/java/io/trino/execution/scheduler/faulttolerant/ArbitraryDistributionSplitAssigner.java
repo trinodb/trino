@@ -104,7 +104,7 @@ class ArbitraryDistributionSplitAssigner
     public AssignmentResult assign(PlanNodeId planNodeId, ListMultimap<Integer, Split> splits, boolean noMoreSplits)
     {
         for (Split split : splits.values()) {
-            Optional<CatalogHandle> splitCatalogRequirement = Optional.of(split.catalogHandle())
+            Optional<CatalogHandle> splitCatalogRequirement = Optional.of(split.getCatalogHandle())
                     .filter(catalog -> !catalog.getType().isInternal() && !catalog.equals(REMOTE_CATALOG_HANDLE));
             checkArgument(
                     catalogRequirement.isEmpty() || catalogRequirement.equals(splitCatalogRequirement),
@@ -343,7 +343,7 @@ class ArbitraryDistributionSplitAssigner
 
     private Optional<HostAddress> getHostRequirement(Split split)
     {
-        if (split.connectorSplit().isRemotelyAccessible()) {
+        if (split.getConnectorSplit().isRemotelyAccessible()) {
             return Optional.empty();
         }
         List<HostAddress> addresses = split.getAddresses();
@@ -369,8 +369,8 @@ class ArbitraryDistributionSplitAssigner
 
     private long getSplitSizeInBytes(Split split)
     {
-        if (split.catalogHandle().equals(REMOTE_CATALOG_HANDLE)) {
-            RemoteSplit remoteSplit = (RemoteSplit) split.connectorSplit();
+        if (split.getCatalogHandle().equals(REMOTE_CATALOG_HANDLE)) {
+            RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
             SpoolingExchangeInput exchangeInput = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
             long size = 0;
             for (ExchangeSourceHandle handle : exchangeInput.getExchangeSourceHandles()) {

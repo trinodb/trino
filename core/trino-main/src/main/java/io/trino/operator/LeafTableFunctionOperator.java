@@ -148,7 +148,7 @@ public class LeafTableFunctionOperator
     public void addSplit(Split split)
     {
         checkState(!noMoreSplits, "no more splits expected");
-        pendingSplits.add(split.connectorSplit());
+        pendingSplits.add(split.getConnectorSplit());
     }
 
     @Override

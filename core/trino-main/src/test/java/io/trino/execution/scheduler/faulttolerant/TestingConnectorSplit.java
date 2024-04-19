@@ -113,6 +113,6 @@ class TestingConnectorSplit
 
     public static int getSplitId(Split split)
     {
-        return ((TestingConnectorSplit) split.connectorSplit()).getId();
+        return ((TestingConnectorSplit) split.getConnectorSplit()).getId();
     }
 }
