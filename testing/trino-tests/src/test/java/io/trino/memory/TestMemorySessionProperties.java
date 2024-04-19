@@ -32,7 +32,9 @@ public class TestMemorySessionProperties
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunner.builder().setNodeCount(2).build();
+        return TpchQueryRunner.builder()
+                .setWorkerCount(1)
+                .build();
     }
 
     @Test

@@ -68,7 +68,7 @@ public class TestIcebergAlluxioCacheFileOperations
                         .withSchemaName(TEST_SCHEMA)
                         .build())
                 .setIcebergProperties(icebergProperties)
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .build();
         queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
         return queryRunner;

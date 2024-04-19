@@ -371,7 +371,7 @@ public class TestMemoryManager
     {
         return TpchQueryRunner.builder()
                 .amendSession(sessionBuilder -> Session.builder(session))
-                .setNodeCount(2)
+                .setWorkerCount(1)
                 .setExtraProperties(extraProperties)
                 .build();
     }
