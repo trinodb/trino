@@ -101,7 +101,6 @@ import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 
 /**
@@ -263,7 +262,7 @@ public final class CommonSubqueriesExtractor
                             symbolMapper.map(commonDynamicFilterDisjuncts),
                             commonColumnHandles,
                             createAdaptationPredicate(adaptationConjuncts, symbolMapper),
-                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping, symbolMapper),
+                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping),
                             columnIdMapping,
                             adaptationConjuncts);
                 })
@@ -303,7 +302,7 @@ public final class CommonSubqueriesExtractor
                             planSignature,
                             childAdaptation,
                             createAdaptationPredicate(adaptationConjuncts, symbolMapper),
-                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping, symbolMapper),
+                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping),
                             columnIdMapping,
                             adaptationConjuncts);
                 }).collect(toImmutableList());
@@ -328,7 +327,6 @@ public final class CommonSubqueriesExtractor
         return zip(subplans.stream(), childAdaptations.stream(),
                 (subplan, childAdaptation) -> {
                     Map<CacheColumnId, Symbol> columnIdMapping = createSubplanColumnIdMapping(subplan, commonColumnIds, Optional.of(childAdaptation));
-                    SymbolMapper symbolMapper = createSymbolMapper(columnIdMapping);
                     TopNRankingNode originalPlanNode = (TopNRankingNode) subplan.getOriginalPlanNode();
                     TopNRankingKey key = (TopNRankingKey) subplan.getKey();
                     // recreate specification that matches common partition column order
@@ -351,8 +349,8 @@ public final class CommonSubqueriesExtractor
                             commonSubplan,
                             planSignature,
                             childAdaptation,
-                            createAdaptationPredicate(adaptationConjuncts, symbolMapper),
-                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping, symbolMapper),
+                            createAdaptationPredicate(adaptationConjuncts, createSymbolMapper(columnIdMapping)),
+                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping),
                             columnIdMapping,
                             adaptationConjuncts);
                 }).collect(toImmutableList());
@@ -376,7 +374,6 @@ public final class CommonSubqueriesExtractor
         return zip(subplans.stream(), childAdaptations.stream(),
                 (subplan, childAdaptation) -> {
                     Map<CacheColumnId, Symbol> columnIdMapping = createSubplanColumnIdMapping(subplan, commonColumnIds, Optional.of(childAdaptation));
-                    SymbolMapper symbolMapper = createSymbolMapper(columnIdMapping);
                     TopNNode originalPlanNode = (TopNNode) subplan.getOriginalPlanNode();
                     PlanNode commonSubplan = new TopNNode(
                             idAllocator.getNextId(),
@@ -389,8 +386,8 @@ public final class CommonSubqueriesExtractor
                             commonSubplan,
                             planSignature,
                             childAdaptation,
-                            createAdaptationPredicate(adaptationConjuncts, symbolMapper),
-                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping, symbolMapper),
+                            createAdaptationPredicate(adaptationConjuncts, createSymbolMapper(columnIdMapping)),
+                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping),
                             columnIdMapping,
                             adaptationConjuncts);
                 }).collect(toImmutableList());
@@ -417,7 +414,6 @@ public final class CommonSubqueriesExtractor
         return zip(subplans.stream(), childAdaptations.stream(),
                 (subplan, childAdaptation) -> {
                     Map<CacheColumnId, Symbol> columnIdMapping = createSubplanColumnIdMapping(subplan, commonColumnIds, Optional.of(childAdaptation));
-                    SymbolMapper symbolMapper = createSymbolMapper(columnIdMapping);
                     PlanNode commonSubplan = createSubplanAggregation(
                             childAdaptation.getCommonSubplan(),
                             commonProjections,
@@ -428,8 +424,8 @@ public final class CommonSubqueriesExtractor
                             commonSubplan,
                             planSignature,
                             childAdaptation,
-                            createAdaptationPredicate(adaptationConjuncts, symbolMapper),
-                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping, symbolMapper),
+                            createAdaptationPredicate(adaptationConjuncts, createSymbolMapper(columnIdMapping)),
+                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping),
                             columnIdMapping,
                             adaptationConjuncts);
                 }).collect(toImmutableList());
@@ -469,7 +465,7 @@ public final class CommonSubqueriesExtractor
         Map<CacheColumnId, CacheExpression> commonProjections = subplans.stream()
                 .flatMap(subplan -> subplan.getAssignments().entrySet().stream())
                 .distinct()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, CommonSubqueriesExtractor::getSmallerExpression));
         // Common subquery must propagate all symbols used in adaptation predicates.
         Map<CacheColumnId, CacheExpression> propagatedSymbols = childAdaptations
                 // Append adaptation conjuncts from child adaptations (if present)
@@ -486,7 +482,22 @@ public final class CommonSubqueriesExtractor
         pullupColumns.ifPresent(columns -> checkState(columns.containsAll(propagatedSymbols.keySet()), "pullup columns don't contain all propagated symbols"));
         return Streams.concat(commonProjections.entrySet().stream(), propagatedSymbols.entrySet().stream())
                 .distinct()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, CommonSubqueriesExtractor::getSmallerExpression));
+    }
+
+    private static CacheExpression getSmallerExpression(CacheExpression first, CacheExpression second)
+    {
+        checkArgument(first.projection().isPresent() == second.projection().isPresent());
+        if (first.aggregation().isPresent()) {
+            // Supported aggregations can only have canonical symbol arguments, hence there should be no evaluation ambiguity.
+            checkArgument(first.aggregation().equals(second.aggregation()));
+            return first;
+        }
+        // Prefer smaller expression trees.
+        if (IrUtils.preOrder(first.projection().get()).count() <= IrUtils.preOrder(second.projection().get()).count()) {
+            return first;
+        }
+        return second;
     }
 
     private static Map<CacheColumnId, ColumnHandle> extractCommonColumnHandles(List<CanonicalSubplan> subplans)
@@ -622,12 +633,13 @@ public final class CommonSubqueriesExtractor
 
     private Map<CacheColumnId, Symbol> createSubplanColumnIdMapping(CanonicalSubplan subplan, Map<CacheColumnId, Symbol> commonColumnIds, Optional<CommonPlanAdaptation> childAdaptation)
     {
-        Map<CacheColumnId, Symbol> columnIdMapping = new LinkedHashMap<>(subplan.getOriginalSymbolMapping());
         // Propagate column id<->symbol mappings from child adaptation
-        childAdaptation
+        Map<CacheColumnId, Symbol> columnIdMapping = new LinkedHashMap<>(childAdaptation
                 .map(CommonPlanAdaptation::getColumnIdMapping)
-                .orElse(ImmutableMap.of())
-                .forEach((key, value) -> checkState(columnIdMapping.putIfAbsent(key, value) == null || columnIdMapping.get(key).equals(value), "Column id is mapped to a different symbol"));
+                .orElse(ImmutableMap.of()));
+        // Propagate original symbol names only if they don't override symbols from child adaptation since
+        // child adaptation might use different symbols for column ids than original subplan.
+        subplan.getOriginalSymbolMapping().forEach(columnIdMapping::putIfAbsent);
         // Create new symbols for column ids that were not used in original subplan, but are part of common subquery now
         commonColumnIds
                 .forEach((key, value) -> columnIdMapping.computeIfAbsent(key, ignored -> symbolAllocator.newSymbol(value)));
@@ -787,7 +799,12 @@ public final class CommonSubqueriesExtractor
             Map<CacheColumnId, Symbol> columnIdMapping,
             SymbolMapper symbolMapper)
     {
-        return createSubplanAssignments(subplan, projections, columnIdMapping, symbolMapper)
+        return createSubplanAssignments(
+                subplan,
+                projections.entrySet().stream()
+                        .collect(toImmutableMap(
+                                entry -> columnIdMapping.get(entry.getKey()),
+                                entry -> symbolMapper.map(entry.getValue().projection().orElseThrow()))))
                 .map(assignments -> (PlanNode) new ProjectNode(idAllocator.getNextId(), subplan, assignments))
                 .orElse(subplan);
     }
@@ -795,35 +812,20 @@ public final class CommonSubqueriesExtractor
     private static Optional<Assignments> createAdaptationAssignments(
             PlanNode subplan,
             CanonicalSubplan canonicalSubplan,
-            Map<CacheColumnId, Symbol> columnIdMapping,
-            SymbolMapper symbolMapper)
+            Map<CacheColumnId, Symbol> columnIdMapping)
     {
         // Prune and order common subquery output in order to match original subquery.
-        Map<CacheColumnId, CacheExpression> projections = canonicalSubplan.getAssignments().keySet().stream()
+        Map<Symbol, Expression> projections = canonicalSubplan.getAssignments().keySet().stream()
                 .collect(toImmutableMap(
-                        identity(),
-                        id -> {
-                            Symbol symbol = requireNonNull(columnIdMapping.get(id), () -> format("No symbol for column id: %s", id));
-                            return CacheExpression.ofProjection(columnIdToSymbol(id, symbol.getType()).toSymbolReference());
-                        }));
-        return createSubplanAssignments(
-                subplan,
-                projections,
-                columnIdMapping,
-                symbolMapper);
+                        // Use original output symbols for adaptation projection.
+                        id -> canonicalSubplan.getOriginalSymbolMapping().get(id),
+                        id -> columnIdMapping.get(id).toSymbolReference()));
+        return createSubplanAssignments(subplan, projections);
     }
 
-    private static Optional<Assignments> createSubplanAssignments(
-            PlanNode subplan,
-            Map<CacheColumnId, CacheExpression> projections,
-            Map<CacheColumnId, Symbol> columnIdMapping,
-            SymbolMapper symbolMapper)
+    private static Optional<Assignments> createSubplanAssignments(PlanNode subplan, Map<Symbol, Expression> projections)
     {
-        // Remap CacheColumnIds and symbols into specific subquery symbols
-        Assignments assignments = Assignments.copyOf(projections.entrySet().stream()
-                .collect(toImmutableMap(
-                        entry -> columnIdMapping.get(entry.getKey()),
-                        entry -> symbolMapper.map(entry.getValue().projection().orElseThrow()))));
+        Assignments assignments = Assignments.copyOf(projections);
 
         // cache is sensitive to output symbols order
         if (subplan.getOutputSymbols().equals(assignments.getOutputs())) {

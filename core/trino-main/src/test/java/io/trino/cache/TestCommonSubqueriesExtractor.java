@@ -1207,6 +1207,72 @@ public class TestCommonSubqueriesExtractor
     }
 
     @Test
+    public void testCommonProjectionOnDifferentLevels()
+    {
+        // First subquery evaluates "nationkey * 2" in child projection, the second subquery evaluates
+        // "nationkey * 2" in parent projection. This leads to conflict how "nationkey * 2" should be
+        // evaluated in common subplan. By default, simpler projection is chosen.
+        CommonSubqueries commonSubqueries = extractTpchCommonSubqueries("""
+                SELECT nationkey_mul, nationkey_mul * nationkey_mul FROM (SELECT nationkey * 2 AS nationkey_mul FROM nation)
+                UNION ALL
+                SELECT nationkey * 2, nationkey_mul * nationkey_mul FROM (SELECT nationkey, nationkey * 4 AS nationkey_mul FROM nation)""");
+        Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        assertThat(planAdaptations).hasSize(2);
+        assertThat(planAdaptations).allSatisfy((node, adaptation) ->
+                assertThat(node).isInstanceOf(ProjectNode.class));
+
+        CommonPlanAdaptation projectionA = Iterables.get(planAdaptations.values(), 0);
+        CommonPlanAdaptation projectionB = Iterables.get(planAdaptations.values(), 1);
+
+        PlanMatchPattern commonSubplan = strictProject(
+                ImmutableMap.of(
+                        "MUL2", PlanMatchPattern.expression(new Reference(BIGINT, "MUL2")),
+                        "MUL2_MUL2", PlanMatchPattern.expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "MUL2"), new Reference(BIGINT, "MUL2")))),
+                        "MUL4_MUL4", PlanMatchPattern.expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "MUL4"), new Reference(BIGINT, "MUL4"))))),
+                strictProject(
+                        ImmutableMap.of(
+                                "MUL2", PlanMatchPattern.expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "NATIONKEY"), new Constant(BIGINT, 2L)))),
+                                "MUL4", PlanMatchPattern.expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "NATIONKEY"), new Constant(BIGINT, 4L)))),
+                                // NATIONKEY is actually unused by parent projection, but it's an artifact of common subplan extraction
+                                "NATIONKEY", PlanMatchPattern.expression(new Reference(BIGINT, "NATIONKEY"))),
+                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey"))));
+
+        assertTpchPlan(projectionA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(projectionB.getCommonSubplan(), commonSubplan);
+
+        // validate adaptations
+        PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
+        assertTpchPlan(projectionA.adaptCommonSubplan(projectionA.getCommonSubplan(), idAllocator),
+                strictProject(ImmutableMap.of(
+                                "MUL2", PlanMatchPattern.expression(new Reference(BIGINT, "MUL2")),
+                                "MUL2_MUL2", PlanMatchPattern.expression(new Reference(BIGINT, "MUL2_MUL2"))),
+                        commonSubplan));
+        assertTpchPlan(projectionB.adaptCommonSubplan(projectionB.getCommonSubplan(), idAllocator),
+                project(ImmutableMap.of(
+                                "MUL2_ORIGINAL", PlanMatchPattern.expression(new Reference(BIGINT, "MUL2")),
+                                "MUL4_MUL4", PlanMatchPattern.expression(new Reference(BIGINT, "MUL4_MUL4"))),
+                        commonSubplan));
+        ProjectNode adaptationB = (ProjectNode) projectionB.adaptCommonSubplan(projectionB.getCommonSubplan(), idAllocator);
+        // output symbols are remapped to match original subplan
+        assertThat(adaptationB.isIdentity()).isFalse();
+        assertThat(adaptationB.getAssignments().getExpressions()).allMatch(expression -> expression instanceof Reference);
+
+        // make sure plan signatures are same
+        Reference mul2 = columnIdToSymbol(canonicalExpressionToColumnId(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 2L)))), BIGINT).toSymbolReference();
+        Reference mul4 = columnIdToSymbol(canonicalExpressionToColumnId(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 4L)))), BIGINT).toSymbolReference();
+        Expression mul2_mul2 = new Call(MULTIPLY_BIGINT, ImmutableList.of(mul2, mul2));
+        Expression mul4_mul4 = new Call(MULTIPLY_BIGINT, ImmutableList.of(mul4, mul4));
+        assertThat(projectionA.getCommonSubplanSignature()).isEqualTo(projectionB.getCommonSubplanSignature());
+        assertThat(projectionB.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        filterProjectKey(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01"))),
+                        Optional.empty(),
+                        ImmutableList.of(canonicalExpressionToColumnId(mul2), canonicalExpressionToColumnId(mul2_mul2), canonicalExpressionToColumnId(mul4_mul4)),
+                        ImmutableList.of(BIGINT, BIGINT, BIGINT)),
+                TupleDomain.all()));
+    }
+
+    @Test
     public void testQueryWithAggregatedAndNonAggregatedSubqueries()
     {
         // data should be cached on table scan level
