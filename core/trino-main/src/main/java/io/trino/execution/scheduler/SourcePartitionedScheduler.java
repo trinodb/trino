@@ -291,7 +291,7 @@ public class SourcePartitionedScheduler
                 // calculate placements for splits
                 SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(pendingSplits);
                 splitAssignment = splitPlacementResult.getAssignments(); // remove splits with successful placements
-                splitAssignment.values().forEach(pendingSplits::remove); // AbstractSet.removeAll performs terribly here.
+                pendingSplits.removeAll(splitAssignment.values());
                 overallSplitAssignmentCount += splitAssignment.size(); // if not completed placed, mark scheduleGroup as blocked on placement
                 if (!pendingSplits.isEmpty()) {
                     placementFuture = splitPlacementResult.getBlocked();
