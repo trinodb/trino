@@ -25,7 +25,6 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.tpch.TpchTable;
 import org.apache.http.HttpHost;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -77,7 +76,7 @@ public abstract class BaseOpenSearchConnectorTest
 
         return createOpenSearchQueryRunner(
                 opensearch.getAddress(),
-                TpchTable.getTables(),
+                REQUIRED_TPCH_TABLES,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 catalogName);

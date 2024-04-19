@@ -30,7 +30,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.SplitSource;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
@@ -51,6 +50,9 @@ import static io.trino.plugin.mongodb.MongoSessionProperties.DYNAMIC_FILTERING_W
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -64,7 +66,7 @@ public class TestMongoDynamicFiltering
         MongoServer server = closeAfterClass(new MongoServer());
         return MongoQueryRunner.builder(server)
                 .addConnectorProperties(Map.of("mongodb.dynamic-filtering.wait-timeout", "1h"))
-                .setInitialTables(TpchTable.getTables())
+                .setInitialTables(List.of(LINE_ITEM, ORDERS, PART))
                 .build();
     }
 

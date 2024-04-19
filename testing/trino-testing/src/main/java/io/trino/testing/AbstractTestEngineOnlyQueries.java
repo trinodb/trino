@@ -65,6 +65,14 @@ import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tests.QueryTemplate.parameter;
 import static io.trino.tests.QueryTemplate.queryTemplate;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
+import static io.trino.tpch.TpchTable.PART_SUPPLIER;
+import static io.trino.tpch.TpchTable.REGION;
+import static io.trino.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
@@ -114,6 +122,8 @@ public abstract class AbstractTestEngineOnlyQueries
                     "connector double property",
                     99.0,
                     false));
+
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = List.of(CUSTOMER, LINE_ITEM, NATION, ORDERS, PART, PART_SUPPLIER, REGION, SUPPLIER);
 
     @Test
     public void testDateLiterals()
