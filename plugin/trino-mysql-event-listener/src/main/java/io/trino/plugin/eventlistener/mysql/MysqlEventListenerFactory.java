@@ -22,6 +22,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
+import com.mysql.cj.jdbc.Driver;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.spi.TrinoWarning;
@@ -33,8 +34,8 @@ import org.jdbi.v3.core.ConnectionFactory;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-import java.sql.DriverManager;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -86,7 +87,7 @@ public class MysqlEventListenerFactory
         @Provides
         public ConnectionFactory createConnectionFactory(MysqlEventListenerConfig config)
         {
-            return () -> DriverManager.getConnection(config.getUrl());
+            return () -> new Driver().connect(config.getUrl(), new Properties());
         }
 
         @Singleton
