@@ -15,6 +15,7 @@ package io.trino.filesystem.azure;
 
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
+import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.file.datalake.DataLakeFileSystemClient;
 import com.azure.storage.file.datalake.DataLakeServiceClient;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
@@ -185,7 +186,7 @@ public abstract class AbstractTestAzureFileSystem
     @Override
     protected final void verifyFileSystemIsEmpty()
     {
-        assertThat(blobContainerClient.listBlobs()).isEmpty();
+        assertThat(blobContainerClient.listBlobs()).map(BlobItem::getName).isEmpty();
     }
 
     @Override
