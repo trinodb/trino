@@ -591,25 +591,6 @@ public class QueryAssertions
             return this;
         }
 
-        record PlanAndSession(Plan plan, Session session)
-        {
-        }
-
-        private QueryAssert verifyPlan(Consumer<PlanAndSession> planVerification)
-        {
-            transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
-                    .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query());
-                        planVerification.accept(new PlanAndSession(plan, session));
-                    });
-
-            if (!skipResultsCorrectnessCheckForPushdown) {
-                // Compare the results with pushdown disabled, so that explicit matches() call is not needed
-                hasCorrectResultsRegardlessOfPushdown();
-            }
-            return this;
-        }
-
         @CanIgnoreReturnValue
         public QueryAssert hasCorrectResultsRegardlessOfPushdown()
         {
