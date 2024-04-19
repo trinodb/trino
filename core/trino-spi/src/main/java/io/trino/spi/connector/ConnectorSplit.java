@@ -29,11 +29,13 @@ public interface ConnectorSplit
      * during splits assignment.
      * When false, the split will always be scheduled on one of the addresses returned by {@link #getAddresses()}.
      */
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     default boolean isRemotelyAccessible()
     {
         return true;
     }
 
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     default List<HostAddress> getAddresses()
     {
         if (!isRemotelyAccessible()) {
@@ -42,24 +44,26 @@ public interface ConnectorSplit
         return List.of();
     }
 
-    @JsonIgnore // ConnectorSplit is json-serializable, but we don't want to repeat information in that field
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     default Map<String, String> getSplitInfo()
     {
         return Map.of();
     }
 
     @Deprecated(forRemoval = true)
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     default Object getInfo()
     {
         throw new UnsupportedOperationException("getInfo is deprecated and will be removed in the future. Use getMetadata instead.");
     }
 
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     default SplitWeight getSplitWeight()
     {
         return SplitWeight.standard();
     }
 
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     default long getRetainedSizeInBytes()
     {
         throw new UnsupportedOperationException("This connector does not provide memory accounting capabilities for ConnectorSplit");
