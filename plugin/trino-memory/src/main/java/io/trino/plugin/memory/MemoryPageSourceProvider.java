@@ -62,10 +62,10 @@ public final class MemoryPageSourceProvider
             DynamicFilter dynamicFilter)
     {
         MemorySplit memorySplit = (MemorySplit) split;
-        long tableId = memorySplit.getTable();
-        int partNumber = memorySplit.getPartNumber();
-        int totalParts = memorySplit.getTotalPartsPerWorker();
-        long expectedRows = memorySplit.getExpectedRows();
+        long tableId = memorySplit.table();
+        int partNumber = memorySplit.partNumber();
+        int totalParts = memorySplit.totalPartsPerWorker();
+        long expectedRows = memorySplit.expectedRows();
         MemoryTableHandle memoryTable = (MemoryTableHandle) table;
         OptionalDouble sampleRatio = memoryTable.sampleRatio();
 
@@ -79,7 +79,7 @@ public final class MemoryPageSourceProvider
                 totalParts,
                 columnIndexes,
                 expectedRows,
-                memorySplit.getLimit(),
+                memorySplit.limit(),
                 sampleRatio);
 
         return new DynamicFilteringPageSource(new FixedPageSource(pages), columns, dynamicFilter, enableLazyDynamicFiltering);
