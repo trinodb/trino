@@ -40,7 +40,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.opensearch.OpenSearchQueryRunner.createOpenSearchQueryRunner;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -72,11 +71,9 @@ public abstract class BaseOpenSearchConnectorTest
         HostAndPort address = opensearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
-        return createOpenSearchQueryRunner(
-                opensearch.getAddress(),
-                REQUIRED_TPCH_TABLES,
-                ImmutableMap.of(),
-                ImmutableMap.of());
+        return OpenSearchQueryRunner.builder(opensearch.getAddress())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @AfterAll
