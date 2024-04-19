@@ -2290,14 +2290,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         }
     }
 
-    @RepeatedTest(3)
-    public void testConcurrentInsertsReconciliationForBlindInserts()
-            throws Exception
-    {
-        testConcurrentInsertsReconciliationForBlindInserts(false);
-        testConcurrentInsertsReconciliationForBlindInserts(true);
-    }
-
     @Test
     public void testCreateOrReplaceTable()
     {
@@ -2430,6 +2422,14 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         assertQuery("SELECT operation FROM \"%s$history\" WHERE version = %s".formatted(tableName, version),
                 "VALUES '%s'".formatted(operation));
+    }
+
+    @RepeatedTest(3)
+    public void testConcurrentInsertsReconciliationForBlindInserts()
+            throws Exception
+    {
+        testConcurrentInsertsReconciliationForBlindInserts(false);
+        testConcurrentInsertsReconciliationForBlindInserts(true);
     }
 
     private void testConcurrentInsertsReconciliationForBlindInserts(boolean partitioned)
