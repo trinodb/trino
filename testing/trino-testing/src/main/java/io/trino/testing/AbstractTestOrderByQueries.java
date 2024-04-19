@@ -14,16 +14,23 @@
 package io.trino.testing;
 
 import io.trino.Session;
+import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static io.trino.SystemSessionProperties.DISTRIBUTED_SORT;
 import static io.trino.tests.QueryTemplate.parameter;
 import static io.trino.tests.QueryTemplate.queryTemplate;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestOrderByQueries
         extends AbstractTestQueryFramework
 {
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = List.of(NATION, ORDERS);
+
     @Test
     public void testOrderBy()
     {

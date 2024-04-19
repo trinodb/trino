@@ -18,7 +18,6 @@ import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestFaultTolerantExecutionWindowQueries;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
 
@@ -47,7 +46,7 @@ public class TestHiveFaultTolerantExecutionWindowQueries
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
-                .setInitialTables(TpchTable.getTables())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 

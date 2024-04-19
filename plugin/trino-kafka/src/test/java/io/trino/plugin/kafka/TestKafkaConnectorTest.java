@@ -23,7 +23,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.kafka.TestingKafka;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.junit.jupiter.api.Test;
@@ -151,7 +150,7 @@ public class TestKafkaConnectorTest
                 .buildOrThrow();
 
         QueryRunner queryRunner = KafkaQueryRunner.builder(testingKafka)
-                .setTables(TpchTable.getTables())
+                .setTables(REQUIRED_TPCH_TABLES)
                 .setExtraTopicDescription(extraTopicDescriptions)
                 .build();
 
