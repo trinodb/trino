@@ -127,33 +127,39 @@ public class MemorySplit
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if ((obj == null) || (getClass() != obj.getClass())) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        MemorySplit other = (MemorySplit) obj;
-        return Objects.equals(this.table, other.table) &&
-                Objects.equals(this.totalPartsPerWorker, other.totalPartsPerWorker) &&
-                Objects.equals(this.partNumber, other.partNumber);
+        MemorySplit that = (MemorySplit) o;
+        return table == that.table &&
+                totalPartsPerWorker == that.totalPartsPerWorker &&
+                partNumber == that.partNumber &&
+                expectedRows == that.expectedRows &&
+                Objects.equals(address, that.address) &&
+                Objects.equals(limit, that.limit);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, totalPartsPerWorker, partNumber);
+        return Objects.hash(table, totalPartsPerWorker, partNumber, address, expectedRows, limit);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("tableHandle", table)
-                .add("partNumber", partNumber)
+                .add("table", table)
                 .add("totalPartsPerWorker", totalPartsPerWorker)
+                .add("partNumber", partNumber)
+                .add("address", address)
+                .add("expectedRows", expectedRows)
+                .add("limit", limit)
                 .toString();
     }
 }
