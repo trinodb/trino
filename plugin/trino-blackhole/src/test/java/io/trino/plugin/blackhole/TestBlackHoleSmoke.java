@@ -44,6 +44,8 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -362,6 +364,22 @@ public class TestBlackHoleSmoke
         assertGreaterThan(stopwatch.elapsed(MILLISECONDS), pageProcessingDelay.toMillis());
 
         assertUpdate("DROP TABLE nation");
+    }
+
+    @Test
+    public void testMultipleSplits()
+    {
+        assertUpdate("CREATE TABLE table_multiple_splits (a integer) WITH (split_count = 5, pages_per_split = 3, rows_per_page = 2)");
+
+        assertThat(query("TABLE table_multiple_splits"))
+                .matches("SELECT 0 FROM TABLE(sequence(1, 2 * 3 * 5))");
+
+        assertThat(query(range(0, 7)
+                .mapToObj(i -> "SELECT * FROM table_multiple_splits")
+                .collect(joining(" UNION ALL "))))
+                .matches("SELECT 0 FROM TABLE(sequence(1, 2 * 3 * 5 * 7))");
+
+        assertUpdate("DROP TABLE table_multiple_splits");
     }
 
     private List<QualifiedObjectName> listBlackHoleTables()
