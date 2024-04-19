@@ -63,11 +63,10 @@ public final class ElasticsearchQueryRunner
             ElasticsearchServer server,
             Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
-            Map<String, String> extraConnectorProperties,
-            int nodeCount)
+            Map<String, String> extraConnectorProperties)
             throws Exception
     {
-        return createElasticsearchQueryRunner(server, tables, extraProperties, extraConnectorProperties, nodeCount, "elasticsearch");
+        return createElasticsearchQueryRunner(server, tables, extraProperties, extraConnectorProperties, "elasticsearch");
     }
 
     public static QueryRunner createElasticsearchQueryRunner(
@@ -75,7 +74,6 @@ public final class ElasticsearchQueryRunner
             Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
             Map<String, String> extraConnectorProperties,
-            int nodeCount,
             String catalogName)
             throws Exception
     {
@@ -87,7 +85,6 @@ public final class ElasticsearchQueryRunner
                             .setSchema(TPCH_SCHEMA)
                             .build())
                     .setExtraProperties(extraProperties)
-                    .setNodeCount(nodeCount)
                     .build();
 
             queryRunner.installPlugin(new JmxPlugin());
@@ -183,8 +180,7 @@ public final class ElasticsearchQueryRunner
                 new ElasticsearchServer(ELASTICSEARCH_7_IMAGE),
                 TpchTable.getTables(),
                 ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                3);
+                ImmutableMap.of());
 
         Logger log = Logger.get(ElasticsearchQueryRunner.class);
         log.info("======== SERVER STARTED ========");

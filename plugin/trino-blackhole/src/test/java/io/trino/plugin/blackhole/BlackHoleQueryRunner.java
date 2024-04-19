@@ -44,7 +44,6 @@ public final class BlackHoleQueryRunner
                 .build();
 
         QueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(4)
                 .setExtraProperties(extraProperties)
                 .build();
 
