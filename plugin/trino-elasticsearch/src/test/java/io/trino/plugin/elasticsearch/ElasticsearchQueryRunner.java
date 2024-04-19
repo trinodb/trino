@@ -26,17 +26,13 @@ import io.trino.testing.TestingTrinoClient;
 import io.trino.tpch.TpchTable;
 import org.elasticsearch.client.RestHighLevelClient;
 
-import javax.net.ssl.SSLContext;
-
 import java.io.File;
 import java.net.URISyntaxException;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_IMAGE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -114,20 +110,6 @@ public final class ElasticsearchQueryRunner
         catch (Exception e) {
             closeAllSuppress(e, queryRunner, client);
             throw e;
-        }
-    }
-
-    public static SSLContext getSSLContext()
-    {
-        try {
-            return createSSLContext(
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.of(new File(getResource("truststore.jks").toURI())),
-                    Optional.of("123456"));
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 
