@@ -88,8 +88,7 @@ public class TestPasswordAuthentication
                         .put("opensearch.tls.verify-hostnames", "false")
                         .put("opensearch.tls.truststore-path", new File(getResource("truststore.jks").toURI()).getPath())
                         .put("opensearch.tls.truststore-password", "123456")
-                        .buildOrThrow(),
-                3);
+                        .buildOrThrow());
 
         assertions = new QueryAssertions(runner);
     }

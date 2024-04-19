@@ -56,11 +56,10 @@ public final class OpenSearchQueryRunner
             HostAndPort address,
             Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
-            Map<String, String> extraConnectorProperties,
-            int nodeCount)
+            Map<String, String> extraConnectorProperties)
             throws Exception
     {
-        return createOpenSearchQueryRunner(address, tables, extraProperties, extraConnectorProperties, nodeCount, "opensearch");
+        return createOpenSearchQueryRunner(address, tables, extraProperties, extraConnectorProperties, "opensearch");
     }
 
     public static QueryRunner createOpenSearchQueryRunner(
@@ -68,7 +67,6 @@ public final class OpenSearchQueryRunner
             Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
             Map<String, String> extraConnectorProperties,
-            int nodeCount,
             String catalogName)
             throws Exception
     {
@@ -80,7 +78,6 @@ public final class OpenSearchQueryRunner
                             .setSchema(TPCH_SCHEMA)
                             .build())
                     .setExtraProperties(extraProperties)
-                    .setNodeCount(nodeCount)
                     .build();
 
             queryRunner.installPlugin(new JmxPlugin());
@@ -152,8 +149,7 @@ public final class OpenSearchQueryRunner
                 new OpenSearchServer(OPENSEARCH_IMAGE, false, ImmutableMap.of()).getAddress(),
                 TpchTable.getTables(),
                 ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                3);
+                ImmutableMap.of());
 
         Logger log = Logger.get(OpenSearchQueryRunner.class);
         log.info("======== SERVER STARTED ========");
