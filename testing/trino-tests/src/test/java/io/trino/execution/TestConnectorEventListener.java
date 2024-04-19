@@ -46,7 +46,9 @@ public class TestConnectorEventListener
             throws Exception
     {
         closer = Closer.create();
-        QueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).setNodeCount(1).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
+                .setWorkerCount(0)
+                .build();
         closer.register(queryRunner);
 
         queryRunner.installPlugin(new Plugin()

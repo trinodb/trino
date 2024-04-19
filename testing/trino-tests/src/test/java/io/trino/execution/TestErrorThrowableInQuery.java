@@ -54,7 +54,9 @@ public class TestErrorThrowableInQuery
                 .setClientInfo("{\"clientVersion\":\"testVersion\"}")
                 .build();
 
-        QueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setWorkerCount(0)
+                .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());

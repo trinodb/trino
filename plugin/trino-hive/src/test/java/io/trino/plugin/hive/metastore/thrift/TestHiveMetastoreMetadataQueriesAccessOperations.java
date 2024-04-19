@@ -77,7 +77,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
 
         QueryRunner queryRunner = HiveQueryRunner.builder(SESSION)
                 // metadata queries do not use workers
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .addHiveProperty("hive.metastore", "thrift")
                 .addHiveProperty("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
