@@ -45,7 +45,7 @@ The following configuration properties are available:
 | Property name                              | Description                                              |
 | ------------------------------------------ | -------------------------------------------------------- |
 | `trino.thrift.client.addresses`            | Location of Thrift servers                               |
-| `trino-thrift.max-response-size`           | Maximum size of data returned from Thrift server         |
+| `trino.thrift.client.max-response-size`    | Maximum size of data returned from Thrift server         |
 | `trino-thrift.metadata-refresh-threads`    | Number of refresh threads for metadata cache             |
 | `trino.thrift.client.max-retries`          | Maximum number of retries for failed Thrift requests     |
 | `trino.thrift.client.max-backoff-delay`    | Maximum interval between retry attempts                  |
@@ -69,7 +69,7 @@ trino.thrift.client.addresses=192.0.2.3:7777,192.0.2.4:7779
 
 This property is required; there is no default.
 
-### `trino-thrift.max-response-size`
+### `trino.thrift.client.max-response-size`
 
 Maximum size of a data response that the connector accepts. This value is sent
 by the connector to the Thrift server when requesting data, allowing it to size
