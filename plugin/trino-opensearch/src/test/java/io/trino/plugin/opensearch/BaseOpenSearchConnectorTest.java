@@ -80,7 +80,6 @@ public abstract class BaseOpenSearchConnectorTest
                 TpchTable.getTables(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
-                3,
                 catalogName);
     }
 

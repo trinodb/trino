@@ -62,7 +62,6 @@ public class TestCachingHiveMetastoreWithQueryRunner
             throws Exception
     {
         QueryRunner queryRunner = HiveQueryRunner.builder(ADMIN)
-                .setNodeCount(3)
                 // Required by testPartitionAppend test.
                 // Coordinator needs to be excluded from workers to deterministically reproduce the original problem
                 // https://github.com/trinodb/trino/pull/6853

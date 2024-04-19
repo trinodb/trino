@@ -43,7 +43,6 @@ public class ExampleQueryRunner
                 .buildOrThrow();
         QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
                 .setExtraProperties(extraProperties)
-                .setNodeCount(1)
                 .build();
         queryRunner.installPlugin(new ExamplePlugin());
 

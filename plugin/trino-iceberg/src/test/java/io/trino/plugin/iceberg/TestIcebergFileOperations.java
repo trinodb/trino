@@ -78,9 +78,6 @@ public class TestIcebergFileOperations
                 .build();
 
         QueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                // Tests that inspect MBean attributes need to run with just one node, otherwise
-                // the attributes may come from the bound class instance in non-coordinator node
-                .setNodeCount(1)
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
 

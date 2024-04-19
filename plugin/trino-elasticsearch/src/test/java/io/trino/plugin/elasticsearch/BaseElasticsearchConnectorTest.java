@@ -74,7 +74,6 @@ public abstract class BaseElasticsearchConnectorTest
                 TpchTable.getTables(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
-                3,
                 catalogName);
     }
 
