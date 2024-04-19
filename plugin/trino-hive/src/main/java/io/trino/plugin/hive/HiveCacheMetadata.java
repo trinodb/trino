@@ -26,7 +26,6 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 
-import static io.trino.plugin.base.cache.CacheUtils.normalizeTupleDomain;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static java.util.Objects.requireNonNull;
 
@@ -80,8 +79,6 @@ public class HiveCacheMetadata
         HiveCacheTableId tableId = new HiveCacheTableId(
                 hiveTableHandle.getSchemaName(),
                 hiveTableHandle.getTableName(),
-                normalizeTupleDomain(hiveTableHandle.getCompactEffectivePredicate()
-                        .transformKeys(column -> getCacheColumnId(tableHandle, column).orElseThrow())),
                 hiveTableHandle.getBucketHandle());
         return Optional.of(new CacheTableId(tableIdCodec.toJson(tableId)));
     }

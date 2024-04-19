@@ -15,8 +15,6 @@ package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.hive.HiveBucketHandle;
-import io.trino.spi.cache.CacheColumnId;
-import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 
@@ -26,18 +24,15 @@ public class HiveCacheTableId
 {
     private final String schemaName;
     private final String tableName;
-    private final TupleDomain<CacheColumnId> compactEffectivePredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
 
     public HiveCacheTableId(
             String schemaName,
             String tableName,
-            TupleDomain<CacheColumnId> compactEffectivePredicate,
             Optional<HiveBucketHandle> bucketHandle)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
     }
 
@@ -51,12 +46,6 @@ public class HiveCacheTableId
     public String getTableName()
     {
         return tableName;
-    }
-
-    @JsonProperty
-    public TupleDomain<CacheColumnId> getCompactEffectivePredicate()
-    {
-        return compactEffectivePredicate;
     }
 
     @JsonProperty
