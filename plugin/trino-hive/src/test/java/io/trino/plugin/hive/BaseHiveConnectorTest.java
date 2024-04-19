@@ -1544,19 +1544,21 @@ public abstract class BaseHiveConnectorTest
             index++;
             Type type = entry.getValue().type;
             EstimatedStatsAndCost estimate = entry.getValue().estimate;
+            String tableName = "test_types_table_" + randomNameSuffix();
             @Language("SQL") String query = format(
-                    "CREATE TABLE test_types_table  WITH (partitioned_by = ARRAY['my_col']) AS " +
+                    "CREATE TABLE %s WITH (partitioned_by = ARRAY['my_col']) AS " +
                             "SELECT 'foo' my_non_partition_col, CAST('%s' AS %s) my_col",
+                    tableName,
                     entry.getKey(),
                     type.getDisplayName());
 
             assertUpdate(query, 1);
 
-            assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table").getOnlyColumnAsSet())))
+            assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM " + tableName).getOnlyColumnAsSet())))
                     .describedAs(format("%d) Type %s ", index, type))
                     .isEqualTo(new IoPlan(
                             ImmutableSet.of(new TableColumnInfo(
-                                    new CatalogSchemaTableName(catalog, "tpch", "test_types_table"),
+                                    new CatalogSchemaTableName(catalog, "tpch", tableName),
                                     new IoPlanPrinter.Constraint(
                                             false,
                                             ImmutableSet.of(
@@ -1573,7 +1575,7 @@ public abstract class BaseHiveConnectorTest
                             Optional.empty(),
                             estimate));
 
-            assertUpdate("DROP TABLE test_types_table");
+            assertUpdate("DROP TABLE " + tableName);
         }
     }
 
@@ -1593,8 +1595,9 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void createTableWithEveryType()
     {
+        String tableName = "test_types_table_" + randomNameSuffix();
         @Language("SQL") String query = "" +
-                "CREATE TABLE test_types_table AS " +
+                "CREATE TABLE " + tableName + " AS " +
                 "SELECT" +
                 " 'foo' _varchar" +
                 ", cast('bar' as varbinary) _varbinary" +
@@ -1610,7 +1613,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(query, 1);
 
-        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toTestTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM " + tableName).toTestTypes();
         assertThat(results.getRowCount()).isEqualTo(1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertThat(row.getField(0)).isEqualTo("foo");
@@ -1624,9 +1627,9 @@ public abstract class BaseHiveConnectorTest
         assertThat(row.getField(8)).isEqualTo(new BigDecimal("3.14"));
         assertThat(row.getField(9)).isEqualTo(new BigDecimal("12345678901234567890.0123456789"));
         assertThat(row.getField(10)).isEqualTo("bar       ");
-        assertUpdate("DROP TABLE test_types_table");
+        assertUpdate("DROP TABLE " + tableName);
 
-        assertThat(getQueryRunner().tableExists(getSession(), "test_types_table")).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
