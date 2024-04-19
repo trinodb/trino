@@ -36,6 +36,8 @@ import static java.util.stream.Collectors.toMap;
 
 public class LakehouseUtil
 {
+    private static final String DELTA_LOG_DIRECTORY = "_delta_log";
+
     private LakehouseUtil() {}
 
     public static TablePath enhanceIcebergTableLocationFromMetadata(DiscoveryTrinoFileSystem fileSystem, TablePath rootTablePath)
@@ -75,12 +77,19 @@ public class LakehouseUtil
     public static Optional<Location> deltaLakeParent(Location root, Location parent)
     {
         while (parent != null && !parent.equals(root)) {
-            if (directoryOrFileName(parent).equals("_delta_log")) {
+            if (directoryOrFileName(parent).equals(DELTA_LOG_DIRECTORY)) {
                 return Optional.of(parent);
             }
             parent = parentOf(parent);
         }
         return Optional.empty();
+    }
+
+    public static Optional<ProcessorPath> maybeDeltaLakeTable(Set<Location> directories)
+    {
+        return directories.stream().filter(directory -> directoryOrFileName(directory).equals(DELTA_LOG_DIRECTORY))
+                .findFirst()
+                .map(deltaLogDirectory -> new ProcessorPath(deltaLogDirectory, Optional.of(new LakehouseFormat(TableFormat.DELTA_LAKE, deltaLogDirectory))));
     }
 
     private static boolean isNotInDeltaLakeSet(Set<Location> deltaLakePaths, Location root, Location path)

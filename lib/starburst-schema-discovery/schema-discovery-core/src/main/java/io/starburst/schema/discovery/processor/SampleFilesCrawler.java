@@ -43,6 +43,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.submit;
 import static com.google.common.util.concurrent.Futures.submitAsync;
 import static io.starburst.schema.discovery.SchemaDiscoveryErrorCode.LOCATION_DOES_NOT_EXISTS;
+import static io.starburst.schema.discovery.formats.lakehouse.LakehouseUtil.maybeDeltaLakeTable;
 import static io.starburst.schema.discovery.infer.InferPartitions.PARTITION_SEPARATOR;
 import static io.starburst.schema.discovery.io.LocationUtils.directoryOrFileName;
 import static java.util.Objects.requireNonNull;
@@ -116,11 +117,17 @@ public class SampleFilesCrawler
             return Futures.immediateFuture(ImmutableList.of());
         }
 
-        ImmutableList.Builder<ProcessorPath> sampleFiles = ImmutableList.builder();
-        ImmutableList.Builder<ListenableFuture<List<ProcessorPath>>> crawlNestedDirectories = ImmutableList.builder();
+        Set<Location> childrenDirectories = fileSystem.listDirectories(directory);
+        return maybeDeltaLakeTable(childrenDirectories)
+                .map(deltaLakeTablePath -> Futures.<List<ProcessorPath>>immediateFuture(ImmutableList.of(deltaLakeTablePath)))
+                .orElseGet(() -> findNonDeltaLakeTablesInDirectory(directory, childrenDirectories));
+    }
 
-        Set<Location> directories = fileSystem.listDirectories(directory);
-        for (Location dir : directories) {
+    private ListenableFuture<List<ProcessorPath>> findNonDeltaLakeTablesInDirectory(Location parent, Set<Location> childrenDirectories)
+    {
+        ImmutableList.Builder<ListenableFuture<List<ProcessorPath>>> crawlNestedDirectories = ImmutableList.builder();
+        ImmutableList.Builder<ProcessorPath> sampleFiles = ImmutableList.builder();
+        for (Location dir : childrenDirectories) {
             if (directoryOrFileName(dir).contains(PARTITION_SEPARATOR)) {
                 crawlNestedDirectories.add(submit(() -> crawlDirectorySync(dir), executor));
             }
@@ -130,8 +137,8 @@ public class SampleFilesCrawler
         }
 
         // no directories in this directory, so proceed scanning files
-        if (directories.isEmpty()) {
-            createFileEntryStream(directory)
+        if (childrenDirectories.isEmpty()) {
+            createFileEntryStream(parent)
                     .filter(file -> file.length() > 0 && filter.test(file.location()))
                     .map(file -> getNextValidSampleFile(file.location()))
                     .takeWhile(sampleFileResult -> !sampleFileResult.hasEnoughSamples())
