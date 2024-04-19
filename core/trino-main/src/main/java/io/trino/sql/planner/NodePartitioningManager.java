@@ -290,11 +290,11 @@ public class NodePartitioningManager
 
         return split -> {
             int bucket;
-            if (split.connectorSplit() instanceof EmptySplit) {
+            if (split.getConnectorSplit() instanceof EmptySplit) {
                 bucket = 0;
             }
             else {
-                bucket = splitBucketFunction.applyAsInt(split.connectorSplit());
+                bucket = splitBucketFunction.applyAsInt(split.getConnectorSplit());
             }
             return bucket;
         };

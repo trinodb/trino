@@ -165,12 +165,12 @@ public class TableScanOperator
 
         Map<String, String> splitInfo = split.getInfo();
         if (!splitInfo.isEmpty()) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.catalogHandle(), splitInfo)));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogHandle(), splitInfo)));
         }
 
         blocked.set(null);
 
-        if (split.connectorSplit() instanceof EmptySplit) {
+        if (split.getConnectorSplit() instanceof EmptySplit) {
             source = new EmptyPageSource();
         }
     }

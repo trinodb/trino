@@ -252,7 +252,7 @@ public class ScanFilterAndProjectOperator
             }
 
             ConnectorPageSource source;
-            if (split.connectorSplit() instanceof EmptySplit) {
+            if (split.getConnectorSplit() instanceof EmptySplit) {
                 source = new EmptyPageSource();
             }
             else {

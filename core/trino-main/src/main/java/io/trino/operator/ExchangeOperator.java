@@ -172,9 +172,9 @@ public class ExchangeOperator
     public void addSplit(Split split)
     {
         requireNonNull(split, "split is null");
-        checkArgument(split.catalogHandle().equals(REMOTE_CATALOG_HANDLE), "split is not a remote split");
+        checkArgument(split.getCatalogHandle().equals(REMOTE_CATALOG_HANDLE), "split is not a remote split");
 
-        RemoteSplit remoteSplit = (RemoteSplit) split.connectorSplit();
+        RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
         exchangeDataSource.addInput(remoteSplit.getExchangeInput());
     }
 

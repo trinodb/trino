@@ -116,7 +116,7 @@ public class TopologyAwareNodeSelector
     }
 
     @Override
-    public SplitPlacementResult computeAssignments(List<Split> splits, List<RemoteTask> existingTasks)
+    public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
         NodeMap nodeMap = this.nodeMap.get().get();
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
@@ -222,7 +222,7 @@ public class TopologyAwareNodeSelector
     }
 
     @Override
-    public SplitPlacementResult computeAssignments(List<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
+    public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap);
     }

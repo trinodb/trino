@@ -121,7 +121,7 @@ public class IndexSourceOperator
         requireNonNull(split, "split is null");
         checkState(source == null, "Index source split already set");
 
-        IndexSplit indexSplit = (IndexSplit) split.connectorSplit();
+        IndexSplit indexSplit = (IndexSplit) split.getConnectorSplit();
 
         // Normalize the incoming RecordSet to something that can be consumed by the index
         RecordSet normalizedRecordSet = probeKeyNormalizer.apply(indexSplit.getKeyRecordSet());
@@ -130,7 +130,7 @@ public class IndexSourceOperator
 
         Map<String, String> splitInfo = split.getInfo();
         if (!splitInfo.isEmpty()) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.catalogHandle(), splitInfo)));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogHandle(), splitInfo)));
         }
     }
 
