@@ -47,9 +47,7 @@ public final class MemoryQueryRunner
     {
         extraProperties = ImmutableMap.<String, String>builder()
                 .putAll(extraProperties)
-                .put("sql.path", CATALOG + ".functions")
-                .put("sql.default-function-catalog", CATALOG)
-                .put("sql.default-function-schema", "functions")
+
                 .buildOrThrow();
 
         return builder()
@@ -129,7 +127,11 @@ public final class MemoryQueryRunner
             throws Exception
     {
         QueryRunner queryRunner = createMemoryQueryRunner(
-                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(
+                        "http-server.http.port", "8080",
+                        "sql.path", CATALOG + ".functions",
+                        "sql.default-function-catalog", CATALOG,
+                        "sql.default-function-schema", "functions"),
                 TpchTable.getTables());
         Logger log = Logger.get(MemoryQueryRunner.class);
         log.info("======== SERVER STARTED ========");
