@@ -37,7 +37,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -66,11 +65,9 @@ public abstract class BaseElasticsearchConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createElasticsearchQueryRunner(
-                server,
-                REQUIRED_TPCH_TABLES,
-                ImmutableMap.of(),
-                ImmutableMap.of());
+        return ElasticsearchQueryRunner.builder(server)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @AfterAll
