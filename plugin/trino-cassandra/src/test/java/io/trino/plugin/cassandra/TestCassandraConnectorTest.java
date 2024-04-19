@@ -14,7 +14,6 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import io.trino.sql.planner.plan.FilterNode;
@@ -43,7 +42,6 @@ import java.util.OptionalInt;
 
 import static com.datastax.oss.driver.api.core.data.ByteUtils.toHexString;
 import static com.google.common.io.BaseEncoding.base16;
-import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.trino.plugin.cassandra.TestCassandraTable.clusterColumn;
 import static io.trino.plugin.cassandra.TestCassandraTable.columnsValue;
 import static io.trino.plugin.cassandra.TestCassandraTable.generalColumn;
@@ -113,7 +111,9 @@ public class TestCassandraConnectorTest
     {
         CassandraServer server = closeAfterClass(new CassandraServer());
         session = server.getSession();
-        return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return CassandraQueryRunner.builder(server)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @AfterAll

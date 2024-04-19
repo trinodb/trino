@@ -14,7 +14,6 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.cassandra.TestCassandraTable.ColumnDefinition;
 import io.trino.spi.type.RowType.Field;
@@ -46,7 +45,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.trino.plugin.cassandra.TestCassandraTable.generalColumn;
 import static io.trino.plugin.cassandra.TestCassandraTable.partitionColumn;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -142,11 +140,7 @@ public class TestCassandraTypeMapping
     {
         server = closeAfterClass(new CassandraServer());
         session = server.getSession();
-        return createCassandraQueryRunner(
-                server,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableList.of());
+        return CassandraQueryRunner.builder(server).build();
     }
 
     @AfterAll
