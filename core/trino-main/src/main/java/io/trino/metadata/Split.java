@@ -38,30 +38,31 @@ public record Split(CatalogHandle catalogHandle, ConnectorSplit connectorSplit)
         requireNonNull(connectorSplit, "connectorSplit is null");
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public Map<String, String> getInfo()
     {
         return firstNonNull(connectorSplit.getSplitInfo(), ImmutableMap.of());
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public List<HostAddress> getAddresses()
     {
         return connectorSplit.getAddresses();
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public boolean isRemotelyAccessible()
     {
         return connectorSplit.isRemotelyAccessible();
     }
 
-    @JsonIgnore
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public SplitWeight getSplitWeight()
     {
         return connectorSplit.getSplitWeight();
     }
 
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
