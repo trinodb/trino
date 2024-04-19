@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.memory;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
@@ -22,35 +21,33 @@ import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.OptionalLong;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
-public class MemorySplit
+public record MemorySplit(
+        long table,
+        // part of the pages on one worker that this splits is responsible
+        int partNumber,
+        // how many concurrent reads there will be from one worker
+        int totalPartsPerWorker,
+        HostAddress address,
+        long expectedRows,
+        OptionalLong limit)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(MemorySplit.class);
 
-    private final long table;
-    private final int totalPartsPerWorker; // how many concurrent reads there will be from one worker
-    private final int partNumber; // part of the pages on one worker that this splits is responsible
-    private final HostAddress address;
-    private final long expectedRows;
-    private final OptionalLong limit;
-
-    @JsonCreator
     public MemorySplit(
-            @JsonProperty("table") long table,
-            @JsonProperty("partNumber") int partNumber,
-            @JsonProperty("totalPartsPerWorker") int totalPartsPerWorker,
-            @JsonProperty("address") HostAddress address,
-            @JsonProperty("expectedRows") long expectedRows,
-            @JsonProperty("limit") OptionalLong limit)
+            long table,
+            int partNumber,
+            int totalPartsPerWorker,
+            HostAddress address,
+            long expectedRows,
+            OptionalLong limit)
     {
         checkState(partNumber >= 0, "partNumber must be >= 0");
         checkState(totalPartsPerWorker >= 1, "totalPartsPerWorker must be >= 1");
@@ -64,31 +61,15 @@ public class MemorySplit
         this.limit = limit;
     }
 
-    @JsonProperty
-    public long getTable()
-    {
-        return table;
-    }
-
-    @JsonProperty
-    public int getTotalPartsPerWorker()
-    {
-        return totalPartsPerWorker;
-    }
-
-    @JsonProperty
-    public int getPartNumber()
-    {
-        return partNumber;
-    }
-
     @Override
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public Map<String, String> getSplitInfo()
     {
         return ImmutableMap.of("table", String.valueOf(table), "partNumber", String.valueOf(partNumber), "address", address.toString());
     }
 
     @Override
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
@@ -97,69 +78,16 @@ public class MemorySplit
     }
 
     @Override
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public boolean isRemotelyAccessible()
     {
         return false;
     }
 
-    @JsonProperty
-    public HostAddress getAddress()
-    {
-        return address;
-    }
-
     @Override
+    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public List<HostAddress> getAddresses()
     {
         return ImmutableList.of(address);
-    }
-
-    @JsonProperty
-    public long getExpectedRows()
-    {
-        return expectedRows;
-    }
-
-    @JsonProperty
-    public OptionalLong getLimit()
-    {
-        return limit;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        MemorySplit that = (MemorySplit) o;
-        return table == that.table &&
-                totalPartsPerWorker == that.totalPartsPerWorker &&
-                partNumber == that.partNumber &&
-                expectedRows == that.expectedRows &&
-                Objects.equals(address, that.address) &&
-                Objects.equals(limit, that.limit);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(table, totalPartsPerWorker, partNumber, address, expectedRows, limit);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("table", table)
-                .add("totalPartsPerWorker", totalPartsPerWorker)
-                .add("partNumber", partNumber)
-                .add("address", address)
-                .add("expectedRows", expectedRows)
-                .add("limit", limit)
-                .toString();
     }
 }
