@@ -37,7 +37,6 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
-import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,9 +55,9 @@ public class TestMemoryConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMemoryQueryRunner(
-                // Adjust DF limits to test edge cases
-                ImmutableMap.<String, String>builder()
+        return MemoryQueryRunner.builder()
+                .addExtraProperties(ImmutableMap.<String, String>builder()
+                        // Adjust DF limits to test edge cases
                         .put("dynamic-filtering.small.max-distinct-values-per-driver", "100")
                         .put("dynamic-filtering.small.range-row-limit-per-driver", "100")
                         .put("dynamic-filtering.large.max-distinct-values-per-driver", "100")
@@ -73,12 +72,14 @@ public class TestMemoryConnectorTest
                         .put("sql.path", "memory.functions")
                         .put("sql.default-function-catalog", "memory")
                         .put("sql.default-function-schema", "functions")
-                        .buildOrThrow(),
-                ImmutableSet.<TpchTable<?>>builder()
-                        .addAll(REQUIRED_TPCH_TABLES)
-                        .add(TpchTable.PART)
-                        .add(TpchTable.LINE_ITEM)
-                        .build());
+                        .buildOrThrow())
+                .setInitialTables(
+                        ImmutableSet.<TpchTable<?>>builder()
+                                .addAll(REQUIRED_TPCH_TABLES)
+                                .add(TpchTable.PART)
+                                .add(TpchTable.LINE_ITEM)
+                                .build())
+                .build();
     }
 
     @Override
