@@ -435,7 +435,7 @@ public class TestSqlTaskExecution
                     return;
                 }
 
-                this.split = (TestingSplit) split.connectorSplit();
+                this.split = (TestingSplit) split.getConnectorSplit();
                 blocked.set(null);
             }
 

@@ -364,8 +364,8 @@ public class TestEventDrivenTaskSource
         for (TaskDescriptor taskDescriptor : taskDescriptors) {
             int partitionId = taskDescriptor.getPartitionId();
             for (Map.Entry<PlanNodeId, Split> entry : taskDescriptor.getSplits().getSplitsFlat().entries()) {
-                if (entry.getValue().catalogHandle().equals(REMOTE_CATALOG_HANDLE)) {
-                    RemoteSplit remoteSplit = (RemoteSplit) entry.getValue().connectorSplit();
+                if (entry.getValue().getCatalogHandle().equals(REMOTE_CATALOG_HANDLE)) {
+                    RemoteSplit remoteSplit = (RemoteSplit) entry.getValue().getConnectorSplit();
                     SpoolingExchangeInput input = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
                     for (ExchangeSourceHandle handle : input.getExchangeSourceHandles()) {
                         assertThat(handle.getPartitionId()).isEqualTo(partitionId);
@@ -373,7 +373,7 @@ public class TestEventDrivenTaskSource
                     }
                 }
                 else {
-                    TestingConnectorSplit split = (TestingConnectorSplit) entry.getValue().connectorSplit();
+                    TestingConnectorSplit split = (TestingConnectorSplit) entry.getValue().getConnectorSplit();
                     assertThat(split.getBucket().orElseThrow()).isEqualTo(partitionId);
                     actualSplits.computeIfAbsent(partitionId, key -> HashMultimap.create()).put(entry.getKey(), split);
                 }
@@ -389,7 +389,7 @@ public class TestEventDrivenTaskSource
         return new FaultTolerantPartitioningScheme(
                 partitionCount,
                 Optional.of(IntStream.range(0, partitionCount).toArray()),
-                Optional.of(split -> ((TestingConnectorSplit) split.connectorSplit()).getBucket().orElseThrow()),
+                Optional.of(split -> ((TestingConnectorSplit) split.getConnectorSplit()).getBucket().orElseThrow()),
                 Optional.empty());
     }
 

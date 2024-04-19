@@ -162,7 +162,7 @@ public class MergeOperator
     public void addSplit(Split split)
     {
         requireNonNull(split, "split is null");
-        checkArgument(split.connectorSplit() instanceof RemoteSplit, "split is not a remote split");
+        checkArgument(split.getConnectorSplit() instanceof RemoteSplit, "split is not a remote split");
         checkState(!blockedOnSplits.isDone(), "noMoreSplits has been called already");
 
         TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
@@ -173,7 +173,7 @@ public class MergeOperator
                 operatorContext.localUserMemoryContext(),
                 taskContext::sourceTaskFailed,
                 RetryPolicy.NONE));
-        RemoteSplit remoteSplit = (RemoteSplit) split.connectorSplit();
+        RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
         // Only fault tolerant execution mode is expected to execute external exchanges.
         // MergeOperator is used for distributed sort only and it is not compatible (and disabled) with fault tolerant execution mode.
         DirectExchangeInput exchangeInput = (DirectExchangeInput) remoteSplit.getExchangeInput();

@@ -158,7 +158,7 @@ public class NodeScheduler
             long maxSplitsWeightPerNode,
             long minPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
-            List<Split> splits,
+            Set<Split> splits,
             List<RemoteTask> existingTasks,
             BucketNodeMap bucketNodeMap)
     {

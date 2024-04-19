@@ -37,7 +37,6 @@ import jakarta.annotation.Nullable;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -161,7 +160,7 @@ public class UniformNodeSelector
     }
 
     @Override
-    public SplitPlacementResult computeAssignments(List<Split> splits, List<RemoteTask> existingTasks)
+    public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
         NodeMap nodeMap = this.nodeMap.get().get();
@@ -171,7 +170,7 @@ public class UniformNodeSelector
         boolean splitWaitingForAnyNode = false;
         // splitsToBeRedistributed becomes true only when splits go through locality-based assignment
         boolean splitsToBeRedistributed = false;
-        List<Split> remainingSplits = new ArrayList<>(splits.size());
+        Set<Split> remainingSplits = new HashSet<>(splits.size());
 
         List<InternalNode> filteredNodes = filterNodes(nodeMap, includeCoordinator, ImmutableSet.of());
         ResettableRandomizedIterator<InternalNode> randomCandidates = new ResettableRandomizedIterator<>(filteredNodes);
@@ -269,7 +268,7 @@ public class UniformNodeSelector
     }
 
     @Override
-    public SplitPlacementResult computeAssignments(List<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
+    public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
         // TODO: Implement split assignment adjustment based on how quick node is able to process splits. More information https://github.com/trinodb/trino/pull/15168
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsWeightPerNode, minPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap);
