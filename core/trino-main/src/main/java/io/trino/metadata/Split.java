@@ -25,6 +25,7 @@ import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.System.identityHashCode;
 import static java.util.Objects.requireNonNull;
 
 public record Split(CatalogHandle catalogHandle, ConnectorSplit connectorSplit)
@@ -66,5 +67,21 @@ public record Split(CatalogHandle catalogHandle, ConnectorSplit connectorSplit)
         return INSTANCE_SIZE
                 + catalogHandle.getRetainedSizeInBytes()
                 + connectorSplit.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        // There is no equality contract for ConnectorSplit and there is no requirement for
+        // ConnectorSplits returned from ConnectorSplitSource to be different. For example,
+        // a ConnectorSplitSource could return 10 times same "produce a row" split instance,
+        // so that the table has effectively 10 rows. The blackhole connector does that.
+        return this == o;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return identityHashCode(this);
     }
 }

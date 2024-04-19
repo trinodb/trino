@@ -22,7 +22,6 @@ import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -93,21 +92,15 @@ public class TpchSplit
     @Override
     public boolean equals(Object obj)
     {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        TpchSplit other = (TpchSplit) obj;
-        return Objects.equals(this.totalParts, other.totalParts) &&
-                Objects.equals(this.partNumber, other.partNumber);
+        //  There is no equality contract for ConnectorSplit and engine should not call this method.
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(totalParts, partNumber);
+        //  There is no equality contract for ConnectorSplit and engine should not call this method.
+        throw new UnsupportedOperationException();
     }
 
     @Override
