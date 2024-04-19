@@ -788,7 +788,9 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(new ReorderJoins(plannerContext, costComparator))));
+                        ImmutableSet.of(new ReorderJoins(plannerContext, costComparator))),
+                // ReorderJoins may produce filters above joins that could (and should be) pushed back down
+                new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, false)));
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
         builder.add(new IterativeOptimizer(
