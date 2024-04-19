@@ -53,14 +53,12 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public abstract class BaseElasticsearchConnectorTest
         extends BaseConnectorTest
 {
-    private final String catalogName;
     private ElasticsearchServer server;
     private RestHighLevelClient client;
 
-    BaseElasticsearchConnectorTest(ElasticsearchServer server, String catalogName)
+    BaseElasticsearchConnectorTest(ElasticsearchServer server)
     {
         this.server = requireNonNull(server, "server is null");
-        this.catalogName = catalogName;
         this.client = server.getClient();
     }
 
@@ -72,8 +70,7 @@ public abstract class BaseElasticsearchConnectorTest
                 server,
                 REQUIRED_TPCH_TABLES,
                 ImmutableMap.of(),
-                ImmutableMap.of(),
-                catalogName);
+                ImmutableMap.of());
     }
 
     @AfterAll
@@ -131,6 +128,7 @@ public abstract class BaseElasticsearchConnectorTest
     @Test
     public void testWithoutBackpressure()
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
         assertQuerySucceeds("SELECT * FROM orders");
         // Check that JMX stats show no sign of backpressure
         assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", catalogName));
@@ -190,6 +188,7 @@ public abstract class BaseElasticsearchConnectorTest
     @Override
     public void testShowCreateTable()
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo(format("CREATE TABLE %s.tpch.orders (\n", catalogName) +
                         "   clerk varchar,\n" +
@@ -1830,6 +1829,8 @@ public abstract class BaseElasticsearchConnectorTest
     @Test
     public void testQueryTableFunction()
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
         // select single record
         assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
                         format("FROM TABLE(%s.system.raw_query(", catalogName) +
@@ -1897,6 +1898,7 @@ public abstract class BaseElasticsearchConnectorTest
 
     protected void assertTableDoesNotExist(String name)
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name)).isFalse();
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");

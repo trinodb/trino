@@ -23,6 +23,6 @@ public class TestElasticsearch8ConnectorTest
     public TestElasticsearch8ConnectorTest()
             throws IOException
     {
-        super(new ElasticsearchServer(ELASTICSEARCH_8_IMAGE), "elasticsearch8");
+        super(new ElasticsearchServer(ELASTICSEARCH_8_IMAGE));
     }
 }

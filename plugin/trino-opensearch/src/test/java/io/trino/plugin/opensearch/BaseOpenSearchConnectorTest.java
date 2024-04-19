@@ -56,14 +56,12 @@ public abstract class BaseOpenSearchConnectorTest
         extends BaseConnectorTest
 {
     private final String image;
-    private final String catalogName;
     private OpenSearchServer opensearch;
     protected RestHighLevelClient client;
 
-    BaseOpenSearchConnectorTest(String image, String catalogName)
+    BaseOpenSearchConnectorTest(String image)
     {
         this.image = image;
-        this.catalogName = catalogName;
     }
 
     @Override
@@ -78,8 +76,7 @@ public abstract class BaseOpenSearchConnectorTest
                 opensearch.getAddress(),
                 REQUIRED_TPCH_TABLES,
                 ImmutableMap.of(),
-                ImmutableMap.of(),
-                catalogName);
+                ImmutableMap.of());
     }
 
     @AfterAll
@@ -137,6 +134,7 @@ public abstract class BaseOpenSearchConnectorTest
     @Test
     public void testWithoutBackpressure()
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
         assertQuerySucceeds("SELECT * FROM orders");
         // Check that JMX stats show no sign of backpressure
         assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.opensearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", catalogName));
@@ -196,6 +194,7 @@ public abstract class BaseOpenSearchConnectorTest
     @Override
     public void testShowCreateTable()
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo(format("CREATE TABLE %s.tpch.orders (\n", catalogName) +
                         "   clerk varchar,\n" +
@@ -1820,6 +1819,8 @@ public abstract class BaseOpenSearchConnectorTest
     @Test
     public void testQueryTableFunction()
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
         // select single record
         assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
                         format("FROM TABLE(%s.system.raw_query(", catalogName) +
@@ -1887,6 +1888,7 @@ public abstract class BaseOpenSearchConnectorTest
 
     protected void assertTableDoesNotExist(String name)
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name)).isFalse();
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");

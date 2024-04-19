@@ -24,7 +24,7 @@ public class TestOpenSearchLatestConnectorTest
 {
     public TestOpenSearchLatestConnectorTest()
     {
-        super("opensearchproject/opensearch:latest", "opensearch");
+        super("opensearchproject/opensearch:latest");
     }
 
     @Override
