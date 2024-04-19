@@ -76,7 +76,7 @@ public class TestIcebergOrcMetricsCollection
                 .setCatalogSessionProperty("iceberg", "orc_string_statistics_limit", Integer.MAX_VALUE + "B")
                 .build();
         QueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .build();
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();

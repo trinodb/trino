@@ -97,7 +97,7 @@ public class TestFinalQueryInfo
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(2)
+                .setWorkerCount(1)
                 .build();
 
         try {

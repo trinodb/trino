@@ -76,7 +76,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
@@ -124,7 +123,7 @@ public class DistributedQueryRunner
 
     private DistributedQueryRunner(
             Session defaultSession,
-            int nodeCount,
+            int workerCount,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
             Optional<Map<String, String>> backupCoordinatorProperties,
@@ -163,9 +162,7 @@ public class DistributedQueryRunner
                         ImmutableList.of());
             };
 
-            int coordinatorCount = backupCoordinatorProperties.isEmpty() ? 1 : 2;
-            checkArgument(nodeCount >= coordinatorCount, "nodeCount includes coordinator(s) count, so must be at least %s, got: %s", coordinatorCount, nodeCount);
-            for (int i = coordinatorCount; i < nodeCount; i++) {
+            for (int i = 0; i < workerCount; i++) {
                 registerNewWorker.run();
             }
 
@@ -634,7 +631,7 @@ public class DistributedQueryRunner
     {
         private Session defaultSession;
         private boolean withTracing;
-        private int nodeCount = 3;
+        private int workerCount = 2;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
@@ -664,9 +661,9 @@ public class DistributedQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public SELF setNodeCount(int nodeCount)
+        public SELF setWorkerCount(int workerCount)
         {
-            this.nodeCount = nodeCount;
+            this.workerCount = workerCount;
             return self();
         }
 
@@ -841,7 +838,7 @@ public class DistributedQueryRunner
 
             DistributedQueryRunner queryRunner = new DistributedQueryRunner(
                     defaultSession,
-                    nodeCount,
+                    workerCount,
                     extraProperties,
                     coordinatorProperties,
                     backupCoordinatorProperties,

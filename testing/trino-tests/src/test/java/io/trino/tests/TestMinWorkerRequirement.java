@@ -54,7 +54,7 @@ public class TestMinWorkerRequirement
                             .put("query-manager.required-workers", "5")
                             .put("query-manager.required-workers-max-wait", "1ns")
                             .buildOrThrow())
-                    .setNodeCount(4)
+                    .setWorkerCount(3)
                     .build()) {
                 queryRunner.execute("SELECT COUNT(*) from lineitem");
                 fail("Expected exception due to insufficient active worker nodes");
@@ -74,7 +74,7 @@ public class TestMinWorkerRequirement
                             .put("query-manager.required-workers", "4")
                             .put("query-manager.required-workers-max-wait", "1ns")
                             .buildOrThrow())
-                    .setNodeCount(4)
+                    .setWorkerCount(3)
                     .build()) {
                 queryRunner.execute("SELECT COUNT(*) from lineitem");
                 fail("Expected exception due to insufficient active worker nodes");
@@ -93,7 +93,7 @@ public class TestMinWorkerRequirement
                         .put("query-manager.required-workers", "5")
                         .put("query-manager.required-workers-max-wait", "1ns")
                         .buildOrThrow())
-                .setNodeCount(4)
+                .setWorkerCount(3)
                 .build()) {
             queryRunner.execute("SELECT 1");
             queryRunner.execute("DESCRIBE lineitem");
@@ -115,7 +115,7 @@ public class TestMinWorkerRequirement
                         .put("query-manager.required-workers", "4")
                         .put("query-manager.required-workers-max-wait", "1ns")
                         .buildOrThrow())
-                .setNodeCount(4)
+                .setWorkerCount(3)
                 .build()) {
             queryRunner.execute("SELECT COUNT(*) from lineitem");
             assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size()).isEqualTo(4);
@@ -137,7 +137,7 @@ public class TestMinWorkerRequirement
                             .put("query-manager.required-workers", "3")
                             .put("query-manager.required-workers-max-wait", "1ns")
                             .buildOrThrow())
-                    .setNodeCount(2)
+                    .setWorkerCount(1)
                     .build()) {
                 Session session = testSessionBuilder()
                         .setSystemProperty(REQUIRED_WORKERS_COUNT, "3")
@@ -162,7 +162,7 @@ public class TestMinWorkerRequirement
                         .put("query-manager.required-workers", "5")
                         .put("query-manager.required-workers-max-wait", "1ns")
                         .buildOrThrow())
-                .setNodeCount(4)
+                .setWorkerCount(3)
                 .build()) {
             // Query should be allowed to run if session override allows it
             Session session = testSessionBuilder()
@@ -192,7 +192,7 @@ public class TestMinWorkerRequirement
             throws Exception
     {
         ListeningExecutorService service = MoreExecutors.listeningDecorator(newFixedThreadPool(3));
-        try (DistributedQueryRunner queryRunner = TpchQueryRunner.builder().setNodeCount(1).build()) {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunner.builder().setWorkerCount(0).build()) {
             Session session1 = Session.builder(queryRunner.getDefaultSession())
                     .setSystemProperty(REQUIRED_WORKERS_COUNT, "2")
                     .build();

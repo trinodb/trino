@@ -52,7 +52,7 @@ public class TestSystemMetadataConnector
         closeAfterClass(() -> countingMockConnector = null);
         Session session = testSessionBuilder().build();
         QueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
         try {

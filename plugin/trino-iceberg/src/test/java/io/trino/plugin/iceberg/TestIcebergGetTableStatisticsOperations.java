@@ -53,7 +53,7 @@ public class TestIcebergGetTableStatisticsOperations
             throws Exception
     {
         queryRunner = DistributedQueryRunner.builder(testSession())
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .build();
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
