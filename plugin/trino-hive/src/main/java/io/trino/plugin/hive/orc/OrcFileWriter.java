@@ -69,7 +69,7 @@ public final class OrcFileWriter
     private static final int INSTANCE_SIZE = instanceSize(OrcFileWriter.class);
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
-    protected final OrcWriter orcWriter;
+    private final OrcWriter orcWriter;
     private final WriterKind writerKind;
     private final AcidTransaction transaction;
     private final boolean useAcidSchema;
