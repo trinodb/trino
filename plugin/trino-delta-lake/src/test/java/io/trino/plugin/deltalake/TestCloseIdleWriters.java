@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.SystemSessionProperties.IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
@@ -40,7 +42,7 @@ public class TestCloseIdleWriters
             throws Exception
     {
         Path metastoreDirectory = Files.createTempDirectory(DELTA_CATALOG);
-        metastoreDirectory.toFile().deleteOnExit();
+        closeAfterClass(() -> deleteRecursively(metastoreDirectory, ALLOW_INSECURE));
         QueryRunner queryRunner = DeltaLakeQueryRunner.builder()
                 .setWorkerCount(0)
                 // Set the target max file size to 100GB so that we don't close writers due to file size in append
