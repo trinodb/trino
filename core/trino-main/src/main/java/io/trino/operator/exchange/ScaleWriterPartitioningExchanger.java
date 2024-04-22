@@ -171,6 +171,6 @@ public class ScaleWriterPartitioningExchanger
         long retainedSizeInBytes = pageSplit.getRetainedSizeInBytes();
         memoryManager.updateMemoryUsage(retainedSizeInBytes);
         buffer.accept(pageSplit);
-        return retainedSizeInBytes;
+        return pageSplit.getSizeInBytes();
     }
 }
