@@ -23,6 +23,6 @@ public interface CacheKeyProvider
     /**
      * Get the cache key of a TrinoInputFile. Returns Optional.empty() if the file is not cacheable.
      */
-    Optional<String> getCacheKey(TrinoInputFile delegate)
+    Optional<String> getCacheKey(TrinoInputFile inputFile)
             throws IOException;
 }

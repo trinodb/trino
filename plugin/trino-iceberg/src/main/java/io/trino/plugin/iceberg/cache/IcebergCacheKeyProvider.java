@@ -22,9 +22,9 @@ public class IcebergCacheKeyProvider
         implements CacheKeyProvider
 {
     @Override
-    public Optional<String> getCacheKey(TrinoInputFile delegate)
+    public Optional<String> getCacheKey(TrinoInputFile inputFile)
     {
-        String path = delegate.location().path();
+        String path = inputFile.location().path();
         if (path.endsWith(".trinoSchema") || path.contains("/.trinoPermissions/")) {
             // Needed to avoid caching files from FileHiveMetastore on coordinator during tests
             return Optional.empty();

@@ -28,9 +28,9 @@ public class DeltaLakeCacheKeyProvider
      * Get the cache key of a TrinoInputFile. Returns Optional.empty() if the file is not cacheable.
      */
     @Override
-    public Optional<String> getCacheKey(TrinoInputFile delegate)
+    public Optional<String> getCacheKey(TrinoInputFile inputFile)
     {
-        String path = delegate.location().path();
+        String path = inputFile.location().path();
         if (path.endsWith(".trinoSchema") || path.contains("/.trinoPermissions/")) {
             // Needed to avoid caching files from FileHiveMetastore on coordinator during tests
             return Optional.empty();
