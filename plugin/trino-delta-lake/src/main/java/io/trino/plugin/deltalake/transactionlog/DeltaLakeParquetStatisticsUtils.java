@@ -80,11 +80,11 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
 
-public class DeltaLakeParquetStatisticsUtils
+public final class DeltaLakeParquetStatisticsUtils
 {
-    private static final Logger LOG = Logger.get(DeltaLakeParquetStatisticsUtils.class);
-
     private DeltaLakeParquetStatisticsUtils() {}
+
+    private static final Logger LOG = Logger.get(DeltaLakeParquetStatisticsUtils.class);
 
     public static boolean hasInvalidStatistics(Collection<ColumnChunkMetaData> metadataList)
     {
