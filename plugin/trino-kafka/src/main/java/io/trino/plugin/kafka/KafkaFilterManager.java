@@ -89,7 +89,7 @@ public class KafkaFilterManager
         requireNonNull(partitionBeginOffsets, "partitionBeginOffsets is null");
         requireNonNull(partitionEndOffsets, "partitionEndOffsets is null");
 
-        TupleDomain<ColumnHandle> constraint = kafkaTableHandle.getConstraint();
+        TupleDomain<ColumnHandle> constraint = kafkaTableHandle.constraint();
         verify(!constraint.isNone(), "constraint is none");
 
         if (!constraint.isAll()) {
@@ -126,7 +126,7 @@ public class KafkaFilterManager
                         partitionBeginOffsets = overridePartitionBeginOffsets(partitionBeginOffsets,
                                 partition -> findOffsetsForTimestampGreaterOrEqual(kafkaConsumer, partition, offsetTimestampRanged.get().getBegin()));
                     }
-                    if (isTimestampUpperBoundPushdownEnabled(session, kafkaTableHandle.getTopicName())) {
+                    if (isTimestampUpperBoundPushdownEnabled(session, kafkaTableHandle.topicName())) {
                         if (offsetTimestampRanged.get().getEnd() > INVALID_KAFKA_RANGE_INDEX) {
                             partitionEndOffsets = overridePartitionEndOffsets(partitionEndOffsets,
                                     partition -> findOffsetsForTimestampGreaterOrEqual(kafkaConsumer, partition, offsetTimestampRanged.get().getEnd()));
