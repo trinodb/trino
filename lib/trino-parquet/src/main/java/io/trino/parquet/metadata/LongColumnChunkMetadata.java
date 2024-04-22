@@ -11,88 +11,77 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.parquet.hadoop.metadata;
+package io.trino.parquet.metadata;
 
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.util.Set;
 
-class IntColumnChunkMetaData
-        extends ColumnChunkMetaData
+class LongColumnChunkMetadata
+        extends ColumnChunkMetadata
 {
-    private final int firstDataPage;
-    private final int dictionaryPageOffset;
-    private final int valueCount;
-    private final int totalSize;
-    private final int totalUncompressedSize;
+    private final long firstDataPageOffset;
+    private final long dictionaryPageOffset;
+    private final long valueCount;
+    private final long totalSize;
+    private final long totalUncompressedSize;
     private final Statistics statistics;
 
-    IntColumnChunkMetaData(
+    LongColumnChunkMetadata(
             ColumnPath path,
             PrimitiveType type,
             CompressionCodecName codec,
             EncodingStats encodingStats,
             Set<Encoding> encodings,
             Statistics statistics,
-            long firstDataPage,
+            long firstDataPageOffset,
             long dictionaryPageOffset,
             long valueCount,
             long totalSize,
             long totalUncompressedSize)
     {
         super(encodingStats, ColumnChunkProperties.get(path, type, codec, encodings));
-        this.firstDataPage = positiveLongToInt(firstDataPage);
-        this.dictionaryPageOffset = positiveLongToInt(dictionaryPageOffset);
-        this.valueCount = positiveLongToInt(valueCount);
-        this.totalSize = positiveLongToInt(totalSize);
-        this.totalUncompressedSize = positiveLongToInt(totalUncompressedSize);
+        this.firstDataPageOffset = firstDataPageOffset;
+        this.dictionaryPageOffset = dictionaryPageOffset;
+        this.valueCount = valueCount;
+        this.totalSize = totalSize;
+        this.totalUncompressedSize = totalUncompressedSize;
         this.statistics = statistics;
-    }
-
-    private int positiveLongToInt(long value)
-    {
-        if (!ColumnChunkMetaData.positiveLongFitsInAnInt(value)) {
-            throw new IllegalArgumentException("value should be positive and fit in an int: " + value);
-        }
-        return (int) (value + Integer.MIN_VALUE);
-    }
-
-    private long intToPositiveLong(int value)
-    {
-        return (long) value - Integer.MIN_VALUE;
     }
 
     @Override
     public long getFirstDataPageOffset()
     {
-        return intToPositiveLong(firstDataPage);
+        return firstDataPageOffset;
     }
 
     @Override
     public long getDictionaryPageOffset()
     {
-        return intToPositiveLong(dictionaryPageOffset);
+        return dictionaryPageOffset;
     }
 
     @Override
     public long getValueCount()
     {
-        return intToPositiveLong(valueCount);
+        return valueCount;
     }
 
     @Override
     public long getTotalUncompressedSize()
     {
-        return intToPositiveLong(totalUncompressedSize);
+        return totalUncompressedSize;
     }
 
     @Override
     public long getTotalSize()
     {
-        return intToPositiveLong(totalSize);
+        return totalSize;
     }
 
     @Override

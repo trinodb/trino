@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.parquet.hadoop.metadata;
+package io.trino.parquet.metadata;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class BlockMetaData
+public class BlockMetadata
 {
-    private final List<ColumnChunkMetaData> columns = new ArrayList<>();
+    private final List<ColumnChunkMetadata> columns = new ArrayList<>();
     private long rowCount;
     private long totalByteSize;
     private String path;
@@ -66,12 +66,12 @@ public class BlockMetaData
         this.totalByteSize = totalByteSize;
     }
 
-    public void addColumn(ColumnChunkMetaData column)
+    public void addColumn(ColumnChunkMetadata column)
     {
         columns.add(column);
     }
 
-    public List<ColumnChunkMetaData> getColumns()
+    public List<ColumnChunkMetadata> getColumns()
     {
         return Collections.unmodifiableList(columns);
     }
@@ -94,7 +94,7 @@ public class BlockMetaData
     public long getCompressedSize()
     {
         long totalSize = 0;
-        for (ColumnChunkMetaData col : getColumns()) {
+        for (ColumnChunkMetadata col : getColumns()) {
             totalSize += col.getTotalSize();
         }
         return totalSize;

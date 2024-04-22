@@ -24,6 +24,8 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DecimalType;
@@ -35,8 +37,6 @@ import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.Util;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ParquetDecodingException;
@@ -131,7 +131,7 @@ public final class PredicateUtils
 
     public static boolean predicateMatches(
             TupleDomainParquetPredicate parquetPredicate,
-            BlockMetaData block,
+            BlockMetadata block,
             ParquetDataSource dataSource,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
             TupleDomain<ColumnDescriptor> parquetTupleDomain,
@@ -180,7 +180,7 @@ public final class PredicateUtils
             long splitStart,
             long splitLength,
             ParquetDataSource dataSource,
-            List<BlockMetaData> blocksMetaData,
+            List<BlockMetadata> blocksMetaData,
             List<TupleDomain<ColumnDescriptor>> parquetTupleDomains,
             List<TupleDomainParquetPredicate> parquetPredicates,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
@@ -191,7 +191,7 @@ public final class PredicateUtils
     {
         long fileRowCount = 0;
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
-        for (BlockMetaData block : blocksMetaData) {
+        for (BlockMetadata block : blocksMetaData) {
             long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
             boolean splitContainsBlock = splitStart <= firstDataPage && firstDataPage < splitStart + splitLength;
             if (splitContainsBlock) {
@@ -220,10 +220,10 @@ public final class PredicateUtils
         return rowGroupInfoBuilder.build();
     }
 
-    private static Map<ColumnDescriptor, Statistics<?>> getStatistics(BlockMetaData blockMetadata, Map<List<String>, ColumnDescriptor> descriptorsByPath)
+    private static Map<ColumnDescriptor, Statistics<?>> getStatistics(BlockMetadata blockMetadata, Map<List<String>, ColumnDescriptor> descriptorsByPath)
     {
         ImmutableMap.Builder<ColumnDescriptor, Statistics<?>> statistics = ImmutableMap.builder();
-        for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
+        for (ColumnChunkMetadata columnMetaData : blockMetadata.getColumns()) {
             Statistics<?> columnStatistics = columnMetaData.getStatistics();
             if (columnStatistics != null) {
                 ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
@@ -235,10 +235,10 @@ public final class PredicateUtils
         return statistics.buildOrThrow();
     }
 
-    private static Map<ColumnDescriptor, Long> getColumnValueCounts(BlockMetaData blockMetadata, Map<List<String>, ColumnDescriptor> descriptorsByPath)
+    private static Map<ColumnDescriptor, Long> getColumnValueCounts(BlockMetadata blockMetadata, Map<List<String>, ColumnDescriptor> descriptorsByPath)
     {
         ImmutableMap.Builder<ColumnDescriptor, Long> columnValueCounts = ImmutableMap.builder();
-        for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
+        for (ColumnChunkMetadata columnMetaData : blockMetadata.getColumns()) {
             ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
             if (descriptor != null) {
                 columnValueCounts.put(descriptor, columnMetaData.getValueCount());
@@ -249,14 +249,14 @@ public final class PredicateUtils
 
     private static boolean dictionaryPredicatesMatch(
             TupleDomainParquetPredicate parquetPredicate,
-            BlockMetaData blockMetadata,
+            BlockMetadata blockMetadata,
             ParquetDataSource dataSource,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
             Set<ColumnDescriptor> candidateColumns,
             Optional<ColumnIndexStore> columnIndexStore)
             throws IOException
     {
-        for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
+        for (ColumnChunkMetadata columnMetaData : blockMetadata.getColumns()) {
             ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
             if (descriptor == null || !candidateColumns.contains(descriptor)) {
                 continue;
@@ -278,7 +278,7 @@ public final class PredicateUtils
 
     private static Optional<DictionaryPage> readDictionaryPage(
             ParquetDataSource dataSource,
-            ColumnChunkMetaData columnMetaData,
+            ColumnChunkMetadata columnMetaData,
             Optional<ColumnIndexStore> columnIndexStore)
             throws IOException
     {
@@ -306,7 +306,7 @@ public final class PredicateUtils
         return readPageHeaderWithData(buffer.getInput()).map(data -> decodeDictionaryPage(dataSource.getId(), data, columnMetaData));
     }
 
-    private static Optional<Integer> getDictionaryPageSize(ColumnIndexStore columnIndexStore, ColumnChunkMetaData columnMetaData)
+    private static Optional<Integer> getDictionaryPageSize(ColumnIndexStore columnIndexStore, ColumnChunkMetadata columnMetaData)
     {
         OffsetIndex offsetIndex = columnIndexStore.getOffsetIndex(columnMetaData.getPath());
         if (offsetIndex == null) {
@@ -342,7 +342,7 @@ public final class PredicateUtils
                 inputStream.readSlice(pageHeader.getCompressed_page_size())));
     }
 
-    private static DictionaryPage decodeDictionaryPage(ParquetDataSourceId dataSourceId, PageHeaderWithData pageHeaderWithData, ColumnChunkMetaData chunkMetaData)
+    private static DictionaryPage decodeDictionaryPage(ParquetDataSourceId dataSourceId, PageHeaderWithData pageHeaderWithData, ColumnChunkMetadata chunkMetaData)
     {
         PageHeader pageHeader = pageHeaderWithData.pageHeader();
         DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();

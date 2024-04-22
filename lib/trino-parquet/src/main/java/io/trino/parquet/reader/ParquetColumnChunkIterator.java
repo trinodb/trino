@@ -19,6 +19,7 @@ import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
@@ -27,7 +28,6 @@ import org.apache.parquet.format.DataPageHeaderV2;
 import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.Util;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
@@ -45,7 +45,7 @@ public final class ParquetColumnChunkIterator
     private final ParquetDataSourceId dataSourceId;
     private final Optional<String> fileCreatedBy;
     private final ColumnDescriptor descriptor;
-    private final ColumnChunkMetaData metadata;
+    private final ColumnChunkMetadata metadata;
     private final ChunkedInputStream input;
     private final OffsetIndex offsetIndex;
 
@@ -56,7 +56,7 @@ public final class ParquetColumnChunkIterator
             ParquetDataSourceId dataSourceId,
             Optional<String> fileCreatedBy,
             ColumnDescriptor descriptor,
-            ColumnChunkMetaData metadata,
+            ColumnChunkMetadata metadata,
             ChunkedInputStream input,
             @Nullable OffsetIndex offsetIndex)
     {

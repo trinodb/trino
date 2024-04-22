@@ -19,18 +19,18 @@ import com.google.common.collect.ListMultimap;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.metadata.IndexReference;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.format.Util;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
-import org.apache.parquet.internal.hadoop.metadata.IndexReference;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.io.IOException;
@@ -73,7 +73,7 @@ public class TrinoColumnIndexStore
      */
     public TrinoColumnIndexStore(
             ParquetDataSource dataSource,
-            BlockMetaData block,
+            BlockMetadata block,
             Set<ColumnPath> columnsRead,
             Set<ColumnPath> columnsFiltered)
     {
@@ -84,7 +84,7 @@ public class TrinoColumnIndexStore
 
         ImmutableList.Builder<ColumnIndexMetadata> columnIndexBuilder = ImmutableList.builderWithExpectedSize(columnsFiltered.size());
         ImmutableList.Builder<ColumnIndexMetadata> offsetIndexBuilder = ImmutableList.builderWithExpectedSize(columnsRead.size());
-        for (ColumnChunkMetaData column : block.getColumns()) {
+        for (ColumnChunkMetadata column : block.getColumns()) {
             ColumnPath path = column.getPath();
             if (column.getColumnIndexReference() != null && columnsFiltered.contains(path)) {
                 columnIndexBuilder.add(new ColumnIndexMetadata(
@@ -139,7 +139,7 @@ public class TrinoColumnIndexStore
 
     public static Optional<ColumnIndexStore> getColumnIndexStore(
             ParquetDataSource dataSource,
-            BlockMetaData blockMetadata,
+            BlockMetadata blockMetadata,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
             TupleDomain<ColumnDescriptor> parquetTupleDomain,
             ParquetReaderOptions options)
@@ -149,7 +149,7 @@ public class TrinoColumnIndexStore
         }
 
         boolean hasColumnIndex = false;
-        for (ColumnChunkMetaData column : blockMetadata.getColumns()) {
+        for (ColumnChunkMetadata column : blockMetadata.getColumns()) {
             if (column.getColumnIndexReference() != null && column.getOffsetIndexReference() != null) {
                 hasColumnIndex = true;
                 break;
