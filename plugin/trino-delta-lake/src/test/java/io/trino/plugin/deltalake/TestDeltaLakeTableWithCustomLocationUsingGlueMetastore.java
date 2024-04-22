@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -36,8 +35,6 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
         extends BaseDeltaLakeTableWithCustomLocation
 {
-    private static final Logger LOG = Logger.get(TestDeltaLakeTableWithCustomLocationUsingGlueMetastore.class);
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -70,16 +67,10 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
 
     @AfterAll
     public void tearDown()
+            throws Exception
     {
-        try {
-            if (metastore != null) {
-                // Data is on the local disk and will be deleted by the deleteOnExit hook
-                metastore.dropDatabase(SCHEMA, false);
-                deleteRecursively(metastoreDir.toPath(), ALLOW_INSECURE);
-            }
-        }
-        catch (Exception e) {
-            LOG.error(e, "Failed to clean up Glue database: %s", SCHEMA);
-        }
+        // Data is on the local disk and will be deleted by the deleteOnExit hook
+        metastore.dropDatabase(SCHEMA, false);
+        deleteRecursively(metastoreDir.toPath(), ALLOW_INSECURE);
     }
 }

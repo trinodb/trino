@@ -104,10 +104,8 @@ public class TestDeltaLakeLocalConcurrentWritesTest
     public void tearDown()
             throws IOException
     {
-        if (metastore != null) {
-            metastore.dropDatabase(SCHEMA, false);
-            deleteRecursively(dataDirectory, ALLOW_INSECURE);
-        }
+        metastore.dropDatabase(SCHEMA, false);
+        deleteRecursively(dataDirectory, ALLOW_INSECURE);
     }
 
     // Copied from BaseDeltaLakeConnectorSmokeTest

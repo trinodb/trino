@@ -42,7 +42,6 @@ import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -121,12 +120,11 @@ public class TestDeltaLakeDynamicFiltering
                 .build()
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
         QualifiedObjectName tableName = new QualifiedObjectName(DELTA_CATALOG, "default", "orders");
-        Optional<TableHandle> tableHandle = runner.getPlannerContext().getMetadata().getTableHandle(session, tableName);
-        assertThat(tableHandle.isPresent()).isTrue();
+        TableHandle tableHandle = runner.getPlannerContext().getMetadata().getTableHandle(session, tableName).orElseThrow();
         CompletableFuture<Void> dynamicFilterBlocked = new CompletableFuture<>();
         try {
             SplitSource splitSource = runner.getSplitManager()
-                    .getSplits(session, Span.getInvalid(), tableHandle.get(), new BlockedDynamicFilter(dynamicFilterBlocked), alwaysTrue());
+                    .getSplits(session, Span.getInvalid(), tableHandle, new BlockedDynamicFilter(dynamicFilterBlocked), alwaysTrue());
             List<Split> splits = new ArrayList<>();
             while (!splitSource.isFinished()) {
                 splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
