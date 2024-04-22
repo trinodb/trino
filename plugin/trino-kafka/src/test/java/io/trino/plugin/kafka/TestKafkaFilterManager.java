@@ -51,13 +51,13 @@ public class TestKafkaFilterManager
     {
         Domain testDomain = Domain.singleValue(BIGINT, 1L);
         assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).isPresent()).isTrue();
-        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().getBegin()).isEqualTo(1L);
-        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().getEnd()).isEqualTo(2L);
+        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().begin()).isEqualTo(1L);
+        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().end()).isEqualTo(2L);
 
         testDomain = multipleValues(BIGINT, ImmutableList.of(3L, 8L));
         assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).isPresent()).isTrue();
-        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().getBegin()).isEqualTo(3L);
-        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().getEnd()).isEqualTo(9L);
+        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().begin()).isEqualTo(3L);
+        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().end()).isEqualTo(9L);
 
         testDomain = Domain.create(SortedRangeSet.copyOf(BIGINT,
                 ImmutableList.of(
@@ -65,7 +65,7 @@ public class TestKafkaFilterManager
                 false);
 
         assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).isPresent()).isTrue();
-        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().getBegin()).isEqualTo(2L);
-        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().getEnd()).isEqualTo(5L);
+        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().begin()).isEqualTo(2L);
+        assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().end()).isEqualTo(5L);
     }
 }
