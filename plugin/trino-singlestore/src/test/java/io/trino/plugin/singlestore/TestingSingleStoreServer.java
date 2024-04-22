@@ -24,12 +24,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Set;
 
-import static java.util.Objects.requireNonNull;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
 public class TestingSingleStoreServer
         extends JdbcDatabaseContainer<TestingSingleStoreServer>
 {
-    private static final String MEM_SQL_LICENSE = requireNonNull(System.getProperty("memsql.license"), "memsql.license is not set");
+    private static final String MEM_SQL_LICENSE = requiredNonEmptySystemProperty("memsql.license");
 
     public static final String DEFAULT_TAG = "memsql/cluster-in-a-box:centos-7.1.13-11ddea2a3a-3.0.0-1.9.0";
     public static final String LATEST_TESTED_TAG = "memsql/cluster-in-a-box:centos-7.3.4-d596a2867a-3.2.4-1.10.1";

@@ -49,13 +49,14 @@ import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class BigQueryQueryRunner
 {
-    private static final String BIGQUERY_CREDENTIALS_KEY = requireNonNull(System.getProperty("bigquery.credentials-key"), "bigquery.credentials-key is not set");
+    private static final String BIGQUERY_CREDENTIALS_KEY = requiredNonEmptySystemProperty("bigquery.credentials-key");
     public static final String TPCH_SCHEMA = "tpch";
     public static final String TEST_SCHEMA = "test";
 

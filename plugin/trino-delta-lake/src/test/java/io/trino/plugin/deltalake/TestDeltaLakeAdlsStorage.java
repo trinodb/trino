@@ -35,13 +35,13 @@ import java.util.Set;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDockerizedDeltaLakeQueryRunner;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -62,10 +62,9 @@ public class TestDeltaLakeAdlsStorage
 
     public TestDeltaLakeAdlsStorage()
     {
-        String container = System.getProperty("testing.azure-abfs-container");
-        requireNonNull(container, "container is null");
-        this.account = requireNonNull(System.getProperty("testing.azure-abfs-account"), "account is null");
-        this.accessKey = requireNonNull(System.getProperty("testing.azure-abfs-access-key"), "accessKey is null");
+        String container = requiredNonEmptySystemProperty("testing.azure-abfs-container");
+        this.account = requiredNonEmptySystemProperty("testing.azure-abfs-account");
+        this.accessKey = requiredNonEmptySystemProperty("testing.azure-abfs-access-key");
 
         String directoryBase = format("abfs://%s@%s.dfs.core.windows.net", container, account);
         adlsDirectory = format("%s/tpch-tiny-%s/", directoryBase, randomUUID());
