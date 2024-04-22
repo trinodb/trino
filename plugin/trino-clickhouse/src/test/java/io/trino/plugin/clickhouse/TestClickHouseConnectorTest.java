@@ -846,6 +846,38 @@ public class TestClickHouseConnectorTest
                 .isFullyPushedDown();
     }
 
+    @Test
+    public void testDecimalPredicatePushdown()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_decimal_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10)) Engine=Log",
+                List.of("123.321, 123456789.987654321"))) {
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE long_decimal <= 123456790"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE short_decimal <= 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE long_decimal <= 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE short_decimal = 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE long_decimal = 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+        }
+    }
+
     @Override
     protected OptionalInt maxTableNameLength()
     {
