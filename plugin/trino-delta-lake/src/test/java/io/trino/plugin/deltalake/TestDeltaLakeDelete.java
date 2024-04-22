@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
@@ -45,7 +44,8 @@ public class TestDeltaLakeDelete
     {
         hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
+
+        return createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 ImmutableMap.of(
@@ -53,11 +53,6 @@ public class TestDeltaLakeDelete
                         "delta.register-table-procedure.enabled", "true"),
                 hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
-
-        TpchTable.getTables().forEach(table ->
-                queryRunner.execute(format("CREATE TABLE %s WITH (location = '%s') AS SELECT * FROM tpch.tiny.%1$s", table.getTableName(), getLocationForTable(table.getTableName()))));
-
-        return queryRunner;
     }
 
     @Test
@@ -82,7 +77,7 @@ public class TestDeltaLakeDelete
     public void testTargetedDelete()
     {
         String tableName = "test_targeted_delete";
-        assertUpdate("CREATE TABLE " + tableName + " WITH (location = '" + getLocationForTable(tableName) + "')  AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        assertUpdate("CREATE TABLE " + tableName + " WITH (location = '" + getLocationForTable(tableName) + "')  AS SELECT * FROM tpch.tiny.orders", "SELECT count(*) FROM orders");
         assertUpdate("DELETE FROM " + tableName + " WHERE orderkey = 60000", "VALUES 1");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE orderkey != 60000");
     }
@@ -256,8 +251,8 @@ public class TestDeltaLakeDelete
         String tableName = "test_delete_with_row_filter";
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['regionkey']) " +
-                        "AS SELECT nationkey, regionkey FROM nation",
-                "SELECT count(*) FROM nation");
+                        "AS SELECT nationkey, regionkey FROM tpch.tiny.nation",
+                25);
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 4 AND nationkey < 100", "SELECT count(*) FROM nation WHERE regionkey = 4 AND nationkey < 100");
         assertQuery("SELECT * FROM " + tableName, "SELECT nationkey, regionkey FROM nation WHERE regionkey != 4 OR nationkey >= 100");
     }
