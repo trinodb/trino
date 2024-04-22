@@ -123,33 +123,96 @@ a few caveats:
 
 ### Configuration properties
 
-| Property                                            | Description                                                                                                                                                     | Default                                              |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `bigquery.project-id`                               | The Google Cloud Project ID where the data reside                                                                                                               | Taken from the service account                       |
-| `bigquery.parent-project-id`                        | The project ID Google Cloud Project to bill for the export                                                                                                      | Taken from the service account                       |
-| `bigquery.parallelism`                              | The number of partitions to split the data into                                                                                                                 | The number of executors                              |
-| `bigquery.views-enabled`                            | Enables the connector to read from views and not only tables. Please read [this section](bigquery-reading-from-views) before enabling this feature.                     | `false`                                              |
-| `bigquery.view-expire-duration`                     | Expire duration for the materialized view.                                                                                                                      | `24h`                                                |
-| `bigquery.view-materialization-project`             | The project where the materialized view is going to be created                                                                                                  | The view's project                                   |
-| `bigquery.view-materialization-dataset`             | The dataset where the materialized view is going to be created                                                                                                  | The view's dataset                                   |
-| `bigquery.skip-view-materialization`                | Use REST API to access views instead of Storage API. BigQuery `BIGNUMERIC` and `TIMESTAMP` types are unsupported.                                               | `false`                                              |
-| `bigqueryview-materialization-with-filter`          | Use filter conditions when materializng views.                                                                                                                  | `false`                                              |
-| `bigquery.views-cache-ttl`                          | Duration for which the materialization of a view will be cached and reused. Set to `0ms` to disable the cache.                                                  | `15m`                                                |
-| `bigquery.metadata.cache-ttl`                       | Duration for which metadata retrieved from BigQuery is cached and reused. Set to `0ms` to disable the cache.                                                    | `0ms`                                                |
-| `bigquery.max-read-rows-retries`                    | The number of retries in case of retryable server issues                                                                                                        | `3`                                                  |
-| `bigquery.credentials-key`                          | The base64 encoded credentials key                                                                                                                              | None. See the [requirements](bigquery-requirements) section. |
-| `bigquery.credentials-file`                         | The path to the JSON credentials file                                                                                                                           | None. See the [requirements](bigquery-requirements) section. |
-| `bigquery.case-insensitive-name-matching`           | Match dataset and table names case-insensitively                                                                                                                | `false`                                              |
-| `bigquery.query-results-cache.enabled`              | Enable [query results cache](https://cloud.google.com/bigquery/docs/cached-results)                                                                             | `false`                                              |
-| `bigquery.arrow-serialization.enabled`              | Enable using Apache Arrow serialization when reading data from BigQuery. Please read this [section](bigquery-arrow-serialization-support) before enabling this feature. | `false`                                              |
-| `bigquery.rpc-proxy.enabled`                        | Use a proxy for communication with BigQuery.                                                                                                                    | `false`                                              |
-| `bigquery.rpc-proxy.uri`                            | Proxy URI to use if connecting through a proxy.                                                                                                                 |                                                      |
-| `bigquery.rpc-proxy.username`                       | Proxy user name to use if connecting through a proxy.                                                                                                           |                                                      |
-| `bigquery.rpc-proxy.password`                       | Proxy password to use if connecting through a proxy.                                                                                                            |                                                      |
-| `bigquery.rpc-proxy.keystore-path`                  | Keystore containing client certificates to present to proxy if connecting through a proxy. Only required if proxy uses mutual TLS.                              |                                                      |
-| `bigquery.rpc-proxy.keystore-password`              | Password of the keystore specified by `bigquery.rpc-proxy.keystore-path`.                                                                                       |                                                      |
-| `bigquery.rpc-proxy.truststore-path`                | Truststore containing certificates of the proxy server if connecting through a proxy.                                                                           |                                                      |
-| `bigquery.rpc-proxy.truststore-password`            | Password of the truststore specified by `bigquery.rpc-proxy.truststore-path`.                                                                                   |                                                      |
+:::{list-table} BigQuery configuration properties
+:widths: 30, 55, 15
+:header-rows: 1
+
+* - Property name
+  - Description
+  - Default
+* - `bigquery.project-id`
+  - The Google Cloud Project ID where the data reside.
+  - Taken from the service account
+* - `bigquery.parent-project-id`
+  - The project ID Google Cloud Project to bill for the export.
+  - Taken from the service account
+* - `bigquery.parallelism`
+  - The number of partitions to split the data into.
+  - The number of executors
+* - `bigquery.views-enabled`
+  - Enables the connector to read from views and not only tables. Please read 
+    [this section](bigquery-reading-from-views) before enabling this feature.
+  - `false`
+* - `bigquery.view-expire-duration`
+  - Expire duration for the materialized view.
+  - `24h`
+* - `bigquery.view-materialization-project`
+  - The project where the materialized view is going to be created.
+  - The view's project
+* - `bigquery.view-materialization-dataset`
+  - The dataset where the materialized view is going to be created.
+  - The view's project
+* - `bigquery.skip-view-materialization`
+  - Use REST API to access views instead of Storage API. BigQuery `BIGNUMERIC` 
+    and `TIMESTAMP` types are unsupported.
+  - `false`
+* - `bigqueryview-materialization-with-filter`
+  - Use filter conditions when materializing views.
+  - `false`
+* - `bigquery.views-cache-ttl`
+  - Duration for which the materialization of a view will be cached and reused. 
+    Set to `0ms` to disable the cache.
+  - `15m`
+* - `bigquery.metadata.cache-ttl`
+  - Duration for which metadata retrieved from BigQuery is cached and reused. 
+    Set to `0ms` to disable the cache.
+  - `0ms`
+* - `bigquery.max-read-rows-retries`
+  - The number of retries in case of retryable server issues.
+  - `3`
+* - `bigquery.credentials-key`
+  - The base64 encoded credentials key.
+  - None. See the [requirements](bigquery-requirements) section
+* - `bigquery.credentials-file`
+  - The path to the JSON credentials file.
+  - None. See the [requirements](bigquery-requirements) section
+* - `bigquery.case-insensitive-name-matching`
+  - Match dataset and table names case-insensitively.
+  - `false`
+* - `bigquery.query-results-cache.enabled`
+  - Enable [query results cache](https://cloud.google.com/bigquery/docs/cached-results).
+  - `false`
+* - `bigquery.arrow-serialization.enabled`
+  - Enable using Apache Arrow serialization when reading data from BigQuery. 
+    Please read this [section](bigquery-arrow-serialization-support) before enabling this feature.
+  - `false`
+* - `bigquery.rpc-proxy.enabled`
+  - Use a proxy for communication with BigQuery.
+  - `false`
+* - `bigquery.rpc-proxy.uri`
+  - Proxy URI to use if connecting through a proxy.
+  - 
+* - `bigquery.rpc-proxy.username`
+  - Proxy user name to use if connecting through a proxy.
+  - 
+* - `bigquery.rpc-proxy.password`
+  - Proxy password to use if connecting through a proxy.
+  - 
+* - `bigquery.rpc-proxy.keystore-path`
+  - Keystore containing client certificates to present to proxy if connecting 
+    through a proxy. Only required if proxy uses mutual TLS.
+  - 
+* - `bigquery.rpc-proxy.keystore-password`
+  - Password of the keystore specified by `bigquery.rpc-proxy.keystore-path`.
+  - 
+* - `bigquery.rpc-proxy.truststore-path`
+  - Truststore containing certificates of the proxy server if connecting 
+    through a proxy.
+  - 
+* - `bigquery.rpc-proxy.truststore-password`
+  - Password of the truststore specified by `bigquery.rpc-proxy.truststore-path`.
+  -
+:::
 
 (bigquery-type-mapping)=
 
