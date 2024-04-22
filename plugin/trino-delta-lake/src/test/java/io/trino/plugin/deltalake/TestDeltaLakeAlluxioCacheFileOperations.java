@@ -31,7 +31,6 @@ import java.io.File;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -67,19 +66,17 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 .setSchema("default")
                 .build();
 
-        Map<String, String> deltaLakeProperties = ImmutableMap.<String, String>builder()
-                .put("fs.cache.enabled", "true")
-                .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
-                .put("fs.cache.max-sizes", "100MB")
-                .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString())
-                .put("delta.enable-non-concurrent-writes", "true")
-                .put("delta.register-table-procedure.enabled", "true")
-                .buildOrThrow();
-
         DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder(session)
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
-                .setDeltaProperties(deltaLakeProperties)
+                .setDeltaProperties(ImmutableMap.<String, String>builder()
+                        .put("fs.cache.enabled", "true")
+                        .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
+                        .put("fs.cache.max-sizes", "100MB")
+                        .put("hive.metastore", "file")
+                        .put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString())
+                        .put("delta.enable-non-concurrent-writes", "true")
+                        .put("delta.register-table-procedure.enabled", "true")
+                        .buildOrThrow())
                 .setWorkerCount(1)
                 .build();
 
