@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.cassandra.CassandraColumnHandle;
 import io.trino.plugin.cassandra.CassandraNamedRelationHandle;
 import io.trino.plugin.cassandra.CassandraPartition;
-import io.trino.spi.connector.ColumnHandle;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -67,36 +66,10 @@ public final class CassandraCqlUtils
         return '"' + new String(JsonStringEncoder.getInstance().quoteAsUTF8(string), UTF_8) + '"';
     }
 
-    public static void appendSelectColumns(StringBuilder stringBuilder, List<? extends ColumnHandle> columns)
-    {
-        appendSelectColumns(stringBuilder, columns, true);
-    }
-
-    private static void appendSelectColumns(StringBuilder stringBuilder, List<? extends ColumnHandle> columns, boolean first)
-    {
-        for (ColumnHandle column : columns) {
-            if (first) {
-                first = false;
-            }
-            else {
-                stringBuilder.append(",");
-            }
-            stringBuilder.append(validColumnName(((CassandraColumnHandle) column).name()));
-        }
-    }
-
     public static String cqlNameToSqlName(String name)
     {
         if (name.isEmpty()) {
             return EMPTY_COLUMN_NAME;
-        }
-        return name;
-    }
-
-    public static String sqlNameToCqlName(String name)
-    {
-        if (name.equals(EMPTY_COLUMN_NAME)) {
-            return "";
         }
         return name;
     }
