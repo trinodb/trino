@@ -13,12 +13,9 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
-import io.trino.Session;
-import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
-import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
+import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
@@ -27,50 +24,44 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
 public class TestDeltaLakeViewsGlueMetastore
         extends AbstractTestQueryFramework
 {
-    private static final String SCHEMA = "test_delta_lake_glue_views_" + randomNameSuffix();
-    private static final String CATALOG_NAME = "test_delta_lake_glue_views";
-    private Path dataDirectory;
     private HiveMetastore metastore;
-
-    private HiveMetastore createTestMetastore(Path dataDirectory)
-    {
-        return createTestingGlueHiveMetastore(dataDirectory);
-    }
+    private String schema;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Session deltaLakeSession = testSessionBuilder()
-                .setCatalog(CATALOG_NAME)
-                .setSchema(SCHEMA)
+        Path warehouseDir = Files.createTempDirectory("warehouse-dir");
+        closeAfterClass(() -> deleteRecursively(warehouseDir, ALLOW_INSECURE));
+        metastore = createTestingGlueHiveMetastore(warehouseDir);
+        schema = "test_delta_lake_glue_views_" + randomNameSuffix();
+        return DeltaLakeQueryRunner.builder(schema)
+                .addDeltaProperty("hive.metastore", "glue")
+                .addDeltaProperty("hive.metastore.glue.region", requireNonNull(System.getenv("AWS_REGION"), "AWS_REGION is null"))
+                .addDeltaProperty("hive.metastore.glue.default-warehouse-dir", warehouseDir.toUri().toString())
                 .build();
+    }
 
-        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
-
-        dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("data_delta_lake_views");
-        metastore = createTestMetastore(dataDirectory);
-
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore))));
-        queryRunner.createCatalog(CATALOG_NAME, "delta_lake");
-
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA);
-        return queryRunner;
+    @AfterAll
+    public void cleanup()
+            throws IOException
+    {
+        metastore.dropDatabase(schema, false);
     }
 
     @Test
@@ -81,19 +72,9 @@ public class TestDeltaLakeViewsGlueMetastore
         try (TestTable table = new TestTable(getQueryRunner()::execute, tableName, "AS SELECT 'test' x");
                 TestView view = new TestView(getQueryRunner()::execute, viewName, "SELECT * FROM " + table.getName())) {
             assertQuery(format("SELECT * FROM %s", view.getName()), "VALUES 'test'");
-            assertQuery(format("SELECT table_type FROM information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", view.getName(), SCHEMA), "VALUES 'VIEW'");
+            assertQuery(format("SELECT table_type FROM information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", view.getName(), schema), "VALUES 'VIEW'");
             // Ensure all relations are being listed
-            assertQuery(format("SELECT table_type FROM information_schema.tables WHERE table_name LIKE '%%%s' AND table_schema='%s'", view.getName(), SCHEMA), "VALUES 'VIEW'");
-        }
-    }
-
-    @AfterAll
-    public void cleanup()
-            throws IOException
-    {
-        if (metastore != null) {
-            metastore.dropDatabase(SCHEMA, false);
-            deleteRecursively(dataDirectory, ALLOW_INSECURE);
+            assertQuery(format("SELECT table_type FROM information_schema.tables WHERE table_name LIKE '%%%s' AND table_schema='%s'", view.getName(), schema), "VALUES 'VIEW'");
         }
     }
 }
