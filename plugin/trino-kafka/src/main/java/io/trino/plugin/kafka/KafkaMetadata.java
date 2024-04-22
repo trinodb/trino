@@ -139,12 +139,12 @@ public class KafkaMetadata
         Stream<KafkaColumnHandle> keyColumnHandles = kafkaTopicDescription.key().stream()
                 .map(KafkaTopicFieldGroup::getFields)
                 .flatMap(Collection::stream)
-                .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.getColumnHandle(true));
+                .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.columnHandle(true));
 
         Stream<KafkaColumnHandle> messageColumnHandles = kafkaTopicDescription.message().stream()
                 .map(KafkaTopicFieldGroup::getFields)
                 .flatMap(Collection::stream)
-                .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.getColumnHandle(false));
+                .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.columnHandle(false));
 
         List<KafkaColumnHandle> topicColumnHandles = concat(keyColumnHandles, messageColumnHandles)
                 .collect(toImmutableList());
@@ -208,7 +208,7 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = key.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata());
+                    builder.add(fieldDescription.columnMetadata());
                 }
             }
         });
@@ -217,7 +217,7 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = message.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata());
+                    builder.add(fieldDescription.columnMetadata());
                 }
             }
         });
