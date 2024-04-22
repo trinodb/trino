@@ -46,7 +46,7 @@ public class CassandraClusteringPredicatesExtractor
 
     public String getClusteringKeyPredicates()
     {
-        return clusteringPushDownResult.getDomainQuery();
+        return clusteringPushDownResult.domainQuery();
     }
 
     public TupleDomain<ColumnHandle> getUnenforcedConstraints()
@@ -182,25 +182,17 @@ public class CassandraClusteringPredicatesExtractor
         return upperBoundPredicate;
     }
 
-    private static class ClusteringPushDownResult
+    private record ClusteringPushDownResult(Set<ColumnHandle> fullyPushedColumnPredicates, String domainQuery)
     {
-        private final Set<ColumnHandle> fullyPushedColumnPredicates;
-        private final String domainQuery;
-
-        public ClusteringPushDownResult(Set<ColumnHandle> fullyPushedColumnPredicates, String domainQuery)
+        private ClusteringPushDownResult
         {
-            this.fullyPushedColumnPredicates = ImmutableSet.copyOf(requireNonNull(fullyPushedColumnPredicates, "fullyPushedColumnPredicates is null"));
-            this.domainQuery = requireNonNull(domainQuery);
+            fullyPushedColumnPredicates = ImmutableSet.copyOf(requireNonNull(fullyPushedColumnPredicates, "fullyPushedColumnPredicates is null"));
+            requireNonNull(domainQuery);
         }
 
         public boolean hasBeenFullyPushed(ColumnHandle column)
         {
             return fullyPushedColumnPredicates.contains(column);
-        }
-
-        public String getDomainQuery()
-        {
-            return domainQuery;
         }
     }
 }
