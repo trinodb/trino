@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.metastore.glue;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -22,11 +21,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -34,31 +34,22 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestDeltaLakeRenameToWithGlueMetastore
         extends AbstractTestQueryFramework
 {
-    protected static final String SCHEMA = "test_delta_lake_rename_to_with_glue_" + randomNameSuffix();
-
-    private Path schemaLocation;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Session deltaLakeSession = testSessionBuilder()
-                .setCatalog(DELTA_CATALOG)
-                .setSchema(SCHEMA)
-                .build();
-
-        QueryRunner queryRunner = DeltaLakeQueryRunner.builder(deltaLakeSession)
+        Path warehouseDir = Files.createTempDirectory("warehouse-dir");
+        closeAfterClass(() -> deleteRecursively(warehouseDir, ALLOW_INSECURE));
+        return DeltaLakeQueryRunner.builder("test_delta_lake_rename_to_with_glue_" + randomNameSuffix())
                 .setDeltaProperties(ImmutableMap.of("hive.metastore", "glue"))
+                .addDeltaProperty("hive.metastore.glue.default-warehouse-dir", warehouseDir.toUri().toString())
                 .build();
-        schemaLocation = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + schemaLocation.toUri() + "')");
-        return queryRunner;
     }
 
     @AfterAll
     public void cleanup()
     {
-        assertUpdate("DROP SCHEMA " + SCHEMA + " CASCADE");
+        assertUpdate("DROP SCHEMA " + getSession().getSchema().orElseThrow() + " CASCADE");
     }
 
     @Test
@@ -66,9 +57,9 @@ public class TestDeltaLakeRenameToWithGlueMetastore
     {
         String oldTable = "test_table_external_to_be_renamed_" + randomNameSuffix();
         String newTable = "test_table_external_renamed_" + randomNameSuffix();
-        String location = schemaLocation.toUri() + "/tableLocation/";
+        Path tableLocation = getQueryRunner().getCoordinator().getBaseDataDir().resolve(oldTable);
         try {
-            assertUpdate(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS val ", oldTable, location), 1);
+            assertUpdate(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS val ", oldTable, tableLocation.toFile().toURI()), 1);
             String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);
             assertQuery("SELECT val FROM " + oldTable, "VALUES (1)");
 
