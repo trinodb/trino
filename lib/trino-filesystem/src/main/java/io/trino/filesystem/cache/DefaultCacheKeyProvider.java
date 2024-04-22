@@ -22,9 +22,9 @@ public final class DefaultCacheKeyProvider
         implements CacheKeyProvider
 {
     @Override
-    public Optional<String> getCacheKey(TrinoInputFile delegate)
+    public Optional<String> getCacheKey(TrinoInputFile inputFile)
             throws IOException
     {
-        return Optional.of(delegate.location().path() + delegate.lastModified());
+        return Optional.of(inputFile.location().path() + inputFile.lastModified());
     }
 }
