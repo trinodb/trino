@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
@@ -23,8 +22,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -49,12 +46,11 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
                         .metastoreClient(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
                         .build());
 
-        return createS3DeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                "default",
-                ImmutableMap.of("hive.metastore-cache-ttl", "10m"),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop());
+        return DeltaLakeQueryRunner.builder("default")
+                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
+                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addDeltaProperty("hive.metastore-cache-ttl", "10m")
+                .build();
     }
 
     @AfterAll

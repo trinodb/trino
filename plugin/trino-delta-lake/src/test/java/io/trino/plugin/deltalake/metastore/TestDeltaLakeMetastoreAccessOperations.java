@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -23,10 +23,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.Map;
-
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastoreInvocationsForQuery;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
@@ -45,9 +41,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), Map.of());
-        queryRunner.execute("CREATE SCHEMA test_schema");
-        return queryRunner;
+        return DeltaLakeQueryRunner.builder().build();
     }
 
     @Test

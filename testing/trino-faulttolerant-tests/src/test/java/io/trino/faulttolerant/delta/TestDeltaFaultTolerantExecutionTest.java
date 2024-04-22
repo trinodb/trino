@@ -13,25 +13,20 @@
  */
 package io.trino.faulttolerant.delta;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
+import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 
 public class TestDeltaFaultTolerantExecutionTest
         extends BaseFaultTolerantExecutionTest
 {
-    private static final String SCHEMA = "fte_preferred_write_partitioning";
-
     private final String bucketName = "test-fte-preferred-write-partitioning-" + randomNameSuffix();
 
     public TestDeltaFaultTolerantExecutionTest()
@@ -48,19 +43,15 @@ public class TestDeltaFaultTolerantExecutionTest
         MinioStorage minioStorage = closeAfterClass(new MinioStorage(bucketName));
         minioStorage.start();
 
-        QueryRunner runner = createS3DeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                SCHEMA,
-                FaultTolerantExecutionConnectorTestHelper.getExtraProperties(),
-                ImmutableMap.of(),
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop(),
-                instance -> {
+        return DeltaLakeQueryRunner.builder()
+                .addExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
+                .setAdditionalSetup(instance -> {
                     instance.installPlugin(new FileSystemExchangePlugin());
                     instance.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                });
-        runner.execute(format("CREATE SCHEMA %s WITH (location = 's3://%s/%s')", SCHEMA, bucketName, SCHEMA));
-        return runner;
+                })
+                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
+                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .build();
     }
 }

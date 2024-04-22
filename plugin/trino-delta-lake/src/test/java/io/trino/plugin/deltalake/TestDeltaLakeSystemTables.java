@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeSystemTables
@@ -29,10 +26,9 @@ public class TestDeltaLakeSystemTables
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                ImmutableMap.of(),
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
+        return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .build();
     }
 
     @Test

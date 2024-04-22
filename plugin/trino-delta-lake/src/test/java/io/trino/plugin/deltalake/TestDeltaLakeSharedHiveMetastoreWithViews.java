@@ -22,7 +22,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
@@ -34,9 +34,9 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestDeltaLakeSharedHiveMetastoreWithViews
         extends AbstractTestQueryFramework
 {
-    protected final String schema = "test_shared_schema_with_hive_views_" + randomNameSuffix();
     private final String bucketName = "delta-lake-shared-hive-with-views-" + randomNameSuffix();
     private HiveMinioDataLake hiveMinioDataLake;
+    private String schema;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -45,33 +45,37 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
         this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         this.hiveMinioDataLake.start();
 
-        QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
-                "delta",
-                schema,
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop());
-        queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = 's3://" + bucketName + "/" + schema + "')");
+        QueryRunner queryRunner = DeltaLakeQueryRunner.builder()
+                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
+                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .build();
+        try {
+            queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
+            queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
+                    .put("hive.metastore", "thrift")
+                    .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
+                    .put("fs.hadoop.enabled", "false")
+                    .put("fs.native-s3.enabled", "true")
+                    .put("s3.aws-access-key", MINIO_ACCESS_KEY)
+                    .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                    .put("s3.region", MINIO_REGION)
+                    .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                    .put("s3.path-style-access", "true")
+                    .put("s3.streaming.part-size", "5MB") // minimize memory usage
+                    .buildOrThrow());
 
-        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
-        queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
-                .put("hive.metastore", "thrift")
-                .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
-                .put("fs.hadoop.enabled", "false")
-                .put("fs.native-s3.enabled", "true")
-                .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                .put("s3.aws-secret-key", MINIO_SECRET_KEY)
-                .put("s3.region", MINIO_REGION)
-                .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
-                .put("s3.path-style-access", "true")
-                .put("s3.streaming.part-size", "5MB") // minimize memory usage
-                .buildOrThrow());
+            schema = queryRunner.getDefaultSession().getSchema().orElseThrow();
+            queryRunner.execute("CREATE TABLE hive." + schema + ".hive_table (a_integer integer)");
+            hiveMinioDataLake.getHiveHadoop().runOnHive("CREATE VIEW " + schema + ".hive_view AS SELECT *  FROM " + schema + ".hive_table");
+            queryRunner.execute("CREATE TABLE delta." + schema + ".delta_table (a_varchar varchar)");
 
-        queryRunner.execute("CREATE TABLE hive." + schema + ".hive_table (a_integer integer)");
-        hiveMinioDataLake.getHiveHadoop().runOnHive("CREATE VIEW " + schema + ".hive_view AS SELECT *  FROM " + schema + ".hive_table");
-        queryRunner.execute("CREATE TABLE delta." + schema + ".delta_table (a_varchar varchar)");
-
-        return queryRunner;
+            return queryRunner;
+        }
+        catch (Exception e) {
+            closeAllSuppress(e, queryRunner);
+            throw e;
+        }
     }
 
     @AfterAll

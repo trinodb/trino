@@ -71,7 +71,6 @@ import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CREATE_OR_REPLACE_TABLE_AS_OPERATION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CREATE_OR_REPLACE_TABLE_OPERATION;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDockerizedDeltaLakeQueryRunner;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getTableActiveFiles;
@@ -177,8 +176,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         try {
             this.transactionLogAccess = getConnectorService(queryRunner, TransactionLogAccess.class);
 
-            queryRunner.execute(format("CREATE SCHEMA %s WITH (location = '%s')", SCHEMA, getLocationForTable(bucketName, SCHEMA)));
-
             REQUIRED_TPCH_TABLES.forEach(table -> queryRunner.execute(format(
                     "CREATE TABLE %s WITH (location = '%s') AS SELECT * FROM tpch.tiny.%1$s",
                     table.getTableName(),
@@ -226,21 +223,18 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     private QueryRunner createDeltaLakeQueryRunner()
             throws Exception
     {
-        return createDockerizedDeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                SCHEMA,
-                Map.of(),
-                Map.of(),
-                ImmutableMap.<String, String>builder()
+        return DeltaLakeQueryRunner.builder(SCHEMA)
+                .setDeltaProperties(ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                         .put("delta.metadata.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("delta.metadata.live-files.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("delta.register-table-procedure.enabled", "true")
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .putAll(deltaStorageConfiguration())
-                        .buildOrThrow(),
-                hiveHadoop,
-                queryRunner -> {});
+                        .buildOrThrow())
+                .setSchemaLocation(getLocationForTable(bucketName, SCHEMA))
+                .build();
     }
 
     @AfterAll
@@ -2360,11 +2354,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 IntStream.range(0, numOfCreateOrReplaceStatements).forEach(index -> {
                     try {
                         getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2)) AS t(a) ");
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e) {
                         RuntimeException trinoException = getTrinoExceptionCause(e);
                         try {
                             throw new AssertionError("Unexpected concurrent CREATE OR REPLACE failure", trinoException);
-                        } catch (Throwable verifyFailure) {
+                        }
+                        catch (Throwable verifyFailure) {
                             if (verifyFailure != e) {
                                 verifyFailure.addSuppressed(e);
                             }

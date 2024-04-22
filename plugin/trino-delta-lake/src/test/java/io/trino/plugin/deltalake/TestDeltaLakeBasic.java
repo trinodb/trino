@@ -17,7 +17,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Resources;
@@ -68,8 +67,6 @@ import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
@@ -116,9 +113,14 @@ public class TestDeltaLakeBasic
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of(
-                "delta.register-table-procedure.enabled", "true",
-                "delta.enable-non-concurrent-writes", "true"));
+        Path catalogDir = Files.createTempDirectory("catalog-dir");
+        closeAfterClass(() -> deleteRecursively(catalogDir, ALLOW_INSECURE));
+
+        return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("hive.metastore.catalog.dir", catalogDir.toUri().toString())
+                .addDeltaProperty("delta.register-table-procedure.enabled", "true")
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .build();
     }
 
     @BeforeAll

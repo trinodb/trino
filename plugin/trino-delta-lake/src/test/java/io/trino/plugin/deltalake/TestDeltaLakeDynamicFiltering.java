@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
@@ -50,7 +49,6 @@ import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
@@ -74,12 +72,11 @@ public class TestDeltaLakeDynamicFiltering
         hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
 
-        QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                "default",
-                ImmutableMap.of("delta.register-table-procedure.enabled", "true"),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop());
+        QueryRunner queryRunner = DeltaLakeQueryRunner.builder()
+                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
+                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addDeltaProperty("delta.register-table-procedure.enabled", "true")
+                .build();
 
         ImmutableList.of(LINE_ITEM, ORDERS).forEach(table -> {
             String tableName = table.getTableName();
@@ -112,6 +109,7 @@ public class TestDeltaLakeDynamicFiltering
     public void testIncompleteDynamicFilterTimeout()
             throws Exception
     {
+        String schemaName = getSession().getSchema().orElseThrow();
         QueryRunner runner = getQueryRunner();
         TransactionManager transactionManager = runner.getTransactionManager();
         TransactionId transactionId = transactionManager.beginTransaction(true);
@@ -119,7 +117,7 @@ public class TestDeltaLakeDynamicFiltering
                 .setCatalogSessionProperty(DELTA_CATALOG, "dynamic_filtering_wait_timeout", "1s")
                 .build()
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
-        QualifiedObjectName tableName = new QualifiedObjectName(DELTA_CATALOG, "default", "orders");
+        QualifiedObjectName tableName = new QualifiedObjectName(DELTA_CATALOG, schemaName, "orders");
         TableHandle tableHandle = runner.getPlannerContext().getMetadata().getTableHandle(session, tableName).orElseThrow();
         CompletableFuture<Void> dynamicFilterBlocked = new CompletableFuture<>();
         try {

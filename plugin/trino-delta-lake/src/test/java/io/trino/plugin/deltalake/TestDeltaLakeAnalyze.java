@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -22,6 +21,7 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
@@ -42,8 +42,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
@@ -67,12 +65,10 @@ public class TestDeltaLakeAnalyze
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = createDeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                ImmutableMap.of(),
-                ImmutableMap.of(
-                        "delta.enable-non-concurrent-writes", "true",
-                        "delta.register-table-procedure.enabled", "true"));
+        DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .addDeltaProperty("delta.register-table-procedure.enabled", "true")
+                .build();
         try {
             queryRunner.installPlugin(new TpcdsPlugin());
             queryRunner.createCatalog("tpcds", "tpcds");
