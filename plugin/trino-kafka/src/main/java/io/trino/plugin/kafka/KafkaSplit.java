@@ -135,7 +135,7 @@ public class KafkaSplit
                 + estimatedSizeOf(messageDataFormat)
                 + sizeOf(keyDataSchemaContents, SizeOf::estimatedSizeOf)
                 + sizeOf(messageDataSchemaContents, SizeOf::estimatedSizeOf)
-                + messagesRange.getRetainedSizeInBytes()
+                + messagesRange.retainedSizeInBytes()
                 + leader.getRetainedSizeInBytes();
     }
 
