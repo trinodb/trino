@@ -24,6 +24,9 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.FileMetadata;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.RowGroupInfo;
@@ -46,8 +49,6 @@ import org.apache.parquet.format.SplitBlockAlgorithm;
 import org.apache.parquet.format.Uncompressed;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.format.XxHash;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
@@ -260,7 +261,7 @@ public class ParquetWriter
     private ParquetReader createParquetReader(ParquetDataSource input, ParquetMetadata parquetMetadata, ParquetWriteValidation writeValidation)
             throws IOException
     {
-        org.apache.parquet.hadoop.metadata.FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
+        FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
         MessageColumnIO messageColumnIO = getColumnIO(fileMetaData.getSchema(), fileMetaData.getSchema());
         ImmutableList.Builder<Column> columnFields = ImmutableList.builder();
         for (int i = 0; i < writeValidation.getTypes().size(); i++) {
@@ -273,7 +274,7 @@ public class ParquetWriter
         }
         long nextStart = 0;
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
-        for (BlockMetaData block : parquetMetadata.getBlocks()) {
+        for (BlockMetadata block : parquetMetadata.getBlocks()) {
             rowGroupInfoBuilder.add(new RowGroupInfo(block, nextStart, Optional.empty()));
             nextStart += block.getRowCount();
         }

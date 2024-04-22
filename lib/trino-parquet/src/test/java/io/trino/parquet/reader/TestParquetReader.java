@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -35,7 +36,6 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;

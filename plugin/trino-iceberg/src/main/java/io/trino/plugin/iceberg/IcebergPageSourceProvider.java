@@ -43,6 +43,8 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.FileMetadata;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
@@ -107,8 +109,6 @@ import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.StructLikeSet;
 import org.apache.iceberg.util.StructProjection;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.hadoop.metadata.FileMetaData;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
@@ -991,7 +991,7 @@ public class IcebergPageSourceProvider
         try {
             dataSource = createDataSource(inputFile, OptionalLong.of(fileSize), options, memoryContext, fileFormatDataSourceStats);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
-            FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
+            FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
             if (nameMapping.isPresent() && !ParquetSchemaUtil.hasIds(fileSchema)) {
                 // NameMapping conversion is necessary because MetadataReader converts all column names to lowercase and NameMapping is case sensitive

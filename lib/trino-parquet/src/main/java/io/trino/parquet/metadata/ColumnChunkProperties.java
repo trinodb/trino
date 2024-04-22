@@ -11,9 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.parquet.hadoop.metadata;
+package io.trino.parquet.metadata;
 
 import org.apache.parquet.column.Encoding;
+import org.apache.parquet.hadoop.metadata.Canonicalizer;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type;

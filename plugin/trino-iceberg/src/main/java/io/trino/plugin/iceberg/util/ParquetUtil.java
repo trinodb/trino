@@ -14,6 +14,9 @@
 
 package io.trino.plugin.iceberg.util;
 
+import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.metadata.ParquetMetadata;
 import org.apache.iceberg.FieldMetrics;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
@@ -30,10 +33,7 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.BinaryUtil;
 import org.apache.iceberg.util.UnicodeUtil;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
@@ -92,10 +92,10 @@ public final class ParquetUtil
 
         Map<Integer, FieldMetrics<?>> fieldMetricsMap = fieldMetrics.collect(toMap(FieldMetrics::id, identity()));
 
-        List<BlockMetaData> blocks = metadata.getBlocks();
-        for (BlockMetaData block : blocks) {
+        List<BlockMetadata> blocks = metadata.getBlocks();
+        for (BlockMetadata block : blocks) {
             rowCount += block.getRowCount();
-            for (ColumnChunkMetaData column : block.getColumns()) {
+            for (ColumnChunkMetadata column : block.getColumns()) {
                 Integer fieldId = fileSchema.aliasToId(column.getPath().toDotString());
                 if (fieldId == null) {
                     // fileSchema may contain a subset of columns present in the file
@@ -204,7 +204,7 @@ public final class ParquetUtil
     }
 
     // we allow struct nesting, but not maps or arrays
-    private static boolean shouldStoreBounds(ColumnChunkMetaData column, Schema schema)
+    private static boolean shouldStoreBounds(ColumnChunkMetadata column, Schema schema)
     {
         if (column.getPrimitiveType().getPrimitiveTypeName() == PrimitiveType.PrimitiveTypeName.INT96) {
             // stats for INT96 are not reliable

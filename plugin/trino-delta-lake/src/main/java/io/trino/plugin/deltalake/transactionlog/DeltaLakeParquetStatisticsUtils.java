@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
@@ -36,7 +37,6 @@ import org.apache.parquet.column.statistics.FloatStatistics;
 import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 
 import java.math.BigDecimal;
@@ -86,7 +86,7 @@ public final class DeltaLakeParquetStatisticsUtils
 
     private static final Logger LOG = Logger.get(DeltaLakeParquetStatisticsUtils.class);
 
-    public static boolean hasInvalidStatistics(Collection<ColumnChunkMetaData> metadataList)
+    public static boolean hasInvalidStatistics(Collection<ColumnChunkMetadata> metadataList)
     {
         return metadataList.stream()
                 .anyMatch(metadata ->

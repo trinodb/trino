@@ -13,6 +13,7 @@
  */
 package io.trino.parquet;
 
+import io.trino.parquet.metadata.IndexReference;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.statistics.BinaryStatistics;
@@ -48,7 +49,6 @@ import org.apache.parquet.format.UUIDType;
 import org.apache.parquet.internal.column.columnindex.BinaryTruncator;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
 import org.apache.parquet.internal.column.columnindex.OffsetIndexBuilder;
-import org.apache.parquet.internal.hadoop.metadata.IndexReference;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.ColumnOrder.ColumnOrderName;
 import org.apache.parquet.schema.LogicalTypeAnnotation;

@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.parquet.hadoop.metadata;
+package io.trino.parquet.metadata;
 
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.BooleanStatistics;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.internal.hadoop.metadata.IndexReference;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Types;
@@ -27,12 +28,12 @@ import java.util.Set;
 import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
 import static org.apache.parquet.column.Encoding.RLE_DICTIONARY;
 
-public abstract class ColumnChunkMetaData
+public abstract class ColumnChunkMetadata
 {
     protected int rowGroupOrdinal = -1;
 
     @Deprecated
-    public static ColumnChunkMetaData get(
+    public static ColumnChunkMetadata get(
             ColumnPath path,
             PrimitiveTypeName type,
             CompressionCodecName codec,
@@ -49,7 +50,7 @@ public abstract class ColumnChunkMetaData
     }
 
     @Deprecated
-    public static ColumnChunkMetaData get(
+    public static ColumnChunkMetadata get(
             ColumnPath path,
             PrimitiveTypeName type,
             CompressionCodecName codec,
@@ -67,7 +68,7 @@ public abstract class ColumnChunkMetaData
     }
 
     @Deprecated
-    public static ColumnChunkMetaData get(
+    public static ColumnChunkMetadata get(
             ColumnPath path,
             PrimitiveTypeName type,
             CompressionCodecName codec,
@@ -84,7 +85,7 @@ public abstract class ColumnChunkMetaData
                 firstDataPage, dictionaryPageOffset, valueCount, totalSize, totalUncompressedSize);
     }
 
-    public static ColumnChunkMetaData get(
+    public static ColumnChunkMetadata get(
             ColumnPath path,
             PrimitiveType type,
             CompressionCodecName codec,
@@ -102,7 +103,7 @@ public abstract class ColumnChunkMetaData
                 && positiveLongFitsInAnInt(valueCount)
                 && positiveLongFitsInAnInt(totalSize)
                 && positiveLongFitsInAnInt(totalUncompressedSize)) {
-            return new IntColumnChunkMetaData(
+            return new IntColumnChunkMetadata(
                     path, type, codec,
                     encodingStats, encodings,
                     statistics,
@@ -112,7 +113,7 @@ public abstract class ColumnChunkMetaData
                     totalSize,
                     totalUncompressedSize);
         }
-        return new LongColumnChunkMetaData(
+        return new LongColumnChunkMetadata(
                 path, type, codec,
                 encodingStats, encodings,
                 statistics,
@@ -158,12 +159,12 @@ public abstract class ColumnChunkMetaData
 
     private long bloomFilterOffset = -1;
 
-    protected ColumnChunkMetaData(ColumnChunkProperties columnChunkProperties)
+    protected ColumnChunkMetadata(ColumnChunkProperties columnChunkProperties)
     {
         this(null, columnChunkProperties);
     }
 
-    protected ColumnChunkMetaData(EncodingStats encodingStats, ColumnChunkProperties columnChunkProperties)
+    protected ColumnChunkMetadata(EncodingStats encodingStats, ColumnChunkProperties columnChunkProperties)
     {
         this.encodingStats = encodingStats;
         this.properties = columnChunkProperties;
