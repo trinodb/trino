@@ -56,6 +56,12 @@ public class TestDeltaLakeRenameToWithGlueMetastore
         return queryRunner;
     }
 
+    @AfterAll
+    public void cleanup()
+    {
+        assertUpdate("DROP SCHEMA " + SCHEMA + " CASCADE");
+    }
+
     @Test
     public void testRenameOfExternalTable()
     {
@@ -97,11 +103,5 @@ public class TestDeltaLakeRenameToWithGlueMetastore
             assertUpdate("DROP TABLE IF EXISTS " + oldTable);
             assertUpdate("DROP TABLE IF EXISTS " + newTable);
         }
-    }
-
-    @AfterAll
-    public void cleanup()
-    {
-        assertUpdate("DROP SCHEMA IF EXISTS " + SCHEMA);
     }
 }
