@@ -92,8 +92,8 @@ public class DeltaLakeParquetStatisticsUtils
                 .anyMatch(metadata ->
                         // If any row group does not have stats collected, stats for the file will not be valid
                         !metadata.getStatistics().isNumNullsSet() || metadata.getStatistics().isEmpty() ||
-                        // Columns with NaN values are marked by `hasNonNullValue` = false by the Parquet reader. See issue: https://issues.apache.org/jira/browse/PARQUET-1246
-                        (!metadata.getStatistics().hasNonNullValue() && metadata.getStatistics().getNumNulls() != metadata.getValueCount()));
+                                // Columns with NaN values are marked by `hasNonNullValue` = false by the Parquet reader. See issue: https://issues.apache.org/jira/browse/PARQUET-1246
+                                (!metadata.getStatistics().hasNonNullValue() && metadata.getStatistics().getNumNulls() != metadata.getValueCount()));
     }
 
     @Nullable
