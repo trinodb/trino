@@ -96,10 +96,10 @@ public class KafkaMetadata
                         kafkaTopicDescription.topicName(),
                         getDataFormat(kafkaTopicDescription.key()),
                         getDataFormat(kafkaTopicDescription.message()),
-                        kafkaTopicDescription.key().flatMap(KafkaTopicFieldGroup::getDataSchema),
-                        kafkaTopicDescription.message().flatMap(KafkaTopicFieldGroup::getDataSchema),
-                        kafkaTopicDescription.key().flatMap(KafkaTopicFieldGroup::getSubject),
-                        kafkaTopicDescription.message().flatMap(KafkaTopicFieldGroup::getSubject),
+                        kafkaTopicDescription.key().flatMap(KafkaTopicFieldGroup::dataSchema),
+                        kafkaTopicDescription.message().flatMap(KafkaTopicFieldGroup::dataSchema),
+                        kafkaTopicDescription.key().flatMap(KafkaTopicFieldGroup::subject),
+                        kafkaTopicDescription.message().flatMap(KafkaTopicFieldGroup::subject),
                         getColumnHandles(session, schemaTableName).values().stream()
                                 .map(KafkaColumnHandle.class::cast)
                                 .collect(toImmutableList()),
@@ -109,7 +109,7 @@ public class KafkaMetadata
 
     private static String getDataFormat(Optional<KafkaTopicFieldGroup> fieldGroup)
     {
-        return fieldGroup.map(KafkaTopicFieldGroup::getDataFormat).orElse(DummyRowDecoder.NAME);
+        return fieldGroup.map(KafkaTopicFieldGroup::dataFormat).orElse(DummyRowDecoder.NAME);
     }
 
     @Override
@@ -137,12 +137,12 @@ public class KafkaMetadata
         KafkaTopicDescription kafkaTopicDescription = getRequiredTopicDescription(session, schemaTableName);
 
         Stream<KafkaColumnHandle> keyColumnHandles = kafkaTopicDescription.key().stream()
-                .map(KafkaTopicFieldGroup::getFields)
+                .map(KafkaTopicFieldGroup::fields)
                 .flatMap(Collection::stream)
                 .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.columnHandle(true));
 
         Stream<KafkaColumnHandle> messageColumnHandles = kafkaTopicDescription.message().stream()
-                .map(KafkaTopicFieldGroup::getFields)
+                .map(KafkaTopicFieldGroup::fields)
                 .flatMap(Collection::stream)
                 .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.columnHandle(false));
 
@@ -205,7 +205,7 @@ public class KafkaMetadata
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
 
         table.key().ifPresent(key -> {
-            List<KafkaTopicFieldDescription> fields = key.getFields();
+            List<KafkaTopicFieldDescription> fields = key.fields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
                     builder.add(fieldDescription.columnMetadata());
@@ -214,7 +214,7 @@ public class KafkaMetadata
         });
 
         table.message().ifPresent(message -> {
-            List<KafkaTopicFieldDescription> fields = message.getFields();
+            List<KafkaTopicFieldDescription> fields = message.fields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
                     builder.add(fieldDescription.columnMetadata());

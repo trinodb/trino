@@ -208,17 +208,17 @@ public final class KafkaQueryRunner
 
         Optional<KafkaTopicFieldGroup> key = tableTemplate.key()
                 .map(keyTemplate -> new KafkaTopicFieldGroup(
-                        keyTemplate.getDataFormat(),
-                        keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        keyTemplate.dataFormat(),
+                        keyTemplate.dataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
                         Optional.empty(),
-                        keyTemplate.getFields()));
+                        keyTemplate.fields()));
 
         Optional<KafkaTopicFieldGroup> message = tableTemplate.message()
                 .map(keyTemplate -> new KafkaTopicFieldGroup(
-                        keyTemplate.getDataFormat(),
-                        keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        keyTemplate.dataFormat(),
+                        keyTemplate.dataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
                         Optional.empty(),
-                        keyTemplate.getFields()));
+                        keyTemplate.fields()));
 
         return new KafkaTopicDescription(
                 table.getTableName(),
