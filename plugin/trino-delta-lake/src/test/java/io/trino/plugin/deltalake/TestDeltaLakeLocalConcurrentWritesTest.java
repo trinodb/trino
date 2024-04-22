@@ -14,30 +14,21 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.ClassPath;
 import io.airlift.concurrent.MoreFutures;
-import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
-import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -47,13 +38,9 @@ import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -67,40 +54,14 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestDeltaLakeLocalConcurrentWritesTest
         extends AbstractTestQueryFramework
 {
-    protected static final String SCHEMA = "test_delta_concurrent_writes_" + randomNameSuffix();
-
-    private HiveMetastore metastore;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Session session = testSessionBuilder()
-                .setCatalog(DELTA_CATALOG)
-                .setSchema(SCHEMA)
+        return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("delta.unique-table-location", "true")
+                .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
-
-        Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
-        this.metastore = createTestingFileHiveMetastore(dataDirectory.toFile());
-
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore))));
-
-        Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
-                .put("delta.unique-table-location", "true")
-                .put("delta.register-table-procedure.enabled", "true")
-                .buildOrThrow();
-
-        queryRunner.createCatalog(DELTA_CATALOG, CONNECTOR_NAME, connectorProperties);
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA);
-
-        return queryRunner;
-    }
-
-    @AfterAll
-    public void tearDown()
-    {
-        metastore.dropDatabase(SCHEMA, false);
     }
 
     // Copied from BaseDeltaLakeConnectorSmokeTest
@@ -654,7 +615,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
         TrinoFileSystem fileSystem = getConnectorService(queryRunner, TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
 
-        String tableLocation = "local:///" + SCHEMA + "/" + table;
+        String tableLocation = "local:///" + table;
         fileSystem.createDirectory(Location.of(tableLocation));
 
         try {

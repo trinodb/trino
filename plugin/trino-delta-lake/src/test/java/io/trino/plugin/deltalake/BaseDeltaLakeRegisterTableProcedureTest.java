@@ -13,37 +13,25 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -52,52 +40,10 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public abstract class BaseDeltaLakeRegisterTableProcedureTest
         extends AbstractTestQueryFramework
 {
-    protected static final String SCHEMA = "test_delta_lake_register_table_" + randomNameSuffix();
-
-    private Path dataDirectory;
-    private HiveMetastore metastore;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        Session session = testSessionBuilder()
-                .setCatalog(DELTA_CATALOG)
-                .setSchema(SCHEMA)
-                .build();
-        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
-
-        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
-        this.metastore = createTestMetastore(dataDirectory);
-
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore))));
-
-        Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
-                .put("delta.unique-table-location", "true")
-                .put("delta.register-table-procedure.enabled", "true")
-                .buildOrThrow();
-
-        queryRunner.createCatalog(DELTA_CATALOG, CONNECTOR_NAME, connectorProperties);
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA);
-
-        return queryRunner;
-    }
-
-    protected abstract HiveMetastore createTestMetastore(Path dataDirectory);
-
-    @AfterAll
-    public void tearDown()
-            throws IOException
-    {
-        if (metastore != null) {
-            metastore.dropDatabase(SCHEMA, false);
-            deleteRecursively(dataDirectory, ALLOW_INSECURE);
-        }
-    }
-
     @Test
     public void testRegisterTable()
     {
+        String schema = getSession().getSchema().orElseThrow();
         String tableName = "test_register_table_" + randomNameSuffix();
 
         assertQuerySucceeds("CREATE TABLE " + tableName + " AS SELECT 1 as a, 'INDIA' as b, true as c");
@@ -107,7 +53,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String showCreateTableOld = (String) computeScalar("SHOW CREATE TABLE " + tableName);
 
         // Drop table from metastore and use the table content to register a table
-        metastore.dropTable(SCHEMA, tableName, false);
+        metastore().dropTable(schema, tableName, false);
         // Verify that dropTableFromMetastore actually works
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
 
@@ -122,13 +68,14 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     @Test
     public void testRegisterPartitionedTable()
     {
+        String schema = getSession().getSchema().orElseThrow();
         String tableName = "test_register_partitioned_table_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " WITH(partitioned_by = ARRAY['part']) AS SELECT 1 AS data, 'a' AS part", 1);
 
         String tableLocation = getTableLocation(tableName);
 
-        metastore.dropTable(SCHEMA, tableName, false);
+        metastore().dropTable(schema, tableName, false);
 
         assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation));
 
@@ -141,6 +88,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     @Test
     public void testRegisterTableWithComments()
     {
+        String schema = getSession().getSchema().orElseThrow();
         String tableName = "test_register_table_with_comments_" + randomNameSuffix();
 
         assertQuerySucceeds("CREATE TABLE " + tableName + " (a, b, c) COMMENT 'my-table-comment' AS VALUES (1, 'INDIA', true)");
@@ -148,7 +96,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
 
         String tableLocation = getTableLocation(tableName);
         // Drop table from metastore and use the table content to register a table
-        metastore.dropTable(SCHEMA, tableName, false);
+        metastore().dropTable(schema, tableName, false);
 
         assertQuerySucceeds("CALL system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')");
         assertThat(getTableComment(tableName)).isEqualTo("my-table-comment");
@@ -159,6 +107,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     @Test
     public void testRegisterTableWithDifferentTableName()
     {
+        String schema = getSession().getSchema().orElseThrow();
         String tableName = "test_register_table_with_different_table_name_old_" + randomNameSuffix();
 
         assertQuerySucceeds("CREATE TABLE " + tableName + " AS SELECT 1 as a, 'INDIA' as b, true as c");
@@ -167,7 +116,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String showCreateTableOld = (String) computeScalar("SHOW CREATE TABLE " + tableName);
         String tableLocation = getTableLocation(tableName);
         // Drop table from metastore and use the table content to register a table
-        metastore.dropTable(SCHEMA, tableName, false);
+        metastore().dropTable(schema, tableName, false);
 
         String tableNameNew = "test_register_table_with_different_table_name_new_" + randomNameSuffix();
         assertQuerySucceeds(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableNameNew, tableLocation));
@@ -203,12 +152,13 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     @Test
     public void testRegisterEmptyTable()
     {
+        String schema = getSession().getSchema().orElseThrow();
         String tableName = "test_register_table_with_no_data_" + randomNameSuffix();
 
         assertQuerySucceeds("CREATE TABLE " + tableName + "(a INT, b VARCHAR, c BOOLEAN)");
 
         String tableLocation = getTableLocation(tableName);
-        metastore.dropTable(SCHEMA, tableName, false);
+        metastore().dropTable(schema, tableName, false);
 
         assertQuerySucceeds(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation));
 
@@ -219,6 +169,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     public void testRegisterTableWithInvalidDeltaTable()
             throws Exception
     {
+        String schema = getSession().getSchema().orElseThrow();
         String tableName = "test_register_table_with_no_transaction_log_" + randomNameSuffix();
 
         assertQuerySucceeds("CREATE TABLE " + tableName + " AS SELECT 1 as a, 'INDIA' as b, true as c");
@@ -240,13 +191,14 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
                 ".*Metadata not found in transaction log for (.*)");
 
         fileSystem.deleteDirectory(Location.of(tableLocation));
-        metastore.dropTable(SCHEMA, tableName, false);
+        metastore().dropTable(schema, tableName, false);
     }
 
     @Test
     public void testRegisterTableWithNoTransactionLog()
             throws Exception
     {
+        String schema = getSession().getSchema().orElseThrow();
         String tableName = "test_register_table_with_no_transaction_log_" + randomNameSuffix();
 
         assertQuerySucceeds("CREATE TABLE " + tableName + " AS SELECT 1 as a, 'INDIA' as b, true as c");
@@ -265,7 +217,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
                 ".*No transaction log found in location (.*)");
 
         fileSystem.deleteDirectory(Location.of(tableLocation));
-        metastore.dropTable(SCHEMA, tableName, false);
+        metastore().dropTable(schema, tableName, false);
     }
 
     @Test
@@ -312,28 +264,29 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     @Test
     public void testRegisterTableWithInvalidParameter()
     {
+        String schema = getSession().getSchema().orElseThrow();
         String tableName = "test_register_table_with_invalid_parameter_" + randomNameSuffix();
         String tableLocation = "/test/delta-lake/hive/table1/";
 
-        assertQueryFails(format("CALL system.register_table('%s', '%s')", SCHEMA, tableName),
+        assertQueryFails(format("CALL system.register_table('%s', '%s')", schema, tableName),
                 ".*'TABLE_LOCATION' is missing.*");
-        assertQueryFails(format("CALL system.register_table('%s')", SCHEMA),
+        assertQueryFails(format("CALL system.register_table('%s')", schema),
                 ".*'TABLE_NAME' is missing.*");
         assertQueryFails("CALL system.register_table()",
                 ".*'SCHEMA_NAME' is missing.*");
 
         assertQueryFails(format("CALL system.register_table(NULL, '%s', '%s')", tableName, tableLocation),
                 ".*schema_name cannot be null or empty.*");
-        assertQueryFails(format("CALL system.register_table('%s', NULL, '%s')", SCHEMA, tableLocation),
+        assertQueryFails(format("CALL system.register_table('%s', NULL, '%s')", schema, tableLocation),
                 ".*table_name cannot be null or empty.*");
-        assertQueryFails(format("CALL system.register_table('%s', '%s', NULL)", SCHEMA, tableName),
+        assertQueryFails(format("CALL system.register_table('%s', '%s', NULL)", schema, tableName),
                 ".*table_location cannot be null or empty.*");
 
         assertQueryFails(format("CALL system.register_table('', '%s', '%s')", tableName, tableLocation),
                 ".*schema_name cannot be null or empty.*");
-        assertQueryFails(format("CALL system.register_table('%s', '', '%s')", SCHEMA, tableLocation),
+        assertQueryFails(format("CALL system.register_table('%s', '', '%s')", schema, tableLocation),
                 ".*table_name cannot be null or empty.*");
-        assertQueryFails(format("CALL system.register_table('%s', '%s', '')", SCHEMA, tableName),
+        assertQueryFails(format("CALL system.register_table('%s', '%s', '')", schema, tableName),
                 ".*table_location cannot be null or empty.*");
     }
 
@@ -371,5 +324,11 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         return (String) computeScalar(format(
                 "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND table_name = '%s'",
                 tableName));
+    }
+
+    protected HiveMetastore metastore()
+    {
+        return TestingDeltaLakeUtils.getConnectorService(getQueryRunner(), HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
     }
 }
