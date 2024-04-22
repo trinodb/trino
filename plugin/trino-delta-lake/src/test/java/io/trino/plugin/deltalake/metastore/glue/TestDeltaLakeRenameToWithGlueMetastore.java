@@ -51,7 +51,6 @@ public class TestDeltaLakeRenameToWithGlueMetastore
                 .setDeltaProperties(ImmutableMap.of("hive.metastore", "glue"))
                 .build();
         schemaLocation = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
-        schemaLocation.toFile().deleteOnExit();
         queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + schemaLocation.toUri() + "')");
         return queryRunner;
     }

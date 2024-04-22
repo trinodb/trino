@@ -18,6 +18,7 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,7 +44,7 @@ public class TestDeltaLakeTableWithCustomLocationUsingHiveMetastore
         QueryRunner queryRunner = builder.build();
 
         Map<String, String> connectorProperties = new HashMap<>();
-        metastoreDir = Files.createTempDirectory("test_delta_lake").toFile();
+        File metastoreDir = Files.createTempDirectory("test_delta_lake").toFile();
         connectorProperties.putIfAbsent("delta.unique-table-location", "true");
         connectorProperties.putIfAbsent("hive.metastore", "file");
         connectorProperties.putIfAbsent("hive.metastore.catalog.dir", metastoreDir.getPath());

@@ -54,7 +54,6 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
         QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
-        this.dataDirectory.toFile().deleteOnExit();
 
         queryRunner.installPlugin(new DeltaLakePlugin());
         queryRunner.createCatalog(

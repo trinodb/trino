@@ -21,7 +21,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -36,7 +35,6 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
         extends AbstractTestQueryFramework
 {
     protected static final String SCHEMA = "test_tables_with_custom_location" + randomNameSuffix();
-    protected File metastoreDir;
     protected HiveMetastore metastore;
 
     @Test
