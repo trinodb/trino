@@ -59,7 +59,7 @@ public class TestDeltaLakeUpdate
     @Test
     public void testSimpleUpdate()
     {
-        String tableName = "test_simple_update_" + randomNameSuffix();
+        String tableName = "test_simple_update";
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "') " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
@@ -95,7 +95,7 @@ public class TestDeltaLakeUpdate
     @Test
     public void testUpdateAll()
     {
-        String tableName = "test_update_all_" + randomNameSuffix();
+        String tableName = "test_update_all";
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b) WITH (location = '" + getLocationForTable(tableName) + "') " +
                         "AS VALUES (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)",
@@ -107,7 +107,7 @@ public class TestDeltaLakeUpdate
     @Test
     public void testUpdateSingleRow()
     {
-        String tableName = "test_update_single_row_" + randomNameSuffix();
+        String tableName = "test_update_single_row";
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b) WITH (location = '" + getLocationForTable(tableName) + "') " +
                         "AS VALUES (1, 2)",
@@ -119,7 +119,7 @@ public class TestDeltaLakeUpdate
     @Test
     public void testUpdateNone()
     {
-        String tableName = "test_update_none_" + randomNameSuffix();
+        String tableName = "test_update_none";
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b) WITH (location = '" + getLocationForTable(tableName) + "') " +
                         "AS VALUES (1, 2)",
@@ -131,7 +131,7 @@ public class TestDeltaLakeUpdate
     @Test
     public void testUpdateOnPartitionKey()
     {
-        String tableName = "test_update_on_partition_key_" + randomNameSuffix();
+        String tableName = "test_update_on_partition_key";
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['b']) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
@@ -149,7 +149,7 @@ public class TestDeltaLakeUpdate
     @Test
     public void testUpdateWithPartitionKeyPredicate()
     {
-        String tableName = "test_update_with_partition_key_predicate_" + randomNameSuffix();
+        String tableName = "test_update_with_partition_key_predicate";
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['b']) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
@@ -164,7 +164,7 @@ public class TestDeltaLakeUpdate
     @Test
     public void testUpdateNull()
     {
-        String tableName = "test_update_null_" + randomNameSuffix();
+        String tableName = "test_update_null";
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "') " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
@@ -179,7 +179,7 @@ public class TestDeltaLakeUpdate
     @Test
     public void testUpdateAllColumns()
     {
-        String tableName = "test_update_all_columns_" + randomNameSuffix();
+        String tableName = "test_update_all_columns";
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "') " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
