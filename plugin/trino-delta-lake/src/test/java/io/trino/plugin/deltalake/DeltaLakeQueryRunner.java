@@ -228,8 +228,10 @@ public final class DeltaLakeQueryRunner
                 .build();
     }
 
-    public static class DefaultDeltaLakeQueryRunnerMain
+    public static final class DefaultDeltaLakeQueryRunnerMain
     {
+        private DefaultDeltaLakeQueryRunnerMain() {}
+
         public static void main(String[] args)
                 throws Exception
         {
@@ -252,8 +254,10 @@ public final class DeltaLakeQueryRunner
         }
     }
 
-    public static class DeltaLakeExternalQueryRunnerMain
+    public static final class DeltaLakeExternalQueryRunnerMain
     {
+        private DeltaLakeExternalQueryRunnerMain() {}
+
         public static void main(String[] args)
                 throws Exception
         {
@@ -268,8 +272,10 @@ public final class DeltaLakeQueryRunner
         }
     }
 
-    public static class S3DeltaLakeQueryRunnerMain
+    public static final class S3DeltaLakeQueryRunnerMain
     {
+        private S3DeltaLakeQueryRunnerMain() {}
+
         public static void main(String[] args)
                 throws Exception
         {
