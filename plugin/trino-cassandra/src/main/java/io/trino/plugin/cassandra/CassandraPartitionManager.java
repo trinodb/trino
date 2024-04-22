@@ -136,7 +136,7 @@ public class CassandraPartitionManager
     private List<Set<Object>> getPartitionKeysList(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
     {
         ImmutableList.Builder<Set<Object>> partitionColumnValues = ImmutableList.builder();
-        for (CassandraColumnHandle columnHandle : table.getPartitionKeyColumns()) {
+        for (CassandraColumnHandle columnHandle : table.partitionKeyColumns()) {
             Domain domain = tupleDomain.getDomains().get().get(columnHandle);
 
             // if there is no constraint on a partition key, return an empty set
