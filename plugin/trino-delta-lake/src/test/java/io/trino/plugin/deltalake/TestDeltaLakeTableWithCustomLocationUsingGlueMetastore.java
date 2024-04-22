@@ -44,7 +44,7 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
 
         QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
-        File metastoreDir = new File(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data").toString());
+        File warehouseDir = new File(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data").toString());
 
         queryRunner.installPlugin(new DeltaLakePlugin());
         queryRunner.createCatalog(
@@ -53,12 +53,12 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "glue")
                         .put("hive.metastore.glue.region", requireNonNull(System.getenv("AWS_REGION"), "AWS_REGION is null"))
-                        .put("hive.metastore.glue.default-warehouse-dir", metastoreDir.toURI().toString())
+                        .put("hive.metastore.glue.default-warehouse-dir", warehouseDir.toURI().toString())
                         .buildOrThrow());
 
-        metastore = createTestingGlueHiveMetastore(metastoreDir.toPath());
+        metastore = createTestingGlueHiveMetastore(warehouseDir.toPath());
 
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + metastoreDir.toURI() + "')");
+        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + warehouseDir.toURI() + "')");
         return queryRunner;
     }
 
