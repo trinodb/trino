@@ -576,11 +576,11 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testDropAndRecreateTable()
     {
         String tableName = "testDropAndRecreate_" + randomNameSuffix();
-        assertUpdate(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, getLocationForTable(bucketName, "nation")));
+        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, getLocationForTable(bucketName, "nation")));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
 
         assertUpdate("DROP TABLE " + tableName);
-        assertUpdate(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, getLocationForTable(bucketName, "customer")));
+        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, getLocationForTable(bucketName, "customer")));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM customer");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1955,7 +1955,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         Set<?> activeFiles = computeActual("SELECT \"$path\" FROM " + tableName).getOnlyColumnAsSet();
         String location = (String) computeScalar(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName));
         assertUpdate("DROP TABLE " + tableName);
-        assertUpdate(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, location));
+        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, location));
         // sanity check
         assertThat(computeActual("SELECT \"$path\" FROM " + tableName).getOnlyColumnAsSet()).as("active files after table recreated")
                 .isEqualTo(activeFiles);
@@ -2133,7 +2133,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat(getTableLocation(tableName)).isEqualTo(tableLocationWithTrailingSpace);
 
         String registeredTableName = "test_register_table_with_trailing_space_" + randomNameSuffix();
-        assertQuerySucceeds(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, registeredTableName, tableLocationWithTrailingSpace));
+        assertQuerySucceeds(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", registeredTableName, tableLocationWithTrailingSpace));
         assertQuery("SELECT * FROM " + registeredTableName, "VALUES (1, 'INDIA', true)");
 
         assertThat(getTableLocation(registeredTableName)).isEqualTo(tableLocationWithTrailingSpace);

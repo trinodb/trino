@@ -681,6 +681,6 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             throw new UncheckedIOException(e);
         }
 
-        queryRunner.execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, table, tableLocation));
+        queryRunner.execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", table, tableLocation));
     }
 }

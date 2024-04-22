@@ -80,8 +80,7 @@ public class TestIcebergReadVersionedTableByTemporal
 
         minio.copyResources("iceberg/timetravel", BUCKET_NAME, "timetravel");
         assertUpdate(format(
-                "CALL system.register_table('%s', '%s', '%s')",
-                getSession().getSchema().orElseThrow(),
+                "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
                 tableName,
                 format("s3://%s/timetravel", BUCKET_NAME)));
 

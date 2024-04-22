@@ -92,7 +92,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
     private void registerTable(String name, String resourcePath)
     {
         String dataPath = getResourceLocation(resourcePath).toExternalForm();
-        getQueryRunner().execute(format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), name, dataPath));
+        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", name, dataPath));
     }
 
     @Test

@@ -62,7 +62,7 @@ public abstract class BaseDeltaLakeCompatibility
         TpchTable.getTables().forEach(table -> {
             String tableName = table.getTableName();
             hiveMinioDataLake.copyResources(resourcePath + tableName, SCHEMA + "/" + tableName);
-            queryRunner.execute(format("CALL system.register_table('%1$s', '%2$s', 's3://%3$s/%1$s/%2$s')",
+            queryRunner.execute(format("CALL system.register_table(CURRENT_SCHEMA, '%2$s', 's3://%3$s/%1$s/%2$s')",
                     SCHEMA,
                     tableName,
                     bucketName));
