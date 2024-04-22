@@ -21,19 +21,19 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
-import static java.util.Objects.requireNonNull;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
 public final class TestingSnowflakeServer
 {
-    public static final String TEST_URL = requireNonNull(System.getProperty("snowflake.test.server.url"), "snowflake.test.server.url is not set");
-    public static final String TEST_USER = requireNonNull(System.getProperty("snowflake.test.server.user"), "snowflake.test.server.user is not set");
-    public static final String TEST_PASSWORD = requireNonNull(System.getProperty("snowflake.test.server.password"), "snowflake.test.server.password is not set");
-    public static final String TEST_DATABASE = requireNonNull(System.getProperty("snowflake.test.server.database"), "snowflake.test.server.database is not set");
-    public static final String TEST_WAREHOUSE = requireNonNull(System.getProperty("snowflake.test.server.warehouse"), "snowflake.test.server.warehouse is not set");
-    public static final String TEST_ROLE = requireNonNull(System.getProperty("snowflake.test.server.role"), "snowflake.test.server.role is not set");
-    public static final String TEST_SCHEMA = "tpch";
-
     private TestingSnowflakeServer() {}
+
+    public static final String TEST_URL = requiredNonEmptySystemProperty("snowflake.test.server.url");
+    public static final String TEST_USER = requiredNonEmptySystemProperty("snowflake.test.server.user");
+    public static final String TEST_PASSWORD = requiredNonEmptySystemProperty("snowflake.test.server.password");
+    public static final String TEST_DATABASE = requiredNonEmptySystemProperty("snowflake.test.server.database");
+    public static final String TEST_WAREHOUSE = requiredNonEmptySystemProperty("snowflake.test.server.warehouse");
+    public static final String TEST_ROLE = requiredNonEmptySystemProperty("snowflake.test.server.role");
+    public static final String TEST_SCHEMA = "tpch";
 
     public static void execute(@Language("SQL") String sql)
     {

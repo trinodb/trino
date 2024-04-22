@@ -42,11 +42,10 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.requiredNonEmptySystemProperty;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -64,9 +63,9 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
 
     public TestDeltaLakeAdlsConnectorSmokeTest()
     {
-        this.container = requireNonNull(System.getProperty("testing.azure-abfs-container"), "container is null");
-        this.account = requireNonNull(System.getProperty("testing.azure-abfs-account"), "account is null");
-        this.accessKey = requireNonNull(System.getProperty("testing.azure-abfs-access-key"), "accessKey is null");
+        this.container = requiredNonEmptySystemProperty("testing.azure-abfs-container");
+        this.account = requiredNonEmptySystemProperty("testing.azure-abfs-account");
+        this.accessKey = requiredNonEmptySystemProperty("testing.azure-abfs-access-key");
 
         String connectionString = format("DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net", account, accessKey);
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(connectionString).buildClient();

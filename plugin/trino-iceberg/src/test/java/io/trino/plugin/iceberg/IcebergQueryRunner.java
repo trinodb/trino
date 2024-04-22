@@ -46,6 +46,7 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
@@ -300,15 +301,9 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            String azureContainer = requireNonNull(
-                    System.getProperty("testing.azure-abfs-container"),
-                    "System property testing.azure-abfs-container must be provided");
-            String azureAccount = requireNonNull(
-                    System.getProperty("testing.azure-abfs-account"),
-                    "System property testing.azure-abfs-account must be provided");
-            String azureAccessKey = requireNonNull(
-                    System.getProperty("testing.azure-abfs-access-key"),
-                    "System property testing.azure-abfs-access-key must be provided");
+            String azureContainer = requiredNonEmptySystemProperty("testing.azure-abfs-container");
+            String azureAccount = requiredNonEmptySystemProperty("testing.azure-abfs-account");
+            String azureAccessKey = requiredNonEmptySystemProperty("testing.azure-abfs-access-key");
 
             String abfsSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("hdp3.1-core-site.xml.abfs-template"), UTF_8)
                     .replace("%ABFS_ACCESS_KEY%", azureAccessKey)

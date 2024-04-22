@@ -48,9 +48,9 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -79,8 +79,8 @@ public class TestDeltaLakeGcsConnectorSmokeTest
 
     public TestDeltaLakeGcsConnectorSmokeTest()
     {
-        this.gcpStorageBucket = requireNonNull(System.getProperty("testing.gcp-storage-bucket"), "GCP storage bucket is null");
-        this.gcpCredentialKey = requireNonNull(System.getProperty("testing.gcp-credentials-key"), "GCP credential key is null");
+        this.gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
+        this.gcpCredentialKey = requiredNonEmptySystemProperty("testing.gcp-credentials-key");
     }
 
     @Override
