@@ -22,8 +22,6 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
@@ -46,8 +44,7 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
 
         QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
-        this.metastoreDir = new File(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data").toString());
-        this.metastoreDir.deleteOnExit();
+        File metastoreDir = new File(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data").toString());
 
         queryRunner.installPlugin(new DeltaLakePlugin());
         queryRunner.createCatalog(
@@ -67,10 +64,8 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
 
     @AfterAll
     public void tearDown()
-            throws Exception
     {
-        // Data is on the local disk and will be deleted by the deleteOnExit hook
+        // Data is on the local disk and will be deleted by query runner cleanup
         metastore.dropDatabase(SCHEMA, false);
-        deleteRecursively(metastoreDir.toPath(), ALLOW_INSECURE);
     }
 }

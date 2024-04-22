@@ -47,8 +47,6 @@ import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
@@ -71,7 +69,6 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 {
     protected static final String SCHEMA = "test_delta_concurrent_writes_" + randomNameSuffix();
 
-    private Path dataDirectory;
     private HiveMetastore metastore;
 
     @Override
@@ -84,7 +81,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
+        Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
         this.metastore = createTestingFileHiveMetastore(dataDirectory.toFile());
 
         queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore))));
@@ -102,10 +99,8 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
     @AfterAll
     public void tearDown()
-            throws IOException
     {
         metastore.dropDatabase(SCHEMA, false);
-        deleteRecursively(dataDirectory, ALLOW_INSECURE);
     }
 
     // Copied from BaseDeltaLakeConnectorSmokeTest
