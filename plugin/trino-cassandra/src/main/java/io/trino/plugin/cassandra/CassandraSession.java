@@ -222,10 +222,10 @@ public class CassandraSession
 
             // column ordering
             List<ExtraColumnMetadata> extras = extraColumnMetadataCodec.fromJson(columnOrderingString);
-            List<String> explicitColumnOrder = new ArrayList<>(ImmutableList.copyOf(transform(extras, ExtraColumnMetadata::getName)));
+            List<String> explicitColumnOrder = new ArrayList<>(ImmutableList.copyOf(transform(extras, ExtraColumnMetadata::name)));
             hiddenColumns = extras.stream()
-                    .filter(ExtraColumnMetadata::isHidden)
-                    .map(ExtraColumnMetadata::getName)
+                    .filter(ExtraColumnMetadata::hidden)
+                    .map(ExtraColumnMetadata::name)
                     .collect(toImmutableSet());
 
             // add columns not in the comment to the ordering

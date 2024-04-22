@@ -13,43 +13,12 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import static java.util.Objects.requireNonNull;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-
-public class ExtraColumnMetadata
+public record ExtraColumnMetadata(String name, boolean hidden)
 {
-    private final String name;
-    private final boolean hidden;
-
-    @JsonCreator
-    public ExtraColumnMetadata(
-            @JsonProperty("name") String name,
-            @JsonProperty("hidden") boolean hidden)
+    public ExtraColumnMetadata
     {
-        this.name = name;
-        this.hidden = hidden;
-    }
-
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public boolean isHidden()
-    {
-        return hidden;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("name", name)
-                .add("hidden", hidden)
-                .toString();
+        requireNonNull(name, "name is null");
     }
 }
