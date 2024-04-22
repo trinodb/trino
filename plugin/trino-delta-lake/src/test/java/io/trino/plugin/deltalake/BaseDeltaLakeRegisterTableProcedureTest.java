@@ -369,9 +369,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     private String getTableComment(String tableName)
     {
         return (String) computeScalar(format(
-                "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'",
-                DELTA_CATALOG,
-                SCHEMA,
+                "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND table_name = '%s'",
                 tableName));
     }
 }
