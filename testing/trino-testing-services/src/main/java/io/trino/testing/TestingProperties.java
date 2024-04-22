@@ -24,8 +24,10 @@ import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
 
-public class TestingProperties
+public final class TestingProperties
 {
+    private TestingProperties() {}
+
     private static Supplier<Properties> properties = Suppliers.memoize(() -> {
         Properties properties = new Properties();
         try {
@@ -39,8 +41,6 @@ public class TestingProperties
             throw new UncheckedIOException(e);
         }
     });
-
-    private TestingProperties() {}
 
     public static String getProjectVersion()
     {
