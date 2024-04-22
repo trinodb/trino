@@ -20,31 +20,12 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class PrometheusStandardizedRow
+public record PrometheusStandardizedRow(Map<String, String> labels, Instant timestamp, Double value)
 {
-    private final Map<String, String> labels;
-    private final Instant timestamp;
-    private final Double value;
-
-    public PrometheusStandardizedRow(Map<String, String> labels, Instant timestamp, Double value)
+    public PrometheusStandardizedRow
     {
-        this.labels = ImmutableMap.copyOf(requireNonNull(labels, "labels is null"));
-        this.timestamp = requireNonNull(timestamp, "timestamp is null");
-        this.value = requireNonNull(value, "value is null");
-    }
-
-    public Map<String, String> getLabels()
-    {
-        return labels;
-    }
-
-    public Instant getTimestamp()
-    {
-        return timestamp;
-    }
-
-    public Double getValue()
-    {
-        return value;
+        labels = ImmutableMap.copyOf(requireNonNull(labels, "labels is null"));
+        requireNonNull(timestamp, "timestamp is null");
+        requireNonNull(value, "value is null");
     }
 }
