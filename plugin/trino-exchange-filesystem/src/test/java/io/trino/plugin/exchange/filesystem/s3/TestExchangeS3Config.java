@@ -16,6 +16,7 @@ package io.trino.plugin.exchange.filesystem.s3;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.services.s3.model.StorageClass;
@@ -28,7 +29,11 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.KMS;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.S3;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestExchangeS3Config
@@ -51,6 +56,8 @@ public class TestExchangeS3Config
                 .setAsyncClientMaxPendingConnectionAcquires(10000)
                 .setConnectionAcquisitionTimeout(new Duration(1, MINUTES))
                 .setS3PathStyleAccess(false)
+                .setSseType(NONE)
+                .setSseKmsKeyId(null)
                 .setGcsJsonKeyFilePath(null)
                 .setGcsJsonKey(null));
     }
@@ -76,6 +83,8 @@ public class TestExchangeS3Config
                 .put("exchange.s3.async-client-max-pending-connection-acquires", "999")
                 .put("exchange.s3.async-client-connection-acquisition-timeout", "5m")
                 .put("exchange.s3.path-style-access", "true")
+                .put("exchange.s3.sse.type", "KMS")
+                .put("exchange.s3.sse.kms-key-id", "kms_key_id")
                 .put("exchange.gcs.json-key-file-path", jsonKeyFile.toString())
                 .put("exchange.gcs.json-key", "{}")
                 .buildOrThrow();
@@ -95,9 +104,39 @@ public class TestExchangeS3Config
                 .setAsyncClientMaxPendingConnectionAcquires(999)
                 .setConnectionAcquisitionTimeout(new Duration(5, MINUTES))
                 .setS3PathStyleAccess(true)
+                .setSseType(KMS)
+                .setSseKmsKeyId("kms_key_id")
+                .setS3PathStyleAccess(true)
                 .setGcsJsonKeyFilePath(jsonKeyFile.toString())
                 .setGcsJsonKey("{}");
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testSseConfigValidation()
+    {
+        assertFailsValidation(
+                new ExchangeS3Config()
+                        .setSseType(KMS),
+                "sseConfigValid",
+                "Property value of exchange.s3.sse.kms-key-id needs to be provided only when exchange.s3.sse.type=KMS",
+                AssertTrue.class);
+
+        assertFailsValidation(
+                new ExchangeS3Config()
+                        .setSseType(NONE)
+                        .setSseKmsKeyId("keyId"),
+                "sseConfigValid",
+                "Property value of exchange.s3.sse.kms-key-id needs to be provided only when exchange.s3.sse.type=KMS",
+                AssertTrue.class);
+
+        assertFailsValidation(
+                new ExchangeS3Config()
+                        .setSseType(S3)
+                        .setSseKmsKeyId("keyId"),
+                "sseConfigValid",
+                "Property value of exchange.s3.sse.kms-key-id needs to be provided only when exchange.s3.sse.type=KMS",
+                AssertTrue.class);
     }
 }
