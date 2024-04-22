@@ -49,6 +49,8 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.alluxio.TestingCacheKeyProvider.testingCacheKeyForLocation;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
@@ -94,10 +96,11 @@ public class TestAlluxioCacheFileSystemAccessOperations
 
     @AfterAll
     public void tearDown()
+            throws Exception
     {
         tracingFileSystemFactory = null;
         fileSystem = null;
-        tempDirectory.toFile().delete();
+        deleteRecursively(tempDirectory, ALLOW_INSECURE);
         tempDirectory = null;
     }
 

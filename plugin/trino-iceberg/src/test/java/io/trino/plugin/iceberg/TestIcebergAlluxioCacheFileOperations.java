@@ -30,6 +30,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.DATA;
@@ -46,15 +48,16 @@ public class TestIcebergAlluxioCacheFileOperations
         extends AbstractTestQueryFramework
 {
     public static final String TEST_SCHEMA = "test_alluxio_schema";
+    private Path cacheDirectory;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        Path cacheDirectory = Files.createTempDirectory("cache");
-        cacheDirectory.toFile().deleteOnExit();
+        cacheDirectory = Files.createTempDirectory("cache");
+        closeAfterClass(() -> deleteRecursively(cacheDirectory, ALLOW_INSECURE));
         Path metastoreDirectory = Files.createTempDirectory(ICEBERG_CATALOG);
-        metastoreDirectory.toFile().deleteOnExit();
+        closeAfterClass(() -> deleteRecursively(metastoreDirectory, ALLOW_INSECURE));
 
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("fs.cache.enabled", "true")
