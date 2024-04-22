@@ -121,9 +121,9 @@ public class PrometheusRecordCursor
 
         int columnIndex = fieldToColumnIndex[field];
         return switch (columnIndex) {
-            case 0 -> getSqlMapFromMap(columnHandles.get(columnIndex).getColumnType(), fields.getLabels());
-            case 1 -> fields.getTimestamp();
-            case 2 -> fields.getValue();
+            case 0 -> getSqlMapFromMap(columnHandles.get(columnIndex).getColumnType(), fields.labels());
+            case 1 -> fields.timestamp();
+            case 2 -> fields.value();
             default -> null;
         };
     }
