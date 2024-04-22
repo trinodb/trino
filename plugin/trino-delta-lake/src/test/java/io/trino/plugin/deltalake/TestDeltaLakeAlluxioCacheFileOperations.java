@@ -35,6 +35,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
@@ -57,9 +59,9 @@ public class TestDeltaLakeAlluxioCacheFileOperations
             throws Exception
     {
         Path cacheDirectory = Files.createTempDirectory("cache");
-        cacheDirectory.toFile().deleteOnExit();
+        closeAfterClass(() -> deleteRecursively(cacheDirectory, ALLOW_INSECURE));
         Path metastoreDirectory = Files.createTempDirectory(DELTA_CATALOG);
-        metastoreDirectory.toFile().deleteOnExit();
+        closeAfterClass(() -> deleteRecursively(metastoreDirectory, ALLOW_INSECURE));
 
         Session session = testSessionBuilder()
                 .setCatalog(DELTA_CATALOG)

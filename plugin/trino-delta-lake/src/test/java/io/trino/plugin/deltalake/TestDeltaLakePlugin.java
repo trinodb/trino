@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.nio.file.Files;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -183,7 +184,6 @@ public class TestDeltaLakePlugin
     {
         ConnectorFactory factory = getConnectorFactory();
         File tempFile = File.createTempFile("test-delta-lake-plugin-access-control", ".json");
-        tempFile.deleteOnExit();
         Files.writeString(tempFile.toPath(), "{}");
 
         factory.create(
@@ -196,6 +196,8 @@ public class TestDeltaLakePlugin
                                 .buildOrThrow(),
                         new TestingConnectorContext())
                 .shutdown();
+
+        verify(tempFile.delete());
     }
 
     private static ConnectorFactory getConnectorFactory()
