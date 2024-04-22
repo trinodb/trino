@@ -379,12 +379,12 @@ public class CassandraSession
      *
      * @param table the table to get partitions from
      * @param filterPrefixes the list of possible values for each partition key.
-     * Order of values should match {@link CassandraTable#getPartitionKeyColumns()}
+     * Order of values should match {@link CassandraTable#partitionKeyColumns()}
      * @return list of {@link CassandraPartition}
      */
     public List<CassandraPartition> getPartitions(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
-        List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
+        List<CassandraColumnHandle> partitionKeyColumns = table.partitionKeyColumns();
 
         if (filterPrefixes.size() != partitionKeyColumns.size()) {
             return ImmutableList.of(CassandraPartition.UNPARTITIONED);
@@ -465,8 +465,8 @@ public class CassandraSession
 
     private Iterable<Row> queryPartitionKeysWithInClauses(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
-        CassandraNamedRelationHandle tableHandle = table.getTableHandle();
-        List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
+        CassandraNamedRelationHandle tableHandle = table.tableHandle();
+        List<CassandraColumnHandle> partitionKeyColumns = table.partitionKeyColumns();
 
         Select partitionKeys = selectDistinctFrom(tableHandle, partitionKeyColumns)
                 .where(getInRelations(partitionKeyColumns, filterPrefixes));
@@ -477,8 +477,8 @@ public class CassandraSession
 
     private Iterable<Row> queryPartitionKeysLegacyWithMultipleQueries(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
-        CassandraNamedRelationHandle tableHandle = table.getTableHandle();
-        List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
+        CassandraNamedRelationHandle tableHandle = table.tableHandle();
+        List<CassandraColumnHandle> partitionKeyColumns = table.partitionKeyColumns();
 
         Set<List<Object>> filterCombinations = Sets.cartesianProduct(filterPrefixes);
 

@@ -130,7 +130,7 @@ public class CassandraSplitManager
 
         CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
                 cassandraTypeManager,
-                session.getTable(tableHandle.getSchemaTableName()).getClusteringKeyColumns(),
+                session.getTable(tableHandle.getSchemaTableName()).clusteringKeyColumns(),
                 partitionResult.getUnenforcedConstraint(),
                 session.getCassandraVersion());
         return clusteringPredicatesExtractor.getClusteringKeyPredicates();
@@ -138,9 +138,9 @@ public class CassandraSplitManager
 
     private List<ConnectorSplit> getSplitsByTokenRange(CassandraTable table, String partitionId, Optional<Long> sessionSplitsPerNode)
     {
-        String schema = table.getTableHandle().getSchemaName();
-        String tableName = table.getTableHandle().getTableName();
-        String tokenExpression = table.getTokenExpression();
+        String schema = table.tableHandle().getSchemaName();
+        String tableName = table.tableHandle().getTableName();
+        String tokenExpression = table.tokenExpression();
 
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
         List<CassandraTokenSplitManager.TokenSplit> tokenSplits = tokenSplitMgr.getSplits(schema, tableName, sessionSplitsPerNode);
