@@ -85,9 +85,7 @@ public class TestDeltaLakeDynamicFiltering
         ImmutableList.of(LINE_ITEM, ORDERS).forEach(table -> {
             String tableName = table.getTableName();
             hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/databricks73/" + tableName, tableName);
-            queryRunner.execute(format("CALL %1$s.system.register_table('%2$s', '%3$s', 's3://%4$s/%3$s')",
-                    DELTA_CATALOG,
-                    "default",
+            queryRunner.execute(format("CALL system.register_table(CURRENT_SCHEMA, '%1$s', 's3://%2$s/%1$s')",
                     tableName,
                     bucketName));
         });
