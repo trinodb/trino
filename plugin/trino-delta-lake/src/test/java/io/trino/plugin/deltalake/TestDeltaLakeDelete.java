@@ -63,7 +63,7 @@ public class TestDeltaLakeDelete
     @Test
     public void testTargetedDeleteWhenTableIsPartitionedWithColumnContainingSpecialCharacters()
     {
-        String tableName = "test_specific_delete_" + randomNameSuffix();
+        String tableName = "test_targeted_delete_with_special_characters_in_partition_key";
         assertUpdate("CREATE TABLE " + tableName + " (id, col_name) " +
                 "WITH (partitioned_by = ARRAY['col_name'], location = '" + getLocationForTable(tableName) + "')  " +
                 "AS VALUES " +
@@ -81,7 +81,7 @@ public class TestDeltaLakeDelete
     @Test
     public void testTargetedDelete()
     {
-        String tableName = "test_specific_delete_" + randomNameSuffix();
+        String tableName = "test_targeted_delete";
         assertUpdate("CREATE TABLE " + tableName + " WITH (location = '" + getLocationForTable(tableName) + "')  AS SELECT * FROM orders", "SELECT count(*) FROM orders");
         assertUpdate("DELETE FROM " + tableName + " WHERE orderkey = 60000", "VALUES 1");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE orderkey != 60000");
@@ -91,7 +91,7 @@ public class TestDeltaLakeDelete
     public void testDeleteDatabricksMultiFile()
     {
         testDeleteMultiFile(
-                "multi_file_databricks" + randomNameSuffix(),
+                "multi_file_databricks",
                 "io/trino/plugin/deltalake/testing/resources/databricks73");
     }
 
@@ -99,7 +99,7 @@ public class TestDeltaLakeDelete
     public void testDeleteOssDeltaLakeMultiFile()
     {
         testDeleteMultiFile(
-                "multi_file_deltalake" + randomNameSuffix(),
+                "multi_file_deltalake",
                 "io/trino/plugin/deltalake/testing/resources/ossdeltalake");
     }
 
@@ -116,10 +116,10 @@ public class TestDeltaLakeDelete
     @Test
     public void testDeleteOnPartitionKey()
     {
-        String tableName = "test_delete_on_partition_key_" + randomNameSuffix();
+        String tableName = "test_delete_on_partition_key";
         assertUpdate("" +
-                "CREATE TABLE " + tableName + " (a, p_key) WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['p_key']) " +
-                "AS VALUES (1, 'a'), (2, 'b'), (3, 'c'), (2, 'a'), (null, null), (1, null)",
+                        "CREATE TABLE " + tableName + " (a, p_key) WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['p_key']) " +
+                        "AS VALUES (1, 'a'), (2, 'b'), (3, 'c'), (2, 'a'), (null, null), (1, null)",
                 6);
         assertUpdate("DELETE FROM " + tableName + " WHERE p_key IS NULL", "VALUES 2");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 4");
@@ -128,10 +128,10 @@ public class TestDeltaLakeDelete
     @Test
     public void testDeleteFromPartitionedTable()
     {
-        String tableName = "test_delete_from_partitioned_table_" + randomNameSuffix();
+        String tableName = "test_delete_from_partitioned_table";
         assertUpdate("" +
-                "CREATE TABLE " + tableName + " (a, p_key) WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['p_key']) " +
-                "AS VALUES (1, 'a'), (2, 'b'), (3, 'c'), (2, 'a'), (null, null), (1, null)",
+                        "CREATE TABLE " + tableName + " (a, p_key) WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['p_key']) " +
+                        "AS VALUES (1, 'a'), (2, 'b'), (3, 'c'), (2, 'a'), (null, null), (1, null)",
                 6);
         assertUpdate("DELETE FROM " + tableName + " WHERE a = 2", "VALUES 2");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 4");
@@ -140,7 +140,7 @@ public class TestDeltaLakeDelete
     @Test
     public void testDeleteTimestamps()
     {
-        String tableName = "test_delete_timestamps_" + randomNameSuffix();
+        String tableName = "test_delete_timestamps";
         assertUpdate(
                 format("CREATE TABLE %s (ts) WITH (location = '%s') AS VALUES TIMESTAMP '2021-02-03 01:02:03.456 UTC', TIMESTAMP '2021-02-04 01:02:03.456 UTC'",
                         tableName,
@@ -153,11 +153,11 @@ public class TestDeltaLakeDelete
     @Test
     public void testDeleteOnRowType()
     {
-        String tableName = "test_delete_on_row_type_" + randomNameSuffix();
+        String tableName = "test_delete_on_row_type";
         assertUpdate("" +
-                "CREATE TABLE " + tableName + " (nested, a, b) " +
-                "WITH (location = '" + getLocationForTable(tableName) + " ') " +
-                "AS VALUES (CAST(ROW(1, 2) AS ROW(a int, b int)), 2, 1)",
+                        "CREATE TABLE " + tableName + " (nested, a, b) " +
+                        "WITH (location = '" + getLocationForTable(tableName) + " ') " +
+                        "AS VALUES (CAST(ROW(1, 2) AS ROW(a int, b int)), 2, 1)",
                 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ((1, 2), 2, 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ((2, 1), 2, 1)", 1);
@@ -171,7 +171,7 @@ public class TestDeltaLakeDelete
     @Test
     public void testDeleteAllDatabricks()
     {
-        String tableName = "test_delete_all_databricks" + randomNameSuffix();
+        String tableName = "test_delete_all_databricks";
         Set<String> originalFiles = testDeleteAllAndReturnInitialDataLakeFilesSet(
                 tableName,
                 "io/trino/plugin/deltalake/testing/resources/databricks73");
@@ -186,7 +186,7 @@ public class TestDeltaLakeDelete
     @Test
     public void testDeleteAllOssDeltaLake()
     {
-        String tableName = "test_delete_all_deltalake" + randomNameSuffix();
+        String tableName = "test_delete_all_deltalake";
         hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/ossdeltalake/customer", tableName);
         Set<String> originalFiles = ImmutableSet.copyOf(hiveMinioDataLake.listFiles(tableName));
         getQueryRunner().execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, getLocationForTable(tableName)));
@@ -216,11 +216,11 @@ public class TestDeltaLakeDelete
     @Test
     public void testStatsAfterDelete()
     {
-        String tableName = "test_stats_after_delete_" + randomNameSuffix();
+        String tableName = "test_stats_after_delete";
         assertUpdate("" +
-                "CREATE TABLE " + tableName + " (a, b, c) " +
-                "WITH (location = '" + getLocationForTable(tableName) + "') " +
-                "AS VALUES (1, 3, 5), (7, 9, null), (null, null, null), (null, null, null)",
+                        "CREATE TABLE " + tableName + " (a, b, c) " +
+                        "WITH (location = '" + getLocationForTable(tableName) + "') " +
+                        "AS VALUES (1, 3, 5), (7, 9, null), (null, null, null), (null, null, null)",
                 4);
         assertQuery("SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -240,7 +240,7 @@ public class TestDeltaLakeDelete
     @Test
     public void testDeleteWithHiddenColumn()
     {
-        String tableName = "test_delete_with_hidden_column_" + randomNameSuffix();
+        String tableName = "test_delete_with_hidden_column";
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b, c) " +
                         "WITH (location = '" + getLocationForTable(tableName) + "') " +
@@ -253,10 +253,10 @@ public class TestDeltaLakeDelete
     @Test
     public void testDeleteWithRowFilter()
     {
-        String tableName = "test_delete_with_row_filter_" + randomNameSuffix();
+        String tableName = "test_delete_with_row_filter";
         assertUpdate("" +
-                "CREATE TABLE " + tableName + " WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['regionkey']) " +
-                "AS SELECT nationkey, regionkey FROM nation",
+                        "CREATE TABLE " + tableName + " WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['regionkey']) " +
+                        "AS SELECT nationkey, regionkey FROM nation",
                 "SELECT count(*) FROM nation");
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 4 AND nationkey < 100", "SELECT count(*) FROM nation WHERE regionkey = 4 AND nationkey < 100");
         assertQuery("SELECT * FROM " + tableName, "SELECT nationkey, regionkey FROM nation WHERE regionkey != 4 OR nationkey >= 100");
@@ -265,7 +265,7 @@ public class TestDeltaLakeDelete
     @Test
     public void testDeleteMultiplePartitionKeys()
     {
-        String tableName = "test_delete_multiple_partition_keys_" + randomNameSuffix();
+        String tableName = "test_delete_multiple_partition_keys";
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['b', 'c']) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
