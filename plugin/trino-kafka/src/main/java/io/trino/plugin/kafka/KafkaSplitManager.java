@@ -66,7 +66,7 @@ public class KafkaSplitManager
     {
         KafkaTableHandle kafkaTableHandle = (KafkaTableHandle) table;
         try (KafkaConsumer<byte[], byte[]> kafkaConsumer = consumerFactory.create(session)) {
-            List<PartitionInfo> partitionInfos = kafkaConsumer.partitionsFor(kafkaTableHandle.getTopicName());
+            List<PartitionInfo> partitionInfos = kafkaConsumer.partitionsFor(kafkaTableHandle.topicName());
 
             List<TopicPartition> topicPartitions = partitionInfos.stream()
                     .map(KafkaSplitManager::toTopicPartition)
@@ -90,9 +90,9 @@ public class KafkaSplitManager
                 new Range(partitionBeginOffsets.get(topicPartition), partitionEndOffsets.get(topicPartition))
                         .partition(messagesPerSplit).stream()
                         .map(range -> new KafkaSplit(
-                                kafkaTableHandle.getTopicName(),
-                                kafkaTableHandle.getKeyDataFormat(),
-                                kafkaTableHandle.getMessageDataFormat(),
+                                kafkaTableHandle.topicName(),
+                                kafkaTableHandle.keyDataFormat(),
+                                kafkaTableHandle.messageDataFormat(),
                                 keyDataSchemaContents,
                                 messageDataSchemaContents,
                                 partitionInfo.partition(),
@@ -106,7 +106,7 @@ public class KafkaSplitManager
             if (e instanceof TrinoException) {
                 throw e;
             }
-            throw new TrinoException(KAFKA_SPLIT_ERROR, format("Cannot list splits for table '%s' reading topic '%s'", kafkaTableHandle.getTableName(), kafkaTableHandle.getTopicName()), e);
+            throw new TrinoException(KAFKA_SPLIT_ERROR, format("Cannot list splits for table '%s' reading topic '%s'", kafkaTableHandle.tableName(), kafkaTableHandle.topicName()), e);
         }
     }
 

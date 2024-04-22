@@ -115,7 +115,7 @@ public class KafkaMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(session, ((KafkaTableHandle) tableHandle).toSchemaTableName());
+        return getTableMetadata(session, ((KafkaTableHandle) tableHandle).schemaTableName());
     }
 
     @Override
@@ -129,7 +129,7 @@ public class KafkaMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getColumnHandles(session, ((KafkaTableHandle) tableHandle).toSchemaTableName());
+        return getColumnHandles(session, ((KafkaTableHandle) tableHandle).schemaTableName());
     }
 
     private Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, SchemaTableName schemaTableName)
@@ -233,23 +233,23 @@ public class KafkaMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         KafkaTableHandle handle = (KafkaTableHandle) table;
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = handle.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }
 
         handle = new KafkaTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getTopicName(),
-                handle.getKeyDataFormat(),
-                handle.getMessageDataFormat(),
-                handle.getKeyDataSchemaLocation(),
-                handle.getMessageDataSchemaLocation(),
-                handle.getKeySubject(),
-                handle.getMessageSubject(),
-                handle.getColumns(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.topicName(),
+                handle.keyDataFormat(),
+                handle.messageDataFormat(),
+                handle.keyDataSchemaLocation(),
+                handle.messageDataSchemaLocation(),
+                handle.keySubject(),
+                handle.messageSubject(),
+                handle.columns(),
                 newDomain);
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), constraint.getExpression(), false));
@@ -273,22 +273,22 @@ public class KafkaMetadata
         }
         // TODO: support transactional inserts https://github.com/trinodb/trino/issues/4303
         KafkaTableHandle table = (KafkaTableHandle) tableHandle;
-        List<KafkaColumnHandle> actualColumns = table.getColumns().stream()
+        List<KafkaColumnHandle> actualColumns = table.columns().stream()
                 .filter(columnHandle -> !columnHandle.isInternal() && !columnHandle.isHidden())
                 .collect(toImmutableList());
 
         checkArgument(columns.equals(actualColumns), "Unexpected columns!\nexpected: %s\ngot: %s", actualColumns, columns);
 
         return new KafkaTableHandle(
-                table.getSchemaName(),
-                table.getTableName(),
-                table.getTopicName(),
-                table.getKeyDataFormat(),
-                table.getMessageDataFormat(),
-                table.getKeyDataSchemaLocation(),
-                table.getMessageDataSchemaLocation(),
-                table.getKeySubject(),
-                table.getMessageSubject(),
+                table.schemaName(),
+                table.tableName(),
+                table.topicName(),
+                table.keyDataFormat(),
+                table.messageDataFormat(),
+                table.keyDataSchemaLocation(),
+                table.messageDataSchemaLocation(),
+                table.keySubject(),
+                table.messageSubject(),
                 actualColumns,
                 TupleDomain.none());
     }
