@@ -22,8 +22,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.util.Map;
-
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
@@ -56,7 +54,9 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
         queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = 's3://" + bucketName + "/" + schema + "')");
 
         queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
-        Map<String, String> s3Properties = ImmutableMap.<String, String>builder()
+        queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
+                .put("hive.metastore", "thrift")
+                .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
                 .put("fs.hadoop.enabled", "false")
                 .put("fs.native-s3.enabled", "true")
                 .put("s3.aws-access-key", MINIO_ACCESS_KEY)
@@ -65,15 +65,7 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
                 .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                 .put("s3.path-style-access", "true")
                 .put("s3.streaming.part-size", "5MB") // minimize memory usage
-                .buildOrThrow();
-        queryRunner.createCatalog(
-                "hive",
-                "hive",
-                ImmutableMap.<String, String>builder()
-                        .put("hive.metastore", "thrift")
-                        .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
-                        .putAll(s3Properties)
-                        .buildOrThrow());
+                .buildOrThrow());
 
         queryRunner.execute("CREATE TABLE hive." + schema + ".hive_table (a_integer integer)");
         hiveMinioDataLake.getHiveHadoop().runOnHive("CREATE VIEW " + schema + ".hive_view AS SELECT *  FROM " + schema + ".hive_table");
