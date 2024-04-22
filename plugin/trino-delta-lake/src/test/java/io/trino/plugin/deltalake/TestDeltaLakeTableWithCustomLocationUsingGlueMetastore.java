@@ -13,19 +13,18 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
-import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
-import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -33,39 +32,28 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
         extends BaseDeltaLakeTableWithCustomLocation
 {
+    private GlueHiveMetastore metastore;
+    private String schema;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Session deltaLakeSession = testSessionBuilder()
-                .setCatalog(DELTA_CATALOG)
-                .setSchema(SCHEMA)
+        Path warehouseDir = Files.createTempDirectory("warehouse-dir");
+        closeAfterClass(() -> deleteRecursively(warehouseDir, ALLOW_INSECURE));
+        metastore = createTestingGlueHiveMetastore(warehouseDir);
+        schema = "test_tables_with_custom_location" + randomNameSuffix();
+        return DeltaLakeQueryRunner.builder(schema)
+                .addDeltaProperty("hive.metastore", "glue")
+                .addDeltaProperty("hive.metastore.glue.region", requireNonNull(System.getenv("AWS_REGION"), "AWS_REGION is null"))
+                .addDeltaProperty("hive.metastore.glue.default-warehouse-dir", warehouseDir.toUri().toString())
                 .build();
-
-        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
-
-        File warehouseDir = new File(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data").toString());
-
-        queryRunner.installPlugin(new DeltaLakePlugin());
-        queryRunner.createCatalog(
-                DELTA_CATALOG,
-                CONNECTOR_NAME,
-                ImmutableMap.<String, String>builder()
-                        .put("hive.metastore", "glue")
-                        .put("hive.metastore.glue.region", requireNonNull(System.getenv("AWS_REGION"), "AWS_REGION is null"))
-                        .put("hive.metastore.glue.default-warehouse-dir", warehouseDir.toURI().toString())
-                        .buildOrThrow());
-
-        metastore = createTestingGlueHiveMetastore(warehouseDir.toPath());
-
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + warehouseDir.toURI() + "')");
-        return queryRunner;
     }
 
     @AfterAll
     public void tearDown()
     {
         // Data is on the local disk and will be deleted by query runner cleanup
-        metastore.dropDatabase(SCHEMA, false);
+        metastore.dropDatabase(schema, false);
     }
 }
