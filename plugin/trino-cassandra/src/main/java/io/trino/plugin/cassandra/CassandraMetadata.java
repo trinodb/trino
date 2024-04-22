@@ -244,16 +244,16 @@ public class CassandraMetadata
 
         String clusteringKeyPredicates = "";
         TupleDomain<ColumnHandle> unenforcedConstraint;
-        if (partitionResult.isUnpartitioned() || partitionResult.isIndexedColumnPredicatePushdown()) {
+        if (partitionResult.unpartitioned() || partitionResult.indexedColumnPredicatePushdown()) {
             // When the filter is missing at least one of the partition keys or when the table is not partitioned,
             // use the raw unenforced constraint of the partitionResult
-            unenforcedConstraint = partitionResult.getUnenforcedConstraint();
+            unenforcedConstraint = partitionResult.unenforcedConstraint();
         }
         else {
             CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
                     cassandraTypeManager,
                     cassandraSession.getTable(handle.getSchemaTableName()).clusteringKeyColumns(),
-                    partitionResult.getUnenforcedConstraint(),
+                    partitionResult.unenforcedConstraint(),
                     cassandraSession.getCassandraVersion());
             clusteringKeyPredicates = clusteringPredicatesExtractor.getClusteringKeyPredicates();
             unenforcedConstraint = clusteringPredicatesExtractor.getUnenforcedConstraints();
@@ -262,7 +262,7 @@ public class CassandraMetadata
         Optional<List<CassandraPartition>> currentPartitions = handle.getPartitions();
         if (currentPartitions.isPresent() &&
                 // TODO: we should skip only when new table handle does not narrow down enforced predicate
-                currentPartitions.get().containsAll(partitionResult.getPartitions()) &&
+                currentPartitions.get().containsAll(partitionResult.partitions()) &&
                 handle.getClusteringKeyPredicates().equals(clusteringKeyPredicates)) {
             return Optional.empty();
         }
@@ -271,7 +271,7 @@ public class CassandraMetadata
                 new ConstraintApplicationResult<>(new CassandraTableHandle(new CassandraNamedRelationHandle(
                         handle.getSchemaName(),
                         handle.getTableName(),
-                        Optional.of(partitionResult.getPartitions()),
+                        Optional.of(partitionResult.partitions()),
                         // TODO this should probably be AND-ed with handle.getClusteringKeyPredicates()
                         clusteringKeyPredicates)),
                         unenforcedConstraint,
