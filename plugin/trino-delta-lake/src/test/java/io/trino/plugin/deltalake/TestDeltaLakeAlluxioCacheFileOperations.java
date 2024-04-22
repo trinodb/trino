@@ -239,7 +239,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         registerTable("cdc_table", "trino/cdc_table");
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'cdc_table')");
         assertFileSystemAccesses(
-                "SELECT * FROM TABLE(system.table_changes(schema_name=>'default', table_name=>'cdc_table', since_version=>0))",
+                "SELECT * FROM TABLE(system.table_changes(schema_name=>CURRENT_SCHEMA, table_name=>'cdc_table', since_version=>0))",
                 ImmutableMultiset.<CacheOperation>builder()
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1117))
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 1100), 2)
@@ -254,7 +254,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.writeCache", "change_data/key=2/", 0, 394))
                         .build());
         assertFileSystemAccesses(
-                "EXPLAIN ANALYZE SELECT * FROM TABLE(system.table_changes(schema_name=>'default', table_name=>'cdc_table', since_version=>0))",
+                "EXPLAIN ANALYZE SELECT * FROM TABLE(system.table_changes(schema_name=>CURRENT_SCHEMA, table_name=>'cdc_table', since_version=>0))",
                 ImmutableMultiset.<CacheOperation>builder()
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1117))
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 1100), 2)

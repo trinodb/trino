@@ -682,7 +682,7 @@ public class TestDeltaLakeFileOperations
         int cdfFilesForDomain2 = countCdfFilesForKey("domain2");
         int cdfFilesForDomain3 = countCdfFilesForKey("domain3");
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'table_changes_file_system_access')");
-        assertFileSystemAccesses("SELECT * FROM TABLE(system.table_changes('default', 'table_changes_file_system_access'))",
+        assertFileSystemAccesses("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, 'table_changes_file_system_access'))",
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"), 2)
                         .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"), 2)
