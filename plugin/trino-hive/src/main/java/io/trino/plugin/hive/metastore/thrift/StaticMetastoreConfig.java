@@ -74,7 +74,7 @@ public class StaticMetastoreConfig
     {
         if (metastoreUris == null) {
             // metastoreUris is required, but that's validated on the getter
-            return true;
+            return false;
         }
         boolean hasHttpMetastore = metastoreUris.stream().anyMatch(uri -> "http".equalsIgnoreCase(uri.getScheme()));
         boolean hasHttpsMetastore = metastoreUris.stream().anyMatch(uri -> "https".equalsIgnoreCase(uri.getScheme()));
@@ -89,7 +89,7 @@ public class StaticMetastoreConfig
     {
         if (metastoreUris == null) {
             // metastoreUris is required, but that's validated on the getter
-            return true;
+            return false;
         }
         boolean hasHttpMetastore = metastoreUris.stream().anyMatch(uri -> "http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()));
         boolean hasThriftMetastore = metastoreUris.stream().anyMatch(uri -> "thrift".equalsIgnoreCase(uri.getScheme()));
