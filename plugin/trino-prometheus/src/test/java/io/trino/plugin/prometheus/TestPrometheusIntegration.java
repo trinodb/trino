@@ -124,7 +124,7 @@ public class TestPrometheusIntegration
         ConnectorSplitSource splits = splitManager.getSplits(
                 null,
                 null,
-                new PrometheusTableHandle("default", table.getName()),
+                new PrometheusTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         int numSplits = splits.getNextBatch(NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits().size();

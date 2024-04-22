@@ -103,7 +103,7 @@ public class PrometheusMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
-        for (ColumnMetadata column : table.getColumnsMetadata()) {
+        for (ColumnMetadata column : table.columnsMetadata()) {
             columnHandles.put(column.getName(), new PrometheusColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
@@ -136,7 +136,7 @@ public class PrometheusMetadata
             return null;
         }
 
-        return new ConnectorTableMetadata(tableName, table.getColumnsMetadata());
+        return new ConnectorTableMetadata(tableName, table.columnsMetadata());
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
