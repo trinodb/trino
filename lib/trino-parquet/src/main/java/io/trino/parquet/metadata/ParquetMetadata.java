@@ -11,26 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.parquet.internal.hadoop.metadata;
+package io.trino.parquet.metadata;
 
-public class IndexReference
+import java.util.List;
+
+public class ParquetMetadata
 {
-    private final long offset;
-    private final int length;
+    private final FileMetadata fileMetaData;
+    private final List<BlockMetadata> blocks;
 
-    public IndexReference(long offset, int length)
+    public ParquetMetadata(FileMetadata fileMetaData, List<BlockMetadata> blocks)
     {
-        this.offset = offset;
-        this.length = length;
+        this.fileMetaData = fileMetaData;
+        this.blocks = blocks;
     }
 
-    public long getOffset()
+    public List<BlockMetadata> getBlocks()
     {
-        return offset;
+        return blocks;
     }
 
-    public int getLength()
+    public FileMetadata getFileMetaData()
     {
-        return length;
+        return fileMetaData;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "ParquetMetaData{" + fileMetaData + ", blocks: " + blocks + "}";
     }
 }

@@ -22,11 +22,11 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.CompressionCodec;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
@@ -53,7 +53,7 @@ public final class PageReader
     public static PageReader createPageReader(
             ParquetDataSourceId dataSourceId,
             ChunkedInputStream columnChunk,
-            ColumnChunkMetaData metadata,
+            ColumnChunkMetadata metadata,
             ColumnDescriptor columnDescriptor,
             @Nullable OffsetIndex offsetIndex,
             Optional<String> fileCreatedBy)

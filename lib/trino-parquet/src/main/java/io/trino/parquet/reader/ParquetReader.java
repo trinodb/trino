@@ -30,6 +30,8 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.FilteredOffsetIndex.OffsetRange;
 import io.trino.plugin.base.metrics.LongCount;
@@ -49,8 +51,6 @@ import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.filter2.compat.FilterCompat;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexFilter;
@@ -101,7 +101,7 @@ public class ParquetReader
     private final AggregatedMemoryContext memoryContext;
 
     private int currentRowGroup = -1;
-    private BlockMetaData currentBlockMetadata;
+    private BlockMetadata currentBlockMetadata;
     private long currentGroupRowCount;
     /**
      * Index in the Parquet file of the first row of the current group
@@ -178,10 +178,10 @@ public class ParquetReader
         ListMultimap<ChunkKey, DiskRange> ranges = ArrayListMultimap.create();
         Map<String, LongCount> codecMetrics = new HashMap<>();
         for (int rowGroup = 0; rowGroup < rowGroups.size(); rowGroup++) {
-            BlockMetaData metadata = rowGroups.get(rowGroup).blockMetaData();
+            BlockMetadata metadata = rowGroups.get(rowGroup).blockMetaData();
             for (PrimitiveField field : primitiveFields) {
                 int columnId = field.getId();
-                ColumnChunkMetaData chunkMetadata = getColumnChunkMetaData(metadata, field.getDescriptor());
+                ColumnChunkMetadata chunkMetadata = getColumnChunkMetaData(metadata, field.getDescriptor());
                 ColumnPath columnPath = chunkMetadata.getPath();
                 long rowGroupRowCount = metadata.getRowCount();
                 long startingPosition = chunkMetadata.getStartingPos();
@@ -449,7 +449,7 @@ public class ParquetReader
         ColumnReader columnReader = columnReaders.get(fieldId);
         if (!columnReader.hasPageReader()) {
             validateParquet(currentBlockMetadata.getRowCount() > 0, dataSource.getId(), "Row group has 0 rows");
-            ColumnChunkMetaData metadata = getColumnChunkMetaData(currentBlockMetadata, columnDescriptor);
+            ColumnChunkMetadata metadata = getColumnChunkMetaData(currentBlockMetadata, columnDescriptor);
             FilteredRowRanges rowRanges = blockRowRanges[currentRowGroup];
             OffsetIndex offsetIndex = null;
             if (rowRanges != null) {
@@ -490,10 +490,10 @@ public class ParquetReader
         return new Metrics(metrics.buildOrThrow());
     }
 
-    private ColumnChunkMetaData getColumnChunkMetaData(BlockMetaData blockMetaData, ColumnDescriptor columnDescriptor)
+    private ColumnChunkMetadata getColumnChunkMetaData(BlockMetadata blockMetaData, ColumnDescriptor columnDescriptor)
             throws IOException
     {
-        for (ColumnChunkMetaData metadata : blockMetaData.getColumns()) {
+        for (ColumnChunkMetadata metadata : blockMetaData.getColumns()) {
             if (metadata.getPath().equals(ColumnPath.get(columnDescriptor.getPath()))) {
                 return metadata;
             }
@@ -583,7 +583,7 @@ public class ParquetReader
             if (rowGroupColumnIndexStore.isEmpty()) {
                 continue;
             }
-            BlockMetaData metadata = rowGroupInfo.blockMetaData();
+            BlockMetadata metadata = rowGroupInfo.blockMetaData();
             long rowGroupRowCount = metadata.getRowCount();
             FilteredRowRanges rowRanges = new FilteredRowRanges(ColumnIndexFilter.calculateRowRanges(
                     FilterCompat.get(filter.get()),

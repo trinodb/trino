@@ -26,13 +26,13 @@ import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.statistics.StringStatistics;
 import io.trino.orc.metadata.statistics.StripeStatistics;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.testing.QueryRunner;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -126,8 +126,8 @@ public final class IcebergTestUtils
 
         Comparable previousMax = null;
         verify(parquetMetadata.getBlocks().size() > 1, "Test must produce at least two row groups");
-        for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
-            ColumnChunkMetaData columnMetadata = blockMetaData.getColumns().stream()
+        for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {
+            ColumnChunkMetadata columnMetadata = blockMetaData.getColumns().stream()
                     .filter(column -> getOnlyElement(column.getPath().iterator()).equalsIgnoreCase(sortColumnName))
                     .collect(onlyElement());
             if (previousMax != null) {

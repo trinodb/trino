@@ -11,11 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.parquet.reader;
+package io.trino.parquet.metadata;
 
-import io.trino.parquet.metadata.BlockMetadata;
-import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
+public class IndexReference
+{
+    private final long offset;
+    private final int length;
 
-import java.util.Optional;
+    public IndexReference(long offset, int length)
+    {
+        this.offset = offset;
+        this.length = length;
+    }
 
-public record RowGroupInfo(BlockMetadata blockMetaData, long fileRowOffset, Optional<ColumnIndexStore> columnIndexStore) {}
+    public long getOffset()
+    {
+        return offset;
+    }
+
+    public int getLength()
+    {
+        return length;
+    }
+}

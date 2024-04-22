@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.parquet.hadoop.metadata;
+package io.trino.parquet.metadata;
 
 import org.apache.parquet.schema.MessageType;
 
@@ -20,13 +20,13 @@ import java.util.Map;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
-public final class FileMetaData
+public final class FileMetadata
 {
     private final MessageType schema;
     private final Map<String, String> keyValueMetaData;
     private final String createdBy;
 
-    public FileMetaData(MessageType schema, Map<String, String> keyValueMetaData, String createdBy)
+    public FileMetadata(MessageType schema, Map<String, String> keyValueMetaData, String createdBy)
     {
         this.schema = requireNonNull(schema, "schema cannot be null");
         this.keyValueMetaData = unmodifiableMap(requireNonNull(keyValueMetaData, "keyValueMetaData cannot be null"));
