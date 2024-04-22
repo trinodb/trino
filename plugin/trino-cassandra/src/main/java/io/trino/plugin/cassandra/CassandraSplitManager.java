@@ -97,7 +97,7 @@ public class CassandraSplitManager
         }
         else {
             CassandraPartitionResult partitionResult = partitionManager.getPartitions(cassandraTableHandle, TupleDomain.all());
-            partitions = partitionResult.getPartitions();
+            partitions = partitionResult.partitions();
             clusteringKeyPredicates = extractClusteringKeyPredicates(partitionResult, cassandraTableHandle, cassandraSession);
         }
 
@@ -124,14 +124,14 @@ public class CassandraSplitManager
 
     private String extractClusteringKeyPredicates(CassandraPartitionResult partitionResult, CassandraNamedRelationHandle tableHandle, CassandraSession session)
     {
-        if (partitionResult.isUnpartitioned()) {
+        if (partitionResult.unpartitioned()) {
             return "";
         }
 
         CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
                 cassandraTypeManager,
                 session.getTable(tableHandle.getSchemaTableName()).clusteringKeyColumns(),
-                partitionResult.getUnenforcedConstraint(),
+                partitionResult.unenforcedConstraint(),
                 session.getCassandraVersion());
         return clusteringPredicatesExtractor.getClusteringKeyPredicates();
     }

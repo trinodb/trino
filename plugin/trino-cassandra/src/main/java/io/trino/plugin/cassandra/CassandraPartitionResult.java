@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -21,33 +22,20 @@ import java.util.List;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
-public class CassandraPartitionResult
+public record CassandraPartitionResult(List<CassandraPartition> partitions, TupleDomain<ColumnHandle> unenforcedConstraint)
 {
-    private final List<CassandraPartition> partitions;
-    private final TupleDomain<ColumnHandle> unenforcedConstraint;
-
-    public CassandraPartitionResult(List<CassandraPartition> partitions, TupleDomain<ColumnHandle> unenforcedConstraint)
+    public CassandraPartitionResult
     {
-        this.partitions = requireNonNull(partitions, "partitions is null");
-        this.unenforcedConstraint = requireNonNull(unenforcedConstraint, "unenforcedConstraint is null");
+        partitions = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
+        requireNonNull(unenforcedConstraint, "unenforcedConstraint is null");
     }
 
-    public List<CassandraPartition> getPartitions()
-    {
-        return partitions;
-    }
-
-    public TupleDomain<ColumnHandle> getUnenforcedConstraint()
-    {
-        return unenforcedConstraint;
-    }
-
-    public boolean isUnpartitioned()
+    public boolean unpartitioned()
     {
         return partitions.size() == 1 && getOnlyElement(partitions).isUnpartitioned();
     }
 
-    public boolean isIndexedColumnPredicatePushdown()
+    public boolean indexedColumnPredicatePushdown()
     {
         return partitions.size() == 1 && getOnlyElement(partitions).isIndexedColumnPredicatePushdown();
     }
