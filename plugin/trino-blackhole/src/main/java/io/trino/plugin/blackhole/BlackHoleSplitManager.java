@@ -22,7 +22,8 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 
-import static java.util.Collections.nCopies;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.stream.IntStream.range;
 
 public final class BlackHoleSplitManager
         implements ConnectorSplitManager
@@ -36,6 +37,6 @@ public final class BlackHoleSplitManager
             Constraint constraint)
     {
         int splitCount = ((BlackHoleTableHandle) table).splitCount();
-        return new FixedSplitSource(nCopies(splitCount, BlackHoleSplit.INSTANCE));
+        return new FixedSplitSource(range(1, splitCount).mapToObj(BlackHoleSplit::new).collect(toImmutableList()));
     }
 }

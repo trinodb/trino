@@ -17,20 +17,22 @@ import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.Map;
 
-public enum BlackHoleSplit
+import static io.airlift.slice.SizeOf.instanceSize;
+
+public record BlackHoleSplit(int splitNumber)
         implements ConnectorSplit
 {
-    INSTANCE;
+    private static final int INSTANCE_SIZE = instanceSize(BlackHoleSplit.class);
 
     @Override
     public Map<String, String> getSplitInfo()
     {
-        return Map.of();
+        return Map.of("splitNumber", String.valueOf(splitNumber));
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return 0;
+        return INSTANCE_SIZE;
     }
 }
