@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
@@ -43,17 +42,13 @@ public class TestDeltaLakeUpdate
     {
         HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
+
+        return createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
                 hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
-
-        TpchTable.getTables().forEach(table ->
-                queryRunner.execute(format("CREATE TABLE %s WITH (location = '%s') AS SELECT * FROM tpch.tiny.%1$s", table.getTableName(), getLocationForTable(table.getTableName()))));
-
-        return queryRunner;
     }
 
     @Test
