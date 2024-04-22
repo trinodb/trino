@@ -47,7 +47,7 @@ public class TestCdfWithNumberOfSplitsGreaterThanMaxBatchSizeInSplitSource
         assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 'domain4', 4), ('url5', 'domain5', 2), ('url6', 'domain6', 6)", 3);
 
         assertUpdate("UPDATE " + tableName + " SET page_url = 'url22' WHERE views = 2", 2);
-        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('tpch', '" + tableName + "'))",
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))",
                 """
                         VALUES
                             ('url1', 'domain1', 1, 'insert', BIGINT '1'),
@@ -63,14 +63,14 @@ public class TestCdfWithNumberOfSplitsGreaterThanMaxBatchSizeInSplitSource
                         """);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE views = 2", 2);
-        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('tpch', '" + tableName + "', 3))",
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "', 3))",
                 """
                         VALUES
                             ('url22', 'domain2', 2, 'delete', BIGINT '4'),
                             ('url22', 'domain5', 2, 'delete', BIGINT '4')
                         """);
 
-        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('tpch', '" + tableName + "')) ORDER BY _commit_version, _change_type, domain",
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "')) ORDER BY _commit_version, _change_type, domain",
                 """
                         VALUES
                             ('url1', 'domain1', 1, 'insert', BIGINT '1'),
