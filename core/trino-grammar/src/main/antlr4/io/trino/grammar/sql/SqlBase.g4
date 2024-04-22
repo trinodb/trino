@@ -960,7 +960,7 @@ roles
     ;
 
 privilegeOrRole
-    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | EXECUTE | identifier
     ;
 
 identifier
