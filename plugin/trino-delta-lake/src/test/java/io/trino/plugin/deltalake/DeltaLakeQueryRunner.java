@@ -21,7 +21,6 @@ import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -107,9 +106,6 @@ public final class DeltaLakeQueryRunner
             try {
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
-
-                queryRunner.installPlugin(new TpcdsPlugin());
-                queryRunner.createCatalog("tpcds", "tpcds");
 
                 queryRunner.installPlugin(new TestingDeltaLakePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data")));
                 queryRunner.createCatalog(catalogName, CONNECTOR_NAME, deltaProperties.buildOrThrow());
