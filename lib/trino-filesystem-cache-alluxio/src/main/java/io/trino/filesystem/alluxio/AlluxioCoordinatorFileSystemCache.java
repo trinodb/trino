@@ -17,6 +17,7 @@ import alluxio.client.file.cache.CacheManager;
 import alluxio.conf.AlluxioProperties;
 import alluxio.conf.InstancedConfiguration;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
@@ -35,6 +36,8 @@ import java.util.Optional;
 public class AlluxioCoordinatorFileSystemCache
         implements TrinoFileSystemCache
 {
+    private static final Logger log = Logger.get(AlluxioCoordinatorFileSystemCache.class);
+
     private final Optional<AlluxioFileSystemCache> alluxioFileSystemCache;
 
     @Inject
@@ -49,6 +52,7 @@ public class AlluxioCoordinatorFileSystemCache
             alluxioFileSystemCache = Optional.of(new AlluxioFileSystemCache(tracer, config, statistics));
         }
         else {
+            log.debug("File system cache is disabled on a coordinator");
             alluxioFileSystemCache = Optional.empty();
             try {
                 CacheManager cacheManager = CacheManager.Factory.create(new InstancedConfiguration(new AlluxioProperties()));
