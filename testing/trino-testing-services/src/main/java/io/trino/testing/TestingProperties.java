@@ -28,7 +28,7 @@ public final class TestingProperties
 {
     private TestingProperties() {}
 
-    private static Supplier<Properties> properties = Suppliers.memoize(() -> {
+    private static final Supplier<Properties> properties = Suppliers.memoize(() -> {
         Properties properties = new Properties();
         try {
             try (InputStream stream = Resources.getResource("trino-testing.properties").openStream()) {
