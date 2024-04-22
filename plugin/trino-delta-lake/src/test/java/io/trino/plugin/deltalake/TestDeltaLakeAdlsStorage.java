@@ -117,7 +117,7 @@ public class TestDeltaLakeAdlsStorage
         hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-mkdir", "-p", adlsDirectory);
         TABLES.forEach(table -> {
             hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-copyFromLocal", "-f", "/tmp/tpch-tiny/" + table, adlsDirectory);
-            getQueryRunner().execute(format("CALL system.register_table('%s', '%s', '%s/%s')", SCHEMA_NAME, table, adlsDirectory, table));
+            getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s/%s')", table, adlsDirectory, table));
         });
     }
 

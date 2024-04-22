@@ -101,7 +101,7 @@ public class TestDeltaLakeDelete
     private void testDeleteMultiFile(String tableName, String resourcePath)
     {
         hiveMinioDataLake.copyResources(resourcePath + "/lineitem", tableName);
-        getQueryRunner().execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, getLocationForTable(tableName)));
+        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, getLocationForTable(tableName)));
 
         assertQuery("SELECT count(*) FROM " + tableName, "SELECT count(*) FROM lineitem");
         assertUpdate("DELETE FROM " + tableName + " WHERE partkey % 2 = 0", "SELECT count(*) FROM lineitem WHERE partkey % 2 = 0");
@@ -184,7 +184,7 @@ public class TestDeltaLakeDelete
         String tableName = "test_delete_all_deltalake";
         hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/ossdeltalake/customer", tableName);
         Set<String> originalFiles = ImmutableSet.copyOf(hiveMinioDataLake.listFiles(tableName));
-        getQueryRunner().execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, getLocationForTable(tableName)));
+        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, getLocationForTable(tableName)));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM customer");
         // There are `add` files in the transaction log without stats, reason why the DELETE statement on the whole table
         // performed on the basis of metadata does not return the number of deleted records
@@ -201,7 +201,7 @@ public class TestDeltaLakeDelete
     {
         hiveMinioDataLake.copyResources(resourcePath + "/customer", tableName);
         Set<String> originalFiles = ImmutableSet.copyOf(hiveMinioDataLake.listFiles(tableName));
-        getQueryRunner().execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, getLocationForTable(tableName)));
+        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, getLocationForTable(tableName)));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM customer");
         assertUpdate("DELETE FROM " + tableName, "SELECT count(*) FROM customer");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");

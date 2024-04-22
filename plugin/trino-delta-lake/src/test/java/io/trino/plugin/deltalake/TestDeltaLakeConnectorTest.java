@@ -2198,7 +2198,7 @@ public class TestDeltaLakeConnectorTest
         minioClient.putObject(bucketName, entry.getBytes(UTF_8), targetPath);
         String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
 
-        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, tableName, tableLocation));
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation));
         assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
 
         assertUpdate(
@@ -2310,7 +2310,7 @@ public class TestDeltaLakeConnectorTest
         minioClient.putObject(bucketName, entry.getBytes(UTF_8), targetPath);
         String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
 
-        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, tableName, tableLocation));
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation));
         assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
 
         assertUpdate(
@@ -3180,7 +3180,7 @@ public class TestDeltaLakeConnectorTest
         Set<String> allFilesFromCdfDirectory = getAllFilesFromCdfDirectory(tableName);
         assertThat(allFilesFromCdfDirectory).hasSizeGreaterThanOrEqualTo(3);
         long retention = timeSinceUpdate.elapsed().getSeconds();
-        getQueryRunner().execute(sessionWithShortRetentionUnlocked, "CALL delta.system.vacuum('test_schema', '" + tableName + "', '" + retention + "s')");
+        getQueryRunner().execute(sessionWithShortRetentionUnlocked, "CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '" + retention + "s')");
         allFilesFromCdfDirectory = getAllFilesFromCdfDirectory(tableName);
         assertThat(allFilesFromCdfDirectory).hasSizeBetween(1, 2);
         assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 2))", "Error opening Hive split.*/_change_data/.*");

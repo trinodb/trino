@@ -111,7 +111,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         // Verify that dropTableFromMetastore actually works
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
 
-        assertQuerySucceeds(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, tableLocation));
+        assertQuerySucceeds(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation));
         String showCreateTableNew = (String) computeScalar("SHOW CREATE TABLE " + tableName);
 
         assertThat(showCreateTableOld).isEqualTo(showCreateTableNew);
@@ -130,7 +130,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
 
         metastore.dropTable(SCHEMA, tableName, false);
 
-        assertUpdate(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, tableLocation));
+        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation));
 
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("partitioned_by = ARRAY['part']");
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'a')");
@@ -170,7 +170,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         metastore.dropTable(SCHEMA, tableName, false);
 
         String tableNameNew = "test_register_table_with_different_table_name_new_" + randomNameSuffix();
-        assertQuerySucceeds(format("CALL %s.system.register_table('%s', '%s', '%s')", DELTA_CATALOG, SCHEMA, tableNameNew, tableLocation));
+        assertQuerySucceeds(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableNameNew, tableLocation));
         String showCreateTableNew = (String) computeScalar("SHOW CREATE TABLE " + tableNameNew);
 
         assertThat(showCreateTableOld).isEqualTo(showCreateTableNew.replaceFirst(tableNameNew, tableName));
@@ -191,7 +191,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         assertThat(getTableLocation(tableName)).isEqualTo(tableLocationWithTrailingSpace);
 
         String registeredTableName = "test_register_table_with_trailing_space_" + randomNameSuffix();
-        assertQuerySucceeds(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, registeredTableName, tableLocationWithTrailingSpace));
+        assertQuerySucceeds(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", registeredTableName, tableLocationWithTrailingSpace));
         assertQuery("SELECT * FROM " + registeredTableName, "VALUES (1, 'INDIA', true)");
 
         assertThat(getTableLocation(registeredTableName)).isEqualTo(tableLocationWithTrailingSpace);
@@ -210,7 +210,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String tableLocation = getTableLocation(tableName);
         metastore.dropTable(SCHEMA, tableName, false);
 
-        assertQuerySucceeds(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, tableLocation));
+        assertQuerySucceeds(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation));
 
         assertUpdate(format("DROP TABLE %s", tableName));
     }
@@ -236,7 +236,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
                 .create()
                 .close();
 
-        assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableNameNew, tableLocation),
+        assertQueryFails(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableNameNew, tableLocation),
                 ".*Metadata not found in transaction log for (.*)");
 
         fileSystem.deleteDirectory(Location.of(tableLocation));
@@ -261,7 +261,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
                 .create(ConnectorIdentity.ofUser("test"));
         fileSystem.deleteDirectory(Location.of(tableLocation));
 
-        assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableNameNew, tableLocation),
+        assertQueryFails(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableNameNew, tableLocation),
                 ".*No transaction log found in location (.*)");
 
         fileSystem.deleteDirectory(Location.of(tableLocation));
@@ -273,7 +273,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     {
         String tableName = "test_register_table_with_non_existing_table_location_" + randomNameSuffix();
         String tableLocation = "/test/delta-lake/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44";
-        assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, tableLocation),
+        assertQueryFails(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation),
                 ".*No transaction log found in location (.*).*");
     }
 
@@ -281,7 +281,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     public void testRegisterTableWithNonExistingSchema()
     {
         String tableLocation = "/test/delta-lake/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44";
-        assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA + "_new", "delta_table_1", tableLocation),
+        assertQueryFails(format("CALL system.register_table('nonexistentschema', '%s', '%s')", "delta_table_1", tableLocation),
                 "Schema (.*) not found");
     }
 
@@ -295,7 +295,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
 
         String tableLocation = getTableLocation(tableName);
 
-        assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, tableLocation),
+        assertQueryFails(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation),
                 ".*Table already exists: '(.*)'.*");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -305,7 +305,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     {
         String tableName = "test_register_table_with_invalid_uri_scheme_" + randomNameSuffix();
         String tableLocation = "invalid://hadoop-master:9000/test/delta-lake/hive/orders_5-581fad8517934af6be1857a903559d44";
-        assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, tableLocation),
+        assertQueryFails(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation),
                 ".*Failed checking table location (.*)");
     }
 
