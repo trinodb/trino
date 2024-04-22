@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.util.Objects.requireNonNull;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
@@ -34,7 +34,7 @@ public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.alternateProjectId = requireNonNull(System.getProperty("testing.alternate-bq-project-id"), "testing.alternate-bq-project-id system property not set");
+        this.alternateProjectId = requiredNonEmptySystemProperty("testing.alternate-bq-project-id");
 
         QueryRunner queryRunner = BigQueryQueryRunner.builder()
                 .setConnectorProperties(Map.of("bigquery.project-id", alternateProjectId))
