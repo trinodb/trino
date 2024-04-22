@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnMetadata;
 
@@ -22,43 +20,21 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class PrometheusTable
+public record PrometheusTable(String name, List<PrometheusColumn> columns)
 {
-    private final String name;
-    private final List<PrometheusColumn> columns;
-    private final List<ColumnMetadata> columnsMetadata;
-
-    @JsonCreator
-    public PrometheusTable(
-            @JsonProperty("name") String name,
-            @JsonProperty("columns") List<PrometheusColumn> columns)
+    public PrometheusTable
     {
         checkArgument(!isNullOrEmpty(name), "name is null or is empty");
-        this.name = requireNonNull(name, "name is null");
-        this.columns = columns;
-        ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();
-        for (PrometheusColumn column : this.columns) {
-            columnsMetadata.add(new ColumnMetadata(column.name(), column.type()));
-        }
-        this.columnsMetadata = columnsMetadata.build();
+        columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
-    @JsonProperty
-    public String getName()
+    public List<ColumnMetadata> columnsMetadata()
     {
-        return name;
-    }
-
-    @JsonProperty
-    public List<PrometheusColumn> getColumns()
-    {
-        return columns;
-    }
-
-    public List<ColumnMetadata> getColumnsMetadata()
-    {
-        return columnsMetadata;
+        return columns.stream()
+                .map(column -> new ColumnMetadata(column.name(), column.type()))
+                .collect(toImmutableList());
     }
 }

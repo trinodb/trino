@@ -94,7 +94,7 @@ public class PrometheusSplitManager
                         return new PrometheusSplit(buildQuery(
                                 prometheusURI,
                                 time,
-                                table.getName(),
+                                table.name(),
                                 queryChunkSizeDuration).toString());
                     }
                     catch (URISyntaxException e) {

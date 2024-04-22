@@ -34,7 +34,7 @@ public class TestPrometheusTable
     @Test
     public void testColumnMetadata()
     {
-        assertThat(prometheusTable.getColumnsMetadata()).isEqualTo(ImmutableList.of(
+        assertThat(prometheusTable.columnsMetadata()).isEqualTo(ImmutableList.of(
                 new ColumnMetadata("labels", varcharMapType),
                 new ColumnMetadata("timestamp", TIMESTAMP_COLUMN_TYPE),
                 new ColumnMetadata("value", DoubleType.DOUBLE)));
@@ -46,7 +46,7 @@ public class TestPrometheusTable
         String json = TABLE_CODEC.toJson(prometheusTable);
         PrometheusTable prometheusTableCopy = TABLE_CODEC.fromJson(json);
 
-        assertThat(prometheusTableCopy.getName()).isEqualTo(prometheusTable.getName());
-        assertThat(prometheusTableCopy.getColumns()).isEqualTo(prometheusTable.getColumns());
+        assertThat(prometheusTableCopy.name()).isEqualTo(prometheusTable.name());
+        assertThat(prometheusTableCopy.columns()).isEqualTo(prometheusTable.columns());
     }
 }
