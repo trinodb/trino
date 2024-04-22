@@ -33,8 +33,6 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Set;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDockerizedDeltaLakeQueryRunner;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 import static io.trino.tpch.TpchTable.CUSTOMER;
@@ -50,7 +48,6 @@ public class TestDeltaLakeAdlsStorage
         extends AbstractTestQueryFramework
 {
     private static final String HADOOP_BASE_IMAGE = System.getenv().getOrDefault("HADOOP_BASE_IMAGE", "ghcr.io/trinodb/testing/hdp3.1-hive");
-    private static final String SCHEMA_NAME = "default";
     private static final List<String> TABLES = ImmutableList.of(NATION.getTableName(), REGION.getTableName(), CUSTOMER.getTableName());
 
     private final String account;
@@ -83,17 +80,15 @@ public class TestDeltaLakeAdlsStorage
                         "/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.toString()))
                 .build());
         hiveHadoop.start();
-        return createDockerizedDeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                SCHEMA_NAME,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(
-                        "hive.azure.abfs-storage-account", account,
-                        "hive.azure.abfs-access-key", accessKey,
-                        "delta.register-table-procedure.enabled", "true"),
-                hiveHadoop,
-                queryRunner -> {});
+
+        return DeltaLakeQueryRunner.builder()
+                .setDeltaProperties(ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
+                        .put("hive.azure.abfs-storage-account", account)
+                        .put("hive.azure.abfs-access-key", accessKey)
+                        .put("delta.register-table-procedure.enabled", "true")
+                        .buildOrThrow())
+                .build();
     }
 
     private Path createHadoopCoreSiteXmlTempFileWithAbfsSettings()

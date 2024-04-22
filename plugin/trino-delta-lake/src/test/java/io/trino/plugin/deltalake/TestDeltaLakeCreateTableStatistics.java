@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
@@ -25,6 +24,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
@@ -42,8 +42,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getTableActiveFiles;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -62,8 +60,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeCreateTableStatistics
         extends AbstractTestQueryFramework
 {
-    private static final String SCHEMA = "default";
-
     private String bucketName;
     private TransactionLogAccess transactionLogAccess;
 
@@ -74,14 +70,18 @@ public class TestDeltaLakeCreateTableStatistics
         this.bucketName = "delta-test-create-table-statistics-" + randomNameSuffix();
         HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                SCHEMA,
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop());
-        this.transactionLogAccess = getConnectorService(queryRunner, TransactionLogAccess.class);
-        return queryRunner;
+
+        return DeltaLakeQueryRunner.builder()
+                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
+                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .build();
+    }
+
+    @BeforeAll
+    public void initTransactionLogAccess()
+    {
+        transactionLogAccess = getConnectorService(getQueryRunner(), TransactionLogAccess.class);
     }
 
     @Test

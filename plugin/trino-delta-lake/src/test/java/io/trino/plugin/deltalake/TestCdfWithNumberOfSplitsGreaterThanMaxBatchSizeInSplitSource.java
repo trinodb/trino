@@ -19,8 +19,6 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,11 +29,13 @@ public class TestCdfWithNumberOfSplitsGreaterThanMaxBatchSizeInSplitSource
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(
+        return DeltaLakeQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.of(
                         "query.schedule-split-batch-size", "1",
                         "node-scheduler.max-splits-per-node", "1",
-                        "node-scheduler.min-pending-splits-per-task", "1"),
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
+                        "node-scheduler.min-pending-splits-per-task", "1"))
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .build();
     }
 
     @Test

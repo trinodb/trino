@@ -40,9 +40,10 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
     @Test
     public void testTableHasUuidSuffixInLocation()
     {
+        String schema = getSession().getSchema().orElseThrow();
         String tableName = "table_with_uuid" + randomNameSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s AS SELECT 1 as val", tableName));
-        Optional<Table> table = metastore.getTable(SCHEMA, tableName);
+        Optional<Table> table = metastore.getTable(schema, tableName);
         assertThat(table.isPresent())
                 .describedAs("Table should exists")
                 .isTrue();
@@ -54,9 +55,10 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
     public void testCreateAndDrop()
             throws IOException
     {
+        String schema = getSession().getSchema().orElseThrow();
         String tableName = "test_create_and_drop" + randomNameSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s AS SELECT 1 as val", tableName));
-        Table table = metastore.getTable(SCHEMA, tableName).orElseThrow();
+        Table table = metastore.getTable(schema, tableName).orElseThrow();
         assertThat(table.getTableType()).isEqualTo(MANAGED_TABLE.name());
 
         Location tableLocation = Location.of(table.getStorage().getLocation());
@@ -71,7 +73,7 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
                 .describedAs("The data file should exist")
                 .isTrue();
         assertQuerySucceeds(format("DROP TABLE %s", tableName));
-        assertThat(metastore.getTable(SCHEMA, tableName).isPresent())
+        assertThat(metastore.getTable(schema, tableName).isPresent())
                 .describedAs("Table should be dropped")
                 .isFalse();
         assertThat(fileSystem.listFiles(filePath).hasNext())

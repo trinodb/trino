@@ -13,22 +13,17 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 
 // An Update test is run against all supported file systems from AbstractTestDeltaLakeIntegrationSmokeTest#testUpdate
 public class TestDeltaLakeUpdate
         extends AbstractTestQueryFramework
 {
-    private static final String SCHEMA = "default";
     private final String bucketName;
 
     public TestDeltaLakeUpdate()
@@ -43,12 +38,11 @@ public class TestDeltaLakeUpdate
         HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
 
-        return createS3DeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                SCHEMA,
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop());
+        return DeltaLakeQueryRunner.builder()
+                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
+                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .build();
     }
 
     @Test
@@ -56,7 +50,7 @@ public class TestDeltaLakeUpdate
     {
         String tableName = "test_simple_update";
         assertUpdate("" +
-                        "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "') " +
+                        "CREATE TABLE " + tableName + " (a, b, c) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 "VALUES 5");
         assertUpdate("UPDATE " + tableName + " SET a = 42 WHERE a = 1", "VALUES 3");
@@ -92,7 +86,7 @@ public class TestDeltaLakeUpdate
     {
         String tableName = "test_update_all";
         assertUpdate("" +
-                        "CREATE TABLE " + tableName + " (a, b) WITH (location = '" + getLocationForTable(tableName) + "') " +
+                        "CREATE TABLE " + tableName + " (a, b) " +
                         "AS VALUES (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)",
                 "VALUES 5");
         assertUpdate("UPDATE " + tableName + " SET a = a + 1", "VALUES 5");
@@ -104,7 +98,7 @@ public class TestDeltaLakeUpdate
     {
         String tableName = "test_update_single_row";
         assertUpdate("" +
-                        "CREATE TABLE " + tableName + " (a, b) WITH (location = '" + getLocationForTable(tableName) + "') " +
+                        "CREATE TABLE " + tableName + " (a, b) " +
                         "AS VALUES (1, 2)",
                 "VALUES 1");
         assertUpdate("UPDATE " + tableName + " SET a = a + 1", "VALUES 1");
@@ -116,7 +110,7 @@ public class TestDeltaLakeUpdate
     {
         String tableName = "test_update_none";
         assertUpdate("" +
-                        "CREATE TABLE " + tableName + " (a, b) WITH (location = '" + getLocationForTable(tableName) + "') " +
+                        "CREATE TABLE " + tableName + " (a, b) " +
                         "AS VALUES (1, 2)",
                 "VALUES 1");
         assertUpdate("UPDATE " + tableName + " SET a = a + 1 WHERE a > 42", "VALUES 0");
@@ -128,7 +122,7 @@ public class TestDeltaLakeUpdate
     {
         String tableName = "test_update_on_partition_key";
         assertUpdate("" +
-                        "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['b']) " +
+                        "CREATE TABLE " + tableName + " (a, b, c) WITH (partitioned_by = ARRAY['b']) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 "VALUES 5");
         assertUpdate("UPDATE " + tableName + " SET b = 42", 5);
@@ -146,7 +140,7 @@ public class TestDeltaLakeUpdate
     {
         String tableName = "test_update_with_partition_key_predicate";
         assertUpdate("" +
-                        "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['b']) " +
+                        "CREATE TABLE " + tableName + " (a, b, c) WITH (partitioned_by = ARRAY['b']) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 "VALUES 5");
         assertUpdate("UPDATE " + tableName + " SET c = 42 WHERE a = 1 AND b = 2", "VALUES 2");
@@ -161,7 +155,7 @@ public class TestDeltaLakeUpdate
     {
         String tableName = "test_update_null";
         assertUpdate("" +
-                        "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "') " +
+                        "CREATE TABLE " + tableName + " (a, b, c) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 "VALUES 5");
         assertUpdate("UPDATE " + tableName + " SET b = 42 WHERE a IS NULL", "VALUES 1");
@@ -176,15 +170,10 @@ public class TestDeltaLakeUpdate
     {
         String tableName = "test_update_all_columns";
         assertUpdate("" +
-                        "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "') " +
+                        "CREATE TABLE " + tableName + " (a, b, c) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 "VALUES 5");
         assertUpdate("UPDATE " + tableName + " SET c = 100, b = 42, a = 0 WHERE a IS NULL", "VALUES 1");
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (0, 42, 100), (1, 1, 1)");
-    }
-
-    private String getLocationForTable(String tableName)
-    {
-        return format("s3://%s/%s", bucketName, tableName);
     }
 }

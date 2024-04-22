@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.io.Resources;
 import io.opentelemetry.api.common.Attributes;
-import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -42,10 +41,8 @@ import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_SIZE;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
@@ -60,30 +57,18 @@ public class TestDeltaLakeAlluxioCacheFileOperations
     {
         Path cacheDirectory = Files.createTempDirectory("cache");
         closeAfterClass(() -> deleteRecursively(cacheDirectory, ALLOW_INSECURE));
-        Path metastoreDirectory = Files.createTempDirectory(DELTA_CATALOG);
-        closeAfterClass(() -> deleteRecursively(metastoreDirectory, ALLOW_INSECURE));
 
-        Session session = testSessionBuilder()
-                .setCatalog(DELTA_CATALOG)
-                .setSchema("default")
-                .build();
-
-        DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder(session)
+        return DeltaLakeQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("fs.cache.enabled", "true")
                         .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                         .put("fs.cache.max-sizes", "100MB")
-                        .put("hive.metastore", "file")
-                        .put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString())
                         .put("delta.enable-non-concurrent-writes", "true")
                         .put("delta.register-table-procedure.enabled", "true")
                         .buildOrThrow())
                 .setWorkerCount(1)
                 .build();
-
-        queryRunner.execute("CREATE SCHEMA " + session.getSchema().orElseThrow());
-        return queryRunner;
     }
 
     private URL getResourceLocation(String resourcePath)
