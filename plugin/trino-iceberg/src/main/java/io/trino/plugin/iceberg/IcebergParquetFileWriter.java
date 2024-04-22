@@ -35,10 +35,10 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static io.trino.parquet.reader.MetadataReader.createParquetMetadata;
+import static io.trino.plugin.iceberg.util.ParquetUtil.footerMetrics;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.parquet.ParquetUtil.footerMetrics;
 
 public final class IcebergParquetFileWriter
         implements IcebergFileWriter
