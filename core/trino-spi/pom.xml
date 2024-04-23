@@ -215,6 +215,11 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.connector.ConnectorTableLayout</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.class.removed</code>
                                     <old>@interface io.trino.spi.function.RemoveInputFunction</old>
                                 </item>

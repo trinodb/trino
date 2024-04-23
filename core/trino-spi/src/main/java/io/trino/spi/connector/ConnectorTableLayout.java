@@ -13,12 +13,15 @@
  */
 package io.trino.spi.connector;
 
+import com.google.errorprone.annotations.Immutable;
+
 import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class ConnectorTableLayout
+@Immutable
+public final class ConnectorTableLayout
 {
     private final Optional<ConnectorPartitioningHandle> partitioning;
     private final List<String> partitionColumns;
@@ -34,7 +37,7 @@ public class ConnectorTableLayout
     public ConnectorTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns, boolean multipleWritersPerPartitionSupported)
     {
         this.partitioning = Optional.of(requireNonNull(partitioning, "partitioning is null"));
-        this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
+        this.partitionColumns = List.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.multipleWritersPerPartitionSupported = multipleWritersPerPartitionSupported;
     }
 
@@ -45,7 +48,7 @@ public class ConnectorTableLayout
     public ConnectorTableLayout(List<String> partitionColumns)
     {
         this.partitioning = Optional.empty();
-        this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
+        this.partitionColumns = List.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.multipleWritersPerPartitionSupported = true;
     }
 
