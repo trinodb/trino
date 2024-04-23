@@ -19,6 +19,7 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
+import com.google.cloud.bigquery.FieldValue;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobException;
 import com.google.cloud.bigquery.JobInfo;
@@ -32,6 +33,7 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.http.BaseHttpServiceException;
+import com.google.common.base.Suppliers;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
@@ -40,6 +42,7 @@ import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -406,6 +409,34 @@ public class BigQueryClient
         String remoteTableName = remoteTableId.getTable();
         remoteTableId = TableId.of(remoteTableId.getProject(), remoteSchemaName, remoteTableName);
         return format("%s.%s.%s", remoteTableId.getProject(), remoteTableId.getDataset(), remoteTableId.getTable());
+    }
+
+    public Stream<RelationColumnsMetadata> listRelationColumnsMetadata(ConnectorSession session, BigQueryClient client, String projectId, String remoteSchemaName)
+    {
+        TableResult result = client.executeQuery(session, """
+                SELECT
+                  table_catalog,
+                  table_schema,
+                  table_name,
+                  array_agg(column_name order by ordinal_position),
+                  array_agg(data_type order by ordinal_position),
+                FROM %s.INFORMATION_SCHEMA.COLUMNS
+                GROUP BY table_catalog, table_schema, table_name
+                """.formatted(quote(remoteSchemaName)));
+        String schemaName = client.toSchemaName(DatasetId.of(projectId, remoteSchemaName));
+        return result.streamValues()
+                .map(row -> {
+                    RemoteTableName remoteTableName = new RemoteTableName(
+                            row.get(0).getStringValue(),
+                            row.get(1).getStringValue(),
+                            row.get(2).getStringValue());
+                    List<String> names = row.get(3).getRepeatedValue().stream().map(FieldValue::getStringValue).collect(toImmutableList());
+                    List<String> types = row.get(4).getRepeatedValue().stream().map(FieldValue::getStringValue).collect(toImmutableList());
+                    verify(names.size() == types.size(), "Mismatched column names and types");
+                    return RelationColumnsMetadata.forTable(
+                            new SchemaTableName(schemaName, remoteTableName.tableName()),
+                            typeManager.convertToTrinoType(names, types, Suppliers.memoize(() -> getTable(remoteTableName.toTableId()))));
+                });
     }
 
     public Stream<RelationCommentMetadata> listRelationCommentMetadata(ConnectorSession session, BigQueryClient client, String schemaName)

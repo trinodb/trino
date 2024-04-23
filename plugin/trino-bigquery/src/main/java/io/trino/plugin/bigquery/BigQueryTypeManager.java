@@ -17,11 +17,19 @@ import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.bigquery.TableInfo;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.trino.plugin.bigquery.type.ArrayTypeInfo;
+import io.trino.plugin.bigquery.type.BigDecimalTypeInfo;
+import io.trino.plugin.bigquery.type.DecimalTypeInfo;
+import io.trino.plugin.bigquery.type.PrimitiveTypeInfo;
+import io.trino.plugin.bigquery.type.TypeInfo;
+import io.trino.plugin.bigquery.type.UnsupportedTypeException;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -44,14 +52,17 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.cloud.bigquery.Field.Mode.REPEATED;
+import static com.google.cloud.bigquery.StandardSQLTypeName.STRUCT;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRECISION;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_SCALE;
+import static io.trino.plugin.bigquery.type.TypeInfoUtils.parseTypeString;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -73,6 +84,8 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -101,12 +114,14 @@ public final class BigQueryTypeManager
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("''HH:mm:ss.SSSSSS''");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS").withZone(UTC);
 
+    private final TypeManager typeManager;
     private final Type jsonType;
 
     @Inject
     public BigQueryTypeManager(TypeManager typeManager)
     {
-        jsonType = requireNonNull(typeManager, "typeManager is null").getType(new TypeSignature(JSON));
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        jsonType = typeManager.getType(new TypeSignature(JSON));
     }
 
     private RowType.Field toRawTypeField(String name, Field field)
@@ -225,7 +240,7 @@ public final class BigQueryTypeManager
     {
         Field.Builder builder;
         if (type instanceof RowType) {
-            builder = Field.newBuilder(name, StandardSQLTypeName.STRUCT, toFieldList((RowType) type)).setDescription(comment);
+            builder = Field.newBuilder(name, STRUCT, toFieldList((RowType) type)).setDescription(comment);
         }
         else {
             builder = Field.newBuilder(name, toStandardSqlTypeName(type)).setDescription(comment);
@@ -283,7 +298,7 @@ public final class BigQueryTypeManager
             return StandardSQLTypeName.ARRAY;
         }
         if (type instanceof RowType) {
-            return StandardSQLTypeName.STRUCT;
+            return STRUCT;
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
@@ -368,17 +383,82 @@ public final class BigQueryTypeManager
             case JSON:
                 return Optional.of(new ColumnMapping(jsonType, false));
             case STRUCT:
-                // create the row
-                FieldList subTypes = field.getSubFields();
-                checkArgument(!subTypes.isEmpty(), "a record or struct must have sub-fields");
-                List<RowType.Field> fields = subTypes.stream()
-                        .map(subField -> toRawTypeField(subField.getName(), subField))
-                        .collect(toImmutableList());
-                RowType rowType = RowType.from(fields);
-                return Optional.of(new ColumnMapping(rowType, false));
+                return Optional.of(new ColumnMapping(createRowType(field), false));
             default:
                 return Optional.empty();
         }
+    }
+
+    private RowType createRowType(Field field)
+    {
+        FieldList subTypes = field.getSubFields();
+        checkArgument(!subTypes.isEmpty(), "a record or struct must have sub-fields");
+        List<RowType.Field> fields = subTypes.stream()
+                .map(subField -> toRawTypeField(subField.getName(), subField))
+                .collect(toImmutableList());
+        return RowType.from(fields);
+    }
+
+    public List<ColumnMetadata> convertToTrinoType(List<String> names, List<String> types)
+    {
+        return convertToTrinoType(names, types, Optional::empty);
+    }
+
+    public List<ColumnMetadata> convertToTrinoType(List<String> names, List<String> types, Supplier<Optional<TableInfo>> tableSupplier)
+    {
+        checkArgument(names.size() == types.size(), "Mismatched column names and types");
+
+        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+        for (int i = 0; i < names.size(); i++) {
+            String name = names.get(i);
+            TypeSignature typeSignature;
+            try {
+                TypeInfo typeInfo = parseTypeString(types.get(i));
+                typeSignature = toTypeSignature(typeInfo);
+            }
+            catch (UnsupportedTypeException e) {
+                Optional<TableInfo> table = tableSupplier.get();
+                if (!e.getTypeName().equals(STRUCT) || table.isEmpty() || table.get().getDefinition().getSchema() == null) {
+                    // ignore unsupported types
+                    continue;
+                }
+                typeSignature = createRowType(table.get().getDefinition().getSchema().getFields().get(name)).getTypeSignature();
+            }
+            catch (TrinoException | IllegalArgumentException e) {
+                // ignore unsupported types
+                continue;
+            }
+            columns.add(new ColumnMetadata(name, typeManager.getType(typeSignature)));
+        }
+        return columns.build();
+    }
+
+    private TypeSignature toTypeSignature(TypeInfo typeInfo)
+    {
+        return switch (typeInfo) {
+            case DecimalTypeInfo decimalTypeInfo:
+                yield createDecimalType(decimalTypeInfo.precision(), decimalTypeInfo.scale()).getTypeSignature();
+            case BigDecimalTypeInfo decimalTypeInfo:
+                yield createDecimalType(decimalTypeInfo.precision(), decimalTypeInfo.scale()).getTypeSignature();
+            case PrimitiveTypeInfo primitiveTypeInfo:
+                Type type = switch (primitiveTypeInfo.getStandardSqlTypeName()) {
+                    case BOOL -> BOOLEAN;
+                    case INT64 -> BIGINT;
+                    case FLOAT64 -> DOUBLE;
+                    case STRING -> VARCHAR;
+                    case BYTES -> VARBINARY;
+                    case DATE -> DATE;
+                    case DATETIME -> TIMESTAMP_MICROS;
+                    case TIMESTAMP -> TIMESTAMP_TZ_MICROS;
+                    case GEOGRAPHY -> VARCHAR;
+                    case JSON -> jsonType;
+                    default -> throw new IllegalArgumentException("Unsupported type: " + primitiveTypeInfo);
+                };
+                yield type.getTypeSignature();
+            case ArrayTypeInfo arrayTypeInfo:
+                TypeSignature elementType = toTypeSignature(arrayTypeInfo.getListElementTypeInfo());
+                yield arrayType(typeParameter(elementType));
+        };
     }
 
     public BigQueryColumnHandle toColumnHandle(Field field)

@@ -66,6 +66,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SaveMode;
@@ -264,6 +265,50 @@ public class BigQueryMetadata
     }
 
     @Override
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        if (isLegacyMetadataListing) {
+            return ConnectorMetadata.super.streamRelationColumns(session, schemaName, relationFilter);
+        }
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        String projectId;
+        List<String> schemaNames;
+        if (schemaName.isPresent()) {
+            DatasetId localDatasetId = client.toDatasetId(schemaName.get());
+            projectId = localDatasetId.getProject();
+            String remoteSchemaName = getRemoteSchemaName(client, localDatasetId.getProject(), localDatasetId.getDataset());
+            schemaNames = List.of(remoteSchemaName);
+        }
+        else {
+            projectId = client.getProjectId();
+            schemaNames = listRemoteSchemaNames(session);
+        }
+        Map<SchemaTableName, RelationColumnsMetadata> resultsByName = schemaNames.stream()
+                .flatMap(schema -> listRelationColumnsMetadata(session, client, schema, projectId))
+                .collect(toImmutableMap(RelationColumnsMetadata::name, Functions.identity(), (first, _) -> {
+                    log.debug("Filtered out [%s] from list of tables due to ambiguous name", first.name());
+                    return null;
+                }));
+        return relationFilter.apply(resultsByName.keySet()).stream()
+                .map(resultsByName::get)
+                .iterator();
+    }
+
+    private static Stream<RelationColumnsMetadata> listRelationColumnsMetadata(ConnectorSession session, BigQueryClient client, String schema, String projectId)
+    {
+        try {
+            return client.listRelationColumnsMetadata(session, client, projectId, schema);
+        }
+        catch (BigQueryException e) {
+            if (e.getCode() == 404) {
+                log.debug("Dataset disappeared during listing operation: %s", schema);
+                return Stream.empty();
+            }
+            throw new TrinoException(BIGQUERY_LISTING_TABLE_ERROR, "Failed to retrieve tables from BigQuery", e);
+        }
+    }
+
+    @Override
     public Iterator<RelationCommentMetadata> streamRelationComments(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
         if (isLegacyMetadataListing) {
@@ -278,7 +323,7 @@ public class BigQueryMetadata
         }).orElseGet(() -> listSchemaNames(session));
         Map<SchemaTableName, RelationCommentMetadata> resultsByName = schemaNames.stream()
                 .flatMap(schema -> listRelationCommentMetadata(session, client, schema))
-                .collect(toImmutableMap(RelationCommentMetadata::name, Functions.identity(), (first, second) -> {
+                .collect(toImmutableMap(RelationCommentMetadata::name, Functions.identity(), (first, _) -> {
                     log.debug("Filtered out [%s] from list of tables due to ambiguous name", first.name());
                     return null;
                 }));
