@@ -19,9 +19,16 @@ import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.trino.plugin.bigquery.type.ArrayTypeInfo;
+import io.trino.plugin.bigquery.type.DecimalTypeInfo;
+import io.trino.plugin.bigquery.type.PrimitiveTypeInfo;
+import io.trino.plugin.bigquery.type.StructTypeInfo;
+import io.trino.plugin.bigquery.type.TypeInfo;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -41,6 +48,7 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
@@ -63,18 +71,30 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRECISION;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_SCALE;
+import static io.trino.plugin.bigquery.type.TypeInfoUtils.getTypeInfoFromTypeString;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeSignature.rowType;
+import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
 import static java.lang.Math.floorDiv;
@@ -102,12 +122,14 @@ public final class BigQueryTypeManager
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("''HH:mm:ss.SSSSSS''");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS").withZone(UTC);
 
+    private final TypeManager typeManager;
     private final Type jsonType;
 
     @Inject
     public BigQueryTypeManager(TypeManager typeManager)
     {
-        jsonType = requireNonNull(typeManager, "typeManager is null").getType(new TypeSignature(JSON));
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        jsonType = typeManager.getType(new TypeSignature(JSON));
     }
 
     private RowType.Field toRawTypeField(String name, Field field)
@@ -378,6 +400,69 @@ public final class BigQueryTypeManager
             default:
                 return Optional.empty();
         }
+    }
+
+    public List<ColumnMetadata> convertToTrinoType(List<String> names, List<String> types)
+    {
+        checkArgument(names.size() == types.size(), "Mismatched column names and types");
+
+        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+        for (int i = 0; i < names.size(); i++) {
+            String type = types.get(i);
+            TypeInfo typeInfo = getTypeInfoFromTypeString(type);
+            TypeSignature typeSignature = toTypeSignature(typeInfo);
+            columns.add(new ColumnMetadata(names.get(i), typeManager.getType(typeSignature)));
+        }
+        return columns.build();
+    }
+
+    private TypeSignature toTypeSignature(TypeInfo typeInfo)
+    {
+        switch (typeInfo.getCategory()) {
+            case PRIMITIVE:
+                Type primitiveType = fromPrimitiveType((PrimitiveTypeInfo) typeInfo);
+                if (primitiveType == null) {
+                    break;
+                }
+                return primitiveType.getTypeSignature();
+            case ARRAY:
+                ArrayTypeInfo arrayTypeInfo = (ArrayTypeInfo) typeInfo;
+                TypeSignature elementType = toTypeSignature(arrayTypeInfo.getListElementTypeInfo());
+                return arrayType(typeParameter(elementType));
+            case STRUCT:
+                StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+                List<TypeInfo> fieldTypes = structTypeInfo.getAllStructFieldTypeInfos();
+                List<String> fieldNames = structTypeInfo.getAllStructFieldNames();
+                verify(fieldTypes.size() == fieldNames.size(), "Invalid BigQuery struct type: %s", typeInfo);
+                return rowType(Streams.zip(
+                                fieldNames.stream(),
+                                fieldTypes.stream().map(this::toTypeSignature),
+                                TypeSignatureParameter::namedField)
+                        .collect(Collectors.toList()));
+        }
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported BigQuery type: %s", typeInfo));
+    }
+
+    @Nullable
+    private Type fromPrimitiveType(PrimitiveTypeInfo typeInfo)
+    {
+        return switch (typeInfo.getStandardSqlTypeName()) {
+            case BOOL -> BOOLEAN;
+            case BYTES -> VARBINARY;
+            case INT64 -> INTEGER;
+            case FLOAT64 -> REAL;
+            case DATE -> DATE;
+            case DATETIME -> TIMESTAMP_MICROS;
+            case NUMERIC, BIGNUMERIC -> {
+                DecimalTypeInfo decimalTypeInfo = (DecimalTypeInfo) typeInfo;
+                yield createDecimalType(decimalTypeInfo.precision(), decimalTypeInfo.scale());
+            }
+            case STRING -> VARCHAR;
+            case GEOGRAPHY -> VARCHAR;
+            case JSON -> jsonType;
+            case TIMESTAMP -> BIGINT;
+            default -> null;
+        };
     }
 
     public BigQueryColumnHandle toColumnHandle(Field field)

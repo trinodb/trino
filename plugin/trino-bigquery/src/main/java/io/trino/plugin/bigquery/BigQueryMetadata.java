@@ -60,6 +60,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -244,6 +245,43 @@ public class BigQueryMetadata
             }
         }
         return tableNames.build();
+    }
+
+    @Override
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        if (isLegacyMetadataListing) {
+            return ConnectorMetadata.super.streamRelationColumns(session, schemaName, relationFilter);
+        }
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        List<String> schemaNames = schemaName.map(name -> {
+            DatasetId localDatasetId = client.toDatasetId(name);
+            String remoteSchemaName = getRemoteSchemaName(client, localDatasetId.getProject(), localDatasetId.getDataset());
+            return List.of(remoteSchemaName);
+        }).orElseGet(() -> listSchemaNames(session));
+        Map<SchemaTableName, RelationColumnsMetadata> resultsByName = schemaNames.stream()
+                .flatMap(schema -> listRelationColumnsMetadata(session, client, schema))
+                .collect(toImmutableMap(RelationColumnsMetadata::name, Functions.identity(), (first, second) -> {
+                    log.debug("Filtered out [%s] from list of tables due to ambiguous name", first.name());
+                    return null;
+                }));
+        return relationFilter.apply(resultsByName.keySet()).stream()
+                .map(resultsByName::get)
+                .iterator();
+    }
+
+    private static Stream<RelationColumnsMetadata> listRelationColumnsMetadata(ConnectorSession session, BigQueryClient client, String schema)
+    {
+        try {
+            return client.listRelationColumnsMetadata(session, client, schema);
+        }
+        catch (BigQueryException e) {
+            if (e.getCode() == 404) {
+                log.debug("Dataset disappeared during listing operation: %s", schema);
+                return Stream.empty();
+            }
+            throw new TrinoException(BIGQUERY_LISTING_TABLE_ERROR, "Failed to retrieve tables from BigQuery", e);
+        }
     }
 
     @Override

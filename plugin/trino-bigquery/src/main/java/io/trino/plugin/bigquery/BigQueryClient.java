@@ -19,6 +19,7 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
+import com.google.cloud.bigquery.FieldValue;
 import com.google.cloud.bigquery.InsertAllRequest;
 import com.google.cloud.bigquery.InsertAllResponse;
 import com.google.cloud.bigquery.Job;
@@ -41,6 +42,7 @@ import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -398,6 +400,25 @@ public class BigQueryClient
         String remoteTableName = remoteTableId.getTable();
         remoteTableId = TableId.of(remoteTableId.getProject(), remoteSchemaName, remoteTableName);
         return format("%s.%s.%s", remoteTableId.getProject(), remoteTableId.getDataset(), remoteTableId.getTable());
+    }
+
+    public Stream<RelationColumnsMetadata> listRelationColumnsMetadata(ConnectorSession session, BigQueryClient client, String schemaName)
+    {
+        TableResult result = client.executeQuery(session, """
+                SELECT
+                 table_name,
+                 array_agg(column_name order by ordinal_position),
+                 array_agg(data_type order by ordinal_position),
+                FROM %s.INFORMATION_SCHEMA.COLUMNS
+                GROUP BY table_catalog, table_schema, table_name
+                """.formatted(quote(schemaName)));
+        return result.streamValues()
+                .map(row -> {
+                    List<String> names = row.get(1).getRepeatedValue().stream().map(FieldValue::getStringValue).collect(toImmutableList());
+                    List<String> types = row.get(2).getRepeatedValue().stream().map(FieldValue::getStringValue).collect(toImmutableList());
+                    verify(names.size() == types.size(), "Mismatched column names and types");
+                    return RelationColumnsMetadata.forTable(new SchemaTableName(schemaName, row.get(0).getStringValue()), typeManager.convertToTrinoType(names, types));
+                });
     }
 
     public Stream<RelationCommentMetadata> listRelationCommentMetadata(ConnectorSession session, BigQueryClient client, String schemaName)
