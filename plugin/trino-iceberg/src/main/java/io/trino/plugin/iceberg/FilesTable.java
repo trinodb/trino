@@ -33,9 +33,10 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
-import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableGroup;
@@ -57,6 +58,8 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Maps.immutableEntry;
+import static com.google.common.collect.Streams.mapWithIndex;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -64,6 +67,8 @@ import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataTableType.FILES;
+import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
 
 public class FilesTable
         implements SystemTable
@@ -135,11 +140,16 @@ public class FilesTable
         }
 
         Map<Integer, Type> idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
-        TableScan tableScan = icebergTable.newScan()
+        TableScan tableScan = createMetadataTableInstance(icebergTable, FILES)
+                .newScan()
                 .useSnapshot(snapshotId.get())
                 .includeColumnStats();
 
-        PlanFilesIterable planFilesIterable = new PlanFilesIterable(tableScan.planFiles(), idToTypeMapping, types, typeManager);
+        Map<String, Integer> columnNameToPosition = mapWithIndex(tableScan.schema().columns().stream(),
+                (column, position) -> immutableEntry(column.name(), Long.valueOf(position).intValue()))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        PlanFilesIterable planFilesIterable = new PlanFilesIterable(tableScan.planFiles(), idToTypeMapping, types, columnNameToPosition, typeManager);
         return planFilesIterable.cursor();
     }
 
@@ -150,15 +160,22 @@ public class FilesTable
         private final CloseableIterable<FileScanTask> planFiles;
         private final Map<Integer, Type> idToTypeMapping;
         private final List<io.trino.spi.type.Type> types;
+        private final Map<String, Integer> columnNameToPosition;
         private boolean closed;
         private final MapType integerToBigintMapType;
         private final MapType integerToVarcharMapType;
 
-        public PlanFilesIterable(CloseableIterable<FileScanTask> planFiles, Map<Integer, Type> idToTypeMapping, List<io.trino.spi.type.Type> types, TypeManager typeManager)
+        public PlanFilesIterable(
+                CloseableIterable<FileScanTask> planFiles,
+                Map<Integer, Type> idToTypeMapping,
+                List<io.trino.spi.type.Type> types,
+                Map<String, Integer> columnNameToPosition,
+                TypeManager typeManager)
         {
             this.planFiles = requireNonNull(planFiles, "planFiles is null");
             this.idToTypeMapping = ImmutableMap.copyOf(requireNonNull(idToTypeMapping, "idToTypeMapping is null"));
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.columnNameToPosition = ImmutableMap.copyOf(requireNonNull(columnNameToPosition, "columnNameToPosition is null"));
             this.integerToBigintMapType = new MapType(INTEGER, BIGINT, typeManager.getTypeOperators());
             this.integerToVarcharMapType = new MapType(INTEGER, VARCHAR, typeManager.getTypeOperators());
             addCloseable(planFiles);
@@ -190,45 +207,64 @@ public class FilesTable
 
             return new CloseableIterator<>()
             {
+                private CloseableIterator<StructLike> currentIterator = CloseableIterator.empty();
+
                 @Override
                 public boolean hasNext()
                 {
-                    return !closed && planFilesIterator.hasNext();
+                    updateCurrentIterator();
+                    return !closed && currentIterator.hasNext();
                 }
 
                 @Override
                 public List<Object> next()
                 {
-                    return getRecord(planFilesIterator.next().file());
+                    updateCurrentIterator();
+                    return getRecord(currentIterator.next());
+                }
+
+                private void updateCurrentIterator()
+                {
+                    try {
+                        while (!closed && !currentIterator.hasNext() && planFilesIterator.hasNext()) {
+                            currentIterator.close();
+                            DataTask dataTask = (DataTask) planFilesIterator.next();
+                            currentIterator = dataTask.rows().iterator();
+                        }
+                    }
+                    catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
                 }
 
                 @Override
                 public void close()
                         throws IOException
                 {
-                    PlanFilesIterable.super.close();
+                    currentIterator.close();
+                    FilesTable.PlanFilesIterable.super.close();
                     closed = true;
                 }
             };
         }
 
-        private List<Object> getRecord(DataFile dataFile)
+        private List<Object> getRecord(StructLike structLike)
         {
             List<Object> columns = new ArrayList<>();
-            columns.add(dataFile.content().id());
-            columns.add(dataFile.path().toString());
-            columns.add(dataFile.format().name());
-            columns.add(dataFile.recordCount());
-            columns.add(dataFile.fileSizeInBytes());
-            columns.add(getIntegerBigintSqlMap(dataFile.columnSizes()));
-            columns.add(getIntegerBigintSqlMap(dataFile.valueCounts()));
-            columns.add(getIntegerBigintSqlMap(dataFile.nullValueCounts()));
-            columns.add(getIntegerBigintSqlMap(dataFile.nanValueCounts()));
-            columns.add(getIntegerVarcharSqlMap(dataFile.lowerBounds()));
-            columns.add(getIntegerVarcharSqlMap(dataFile.upperBounds()));
-            columns.add(toVarbinarySlice(dataFile.keyMetadata()));
-            columns.add(toBigintArrayBlock(dataFile.splitOffsets()));
-            columns.add(toIntegerArrayBlock(dataFile.equalityFieldIds()));
+            columns.add(structLike.get(columnNameToPosition.get(CONTENT_COLUMN_NAME), Integer.class));
+            columns.add(structLike.get(columnNameToPosition.get(FILE_PATH_COLUMN_NAME), String.class));
+            columns.add(structLike.get(columnNameToPosition.get(FILE_FORMAT_COLUMN_NAME), String.class));
+            columns.add(structLike.get(columnNameToPosition.get(RECORD_COUNT_COLUMN_NAME), Long.class));
+            columns.add(structLike.get(columnNameToPosition.get(FILE_SIZE_IN_BYTES_COLUMN_NAME), Long.class));
+            columns.add(getIntegerBigintSqlMap(structLike.get(columnNameToPosition.get(COLUMN_SIZES_COLUMN_NAME), Map.class)));
+            columns.add(getIntegerBigintSqlMap(structLike.get(columnNameToPosition.get(VALUE_COUNTS_COLUMN_NAME), Map.class)));
+            columns.add(getIntegerBigintSqlMap(structLike.get(columnNameToPosition.get(NULL_VALUE_COUNTS_COLUMN_NAME), Map.class)));
+            columns.add(getIntegerBigintSqlMap(structLike.get(columnNameToPosition.get(NAN_VALUE_COUNTS_COLUMN_NAME), Map.class)));
+            columns.add(getIntegerVarcharSqlMap(structLike.get(columnNameToPosition.get(LOWER_BOUNDS_COLUMN_NAME), Map.class)));
+            columns.add(getIntegerVarcharSqlMap(structLike.get(columnNameToPosition.get(UPPER_BOUNDS_COLUMN_NAME), Map.class)));
+            columns.add(toVarbinarySlice(structLike.get(columnNameToPosition.get(KEY_METADATA_COLUMN_NAME), ByteBuffer.class)));
+            columns.add(toBigintArrayBlock(structLike.get(columnNameToPosition.get(SPLIT_OFFSETS_COLUMN_NAME), List.class)));
+            columns.add(toIntegerArrayBlock(structLike.get(columnNameToPosition.get(EQUALITY_IDS_COLUMN_NAME), List.class)));
             checkArgument(columns.size() == types.size(), "Expected %s types in row, but got %s values", types.size(), columns.size());
             return columns;
         }

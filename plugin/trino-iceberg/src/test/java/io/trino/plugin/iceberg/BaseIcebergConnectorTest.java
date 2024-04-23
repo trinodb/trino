@@ -1584,7 +1584,7 @@ public abstract class BaseIcebergConnectorTest
             assertQuery(
                     "SELECT custkey, name, address, nationkey, phone, acctbal, mktsegment, comment FROM " + table.getName(),
                     "SELECT custkey, name, address, nationkey, phone, acctbal, mktsegment, substring(comment, 2) FROM customer");
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\" WHERE content != 1").getOnlyColumnAsSet()) {
                 assertThat(isFileSorted((String) filePath, "comment")).isTrue();
             }
         }
