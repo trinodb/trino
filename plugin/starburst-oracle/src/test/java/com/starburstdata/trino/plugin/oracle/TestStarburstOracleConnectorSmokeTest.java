@@ -14,6 +14,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.SharedResource;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 
 public class TestStarburstOracleConnectorSmokeTest
@@ -46,7 +47,7 @@ public class TestStarburstOracleConnectorSmokeTest
     @Test
     public void testBasicStatisticsWithoutLicense()
     {
-        String tableName = "test_stats_orders";
+        String tableName = "test_stats_orders" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {

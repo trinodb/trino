@@ -23,6 +23,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.util.List;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -53,7 +54,7 @@ public class TestOracleTableStatistics
     @Test
     public void testNotAnalyzed()
     {
-        String tableName = "test_stats_not_analyzed";
+        String tableName = "test_stats_not_analyzed" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
@@ -80,7 +81,7 @@ public class TestOracleTableStatistics
     @Test
     public void testBasic()
     {
-        String tableName = "test_stats_orders";
+        String tableName = "test_stats_orders" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
@@ -108,7 +109,7 @@ public class TestOracleTableStatistics
     @Test
     public void testAllNulls()
     {
-        String tableName = "test_stats_table_all_nulls";
+        String tableName = "test_stats_table_all_nulls" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
@@ -132,7 +133,7 @@ public class TestOracleTableStatistics
     @Test
     public void testNullsFraction()
     {
-        String tableName = "test_stats_table_with_nulls";
+        String tableName = "test_stats_table_with_nulls" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " AS " +
@@ -161,7 +162,7 @@ public class TestOracleTableStatistics
     @Test
     public void testAverageColumnLength()
     {
-        String tableName = "test_stats_table_avg_col_len";
+        String tableName = "test_stats_table_avg_col_len" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual("" +
                 "CREATE TABLE " + tableName + " AS SELECT " +
@@ -197,7 +198,7 @@ public class TestOracleTableStatistics
     @Test
     public void testPartitionedTable()
     {
-        String tableName = "test_stats_orders_part";
+        String tableName = "test_stats_orders_part" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         oracleServer.get().executeInOracle("CREATE TABLE " + tableName + " PARTITION BY HASH(ORDERKEY) PARTITIONS 4 AS SELECT * FROM ORDERS");
         try {
@@ -225,7 +226,7 @@ public class TestOracleTableStatistics
     @Test
     public void testView()
     {
-        String tableName = "test_stats_view";
+        String tableName = "test_stats_view" + randomNameSuffix();
         oracleServer.get().executeInOracle("CREATE OR REPLACE VIEW " + tableName + " AS SELECT orderkey, custkey, orderpriority, \"COMMENT\" FROM orders");
         try {
             assertQuery(
@@ -247,7 +248,7 @@ public class TestOracleTableStatistics
     @Test
     public void testMaterializedView()
     {
-        String tableName = "test_stats_materialized_view";
+        String tableName = "test_stats_materialized_view" + randomNameSuffix();
         oracleServer.get().executeInOracle("" +
                 "CREATE MATERIALIZED VIEW " + tableName + " " +
                 "BUILD IMMEDIATE REFRESH ON DEMAND " +
@@ -302,7 +303,7 @@ public class TestOracleTableStatistics
     @Test
     public void testAnalyzedWithProcedure()
     {
-        String tableName = "test_stats_analyzed_via_presto";
+        String tableName = "test_stats_analyzed_via_presto" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
