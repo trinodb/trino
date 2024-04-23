@@ -20,12 +20,16 @@ Asset locations:
 You can (and should) sync the master branch with trinogdb/trino by using the "Sync Fork" button and discarding commits on our master branch.
 You can then update our other branch(es) by merging our master branch into them.
 
-When you sync our master branch with trinodb/trino, this README file will revert to the README file in trinodb/trino. You should replace it with our version of the of the README file, in the Neo4j branch.
+After you sync our master branch with trinodb/trino, you should copy two files from the "neo4j" branch to the master branch. You can make this change without a pull request.
+The two files are:
+- $project_folder/README.md (this file)
+- $project_folder/.github/pull_request_template.md
 ### Neo4j branch
 We use the neo4j branch for our builds of Trino. If you want to revise our code, create a new branch off the Neo4j branch and make your changes there. When ready, push that new branch to the remote and create a pull request.
 
 <b>!!! IMPORTANT !!!</b>
-When you create a pull request, make sure that the changes will be pushed only to the neo4j branch of our repository (not to trinodb/trino(master)).
+When you create a pull request, make sure that the changes will be merged to the neo4j branch of our repository (not to trinodb/trino(master)).
+Instructions for setting the merge path are in $project_folder/.github/pull_request_template.md and appear in the "Add a description" section of the "Comparing changes" page after you click the "Compare & pull request" button.
 ___
 (The remainder of this README file is from trinodb/trino.)
 ___
