@@ -930,8 +930,8 @@ public class TestCommonSubqueriesExtractor
 
         assertTpchPlan(aggregationA.getCommonSubplan(), commonSubplan);
         assertTpchPlan(aggregationB.getCommonSubplan(), commonSubplan);
-        assertAggregationsWithMasks(aggregationA.getCommonSubplan(), 0, 2);
-        assertAggregationsWithMasks(aggregationB.getCommonSubplan(), 0, 2);
+        assertAggregationsWithMasks(aggregationA.getCommonSubplan(), 1, 2);
+        assertAggregationsWithMasks(aggregationB.getCommonSubplan(), 1, 2);
 
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
         assertTpchPlan(aggregationA.adaptCommonSubplan(aggregationA.getCommonSubplan(), idAllocator),
@@ -958,9 +958,10 @@ public class TestCommonSubqueriesExtractor
                 Optional.of(columnIdToSymbol(nationKeyGreaterThan10, BOOLEAN)),
                 columnIdToSymbol(nationKeyMultiplyBy2, BIGINT).toSymbolReference());
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalAggregationToColumnId(max), canonicalAggregationToColumnId(sum), canonicalAggregationToColumnId(avg));
-        List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT,
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalAggregationToColumnId(sum), canonicalAggregationToColumnId(max), canonicalAggregationToColumnId(avg));
+        List<Type> cacheColumnsTypes = ImmutableList.of(
                 RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT))),
+                BIGINT,
                 RowType.from(List.of(RowType.field(DOUBLE), RowType.field(BIGINT))));
         //columnTypes=[bigint, row(bigint, bigint), row(double, bigint)],
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(

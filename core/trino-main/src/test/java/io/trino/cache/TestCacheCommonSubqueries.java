@@ -372,8 +372,8 @@ public class TestCacheCommonSubqueries
         CanonicalAggregation max = canonicalAggregation("max", nationkey);
         CanonicalAggregation sum = canonicalAggregation("sum", nationkey);
         CanonicalAggregation avg = canonicalAggregation("avg", nationkey);
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(REGIONKEY_COLUMN_ID, canonicalAggregationToColumnId(max), canonicalAggregationToColumnId(sum), canonicalAggregationToColumnId(avg));
-        List<Type> cacheColumnTypes = ImmutableList.of(BIGINT, BIGINT, RowType.anonymousRow(BIGINT, BIGINT), RowType.anonymousRow(DOUBLE, BIGINT));
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(REGIONKEY_COLUMN_ID, canonicalAggregationToColumnId(sum), canonicalAggregationToColumnId(max), canonicalAggregationToColumnId(avg));
+        List<Type> cacheColumnTypes = ImmutableList.of(BIGINT, RowType.anonymousRow(BIGINT, BIGINT), BIGINT, RowType.anonymousRow(DOUBLE, BIGINT));
         PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
                 new PlanSignature(
                         aggregationKey(scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01"))),
@@ -423,7 +423,7 @@ public class TestCacheCommonSubqueries
                                                                 "REGIONKEY_A", expression(new Reference(BIGINT, "REGIONKEY_A")),
                                                                 "MAX_PARTIAL_A", expression(new Reference(BIGINT, "MAX_PARTIAL_A")),
                                                                 "SUM_PARTIAL_A", expression(new Reference(BIGINT, "SUM_PARTIAL_A"))),
-                                                        loadCachedDataPlanNode(signature, "REGIONKEY_A", "MAX_PARTIAL_A", "SUM_PARTIAL_A", "AVG_PARTIAL_A")))))),
+                                                        loadCachedDataPlanNode(signature, "REGIONKEY_A", "SUM_PARTIAL_A", "MAX_PARTIAL_A", "AVG_PARTIAL_A")))))),
                         anyTree(aggregation(
                                 singleGroupingSet("REGIONKEY_B"),
                                 ImmutableMap.of(
@@ -462,7 +462,7 @@ public class TestCacheCommonSubqueries
                                                                 "REGIONKEY_B", expression(new Reference(BIGINT, "REGIONKEY_B")),
                                                                 "SUM_PARTIAL_B", expression(new Reference(BIGINT, "SUM_PARTIAL_B")),
                                                                 "AVG_PARTIAL_B", expression(new Reference(DOUBLE, "AVG_PARTIAL_B"))),
-                                                        loadCachedDataPlanNode(signature, "REGIONKEY_B", "MAX_PARTIAL_B", "SUM_PARTIAL_B", "AVG_PARTIAL_B"))))))));
+                                                        loadCachedDataPlanNode(signature, "REGIONKEY_B", "SUM_PARTIAL_B", "MAX_PARTIAL_B", "AVG_PARTIAL_B"))))))));
     }
 
     private CanonicalAggregation canonicalAggregation(String name, Expression input)
