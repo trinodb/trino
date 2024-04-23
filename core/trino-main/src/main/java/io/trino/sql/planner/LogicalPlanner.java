@@ -296,7 +296,7 @@ public class LogicalPlanner
                 root = cacheCommonSubqueries.cacheSubqueries(root);
             }
             catch (Throwable t) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "SUBQUERY CACHE: create driver exception", t);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "SUBQUERY CACHE: planning exception", t);
             }
 
             if (isUseSubPlanAlternatives(session)) {
