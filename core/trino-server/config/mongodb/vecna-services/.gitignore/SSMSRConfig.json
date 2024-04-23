@@ -1,0 +1,25 @@
+{
+    "table": "SSMSRConfig",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar"
+        },
+        {
+            "name": "stateMachineCode",
+            "type_code": "varchar"
+        },
+        {
+            "name": "transitions",
+            "type_code": "json"
+        },
+        {
+            "name": "states",
+            "type_code": "json"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

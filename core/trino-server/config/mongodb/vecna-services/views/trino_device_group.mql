@@ -1,0 +1,24 @@
+//  Create a view of all device groups.
+//  One row per device group.
+
+db.trino_device_group.drop();
+
+db.createView(
+  "trino_device_group",
+  "DeviceGroupConf",
+  [
+    {
+      $project: {
+        _id: 0,
+        id: "$_id",
+        device_group_uuid: "$deviceGroupConfUUID",
+        tenant_uuid: "$tenantInfoUUID",
+        org_uuid: "$belongOrgUUID",
+        org_type_code: "$belongOrgType",
+        name: "$deviceGroupName",
+        create_tstz: "$createDate",
+        update_tstz: "$updateDate",
+      },
+    },
+  ]
+);

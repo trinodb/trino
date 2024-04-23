@@ -1,0 +1,85 @@
+{
+    "table": "clearanceDemographicToDo",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "clearanceDemographicToDoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "clearanceDemographicConfUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "clearanceDemographicToDoFieldResList",
+            "type_code": "json"
+        },
+        {
+            "name": "patientUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "operatorHumanUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "serviceRequestUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "apptExternalUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "associateApptExternalUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "serviceConfUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "toDoTimeStamp",
+            "type_code": "bigint"
+        },
+        {
+            "name": "clearanceToDoStatus",
+            "type_code": "varchar"
+        },
+        {
+            "name": "adminOPToDoStatus",
+            "type_code": "varchar"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "version",
+            "type_code": "bigint"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

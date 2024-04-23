@@ -1,0 +1,85 @@
+{
+    "table": "deviceGroupConf",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "deviceGroupConfUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "deviceGroupName",
+            "type_code": "varchar"
+        },
+        {
+            "name": "associateIntakeWorkflowUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "associateIntakeWorkflowDefKey",
+            "type_code": "varchar"
+        },
+        {
+            "name": "intakeDeviceUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "displayDeviceUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "printerDeviceUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "associateListingUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "associateGlobalServiceUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "associateListingServiceUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "associateQueueConfUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "allowQueueSMS",
+            "type_code": "boolean"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "version",
+            "type_code": "integer"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

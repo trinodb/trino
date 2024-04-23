@@ -1,0 +1,42 @@
+// Create a view of patient FAN instances.
+// One row per FAN instance.
+//
+//  - Currently, relatedPatientUUID does not exist in the FAN collection, so this view is always empty.
+
+db.trino_patient_fan.drop();
+
+db.createView(
+  "trino_patient_fan",
+  "FAN",
+  [
+    {
+      $match:
+        {
+          relatedPatientUUID: {
+            $ne: null,
+          },
+        },
+    },
+    {
+      $project:
+        {
+          _id: 0,
+          id: "$_id",
+          tenant_uuid: "$tenantInfoUUID",
+          org_uuid: "$belongOrgUUID",
+          org_type_code: "$belongOrgType",
+          fan_uuid: "$fanUUID",
+          fan_conf_uuid: "$belongFANConfUUID",
+          patient_uuid: "$relatedPatientUUID",
+          fan_status_code: "$fanStatus",
+          fan_type_code: "$fanTypeCode",
+          fan_category_code: "$fanCategoryCode",
+          fan_title: "$fanTitle",
+          fan_subtitle: "$fanSubtitle",
+          fan_content: "$fanContent",
+          create_tstz: "$createDate",
+          update_tstz: "$updateDate",
+        },
+    },
+  ]
+);

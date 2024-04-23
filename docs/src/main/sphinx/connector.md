@@ -29,6 +29,7 @@ MariaDB         <connector/mariadb>
 Memory          <connector/memory>
 MongoDB         <connector/mongodb>
 MySQL           <connector/mysql>
+Neo4j           <connector/neo4j>
 OpenSearch      <connector/opensearch>
 Oracle          <connector/oracle>
 Phoenix         <connector/phoenix>

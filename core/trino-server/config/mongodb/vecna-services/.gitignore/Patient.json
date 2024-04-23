@@ -1,0 +1,69 @@
+{
+    "table": "patient",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "patientUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "aliveConsumerPatientUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "patientStatus",
+            "type_code": "varchar"
+        },
+        {
+            "name": "mrn",
+            "type_code": "varchar"
+        },
+        {
+            "name": "mrnSource",
+            "type_code": "varchar"
+        },
+        {
+            "name": "empi",
+            "type_code": "varchar"
+        },
+        {
+            "name": "dfnVA",
+            "type_code": "varchar"
+        },
+        {
+            "name": "patientClearanceFieldValueList",
+            "type_code": "json"
+        },
+        {
+            "name": "dataOriginalSourceTag",
+            "type_code": "varchar"
+        },
+        {
+            "name": "upsertModule",
+            "type_code": "varchar"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "version",
+            "type_code": "integer"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

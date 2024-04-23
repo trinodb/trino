@@ -1,0 +1,65 @@
+{
+    "table": "deviceConf",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "deviceConfUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "deviceName",
+            "type_code": "varchar"
+        },
+        {
+            "name": "deviceStatus",
+            "type_code": "varchar"
+        },
+        {
+            "name": "deviceCategory",
+            "type_code": "varchar"
+        },
+        {
+            "name": "deviceType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "deviceSettingFieldList",
+            "type_code": "json"
+        },
+        {
+            "name": "deviceGroupConfUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "version",
+            "type_code": "integer"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

@@ -1,0 +1,54 @@
+//  Create a view of patient interation alert content arrays.
+//  One row per patient interation.
+
+db.trino_patient_interaction_alert_contents.drop();
+
+db.createView(
+  "trino_patient_interaction_alert_contents",
+  "FAN",
+  [
+    {
+      $match: {
+        fanCategoryCode: "ALERT",
+        relatedPatientInteractionUUID: {
+          $ne: null,
+        },
+      },
+    },
+    {
+      $group: {
+        _id: "relatedPatientInteractionUUID",
+        tenantInfoUUID: {
+          $first: "$tenantInfoUUID",
+        },
+        belongOrgUUID: {
+          $first: "$belongOrgUUID",
+        },
+        belongOrgType: {
+          $first: "$belongOrgType",
+        },
+        fanContents: {
+          $addToSet: "$fanContent",
+        },
+        minCreateDate: {
+          $min: "$createDate",
+        },
+        maxUpdateDate: {
+          $max: "$updateDate",
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        tenant_uuid: "$tenantInfoUUID",
+        org_uuid: "$belongOrgUUID",
+        org_type_code: "$belongOrgType",
+        patient_interaction_uuid: "$_id",
+        fan_contents: "$fanContents",
+        min_create_tstz: "$minCreateDate",
+        max_update_tstz: "$maxUpdateDate",
+      },
+    },
+  ]
+);

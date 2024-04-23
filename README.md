@@ -1,3 +1,35 @@
+# bsuite-trino
+### Fork of the trinodb/trino repository that includes Vecna-specific assets.
+
+## Vecna-Specific Assets
+Vecna-specific assets include:
+- A Neo4j connector, based on trinodb/trino(ragnard:neo4j-bolt-connector), with enhancements.
+- Configuration properties files.
+- Connector properties files for the connectors we use.
+- MongoDB scripts to create views that "flatten" MongoDB collections.
+- MongoDB scripts that insert schema information into the "trino_schema" for Trino to use.
+
+Asset locations:
+- The Neo4j connector code is in $project_folder/plugin/trino-neo4j. There are also a number of other files in other folders that needed to be revised or added.
+- The configuration and connector properties files are in $project_folder/core/trino-server/config/etc and .../etc/catalog, respectively.
+- The MongoDB view and schema scripts are in $project_folder/core/trino-server/config/mongodb/$database_name/views and .../$database_name/schemas, respectively.
+
+## Updating Code
+### Master branch
+<b>Do not push code to the master branch!</b> We use the master branch to mirror the upstream repository, trinodb/trino.
+You can (and should) sync the master branch with trinogdb/trino by using the "Sync Fork" button and discarding commits on our master branch.
+You can then update our other branch(es) by merging our master branch into them.
+
+When you sync our master branch with trinodb/trino, this README file will revert to the README file in trinodb/trino. You should replace it with our version of the of the README file, in the Neo4j branch.
+### Neo4j branch
+We use the neo4j branch for our builds of Trino. If you want to revise our code, create a new branch off the Neo4j branch and make your changes there. When ready, push that new branch to the remote and create a pull request.
+
+<b>!!! IMPORTANT !!!</b>
+When you create a pull request, make sure that the changes will be pushed only to the neo4j branch of our repository (not to trinodb/trino(master)).
+___
+(The remainder of this README file is from trinodb/trino.)
+___
+
 <p align="center">
     <a href="https://trino.io/"><img alt="Trino Logo" src=".github/homepage.png" /></a>
 </p>

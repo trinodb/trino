@@ -1,0 +1,20 @@
+// Add the trino_schema collection with a unique index on the "table" field.
+//
+// Notes:
+//  - This file is named with a leading underscore so it will sort first and create the "trino_schema"
+//    collection before other files run and insert documents into "trino_schema".
+//  - We use "trino_schema" instead of the default "_schema" for Trino schema documents.
+//    This avoids problems running methods for collections with names having a leading underscore.
+//  - Adding the index on "table" so Trino will skip creating the index itself.
+//    There was a problem when Trino initially tried to create the index. I can't reproduce the problem now,
+//    but manually creating the index is safe and it uses minimal disk space.
+
+
+// Create the "trino_schema" collection, if it does not exist.
+db.createCollection("trino_schema");
+
+// Create an index on ("table", ascending) , if it does not exist.
+db.trino_schema.createIndex(
+  {"table": 1},
+  {unique: true}
+);

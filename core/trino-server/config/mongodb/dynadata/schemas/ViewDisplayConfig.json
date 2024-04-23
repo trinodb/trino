@@ -1,0 +1,49 @@
+{
+    "table": "viewDisplayConfig",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "viewDisplayConfigUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "businessCode",
+            "type_code": "varchar"
+        },
+        {
+            "name": "displayURI",
+            "type_code": "varchar"
+        },
+        {
+            "name": "viewType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "tableConfig",
+            "type_code": "json"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "keycloakRealm",
+            "type_code": "varchar"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

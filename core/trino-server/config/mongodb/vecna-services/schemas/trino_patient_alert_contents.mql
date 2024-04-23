@@ -1,0 +1,49 @@
+// Add or replace a Trino schema document for trino_patient_alert_contents.
+
+db.trino_schema.deleteOne(
+  {"table": "trino_patient_alert_contents"}
+);
+
+db.trino_schema.insertOne(
+  {
+    "table": "trino_patient_alert_contents",
+    "comment": "Array of alert contents associated with a patient. One row per service patient.",
+    "fields": [
+      {
+        "name": "tenant_uuid",
+        "type": "varchar",
+        "comment": "Tenant identifier."
+      },
+      {
+        "name": "org_uuid",
+        "type": "varchar",
+        "comment": "Organization identifier."
+      },
+      {
+        "name": "org_type_code",
+        "type": "varchar",
+        "comment": "Organization type code."
+      },
+      {
+        "name": "patient_uuid",
+        "type": "varchar",
+        "comment": "Patient identifier. Unique."
+      },
+      {
+        "name": "fan_contents",
+        "type": "varchar",
+        "comment": "The contents of FANs associated with the patient as an array of strings."
+      },
+      {
+        "name": "min_create_tstz",
+        "type": "timeStamp",
+        "comment": "The first time any of the FAN records associated with the patient was inserted."
+      },
+      {
+        "name": "max_update_tstz",
+        "type": "timeStamp",
+        "comment": "The last time any of the FAN records associated with the patient was inserted or updated."
+      },
+    ]
+  }
+);

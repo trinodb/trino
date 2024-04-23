@@ -1,0 +1,54 @@
+// Add or replace a Trino schema document for trino_device_group.
+
+db.trino_schema.deleteOne(
+  {"table": "trino_device_group"}
+);
+
+db.trino_schema.insertOne(
+  {
+    "table": "trino_device_group",
+    "comment": "All device groups, with just names.",
+    "fields": [
+      {
+        "name": "id",
+        "type": "varchar",
+        "comment": "Database record identifier. Unique."
+      },
+      {
+        "name": "tenant_uuid",
+        "type": "varchar",
+        "comment": "Tenant identifier."
+      },
+      {
+        "name": "org_uuid",
+        "type": "varchar",
+        "comment": "Organization identifier."
+      },
+      {
+        "name": "org_type_code",
+        "type": "varchar",
+        "comment": "Organization type code."
+      },
+      {
+        "name": "device_group_uuid",
+        "type": "varchar",
+        "comment": "Device group identifier. Unique."
+      },
+      {
+        "name": "name",
+        "type": "varchar",
+        "comment": "Device group name."
+      },
+      {
+        "name": "create_tstz",
+        "type": "timeStamp",
+        "comment": "When the database record was inserted."
+      },
+      {
+        "name": "update_tstz",
+        "type": "timeStamp",
+        "comment": "When the database record was last updated."
+      }
+    ]
+  }
+);

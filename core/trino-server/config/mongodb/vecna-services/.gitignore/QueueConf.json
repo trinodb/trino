@@ -1,0 +1,57 @@
+{
+    "table": "queueConf",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "queueConfUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "queueName",
+            "type_code": "varchar"
+        },
+        {
+            "name": "associateServiceUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "queuePrefix",
+            "type_code": "varchar"
+        },
+        {
+            "name": "minValue",
+            "type_code": "integer"
+        },
+        {
+            "name": "maxValue",
+            "type_code": "integer"
+        },
+        {
+            "name": "queueConfStatus",
+            "type_code": "varchar"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "version",
+            "type_code": "integer"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

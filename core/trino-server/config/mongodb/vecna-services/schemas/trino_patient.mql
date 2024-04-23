@@ -1,0 +1,79 @@
+// Add or replace a Trino schema document for trino_patient.
+
+db.trino_schema.deleteOne(
+  {"table": "trino_patient"}
+);
+
+db.trino_schema.insertOne(
+  {
+    "table": "trino_patient",
+    "comment": "All patients, with dynamic fields as static fields.",
+    "fields": [
+      {
+        "name": "id",
+        "type": "varchar",
+        "comment": "Database record identifier. Unique.",
+      },
+      {
+        "name": "tenant_uuid",
+        "type": "varchar",
+        "comment": "Tenant identifier.",
+      },
+      {
+        "name": "patient_uuid",
+        "type": "varchar",
+        "comment": "Patient identifier. Unique.",
+      },
+      {
+        "name": "mrn",
+        "type": "varchar",
+        "comment": "Patient Medical Record Number (MRN). For the VA, Data File Number (DFN).",
+      },
+      {
+        "name": "mrn_source",
+        "type": "varchar",
+        "comment": "Source of the patient MRN. For the VA, 'VA_DFN'.",
+      },
+      {
+        "name": "alive_consumer_uuid",
+        "type": "varchar",
+        "comment": "Patient Alive application consumer identifier.",
+      },
+      {
+        "name": "empi",
+        "type": "varchar",
+        "comment": "Patient Enterpise Master Patient Index.",
+      },
+      {
+        "name": "last_name",
+        "type": "varchar",
+        "comment": "Patient last name.",
+      },
+      {
+        "name": "first_name",
+        "type": "varchar",
+        "comment": "Patient first name.",
+      },
+      {
+        "name": "birth_date",
+        "type": "date",
+        "comment": "Patient birth date as a date value.",
+      },
+      {
+        "name": "birth_date_string",
+        "type": "varchar",
+        "comment": "Patient birth date as a string value like 'yyyy-MM-dd HH:mm:ss'."
+      },
+      {
+        "name": "create_tstz",
+        "type": "timestamp",
+        "comment": "When the database record was inserted.",
+      },
+      {
+        "name": "update_tstz",
+        "type": "timestamp",
+        "comment": "When the database record was last updated.",
+      },
+    ]
+  }
+);

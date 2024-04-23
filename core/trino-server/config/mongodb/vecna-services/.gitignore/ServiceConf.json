@@ -1,0 +1,101 @@
+{
+    "table": "serviceConf",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "serviceConfUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "serviceName",
+            "type_code": "varchar"
+        },
+        {
+            "name": "servStatus",
+            "type_code": "varchar"
+        },
+        {
+            "name": "serviceCode",
+            "type_code": "varchar"
+        },
+        {
+            "name": "serviceType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "servAuthType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "servschedulingType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "serviceConfChecksFieldList",
+            "type_code": "json"
+        },
+        {
+            "name": "serviceConfextFieldList",
+            "type_code": "json"
+        },
+        {
+            "name": "serviceClearanceConf",
+            "type_code": "json"
+        },
+        {
+            "name": "windowType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "windowList",
+            "type_code": "json"
+        },
+        {
+            "name": "apptCodeSet",
+            "type_code": "json"
+        },
+        {
+            "name": "locationCodeSet",
+            "type_code": "json"
+        },
+        {
+            "name": "checkinMessageType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "keycloakRealm",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "version",
+            "type_code": "bigint"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

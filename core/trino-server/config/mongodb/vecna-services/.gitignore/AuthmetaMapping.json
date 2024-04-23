@@ -1,0 +1,45 @@
+{
+    "table": "authMetaMapping",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "authMetaMappingUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "clearanceFieldMeta",
+            "type_code": "json"
+        },
+        {
+            "name": "authOptionTypeCode",
+            "type_code": "varchar"
+        },
+        {
+            "name": "clearanceFieldValueType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "version",
+            "type_code": "integer"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

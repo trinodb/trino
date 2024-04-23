@@ -1,0 +1,89 @@
+{
+    "table": "serviceRequest",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "serviceRequestUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "serviceRequestHistorieUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "serviceRequestTimerUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "serviceRequestStatusUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongPatientInteractionUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "operatorHumanUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "originalOPSource",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongServConfUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "associateClearanceToDoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongApptExternalUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "associateApptExternalUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "patientUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "alertUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "version",
+            "type_code": "bigint"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

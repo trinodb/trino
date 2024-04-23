@@ -1,0 +1,57 @@
+{
+    "table": "computerandperipheral",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "serialNumber",
+            "type_code": "varchar"
+        },
+        {
+            "name": "localAddress",
+            "type_code": "varchar"
+        },
+        {
+            "name": "isFirstUpdateAfterReboot",
+            "type_code": "boolean"
+        },
+        {
+            "name": "computerStatus",
+            "type_code": "json"
+        },
+        {
+            "name": "computerUsage",
+            "type_code": "json"
+        },
+        {
+            "name": "peripheralsList",
+            "type_code": "json"
+        },
+        {
+            "name": "commands",
+            "type_code": "json"
+        },
+        {
+            "name": "sshInfo",
+            "type_code": "json"
+        },
+        {
+            "name": "version",
+            "type_code": "Integer"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

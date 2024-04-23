@@ -1,0 +1,147 @@
+//  Create a view of all appointments.
+//  One row per appointment.
+//
+//  Initial version to support admin views.
+//  - Includes dynamic fields as standard fields:
+//    - patient_first_name
+//    - patient_last_name
+//    - patient_birth_date
+//    - account_number
+//    - provider
+//  - Coalesces ("patientDfnVA", "mrn") as "mrn".
+//  - Coalesces ("mrnSouce", 'VA_DFN') as "mrn_source".
+//  - Maps externalUUID to uuid for consistency with other Trino views.
+//
+//  TODO: Add org_uuid.
+
+db.trino_appointment.drop();
+
+db.createView(
+  "trino_appointment",
+  "Appointment",
+  [
+    {
+      $project: {
+        _id: 0,
+        id: "$_id",
+        tenant_uuid: "$tenantInfoUUID",
+        org_uuid: null,
+        appointment_uuid: "$externalUUID",
+        code: "$appointmentCode",
+        name: "$appointmentName",
+        created_tstz: "$appointmentCreatingDate",
+        scheduled_tstz: "$appointmentDate",
+        status_code: "$apptStatus",
+        status_category_code: "$apptStatusCategory",
+        patient_uuid: "$patientUUID",
+        patient_mrn: {
+          $ifNull: ["$patientDfnVA", "$patientMrn"],
+        },
+        patient_mrn_source: {
+          $ifNull: ["$mrnSource", "VA_DFN"],
+        },
+        patient_empi: "$patientEmpi",
+        patient_first_name: {
+          $arrayElemAt: [
+            "$apptClearanceFieldValueList.clearanceFieldValue",
+            {
+              $indexOfArray: [
+                "$apptClearanceFieldValueList.clearanceFieldCode",
+                "FIRST_NAME",
+              ],
+            },
+          ],
+        },
+        patient_last_name: {
+          $arrayElemAt: [
+            "$apptClearanceFieldValueList.clearanceFieldValue",
+            {
+              $indexOfArray: [
+                "$apptClearanceFieldValueList.clearanceFieldCode",
+                "LAST_NAME",
+              ],
+            },
+          ],
+        },
+        patient_birth_date_string: {
+          $arrayElemAt: [
+            "$apptClearanceFieldValueList.clearanceFieldValue",
+            {
+              $indexOfArray: [
+                "$apptClearanceFieldValueList.clearanceFieldCode",
+                "DOB",
+              ],
+            },
+          ],
+        },
+        account_number: {
+          $arrayElemAt: [
+            "$apptClearanceFieldValueList.clearanceFieldValue",
+            {
+              $indexOfArray: [
+                "$apptClearanceFieldValueList.clearanceFieldCode",
+                "ACCOUNT_NUMBER",
+              ],
+            },
+          ],
+        },
+        provider: {
+          $arrayElemAt: [
+            "$apptClearanceFieldValueList.clearanceFieldValue",
+            {
+              $indexOfArray: [
+                "$apptClearanceFieldValueList.clearanceFieldCode",
+                "PROVIDER",
+              ],
+            },
+          ],
+        },
+        location_code: {
+          $arrayElemAt: [
+            "$apptClearanceFieldValueList.clearanceFieldValue",
+            {
+              $indexOfArray: [
+                "$apptClearanceFieldValueList.clearanceFieldCode",
+                "LOCATION_CODE",
+              ],
+            },
+          ],
+        },
+        create_tstz: "$createDate",
+        update_tstz: "$updateDate",
+      },
+    },
+    {
+      $addFields: {
+        patient_birth_date: {
+          $switch: {
+            branches: [
+              {
+                case: {
+                  $regexMatch: {
+                    input:
+                      "$patient_birth_date_string",
+                    regex:
+                      /^\d{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])/,
+                  },
+                },
+                then: {
+                  $dateFromString: {
+                    dateString: {
+                      $substr: [
+                        "$patient_birth_date_string",
+                        0,
+                        10,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+            default: null,
+          },
+        },
+      },
+    },
+  ]
+);

@@ -1,0 +1,45 @@
+{
+    "table": "patientInteractionTimer",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "patientInteractionTimerUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "patientInteractionUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "startInteractionTimePoint",
+            "type_code": "bigint"
+        },
+        {
+            "name": "patientAuthenticatedTimePoint",
+            "type_code": "bigint"
+        },
+        {
+            "name": "doneTimePoint",
+            "type_code": "bigint"
+        },
+        {
+            "name": "version",
+            "type_code": "integer"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

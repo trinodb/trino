@@ -1,0 +1,25 @@
+{
+    "table": "SSMPIConfig",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "stateMachineCode",
+            "type_code": "varchar"
+        },
+        {
+            "name": "states",
+            "type_code": "json"
+        },
+        {
+            "name": "transitions",
+            "type_code": "json"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

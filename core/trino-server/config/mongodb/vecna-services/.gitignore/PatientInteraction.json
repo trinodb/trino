@@ -1,0 +1,90 @@
+{
+    "table": "patientInteraction",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "patientInteractionUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "patientInteractionTimerUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "serviceRequestUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "patientInteractionHistorieUUIDs",
+            "type_code": "json"
+        },
+        {
+            "name": "patientInteractionStatusUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "operatorHumanUUID",
+            "type_code": "varchar",
+            "comment": "Added this field to match what is in PatientInteractionHistory."
+        },
+        {
+            "name": "originalOPSource",
+            "type_code": "varchar"
+        },
+        {
+            "name": "patientOnsiteFESessionid",
+            "type_code": "varchar"
+        },
+        {
+            "name": "patientOnsiteMainWFprocessInstanceid",
+            "type_code": "varchar"
+        },
+        {
+            "name": "patientOnsiteMainWFUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "patientUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "deviceSerialNumber",
+            "type_code": "varchar"
+        },
+        {
+            "name": "deviceGroupConfUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongOrgType",
+            "type_code": "varchar"
+        },
+        {
+            "name": "version",
+            "type_code": "integer"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

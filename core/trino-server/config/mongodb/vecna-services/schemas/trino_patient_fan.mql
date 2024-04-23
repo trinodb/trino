@@ -1,0 +1,89 @@
+// Add or replace a Trino schema document for trino_patient_fan.
+
+db.trino_schema.deleteOne(
+  {"table": "trino_patient_fan"}
+);
+
+db.trino_schema.insertOne(
+  {
+    "table": "trino_patient_fan",
+    "comment": "FANs associated with a patient. One row per FAN.",
+    "fields": [
+      {
+        "name": "id",
+        "type": "varchar",
+        "comment": "Database record identifier. Unique."
+      },
+      {
+        "name": "tenant_uuid",
+        "type": "varchar",
+        "comment": "Tenant identifier."
+      },
+      {
+        "name": "org_uuid",
+        "type": "varchar",
+        "comment": "Organization identifier."
+      },
+      {
+        "name": "org_type_code",
+        "type": "varchar",
+        "comment": "Organization type code."
+      },
+      {
+        "name": "fan_uuid",
+        "type": "varchar",
+        "comment": "FAN identifier. Unique."
+      },
+      {
+        "name": "fan_conf_uuid",
+        "type": "varchar",
+        "comment": "FAN configuration identifier."
+      },
+      {
+        "name": "patient_uuid",
+        "type": "varchar",
+        "comment": "patient identifier."
+      },
+      {
+        "name": "fan_status_code",
+        "type": "varchar",
+        "comment": "FAN status code."
+      },
+      {
+        "name": "fan_type_code",
+        "type": "varchar",
+        "comment": "FAN type code."
+      },
+      {
+        "name": "fan_category_code",
+        "type": "varchar",
+        "comment": "FAN category code."
+      },
+      {
+        "name": "fan_title",
+        "type": "varchar",
+        "comment": "FAN title."
+      },
+      {
+        "name": "fan_subtitle",
+        "type": "varchar",
+        "comment": "FAN subtitle."
+      },
+      {
+        "name": "fan_content",
+        "type": "varchar",
+        "comment": "FAN content."
+      },
+      {
+        "name": "create_tstz",
+        "type": "timeStamp",
+        "comment": "When the database record was inserted."
+      },
+      {
+        "name": "update_tstz",
+        "type": "timeStamp",
+        "comment": "When the database record was last updated."
+      }
+    ]
+  }
+);

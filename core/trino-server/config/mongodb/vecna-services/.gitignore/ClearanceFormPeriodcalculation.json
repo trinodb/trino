@@ -1,0 +1,65 @@
+{
+    "table": "clearanceFormPeriodCalculation",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "clearanceFormPeriodCalculationUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "belongFormUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "clearanceFormPeriodConfUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "patientUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "serviceConfUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "apptExternalUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "serviceCreationTimeStamp",
+            "type_code": "bigint"
+        },
+        {
+            "name": "serviceDeliveryTimeStamp",
+            "type_code": "bigint"
+        },
+        {
+            "name": "needClearanceFormToDoAgain",
+            "type_code": "boolean"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "version",
+            "type_code": "integer"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

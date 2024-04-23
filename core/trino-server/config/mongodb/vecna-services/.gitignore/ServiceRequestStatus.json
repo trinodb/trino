@@ -1,0 +1,41 @@
+{
+    "table": "serviceRequestStatus",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "serviceRequestStatusUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "serviceRequestStatusDesc",
+            "type_code": "varchar"
+        },
+        {
+            "name": "statusCategoryCode",
+            "type_code": "varchar"
+        },
+        {
+            "name": "statusCode",
+            "type_code": "varchar"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

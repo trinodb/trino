@@ -1,0 +1,73 @@
+{
+    "table": "dynaFormMeta-TENANT_UUID",
+    "fields": [
+        {
+            "name": "_id",
+            "type_code": "varchar(24)"
+        },
+        {
+            "name": "dynaFormMetaUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "dynaFormMetaName",
+            "type_code": "varchar"
+        },
+        {
+            "name": "dynaFormMetaDesc",
+            "type_code": "varchar"
+        },
+        {
+            "name": "productInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "designerUserUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "type_code",
+            "type_code": "varchar"
+        },
+        {
+            "name": "externalProperties",
+            "type_code": "json"
+        },
+        {
+            "name": "components",
+            "type_code": "json"
+        },
+        {
+            "name": "formBusinessFunc",
+            "type_code": "json"
+        },
+        {
+            "name": "formOutgoingFunc",
+            "type_code": "json"
+        },
+        {
+            "name": "formValidationFunc",
+            "type_code": "json"
+        },
+        {
+            "name": "formDataCURDFunc",
+            "type_code": "json"
+        },
+        {
+            "name": "tenantInfoUUID",
+            "type_code": "varchar"
+        },
+        {
+            "name": "createDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "updateDate",
+            "type_code": "timeStamp"
+        },
+        {
+            "name": "_class",
+            "type_code": "varchar"
+        }
+    ]
+}

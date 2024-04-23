@@ -1,0 +1,17 @@
+# env_dev.gitignore
+# Dev environment variables for Trino connectors.
+#
+# Source this file to set the environment variables.
+
+export CAMUNDA_URL=dyna-view-db.cqcuifpy0887.us-east-1.rds.amazonaws.com
+export CAMUNDA_USERNAME=camunda
+export CAMUNDA_PASSWORD=Q1w2e3r4!
+
+export MONGODB_URL=atlas-sql-66044f0ece0cb66a5a8747c8-qenz8.a.query.mongodb.net
+export MONGODB_USERNAME=bsuite-trino
+export MONGODB_PASSWORD=LbmjkfRMR6yD9Pe9
+export CERT_FILE=/root/.ssh/test.pem
+
+export NEO4J_URL=74925e66.databases.neo4j.io
+export NEO4J_USERNAME=neo4j
+export NEO4J_PASSWORD=wq8LF5rDVm4ZbRzaQWkMAIKGc-X_EEatyh4QuHfQpmg
