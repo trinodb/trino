@@ -163,7 +163,7 @@ public class AzureFileSystem
             }
         }
         else {
-            DataLakeDirectoryClient directoryClient = fileSystemClient.getDirectoryClient(location.path());
+            DataLakeDirectoryClient directoryClient = createDirectoryClient(fileSystemClient, location.path());
             if (directoryClient.exists()) {
                 if (!directoryClient.getProperties().isDirectory()) {
                     throw new IOException("Location is not a directory: " + location);
@@ -175,12 +175,8 @@ public class AzureFileSystem
 
     private void deleteBlobDirectory(AzureLocation location)
     {
-        String path = location.path();
-        if (!path.isEmpty() && !path.endsWith("/")) {
-            path += "/";
-        }
         BlobContainerClient blobContainerClient = createBlobContainerClient(location);
-        PagedIterable<BlobItem> blobItems = blobContainerClient.listBlobs(new ListBlobsOptions().setPrefix(path), null);
+        PagedIterable<BlobItem> blobItems = blobContainerClient.listBlobs(new ListBlobsOptions().setPrefix(location.directoryPath()), null);
         for (BlobItem item : blobItems) {
             String blobUrl = Utility.urlEncode(item.getName());
             blobContainerClient.getBlobClient(blobUrl).deleteIfExists();
@@ -212,12 +208,12 @@ public class AzureFileSystem
     {
         try {
             DataLakeFileSystemClient fileSystemClient = createFileSystemClient(source);
-            DataLakeFileClient dataLakeFileClient = fileSystemClient.getFileClient(source.path());
+            DataLakeFileClient dataLakeFileClient = createFileClient(fileSystemClient, source.path());
             if (dataLakeFileClient.getProperties().isDirectory()) {
                 throw new IOException("Rename file from %s to %s, source is a directory".formatted(source, target));
             }
 
-            fileSystemClient.createDirectoryIfNotExists(target.location().parentDirectory().path());
+            createDirectoryIfNotExists(fileSystemClient, target.location().parentDirectory().path());
             dataLakeFileClient.renameWithResponse(
                     null,
                     target.path(),
@@ -256,7 +252,7 @@ public class AzureFileSystem
             pathItems = fileSystemClient.listPaths(new ListPathsOptions().setRecursive(true), null);
         }
         else {
-            DataLakeDirectoryClient directoryClient = fileSystemClient.getDirectoryClient(location.path());
+            DataLakeDirectoryClient directoryClient = createDirectoryClient(fileSystemClient, location.path());
             if (!directoryClient.exists()) {
                 return FileIterator.empty();
             }
@@ -274,11 +270,7 @@ public class AzureFileSystem
 
     private FileIterator listBlobFiles(AzureLocation location)
     {
-        String path = location.path();
-        if (!path.isEmpty() && !path.endsWith("/")) {
-            path += "/";
-        }
-        PagedIterable<BlobItem> blobItems = createBlobContainerClient(location).listBlobs(new ListBlobsOptions().setPrefix(path), null);
+        PagedIterable<BlobItem> blobItems = createBlobContainerClient(location).listBlobs(new ListBlobsOptions().setPrefix(location.directoryPath()), null);
         return new AzureBlobFileIterator(location, blobItems.iterator());
     }
 
@@ -299,7 +291,7 @@ public class AzureFileSystem
 
         try {
             DataLakeFileSystemClient fileSystemClient = createFileSystemClient(azureLocation);
-            DataLakeFileClient fileClient = fileSystemClient.getFileClient(azureLocation.path());
+            DataLakeFileClient fileClient = createFileClient(fileSystemClient, azureLocation.path());
             return Optional.of(fileClient.getProperties().isDirectory());
         }
         catch (DataLakeStorageException e) {
@@ -323,7 +315,7 @@ public class AzureFileSystem
         }
         try {
             DataLakeFileSystemClient fileSystemClient = createFileSystemClient(azureLocation);
-            DataLakeDirectoryClient directoryClient = fileSystemClient.createDirectoryIfNotExists(azureLocation.path());
+            DataLakeDirectoryClient directoryClient = createDirectoryIfNotExists(fileSystemClient, azureLocation.path());
             if (!directoryClient.getProperties().isDirectory()) {
                 throw new IOException("Location is not a directory: " + azureLocation);
             }
@@ -354,7 +346,7 @@ public class AzureFileSystem
 
         try {
             DataLakeFileSystemClient fileSystemClient = createFileSystemClient(sourceLocation);
-            DataLakeDirectoryClient directoryClient = fileSystemClient.getDirectoryClient(sourceLocation.path());
+            DataLakeDirectoryClient directoryClient = createDirectoryClient(fileSystemClient, sourceLocation.path());
             if (!directoryClient.exists()) {
                 throw new IOException("Source directory does not exist: " + source);
             }
@@ -421,7 +413,7 @@ public class AzureFileSystem
             pathItems = fileSystemClient.listPaths();
         }
         else {
-            DataLakeDirectoryClient directoryClient = fileSystemClient.getDirectoryClient(location.path());
+            DataLakeDirectoryClient directoryClient = createDirectoryClient(fileSystemClient, location.path());
             if (!directoryClient.exists()) {
                 return ImmutableSet.of();
             }
@@ -439,13 +431,9 @@ public class AzureFileSystem
 
     private Set<Location> listBlobDirectories(AzureLocation location)
     {
-        String path = location.path();
-        if (!path.isEmpty() && !path.endsWith("/")) {
-            path += "/";
-        }
         Location baseLocation = location.baseLocation();
         return createBlobContainerClient(location)
-                .listBlobsByHierarchy(path).stream()
+                .listBlobsByHierarchy(location.directoryPath()).stream()
                 .filter(BlobItem::isPrefix)
                 .map(item -> baseLocation.appendPath(item.getName()))
                 .collect(toImmutableSet());
@@ -498,5 +486,20 @@ public class AzureFileSystem
             throw new IllegalArgumentException();
         }
         return fileSystemClient;
+    }
+
+    private static DataLakeDirectoryClient createDirectoryClient(DataLakeFileSystemClient fileSystemClient, String directoryName)
+    {
+        return fileSystemClient.getDirectoryClient(directoryName);
+    }
+
+    private static DataLakeFileClient createFileClient(DataLakeFileSystemClient fileSystemClient, String fileName)
+    {
+        return fileSystemClient.getFileClient(fileName);
+    }
+
+    private static DataLakeDirectoryClient createDirectoryIfNotExists(DataLakeFileSystemClient fileSystemClient, String name)
+    {
+        return fileSystemClient.createDirectoryIfNotExists(name);
     }
 }
