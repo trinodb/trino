@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReferenceArray;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.spi.cache.PlanSignature.canonicalizePlanSignature;
@@ -57,7 +56,6 @@ public class ConcurrentCacheManager
 
     private final MemoryAllocator revocableMemoryAllocator;
     private final MemoryCacheManager[] cacheManagers;
-    private final ReentrantReadWriteLock revokeLock = new ReentrantReadWriteLock();
     @GuardedBy("this")
     private long allocatedMemory;
 
@@ -122,41 +120,38 @@ public class ConcurrentCacheManager
         List<MemoryCacheManager> shuffledManagers = new ArrayList<>(Arrays.asList(cacheManagers));
         shuffle(shuffledManagers);
 
-        revokeLock.writeLock().lock();
-        // acquire exclusive lock for each MemoryCacheManager
+        // Acquire revoke lock for each MemoryCacheManager to prevent opening of new page sinks using storePages method
+        // (data might still be cached through opened page sinks).
         for (MemoryCacheManager manager : cacheManagers) {
-            manager.getLock().writeLock().lock();
+            manager.startRevoke();
         }
         try {
-            // MemoryCacheManager must be locked first, then ConcurrentCacheManager to avoid deadlock
-            // because MemoryCacheManager#finishStoreChannels will try to update memory usage
-            // while keeping write lock on MemoryCacheManager.
-            synchronized (this) {
-                long initialAllocatedMemory = allocatedMemory;
-                int elementsToRevoke = minElementsToRevoke;
-                while (initialAllocatedMemory - allocatedMemory < bytesToRevoke) {
-                    boolean revoked = false;
-                    for (MemoryCacheManager manager : shuffledManagers) {
-                        if (manager.revokeMemory(bytesToRevoke, elementsToRevoke) > 0) {
-                            revoked = true;
-                        }
-                    }
-                    if (!revoked) {
-                        // no more elements to revoke
-                        break;
-                    }
-                    // increase the revoke batch size
-                    elementsToRevoke = min(elementsToRevoke * 2, 10_000);
+            int elementsToRevoke = minElementsToRevoke;
+            long initialAllocatedMemory = getAllocatedMemory();
+            long revokedMemory = 0;
+            // The loop below is racy against MemoryCacheManager#finishStoreChannels. However,
+            // because revoke locks are acquired, only a limited numbers of calls to finishStoreChannels
+            // can happen. Hence, the loop is guaranteed to finish.
+            while (revokedMemory < bytesToRevoke && getAllocatedMemory() > 0) {
+                for (MemoryCacheManager manager : shuffledManagers) {
+                    manager.revokeMemory(bytesToRevoke, elementsToRevoke);
                 }
-                return initialAllocatedMemory - allocatedMemory;
+                // increase the revoke batch size
+                elementsToRevoke = min(elementsToRevoke * 2, 10_000);
+                revokedMemory = initialAllocatedMemory - getAllocatedMemory();
             }
+            return revokedMemory;
         }
         finally {
             for (MemoryCacheManager manager : cacheManagers) {
-                manager.getLock().writeLock().unlock();
+                manager.finishRevoke();
             }
-            revokeLock.writeLock().unlock();
         }
+    }
+
+    private synchronized long getAllocatedMemory()
+    {
+        return allocatedMemory;
     }
 
     private class ConcurrentSplitCache
@@ -175,29 +170,13 @@ public class ConcurrentCacheManager
         @Override
         public Optional<ConnectorPageSource> loadPages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
         {
-            if (!revokeLock.readLock().tryLock()) {
-                return Optional.empty();
-            }
-            try {
-                return getSplitCache(splitId).loadPages(splitId, predicate, unenforcedPredicate);
-            }
-            finally {
-                revokeLock.readLock().unlock();
-            }
+            return getSplitCache(splitId).loadPages(splitId, predicate, unenforcedPredicate);
         }
 
         @Override
         public Optional<ConnectorPageSink> storePages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
         {
-            if (!revokeLock.readLock().tryLock()) {
-                return Optional.empty();
-            }
-            try {
-                return getSplitCache(splitId).storePages(splitId, predicate, unenforcedPredicate);
-            }
-            finally {
-                revokeLock.readLock().unlock();
-            }
+            return getSplitCache(splitId).storePages(splitId, predicate, unenforcedPredicate);
         }
 
         @Override

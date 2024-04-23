@@ -90,6 +90,7 @@ public class MemoryCacheManager
     private final MemoryAllocator revocableMemoryAllocator;
     private final boolean forceStore;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    private final ReentrantReadWriteLock revokeLock = new ReentrantReadWriteLock();
     @GuardedBy("lock")
     private final LinkedListMultimap<SplitKey, Channel> splitCache = LinkedListMultimap.create();
     @GuardedBy("lock")
@@ -129,6 +130,16 @@ public class MemoryCacheManager
         });
     }
 
+    public void startRevoke()
+    {
+        revokeLock.writeLock().lock();
+    }
+
+    public void finishRevoke()
+    {
+        revokeLock.writeLock().unlock();
+    }
+
     public long getRevocableBytes()
     {
         return runWithLock(lock.readLock(), () ->
@@ -151,11 +162,6 @@ public class MemoryCacheManager
     public int getCachedSplitsCount()
     {
         return runWithLock(lock.readLock(), splitCache::size);
-    }
-
-    ReentrantReadWriteLock getLock()
-    {
-        return lock;
     }
 
     private Optional<ConnectorPageSource> loadPages(SignatureIds ids, CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
@@ -568,7 +574,15 @@ public class MemoryCacheManager
         public Optional<ConnectorPageSink> storePages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
         {
             checkState(!closed, "MemorySplitCache already closed");
-            return MemoryCacheManager.this.storePages(ids, splitId, predicate, unenforcedPredicate);
+            if (!revokeLock.readLock().tryLock()) {
+                return Optional.empty();
+            }
+            try {
+                return MemoryCacheManager.this.storePages(ids, splitId, predicate, unenforcedPredicate);
+            }
+            finally {
+                revokeLock.readLock().unlock();
+            }
         }
 
         @Override
