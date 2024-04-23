@@ -27,6 +27,7 @@ public final class ConnectorTableLayout
     private final List<String> partitionColumns;
     private final boolean multipleWritersPerPartitionSupported;
 
+    @Deprecated
     public ConnectorTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns)
     {
         // Keep the value of multipleWritersPerPartitionSupported false by default if partitioning is present
