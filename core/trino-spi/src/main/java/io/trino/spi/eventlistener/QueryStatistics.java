@@ -73,6 +73,7 @@ public class QueryStatistics
 
     private final List<StageCpuDistribution> cpuTimeDistribution;
     private final List<StageOutputBufferUtilization> outputBufferUtilization;
+    private final List<StageTaskStatistics> taskStatistics;
 
     /**
      * Operator summaries serialized to JSON. Serialization format and structure
@@ -128,6 +129,7 @@ public class QueryStatistics
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
             List<StageOutputBufferUtilization> outputBufferUtilization,
+            List<StageTaskStatistics> taskStatistics,
             List<String> operatorSummaries,
             List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
             Optional<String> planNodeStatsAndCosts)
@@ -172,6 +174,7 @@ public class QueryStatistics
                 complete,
                 cpuTimeDistribution,
                 outputBufferUtilization,
+                taskStatistics,
                 () -> operatorSummaries,
                 optimizerRulesSummaries,
                 planNodeStatsAndCosts);
@@ -217,6 +220,7 @@ public class QueryStatistics
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
             List<StageOutputBufferUtilization> outputBufferUtilization,
+            List<StageTaskStatistics> taskStatistics,
             Supplier<List<String>> operatorSummariesProvider,
             List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
             Optional<String> planNodeStatsAndCosts)
@@ -260,6 +264,7 @@ public class QueryStatistics
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.outputBufferUtilization = requireNonNull(outputBufferUtilization, "outputBufferUtilization is null");
+        this.taskStatistics = requireNonNull(taskStatistics, "taskStatistics is null");
         this.operatorSummariesProvider = requireNonNull(operatorSummariesProvider, "operatorSummariesProvider is null");
         this.optimizerRulesSummaries = requireNonNull(optimizerRulesSummaries, "optimizerRulesSummaries is null");
         this.planNodeStatsAndCosts = requireNonNull(planNodeStatsAndCosts, "planNodeStatsAndCosts is null");
@@ -497,6 +502,12 @@ public class QueryStatistics
     public List<StageOutputBufferUtilization> getOutputBufferUtilization()
     {
         return outputBufferUtilization;
+    }
+
+    @JsonProperty
+    public List<StageTaskStatistics> getTaskStatistics()
+    {
+        return taskStatistics;
     }
 
     @JsonProperty

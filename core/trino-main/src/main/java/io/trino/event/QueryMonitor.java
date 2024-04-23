@@ -48,6 +48,7 @@ import io.trino.operator.TaskStats;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
+import io.trino.spi.eventlistener.LongDistribution;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryContext;
@@ -60,6 +61,7 @@ import io.trino.spi.eventlistener.QueryOutputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.StageCpuDistribution;
 import io.trino.spi.eventlistener.StageOutputBufferUtilization;
+import io.trino.spi.eventlistener.StageTaskStatistics;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -85,6 +87,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Suppliers.memoize;
@@ -229,6 +232,7 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(),
+                        ImmutableList.of(),
                         Optional.empty()),
                 createQueryContext(
                         queryInfo.getSession(),
@@ -344,6 +348,7 @@ public class QueryMonitor
                 queryInfo.isFinalQueryInfo(),
                 getCpuDistributions(queryInfo),
                 getStageOutputBufferUtilizations(queryInfo),
+                getStageTaskStatistics(queryInfo),
                 memoize(() -> operatorStats.stream().map(operatorStatsCodec::toJson).toList()),
                 ImmutableList.copyOf(queryInfo.getQueryStats().getOptimizerRulesSummaries()),
                 serializedPlanNodeStatsAndCosts);
@@ -766,6 +771,54 @@ public class QueryMonitor
         for (StageInfo subStage : stageInfo.getSubStages()) {
             populateStageOutputBufferUtilization(subStage, utilizations);
         }
+    }
+
+    private List<StageTaskStatistics> getStageTaskStatistics(QueryInfo queryInfo)
+    {
+        if (queryInfo.getOutputStage().isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        ImmutableList.Builder<StageTaskStatistics> builder = ImmutableList.builder();
+        populateStageTaskStatistics(queryInfo.getOutputStage().get(), builder);
+
+        return builder.build();
+    }
+
+    private void populateStageTaskStatistics(StageInfo stageInfo, ImmutableList.Builder<StageTaskStatistics> builder)
+    {
+        builder.add(computeStageTaskStatistics(stageInfo));
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            populateStageTaskStatistics(subStage, builder);
+        }
+    }
+
+    private StageTaskStatistics computeStageTaskStatistics(StageInfo stageInfo)
+    {
+        return new StageTaskStatistics(
+                stageInfo.getStageId().getId(),
+                stageInfo.getTasks().size(),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.getStats().getTotalCpuTime().toMillis())));
+    }
+
+    private static LongDistribution getTasksDistribution(StageInfo stageInfo, Function<TaskInfo, Optional<Long>> metricFunction)
+    {
+        Distribution distribution = new Distribution();
+        for (TaskInfo taskInfo : stageInfo.getTasks()) {
+            metricFunction.apply(taskInfo).ifPresent(distribution::add);
+        }
+        DistributionSnapshot snapshot = distribution.snapshot();
+        return new LongDistribution(
+                (long) snapshot.getP25(),
+                (long) snapshot.getP50(),
+                (long) snapshot.getP75(),
+                (long) snapshot.getP90(),
+                (long) snapshot.getP95(),
+                (long) snapshot.getP99(),
+                (long) snapshot.getMin(),
+                (long) snapshot.getMax(),
+                (long) snapshot.getTotal(),
+                firstNonNaN(snapshot.getTotal() / snapshot.getCount(), 0.0));
     }
 
     private static class FragmentNode
