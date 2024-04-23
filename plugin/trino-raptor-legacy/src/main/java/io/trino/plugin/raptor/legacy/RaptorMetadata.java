@@ -379,7 +379,7 @@ public class RaptorMetadata
         List<String> bucketAssignments = shardManager.getBucketAssignments(distributionId);
         ConnectorPartitioningHandle partitioning = new RaptorPartitioningHandle(distributionId, bucketAssignments);
 
-        return Optional.of(new ConnectorTableLayout(partitioning, partitionColumns));
+        return Optional.of(new ConnectorTableLayout(partitioning, partitionColumns, false));
     }
 
     private Optional<DistributionInfo> getOrCreateDistribution(Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
