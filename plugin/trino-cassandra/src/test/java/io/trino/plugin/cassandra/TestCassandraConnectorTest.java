@@ -223,7 +223,7 @@ public class TestCassandraConnectorTest
     }
 
     @Test
-    @Override
+    @Override // Override because some tests (e.g. testKeyspaceNameAmbiguity, testNativeQueryCaseSensitivity) cause column listing failure
     public void testSelectInformationSchemaColumns()
     {
         executeExclusively(super::testSelectInformationSchemaColumns);
