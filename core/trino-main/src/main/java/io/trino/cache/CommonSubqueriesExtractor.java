@@ -487,10 +487,10 @@ public final class CommonSubqueriesExtractor
 
     private static CacheExpression getSmallerExpression(CacheExpression first, CacheExpression second)
     {
-        checkArgument(first.projection().isPresent() == second.projection().isPresent());
+        checkArgument(first.projection().isPresent() == second.projection().isPresent(), "One of the projection expressions is missing. first expression: %s, second expression: %s", first.projection(), second.projection());
         if (first.aggregation().isPresent()) {
             // Supported aggregations can only have canonical symbol arguments, hence there should be no evaluation ambiguity.
-            checkArgument(first.aggregation().equals(second.aggregation()));
+            checkArgument(first.aggregation().equals(second.aggregation()), "Aggregation expressions are not the same. first expression: %s, second expression: %s", first.aggregation(), second.aggregation());
             return first;
         }
         // Prefer smaller expression trees.
