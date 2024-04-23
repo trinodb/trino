@@ -18,14 +18,21 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 
 import java.io.IOException;
+import java.util.Base64;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class SymbolKeySerializer
         extends JsonSerializer<Symbol>
 {
+    private static final Base64.Encoder ENCODER = Base64.getEncoder();
+
     @Override
-    public void serialize(Symbol value, JsonGenerator gen, SerializerProvider serializers)
+    public void serialize(Symbol value, JsonGenerator generator, SerializerProvider serializers)
             throws IOException
     {
-        gen.writeFieldName(value.name() + "::" + value.type().getTypeId().getId());
+        String name = ENCODER.encodeToString(value.name().getBytes(UTF_8));
+        String type = ENCODER.encodeToString(value.type().getTypeId().getId().getBytes(UTF_8));
+        generator.writeFieldName(name + ":" + type);
     }
 }
