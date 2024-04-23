@@ -43,6 +43,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.spi.cache.PlanSignature.canonicalizePlanSignature;
 import static java.lang.Math.floorMod;
+import static java.lang.Math.min;
 import static java.util.Collections.shuffle;
 import static java.util.Objects.requireNonNull;
 
@@ -145,7 +146,7 @@ public class ConcurrentCacheManager
                         break;
                     }
                     // increase the revoke batch size
-                    elementsToRevoke *= 2;
+                    elementsToRevoke = min(elementsToRevoke * 2, 10_000);
                 }
                 return initialAllocatedMemory - allocatedMemory;
             }
