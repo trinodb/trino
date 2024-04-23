@@ -15,7 +15,6 @@ package io.trino.plugin.neo4j;
 
 import io.trino.plugin.neo4j.support.BaseNeo4jTest;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.neo4j.cypherdsl.core.Cypher;
@@ -71,9 +70,7 @@ public class TestNeo4jTable
 
         QueryAssertions.QueryAssert assertion = assertThat(this.query(query));
 
-        MaterializedResult expected = this.getQueryRunner().execute("VALUES ROW(cast(%s as %s))".formatted(testCase.sqlValue, testCase.schemaType));
-
-        assertion.matches(expected);
+        assertion.matches("VALUES ROW(cast(%s as %s))".formatted(testCase.sqlValue, testCase.schemaType));
 
         String deleteNode = Cypher.match(Cypher.node(nodeLabel).named("n"))
                 .delete("n")

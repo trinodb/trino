@@ -1,22 +1,7 @@
-<!-- Thank you for submitting a pull request! Find more information in our development guide at https://github.com/trinodb/trino/blob/master/.github/DEVELOPMENT.md and contact us on #dev in Slack. -->
-<!-- Provide an overview of the PR for maintainers and reviewers. -->
+<!-- !!! IMPORTANT !!!. -->
+<!-- Pull requests should only be made to the "neo4j" branch of the "Vecna-Healthcare/bsuite_trino" project. -->
+<!-- Before creating your pull request, make sure the merge path (at the top of the Comparing Changes page) is correct. -->
+<!-- Change the "base repository" to "Vecna-Healthcare/bsuite-trino" and then change the "base" to "neo4j". -->
+<!-- Add a description of the changes in your pull request below. -->
 ## Description
 
-
-
-<!-- Provide details that would help an engineer who is unfamiliar with this part of the code. -->
-## Additional context and related issues
-
-
-
-<!-- Mark the appropriate option with an (x). Propose a release note if you can. -->
-## Release notes
-
-( ) This is not user-visible or is docs only, and no release notes are required.
-( ) Release notes are required. Please propose a release note for me.
-( ) Release notes are required, with the following suggested text:
-
-```markdown
-# Section
-* Fix some things. ({issue}`issuenumber`)
-```

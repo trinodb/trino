@@ -10,6 +10,26 @@
         </directory>
     </fileSet>
 
+    <!-- Properties files -->
+    <fileSet to="/etc">
+        <directory path="${basedir}/config/etc">
+            <include>config.properties</include>
+            <include>jvm.config</include>
+            <include>log.properties</include>
+            <include>node.properties</include>
+        </directory>
+    </fileSet>
+
+    <!-- Catalog files -->
+    <fileSet to="/etc/catalog">
+        <directory path="${basedir}/config/etc/catalog">
+            <include>camunda.properties</include>
+            <include>memory.properties</include>
+            <include>mongodb.properties</include>
+            <include>neo4j.properties</include>
+        </directory>
+    </fileSet>
+
     <!-- Launcher -->
     <artifactSet to="bin">
         <artifact id="io.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
@@ -214,6 +234,12 @@
 
     <artifactSet to="plugin/mysql-event-listener">
         <artifact id="${project.groupId}:trino-mysql-event-listener:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/neo4j">
+        <artifact id="${project.groupId}:trino-neo4j:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

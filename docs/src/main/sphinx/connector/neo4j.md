@@ -42,10 +42,10 @@ neo4j.uri=bolt://127.0.0.1:7687/
 
 ### Configuration properties
 
-```{eval-rst}
-.. list-table:: Neo4j general configuration properties
-  :widths: 30, 58, 12
-  :header-rows: 1
+:::{list-table} Neo4j general configuration properties
+:widths: 30, 58, 12
+:header-rows: 1
+
   * - Property name
     - Description
     - Default
@@ -68,7 +68,7 @@ neo4j.uri=bolt://127.0.0.1:7687/
   * - ``neo4j.auth.bearer.token``
     - Token for bearer auth
     -
-```
+:::
 
 ## Type mapping
 
@@ -101,10 +101,10 @@ following mapping from property type name to Trino type:
 
 (property-type-mapping)=
 
-```{eval-rst}
-.. list-table:: Neo4j to Trino type mapping
-  :widths: 40, 60
-  :header-rows: 1
+:::{list-table} Neo4j to Trino type mapping
+:widths: 40, 60
+:header-rows: 1
+
   * - Neo4j property type
     - Trino type
   * - ``Boolean``
@@ -131,7 +131,7 @@ following mapping from property type name to Trino type:
     - ``TIMESTAMP WITH TIME ZONE``
   * - ``*Array``
     - ``ARRAY(e)``
-```
+:::
 
 
 (sql-support)=
@@ -232,3 +232,4 @@ SELECT * FROM TABLE(
 
 
 :::
+

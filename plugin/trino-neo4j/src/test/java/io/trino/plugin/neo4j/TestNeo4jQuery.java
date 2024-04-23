@@ -15,7 +15,6 @@ package io.trino.plugin.neo4j;
 
 import io.trino.plugin.neo4j.support.BaseNeo4jTest;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -261,9 +260,7 @@ public class TestNeo4jQuery
                 .row(true)
                 .build());*/
 
-        MaterializedResult expected = this.getQueryRunner().execute("VALUES ROW(%s)".formatted(testCase.sqlValue));
-
-        assertion.matches(expected);
+        assertion.matches("VALUES ROW(%s)".formatted(testCase.sqlValue));
     }
 
     public void assertFails(TestCase testCase)
