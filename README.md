@@ -25,7 +25,9 @@ You should sync the master branch when you want to update the Trino code we use 
 So when you want to update the neo4j branch, merge the latest tag into it.
 
 If you want to revise our code (in the neo4j branch), create a new branch off the Neo4j branch and make your changes there. When ready, push the new branch to the remote and create a pull request.
+
 <b>!!! IMPORTANT !!!</b>
+
 When you create a pull request, make sure that the changes will be merged to the neo4j branch of our repository (not to trinodb/trino(master)).
 Instructions for setting the merge path are in $project_folder/.github/pull_request_template.md and appear in the "Add a description" section of the "Comparing changes" page after you click the "Compare & pull request" button.
 ___
