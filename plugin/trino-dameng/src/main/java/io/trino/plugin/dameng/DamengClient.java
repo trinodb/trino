@@ -222,9 +222,9 @@ public class DamengClient
                 return Optional.of(integerColumnMapping());
             case "int":
             case "integer":
-                return Optional.of(bigintColumnMapping());
             case "bigint":
-                return Optional.of(decimalColumnMapping(createDecimalType(20)));
+                return Optional.of(bigintColumnMapping());
+//                Optional.of(decimalColumnMapping(createDecimalType(20)));
         }
 
         switch (typeHandle.getJdbcType()) {
