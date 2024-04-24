@@ -119,7 +119,7 @@ The following table summarizes the permissions required for each SQL command:
 | ALTER TABLE ... ADD COLUMN         | all       |         | owner                |                                                                   |
 | ALTER TABLE ... DROP COLUMN        | all       |         | owner                |                                                                   |
 | ALTER TABLE ... RENAME COLUMN      | all       |         | owner                |                                                                   |
-| SHOW COLUMNS                       | all       |         | any                  |                                                                   |
+| SHOW COLUMNS                       | read-only |         | any                  |                                                                   |
 | SELECT FROM table                  | read-only |         | select               |                                                                   |
 | SELECT FROM view                   | read-only |         | select, grant_select |                                                                   |
 | INSERT INTO                        | all       |         | insert               |                                                                   |
