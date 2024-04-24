@@ -87,9 +87,9 @@ public class PinotPageSourceProvider
                 PinotQueryInfo pinotQueryInfo;
                 if (pinotTableHandle.getQuery().isPresent()) {
                     DynamicTable dynamicTable = pinotTableHandle.getQuery().get();
-                    pinotQueryInfo = new PinotQueryInfo(dynamicTable.getTableName(),
+                    pinotQueryInfo = new PinotQueryInfo(dynamicTable.tableName(),
                             extractPql(dynamicTable, pinotTableHandle.getConstraint()),
-                            dynamicTable.getGroupingColumns().size());
+                            dynamicTable.groupingColumns().size());
                 }
                 else {
                     pinotQueryInfo = new PinotQueryInfo(pinotTableHandle.getTableName(), query, 0);
