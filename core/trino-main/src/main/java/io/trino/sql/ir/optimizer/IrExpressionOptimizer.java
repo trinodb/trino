@@ -37,6 +37,8 @@ import io.trino.sql.ir.Row;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.DesugarBetween;
+import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverCase;
+import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverSwitch;
 import io.trino.sql.ir.optimizer.rule.EvaluateArray;
 import io.trino.sql.ir.optimizer.rule.EvaluateBind;
 import io.trino.sql.ir.optimizer.rule.EvaluateCall;
@@ -60,6 +62,7 @@ import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantSwitchClauses;
 import io.trino.sql.ir.optimizer.rule.SimplifyComplementaryLogicalTerms;
+import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCase;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCast;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedArithmeticNegation;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedNot;
@@ -112,6 +115,9 @@ public class IrExpressionOptimizer
                 new EvaluateLogical(),
                 new FlattenLogical(),
                 new RemoveRedundantLogicalTerms(),
+                new DistributeComparisonOverSwitch(),
+                new DistributeComparisonOverCase(),
+                new SimplifyRedundantCase(context),
                 new SpecializeCastWithJsonParse(context)));
     }
 
