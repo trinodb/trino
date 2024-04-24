@@ -72,7 +72,7 @@ import io.trino.util.Reflection;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.IdentityHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -287,8 +287,8 @@ public final class SqlRoutineCompiler
         private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
         private final Map<IrVariable, Variable> variables;
 
-        private final Map<IrLabel, LabelNode> continueLabels = new IdentityHashMap<>();
-        private final Map<IrLabel, LabelNode> breakLabels = new IdentityHashMap<>();
+        private final Map<IrLabel, LabelNode> continueLabels = new HashMap<>();
+        private final Map<IrLabel, LabelNode> breakLabels = new HashMap<>();
 
         public BytecodeVisitor(
                 CachedInstanceBinder cachedInstanceBinder,
