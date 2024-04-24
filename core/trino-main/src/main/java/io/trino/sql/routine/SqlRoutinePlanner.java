@@ -75,6 +75,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -122,6 +123,8 @@ public final class SqlRoutinePlanner
         private final List<IrVariable> allVariables;
         private final Analysis analysis;
         private final StandardFunctionResolution resolution;
+
+        private final AtomicInteger labelCounter = new AtomicInteger();
 
         public StatementVisitor(
                 Session session,
@@ -283,10 +286,10 @@ public final class SqlRoutinePlanner
             return new IrBreak(label(context, node.getLabel()));
         }
 
-        private static Optional<IrLabel> getSqlLabel(Context context, Optional<Identifier> labelName)
+        private Optional<IrLabel> getSqlLabel(Context context, Optional<Identifier> labelName)
         {
             return labelName.map(name -> {
-                IrLabel label = new IrLabel(identifierValue(name));
+                IrLabel label = new IrLabel(identifierValue(name) + "_" + labelCounter.getAndIncrement());
                 verify(context.labels().put(identifierValue(name), label) == null, "Label already declared in this scope: %s", name);
                 return label;
             });
