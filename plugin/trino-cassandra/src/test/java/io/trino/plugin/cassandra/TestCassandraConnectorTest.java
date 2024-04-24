@@ -223,6 +223,13 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    @Override // Override because some tests (e.g. testKeyspaceNameAmbiguity) cause table listing failure
+    public void testShowInformationSchemaTables()
+    {
+        executeExclusively(super::testShowInformationSchemaTables);
+    }
+
+    @Test
     @Override // Override because some tests (e.g. testKeyspaceNameAmbiguity, testNativeQueryCaseSensitivity) cause column listing failure
     public void testSelectInformationSchemaColumns()
     {
@@ -958,6 +965,9 @@ public class TestCassandraConnectorTest
 
         session.execute("DROP KEYSPACE \"KeYsPaCe_3\"");
         session.execute("DROP KEYSPACE \"kEySpAcE_3\"");
+        // Wait until the schema becomes invisible to Trino. Otherwise, testSelectInformationSchemaColumns may fail due to ambiguous schema names.
+        assertEventually(() -> assertThat(computeActual("SHOW SCHEMAS FROM cassandra").getOnlyColumnAsSet())
+                .doesNotContain("keyspace_3"));
     }
 
     @Test
@@ -1479,6 +1489,8 @@ public class TestCassandraConnectorTest
                 "VALUES (1, 2)");
 
         onCassandra("DROP TABLE tpch." + tableName);
+        // Wait until the table becomes invisible to Trino. Otherwise, testSelectInformationSchemaColumns may fail due to ambiguous column names.
+        assertEventually(() -> assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse());
     }
 
     @Test
