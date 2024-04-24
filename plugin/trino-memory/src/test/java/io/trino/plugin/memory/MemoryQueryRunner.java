@@ -47,8 +47,8 @@ public final class MemoryQueryRunner
     public static class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
-        private List<TpchTable<?>> initialTables = ImmutableList.of();
         private ImmutableMap.Builder<String, String> memoryProperties = ImmutableMap.builder();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
         protected Builder()
         {
@@ -56,12 +56,6 @@ public final class MemoryQueryRunner
                     .setCatalog(CATALOG)
                     .setSchema("default")
                     .build());
-        }
-
-        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
-        {
-            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
-            return self();
         }
 
         public Builder setMemoryProperties(Map<String, String> memoryProperties)
@@ -74,6 +68,12 @@ public final class MemoryQueryRunner
         public Builder addMemoryProperty(String key, String value)
         {
             this.memoryProperties.put(key, value);
+            return self();
+        }
+
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
             return self();
         }
 
