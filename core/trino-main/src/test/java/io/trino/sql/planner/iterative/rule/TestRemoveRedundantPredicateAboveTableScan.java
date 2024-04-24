@@ -286,7 +286,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                         nationKeyColumnHandle, NullableValue.of(BIGINT, (long) 44))))))
                 .matches(
                         filter(
-                                ifExpression(new Comparison(EQUAL, new Reference(VARCHAR, "name"), new Constant(VARCHAR, Slices.utf8Slice("x"))), TRUE, FALSE),
+                                new Comparison(EQUAL, new Reference(VARCHAR, "name"), new Constant(VARCHAR, Slices.utf8Slice("x"))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of(
