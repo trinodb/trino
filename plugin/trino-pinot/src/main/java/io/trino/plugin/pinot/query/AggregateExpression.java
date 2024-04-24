@@ -13,27 +13,24 @@
  */
 package io.trino.plugin.pinot.query;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.pinot.PinotColumnHandle;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class AggregateExpression
+public record AggregateExpression(String function, String argument, boolean returnNullOnEmptyGroup)
 {
-    private final String function;
-    private final String argument;
-    private final boolean returnNullOnEmptyGroup;
+    public AggregateExpression
+    {
+        requireNonNull(function, "function is null");
+        requireNonNull(argument, "argument is null");
+    }
 
     public static AggregateExpression replaceIdentifier(AggregateExpression aggregationExpression, PinotColumnHandle columnHandle)
     {
-        return new AggregateExpression(aggregationExpression.getFunction(), stripDoubleQuotes(columnHandle.getExpression()), aggregationExpression.isReturnNullOnEmptyGroup());
+        return new AggregateExpression(aggregationExpression.function(), stripDoubleQuotes(columnHandle.getExpression()), aggregationExpression.returnNullOnEmptyGroup());
     }
 
     private static String stripDoubleQuotes(String expression)
@@ -42,70 +39,13 @@ public class AggregateExpression
         return expression.substring(1, expression.length() - 1).replaceAll("\"\"", "\"");
     }
 
-    @JsonCreator
-    public AggregateExpression(@JsonProperty String function, @JsonProperty String argument, @JsonProperty boolean returnNullOnEmptyGroup)
-    {
-        this.function = requireNonNull(function, "function is null");
-        this.argument = requireNonNull(argument, "argument is null");
-        this.returnNullOnEmptyGroup = returnNullOnEmptyGroup;
-    }
-
-    @JsonProperty
-    public String getFunction()
-    {
-        return function;
-    }
-
-    @JsonProperty
-    public String getArgument()
-    {
-        return argument;
-    }
-
-    @JsonProperty
-    public boolean isReturnNullOnEmptyGroup()
-    {
-        return returnNullOnEmptyGroup;
-    }
-
-    public String toFieldName()
+    public String fieldName()
     {
         return format("%s(%s)", function, argument);
     }
 
-    public String toExpression()
+    public String expression()
     {
         return format("%s(%s)", function, quoteIdentifier(argument));
-    }
-
-    @Override
-    public boolean equals(Object other)
-    {
-        if (this == other) {
-            return true;
-        }
-        if (!(other instanceof AggregateExpression)) {
-            return false;
-        }
-        AggregateExpression that = (AggregateExpression) other;
-        return that.function.equals(function) &&
-                that.argument.equals(argument) &&
-                that.returnNullOnEmptyGroup == returnNullOnEmptyGroup;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(function, argument, returnNullOnEmptyGroup);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("function", function)
-                .add("argument", argument)
-                .add("returnNullOnEmptyGroup", returnNullOnEmptyGroup)
-                .toString();
     }
 }
