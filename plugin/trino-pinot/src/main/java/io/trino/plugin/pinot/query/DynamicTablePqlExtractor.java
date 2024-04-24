@@ -115,8 +115,8 @@ public final class DynamicTablePqlExtractor
     {
         requireNonNull(orderByExpression, "orderByExpression is null");
         StringBuilder builder = new StringBuilder()
-                .append(orderByExpression.getExpression());
-        if (!orderByExpression.isAsc()) {
+                .append(orderByExpression.expression());
+        if (!orderByExpression.asc()) {
             builder.append(" DESC");
         }
         return builder.toString();
