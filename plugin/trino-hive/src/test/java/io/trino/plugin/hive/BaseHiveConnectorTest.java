@@ -2167,7 +2167,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testEmptyBucketedTable(Session baseSession, HiveStorageFormat storageFormat, boolean createEmpty)
     {
-        String tableName = "test_empty_bucketed_table";
+        String tableName = "test_empty_bucketed_table" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2218,7 +2218,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testBucketedTable(Session session, HiveStorageFormat storageFormat, boolean createEmpty)
     {
-        String tableName = "test_bucketed_table";
+        String tableName = "test_bucketed_table" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2455,7 +2455,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreatePartitionedBucketedTableAsFewRows(Session session, HiveStorageFormat storageFormat, boolean createEmpty)
     {
-        String tableName = "test_create_partitioned_bucketed_table_as_few_rows";
+        String tableName = "test_create_partitioned_bucketed_table_as_few_rows" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2496,7 +2496,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreatePartitionedBucketedTableAs(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_create_partitioned_bucketed_table_as";
+        String tableName = "test_create_partitioned_bucketed_table_as" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2530,7 +2530,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreatePartitionedBucketedTableWithNullsAs(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_create_partitioned_bucketed_table_with_nulls_as";
+        String tableName = "test_create_partitioned_bucketed_table_with_nulls_as" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2579,7 +2579,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testUnpartitionedInsertWithMultipleFiles()
     {
-        String tableName = "test_unpartitioned_insert_with_multiple_files";
+        String tableName = "test_unpartitioned_insert_with_multiple_files" + randomNameSuffix();
         try {
             @Language("SQL") String createTargetTable = "" +
                     "CREATE TABLE " + tableName + " " +
@@ -2666,7 +2666,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_create_partitioned_bucketed_table_as_with_union_all";
+        String tableName = "test_create_partitioned_bucketed_table_as_with_union_all" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2735,7 +2735,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreateInvalidBucketedTable(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_create_invalid_bucketed_table";
+        String tableName = "test_create_invalid_bucketed_table" + randomNameSuffix();
 
         assertThatThrownBy(() -> computeActual("" +
                 "CREATE TABLE " + tableName + " (" +
@@ -2836,7 +2836,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedBucketedTableFewRows(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_partitioned_bucketed_table_few_rows";
+        String tableName = "test_insert_partitioned_bucketed_table_few_rows" + randomNameSuffix();
 
         assertUpdate(session, "" +
                 "CREATE TABLE " + tableName + " (" +
@@ -2861,7 +2861,7 @@ public abstract class BaseHiveConnectorTest
 
         verifyPartitionedBucketedTableAsFewRows(storageFormat, tableName);
 
-        assertUpdate(session, "DROP TABLE test_insert_partitioned_bucketed_table_few_rows");
+        assertUpdate(session, "DROP TABLE " + tableName);
         assertThat(getQueryRunner().tableExists(session, tableName)).isFalse();
     }
 
@@ -2889,7 +2889,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCastNullToColumnTypes()
     {
-        String tableName = "test_cast_null_to_column_types";
+        String tableName = "test_cast_null_to_column_types" + randomNameSuffix();
 
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
@@ -2909,7 +2909,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCreateEmptyNonBucketedPartition()
     {
-        String tableName = "test_insert_empty_partitioned_unbucketed_table";
+        String tableName = "test_insert_empty_partitioned_unbucketed_table" + randomNameSuffix();
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
                 "  dummy_col bigint," +
@@ -2934,7 +2934,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testUnregisterRegisterPartition()
     {
-        String tableName = "test_register_partition_for_table";
+        String tableName = "test_register_partition_for_table" + randomNameSuffix();
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
                 "  dummy_col bigint," +
@@ -3001,7 +3001,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreateEmptyBucketedPartition(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_empty_partitioned_bucketed_table";
+        String tableName = "test_insert_empty_partitioned_bucketed_table" + randomNameSuffix();
         createPartitionedBucketedTable(session, tableName, storageFormat);
 
         List<String> orderStatusList = ImmutableList.of("F", "O", "P");
@@ -3045,7 +3045,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedBucketedTable(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_partitioned_bucketed_table";
+        String tableName = "test_insert_partitioned_bucketed_table" + randomNameSuffix();
         createPartitionedBucketedTable(getSession(), tableName, storageFormat);
 
         List<String> orderStatusList = ImmutableList.of("F", "O", "P");
@@ -3093,7 +3093,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_partitioned_bucketed_table_with_union_all";
+        String tableName = "test_insert_partitioned_bucketed_table_with_union_all" + randomNameSuffix();
 
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
@@ -3135,7 +3135,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testInsertTwiceToSamePartitionedBucket()
     {
-        String tableName = "test_insert_twice_to_same_partitioned_bucket";
+        String tableName = "test_insert_twice_to_same_partitioned_bucket" + randomNameSuffix();
         createPartitionedBucketedTable(getSession(), tableName, HiveStorageFormat.RCBINARY);
 
         String insert = "INSERT INTO " + tableName +
@@ -3315,7 +3315,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedTableExistingPartition(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_partitioned_table_existing_partition";
+        String tableName = "test_insert_partitioned_table_existing_partition" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -3373,7 +3373,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedTableOverwriteExistingPartition(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_partitioned_table_overwrite_existing_partition";
+        String tableName = "test_insert_partitioned_table_overwrite_existing_partition" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -3489,7 +3489,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testPartitionPerScanLimit()
     {
-        String tableName = "test_partition_per_scan_limit";
+        String tableName = "test_partition_per_scan_limit" + randomNameSuffix();
         String partitionsTable = "\"" + tableName + "$partitions\"";
 
         @Language("SQL") String createTable = "" +
@@ -3561,7 +3561,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testPartitionPerScanLimitWithMultiplePartitionColumns()
     {
-        String tableName = "test_multi_partition_per_scan_limit";
+        String tableName = "test_multi_partition_per_scan_limit" + randomNameSuffix();
         String partitionsTable = "\"" + tableName + "$partitions\"";
 
         assertUpdate("" +
@@ -3620,7 +3620,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testShowColumnsFromPartitions()
     {
-        String tableName = "test_show_columns_from_partitions";
+        String tableName = "test_show_columns_from_partitions" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -3691,7 +3691,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertUnpartitionedTable(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_unpartitioned_table";
+        String tableName = "test_insert_unpartitioned_table" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -3985,7 +3985,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testRows(Session session, HiveStorageFormat format)
     {
-        String tableName = "test_dereferences";
+        String tableName = "test_dereferences" + randomNameSuffix();
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName +
                 " WITH (" +
@@ -4013,7 +4013,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testRowsWithNulls(Session session, HiveStorageFormat format)
     {
-        String tableName = "test_dereferences_with_nulls";
+        String tableName = "test_dereferences_with_nulls" + randomNameSuffix();
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + "\n" +
                 "(col0 BIGINT, col1 row(f0 BIGINT, f1 BIGINT), col2 row(f0 BIGINT, f1 ROW(f0 BIGINT, f1 BIGINT)))\n" +
@@ -5747,7 +5747,7 @@ public abstract class BaseHiveConnectorTest
                 .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
                 .build();
 
-        String tableName = "test_parquet_by_column_index";
+        String tableName = "test_parquet_by_column_index" + randomNameSuffix();
 
         assertUpdate(sessionUsingColumnIndex, format(
                 "CREATE TABLE %s(" +
@@ -5905,7 +5905,7 @@ public abstract class BaseHiveConnectorTest
                     .setCatalogSessionProperty(catalog, "parquet_ignore_statistics", String.valueOf(ignoreStatistics))
                     .build();
 
-            String tableName = "test_parquet_ignore_statistics";
+            String tableName = "test_parquet_ignore_statistics" + randomNameSuffix();
 
             assertUpdate(session, format(
                     "CREATE TABLE %s(" +
@@ -5937,7 +5937,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testNestedColumnWithDuplicateName()
     {
-        String tableName = "test_nested_column_with_duplicate_name";
+        String tableName = "test_nested_column_with_duplicate_name" + randomNameSuffix();
 
         assertUpdate(format(
                 "CREATE TABLE %s(" +
@@ -5963,7 +5963,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testParquetNaNStatistics()
     {
-        String tableName = "test_parquet_nan_statistics";
+        String tableName = "test_parquet_nan_statistics" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (c_double DOUBLE, c_real REAL, c_string VARCHAR) WITH (format = 'PARQUET')");
         assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), cast(nan() as REAL), 'all nan')", 1);
@@ -6341,7 +6341,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testShowColumnMetadata()
     {
-        String tableName = "test_show_column_table";
+        String tableName = "test_show_column_table" + randomNameSuffix();
 
         @Language("SQL") String createTable = "CREATE TABLE " + tableName + " (a bigint, b varchar, c double)";
 
@@ -6504,7 +6504,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCollectColumnStatisticsOnCreateTable()
     {
-        String tableName = "test_collect_column_statistics_on_create_table";
+        String tableName = "test_collect_column_statistics_on_create_table" + randomNameSuffix();
         assertUpdate(format("" +
                 "CREATE TABLE %s " +
                 "WITH ( " +
@@ -6565,7 +6565,7 @@ public abstract class BaseHiveConnectorTest
     {
         Session nanosecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS);
 
-        String tableName = "test_stats_on_create_timestamp_with_precision";
+        String tableName = "test_stats_on_create_timestamp_with_precision" + randomNameSuffix();
 
         try {
             assertUpdate(nanosecondsTimestamp,
@@ -6597,7 +6597,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCollectColumnStatisticsOnInsert()
     {
-        String tableName = "test_collect_column_statistics_on_insert";
+        String tableName = "test_collect_column_statistics_on_insert" + randomNameSuffix();
         assertUpdate(format("" +
                 "CREATE TABLE %s ( " +
                 "   c_boolean BOOLEAN, " +
@@ -6666,7 +6666,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCollectColumnStatisticsOnInsertToEmptyTable()
     {
-        String tableName = "test_collect_column_statistics_empty_table";
+        String tableName = "test_collect_column_statistics_empty_table" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (col INT)", tableName));
 
@@ -6688,7 +6688,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCollectColumnStatisticsOnInsertToPartiallyAnalyzedTable()
     {
-        String tableName = "test_collect_column_statistics_partially_analyzed_table";
+        String tableName = "test_collect_column_statistics_partially_analyzed_table" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (col INT, col2 INT)", tableName));
 
@@ -6730,7 +6730,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzeEmptyTable()
     {
-        String tableName = "test_analyze_empty_table";
+        String tableName = "test_analyze_empty_table" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (c_bigint BIGINT, c_varchar VARCHAR(2))", tableName));
         assertUpdate("ANALYZE " + tableName, 0);
     }
@@ -6738,7 +6738,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testInvalidAnalyzePartitionedTable()
     {
-        String tableName = "test_invalid_analyze_partitioned_table";
+        String tableName = "test_invalid_analyze_partitioned_table" + randomNameSuffix();
 
         // Test table does not exist
         assertQueryFails("ANALYZE " + tableName, format(".*Table 'hive.tpch.%s' does not exist.*", tableName));
@@ -6765,7 +6765,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testInvalidAnalyzeUnpartitionedTable()
     {
-        String tableName = "test_invalid_analyze_unpartitioned_table";
+        String tableName = "test_invalid_analyze_unpartitioned_table" + randomNameSuffix();
 
         // Test table does not exist
         assertQueryFails("ANALYZE " + tableName, ".*Table.*does not exist.*");
@@ -6783,7 +6783,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzePartitionedTable()
     {
-        String tableName = "test_analyze_partitioned_table";
+        String tableName = "test_analyze_partitioned_table" + randomNameSuffix();
         createPartitionedTableForAnalyzeTest(tableName);
 
         // No column stats before ANALYZE
@@ -6992,7 +6992,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzePartitionedTableWithColumnSubset()
     {
-        String tableName = "test_analyze_columns_partitioned_table";
+        String tableName = "test_analyze_columns_partitioned_table" + randomNameSuffix();
         createPartitionedTableForAnalyzeTest(tableName);
 
         // No column stats before ANALYZE
@@ -7200,7 +7200,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzeUnpartitionedTable()
     {
-        String tableName = "test_analyze_unpartitioned_table";
+        String tableName = "test_analyze_unpartitioned_table" + randomNameSuffix();
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // No column stats before ANALYZE
@@ -7250,7 +7250,7 @@ public abstract class BaseHiveConnectorTest
         Session microsecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.MICROSECONDS);
         Session millisecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.MILLISECONDS);
 
-        String tableName = "test_analyze_timestamp_with_precision";
+        String tableName = "test_analyze_timestamp_with_precision" + randomNameSuffix();
 
         try {
             assertUpdate(
@@ -7304,7 +7304,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testInvalidColumnsAnalyzeTable()
     {
-        String tableName = "test_invalid_analyze_table";
+        String tableName = "test_invalid_analyze_table" + randomNameSuffix();
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // Specifying a null column name is not cool
@@ -7328,7 +7328,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzeUnpartitionedTableWithColumnSubset()
     {
-        String tableName = "test_analyze_columns_unpartitioned_table";
+        String tableName = "test_analyze_columns_unpartitioned_table" + randomNameSuffix();
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // No column stats before ANALYZE
@@ -7367,7 +7367,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzeUnpartitionedTableWithEmptyColumnSubset()
     {
-        String tableName = "test_analyze_columns_unpartitioned_table_with_empty_column_subset";
+        String tableName = "test_analyze_columns_unpartitioned_table_with_empty_column_subset" + randomNameSuffix();
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // Clear table stats
@@ -7409,7 +7409,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testDropStatsPartitionedTable()
     {
-        String tableName = "test_drop_stats_partitioned_table";
+        String tableName = "test_drop_stats_partitioned_table" + randomNameSuffix();
         createPartitionedTableForAnalyzeTest(tableName);
 
         // Run analyze on the entire table
@@ -7697,7 +7697,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testDropStatsUnpartitionedTable()
     {
-        String tableName = "test_drop_all_stats_unpartitioned_table";
+        String tableName = "test_drop_all_stats_unpartitioned_table" + randomNameSuffix();
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // Run analyze on the whole table
@@ -7832,7 +7832,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testInsertMultipleColumnsFromSameChannel()
     {
-        String tableName = "test_insert_multiple_columns_same_channel";
+        String tableName = "test_insert_multiple_columns_same_channel" + randomNameSuffix();
         assertUpdate(format("" +
                 "CREATE TABLE %s ( " +
                 "   c_bigint_1 BIGINT, " +
@@ -7877,7 +7877,7 @@ public abstract class BaseHiveConnectorTest
     public void testCreateAvroTableWithSchemaUrl()
             throws Exception
     {
-        String tableName = "test_create_avro_table_with_schema_url";
+        String tableName = "test_create_avro_table_with_schema_url" + randomNameSuffix();
         TrinoFileSystem fileSystem = getTrinoFileSystem();
         Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
         fileSystem.createDirectory(tempDir);
@@ -8024,7 +8024,7 @@ public abstract class BaseHiveConnectorTest
     protected void testAlterAvroTableWithSchemaUrl(boolean renameColumn, boolean addColumn, boolean dropColumn)
             throws Exception
     {
-        String tableName = "test_alter_avro_table_with_schema_url";
+        String tableName = "test_alter_avro_table_with_schema_url" + randomNameSuffix();
         TrinoFileSystem fileSystem = getTrinoFileSystem();
         Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
         fileSystem.createDirectory(tempDir);
@@ -8137,7 +8137,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testUseSortedProperties()
     {
-        String tableName = "test_propagate_table_scan_sorting_properties";
+        String tableName = "test_propagate_table_scan_sorting_properties" + randomNameSuffix();
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s " +
                         "WITH (" +
@@ -8174,7 +8174,7 @@ public abstract class BaseHiveConnectorTest
         Session session = Session.builder(baseSession)
                 .setCatalogSessionProperty(baseSession.getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
                 .build();
-        String tableName = "test_table_with_compression_" + compressionCodec;
+        String tableName = "test_table_with_compression_" + compressionCodec + randomNameSuffix();
         String createTableSql = format("CREATE TABLE %s WITH (format = '%s') AS TABLE tpch.tiny.nation", tableName, storageFormat);
         // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
         boolean unsupported = (storageFormat == HiveStorageFormat.PARQUET || storageFormat == HiveStorageFormat.AVRO) && compressionCodec == HiveCompressionCodec.LZ4;
@@ -8204,7 +8204,7 @@ public abstract class BaseHiveConnectorTest
         Session session = Session.builder(baseSession)
                 .setCatalogSessionProperty(baseSession.getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
                 .build();
-        String tableName = "test_table_with_compression_" + compressionCodec;
+        String tableName = "test_table_bucket_with_compression_" + compressionCodec + randomNameSuffix();
         String createTableSql = format("CREATE TABLE %s WITH (format = '%s', bucketed_by = ARRAY['regionkey'], bucket_count = 7) AS TABLE tpch.tiny.nation", tableName, storageFormat);
         // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
         boolean unsupported = (storageFormat == HiveStorageFormat.PARQUET || storageFormat == HiveStorageFormat.AVRO) && compressionCodec == HiveCompressionCodec.LZ4;
@@ -8226,7 +8226,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testSelectWithNoColumns(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_select_with_no_columns";
+        String tableName = "test_select_with_no_columns" + randomNameSuffix();
         @Language("SQL") String createTable = format(
                 "CREATE TABLE %s (col0) WITH (format = '%s') AS VALUES 5, 6, 7",
                 tableName,
@@ -8934,7 +8934,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAutoPurgeProperty()
     {
-        String tableName = "test_auto_purge_property";
+        String tableName = "test_auto_purge_property" + randomNameSuffix();
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s " +
                         "AS " +
