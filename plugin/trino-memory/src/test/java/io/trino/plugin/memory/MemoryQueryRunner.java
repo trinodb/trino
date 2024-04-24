@@ -16,7 +16,6 @@ package io.trino.plugin.memory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -53,7 +52,10 @@ public final class MemoryQueryRunner
 
         protected Builder()
         {
-            super(createSession());
+            super(testSessionBuilder()
+                    .setCatalog(CATALOG)
+                    .setSchema("default")
+                    .build());
         }
 
         public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
@@ -96,14 +98,6 @@ public final class MemoryQueryRunner
                 closeAllSuppress(e, queryRunner);
                 throw e;
             }
-        }
-
-        private static Session createSession()
-        {
-            return testSessionBuilder()
-                    .setCatalog(CATALOG)
-                    .setSchema("default")
-                    .build();
         }
     }
 
