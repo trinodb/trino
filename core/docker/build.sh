@@ -9,8 +9,9 @@ Builds the Trino Docker image
 
 -h       Display help
 -a       Build the specified comma-separated architectures, defaults to amd64,arm64,ppc64le
+-b       Build the Trino release with the base image tag
 -r       Build the specified Trino release version, downloads all required artifacts
--j       Build the Trino release with specified Temurin JDK release
+-t       Build the Trino release with specified Temurin JDK release
 EOF
 }
 
@@ -24,17 +25,16 @@ ARCHITECTURES=(amd64 arm64 ppc64le)
 BASE_IMAGE_TAG=
 TRINO_VERSION=
 
-<<<<<<< HEAD
-while getopts ":a:h:r:j:t:" o; do
-=======
 # Must match https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames
 TEMURIN_RELEASE=$(cat "${SOURCE_DIR}/.temurin-release")
 
-while getopts ":a:h:r:t:" o; do
->>>>>>> 444
+while getopts ":a:b:h:r:t" o; do
     case "${o}" in
         a)
             IFS=, read -ra ARCHITECTURES <<< "$OPTARG"
+            ;;
+        b)
+            BASE_IMAGE_TAG="${OPTARG}"
             ;;
         r)
             TRINO_VERSION=${OPTARG}
@@ -45,9 +45,6 @@ while getopts ":a:h:r:t:" o; do
             ;;
         t)
             TEMURIN_RELEASE="${OPTARG}"
-            ;;
-        t)
-            BASE_IMAGE_TAG="${OPTARG}"
             ;;
         *)
             usage

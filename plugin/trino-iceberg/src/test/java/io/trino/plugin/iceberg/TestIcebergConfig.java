@@ -131,13 +131,9 @@ public class TestIcebergConfig
                 .setCatalogWarehouse("s3://bucket/root")
                 .setCatalogCacheSize(3)
                 .setSortedWritingEnabled(false)
-<<<<<<< HEAD
-                .setQueryPartitionFilterRequired(true);
-=======
                 .setQueryPartitionFilterRequired(true)
                 .setSplitManagerThreads(42);
 
->>>>>>> 444
         assertFullMapping(properties, expected);
     }
 

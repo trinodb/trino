@@ -347,13 +347,13 @@
             <artifactId>trino-filesystem-s3</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!--
+
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
             <scope>runtime</scope>
         </dependency>
-        -->
+
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
@@ -382,12 +382,6 @@
         </dependency>
 
         <dependency>
-<<<<<<< HEAD
-            <groupId>cccs.ap.iceberg</groupId>
-            <artifactId>iceberg-core</artifactId>
-            <classifier>tests</classifier>
-            <scope>test</scope>
-=======
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>auth</artifactId>
             <scope>runtime</scope>
@@ -415,7 +409,13 @@
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sts</artifactId>
             <scope>runtime</scope>
->>>>>>> 444
+        </dependency>
+
+        <dependency>
+            <groupId>cccs.ap.iceberg</groupId>
+            <artifactId>iceberg-core</artifactId>
+            <classifier>tests</classifier>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -573,20 +573,8 @@
         </dependency>
 
         <dependency>
-<<<<<<< HEAD
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-=======
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-core</artifactId>
-            <classifier>tests</classifier>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-hadoop</artifactId>
->>>>>>> 444
             <scope>test</scope>
         </dependency>
 
