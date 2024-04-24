@@ -340,6 +340,30 @@ class TestSqlFunctions
     }
 
     @Test
+    void testLoop()
+    {
+        @Language("SQL") String sql = """
+                FUNCTION test()
+                RETURNS bigint
+                BEGIN
+                  DECLARE a, b int DEFAULT 0;
+                  top: LOOP
+                    SET a = a + 1;
+                    IF a < 3 THEN
+                      ITERATE top;
+                    END IF;
+                    SET b = b + 1;
+                    IF a > 6 THEN
+                      LEAVE top;
+                    END IF;
+                  END LOOP;
+                  RETURN b;
+                END
+                """;
+        assertFunction(sql, handle -> assertThat(handle.invoke()).isEqualTo(5L));
+    }
+
+    @Test
     void testReuseLabels()
     {
         @Language("SQL") String sql = """
