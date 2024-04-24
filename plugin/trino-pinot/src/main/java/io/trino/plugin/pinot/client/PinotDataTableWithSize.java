@@ -15,24 +15,12 @@ package io.trino.plugin.pinot.client;
 
 import org.apache.pinot.common.datatable.DataTable;
 
-public class PinotDataTableWithSize
+import static java.util.Objects.requireNonNull;
+
+public record PinotDataTableWithSize(DataTable dataTable, long estimatedSizeInBytes)
 {
-    private final DataTable dataTable;
-    private final long estimatedSizeInBytes;
-
-    public PinotDataTableWithSize(DataTable dataTable, long estimatedSizeInBytes)
+    public PinotDataTableWithSize
     {
-        this.dataTable = dataTable;
-        this.estimatedSizeInBytes = estimatedSizeInBytes;
-    }
-
-    public DataTable getDataTable()
-    {
-        return dataTable;
-    }
-
-    public long getEstimatedSizeInBytes()
-    {
-        return estimatedSizeInBytes;
+        requireNonNull(dataTable, "dataTable is null");
     }
 }

@@ -112,10 +112,10 @@ public class PinotLegacyDataFetcher
         long startTimeNanos = System.nanoTime();
         try {
             queryPinot().forEachRemaining(dataTableWithSize -> {
-                checkExceptions(dataTableWithSize.getDataTable(), split, query);
-                rowCountChecker.checkTooManyRows(dataTableWithSize.getDataTable());
+                checkExceptions(dataTableWithSize.dataTable(), split, query);
+                rowCountChecker.checkTooManyRows(dataTableWithSize.dataTable());
                 dataTableList.add(dataTableWithSize);
-                estimatedMemoryUsageInBytes += dataTableWithSize.getEstimatedSizeInBytes();
+                estimatedMemoryUsageInBytes += dataTableWithSize.estimatedSizeInBytes();
             });
 
             isPinotDataFetched = true;
@@ -129,7 +129,7 @@ public class PinotLegacyDataFetcher
     public PinotDataTableWithSize getNextDataTable()
     {
         PinotDataTableWithSize dataTableWithSize = dataTableList.pop();
-        estimatedMemoryUsageInBytes -= dataTableWithSize.getEstimatedSizeInBytes();
+        estimatedMemoryUsageInBytes -= dataTableWithSize.estimatedSizeInBytes();
         return dataTableWithSize;
     }
 
