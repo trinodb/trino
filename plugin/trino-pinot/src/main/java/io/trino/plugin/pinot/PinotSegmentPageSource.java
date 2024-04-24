@@ -128,12 +128,12 @@ public class PinotSegmentPageSource
         while (!pinotDataFetcher.endOfData() && pageSizeBytes < targetSegmentPageSizeBytes) {
             // To reduce memory usage, remove dataTable from dataTableList once it's processed.
             if (currentDataTable != null) {
-                estimatedMemoryUsageInBytes -= currentDataTable.getEstimatedSizeInBytes();
+                estimatedMemoryUsageInBytes -= currentDataTable.estimatedSizeInBytes();
             }
             currentDataTable = pinotDataFetcher.getNextDataTable();
-            estimatedMemoryUsageInBytes += currentDataTable.getEstimatedSizeInBytes();
-            pageSizeBytes += currentDataTable.getEstimatedSizeInBytes();
-            pageBuilder.declarePositions(currentDataTable.getDataTable().getNumberOfRows());
+            estimatedMemoryUsageInBytes += currentDataTable.estimatedSizeInBytes();
+            pageSizeBytes += currentDataTable.estimatedSizeInBytes();
+            pageBuilder.declarePositions(currentDataTable.dataTable().getNumberOfRows());
             for (int columnHandleIdx = 0; columnHandleIdx < columnHandles.size(); columnHandleIdx++) {
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(columnHandleIdx);
                 Type columnType = columnTypes.get(columnHandleIdx);
@@ -168,7 +168,7 @@ public class PinotSegmentPageSource
     private void writeBlock(BlockBuilder blockBuilder, Type columnType, int columnIdx)
     {
         Class<?> javaType = columnType.getJavaType();
-        DataSchema.ColumnDataType pinotColumnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIdx);
+        DataSchema.ColumnDataType pinotColumnType = currentDataTable.dataTable().getDataSchema().getColumnDataType(columnIdx);
         if (javaType.equals(boolean.class)) {
             writeBooleanBlock(blockBuilder, columnType, columnIdx);
         }
@@ -201,7 +201,7 @@ public class PinotSegmentPageSource
 
     private void writeBooleanBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
+        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
             columnType.writeBoolean(blockBuilder, getBoolean(i, columnIndex));
             completedBytes++;
         }
@@ -209,7 +209,7 @@ public class PinotSegmentPageSource
 
     private void writeLongBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
+        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
             columnType.writeLong(blockBuilder, getLong(i, columnIndex));
             completedBytes += Long.BYTES;
         }
@@ -217,7 +217,7 @@ public class PinotSegmentPageSource
 
     private void writeDoubleBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
+        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
             columnType.writeDouble(blockBuilder, getDouble(i, columnIndex));
             completedBytes += Double.BYTES;
         }
@@ -225,7 +225,7 @@ public class PinotSegmentPageSource
 
     private void writeSliceBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
+        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
             Slice slice = getSlice(i, columnIndex);
             columnType.writeSlice(blockBuilder, slice, 0, slice.length());
             completedBytes += slice.getBytes().length;
@@ -234,7 +234,7 @@ public class PinotSegmentPageSource
 
     private void writeArrayBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
+        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
             Block block = getArrayBlock(i, columnIndex);
             columnType.writeObject(blockBuilder, block);
             completedBytes += block.getSizeInBytes();
@@ -243,7 +243,7 @@ public class PinotSegmentPageSource
 
     private void writeShortTimestampBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
+        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
             // Trino is using micros since epoch for ShortTimestampType, Pinot uses millis since epoch.
             columnType.writeLong(blockBuilder, PinotTimestamps.toMicros(getLong(i, columnIndex)));
             completedBytes += Long.BYTES;
@@ -258,70 +258,70 @@ public class PinotSegmentPageSource
 
     private boolean getBoolean(int rowIdx, int columnIndex)
     {
-        return currentDataTable.getDataTable().getInt(rowIdx, columnIndex) != 0;
+        return currentDataTable.dataTable().getInt(rowIdx, columnIndex) != 0;
     }
 
     private long getLong(int rowIndex, int columnIndex)
     {
-        DataSchema.ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
+        DataSchema.ColumnDataType dataType = currentDataTable.dataTable().getDataSchema().getColumnDataType(columnIndex);
         // Note columnType in the dataTable could be different from the original columnType in the columnHandle.
         // e.g. when original column type is int/long and aggregation value is requested, the returned dataType from Pinot would be double.
         // So need to cast it back to the original columnType.
         return switch (dataType) {
-            case DOUBLE -> (long) currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
-            case INT -> currentDataTable.getDataTable().getInt(rowIndex, columnIndex);
-            case FLOAT -> floatToIntBits(currentDataTable.getDataTable().getFloat(rowIndex, columnIndex));
-            case LONG, TIMESTAMP -> currentDataTable.getDataTable().getLong(rowIndex, columnIndex);
+            case DOUBLE -> (long) currentDataTable.dataTable().getDouble(rowIndex, columnIndex);
+            case INT -> currentDataTable.dataTable().getInt(rowIndex, columnIndex);
+            case FLOAT -> floatToIntBits(currentDataTable.dataTable().getFloat(rowIndex, columnIndex));
+            case LONG, TIMESTAMP -> currentDataTable.dataTable().getLong(rowIndex, columnIndex);
             default -> throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), format("Unexpected pinot type: '%s'", dataType));
         };
     }
 
     private double getDouble(int rowIndex, int columnIndex)
     {
-        DataSchema.ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
+        DataSchema.ColumnDataType dataType = currentDataTable.dataTable().getDataSchema().getColumnDataType(columnIndex);
         if (dataType.equals(ColumnDataType.FLOAT)) {
-            return currentDataTable.getDataTable().getFloat(rowIndex, columnIndex);
+            return currentDataTable.dataTable().getFloat(rowIndex, columnIndex);
         }
-        return currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
+        return currentDataTable.dataTable().getDouble(rowIndex, columnIndex);
     }
 
     private Block getArrayBlock(int rowIndex, int columnIndex)
     {
         Type trinoType = getType(columnIndex);
         Type elementType = trinoType.getTypeParameters().get(0);
-        DataSchema.ColumnDataType columnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
+        DataSchema.ColumnDataType columnType = currentDataTable.dataTable().getDataSchema().getColumnDataType(columnIndex);
         BlockBuilder blockBuilder;
         switch (columnType) {
             case INT_ARRAY:
-                int[] intArray = currentDataTable.getDataTable().getIntArray(rowIndex, columnIndex);
+                int[] intArray = currentDataTable.dataTable().getIntArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, intArray.length);
                 for (int element : intArray) {
                     INTEGER.writeInt(blockBuilder, element);
                 }
                 break;
             case LONG_ARRAY:
-                long[] longArray = currentDataTable.getDataTable().getLongArray(rowIndex, columnIndex);
+                long[] longArray = currentDataTable.dataTable().getLongArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, longArray.length);
                 for (long element : longArray) {
                     BIGINT.writeLong(blockBuilder, element);
                 }
                 break;
             case FLOAT_ARRAY:
-                float[] floatArray = currentDataTable.getDataTable().getFloatArray(rowIndex, columnIndex);
+                float[] floatArray = currentDataTable.dataTable().getFloatArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, floatArray.length);
                 for (float element : floatArray) {
                     REAL.writeFloat(blockBuilder, element);
                 }
                 break;
             case DOUBLE_ARRAY:
-                double[] doubleArray = currentDataTable.getDataTable().getDoubleArray(rowIndex, columnIndex);
+                double[] doubleArray = currentDataTable.dataTable().getDoubleArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, doubleArray.length);
                 for (double element : doubleArray) {
                     elementType.writeDouble(blockBuilder, element);
                 }
                 break;
             case STRING_ARRAY:
-                String[] stringArray = currentDataTable.getDataTable().getStringArray(rowIndex, columnIndex);
+                String[] stringArray = currentDataTable.dataTable().getStringArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, stringArray.length);
                 for (String element : stringArray) {
                     Slice slice = getUtf8Slice(element);
@@ -337,7 +337,7 @@ public class PinotSegmentPageSource
     private Slice getSlice(int rowIndex, int columnIndex)
     {
         Type trinoType = getType(columnIndex);
-        DataTable dataTable = currentDataTable.getDataTable();
+        DataTable dataTable = currentDataTable.dataTable();
 
         if (trinoType instanceof VarcharType) {
             String field = dataTable.getString(rowIndex, columnIndex);
