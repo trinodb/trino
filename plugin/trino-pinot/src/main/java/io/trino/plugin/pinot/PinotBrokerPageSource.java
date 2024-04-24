@@ -115,7 +115,7 @@ public class PinotBrokerPageSource
             // The reason for the limit is that Pinot brokers allocate memory based on the limit size.
             // This is a temporary workaround to address https://github.com/apache/pinot/issues/7110
             if (currentRowCount.incrementAndGet() > limitForBrokerQueries) {
-                throw new PinotException(PINOT_EXCEPTION, Optional.of(query.getQuery()), format("Broker query returned '%s' rows, maximum allowed is '%s' rows.", currentRowCount.get(), limitForBrokerQueries));
+                throw new PinotException(PINOT_EXCEPTION, Optional.of(query.query()), format("Broker query returned '%s' rows, maximum allowed is '%s' rows.", currentRowCount.get(), limitForBrokerQueries));
             }
             BrokerResultRow row = resultIterator.next();
             for (int i = 0; i < decoders.size(); i++) {

@@ -25,12 +25,12 @@ public class PinotInsufficientServerResponseException
 {
     public PinotInsufficientServerResponseException(PinotQueryInfo query, int numberOfServersResponded, int numberOfServersQueried)
     {
-        this(query, format("Only %s out of %s servers responded for query %s", numberOfServersResponded, numberOfServersQueried, query.getQuery()));
+        this(query, format("Only %s out of %s servers responded for query %s", numberOfServersResponded, numberOfServersQueried, query.query()));
     }
 
     public PinotInsufficientServerResponseException(PinotQueryInfo query, String message)
     {
-        super(PINOT_INSUFFICIENT_SERVER_RESPONSE, Optional.of(query.getQuery()), message, true);
+        super(PINOT_INSUFFICIENT_SERVER_RESPONSE, Optional.of(query.query()), message, true);
     }
 
     public PinotInsufficientServerResponseException(String message)

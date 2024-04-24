@@ -535,14 +535,14 @@ public class PinotClient
 
     private BrokerResponseNative submitBrokerQueryJson(ConnectorSession session, PinotQueryInfo query)
     {
-        String queryRequest = QUERY_REQUEST_JSON_CODEC.toJson(new QueryRequest(query.getQuery()));
+        String queryRequest = QUERY_REQUEST_JSON_CODEC.toJson(new QueryRequest(query.query()));
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), retryNumber -> {
-            HttpUriBuilder httpUriBuilder = getBrokerHttpUriBuilder(getBrokerHost(query.getTable()));
+            HttpUriBuilder httpUriBuilder = getBrokerHttpUriBuilder(getBrokerHost(query.table()));
             URI queryPathUri = httpUriBuilder
                     .scheme(scheme)
                     .appendPath(QUERY_URL_PATH)
                     .build();
-            LOG.debug("Query '%s' on broker host '%s'", query.getQuery(), queryPathUri);
+            LOG.debug("Query '%s' on broker host '%s'", query.query(), queryPathUri);
             Request.Builder builder = Request.Builder.preparePost().setUri(queryPathUri);
 
             ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
@@ -558,8 +558,8 @@ public class PinotClient
                         .collect(joining(","));
                 throw new PinotException(
                         PINOT_EXCEPTION,
-                        Optional.of(query.getQuery()),
-                        format("Query %s encountered exception %s", query.getQuery(), processingExceptionMessage));
+                        Optional.of(query.query()),
+                        format("Query %s encountered exception %s", query.query(), processingExceptionMessage));
             }
             if (response.getNumServersQueried() == 0 || response.getNumServersResponded() == 0 || response.getNumServersQueried() > response.getNumServersResponded()) {
                 throw new PinotInsufficientServerResponseException(query, response.getNumServersResponded(), response.getNumServersQueried());
@@ -585,7 +585,7 @@ public class PinotClient
     public Iterator<BrokerResultRow> createResultIterator(ConnectorSession session, PinotQueryInfo query, List<PinotColumnHandle> columnHandles)
     {
         BrokerResponseNative response = submitBrokerQueryJson(session, query);
-        return fromResultTable(response, columnHandles, query.getGroupByClauses());
+        return fromResultTable(response, columnHandles, query.groupByClauses());
     }
 
     @VisibleForTesting

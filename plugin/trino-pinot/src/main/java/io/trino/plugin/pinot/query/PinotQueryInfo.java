@@ -13,76 +13,13 @@
  */
 package io.trino.plugin.pinot.query;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import static java.util.Objects.requireNonNull;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-
-public final class PinotQueryInfo
+public record PinotQueryInfo(String table, String query, int groupByClauses)
 {
-    private final String table;
-    private final String query;
-    private final int groupByClauses;
-
-    @JsonCreator
-    public PinotQueryInfo(
-            @JsonProperty("table") String table,
-            @JsonProperty("query") String query,
-            @JsonProperty("groupByClauses") int groupByClauses)
+    public PinotQueryInfo
     {
-        this.table = table;
-        this.query = query;
-        this.groupByClauses = groupByClauses;
-    }
-
-    @JsonProperty("query")
-    public String getQuery()
-    {
-        return query;
-    }
-
-    @JsonProperty("groupByClauses")
-    public int getGroupByClauses()
-    {
-        return groupByClauses;
-    }
-
-    @JsonProperty("table")
-    public String getTable()
-    {
-        return table;
-    }
-
-    @Override
-    public boolean equals(Object other)
-    {
-        if (this == other) {
-            return true;
-        }
-        if (!(other instanceof PinotQueryInfo)) {
-            return false;
-        }
-        PinotQueryInfo that = (PinotQueryInfo) other;
-        return table.equals(that.table) &&
-                query.equals(that.query) &&
-                groupByClauses == that.groupByClauses;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(table, query, groupByClauses);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("query", query)
-                .add("table", table)
-                .add("groupByClauses", groupByClauses)
-                .toString();
+        requireNonNull(table, "table is null");
+        requireNonNull(query, "query is null");
     }
 }
