@@ -15,6 +15,7 @@ package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -58,6 +59,7 @@ public final class MemoryQueryRunner
                     .build());
         }
 
+        @CanIgnoreReturnValue
         public Builder setMemoryProperties(Map<String, String> memoryProperties)
         {
             this.memoryProperties = ImmutableMap.<String, String>builder()
@@ -65,12 +67,14 @@ public final class MemoryQueryRunner
             return self();
         }
 
+        @CanIgnoreReturnValue
         public Builder addMemoryProperty(String key, String value)
         {
             this.memoryProperties.put(key, value);
             return self();
         }
 
+        @CanIgnoreReturnValue
         public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
