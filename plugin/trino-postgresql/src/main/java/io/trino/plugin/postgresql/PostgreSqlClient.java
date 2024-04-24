@@ -309,6 +309,8 @@ public class PostgreSqlClient
                 .add(new RewriteIn())
                 .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
                 .withTypeClass("numeric_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint", "decimal", "real", "double"))
+                .withTypeClass("string_type", ImmutableSet.of("char", "varchar"))
+                .map("reverse(value: string_type)").to("REVERSE(value)")
                 .map("$equal(left, right)").to("left = right")
                 .map("$not_equal(left, right)").to("left <> right")
                 .map("$identical(left, right)").to("left IS NOT DISTINCT FROM right")

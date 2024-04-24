@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.matching.Capture;
@@ -25,11 +26,12 @@ import io.trino.spi.connector.BasicRelationStatistics;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
-import io.trino.spi.connector.JoinType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Booleans;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Comparison.Operator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
@@ -37,6 +39,8 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.Patterns;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -44,9 +48,10 @@ import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
@@ -59,6 +64,8 @@ import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.Join.left;
 import static io.trino.sql.planner.plan.Patterns.Join.right;
+import static io.trino.sql.planner.plan.Patterns.project;
+import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
@@ -68,131 +75,145 @@ public class PushJoinIntoTableScan
 {
     private static final Capture<TableScanNode> LEFT_TABLE_SCAN = newCapture();
     private static final Capture<TableScanNode> RIGHT_TABLE_SCAN = newCapture();
+    private static final Capture<ProjectNode> LEFT_PROJECT = newCapture();
+    private static final Capture<ProjectNode> RIGHT_PROJECT = newCapture();
+    private final PlannerContext plannerContext;
+    private final ProjectSide projectSide;
+    private final Pattern<JoinNode> pattern;
 
-    private static final Pattern<JoinNode> PATTERN =
-            Patterns.join()
+    public static Set<Rule<?>> rules(PlannerContext plannerContext)
+    {
+        return ImmutableSet.of(
+                new PushJoinIntoTableScan(plannerContext, ProjectSide.LEFT),
+                new PushJoinIntoTableScan(plannerContext, ProjectSide.RIGHT),
+                new PushJoinIntoTableScan(plannerContext, ProjectSide.BOTH),
+                new PushJoinIntoTableScan(plannerContext, ProjectSide.NONE));
+    }
+
+    PushJoinIntoTableScan(PlannerContext plannerContext, ProjectSide projectSide)
+    {
+        this.projectSide = requireNonNull(projectSide, "projectSide is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.pattern = switch (projectSide) {
+            case LEFT -> Patterns.join()
+                    .with(left().matching(project().capturedAs(LEFT_PROJECT).with(source().matching(tableScan().capturedAs(LEFT_TABLE_SCAN)))))
+                    .with(right().matching(tableScan().capturedAs(RIGHT_TABLE_SCAN)));
+            case RIGHT -> Patterns.join()
+                    .with(left().matching(tableScan().capturedAs(LEFT_TABLE_SCAN)))
+                    .with(right().matching(project().capturedAs(RIGHT_PROJECT).with(source().matching(tableScan().capturedAs(RIGHT_TABLE_SCAN)))));
+            case BOTH -> Patterns.join()
+                    .with(left().matching(project().capturedAs(LEFT_PROJECT).with(source().matching(tableScan().capturedAs(LEFT_TABLE_SCAN)))))
+                    .with(right().matching(project().capturedAs(RIGHT_PROJECT).with(source().matching(tableScan().capturedAs(RIGHT_TABLE_SCAN)))));
+            case NONE -> Patterns.join()
                     .with(left().matching(tableScan().capturedAs(LEFT_TABLE_SCAN)))
                     .with(right().matching(tableScan().capturedAs(RIGHT_TABLE_SCAN)));
-
-    private final PlannerContext plannerContext;
-
-    public PushJoinIntoTableScan(PlannerContext plannerContext)
-    {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        };
     }
 
     @Override
     public Pattern<JoinNode> getPattern()
     {
-        return PATTERN;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isAllowPushdownIntoConnectors(session);
+        return pattern;
     }
 
     @Override
     public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
-        if (joinNode.isCrossJoin()) {
+        PlanNodes nodes = PlanNodes.create(captures, joinNode, projectSide);
+
+        if (nodes.join.isCrossJoin()) {
             return Result.empty();
         }
 
-        TableScanNode left = captures.get(LEFT_TABLE_SCAN);
-        TableScanNode right = captures.get(RIGHT_TABLE_SCAN);
+        if (nodes.leftScan.isUpdateTarget() || nodes.rightScan.isUpdateTarget()) {
+            // unexpected Join over for-update table scan
+            return Result.empty();
+        }
 
-        verify(!left.isUpdateTarget() && !right.isUpdateTarget(), "Unexpected Join over for-update table scan");
-
-        Expression effectiveFilter = getEffectiveFilter(joinNode);
+        Expression effectiveFilter = getJoinNodeEffectiveFilter(nodes.join, nodes.leftProject, nodes.rightProject);
         ConnectorExpressionTranslation translation = ConnectorExpressionTranslator.translateConjuncts(
                 context.getSession(),
                 effectiveFilter);
 
         if (!translation.remainingExpression().equals(Booleans.TRUE)) {
-            // TODO add extra filter node above join
             return Result.empty();
         }
 
-        if (left.getEnforcedConstraint().isNone() || right.getEnforcedConstraint().isNone()) {
+        if (nodes.leftScan.getEnforcedConstraint().isNone() || nodes.rightScan.getEnforcedConstraint().isNone()) {
             // bailing out on one of the tables empty; this is not interesting case which makes handling
             // enforced constraint harder below.
             return Result.empty();
         }
 
-        Map<String, ColumnHandle> leftAssignments = left.getAssignments().entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
+        Map<String, ColumnHandle> leftScanAssignments = nodes.leftScan.getAssignments().entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue));
 
-        Map<String, ColumnHandle> rightAssignments = right.getAssignments().entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
+        Map<String, ColumnHandle> rightScanAssignments = nodes.rightScan.getAssignments().entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue));
 
         /*
          * We are (lazily) computing estimated statistics for join node and left and right table
          * and passing those to connector via applyJoin.
          *
-         * There are a couple reasons for this approach:
+         * There are couple reasons for this approach:
          * - the engine knows how to estimate join and connector may not
          * - the engine may have cached stats for the table scans (within context.getStatsProvider()), so can be able to provide information more inexpensively
          * - in the future, the engine may be able to provide stats for table scan even in case when connector no longer can (see https://github.com/trinodb/trino/issues/6998)
          * - the pushdown feasibility assessment logic may be different (or configured differently) for different connectors/catalogs.
          */
-        JoinStatistics joinStatistics = getJoinStatistics(joinNode, left, right, context);
+        JoinStatistics joinStatistics = getJoinStatistics(nodes.join, nodes.leftScan, nodes.rightScan, context);
 
         Optional<JoinApplicationResult<TableHandle>> joinApplicationResult = plannerContext.getMetadata().applyJoin(
                 context.getSession(),
-                getJoinType(joinNode),
-                left.getTable(),
-                right.getTable(),
+                getJoinType(nodes.join),
+                nodes.leftScan.getTable(),
+                nodes.rightScan.getTable(),
                 translation.connectorExpression(),
-                // TODO we could pass only subset of assignments here, those which are needed to resolve translation.getPushableConditions
-                leftAssignments,
-                rightAssignments,
+                leftScanAssignments,
+                rightScanAssignments,
                 joinStatistics);
 
         if (joinApplicationResult.isEmpty()) {
             return Result.empty();
         }
 
-        TableHandle handle = joinApplicationResult.get().getTableHandle();
+        JoinApplicationResult<TableHandle> applyJoinResult = joinApplicationResult.get();
 
-        Map<ColumnHandle, ColumnHandle> leftColumnHandlesMapping = joinApplicationResult.get().getLeftColumnHandles();
-        Map<ColumnHandle, ColumnHandle> rightColumnHandlesMapping = joinApplicationResult.get().getRightColumnHandles();
-
+        Map<ColumnHandle, ColumnHandle> leftColumnHandlesMapping = applyJoinResult.getLeftColumnHandles();
+        Map<ColumnHandle, ColumnHandle> rightColumnHandlesMapping = applyJoinResult.getRightColumnHandles();
         ImmutableMap.Builder<Symbol, ColumnHandle> assignmentsBuilder = ImmutableMap.builder();
-        assignmentsBuilder.putAll(left.getAssignments().entrySet().stream().collect(toImmutableMap(
-                Map.Entry::getKey,
+        assignmentsBuilder.putAll(nodes.leftScan.getAssignments().entrySet().stream().collect(toImmutableMap(
+                Entry::getKey,
                 entry -> leftColumnHandlesMapping.get(entry.getValue()))));
-        assignmentsBuilder.putAll(right.getAssignments().entrySet().stream().collect(toImmutableMap(
-                Map.Entry::getKey,
+        assignmentsBuilder.putAll(nodes.rightScan.getAssignments().entrySet().stream().collect(toImmutableMap(
+                Entry::getKey,
                 entry -> rightColumnHandlesMapping.get(entry.getValue()))));
-        Map<Symbol, ColumnHandle> assignments = assignmentsBuilder.buildOrThrow();
+        Map<Symbol, ColumnHandle> tableScanAssignments = assignmentsBuilder.buildOrThrow();
 
-        // convert enforced constraint
-        io.trino.sql.planner.plan.JoinType joinType = joinNode.getType();
-        TupleDomain<ColumnHandle> leftConstraint = deriveConstraint(left.getEnforcedConstraint(), leftColumnHandlesMapping, joinType == RIGHT || joinType == FULL);
-        TupleDomain<ColumnHandle> rightConstraint = deriveConstraint(right.getEnforcedConstraint(), rightColumnHandlesMapping, joinType == LEFT || joinType == FULL);
+        TupleDomain<ColumnHandle> newEnforcedConstraint = calculateConstraint(
+                nodes,
+                leftColumnHandlesMapping,
+                rightColumnHandlesMapping);
 
-        TupleDomain<ColumnHandle> newEnforcedConstraint = TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>builder()
-                        // we are sure that domains map is present as we bailed out on isNone above
-                        .putAll(leftConstraint.getDomains().orElseThrow())
-                        .putAll(rightConstraint.getDomains().orElseThrow())
-                        .buildOrThrow());
+        Assignments projectAssignments = calculateProjectAssignments(nodes, tableScanAssignments);
 
         return Result.ofPlanNode(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
                         new TableScanNode(
-                                joinNode.getId(),
-                                handle,
-                                ImmutableList.copyOf(assignments.keySet()),
-                                assignments,
+                                nodes.join.getId(),
+                                applyJoinResult.getTableHandle(),
+                                ImmutableList.copyOf(tableScanAssignments.keySet()),
+                                tableScanAssignments,
                                 newEnforcedConstraint,
-                                deriveTableStatisticsForPushdown(context.getStatsProvider(), context.getSession(), joinApplicationResult.get().isPrecalculateStatistics(), joinNode),
+                                deriveTableStatisticsForPushdown(
+                                        context.getStatsProvider(),
+                                        context.getSession(),
+                                        applyJoinResult.isPrecalculateStatistics(),
+                                        nodes.join),
                                 false,
                                 Optional.empty()),
-                        Assignments.identity(joinNode.getOutputSymbols())));
+                        projectAssignments));
     }
 
     private JoinStatistics getJoinStatistics(JoinNode join, TableScanNode left, TableScanNode right, Context context)
@@ -230,7 +251,64 @@ public class PushJoinIntoTableScan
         };
     }
 
-    private TupleDomain<ColumnHandle> deriveConstraint(TupleDomain<ColumnHandle> constraint, Map<ColumnHandle, ColumnHandle> columnMapping, boolean nullable)
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isAllowPushdownIntoConnectors(session);
+    }
+
+    private record PlanNodes(JoinNode join, TableScanNode leftScan, TableScanNode rightScan, Optional<ProjectNode> leftProject, Optional<ProjectNode> rightProject)
+    {
+        public static PlanNodes create(Captures captures, JoinNode joinNode, ProjectSide projectSide)
+        {
+            return new PlanNodes(
+                    joinNode,
+                    captures.get(LEFT_TABLE_SCAN),
+                    captures.get(RIGHT_TABLE_SCAN),
+                    projectSide == ProjectSide.LEFT || projectSide == ProjectSide.BOTH ? Optional.of(captures.get(LEFT_PROJECT)) : Optional.empty(),
+                    projectSide == ProjectSide.RIGHT || projectSide == ProjectSide.BOTH ? Optional.of(captures.get(RIGHT_PROJECT)) : Optional.empty());
+        }
+    }
+
+    private static TupleDomain<ColumnHandle> calculateConstraint(
+            PlanNodes nodes,
+            Map<ColumnHandle, ColumnHandle> leftColumnHandlesMapping,
+            Map<ColumnHandle, ColumnHandle> rightColumnHandlesMapping)
+    {
+        JoinType joinType = nodes.join.getType();
+        TupleDomain<ColumnHandle> leftConstraint = deriveConstraint(nodes.leftScan.getEnforcedConstraint(), leftColumnHandlesMapping, joinType == RIGHT || joinType == FULL);
+        TupleDomain<ColumnHandle> rightConstraint = deriveConstraint(nodes.rightScan.getEnforcedConstraint(), rightColumnHandlesMapping, joinType == LEFT || joinType == FULL);
+        return TupleDomain.withColumnDomains(
+                ImmutableMap.<ColumnHandle, Domain>builder()
+                        .putAll(leftConstraint.getDomains().orElseThrow())
+                        .putAll(rightConstraint.getDomains().orElseThrow())
+                        .buildOrThrow());
+    }
+
+    private static Assignments calculateProjectAssignments(PlanNodes nodes, Map<Symbol, ColumnHandle> assignments)
+    {
+        Assignments.Builder builder = Assignments.builder();
+        nodes.join.getOutputSymbols().forEach(output -> {
+            if (assignments.containsKey(output)) {
+                builder.putIdentity(output);
+            }
+            else {
+                // look for missing output assignment in projections
+                Expression expression = findAssignment(output, nodes.leftProject)
+                        .or(() -> findAssignment(output, nodes.rightProject))
+                        .orElseThrow(() -> new IllegalStateException("Output %s not found".formatted(output)));
+                builder.put(output, expression);
+            }
+        });
+        return builder.build();
+    }
+
+    private static Optional<Expression> findAssignment(Symbol output, Optional<ProjectNode> projectNode)
+    {
+        return projectNode.flatMap(node -> Optional.ofNullable(node.getAssignments().get(output)));
+    }
+
+    private static TupleDomain<ColumnHandle> deriveConstraint(TupleDomain<ColumnHandle> constraint, Map<ColumnHandle, ColumnHandle> columnMapping, boolean nullable)
     {
         if (nullable) {
             constraint = constraint.transformDomains((columnHandle, domain) -> domain.union(onlyNull(domain.getType())));
@@ -238,22 +316,41 @@ public class PushJoinIntoTableScan
         return constraint.transformKeys(columnMapping::get);
     }
 
-    public Expression getEffectiveFilter(JoinNode node)
+    private static Expression getJoinNodeEffectiveFilter(JoinNode node, Optional<ProjectNode> leftProject, Optional<ProjectNode> rightProject)
     {
-        Expression effectiveFilter = and(node.getCriteria().stream().map(JoinNode.EquiJoinClause::toExpression).collect(toImmutableList()));
+        List<Expression> equiJoinClausesExpressions = node.getCriteria().stream()
+                .map(equiJoinClause -> getExpression(equiJoinClause, leftProject, rightProject))
+                .collect(toImmutableList());
+
+        Expression joinCriteriaEffectiveFilter = and(equiJoinClausesExpressions);
         if (node.getFilter().isPresent()) {
-            effectiveFilter = and(effectiveFilter, node.getFilter().get());
+            return and(joinCriteriaEffectiveFilter, node.getFilter().get());
         }
-        return effectiveFilter;
+        return joinCriteriaEffectiveFilter;
     }
 
-    private JoinType getJoinType(JoinNode joinNode)
+    private static Expression getExpression(EquiJoinClause equiJoinClause, Optional<ProjectNode> leftProjectNode, Optional<ProjectNode> rightProjectNode)
+    {
+        Expression leftExpression = leftProjectNode.map(assignments -> assignments.getAssignments().get(Symbol.from(equiJoinClause.getLeft().toSymbolReference())))
+                .orElse(equiJoinClause.getLeft().toSymbolReference());
+        Expression rightExpression = rightProjectNode.map(assignments -> assignments.getAssignments().get(Symbol.from(equiJoinClause.getRight().toSymbolReference())))
+                .orElse(equiJoinClause.getRight().toSymbolReference());
+
+        return new Comparison(Operator.EQUAL, leftExpression, rightExpression);
+    }
+
+    private io.trino.spi.connector.JoinType getJoinType(JoinNode joinNode)
     {
         return switch (joinNode.getType()) {
-            case INNER -> JoinType.INNER;
-            case LEFT -> JoinType.LEFT_OUTER;
-            case RIGHT -> JoinType.RIGHT_OUTER;
-            case FULL -> JoinType.FULL_OUTER;
+            case INNER -> io.trino.spi.connector.JoinType.INNER;
+            case LEFT -> io.trino.spi.connector.JoinType.LEFT_OUTER;
+            case RIGHT -> io.trino.spi.connector.JoinType.RIGHT_OUTER;
+            case FULL -> io.trino.spi.connector.JoinType.FULL_OUTER;
         };
+    }
+
+    enum ProjectSide
+    {
+        LEFT, RIGHT, BOTH, NONE
     }
 }
