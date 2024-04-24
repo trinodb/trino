@@ -333,11 +333,11 @@ public final class SqlRoutineCompiler
             LabelNode continueLabel = new LabelNode("continue");
             LabelNode breakLabel = new LabelNode("break");
 
-            if (node.label().isPresent()) {
-                continueLabels.put(node.label().get(), continueLabel);
-                breakLabels.put(node.label().get(), breakLabel);
+            node.label().ifPresent(label -> {
+                verify(continueLabels.putIfAbsent(label, continueLabel) == null, "continue label for loop label %s already exists", label);
+                verify(breakLabels.putIfAbsent(label, breakLabel) == null, "break label for loop label %s already exists", label);
                 block.visitLabel(continueLabel);
-            }
+            });
 
             for (IrStatement statement : node.statements()) {
                 block.append(process(statement, scope));
@@ -439,8 +439,8 @@ public final class SqlRoutineCompiler
             LabelNode breakLabel = new LabelNode("break");
 
             if (label.isPresent()) {
-                continueLabels.put(label.get(), continueLabel);
-                breakLabels.put(label.get(), breakLabel);
+                verify(continueLabels.putIfAbsent(label.get(), continueLabel) == null, "continue label for loop label %s already exists", label.get());
+                verify(breakLabels.putIfAbsent(label.get(), breakLabel) == null, "break label for loop label %s already exists", label.get());
                 block.visitLabel(continueLabel);
             }
 
