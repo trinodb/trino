@@ -683,7 +683,7 @@ jobs:
             - { modules: plugin/starburst-snowflake, profile: parallel-integration-tests, cloud: amazon-web-service }
             - { modules: plugin/starburst-snowflake, profile: fte-tests, cloud: amazon-web-service }
             - { modules: plugin/starburst-sqlserver }
-            - { modules: plugin/starburst-stargate, runners: [ self-hosted, sep-cicd, gha-fleet-large ] }
+            - { modules: plugin/starburst-stargate, runners: [ self-hosted, sep-cicd, gha-fleet-medium ] }
             - { modules: plugin/starburst-synapse }
             - { modules: plugin/starburst-synapse, profile: fte-tests }
             - { modules: plugin/starburst-synapse, profile: long-running-tests }
