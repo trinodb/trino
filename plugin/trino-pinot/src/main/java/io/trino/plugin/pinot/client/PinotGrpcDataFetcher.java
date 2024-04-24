@@ -108,9 +108,9 @@ public class PinotGrpcDataFetcher
     public PinotDataTableWithSize getNextDataTable()
     {
         PinotDataTableWithSize dataTableWithSize = responseIterator.next();
-        estimatedMemoryUsageInBytes = dataTableWithSize.getEstimatedSizeInBytes();
-        rowCountChecker.checkTooManyRows(dataTableWithSize.getDataTable());
-        checkExceptions(dataTableWithSize.getDataTable(), split, query);
+        estimatedMemoryUsageInBytes = dataTableWithSize.estimatedSizeInBytes();
+        rowCountChecker.checkTooManyRows(dataTableWithSize.dataTable());
+        checkExceptions(dataTableWithSize.dataTable(), split, query);
         return dataTableWithSize;
     }
 
