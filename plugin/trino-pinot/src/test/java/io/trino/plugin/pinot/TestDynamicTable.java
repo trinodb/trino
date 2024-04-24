@@ -61,12 +61,12 @@ public class TestDynamicTable
                         .collect(joining(", ")),
                 limit);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        assertThat(dynamicTable.getProjections().stream()
+        assertThat(dynamicTable.projections().stream()
                 .map(PinotColumnHandle::getColumnName)
                 .collect(toImmutableList())).isEqualTo(columnNames);
         orderByExpressions.add(new OrderByExpression(quoteIdentifier(orderByColumns.get(4)), false));
-        assertThat(dynamicTable.getOrderBy()).isEqualTo(orderByExpressions);
-        assertThat(dynamicTable.getLimit().getAsLong()).isEqualTo(limit);
+        assertThat(dynamicTable.orderBy()).isEqualTo(orderByExpressions);
+        assertThat(dynamicTable.limit().getAsLong()).isEqualTo(limit);
     }
 
     @Test
@@ -76,13 +76,13 @@ public class TestDynamicTable
         long limit = 25;
         String query = "SELECT Origin, AirlineID, max(CarrierDelay), avg(CarrierDelay) FROM %s GROUP BY Origin, AirlineID LIMIT %s".formatted(tableName, limit);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        assertThat(dynamicTable.getGroupingColumns().stream()
+        assertThat(dynamicTable.groupingColumns().stream()
                 .map(PinotColumnHandle::getColumnName)
                 .collect(toImmutableList())).isEqualTo(ImmutableList.builder()
                 .add("Origin")
                 .add("AirlineID")
                 .build());
-        assertThat(dynamicTable.getLimit().getAsLong()).isEqualTo(limit);
+        assertThat(dynamicTable.limit().getAsLong()).isEqualTo(limit);
     }
 
     @Test
@@ -234,7 +234,7 @@ public class TestDynamicTable
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         String expectedPql = "SELECT %s FROM %s LIMIT 70".formatted(getColumnNames(tableName).stream().map(TestDynamicTable::quoteIdentifier).collect(joining(", ")), tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -246,7 +246,7 @@ public class TestDynamicTable
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         String expectedPql = "SELECT %s FROM %s LIMIT 70".formatted(getColumnNames(tableName).stream().map(TestDynamicTable::quoteIdentifier).collect(joining(", ")), tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -258,7 +258,7 @@ public class TestDynamicTable
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         String expectedPql = "SELECT %s FROM %s LIMIT 70, 40".formatted(getColumnNames(tableName).stream().map(TestDynamicTable::quoteIdentifier).collect(joining(", ")), tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     private static String quoteIdentifier(String identifier)
@@ -276,7 +276,7 @@ public class TestDynamicTable
         String expectedPql = """
                 SELECT "OriginCityName" FROM %s WHERE regexp_like("OriginCityName", '.*york.*') LIMIT 70""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -289,7 +289,7 @@ public class TestDynamicTable
         String expectedPql = """
                 SELECT "OriginCityName" FROM %s WHERE text_match("OriginCityName", 'new and york') LIMIT 70""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -303,7 +303,7 @@ public class TestDynamicTable
         String expectedPql = """
                 SELECT "OriginCityName" FROM %s WHERE json_match("OriginCityName", '"$.name"=''new york''') LIMIT 70""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -327,7 +327,7 @@ public class TestDynamicTable
                  FROM %s\
                  LIMIT 70""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -360,7 +360,7 @@ public class TestDynamicTable
                  timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES')\
                  LIMIT 70""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -376,7 +376,7 @@ public class TestDynamicTable
                  ORDER BY "ArrDelay", "DaysSinceEpoch" DESC\
                  LIMIT 10""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -392,7 +392,7 @@ public class TestDynamicTable
                  ORDER BY count(*)\
                  LIMIT 10""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -408,7 +408,7 @@ public class TestDynamicTable
                  ORDER BY plus("ArrDelay", '34') - "DaysSinceEpoch" DESC\
                  LIMIT 10""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -426,7 +426,7 @@ public class TestDynamicTable
                  FROM %s\
                  LIMIT 50""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -444,7 +444,7 @@ public class TestDynamicTable
                  FROM %s\
                  LIMIT 50""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 
     @Test
@@ -467,6 +467,6 @@ public class TestDynamicTable
                 FROM %s \
                 LIMIT 50""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
-        assertThat(dynamicTable.getTableName()).isEqualTo(tableName);
+        assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
 }
