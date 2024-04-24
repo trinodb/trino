@@ -71,7 +71,7 @@ public class TestHiveRequireQueryPartitionsFilter
     @DataProvider
     public Object[][] queryPartitionFilterRequiredSchemasDataProvider()
     {
-        return new Object[][]{
+        return new Object[][] {
                 {"ARRAY['default']"},
                 {"ARRAY['DEFAULT']"},
                 {"ARRAY['deFAUlt']"}

@@ -16,6 +16,9 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
@@ -58,9 +61,6 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -72,9 +72,9 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.planprinter.PlanPrinter.formatAggregation;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.String.format;
 
 public final class GraphvizPrinter
@@ -390,8 +390,8 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                if ((entry.getValue() instanceof SymbolReference) &&
-                        ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
+                if ((entry.getValue() instanceof Reference) &&
+                        ((Reference) entry.getValue()).name().equals(entry.getKey().getName())) {
                     // skip identity assignments
                     continue;
                 }
@@ -406,11 +406,7 @@ public final class GraphvizPrinter
         public Void visitUnnest(UnnestNode node, Void context)
         {
             StringBuilder label = new StringBuilder();
-            if (node.getFilter().isPresent()) {
-                label.append(node.getJoinType().getJoinLabel())
-                        .append(" Unnest");
-            }
-            else if (!node.getReplicateSymbols().isEmpty()) {
+            if (!node.getReplicateSymbols().isEmpty()) {
                 label.append("CrossJoin Unnest");
             }
             else {
@@ -424,9 +420,7 @@ public final class GraphvizPrinter
             label.append(format(" [%s", unnestInputs))
                     .append(node.getOrdinalitySymbol().isPresent() ? " (ordinality)]" : "]");
 
-            String details = node.getFilter().isPresent() ? " filter " + node.getFilter().get().toString() : "";
-
-            printNode(node, label.toString(), details, NODE_COLORS.get(NodeType.UNNEST));
+            printNode(node, label.toString(), "", NODE_COLORS.get(NodeType.UNNEST));
             return node.getSource().accept(this, context);
         }
 
@@ -550,7 +544,7 @@ public final class GraphvizPrinter
         {
             String correlationSymbols = Joiner.on(",").join(node.getCorrelation());
             String filterExpression = "";
-            if (!node.getFilter().equals(TRUE_LITERAL)) {
+            if (!node.getFilter().equals(TRUE)) {
                 filterExpression = " " + node.getFilter().toString();
             }
 
@@ -574,7 +568,7 @@ public final class GraphvizPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
+                joinExpressions.add(new Comparison(Comparison.Operator.EQUAL,
                         clause.getProbe().toSymbolReference(),
                         clause.getIndex().toSymbolReference()));
             }

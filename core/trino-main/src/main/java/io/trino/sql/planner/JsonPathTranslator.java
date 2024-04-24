@@ -49,6 +49,7 @@ import io.trino.json.ir.IrTypeMethod;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
+import io.trino.sql.analyzer.LiteralInterpreter;
 import io.trino.sql.jsonpath.PathNodeRef;
 import io.trino.sql.jsonpath.tree.AbsMethod;
 import io.trino.sql.jsonpath.tree.ArithmeticBinary;
@@ -80,7 +81,6 @@ import io.trino.sql.jsonpath.tree.SizeMethod;
 import io.trino.sql.jsonpath.tree.SqlValueLiteral;
 import io.trino.sql.jsonpath.tree.StartsWithPredicate;
 import io.trino.sql.jsonpath.tree.TypeMethod;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Map;
@@ -308,8 +308,7 @@ class JsonPathTranslator
         @Override
         protected IrPathNode visitSqlValueLiteral(SqlValueLiteral node, Void context)
         {
-            Expression value = node.getValue();
-            return new IrLiteral(Optional.of(types.get(PathNodeRef.of(node))), literalInterpreter.evaluate(value, types.get(PathNodeRef.of(node))));
+            return new IrLiteral(Optional.of(types.get(PathNodeRef.of(node))), literalInterpreter.evaluate(node.getValue(), types.get(PathNodeRef.of(node))));
         }
 
         @Override

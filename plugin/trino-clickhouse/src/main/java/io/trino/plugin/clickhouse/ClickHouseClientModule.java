@@ -60,6 +60,9 @@ public class ClickHouseClientModule
         Properties properties = new Properties();
         // The connector expects byte array for FixedString and String types
         properties.setProperty(USE_BINARY_STRING.getKey(), "true");
-        return new ClickHouseConnectionFactory(new DriverConnectionFactory(new ClickHouseDriver(), config.getConnectionUrl(), properties, credentialProvider, openTelemetry));
+        return new ClickHouseConnectionFactory(DriverConnectionFactory.builder(new ClickHouseDriver(), config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(properties)
+                .setOpenTelemetry(openTelemetry)
+                .build());
     }
 }

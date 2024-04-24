@@ -102,7 +102,7 @@ public class TestSetPathTask
 
         assertThatThrownBy(() -> executeSetPathTask(invalidPathSpecification, stateMachine))
                 .isInstanceOf(TrinoException.class)
-                .hasMessageMatching("Catalog '.*' does not exist");
+                .hasMessageMatching("Catalog '.*' not found");
     }
 
     private QueryStateMachine createQueryStateMachine(String query)

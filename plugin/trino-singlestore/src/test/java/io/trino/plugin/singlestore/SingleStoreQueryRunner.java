@@ -18,6 +18,7 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
@@ -34,14 +35,14 @@ public class SingleStoreQueryRunner
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static DistributedQueryRunner createSingleStoreQueryRunner(
+    public static QueryRunner createSingleStoreQueryRunner(
             TestingSingleStoreServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).setExtraProperties(extraProperties).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).setExtraProperties(extraProperties).build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -79,7 +80,7 @@ public class SingleStoreQueryRunner
             throws Exception
     {
         // You need to set 'memsql.license' to VM options
-        DistributedQueryRunner queryRunner = createSingleStoreQueryRunner(
+        QueryRunner queryRunner = createSingleStoreQueryRunner(
                 new TestingSingleStoreServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),

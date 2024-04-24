@@ -74,7 +74,7 @@ public class TestIntegerNumberToDoubleCoercer
 
     private static void assertDoubleCoercion(Type fromType, Object valueToBeCoerced, Double expectedValue)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(DOUBLE), new CoercionUtils.CoercionContext(DEFAULT_PRECISION, true)).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(DOUBLE), new CoercionUtils.CoercionContext(DEFAULT_PRECISION, false)).orElseThrow()
                 .apply(nativeValueToBlock(fromType, valueToBeCoerced));
         assertThat(blockToNativeValue(DOUBLE, coercedValue))
                 .isEqualTo(expectedValue);

@@ -21,6 +21,7 @@ import io.trino.client.StatementClient;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,7 @@ public class TestFinalQueryInfo
     public void testFinalQueryInfoSetOnAbort()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(TEST_SESSION)) {
+        try (QueryRunner queryRunner = createQueryRunner(TEST_SESSION)) {
             QueryId queryId = startQuery("SELECT COUNT(*) FROM tpch.sf1000.lineitem", queryRunner);
             SettableFuture<QueryInfo> finalQueryInfoFuture = SettableFuture.create();
             queryRunner.getCoordinator().addFinalQueryInfoListener(queryId, finalQueryInfoFuture::set);
@@ -60,7 +61,7 @@ public class TestFinalQueryInfo
         }
     }
 
-    private static QueryId startQuery(String sql, DistributedQueryRunner queryRunner)
+    private static QueryId startQuery(String sql, QueryRunner queryRunner)
     {
         OkHttpClient httpClient = new OkHttpClient();
         try {
@@ -92,10 +93,10 @@ public class TestFinalQueryInfo
         }
     }
 
-    public static DistributedQueryRunner createQueryRunner(Session session)
+    public static QueryRunner createQueryRunner(Session session)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(2)
                 .build();
 

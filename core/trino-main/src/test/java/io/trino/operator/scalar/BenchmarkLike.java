@@ -40,7 +40,6 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.Optional;
 
-import static com.google.common.base.Strings.repeat;
 import static io.airlift.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
 import static io.airlift.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;
 import static io.airlift.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
@@ -61,11 +60,11 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 @Measurement(iterations = 30, time = 500, timeUnit = MILLISECONDS)
 public class BenchmarkLike
 {
-    private static final String LONG_STRING = repeat("a", 100) +
-                                              repeat("b", 100) +
-                                              repeat("a", 100) +
-                                              repeat("b", 100) +
-                                              "the quick brown fox jumps over the lazy dog";
+    private static final String LONG_STRING = "a".repeat(100) +
+            "b".repeat(100) +
+            "a".repeat(100) +
+            "b".repeat(100) +
+            "the quick brown fox jumps over the lazy dog";
 
     private static final Syntax SYNTAX = new Syntax(
             OP_DOT_ANYCHAR | OP_ASTERISK_ZERO_INF | OP_LINE_ANCHOR,

@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.cost.PlanNodeStatsAssertion.assertThat;
 import static io.trino.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static io.trino.cost.SemiJoinStatsCalculator.computeSemiJoin;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -95,17 +96,17 @@ public class TestSemiJoinStatsCalculator
             .setNullsFraction(0)
             .build();
 
-    private final Symbol u = new Symbol("u");
-    private final Symbol w = new Symbol("w");
-    private final Symbol x = new Symbol("x");
-    private final Symbol y = new Symbol("y");
-    private final Symbol z = new Symbol("z");
-    private final Symbol leftOpen = new Symbol("leftOpen");
-    private final Symbol rightOpen = new Symbol("rightOpen");
-    private final Symbol unknownRange = new Symbol("unknownRange");
-    private final Symbol emptyRange = new Symbol("emptyRange");
-    private final Symbol unknown = new Symbol("unknown");
-    private final Symbol fractionalNdv = new Symbol("fractionalNdv");
+    private final Symbol u = new Symbol(UNKNOWN, "u");
+    private final Symbol w = new Symbol(UNKNOWN, "w");
+    private final Symbol x = new Symbol(UNKNOWN, "x");
+    private final Symbol y = new Symbol(UNKNOWN, "y");
+    private final Symbol z = new Symbol(UNKNOWN, "z");
+    private final Symbol leftOpen = new Symbol(UNKNOWN, "leftOpen");
+    private final Symbol rightOpen = new Symbol(UNKNOWN, "rightOpen");
+    private final Symbol unknownRange = new Symbol(UNKNOWN, "unknownRange");
+    private final Symbol emptyRange = new Symbol(UNKNOWN, "emptyRange");
+    private final Symbol unknown = new Symbol(UNKNOWN, "unknown");
+    private final Symbol fractionalNdv = new Symbol(UNKNOWN, "fractionalNdv");
     private final PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
             .addSymbolStatistics(u, uStats)
             .addSymbolStatistics(w, wStats)

@@ -27,6 +27,11 @@ import static java.util.Objects.requireNonNull;
 
 public interface ConnectorExpressionRule<ExpressionType extends ConnectorExpression, Result>
 {
+    default boolean isEnabled(ConnectorSession session)
+    {
+        return true;
+    }
+
     Pattern<ExpressionType> getPattern();
 
     Optional<Result> rewrite(ExpressionType expression, Captures captures, RewriteContext<Result> context);

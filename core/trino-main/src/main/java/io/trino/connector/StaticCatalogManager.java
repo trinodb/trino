@@ -26,8 +26,11 @@ import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.ConnectorName;
 import jakarta.annotation.PreDestroy;
 
 import java.io.File;
@@ -68,7 +71,7 @@ public class StaticCatalogManager
     private final List<CatalogProperties> catalogProperties;
     private final Executor executor;
 
-    private final ConcurrentMap<String, CatalogConnector> catalogs = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, CatalogConnector> catalogs = new ConcurrentHashMap<>();
 
     private final AtomicReference<State> state = new AtomicReference<>(State.CREATED);
 
@@ -104,7 +107,7 @@ public class StaticCatalogManager
             }
 
             catalogProperties.add(new CatalogProperties(
-                    createRootCatalogHandle(catalogName, new CatalogVersion("default")),
+                    createRootCatalogHandle(new CatalogName(catalogName), new CatalogVersion("default")),
                     new ConnectorName(connectorName),
                     ImmutableMap.copyOf(properties)));
         }
@@ -152,24 +155,24 @@ public class StaticCatalogManager
                 executor,
                 catalogProperties.stream()
                         .map(catalog -> (Callable<?>) () -> {
-                            String catalogName = catalog.getCatalogHandle().getCatalogName();
+                            CatalogName catalogName = catalog.catalogHandle().getCatalogName();
                             log.info("-- Loading catalog %s --", catalogName);
                             CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                             catalogs.put(catalogName, newCatalog);
-                            log.info("-- Added catalog %s using connector %s --", catalogName, catalog.getConnectorName());
+                            log.info("-- Added catalog %s using connector %s --", catalogName, catalog.connectorName());
                             return null;
                         })
                         .collect(toImmutableList()));
     }
 
     @Override
-    public Set<String> getCatalogNames()
+    public Set<CatalogName> getCatalogNames()
     {
         return ImmutableSet.copyOf(catalogs.keySet());
     }
 
     @Override
-    public Optional<Catalog> getCatalog(String catalogName)
+    public Optional<Catalog> getCatalog(CatalogName catalogName)
     {
         return Optional.ofNullable(catalogs.get(catalogName))
                 .map(CatalogConnector::getCatalog);
@@ -179,7 +182,7 @@ public class StaticCatalogManager
     public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs)
     {
         List<CatalogProperties> missingCatalogs = catalogs.stream()
-                .filter(catalog -> !this.catalogs.containsKey(catalog.getCatalogHandle().getCatalogName()))
+                .filter(catalog -> !this.catalogs.containsKey(catalog.catalogHandle().getCatalogName()))
                 .collect(toImmutableList());
 
         if (!missingCatalogs.isEmpty()) {
@@ -203,7 +206,7 @@ public class StaticCatalogManager
     @Override
     public Set<CatalogHandle> getActiveCatalogs()
     {
-        // static catalog manager does not differentiate between active and not. Nor does it need to prune
+        // Static catalog manager does not differentiate between active and not. Nor does it need to prune
         return ImmutableSet.of();
     }
 
@@ -220,19 +223,19 @@ public class StaticCatalogManager
         requireNonNull(connector, "connector is null");
 
         CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, new ConnectorName(GlobalSystemConnector.NAME), connector);
-        if (catalogs.putIfAbsent(GlobalSystemConnector.NAME, catalog) != null) {
+        if (catalogs.putIfAbsent(new CatalogName(GlobalSystemConnector.NAME), catalog) != null) {
             throw new IllegalStateException("Global system catalog already registered");
         }
     }
 
     @Override
-    public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
+    public void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
     {
         throw new TrinoException(NOT_SUPPORTED, "CREATE CATALOG is not supported by the static catalog store");
     }
 
     @Override
-    public void dropCatalog(String catalogName, boolean exists)
+    public void dropCatalog(CatalogName catalogName, boolean exists)
     {
         throw new TrinoException(NOT_SUPPORTED, "DROP CATALOG is not supported by the static catalog store");
     }

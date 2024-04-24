@@ -13,6 +13,8 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -21,6 +23,7 @@ import io.trino.execution.StageId;
 import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.RemoteSplit;
@@ -207,7 +210,8 @@ public class TestTaskDescriptorStorage
     {
         return descriptor.getNodeRequirements()
                 .getCatalogHandle()
-                .map(CatalogHandle::getCatalogName);
+                .map(CatalogHandle::getCatalogName)
+                .map(CatalogName::toString);
     }
 
     private static boolean isStorageCapacityExceededFailure(Throwable t)
@@ -223,12 +227,13 @@ public class TestTaskDescriptorStorage
         return DataSize.of(size, unit).toBytes();
     }
 
-    private static class TestingExchangeSourceHandle
+    public static class TestingExchangeSourceHandle
             implements ExchangeSourceHandle
     {
         private final long retainedSizeInBytes;
 
-        private TestingExchangeSourceHandle(long retainedSizeInBytes)
+        @JsonCreator
+        public TestingExchangeSourceHandle(@JsonProperty("retainedSizeInBytes") long retainedSizeInBytes)
         {
             this.retainedSizeInBytes = retainedSizeInBytes;
         }
@@ -246,6 +251,7 @@ public class TestTaskDescriptorStorage
         }
 
         @Override
+        @JsonProperty
         public long getRetainedSizeInBytes()
         {
             return retainedSizeInBytes;

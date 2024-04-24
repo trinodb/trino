@@ -18,17 +18,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.trino.sql.ir.Bind;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.BindExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LambdaArgumentDeclaration;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -41,9 +38,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class LambdaCaptureDesugaringRewriter
 {
-    public static Expression rewrite(Expression expression, TypeProvider symbolTypes, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, SymbolAllocator symbolAllocator)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(symbolTypes, symbolAllocator), expression, new Context());
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(symbolAllocator), expression, new Context());
     }
 
     private LambdaCaptureDesugaringRewriter() {}
@@ -51,51 +48,46 @@ public final class LambdaCaptureDesugaringRewriter
     private static class Visitor
             extends ExpressionRewriter<Context>
     {
-        private final TypeProvider symbolTypes;
         private final SymbolAllocator symbolAllocator;
 
-        public Visitor(TypeProvider symbolTypes, SymbolAllocator symbolAllocator)
+        public Visitor(SymbolAllocator symbolAllocator)
         {
-            this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         }
 
         @Override
-        public Expression rewriteLambdaExpression(LambdaExpression node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
+        public Expression rewriteLambda(Lambda node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
             // Use linked hash set to guarantee deterministic iteration order
             LinkedHashSet<Symbol> referencedSymbols = new LinkedHashSet<>();
-            Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), context.withReferencedSymbols(referencedSymbols));
+            Expression rewrittenBody = treeRewriter.rewrite(node.body(), context.withReferencedSymbols(referencedSymbols));
 
-            List<Symbol> lambdaArguments = node.getArguments().stream()
-                    .map(LambdaArgumentDeclaration::getName)
-                    .map(Identifier::getValue)
-                    .map(Symbol::new)
-                    .collect(toImmutableList());
+            List<Symbol> lambdaArguments = node.arguments();
 
             Set<Symbol> captureSymbols = Sets.difference(referencedSymbols, ImmutableSet.copyOf(lambdaArguments));
 
             // x -> f(x, captureSymbol)    will be rewritten into
-            // "$internal$bind"(captureSymbol, (extraSymbol, x) -> f(x, extraSymbol))
+            // "Bind"(captureSymbol, (extraSymbol, x) -> f(x, extraSymbol))
 
             ImmutableMap.Builder<Symbol, Symbol> captureSymbolToExtraSymbol = ImmutableMap.builder();
-            ImmutableList.Builder<LambdaArgumentDeclaration> newLambdaArguments = ImmutableList.builder();
+            ImmutableList.Builder<Symbol> newLambdaArguments = ImmutableList.builder();
             for (Symbol captureSymbol : captureSymbols) {
-                Symbol extraSymbol = symbolAllocator.newSymbol(captureSymbol.getName(), symbolTypes.get(captureSymbol));
+                Symbol extraSymbol = symbolAllocator.newSymbol(captureSymbol.getName(), captureSymbol.getType());
                 captureSymbolToExtraSymbol.put(captureSymbol, extraSymbol);
-                newLambdaArguments.add(new LambdaArgumentDeclaration(new Identifier(extraSymbol.getName())));
+                newLambdaArguments.add(extraSymbol);
             }
-            newLambdaArguments.addAll(node.getArguments());
+            newLambdaArguments.addAll(node.arguments());
 
             ImmutableMap<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.buildOrThrow();
             Function<Symbol, Expression> symbolMapping = symbol -> symbolsMap.getOrDefault(symbol, symbol).toSymbolReference();
-            Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inlineSymbols(symbolMapping, rewrittenBody));
+            Lambda lambda = new Lambda(newLambdaArguments.build(), inlineSymbols(symbolMapping, rewrittenBody));
 
+            Expression rewrittenExpression = lambda;
             if (captureSymbols.size() != 0) {
                 List<Expression> capturedValues = captureSymbols.stream()
-                        .map(symbol -> new SymbolReference(symbol.getName()))
+                        .map(symbol -> new Reference(symbol.getType(), symbol.getName()))
                         .collect(toImmutableList());
-                rewrittenExpression = new BindExpression(capturedValues, rewrittenExpression);
+                rewrittenExpression = new Bind(capturedValues, lambda);
             }
 
             context.getReferencedSymbols().addAll(captureSymbols);
@@ -103,9 +95,9 @@ public final class LambdaCaptureDesugaringRewriter
         }
 
         @Override
-        public Expression rewriteSymbolReference(SymbolReference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
+        public Expression rewriteReference(Reference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
-            context.getReferencedSymbols().add(new Symbol(node.getName()));
+            context.getReferencedSymbols().add(new Symbol(node.type(), node.name()));
             return null;
         }
     }

@@ -16,6 +16,7 @@ package io.trino.spi.connector;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.trino.spi.Experimental;
+import io.trino.spi.catalog.CatalogName;
 
 import java.util.Objects;
 
@@ -32,12 +33,12 @@ public final class CatalogHandle
 {
     private static final int INSTANCE_SIZE = instanceSize(CatalogHandle.class);
 
-    private final String catalogName;
+    private final CatalogName catalogName;
     private final CatalogHandleType type;
     private final CatalogHandle rootCatalogHandle;
     private final CatalogVersion version;
 
-    public static CatalogHandle createRootCatalogHandle(String catalogName, CatalogVersion version)
+    public static CatalogHandle createRootCatalogHandle(CatalogName catalogName, CatalogVersion version)
     {
         return new CatalogHandle(catalogName, NORMAL, version);
     }
@@ -67,21 +68,17 @@ public final class CatalogHandle
             throw new IllegalArgumentException("invalid id " + id);
         }
 
-        String catalogName = id.substring(0, typeSplit);
+        CatalogName catalogName = new CatalogName(id.substring(0, typeSplit));
         CatalogHandleType type = CatalogHandleType.valueOf(id.substring(typeSplit + 1, versionSplit).toUpperCase(ROOT));
         CatalogVersion version = new CatalogVersion(id.substring(versionSplit + 1));
         return new CatalogHandle(catalogName, type, version);
     }
 
-    private CatalogHandle(String catalogName, CatalogHandleType type, CatalogVersion version)
+    private CatalogHandle(CatalogName catalogName, CatalogHandleType type, CatalogVersion version)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.type = requireNonNull(type, "type is null");
         this.version = requireNonNull(version, "version is null");
-        requireNonNull(catalogName, "catalogName is null");
-        if (catalogName.isEmpty()) {
-            throw new IllegalArgumentException("catalogName is empty");
-        }
         this.rootCatalogHandle = switch (type) {
             case NORMAL -> this;
             case INFORMATION_SCHEMA, SYSTEM -> new CatalogHandle(catalogName, NORMAL, version);
@@ -101,7 +98,7 @@ public final class CatalogHandle
      * Gets the actual raw catalog name for this handle.
      * This method should only be used when there are no other ways to access the catalog name.
      */
-    public String getCatalogName()
+    public CatalogName getCatalogName()
     {
         return catalogName;
     }
@@ -142,13 +139,13 @@ public final class CatalogHandle
     @Override
     public String toString()
     {
-        return catalogName;
+        return catalogName.toString();
     }
 
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
-                estimatedSizeOf(catalogName) +
+                catalogName.getRetainedSizeInBytes() +
                 version.getRetainedSizeInBytes() +
                 (rootCatalogHandle == this ? 0 : rootCatalogHandle.getRetainedSizeInBytes());
     }

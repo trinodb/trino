@@ -15,6 +15,7 @@ package io.trino.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -27,6 +28,7 @@ import java.util.Random;
 
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -174,9 +176,9 @@ public class TestArrayBlock
 
         testCompactBlock(fromElementBlock(0, Optional.empty(), new int[1], emptyValueBlock));
         testCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, compactValueBlock));
-        testIncompactBlock(fromElementBlock(valueIsNull.length - 1, Optional.of(valueIsNull), offsets, compactValueBlock));
+        testNotCompactBlock(fromElementBlock(valueIsNull.length - 1, Optional.of(valueIsNull), offsets, compactValueBlock));
         // underlying value block is not compact
-        testIncompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, inCompactValueBlock));
+        testNotCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, inCompactValueBlock));
     }
 
     private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)
@@ -241,5 +243,51 @@ public class TestArrayBlock
             }
         }
         return blockBuilder;
+    }
+
+    @Override
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
+    {
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
+
+        assertThat(block.isNull(position)).isFalse();
+
+        ArrayBlock arrayBlock = (ArrayBlock) block;
+        Block actual = arrayBlock.getArray(position);
+        if (expectedValue instanceof Byte[] expected) {
+            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                if (expected[i] == null) {
+                    assertThat(actual.isNull(i)).isTrue();
+                }
+                else {
+                    assertThat(TINYINT.getByte(actual, i)).isEqualTo(expected[i].byteValue());
+                }
+            }
+        }
+        else if (expectedValue instanceof long[] expected) {
+            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertThat(BIGINT.getLong(actual, i)).isEqualTo(expected[i]);
+            }
+        }
+        else if (expectedValue instanceof Slice[] expected) {
+            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertThat(VARCHAR.getSlice(actual, i)).isEqualTo(expected[i]);
+            }
+        }
+        else if (expectedValue instanceof long[][] expected) {
+            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertPositionValue(actual, i, expected[i]);
+            }
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type: " + expectedValue.getClass().getSimpleName());
+        }
     }
 }

@@ -21,7 +21,7 @@ import java.util.List;
 public class JsonSuite
 {
     private final String name;
-    private List<JsonTestRun> testRuns = new ArrayList<>();
+    private final List<JsonTestRun> testRuns = new ArrayList<>();
 
     public JsonSuite(String name)
     {

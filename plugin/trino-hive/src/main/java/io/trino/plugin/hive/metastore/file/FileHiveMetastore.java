@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -32,7 +33,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -40,7 +40,6 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableType;
-import io.trino.plugin.hive.ViewReaderUtil;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -51,12 +50,12 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -64,7 +63,6 @@ import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.Type;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -85,10 +83,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -103,15 +101,16 @@ import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.MATERIALIZED_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static io.trino.plugin.hive.metastore.file.ColumnStatistics.fromHiveColumnStatistics;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.DATABASE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.PARTITION;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.TABLE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VERSION_COMPATIBILITY_CONFIG;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.UNSAFE_ASSUME_COMPATIBILITY;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
@@ -141,8 +140,8 @@ public class FileHiveMetastore
     private static final String TRINO_SCHEMA_FILE_NAME_SUFFIX = ".trinoSchema";
     private static final String TRINO_PERMISSIONS_DIRECTORY_NAME = ".trinoPermissions";
     private static final String TRINO_FUNCTIONS_DIRECTORY_NAME = ".trinoFunction";
-    public static final String ROLES_FILE_NAME = ".roles";
-    public static final String ROLE_GRANTS_FILE_NAME = ".roleGrants";
+    private static final String ROLES_FILE_NAME = ".roles";
+    private static final String ROLE_GRANTS_FILE_NAME = ".roleGrants";
     // todo there should be a way to manage the admins list
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
 
@@ -165,7 +164,7 @@ public class FileHiveMetastore
     private final JsonCodec<List<RoleGrant>> roleGrantsCodec = JsonCodec.listJsonCodec(RoleGrant.class);
 
     // TODO Remove this speed-up workaround once that https://github.com/trinodb/trino/issues/13115 gets implemented
-    private final LoadingCache<String, List<String>> listTablesCache;
+    private final LoadingCache<String, List<TableInfo>> listTablesCache;
 
     public FileHiveMetastore(NodeVersion nodeVersion, TrinoFileSystemFactory fileSystemFactory, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
     {
@@ -199,7 +198,7 @@ public class FileHiveMetastore
         Optional<Database> existingDatabase = getDatabase(database.getDatabaseName());
         if (existingDatabase.isPresent()) {
             // Do not throw SchemaAlreadyExistsException if this query has already created the database.
-            // This may happen when an actually successful metastore create call is retried,
+            // This may happen when an actually successful metastore create call is retried
             // because of a timeout on our side.
             String expectedQueryId = database.getParameters().get(TRINO_QUERY_ID_NAME);
             if (expectedQueryId != null && expectedQueryId.equals(existingDatabase.get().getParameters().get(TRINO_QUERY_ID_NAME))) {
@@ -227,7 +226,7 @@ public class FileHiveMetastore
         databaseName = databaseName.toLowerCase(ENGLISH);
 
         getRequiredDatabase(databaseName);
-        if (!getTables(databaseName).isEmpty()) {
+        if (!listAllTables(databaseName).isEmpty()) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
@@ -296,14 +295,14 @@ public class FileHiveMetastore
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
     }
 
-    private void verifyDatabaseNameLength(String databaseName)
+    private static void verifyDatabaseNameLength(String databaseName)
     {
         if (databaseName.length() > MAX_NAME_LENGTH) {
             throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", MAX_NAME_LENGTH, databaseName.length()));
         }
     }
 
-    private void verifyTableNameLength(String tableName)
+    private static void verifyTableNameLength(String tableName)
     {
         if (tableName.length() > MAX_NAME_LENGTH) {
             throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", MAX_NAME_LENGTH, tableName.length()));
@@ -356,7 +355,7 @@ public class FileHiveMetastore
         Optional<Table> existingTable = getTable(table.getDatabaseName(), table.getTableName());
         if (existingTable.isPresent()) {
             // Do not throw TableAlreadyExistsException if this query has already created the table.
-            // This may happen when an actually successful metastore create call is retried,
+            // This may happen when an actually successful metastore create call is retried
             // because of a timeout on our side.
             String expectedQueryId = table.getParameters().get(TRINO_QUERY_ID_NAME);
             if (expectedQueryId != null && expectedQueryId.equals(existingTable.get().getParameters().get(TRINO_QUERY_ID_NAME))) {
@@ -435,42 +434,33 @@ public class FileHiveMetastore
     }
 
     @Override
-    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
+    public synchronized Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
-        return ThriftMetastoreUtil.getSupportedColumnStatistics(type);
-    }
-
-    @Override
-    public synchronized PartitionStatistics getTableStatistics(Table table)
-    {
-        return getTableStatistics(table.getDatabaseName(), table.getTableName());
-    }
-
-    private synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
-    {
+        checkArgument(!columnNames.isEmpty(), "columnNames is empty");
         Location tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         checkVersion(tableMetadata.getWriterVersion());
-        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(tableMetadata.getParameters());
-        Map<String, HiveColumnStatistics> columnStatistics = tableMetadata.getColumnStatistics();
-        return new PartitionStatistics(basicStatistics, columnStatistics);
+        return toHiveColumnStats(columnNames, tableMetadata.getParameters(), tableMetadata.getColumnStatistics());
     }
 
     @Override
-    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
+    public synchronized Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
     {
-        return partitions.stream()
-                .collect(toImmutableMap(partition -> makePartitionName(table, partition), partition -> getPartitionStatisticsInternal(table, partition.getValues())));
+        checkArgument(!columnNames.isEmpty(), "columnNames is empty");
+        ImmutableMap.Builder<String, Map<String, HiveColumnStatistics>> result = ImmutableMap.builder();
+        for (String partitionName : partitionNames) {
+            result.put(partitionName, getPartitionStatisticsInternal(databaseName, tableName, partitionName, columnNames));
+        }
+        return result.buildOrThrow();
     }
 
-    private synchronized PartitionStatistics getPartitionStatisticsInternal(Table table, List<String> partitionValues)
+    private synchronized Map<String, HiveColumnStatistics> getPartitionStatisticsInternal(String databaseName, String tableName, String partitionName, Set<String> columnNames)
     {
-        Location partitionDirectory = getPartitionMetadataDirectory(table, ImmutableList.copyOf(partitionValues));
+        Location partitionDirectory = getPartitionMetadataDirectory(databaseName, tableName, partitionName);
         PartitionMetadata partitionMetadata = readSchemaFile(PARTITION, partitionDirectory, partitionCodec)
-                .orElseThrow(() -> new PartitionNotFoundException(table.getSchemaTableName(), partitionValues));
-        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(partitionMetadata.getParameters());
-        return new PartitionStatistics(basicStatistics, partitionMetadata.getColumnStatistics());
+                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), extractPartitionValues(partitionName)));
+        return toHiveColumnStats(columnNames, partitionMetadata.getParameters(), partitionMetadata.getColumnStatistics());
     }
 
     private Table getRequiredTable(String databaseName, String tableName)
@@ -494,99 +484,56 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
-        PartitionStatistics originalStatistics = getTableStatistics(databaseName, tableName);
-        PartitionStatistics updatedStatistics = update.apply(originalStatistics);
-
         Location tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         checkVersion(tableMetadata.getWriterVersion());
 
+        PartitionStatistics originalStatistics = toHivePartitionStatistics(tableMetadata.getParameters(), tableMetadata.getColumnStatistics());
+        PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, statisticsUpdate);
+
         TableMetadata updatedMetadata = tableMetadata
                 .withParameters(currentVersion, updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
-                .withColumnStatistics(currentVersion, updatedStatistics.getColumnStatistics());
+                .withColumnStatistics(currentVersion, fromHiveColumnStats(updatedStatistics.getColumnStatistics()));
 
         writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, updatedMetadata, true);
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public synchronized void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
-        updates.forEach((partitionName, update) -> {
-            PartitionStatistics originalStatistics = getPartitionStatisticsInternal(table, extractPartitionValues(partitionName));
-            PartitionStatistics updatedStatistics = update.apply(originalStatistics);
-
-            List<String> partitionValues = extractPartitionValues(partitionName);
-            Location partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
+        partitionUpdates.forEach((partitionName, partitionUpdate) -> {
+            Location partitionDirectory = getPartitionMetadataDirectory(table, partitionName);
             PartitionMetadata partitionMetadata = readSchemaFile(PARTITION, partitionDirectory, partitionCodec)
-                    .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionValues));
+                    .orElseThrow(() -> new PartitionNotFoundException(table.getSchemaTableName(), extractPartitionValues(partitionName)));
+            PartitionStatistics originalStatistics = toHivePartitionStatistics(partitionMetadata.getParameters(), partitionMetadata.getColumnStatistics());
+
+            PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, partitionUpdate);
 
             PartitionMetadata updatedMetadata = partitionMetadata
                     .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
-                    .withColumnStatistics(updatedStatistics.getColumnStatistics());
+                    .withColumnStatistics(fromHiveColumnStats(updatedStatistics.getColumnStatistics()));
 
             writeSchemaFile(PARTITION, partitionDirectory, partitionCodec, updatedMetadata, true);
         });
     }
 
     @Override
-    public synchronized List<String> getTables(String databaseName)
+    public synchronized List<TableInfo> getTables(String databaseName)
     {
-        return listAllTables(databaseName).stream()
-                .filter(hideDeltaLakeTables
-                        ? Predicate.not(ImmutableSet.copyOf(getTablesWithParameter(databaseName, SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER))::contains)
-                        : tableName -> true)
-                .collect(toImmutableList());
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllTables()
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public synchronized Map<String, RelationType> getRelationTypes(String databaseName)
-    {
-        ImmutableMap.Builder<String, RelationType> relationTypes = ImmutableMap.builder();
-        getTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
-        getViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
-        return relationTypes.buildKeepingLast();
-    }
-
-    @Override
-    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-    {
-        requireNonNull(parameterKey, "parameterKey is null");
-        requireNonNull(parameterValue, "parameterValue is null");
-
-        List<String> tables = listAllTables(databaseName);
-
-        return tables.stream()
-                .map(tableName -> getTable(databaseName, tableName))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .filter(table -> parameterValue.equals(table.getParameters().get(parameterKey)))
-                .map(Table::getTableName)
-                .collect(toImmutableList());
+        return listAllTables(databaseName);
     }
 
     @GuardedBy("this")
-    private List<String> listAllTables(String databaseName)
+    private List<TableInfo> listAllTables(String databaseName)
     {
         return listTablesCache.getUnchecked(databaseName);
     }
 
     @GuardedBy("this")
-    private List<String> doListAllTables(String databaseName)
+    private List<TableInfo> doListAllTables(String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");
 
@@ -598,25 +545,26 @@ public class FileHiveMetastore
         Location metadataDirectory = getDatabaseMetadataDirectory(databaseName);
         try {
             String prefix = metadataDirectory.toString();
-            Set<String> tables = new HashSet<>();
+            if (!prefix.endsWith("/")) {
+                prefix += "/";
+            }
+            Set<TableInfo> tables = new HashSet<>();
 
-            FileIterator iterator = fileSystem.listFiles(metadataDirectory);
-            while (iterator.hasNext()) {
-                Location location = iterator.next().location();
+            for (Location subdirectory : fileSystem.listDirectories(metadataDirectory)) {
+                String locationString = subdirectory.toString();
+                verify(locationString.startsWith(prefix) && locationString.endsWith("/"), "Unexpected subdirectory %s when listing %s", subdirectory, metadataDirectory);
 
-                String child = location.toString().substring(prefix.length());
-                if (child.startsWith("/")) {
-                    child = child.substring(1);
-                }
-
-                if (child.startsWith(".") || (child.indexOf('/') != child.lastIndexOf('/'))) {
-                    continue;
-                }
-
-                int length = child.length() - TRINO_SCHEMA_FILE_NAME_SUFFIX.length() - 1;
-                if ((length >= 1) && child.endsWith("/" + TRINO_SCHEMA_FILE_NAME_SUFFIX)) {
-                    tables.add(child.substring(0, length));
-                }
+                String tableName = locationString.substring(prefix.length(), locationString.length() - 1);
+                Location schemaFileLocation = subdirectory.appendPath(TRINO_SCHEMA_FILE_NAME_SUFFIX);
+                readFile("table schema", schemaFileLocation, tableCodec).ifPresent(tableMetadata -> {
+                    checkVersion(tableMetadata.getWriterVersion());
+                    if (hideDeltaLakeTables && DELTA_LAKE_PROVIDER.equals(tableMetadata.getParameters().get(SPARK_TABLE_PROVIDER_KEY))) {
+                        return;
+                    }
+                    tables.add(new TableInfo(
+                            new SchemaTableName(databaseName, tableName),
+                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(tableMetadata.getTableType(), tableMetadata.getParameters().get(TABLE_COMMENT))));
+                });
             }
 
             return ImmutableList.copyOf(tables);
@@ -624,24 +572,6 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
-    }
-
-    @Override
-    public synchronized List<String> getViews(String databaseName)
-    {
-        return getTables(databaseName).stream()
-                .map(tableName -> getTable(databaseName, tableName))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .filter(ViewReaderUtil::isSomeKindOfAView)
-                .map(Table::getTableName)
-                .collect(toImmutableList());
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
-    {
-        return Optional.empty();
     }
 
     @Override
@@ -710,7 +640,7 @@ public class FileHiveMetastore
         try {
             if (isIcebergTable(table)) {
                 fileSystem.createDirectory(newPath);
-                // Iceberg metadata references files in old path, so these cannot be moved. Moving table description (metadata from metastore perspective) only.
+                // Iceberg metadata references files in the old path, so these cannot be moved. Moving table description (metadata from metastore perspective) only.
                 fileSystem.renameFile(getSchemaFile(TABLE, oldPath), getSchemaFile(TABLE, newPath));
                 // TODO drop data files when table is being dropped
             }
@@ -732,7 +662,7 @@ public class FileHiveMetastore
         alterTable(databaseName, tableName, oldTable -> {
             Map<String, String> parameters = oldTable.getParameters().entrySet().stream()
                     .filter(entry -> !entry.getKey().equals(TABLE_COMMENT))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
             comment.ifPresent(value -> parameters.put(TABLE_COMMENT, value));
 
             return oldTable.withParameters(currentVersion, parameters);
@@ -742,24 +672,16 @@ public class FileHiveMetastore
     @Override
     public synchronized void commentColumn(String databaseName, String tableName, String columnName, Optional<String> comment)
     {
-        alterTable(databaseName, tableName, oldTable -> {
-            if (oldTable.getColumn(columnName).isEmpty()) {
-                SchemaTableName name = new SchemaTableName(databaseName, tableName);
-                throw new ColumnNotFoundException(name, columnName);
-            }
+        alterTable(databaseName, tableName, table -> table
+                .withDataColumns(currentVersion, updateColumnComment(table.getDataColumns(), columnName, comment))
+                .withPartitionColumns(currentVersion, updateColumnComment(table.getPartitionColumns(), columnName, comment)));
+    }
 
-            ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
-            for (Column fieldSchema : oldTable.getDataColumns()) {
-                if (fieldSchema.getName().equals(columnName)) {
-                    newDataColumns.add(new Column(columnName, fieldSchema.getType(), comment, fieldSchema.getProperties()));
-                }
-                else {
-                    newDataColumns.add(fieldSchema);
-                }
-            }
-
-            return oldTable.withDataColumns(currentVersion, newDataColumns.build());
-        });
+    private static List<Column> updateColumnComment(List<Column> originalColumns, String columnName, Optional<String> comment)
+    {
+        return Lists.transform(originalColumns, column -> column.getName().equals(columnName)
+                ? new Column(column.getName(), column.getType(), comment, column.getProperties())
+                : column);
     }
 
     @Override
@@ -990,7 +912,7 @@ public class FileHiveMetastore
     public synchronized Set<String> listRoles()
     {
         Set<String> roles = new HashSet<>();
-        // Hive SQL standard assumes admin role already exists, so until that is fixed always add it here
+        // Hive SQL standard assumes the admin role already exists, so until that is fixed always add it here
         roles.add("admin");
         readFile("roles", getRolesFile(), rolesCodec).ifPresent(roles::addAll);
         return ImmutableSet.copyOf(roles);
@@ -1079,7 +1001,7 @@ public class FileHiveMetastore
         return removeDuplicatedEntries(removeNonExistingRoles(grants, existingRoles));
     }
 
-    private Set<RoleGrant> removeDuplicatedEntries(Set<RoleGrant> grants)
+    private static Set<RoleGrant> removeDuplicatedEntries(Set<RoleGrant> grants)
     {
         Map<RoleGrantee, RoleGrant> map = new HashMap<>();
         for (RoleGrant grant : grants) {
@@ -1295,7 +1217,7 @@ public class FileHiveMetastore
                     continue;
                 }
 
-                String name = unescapePathName(parts.get(0));
+                String name = unescapePathName(parts.getFirst());
                 if (functionName.isPresent() && !name.equals(functionName.get())) {
                     continue;
                 }
@@ -1337,9 +1259,7 @@ public class FileHiveMetastore
         byte[] json = functionCodec.toJsonBytes(function);
 
         try {
-            try (OutputStream outputStream = fileSystem.newOutputFile(file).createOrOverwrite()) {
-                outputStream.write(json);
-            }
+            fileSystem.newOutputFile(file).createOrOverwrite(json);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write function", e);
@@ -1498,16 +1418,24 @@ public class FileHiveMetastore
         try {
             byte[] json = codec.toJsonBytes(value);
 
-            if (!overwrite) {
+            TrinoOutputFile output = fileSystem.newOutputFile(location);
+            if (overwrite) {
+                output.createOrOverwrite(json);
+            }
+            else {
+                // best-effort exclusive and atomic creation
                 if (fileSystem.newInputFile(location).exists()) {
                     throw new TrinoException(HIVE_METASTORE_ERROR, type + " file already exists");
                 }
-            }
-
-            // todo implement safer overwrite code
-            TrinoOutputFile output = fileSystem.newOutputFile(location);
-            try (OutputStream outputStream = overwrite ? output.createOrOverwrite() : output.create()) {
-                outputStream.write(json);
+                try {
+                    output.createExclusive(json);
+                }
+                catch (UnsupportedOperationException ignored) {
+                    // fall back to non-exclusive creation, relying on synchronization and above exists check
+                    try (OutputStream out = output.create()) {
+                        out.write(json);
+                    }
+                }
             }
         }
         catch (Exception e) {
@@ -1572,7 +1500,12 @@ public class FileHiveMetastore
 
     private Location getPartitionMetadataDirectory(Table table, String partitionName)
     {
-        return getTableMetadataDirectory(table).appendPath(partitionName);
+        return getPartitionMetadataDirectory(table.getDatabaseName(), table.getTableName(), partitionName);
+    }
+
+    private Location getPartitionMetadataDirectory(String databaseName, String tableName, String partitionName)
+    {
+        return getTableMetadataDirectory(databaseName, tableName).appendPath(partitionName);
     }
 
     private Location getPermissionsDirectory(Table table)
@@ -1621,6 +1554,28 @@ public class FileHiveMetastore
         return directory.appendPath("%s=%s".formatted(
                 escapePathName(functionName),
                 sha256().hashUnencodedChars(signatureToken)));
+    }
+
+    private static PartitionStatistics toHivePartitionStatistics(Map<String, String> parameters, Map<String, ColumnStatistics> columnStatistics)
+    {
+        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(parameters);
+        Map<String, HiveColumnStatistics> hiveColumnStatistics = columnStatistics.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, column -> column.getValue().toHiveColumnStatistics(basicStatistics)));
+        return new PartitionStatistics(basicStatistics, hiveColumnStatistics);
+    }
+
+    private static Map<String, ColumnStatistics> fromHiveColumnStats(Map<String, HiveColumnStatistics> columnStatistics)
+    {
+        return columnStatistics.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> fromHiveColumnStatistics(entry.getValue())));
+    }
+
+    private static Map<String, HiveColumnStatistics> toHiveColumnStats(Set<String> columnNames, Map<String, String> partitionMetadata, Map<String, ColumnStatistics> columnStatistics)
+    {
+        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(partitionMetadata);
+        return columnStatistics.entrySet().stream()
+                .filter(entry -> columnNames.contains(entry.getKey()))
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().toHiveColumnStatistics(basicStatistics)));
     }
 
     private record RoleGrantee(String role, HivePrincipal grantee)

@@ -19,14 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.LocalProperty;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.SortingProperty;
-import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.SortItem.NullOrdering;
-import io.trino.sql.tree.SortItem.Ordering;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -106,44 +102,7 @@ public class OrderingScheme
                 .toString();
     }
 
-    public static OrderingScheme fromOrderBy(OrderBy orderBy)
-    {
-        List<Symbol> orderBySymbols = orderBy.getSortItems().stream()
-                .map(SortItem::getSortKey)
-                .map(Symbol::from)
-                .collect(toImmutableList());
-
-        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-        Map<Symbol, SortOrder> orders = new HashMap<>();
-        for (int i = 0; i < orderBySymbols.size(); i++) {
-            Symbol symbol = orderBySymbols.get(i);
-            // for multiple sort items based on the same expression, retain the first one:
-            // ORDER BY x DESC, x ASC, y --> ORDER BY x DESC, y
-            if (!orders.containsKey(symbol)) {
-                symbols.add(symbol);
-                orders.put(symbol, sortItemToSortOrder(orderBy.getSortItems().get(i)));
-            }
-        }
-
-        return new OrderingScheme(symbols.build(), orders);
-    }
-
-    public static SortOrder sortItemToSortOrder(SortItem sortItem)
-    {
-        if (sortItem.getOrdering() == Ordering.ASCENDING) {
-            if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
-                return SortOrder.ASC_NULLS_FIRST;
-            }
-            return SortOrder.ASC_NULLS_LAST;
-        }
-
-        if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
-            return SortOrder.DESC_NULLS_FIRST;
-        }
-        return SortOrder.DESC_NULLS_LAST;
-    }
-
-    public List<io.trino.spi.connector.SortItem> toSortItems()
+    public List<SortItem> toSortItems()
     {
         return getOrderBy().stream()
                 .map(symbol -> new io.trino.spi.connector.SortItem(

@@ -13,9 +13,6 @@
  */
 package io.trino.spi.exchange;
 
-import io.trino.spi.Experimental;
-
-@Experimental(eta = "2023-09-01")
 public interface ExchangeManagerHandleResolver
 {
     Class<? extends ExchangeSinkInstanceHandle> getExchangeSinkInstanceHandleClass();

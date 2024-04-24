@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Optional;
 
+import static io.trino.hive.formats.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
 import static java.util.Objects.requireNonNull;
 
 public class SequenceFileWriterFactory
@@ -38,7 +39,7 @@ public class SequenceFileWriterFactory
     @Override
     public String getHiveOutputFormatClassName()
     {
-        return "org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat";
+        return HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
     }
 
     @Override

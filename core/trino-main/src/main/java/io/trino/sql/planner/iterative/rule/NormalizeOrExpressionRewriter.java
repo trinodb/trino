@@ -16,13 +16,12 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.In;
+import io.trino.sql.ir.Logical;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -31,10 +30,10 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.or;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.ir.Logical.Operator.AND;
 
 public final class NormalizeOrExpressionRewriter
 {
@@ -49,35 +48,35 @@ public final class NormalizeOrExpressionRewriter
             extends ExpressionRewriter<Void>
     {
         @Override
-        public Expression rewriteLogicalExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteLogical(Logical node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            List<Expression> terms = node.getTerms().stream()
+            List<Expression> terms = node.terms().stream()
                     .map(expression -> treeRewriter.rewrite(expression, context))
                     .collect(toImmutableList());
 
-            if (node.getOperator() == AND) {
+            if (node.operator() == AND) {
                 return and(terms);
             }
 
-            ImmutableList.Builder<InPredicate> inPredicateBuilder = ImmutableList.builder();
+            ImmutableList.Builder<In> inPredicateBuilder = ImmutableList.builder();
             ImmutableSet.Builder<Expression> expressionToSkipBuilder = ImmutableSet.builder();
             ImmutableList.Builder<Expression> othersExpressionBuilder = ImmutableList.builder();
             groupComparisonAndInPredicate(terms).forEach((expression, values) -> {
                 if (values.size() > 1) {
-                    inPredicateBuilder.add(new InPredicate(expression, mergeToInListExpression(values)));
+                    inPredicateBuilder.add(new In(expression, mergeToInListExpression(values)));
                     expressionToSkipBuilder.add(expression);
                 }
             });
 
             Set<Expression> expressionToSkip = expressionToSkipBuilder.build();
             for (Expression expression : terms) {
-                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.getOperator() == EQUAL) {
-                    if (!expressionToSkip.contains(comparisonExpression.getLeft())) {
+                if (expression instanceof Comparison comparison && comparison.operator() == EQUAL) {
+                    if (!expressionToSkip.contains(comparison.left())) {
                         othersExpressionBuilder.add(expression);
                     }
                 }
-                else if (expression instanceof InPredicate inPredicate && inPredicate.getValueList() instanceof InListExpression) {
-                    if (!expressionToSkip.contains(inPredicate.getValue())) {
+                else if (expression instanceof In in) {
+                    if (!expressionToSkip.contains(in.value())) {
                         othersExpressionBuilder.add(expression);
                     }
                 }
@@ -92,33 +91,33 @@ public final class NormalizeOrExpressionRewriter
                     .build());
         }
 
-        private InListExpression mergeToInListExpression(Collection<Expression> expressions)
+        private List<Expression> mergeToInListExpression(Collection<Expression> expressions)
         {
             LinkedHashSet<Expression> expressionValues = new LinkedHashSet<>();
             for (Expression expression : expressions) {
-                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.getOperator() == EQUAL) {
-                    expressionValues.add(comparisonExpression.getRight());
+                if (expression instanceof Comparison comparison && comparison.operator() == EQUAL) {
+                    expressionValues.add(comparison.right());
                 }
-                else if (expression instanceof InPredicate inPredicate && inPredicate.getValueList() instanceof InListExpression valueList) {
-                    expressionValues.addAll(valueList.getValues());
+                else if (expression instanceof In in) {
+                    expressionValues.addAll(in.valueList());
                 }
                 else {
                     throw new IllegalStateException("Unexpected expression: " + expression);
                 }
             }
 
-            return new InListExpression(ImmutableList.copyOf(expressionValues));
+            return ImmutableList.copyOf(expressionValues);
         }
 
         private Map<Expression, Collection<Expression>> groupComparisonAndInPredicate(List<Expression> terms)
         {
             ImmutableMultimap.Builder<Expression, Expression> expressionBuilder = ImmutableMultimap.builder();
             for (Expression expression : terms) {
-                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.getOperator() == EQUAL) {
-                    expressionBuilder.put(comparisonExpression.getLeft(), comparisonExpression);
+                if (expression instanceof Comparison comparison && comparison.operator() == EQUAL) {
+                    expressionBuilder.put(comparison.left(), comparison);
                 }
-                else if (expression instanceof InPredicate inPredicate && inPredicate.getValueList() instanceof InListExpression) {
-                    expressionBuilder.put(inPredicate.getValue(), inPredicate);
+                else if (expression instanceof In in) {
+                    expressionBuilder.put(in.value(), in);
                 }
             }
 

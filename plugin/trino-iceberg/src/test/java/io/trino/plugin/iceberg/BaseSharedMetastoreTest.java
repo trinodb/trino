@@ -24,7 +24,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseSharedMetastoreTest
         extends AbstractTestQueryFramework
@@ -45,10 +44,10 @@ public abstract class BaseSharedMetastoreTest
         assertQuery("SELECT * FROM iceberg_with_redirections." + schema + ".nation", "SELECT * FROM nation");
         assertQuery("SELECT * FROM iceberg_with_redirections." + schema + ".region", "SELECT * FROM region");
 
-        assertThatThrownBy(() -> query("SELECT * FROM iceberg." + schema + ".region"))
-                .hasMessageContaining("Not an Iceberg table");
-        assertThatThrownBy(() -> query("SELECT * FROM hive." + schema + ".nation"))
-                .hasMessageContaining("Cannot query Iceberg table");
+        assertThat(query("SELECT * FROM iceberg." + schema + ".region"))
+                .failure().hasMessageContaining("Not an Iceberg table");
+        assertThat(query("SELECT * FROM hive." + schema + ".nation"))
+                .failure().hasMessageContaining("Cannot query Iceberg table");
     }
 
     @Test
@@ -92,15 +91,15 @@ public abstract class BaseSharedMetastoreTest
         assertQuery("SHOW TABLES FROM hive_with_redirections." + schema, "VALUES 'region', 'nation'");
         assertQuery("SHOW TABLES FROM iceberg_with_redirections." + schema, "VALUES 'region', 'nation'");
 
-        assertThatThrownBy(() -> query("SHOW CREATE TABLE iceberg." + schema + ".region"))
-                .hasMessageContaining("Not an Iceberg table");
-        assertThatThrownBy(() -> query("SHOW CREATE TABLE hive." + schema + ".nation"))
-                .hasMessageContaining("Cannot query Iceberg table");
+        assertThat(query("SHOW CREATE TABLE iceberg." + schema + ".region"))
+                .failure().hasMessageContaining("Not an Iceberg table");
+        assertThat(query("SHOW CREATE TABLE hive." + schema + ".nation"))
+                .failure().hasMessageContaining("Cannot query Iceberg table");
 
-        assertThatThrownBy(() -> query("DESCRIBE iceberg." + schema + ".region"))
-                .hasMessageContaining("Not an Iceberg table");
-        assertThatThrownBy(() -> query("DESCRIBE hive." + schema + ".nation"))
-                .hasMessageContaining("Cannot query Iceberg table");
+        assertThat(query("DESCRIBE iceberg." + schema + ".region"))
+                .failure().hasMessageContaining("Not an Iceberg table");
+        assertThat(query("DESCRIBE hive." + schema + ".nation"))
+                .failure().hasMessageContaining("Cannot query Iceberg table");
     }
 
     @Test
@@ -164,8 +163,8 @@ public abstract class BaseSharedMetastoreTest
                     "\\QThis connector does not support versioned tables");
         }
         finally {
-            query("DROP TABLE IF EXISTS iceberg." + testLocalSchema + ".nation_test");
-            query("DROP SCHEMA IF EXISTS iceberg." + testLocalSchema);
+            assertUpdate("DROP TABLE IF EXISTS iceberg." + testLocalSchema + ".nation_test");
+            assertUpdate("DROP SCHEMA IF EXISTS iceberg." + testLocalSchema);
         }
     }
 

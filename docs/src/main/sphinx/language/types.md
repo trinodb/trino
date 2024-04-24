@@ -154,13 +154,20 @@ before any Unicode character usage with 4 digits. In the examples above
 with 6 digits require usage of the plus symbol before the code. For example,
 you need to use `\+01F600` for a grinning face emoji.
 
+Single quotes in string literals can be escaped by using another single quote: 
+`'I am big, it''s the pictures that got small!'`
+
 ### `CHAR`
 
 Fixed length character data. A `CHAR` type without length specified has a default length of 1.
 A `CHAR(x)` value always has `x` characters. For example, casting `dog` to `CHAR(7)`
 adds 4 implicit trailing spaces. Leading and trailing spaces are included in comparisons of
 `CHAR` values. As a result, two character values with different lengths (`CHAR(x)` and
-`CHAR(y)` where `x != y`) will never be equal.
+`CHAR(y)` where `x != y`) will never be equal. As with `VARCHAR`, a single quote in a `CHAR` 
+literal can be escaped with another single quote:
+```sql
+SELECT CHAR 'All right, Mr. DeMille, I''m ready for my close-up.'
+```
 
 Example type definitions: `char`, `char(20)`
 

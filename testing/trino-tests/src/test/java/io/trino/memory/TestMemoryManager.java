@@ -57,10 +57,10 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
+@Execution(SAME_THREAD) // run single threaded to avoid creating multiple query runners at once
 public class TestMemoryManager
 {
     private static final Session SESSION = testSessionBuilder()
@@ -99,7 +99,7 @@ public class TestMemoryManager
                 .put("query.max-memory", "1kB")
                 .buildOrThrow();
 
-        try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
+        try (QueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             assertThatThrownBy(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageStartingWith("Query exceeded per-node memory limit of ");
@@ -169,7 +169,7 @@ public class TestMemoryManager
         }
     }
 
-    private void waitForQueryToBeKilled(DistributedQueryRunner queryRunner)
+    private void waitForQueryToBeKilled(QueryRunner queryRunner)
             throws InterruptedException
     {
         while (true) {
@@ -203,7 +203,7 @@ public class TestMemoryManager
     private void testNoLeak(@Language("SQL") String query)
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.of("task.verbose-stats", "true");
+        Map<String, String> properties = ImmutableMap.of("task.per-operator-cpu-timer-enabled", "true");
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             executor.submit(() -> queryRunner.execute(query)).get();
@@ -225,7 +225,7 @@ public class TestMemoryManager
     public void testClusterPools()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.of("task.verbose-stats", "true");
+        Map<String, String> properties = ImmutableMap.of("task.per-operator-cpu-timer-enabled", "true");
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             // Reserve all the memory

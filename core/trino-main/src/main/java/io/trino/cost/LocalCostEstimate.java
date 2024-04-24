@@ -21,7 +21,9 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
+import static java.lang.Double.isNaN;
 
 /**
  * Represents inherent cost of some plan node, not including cost of its sources.
@@ -63,6 +65,9 @@ public class LocalCostEstimate
             @JsonProperty("maxMemory") double maxMemory,
             @JsonProperty("networkCost") double networkCost)
     {
+        checkArgument(isNaN(cpuCost) || cpuCost >= 0, "cpuCost cannot be negative: %s", cpuCost);
+        checkArgument(isNaN(maxMemory) || maxMemory >= 0, "maxMemory cannot be negative: %s", maxMemory);
+        checkArgument(isNaN(networkCost) || networkCost >= 0, "networkCost cannot be negative: %s", networkCost);
         this.cpuCost = cpuCost;
         this.maxMemory = maxMemory;
         this.networkCost = networkCost;

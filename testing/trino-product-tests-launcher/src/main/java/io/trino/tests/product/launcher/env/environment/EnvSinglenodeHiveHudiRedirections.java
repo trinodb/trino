@@ -26,7 +26,9 @@ import io.trino.tests.product.launcher.env.common.Minio;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
+import org.testcontainers.containers.BindMode;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -47,6 +49,8 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class EnvSinglenodeHiveHudiRedirections
         extends EnvironmentProvider
 {
+    private static final File HIVE_JDBC_PROVIDER = new File("testing/trino-product-tests-launcher/target/hive-jdbc.jar");
+
     private final ResourceProvider configDir;
 
     private static final int SPARK_THRIFT_PORT = 10213;
@@ -78,7 +82,10 @@ public class EnvSinglenodeHiveHudiRedirections
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector("hudi", forHostPath(configDir.getPath("hudi.properties")));
 
-        builder.configureContainer(TESTS, dockerContainer -> dockerContainer.withEnv("S3_BUCKET", S3_BUCKET_NAME));
+        builder.configureContainer(TESTS, dockerContainer -> dockerContainer
+                .withEnv("S3_BUCKET", S3_BUCKET_NAME)
+                // Binding instead of copying for avoiding OutOfMemoryError https://github.com/testcontainers/testcontainers-java/issues/2863
+                .withFileSystemBind(HIVE_JDBC_PROVIDER.getParent(), "/docker/jdbc", BindMode.READ_ONLY));
 
         builder.addContainer(createSparkContainer())
                 // Ensure Hive metastore is up; Spark needs to access it during startup

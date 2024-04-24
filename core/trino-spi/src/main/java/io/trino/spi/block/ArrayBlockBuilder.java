@@ -24,6 +24,7 @@ import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
 import static io.trino.spi.block.BlockUtil.appendRawBlockRange;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static java.lang.Math.max;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlockBuilder
@@ -219,6 +220,17 @@ public class ArrayBlockBuilder
 
         entryAdded(true);
         return this;
+    }
+
+    @Override
+    public void resetTo(int position)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
+        }
+        checkIndex(position, positionCount + 1);
+        positionCount = position;
+        values.resetTo(offsets[positionCount]);
     }
 
     private void entryAdded(boolean isNull)

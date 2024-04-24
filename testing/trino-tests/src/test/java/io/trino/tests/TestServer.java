@@ -54,6 +54,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
@@ -151,8 +152,8 @@ public class TestServer
                 .map(JsonResponse::getValue)
                 .collect(toImmutableList());
 
-        QueryResults first = queryResults.get(0);
-        QueryResults last = queryResults.get(queryResults.size() - 1);
+        QueryResults first = queryResults.getFirst();
+        QueryResults last = queryResults.getLast();
 
         Optional<QueryResults> data = queryResults.stream().filter(results -> results.getData() != null).findFirst();
 
@@ -161,8 +162,8 @@ public class TestServer
         assertThat(first.getData()).isNull();
 
         assertThat(last.getColumns()).hasSize(1);
-        assertThat(last.getColumns().get(0).getName()).isEqualTo("Catalog");
-        assertThat(last.getColumns().get(0).getType()).isEqualTo("varchar(6)");
+        assertThat(getOnlyElement(last.getColumns()).getName()).isEqualTo("Catalog");
+        assertThat(getOnlyElement(last.getColumns()).getType()).isEqualTo("varchar(6)");
         assertThat(last.getStats().getState()).isEqualTo("FINISHED");
 
         assertThat(data).isPresent();
@@ -253,7 +254,7 @@ public class TestServer
         // fails during parsing
         checkVersionOnError("SELECT query that fails parsing", "ParsingException: line 1:19: mismatched input 'fails'. Expecting");
         // fails during analysis
-        checkVersionOnError("SELECT foo FROM some_catalog.some_schema.no_such_table", "TrinoException: line 1:17: Catalog 'some_catalog' does not exist");
+        checkVersionOnError("SELECT foo FROM some_catalog.some_schema.no_such_table", "TrinoException: line 1:17: Catalog 'some_catalog' not found");
         // fails during Values evaluation in LocalExecutionPlanner
         checkVersionOnError("SELECT 1 / 0", "TrinoException: Division by zero(?s:.*)at io.trino.sql.planner.LocalExecutionPlanner.plan");
         checkVersionOnError("select 1 / a from (values 0) t(a)", "TrinoException: Division by zero(?s:.*)at io.trino.sql.planner.LocalExecutionPlanner.plan");

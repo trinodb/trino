@@ -35,18 +35,14 @@
 
 ### Java runtime environment
 
-Trino requires a 64-bit version of Java 17, with a minimum required version of 17.0.3.
-Earlier major versions such as Java 8 or Java 11 do not work.
-Newer major versions such as Java 18 or 19, are not supported -- they may work, but are not tested.
+Trino requires a 64-bit version of Java 21, with a minimum required version of 21.0.1.
+Earlier major versions such as Java 8, Java 11 or Java 17 do not work.
+Newer major versions such as Java 22 are not supported -- they may work, but are not tested.
 
 We recommend using the Eclipse Temurin OpenJDK distribution from
 [Adoptium](https://adoptium.net/) as the JDK for Trino, as Trino is tested
 against that distribution. Eclipse Temurin is also the JDK used by the [Trino
 Docker image](https://hub.docker.com/r/trinodb/trino).
-
-If you are using Java 17 or 18, the JVM must be configured to use UTF-8 as the default charset by
-adding `-Dfile.encoding=UTF-8` to `etc/jvm.config`. Starting with Java 19, the Java default 
-charset is UTF-8, so this configuration is not needed.
 
 (requirements-python)=
 
@@ -61,9 +57,16 @@ Download the Trino server tarball, {maven_download}`server`, and unpack it. The
 tarball contains a single top-level directory, `trino-server-|trino_version|`,
 which we call the *installation* directory.
 
-Trino needs a *data* directory for storing logs, etc.
+Trino needs a *data* directory for storing logs, etc. By default, an
+installation from the tarball uses the same location for the installation and data
+directories.
+
 We recommend creating a data directory outside of the installation directory,
-which allows it to be easily preserved when upgrading Trino.
+which allows it to be easily preserved when upgrading Trino. This directory path
+must be configured with the [](node-properties).
+
+The user that runs the Trino process must have full read access to the
+installation directory, and read and write access to the data directory.
 
 ## Configuring Trino
 
@@ -142,6 +145,8 @@ The following provides a good starting point for creating `etc/jvm.config`:
 # Reduce starvation of threads by GClocker, recommend to set about the number of cpu cores (JDK-8192647)
 -XX:+UnlockDiagnosticVMOptions
 -XX:GCLockerRetryAllocationCount=32
+# Allow loading dynamic agent used by JOL
+-XX:+EnableDynamicAgentLoading
 ```
 
 You must adjust the value for the memory used by Trino, specified with `-Xmx`
@@ -323,7 +328,7 @@ accepts the following commands:
 
 A number of additional options allow you to specify configuration file and
 directory locations, as well as Java options. Run the launcher with `--help`
-to see the supported commands and command line options.
+to see the supported commands, command line options, and default values.
 
 The `-v` or `--verbose` option for each command prepends the server's
 current settings before the command's usual output.
@@ -334,6 +339,13 @@ Trino can be started as a daemon by running the following:
 bin/launcher start
 ```
 
+Use the status command with the verbose option for the pid and a list of
+configuration settings:
+
+```text
+bin/launcher -v status
+```
+
 Alternatively, it can be run in the foreground, with the logs and other
 output written to stdout/stderr. Both streams should be captured
 if using a supervision system like daemontools:
@@ -342,14 +354,16 @@ if using a supervision system like daemontools:
 bin/launcher run
 ```
 
-The launcher configures default values for the configuration
-directory `etc`, configuration files, the data directory `var`,
-and log files in the data directory. You can change these values
-to adjust your Trino usage to any requirements, such as using a
-directory outside the installation directory, specific mount points
-or locations, and even using other file names. For example, the Trino
-RPM adjusts the used directories to better follow the Linux Filesystem
-Hierarchy Standard (FHS).
+The launcher configures default values for the configuration directory `etc`,
+configuration files in `etc`, the data directory identical to the installation
+directory, the pid file as `var/run/launcher.pid` and log files in the `var/log`
+directory.
+
+You can change these values to adjust your Trino usage to any
+requirements, such as using a directory outside the installation directory,
+specific mount points or locations, and even using other file names. For
+example, the Trino RPM adjusts the used directories to better follow the Linux
+Filesystem Hierarchy Standard (FHS).
 
 After starting Trino, you can find log files in the `log` directory inside
 the data directory `var`:

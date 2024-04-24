@@ -15,7 +15,6 @@ package io.trino.tests.tpch;
 
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -29,7 +28,7 @@ public class TestTpchTableScanRedirection
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+        QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
                 .withTableScanRedirectionCatalog("memory")
                 .withTableScanRedirectionSchema("test")
                 .build();

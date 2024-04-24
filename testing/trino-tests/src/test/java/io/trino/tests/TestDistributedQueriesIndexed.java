@@ -16,6 +16,7 @@ package io.trino.tests;
 import io.trino.Session;
 import io.trino.testing.AbstractTestIndexedQueries;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.tpch.IndexedTpchPlugin;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -25,7 +26,7 @@ public class TestDistributedQueriesIndexed
         extends AbstractTestIndexedQueries
 {
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -33,7 +34,7 @@ public class TestDistributedQueriesIndexed
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         queryRunner.installPlugin(new IndexedTpchPlugin(INDEX_SPEC));
         queryRunner.createCatalog("tpch_indexed", "tpch_indexed");

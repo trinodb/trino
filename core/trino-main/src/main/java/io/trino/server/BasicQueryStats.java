@@ -50,11 +50,13 @@ public class BasicQueryStats
     private final int queuedDrivers;
     private final int runningDrivers;
     private final int completedDrivers;
+    private final int blockedDrivers;
 
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
+    private final DataSize spilledDataSize;
     private final DataSize physicalInputDataSize;
-
+    private final DataSize physicalWrittenDataSize;
     private final double cumulativeUserMemory;
     private final double failedCumulativeUserMemory;
     private final DataSize userMemoryReservation;
@@ -84,9 +86,12 @@ public class BasicQueryStats
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
+            @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
+            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("failedCumulativeUserMemory") double failedCumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
@@ -120,10 +125,14 @@ public class BasicQueryStats
         this.runningDrivers = runningDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
+        checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
+        this.blockedDrivers = blockedDrivers;
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.rawInputPositions = rawInputPositions;
+        this.spilledDataSize = spilledDataSize;
         this.physicalInputDataSize = physicalInputDataSize;
+        this.physicalWrittenDataSize = physicalWrittenDataSize;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.failedCumulativeUserMemory = failedCumulativeUserMemory;
@@ -155,9 +164,12 @@ public class BasicQueryStats
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
                 queryStats.getCompletedDrivers(),
+                queryStats.getBlockedDrivers(),
                 queryStats.getRawInputDataSize(),
                 queryStats.getRawInputPositions(),
+                queryStats.getSpilledDataSize(),
                 queryStats.getPhysicalInputDataSize(),
+                queryStats.getPhysicalWrittenDataSize(),
                 queryStats.getCumulativeUserMemory(),
                 queryStats.getFailedCumulativeUserMemory(),
                 queryStats.getUserMemoryReservation(),
@@ -188,8 +200,11 @@ public class BasicQueryStats
                 0,
                 0,
                 0,
+                0,
                 DataSize.ofBytes(0),
                 0,
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 0,
                 0,
@@ -268,6 +283,12 @@ public class BasicQueryStats
     }
 
     @JsonProperty
+    public int getBlockedDrivers()
+    {
+        return blockedDrivers;
+    }
+
+    @JsonProperty
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
@@ -280,9 +301,21 @@ public class BasicQueryStats
     }
 
     @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
+    }
+
+    @JsonProperty
     public DataSize getPhysicalInputDataSize()
     {
         return physicalInputDataSize;
+    }
+
+    @JsonProperty
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize;
     }
 
     @JsonProperty

@@ -14,13 +14,13 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 
 import java.util.List;
@@ -55,7 +55,7 @@ public class TestingAggregationFunction
         distinctFactory = new DistinctAccumulatorFactory(
                 factory,
                 parameterTypes,
-                new JoinCompiler(TYPE_OPERATORS),
+                new FlatHashStrategyCompiler(TYPE_OPERATORS),
                 TEST_SESSION);
     }
 
@@ -69,7 +69,7 @@ public class TestingAggregationFunction
         distinctFactory = new DistinctAccumulatorFactory(
                 factory,
                 parameterTypes,
-                new JoinCompiler(TYPE_OPERATORS),
+                new FlatHashStrategyCompiler(TYPE_OPERATORS),
                 TEST_SESSION);
     }
 

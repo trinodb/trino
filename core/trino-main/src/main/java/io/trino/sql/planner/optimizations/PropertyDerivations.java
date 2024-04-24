@@ -30,13 +30,14 @@ import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DomainTranslator;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.ActualProperties.Global;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -53,6 +54,7 @@ import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
@@ -83,10 +85,6 @@ import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -109,11 +107,10 @@ import static io.trino.sql.planner.optimizations.ActualProperties.Global.singleP
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.isLocalExchangesSourceSingleStreamDistributed;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
-import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
+import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
+import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public final class PropertyDerivations
@@ -123,25 +120,21 @@ public final class PropertyDerivations
     public static ActualProperties derivePropertiesRecursively(
             PlanNode node,
             PlannerContext plannerContext,
-            Session session,
-            TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            Session session)
     {
         List<ActualProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer))
+                .map(source -> derivePropertiesRecursively(source, plannerContext, session))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, plannerContext, session, types, typeAnalyzer);
+        return deriveProperties(node, inputProperties, plannerContext, session);
     }
 
     public static ActualProperties deriveProperties(
             PlanNode node,
             List<ActualProperties> inputProperties,
             PlannerContext plannerContext,
-            Session session,
-            TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            Session session)
     {
-        ActualProperties output = node.accept(new Visitor(plannerContext, session, types, typeAnalyzer), inputProperties);
+        ActualProperties output = node.accept(new Visitor(plannerContext, session), inputProperties);
 
         output.getNodePartitioning().ifPresent(partitioning ->
                 verify(node.getOutputSymbols().containsAll(partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
@@ -160,11 +153,9 @@ public final class PropertyDerivations
             PlanNode node,
             List<ActualProperties> inputProperties,
             PlannerContext plannerContext,
-            Session session,
-            TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            Session session)
     {
-        return node.accept(new Visitor(plannerContext, session, types, typeAnalyzer), inputProperties);
+        return node.accept(new Visitor(plannerContext, session), inputProperties);
     }
 
     private static class Visitor
@@ -172,15 +163,11 @@ public final class PropertyDerivations
     {
         private final PlannerContext plannerContext;
         private final Session session;
-        private final TypeProvider types;
-        private final TypeAnalyzer typeAnalyzer;
 
-        public Visitor(PlannerContext plannerContext, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+        public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = plannerContext;
             this.session = session;
-            this.types = types;
-            this.typeAnalyzer = typeAnalyzer;
         }
 
         @Override
@@ -756,8 +743,7 @@ public final class PropertyDerivations
             DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
                     plannerContext,
                     session,
-                    node.getPredicate(),
-                    types);
+                    node.getPredicate());
 
             Map<Symbol, NullableValue> constants = new HashMap<>(properties.getConstants());
             constants.putAll(extractFixedValues(decomposedPredicate.getTupleDomain()).orElse(ImmutableMap.of()));
@@ -781,25 +767,23 @@ public final class PropertyDerivations
             for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
                 Expression expression = assignment.getValue();
 
-                Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
-                Type type = requireNonNull(expressionTypes.get(NodeRef.of(expression)));
-                ExpressionInterpreter optimizer = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
+                Type type = expression.type();
                 // TODO:
                 // We want to use a symbol resolver that looks up in the constants from the input subplan
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 // ("ROW comparison not supported for fields with null elements", etc)
-                Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
+                Expression value = new IrExpressionInterpreter(expression, plannerContext, session).optimize();
 
-                if (value instanceof SymbolReference) {
-                    Symbol symbol = Symbol.from((SymbolReference) value);
+                if (value instanceof Reference) {
+                    Symbol symbol = Symbol.from(value);
                     NullableValue existingConstantValue = constants.get(symbol);
                     if (existingConstantValue != null) {
                         constants.put(assignment.getKey(), new NullableValue(type, value));
                     }
                 }
-                else if (!(value instanceof Expression)) {
-                    constants.put(assignment.getKey(), new NullableValue(type, value));
+                else if (value instanceof Constant constant) {
+                    constants.put(assignment.getKey(), new NullableValue(type, constant.value()));
                 }
             }
             constants.putAll(translatedProperties.getConstants());
@@ -925,7 +909,7 @@ public final class PropertyDerivations
         {
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
             for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-                if (assignment.getValue() instanceof SymbolReference) {
+                if (assignment.getValue() instanceof Reference) {
                     inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
                 }
             }
@@ -933,7 +917,7 @@ public final class PropertyDerivations
         }
     }
 
-    static boolean spillPossible(Session session, JoinNode.Type joinType)
+    static boolean spillPossible(Session session, JoinType joinType)
     {
         if (!SystemSessionProperties.isSpillEnabled(session)) {
             return false;
@@ -982,12 +966,12 @@ public final class PropertyDerivations
     private static Optional<Symbol> rewriteExpression(Map<Symbol, Expression> assignments, Expression expression)
     {
         // Only simple coalesce expressions supported currently
-        if (!(expression instanceof CoalesceExpression)) {
+        if (!(expression instanceof Coalesce)) {
             return Optional.empty();
         }
 
-        Set<Expression> arguments = ImmutableSet.copyOf(((CoalesceExpression) expression).getOperands());
-        if (!arguments.stream().allMatch(SymbolReference.class::isInstance)) {
+        Set<Expression> arguments = ImmutableSet.copyOf(((Coalesce) expression).operands());
+        if (!arguments.stream().allMatch(Reference.class::isInstance)) {
             return Optional.empty();
         }
 
@@ -995,9 +979,9 @@ public final class PropertyDerivations
         // of the arguments. Thus we extract and compare the symbols of the CoalesceExpression as a set rather than compare the
         // CoalesceExpression directly.
         for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
-            if (entry.getValue() instanceof CoalesceExpression) {
-                Set<Expression> candidateArguments = ImmutableSet.copyOf(((CoalesceExpression) entry.getValue()).getOperands());
-                if (!candidateArguments.stream().allMatch(SymbolReference.class::isInstance)) {
+            if (entry.getValue() instanceof Coalesce) {
+                Set<Expression> candidateArguments = ImmutableSet.copyOf(((Coalesce) entry.getValue()).operands());
+                if (!candidateArguments.stream().allMatch(Reference.class::isInstance)) {
                     return Optional.empty();
                 }
 

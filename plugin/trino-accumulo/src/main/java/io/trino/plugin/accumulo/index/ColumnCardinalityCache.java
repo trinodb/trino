@@ -30,8 +30,8 @@ import io.trino.plugin.accumulo.conf.AccumuloConfig;
 import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.PreDestroy;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.accumulo.core.client.BatchScanner;
-import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.PartialKey;
 import org.apache.accumulo.core.data.Range;
@@ -78,15 +78,15 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class ColumnCardinalityCache
 {
     private static final Logger LOG = Logger.get(ColumnCardinalityCache.class);
-    private final Connector connector;
+    private final AccumuloClient client;
     private final ExecutorService coreExecutor;
     private final BoundedExecutor executorService;
     private final NonEvictableLoadingCache<CacheKey, Long> cache;
 
     @Inject
-    public ColumnCardinalityCache(Connector connector, AccumuloConfig config)
+    public ColumnCardinalityCache(AccumuloClient client, AccumuloConfig config)
     {
-        this.connector = requireNonNull(connector, "connector is null");
+        this.client = requireNonNull(client, "client is null");
         int size = config.getCardinalityCacheSize();
         Duration expireDuration = config.getCardinalityCacheExpiration();
 
@@ -339,8 +339,8 @@ public class ColumnCardinalityCache
             Text columnFamily = new Text(getIndexColumnFamily(key.getFamily().getBytes(UTF_8), key.getQualifier().getBytes(UTF_8)).array());
 
             // Create scanner for querying the range
-            BatchScanner scanner = connector.createBatchScanner(metricsTable, key.auths, 10);
-            scanner.setRanges(connector.tableOperations().splitRangeByTablets(metricsTable, key.range, Integer.MAX_VALUE));
+            BatchScanner scanner = client.createBatchScanner(metricsTable, key.auths, 10);
+            scanner.setRanges(client.tableOperations().splitRangeByTablets(metricsTable, key.range, Integer.MAX_VALUE));
             scanner.fetchColumn(columnFamily, CARDINALITY_CQ_AS_TEXT);
 
             try {
@@ -381,7 +381,7 @@ public class ColumnCardinalityCache
             String metricsTable = getMetricsTableName(anyKey.getSchema(), anyKey.getTable());
             Text columnFamily = new Text(getIndexColumnFamily(anyKey.getFamily().getBytes(UTF_8), anyKey.getQualifier().getBytes(UTF_8)).array());
 
-            BatchScanner scanner = connector.createBatchScanner(metricsTable, anyKey.getAuths(), 10);
+            BatchScanner scanner = client.createBatchScanner(metricsTable, anyKey.getAuths(), 10);
             try {
                 scanner.setRanges(stream(keys).map(CacheKey::getRange).collect(Collectors.toList()));
                 scanner.fetchColumn(columnFamily, CARDINALITY_CQ_AS_TEXT);

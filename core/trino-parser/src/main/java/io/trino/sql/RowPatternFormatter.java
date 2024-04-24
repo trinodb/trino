@@ -29,7 +29,6 @@ import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.ZeroOrMoreQuantifier;
 import io.trino.sql.tree.ZeroOrOneQuantifier;
 
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 public final class RowPatternFormatter
@@ -53,7 +52,7 @@ public final class RowPatternFormatter
         @Override
         protected String visitRowPattern(RowPattern node, Void context)
         {
-            throw new UnsupportedOperationException(format("not yet implemented: %s.visit%s", getClass().getName(), node.getClass().getSimpleName()));
+            throw new UnsupportedOperationException("not yet implemented: %s.visit%s".formatted(getClass().getName(), node.getClass().getSimpleName()));
         }
 
         @Override

@@ -26,12 +26,13 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -39,7 +40,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
@@ -75,8 +75,6 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -228,33 +226,23 @@ public class TrinoHadoopCatalog
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
+    public List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace)
     {
-        ImmutableList.Builder<SchemaTableName> schemaTableNames = ImmutableList.builder();
+        ImmutableList.Builder<TableInfo> tableInfos = ImmutableList.builder();
         try {
             for (String ns : listNamespaces(session, namespace)) {
                 Location nsLocation = Location.of(SLASH.join(warehouse, ns));
                 if (!isDirectory(nsLocation)) {
                     throw new TrinoException(SCHEMA_NOT_FOUND, String.format("could not find namespace %s", ns));
                 }
-                schemaTableNames.addAll(trinoFileSystem.listDirectories(nsLocation).stream()
-                        .filter(this::isTableDir).map(tableLocation -> new SchemaTableName(ns, extractFilename(tableLocation))).toList());
+                tableInfos.addAll(trinoFileSystem.listDirectories(nsLocation).stream()
+                        .filter(this::isTableDir).map(tableLocation -> new TableInfo(new SchemaTableName(ns, extractFilename(tableLocation)), TableInfo.ExtendedRelationType.TABLE)).toList());
             }
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, String.format("Failed to list tables under: %s", namespace), e);
         }
-        return schemaTableNames.build();
-    }
-
-    @Override
-    public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace)
-    {
-        // views and materialized views are currently not supported
-        verify(listViews(session, namespace).isEmpty(), "Unexpected views support");
-        verify(listMaterializedViews(session, namespace).isEmpty(), "Unexpected views support");
-        return listTables(session, namespace).stream()
-                .collect(toImmutableMap(identity(), ignore -> RelationType.TABLE));
+        return tableInfos.build();
     }
 
     @Override
@@ -462,21 +450,9 @@ public class TrinoHadoopCatalog
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
-    }
-
-    @Override
-    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
-    {
-        return ImmutableList.of();
     }
 
     @Override

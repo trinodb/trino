@@ -212,6 +212,8 @@ public class OperatorContext
 
     public void recordOutput(long sizeInBytes, long positions)
     {
+        checkArgument(sizeInBytes >= 0, "sizeInBytes is negative (%s)", sizeInBytes);
+        checkArgument(positions >= 0, "positions is negative (%s)", positions);
         outputDataSize.update(sizeInBytes);
         outputPositions.update(positions);
     }

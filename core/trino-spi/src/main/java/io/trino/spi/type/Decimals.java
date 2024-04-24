@@ -282,6 +282,20 @@ public final class Decimals
         return valueOf(value.unscaledValue());
     }
 
+    /**
+     * Converts {@link BigDecimal} to {@link long} representing it for short {@link DecimalType}.
+     * It is caller responsibility to ensure that {@code value.scale()} equals to {@link DecimalType#getScale()}.
+     */
+    public static long valueOfShort(BigDecimal value)
+    {
+        return valueOf(value.unscaledValue().longValueExact());
+    }
+
+    public static long valueOf(long value)
+    {
+        return value;
+    }
+
     public static Int128 valueOf(BigInteger value)
     {
         Int128 result;
@@ -291,10 +305,13 @@ public final class Decimals
         catch (Exception e) {
             throw new ArithmeticException("Decimal overflow");
         }
-        throwIfOverflows(result.getHigh(), result.getLow());
+        if (overflows(result.getHigh(), result.getLow())) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
+        }
         return result;
     }
 
+    @Deprecated(forRemoval = true)
     public static void throwIfOverflows(long high, long low)
     {
         if (overflows(high, low)) {

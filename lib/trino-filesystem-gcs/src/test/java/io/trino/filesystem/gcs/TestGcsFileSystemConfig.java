@@ -48,10 +48,10 @@ public class TestGcsFileSystemConfig
                 .setJsonKey(null)
                 .setJsonKeyFilePath(null)
                 .setMaxRetries(20)
-                .setBackoffScaleFactor(2.0)
-                .setMaxRetryTime(new Duration(20, SECONDS))
+                .setBackoffScaleFactor(3.0)
+                .setMaxRetryTime(new Duration(25, SECONDS))
                 .setMinBackoffDelay(new Duration(10, MILLISECONDS))
-                .setMaxBackoffDelay(new Duration(1100, MILLISECONDS)));
+                .setMaxBackoffDelay(new Duration(2000, MILLISECONDS)));
     }
 
     @Test
@@ -70,7 +70,7 @@ public class TestGcsFileSystemConfig
                 .put("gcs.json-key", "{}")
                 .put("gcs.json-key-file-path", jsonKeyFile.toString())
                 .put("gcs.client.max-retries", "10")
-                .put("gcs.client.backoff-scale-factor", "3.0")
+                .put("gcs.client.backoff-scale-factor", "4.0")
                 .put("gcs.client.max-retry-time", "10s")
                 .put("gcs.client.min-backoff-delay", "20ms")
                 .put("gcs.client.max-backoff-delay", "20ms")
@@ -86,7 +86,7 @@ public class TestGcsFileSystemConfig
                 .setJsonKey("{}")
                 .setJsonKeyFilePath(jsonKeyFile.toString())
                 .setMaxRetries(10)
-                .setBackoffScaleFactor(3.0)
+                .setBackoffScaleFactor(4.0)
                 .setMaxRetryTime(new Duration(10, SECONDS))
                 .setMinBackoffDelay(new Duration(20, MILLISECONDS))
                 .setMaxBackoffDelay(new Duration(20, MILLISECONDS));

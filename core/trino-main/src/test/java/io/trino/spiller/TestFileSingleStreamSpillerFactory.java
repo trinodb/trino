@@ -41,6 +41,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.MoreFiles.listFiles;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
@@ -218,7 +219,7 @@ public class TestFileSingleStreamSpillerFactory
         // Set second spiller path to read-only after initialization to emulate a disk failing during runtime
         setPosixFilePermissions(spillPath2.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ));
 
-        assertThatThrownBy(() -> { getUnchecked(singleStreamSpiller2.spill(page)); })
+        assertThatThrownBy(() -> getUnchecked(singleStreamSpiller2.spill(page)))
                 .isInstanceOf(com.google.common.util.concurrent.UncheckedExecutionException.class)
                 .hasMessageContaining("Failed to spill pages");
         spillers.add(singleStreamSpiller2);
@@ -279,7 +280,7 @@ public class TestFileSingleStreamSpillerFactory
                 new SpillerStats(),
                 paths,
                 maxUsedSpaceThreshold,
-                false,
+                NONE,
                 false);
     }
 }

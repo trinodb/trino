@@ -15,8 +15,6 @@ package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.SimpleSliceInputStream;
-import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 
 import java.util.OptionalInt;
@@ -24,9 +22,9 @@ import java.util.Random;
 
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.FloatApacheParquetValueDecoder;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.spi.type.RealType.REAL;
-import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -107,36 +105,5 @@ public final class TestFloatValueDecoders
         }
 
         return getWrittenBuffer(valuesWriter);
-    }
-
-    private static final class FloatApacheParquetValueDecoder
-            implements ValueDecoder<int[]>
-    {
-        private final ValuesReader delegate;
-
-        public FloatApacheParquetValueDecoder(ValuesReader delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(int[] values, int offset, int length)
-        {
-            for (int i = offset; i < offset + length; i++) {
-                values[i] = Float.floatToIntBits(delegate.readFloat());
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
     }
 }

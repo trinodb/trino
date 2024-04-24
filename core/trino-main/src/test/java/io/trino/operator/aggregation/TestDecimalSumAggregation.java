@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowState;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
@@ -131,7 +132,7 @@ public class TestDecimalSumAggregation
 
         assertThat(state.getOverflow()).isEqualTo(1);
         assertThatThrownBy(() -> DecimalSumAggregation.outputDecimal(state, new VariableWidthBlockBuilder(null, 10, 100)))
-                .isInstanceOf(ArithmeticException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Decimal overflow");
     }
 

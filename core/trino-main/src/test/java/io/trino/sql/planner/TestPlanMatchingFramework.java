@@ -16,20 +16,29 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.columnReference;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -39,12 +48,15 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPlanMatchingFramework
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+
     @Test
     public void testOutput()
     {
@@ -102,7 +114,7 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT orderkey, 2 FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "TWO"),
-                        project(ImmutableMap.of("TWO", expression("2")),
+                        project(ImmutableMap.of("TWO", expression(new Constant(INTEGER, 2L))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
 
@@ -111,7 +123,7 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT orderkey, 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
-                        project(ImmutableMap.of("EXPRESSION", expression("CAST(1 AS bigint) + ORDERKEY")),
+                        project(ImmutableMap.of("EXPRESSION", expression(new Call(ADD_BIGINT, ImmutableList.of(new Cast(new Constant(INTEGER, 1L), BIGINT), new Reference(BIGINT, "ORDERKEY"))))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
 
@@ -120,7 +132,9 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT orderkey, 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
-                        strictProject(ImmutableMap.of("EXPRESSION", expression("CAST(1 AS BIGINT) + ORDERKEY"), "ORDERKEY", expression("ORDERKEY")),
+                        strictProject(ImmutableMap.of(
+                                        "EXPRESSION", expression(new Call(ADD_BIGINT, ImmutableList.of(new Cast(new Constant(INTEGER, 1L), BIGINT), new Reference(BIGINT, "ORDERKEY")))),
+                                        "ORDERKEY", expression(new Reference(BIGINT, "ORDERKEY"))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
 
@@ -129,7 +143,9 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT orderkey, 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
-                        project(ImmutableMap.of("ORDERKEY", expression("ORDERKEY"), "EXPRESSION", expression("CAST(1 AS bigint) + ORDERKEY")),
+                        project(ImmutableMap.of(
+                                        "ORDERKEY", expression(new Reference(BIGINT, "ORDERKEY")),
+                                        "EXPRESSION", expression(new Call(ADD_BIGINT, ImmutableList.of(new Cast(new Constant(INTEGER, 1L), BIGINT), new Reference(BIGINT, "ORDERKEY"))))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
 
@@ -178,7 +194,7 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT COUNT(nationkey) FROM nation",
                 output(ImmutableList.of("COUNT"),
-                        aggregation(ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("NATIONKEY"))),
+                        aggregation(ImmutableMap.of("COUNT", PlanMatchPattern.aggregationFunction("count", ImmutableList.of("NATIONKEY"))),
                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey")))));
     }
 
@@ -236,7 +252,7 @@ public class TestPlanMatchingFramework
     {
         assertThatThrownBy(() -> assertMinimallyOptimizedPlan("SELECT discount, orderkey, 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
-                        strictProject(ImmutableMap.of("EXPRESSION", expression("1 + ORDERKEY"), "ORDERKEY", expression("ORDERKEY")),
+                        strictProject(ImmutableMap.of("EXPRESSION", expression(new Call(ADD_BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "ORDERKEY")))), "ORDERKEY", expression(new Reference(BIGINT, "ORDERKEY"))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))))))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageStartingWith("Plan does not match");
@@ -266,7 +282,7 @@ public class TestPlanMatchingFramework
     {
         assertThatThrownBy(() -> assertMinimallyOptimizedPlan("SELECT 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY"),
-                        project(ImmutableMap.of("EXPRESSION", expression("CAST(1 AS bigint) + ORDERKEY")),
+                        project(ImmutableMap.of("EXPRESSION", expression(new Call(ADD_BIGINT, ImmutableList.of(new Cast(new Constant(INTEGER, 1L), BIGINT), new Reference(BIGINT, "ORDERKEY"))))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageMatching("missing expression for alias .*");
@@ -274,7 +290,7 @@ public class TestPlanMatchingFramework
 
     private Session noJoinReordering()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .build();

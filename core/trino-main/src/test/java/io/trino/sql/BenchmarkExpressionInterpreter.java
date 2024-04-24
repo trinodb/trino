@@ -14,7 +14,10 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.Expression;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.In;
+import io.trino.sql.ir.Reference;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -31,12 +34,12 @@ import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.sql.TestExpressionInterpreter.planExpression;
-import static java.util.stream.Collectors.joining;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -61,19 +64,8 @@ public class BenchmarkExpressionInterpreter
         public void setup()
         {
             expressions = ImmutableList.of(
-                    planExpression("bound_integer IN " + IntStream.range(0, inValuesCount)
-                            .mapToObj(Integer::toString)
-                            .collect(joining(", ", "(", ")"))),
-                    planExpression("bound_long IN " + IntStream.range(0, inValuesCount)
-                            .mapToObj(Integer::toString)
-                            .collect(joining(", ", "(", ")"))),
-                    planExpression("bound_decimal_short IN " + IntStream.range(0, inValuesCount)
-                            .mapToDouble(i -> (double) i)
-                            .mapToObj(Double::toString)
-                            .collect(joining(", ", "(", ")"))),
-                    planExpression("bound_string IN " + IntStream.range(0, inValuesCount)
-                            .mapToObj(i -> "'" + i + "'")
-                            .collect(joining(", ", "(", ")"))));
+                    new In(new Reference(INTEGER, "bound_value"), IntStream.range(0, inValuesCount).mapToObj(i -> new Constant(INTEGER, (long) i))
+                            .collect(Collectors.toList())));
         }
     }
 

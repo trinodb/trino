@@ -19,22 +19,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
-import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.NodeAndMappings;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PartitioningScheme;
-import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -90,11 +87,6 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -113,11 +105,11 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.DynamicFilters.getDescriptor;
 import static io.trino.sql.DynamicFilters.replaceDynamicFilterId;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolReallocator;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static java.util.Objects.requireNonNull;
 
@@ -135,31 +127,12 @@ import static java.util.Objects.requireNonNull;
 public class UnaliasSymbolReferences
         implements PlanOptimizer
 {
-    private final Metadata metadata;
-
-    public UnaliasSymbolReferences(Metadata metadata)
-    {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-    }
-
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
-        requireNonNull(idAllocator, "idAllocator is null");
 
-        Visitor visitor = new Visitor(metadata, SymbolMapper::symbolMapper);
+        Visitor visitor = new Visitor(SymbolMapper::symbolMapper);
         PlanAndMappings result = plan.accept(visitor, UnaliasContext.empty());
         return updateDynamicFilterIds(result.getRoot(), visitor.getDynamicFilterIdMap());
     }
@@ -176,7 +149,7 @@ public class UnaliasSymbolReferences
         requireNonNull(fields, "fields is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
 
-        Visitor visitor = new Visitor(metadata, mapping -> symbolReallocator(mapping, symbolAllocator));
+        Visitor visitor = new Visitor(mapping -> symbolReallocator(mapping, symbolAllocator));
         PlanAndMappings result = plan.accept(visitor, UnaliasContext.empty());
         return new NodeAndMappings(updateDynamicFilterIds(result.getRoot(), visitor.getDynamicFilterIdMap()), symbolMapper(result.getMappings()).map(fields));
     }
@@ -184,7 +157,7 @@ public class UnaliasSymbolReferences
     private PlanNode updateDynamicFilterIds(PlanNode resultNode, Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap)
     {
         if (!dynamicFilterIdMap.isEmpty()) {
-            resultNode = rewriteWith(new DynamicFilterVisitor(metadata, dynamicFilterIdMap), resultNode);
+            resultNode = rewriteWith(new DynamicFilterVisitor(dynamicFilterIdMap), resultNode);
         }
         return resultNode;
     }
@@ -192,13 +165,11 @@ public class UnaliasSymbolReferences
     private static class Visitor
             extends PlanVisitor<PlanAndMappings, UnaliasContext>
     {
-        private final Metadata metadata;
         private final Function<Map<Symbol, Symbol>, SymbolMapper> mapperProvider;
         private final Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap = new HashMap<>();
 
-        public Visitor(Metadata metadata, Function<Map<Symbol, Symbol>, SymbolMapper> mapperProvider)
+        public Visitor(Function<Map<Symbol, Symbol>, SymbolMapper> mapperProvider)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
             this.mapperProvider = requireNonNull(mapperProvider, "mapperProvider is null");
         }
 
@@ -293,7 +264,6 @@ public class UnaliasSymbolReferences
             }
 
             Optional<Symbol> newOrdinalitySymbol = node.getOrdinalitySymbol().map(mapper::map);
-            Optional<Expression> newFilter = node.getFilter().map(mapper::map);
 
             return new PlanAndMappings(
                     new UnnestNode(
@@ -302,8 +272,7 @@ public class UnaliasSymbolReferences
                             newReplicateSymbols,
                             newMappings.build(),
                             newOrdinalitySymbol,
-                            node.getJoinType(),
-                            newFilter),
+                            node.getJoinType()),
                     mapping);
         }
 
@@ -642,7 +611,7 @@ public class UnaliasSymbolReferences
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
                 for (Expression row : node.getRows().get()) {
-                    expressionsBuilder.add(mapper.map(((Row) row).getItems().get(i)));
+                    expressionsBuilder.add(mapper.map(((Row) row).items().get(i)));
                 }
                 rewrittenAssignmentsBuilder.add(new SimpleEntry<>(mapper.map(node.getOutputSymbols().get(i)), expressionsBuilder.build()));
             }
@@ -939,7 +908,7 @@ public class UnaliasSymbolReferences
                 // If the assignment potentially introduces a reused (ambiguous) symbol, do not map output to input
                 // to avoid mixing semantics. Input symbols represent semantics as in the source plan,
                 // while output symbols represent newly established semantics.
-                if (expression instanceof SymbolReference && !ambiguousSymbolsPresent) {
+                if (expression instanceof Reference && !ambiguousSymbolsPresent) {
                     Symbol value = Symbol.from(expression);
                     if (!assignment.getKey().equals(value)) {
                         newMapping.put(assignment.getKey(), value);
@@ -947,7 +916,7 @@ public class UnaliasSymbolReferences
                 }
                 // 2. map same deterministic expressions within a projection into the same symbol
                 // omit NullLiterals since those have ambiguous types
-                else if (DeterminismEvaluator.isDeterministic(expression, metadata) && !(expression instanceof NullLiteral)) {
+                else if (DeterminismEvaluator.isDeterministic(expression)) {
                     Symbol previous = inputsToOutputs.get(expression);
                     if (previous == null) {
                         inputsToOutputs.put(expression, assignment.getKey());
@@ -1032,35 +1001,28 @@ public class UnaliasSymbolReferences
             resultMapping.putAll(rewrittenSubquery.getMappings());
             mapper = symbolMapper(resultMapping);
 
-            ImmutableList.Builder<Map.Entry<Symbol, Expression>> rewrittenAssignments = ImmutableList.builder();
-            for (Map.Entry<Symbol, Expression> assignment : node.getSubqueryAssignments().entrySet()) {
+            ImmutableList.Builder<Map.Entry<Symbol, ApplyNode.SetExpression>> rewrittenAssignments = ImmutableList.builder();
+            for (Map.Entry<Symbol, ApplyNode.SetExpression> assignment : node.getSubqueryAssignments().entrySet()) {
                 rewrittenAssignments.add(new SimpleEntry<>(mapper.map(assignment.getKey()), mapper.map(assignment.getValue())));
             }
 
             // deduplicate assignments
-            Map<Symbol, Expression> deduplicateAssignments = rewrittenAssignments.build().stream()
+            Map<Symbol, ApplyNode.SetExpression> deduplicateAssignments = rewrittenAssignments.build().stream()
                     .distinct()
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-            // derive new mappings for Subquery assignments outputs
-            Map<Symbol, Symbol> newMapping = mappingFromAssignments(deduplicateAssignments, false);
-
-            Map<Symbol, Symbol> assignmentsOutputMapping = new HashMap<>();
-            assignmentsOutputMapping.putAll(resultMapping);
-            assignmentsOutputMapping.putAll(newMapping);
-
-            mapper = symbolMapper(assignmentsOutputMapping);
+            mapper = symbolMapper(resultMapping);
 
             // build new Assignments with canonical outputs
             // duplicate entries will be removed by the Builder
-            Assignments.Builder newAssignments = Assignments.builder();
-            for (Map.Entry<Symbol, Expression> assignment : deduplicateAssignments.entrySet()) {
+            ImmutableMap.Builder<Symbol, ApplyNode.SetExpression> newAssignments = ImmutableMap.builder();
+            for (Map.Entry<Symbol, ApplyNode.SetExpression> assignment : deduplicateAssignments.entrySet()) {
                 newAssignments.put(mapper.map(assignment.getKey()), assignment.getValue());
             }
 
             return new PlanAndMappings(
-                    new ApplyNode(node.getId(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), newAssignments.build(), rewrittenCorrelation, node.getOriginSubquery()),
-                    assignmentsOutputMapping);
+                    new ApplyNode(node.getId(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), newAssignments.buildOrThrow(), rewrittenCorrelation, node.getOriginSubquery()),
+                    resultMapping);
         }
 
         @Override
@@ -1445,12 +1407,10 @@ public class UnaliasSymbolReferences
     private static class DynamicFilterVisitor
             extends SimplePlanRewriter<Void>
     {
-        private final Metadata metadata;
         private final Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap;
 
-        private DynamicFilterVisitor(Metadata metadata, Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap)
+        private DynamicFilterVisitor(Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
             this.dynamicFilterIdMap = requireNonNull(dynamicFilterIdMap, "dynamicFilterIdMap is null");
         }
 
@@ -1485,13 +1445,13 @@ public class UnaliasSymbolReferences
                 Expression newConjunct = conjunct;
                 if (mappedId != null) {
                     // DF was remapped
-                    newConjunct = replaceDynamicFilterId((FunctionCall) conjunct, mappedId);
+                    newConjunct = replaceDynamicFilterId((Call) conjunct, mappedId);
                     updated = true;
                 }
                 newConjuncts.add(newConjunct);
             }
             if (updated) {
-                return combineConjuncts(metadata, newConjuncts.build());
+                return combineConjuncts(newConjuncts.build());
             }
             return predicate;
         }

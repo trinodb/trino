@@ -34,8 +34,6 @@ import io.trino.plugin.jdbc.ptf.Procedure;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
-import java.util.Properties;
-
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
@@ -75,12 +73,9 @@ public class SqlServerClientModule
             OpenTelemetry openTelemetry)
     {
         return new SqlServerConnectionFactory(
-                new DriverConnectionFactory(
-                        new SQLServerDriver(),
-                        config.getConnectionUrl(),
-                        new Properties(),
-                        credentialProvider,
-                        openTelemetry),
+                DriverConnectionFactory.builder(new SQLServerDriver(), config.getConnectionUrl(), credentialProvider)
+                        .setOpenTelemetry(openTelemetry)
+                        .build(),
                 sqlServerConfig.isSnapshotIsolationDisabled());
     }
 }

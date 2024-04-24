@@ -54,7 +54,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 .setSchema(schema)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
         this.dataDirectory.toFile().deleteOnExit();
@@ -105,7 +105,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "   location = '%s'\n" +
                 ")";
 
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
+        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri());
     }
 
     @Override
@@ -115,6 +115,6 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "WITH (\n" +
                 "   location = '%s'\n" +
                 ")";
-        return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
+        return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory.toUri());
     }
 }

@@ -1727,7 +1727,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testHstore()
     {
-        Type mapOfVarcharToVarchar = getQueryRunner().getTypeManager().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        Type mapOfVarcharToVarchar = getQueryRunner().getPlannerContext().getTypeManager().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("hstore", "NULL", mapOfVarcharToVarchar, "CAST(NULL AS MAP(VARCHAR, VARCHAR))")

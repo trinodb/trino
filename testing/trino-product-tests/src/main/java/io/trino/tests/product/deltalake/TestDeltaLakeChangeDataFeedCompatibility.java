@@ -58,7 +58,6 @@ public class TestDeltaLakeChangeDataFeedCompatibility
     @BeforeMethodWithContext
     public void setup()
     {
-        super.setUp();
         s3Client = new S3ClientFactory().createS3Client(s3ServerType);
     }
 

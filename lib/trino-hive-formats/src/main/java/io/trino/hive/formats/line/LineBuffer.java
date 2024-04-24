@@ -21,9 +21,9 @@ import java.util.Arrays;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.primitives.Ints.constrainToRange;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.clamp;
 
 public final class LineBuffer
         extends OutputStream
@@ -112,7 +112,7 @@ public final class LineBuffer
             throw new IOException("Max line length exceeded: " + newLength);
         }
         if (buffer.length < newLength) {
-            int newSize = constrainToRange(buffer.length * 2, newLength, maxLength);
+            int newSize = clamp(buffer.length * 2L, newLength, maxLength);
             buffer = Arrays.copyOf(buffer, newSize);
         }
     }

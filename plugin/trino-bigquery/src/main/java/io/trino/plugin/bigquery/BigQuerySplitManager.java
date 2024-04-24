@@ -38,6 +38,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -127,8 +128,7 @@ public class BigQuerySplitManager
 
         log.debug("readFromBigQuery(tableId=%s, projectedColumns=%s, actualParallelism=%s, filter=[%s])", remoteTableId, projectedColumns, actualParallelism, filter);
         List<BigQueryColumnHandle> columns = projectedColumns.get();
-        ImmutableList.Builder<String> projectedColumnsNames = ImmutableList.builder();
-        projectedColumnsNames.addAll(columns.stream().map(BigQueryColumnHandle::getName).toList());
+        List<String> projectedColumnsNames = new ArrayList<>(columns.stream().map(BigQueryColumnHandle::getName).toList());
 
         if (isWildcardTable(type, remoteTableId.getTable())) {
             // Storage API doesn't support reading wildcard tables
@@ -144,10 +144,11 @@ public class BigQuerySplitManager
             }
             tableConstraint.getDomains().ifPresent(domains -> domains.keySet().stream()
                     .map(column -> ((BigQueryColumnHandle) column).getName())
+                    .filter(columnName -> !projectedColumnsNames.contains(columnName))
                     .forEach(projectedColumnsNames::add));
         }
         ReadSessionCreator readSessionCreator = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, arrowSerializationEnabled, viewExpiration, maxReadRowsRetries);
-        ReadSession readSession = readSessionCreator.create(session, remoteTableId, projectedColumnsNames.build(), filter, actualParallelism);
+        ReadSession readSession = readSessionCreator.create(session, remoteTableId, ImmutableList.copyOf(projectedColumnsNames), filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
                 .map(stream -> BigQuerySplit.forStream(stream.getName(), readSessionCreator.getSchemaAsString(readSession), columns, OptionalInt.of(stream.getSerializedSize())))

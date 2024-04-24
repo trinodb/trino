@@ -193,7 +193,7 @@ public class LookupJoinOperatorFactory
                 waitForBuild,
                 lookupSourceFactory,
                 joinProbeFactory,
-                () -> joinBridgeManager.probeOperatorClosed(),
+                joinBridgeManager::probeOperatorClosed,
                 processorContext,
                 Optional.of(sourcePages));
     }
@@ -212,7 +212,7 @@ public class LookupJoinOperatorFactory
                 waitForBuild,
                 lookupSourceFactory,
                 joinProbeFactory,
-                () -> joinBridgeManager.probeOperatorClosed(),
+                joinBridgeManager::probeOperatorClosed,
                 processorContext,
                 Optional.empty());
     }

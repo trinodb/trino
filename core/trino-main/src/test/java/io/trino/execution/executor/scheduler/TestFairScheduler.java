@@ -146,12 +146,14 @@ public class TestFairScheduler
 
             CountDownLatch task1Started = new CountDownLatch(1);
             CountDownLatch task1TimeAdvanced = new CountDownLatch(1);
+            CountDownLatch cancelled = new CountDownLatch(1);
 
             ListenableFuture<Void> task1 = scheduler.submit(group, 1, context -> {
                 try {
                     task1Started.countDown();
                     task1TimeAdvanced.await();
 
+                    cancelled.await();
                     assertThat(context.maybeYield())
                             .describedAs("Cancelled while yielding")
                             .isFalse();
@@ -168,7 +170,8 @@ public class TestFairScheduler
             ticker.increment(FairScheduler.QUANTUM_NANOS * 2, TimeUnit.NANOSECONDS);
             task1TimeAdvanced.countDown();
 
-            scheduler.removeGroup(group);
+            scheduler.removeGroup(group); // cause a cancellation
+            cancelled.countDown();
             task1.get();
         }
     }

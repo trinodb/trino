@@ -38,7 +38,7 @@ public final class DataTypeTestToSqlDataTypeTestConverter
         return new DataTypeTestToSqlDataTypeTestConverter();
     }
 
-    private StringBuilder output = new StringBuilder();
+    private final StringBuilder output = new StringBuilder();
 
     private DataTypeTestToSqlDataTypeTestConverter()
     {

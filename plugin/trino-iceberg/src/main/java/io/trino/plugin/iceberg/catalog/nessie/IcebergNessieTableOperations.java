@@ -19,9 +19,11 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.nessie.NessieIcebergClient;
+import org.apache.iceberg.nessie.NessieUtil;
 import org.projectnessie.error.NessieConflictException;
 import org.projectnessie.error.NessieNotFoundException;
 import org.projectnessie.model.ContentKey;
@@ -81,6 +83,16 @@ public class IcebergNessieTableOperations
     }
 
     @Override
+    protected void refreshFromMetadataLocation(String newLocation)
+    {
+        super.refreshFromMetadataLocation(
+                newLocation,
+                location -> NessieUtil.updateTableMetadataWithNessieSpecificProperties(
+                    TableMetadataParser.read(fileIo, location),
+                    location, table, getSchemaTableName().toString(), nessieClient.getReference()));
+    }
+
+    @Override
     protected String getRefreshedLocation(boolean invalidateCaches)
     {
         table = nessieClient.table(toIdentifier(new SchemaTableName(database, tableName)));
@@ -96,8 +108,14 @@ public class IcebergNessieTableOperations
     protected void commitNewTable(TableMetadata metadata)
     {
         verify(version.isEmpty(), "commitNewTable called on a table which already exists");
+        String contentId = table == null ? null : table.getId();
         try {
-            nessieClient.commitTable(null, metadata, writeNewMetadata(metadata, 0), table, toKey(new SchemaTableName(database, this.tableName)));
+            nessieClient.commitTable(
+                    null,
+                    metadata,
+                    writeNewMetadata(metadata, 0),
+                    contentId,
+                    toKey(database, tableName));
         }
         catch (NessieNotFoundException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Cannot commit: ref '%s' no longer exists", nessieClient.refName()), e);
@@ -113,8 +131,16 @@ public class IcebergNessieTableOperations
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
         verify(version.orElseThrow() >= 0, "commitToExistingTable called on a new table");
+        if (table == null) {
+            table = nessieClient.table(toIdentifier(new SchemaTableName(database, tableName)));
+        }
         try {
-            nessieClient.commitTable(base, metadata, writeNewMetadata(metadata, version.getAsInt() + 1), table, toKey(new SchemaTableName(database, this.tableName)));
+            nessieClient.commitTable(
+                    base,
+                    metadata,
+                    writeNewMetadata(metadata, version.getAsInt() + 1),
+                    table.getId(),
+                    toKey(database, tableName));
         }
         catch (NessieNotFoundException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Cannot commit: ref '%s' no longer exists", nessieClient.refName()), e);
@@ -132,8 +158,9 @@ public class IcebergNessieTableOperations
         throw new UnsupportedOperationException();
     }
 
-    private static ContentKey toKey(SchemaTableName tableName)
+    private static ContentKey toKey(String databaseName, String tableName)
     {
-        return ContentKey.of(Namespace.parse(tableName.getSchemaName()), tableName.getTableName());
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        return ContentKey.of(Namespace.parse(schemaTableName.getSchemaName()), schemaTableName.getTableName());
     }
 }

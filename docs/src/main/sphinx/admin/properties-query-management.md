@@ -14,7 +14,7 @@ application, such as the CLI, before it abandons and cancels its work.
 - **Default value:** `phased`
 - **Session property:** `execution_policy`
 
-Configures the algorithm to organize the processing of all of the
+Configures the algorithm to organize the processing of all the
 stages of a query. You can use the following execution policies:
 
 - `phased` schedules stages in a sequence to avoid blockages because of
@@ -56,7 +56,7 @@ joins, aggregations, partitioned window functions and others.
 
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `50`
-- **Session property:** `min_hash_partition_count_for_writre`
+- **Session property:** `min_hash_partition_count_for_write`
 
 The minimum number of partitions to use for processing distributed operations in write queries,
 such as joins, aggregations, partitioned window functions and others.
@@ -69,7 +69,7 @@ such as joins, aggregations, partitioned window functions and others.
 
 The maximum number of tasks that will take part in writing data during
 `INSERT`, `CREATE TABLE AS SELECT` and `EXECUTE` queries.
-The limit is only applicable when `redistribute-writes` or `scale-writers` is be enabled.
+The limit is only applicable when `redistribute-writes` or `scale-writers` is enabled.
 
 ## `query.low-memory-killer.policy`
 
@@ -97,11 +97,11 @@ Configures the behavior to handle killing running tasks in the event of low
 memory availability. Supports the following values:
 
 - `none` - Do not kill any tasks in the event of low memory.
-- `total-reservation-on-blocked-nodes` - Kill the tasks which are part of the queries
-  which has task retries enabled and are currently using the most memory specifically
+- `total-reservation-on-blocked-nodes` - Kill the tasks that are part of the queries
+  which have task retries enabled and are currently using the most memory specifically
   on nodes that are now out of memory.
-- `least-waste` - Kill the tasks which are part of the queries
-  which has task retries enabled and use significant amount of memory on nodes
+- `least-waste` - Kill the tasks that are part of the queries
+  which have task retries enabled and use significant amount of memory on nodes
   which are now out of memory. This policy avoids killing tasks which are already
   executing for a long time, so significant amount of work is not wasted.
 
@@ -116,7 +116,7 @@ Only applies for queries with task level retries enabled (`retry-policy=TASK`)
 
 The amount of time a query is allowed to recover between running out of memory
 and being killed, if `query.low-memory-killer.policy` or
-`task.low-memory-killer.policy` is set to value differnt than `none`.
+`task.low-memory-killer.policy` is set to value different from `none`.
 
 ## `query.max-execution-time`
 
@@ -156,7 +156,7 @@ and may not terminate immediately.
 
 The maximum allowed time for a query to be processed on the cluster, before
 it is terminated. The time includes time for analysis and planning, but also
-time spend in a queue waiting, so essentially this is the time allowed for a
+time spent in a queue waiting, so essentially this is the time allowed for a
 query to exist since creation.
 
 ## `query.max-scan-physical-bytes`
@@ -179,7 +179,7 @@ generates more stages than this it will get killed with error
 `QUERY_HAS_TOO_MANY_STAGES`.
 
 :::{warning}
-Setting this to a high value can cause queries with large number of
+Setting this to a high value can cause queries with a large number of
 stages to introduce instability in the cluster causing unrelated queries
 to get killed with `REMOTE_TASK_ERROR` and the message
 `Max requests queued per destination exceeded for HttpDestination ...`
@@ -207,7 +207,7 @@ the {doc}`/admin/web-interface`.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
-- **Session property:** `query_remote_task_enable_adaptive_request_size`
+- **Session property:** `remote_task_adaptive_update_request_size_enabled`
 
 Enables dynamically splitting up server requests sent by tasks, which can
 prevent out-of-memory errors for large schemas. The default settings are
@@ -218,7 +218,7 @@ working with extremely large tables.
 
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `3`
-- **Session property:** `query_remote_task_guaranteed_splits_per_task`
+- **Session property:** `remote_task_guaranteed_splits_per_request`
 
 The minimum number of splits that should be assigned to each remote task to
 ensure that each task has a minimum amount of work to perform. Requires
@@ -237,7 +237,7 @@ value is reached, the coordinator treats the task as failed.
 
 - **Type:** {ref}`prop-type-data-size`
 - **Default value:** `8MB`
-- **Session property:** `query_remote_task_max_request_size`
+- **Session property:** `remote_task_max_request_size`
 
 The maximum size of a single request made by a remote task. Requires
 `query.remote-task.enable-adaptive-request-size` to be enabled.
@@ -246,7 +246,7 @@ The maximum size of a single request made by a remote task. Requires
 
 - **Type:** {ref}`prop-type-data-size`
 - **Default value:** `2MB`
-- **Session property:** `query_remote_task_request_size_headroom`
+- **Session property:** `remote_task_request_size_headroom`
 
 Determines the amount of headroom that should be allocated beyond the size of
 the request data. Requires `query.remote-task.enable-adaptive-request-size` to

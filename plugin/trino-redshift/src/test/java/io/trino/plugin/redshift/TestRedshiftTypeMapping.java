@@ -199,7 +199,7 @@ public class TestRedshiftTypeMapping
 
             // Test the type of an internal table
             assertThat(query(format("SELECT * FROM %s LIMIT 1", view2.name)))
-                    .hasOutputTypes(List.of(createUnboundedVarcharType()));
+                    .result().hasTypes(List.of(createUnboundedVarcharType()));
         }
     }
 
@@ -462,8 +462,7 @@ public class TestRedshiftTypeMapping
         testTimestamp(testZone);
     }
 
-    @Test
-    public void testTimestamp(ZoneId sessionZone)
+    private void testTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -659,8 +658,8 @@ public class TestRedshiftTypeMapping
 
         // The max timestamp with time zone value in Redshift is larger than Trino
         try (TestTable table = new TestTable(getRedshiftExecutor(), TEST_SCHEMA + ".timestamp_tz_max", "(ts timestamptz)", ImmutableList.of("TIMESTAMP '294276-12-31 23:59:59' AT TIME ZONE 'UTC'"))) {
-            assertThatThrownBy(() -> query("SELECT * FROM " + table.getName()))
-                    .hasMessage("Millis overflow: 9224318015999000");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .failure().hasMessage("Millis overflow: 9224318015999000");
         }
     }
 
@@ -837,7 +836,7 @@ public class TestRedshiftTypeMapping
     }
 
     @Test
-    public static void checkIllegalRedshiftTimePrecision()
+    public void checkIllegalRedshiftTimePrecision()
     {
         assertRedshiftCreateFails(
                 "check_redshift_time_precision_error",
@@ -846,7 +845,7 @@ public class TestRedshiftTypeMapping
     }
 
     @Test
-    public static void checkIllegalRedshiftTimestampPrecision()
+    public void checkIllegalRedshiftTimestampPrecision()
     {
         assertRedshiftCreateFails(
                 "check_redshift_timestamp_precision_error",

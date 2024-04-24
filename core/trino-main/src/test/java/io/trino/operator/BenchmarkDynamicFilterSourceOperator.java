@@ -150,7 +150,7 @@ public class BenchmarkDynamicFilterSourceOperator
                 pageBuilder.declarePosition();
 
                 LineItem lineItem = iterator.next();
-                BIGINT.writeLong(pageBuilder.getBlockBuilder(0), lineItem.getOrderKey());
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(0), lineItem.orderKey());
 
                 if (pageBuilder.getPositionCount() == positionsPerPage) {
                     pages.add(pageBuilder.build());

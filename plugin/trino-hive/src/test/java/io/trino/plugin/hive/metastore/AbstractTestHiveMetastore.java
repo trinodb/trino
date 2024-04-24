@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore;
 
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
+import io.trino.spi.connector.TableNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -30,6 +31,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -38,12 +40,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 abstract class AbstractTestHiveMetastore
 {
-    private HiveMetastore metastore;
-
-    public void setMetastore(HiveMetastore metastore)
-    {
-        this.metastore = metastore;
-    }
+    protected abstract HiveMetastore getMetastore();
 
     @Test
     void testCreateDatabase()
@@ -54,15 +51,15 @@ abstract class AbstractTestHiveMetastore
                 .setParameters(Map.of(TRINO_QUERY_ID_NAME, "query_id"))
                 .setOwnerName(Optional.empty())
                 .setOwnerType(Optional.empty());
-        metastore.createDatabase(database.build());
+        getMetastore().createDatabase(database.build());
         // second call with the same query ID succeeds
-        metastore.createDatabase(database.build());
+        getMetastore().createDatabase(database.build());
 
         database.setParameters(Map.of(TRINO_QUERY_ID_NAME, "another_query_id"));
-        assertThatThrownBy(() -> metastore.createDatabase(database.build()))
+        assertThatThrownBy(() -> getMetastore().createDatabase(database.build()))
                 .isInstanceOf(SchemaAlreadyExistsException.class);
 
-        metastore.dropDatabase(databaseName, false);
+        getMetastore().dropDatabase(databaseName, false);
     }
 
     @Test
@@ -73,7 +70,7 @@ abstract class AbstractTestHiveMetastore
                 .setDatabaseName(databaseName)
                 .setOwnerName(Optional.empty())
                 .setOwnerType(Optional.empty());
-        metastore.createDatabase(database.build());
+        getMetastore().createDatabase(database.build());
 
         String tableName = "test_table";
         Table.Builder table = Table.builder()
@@ -86,15 +83,31 @@ abstract class AbstractTestHiveMetastore
         table.getStorageBuilder()
                 .setLocation(Optional.of("/tmp/location"))
                 .setStorageFormat(fromHiveStorageFormat(PARQUET));
-        metastore.createTable(table.build(), NO_PRIVILEGES);
+        getMetastore().createTable(table.build(), NO_PRIVILEGES);
         // second call with the same query ID succeeds
-        metastore.createTable(table.build(), NO_PRIVILEGES);
+        getMetastore().createTable(table.build(), NO_PRIVILEGES);
 
         table.setParameters(Map.of(TRINO_QUERY_ID_NAME, "another_query_id"));
-        assertThatThrownBy(() -> metastore.createTable(table.build(), NO_PRIVILEGES))
+        assertThatThrownBy(() -> getMetastore().createTable(table.build(), NO_PRIVILEGES))
                 .isInstanceOf(TableAlreadyExistsException.class);
 
-        metastore.dropTable(databaseName, tableName, false);
-        metastore.dropDatabase(databaseName, false);
+        getMetastore().dropTable(databaseName, tableName, false);
+        getMetastore().dropDatabase(databaseName, false);
+    }
+
+    @Test
+    public void testDropNotExistingTable()
+    {
+        String databaseName = "test_database_" + randomNameSuffix();
+        Database.Builder database = Database.builder()
+                .setDatabaseName(databaseName)
+                .setOwnerName(Optional.empty())
+                .setOwnerType(Optional.empty());
+        getMetastore().createDatabase(database.build());
+
+        assertThatThrownBy(() -> getMetastore().dropTable(databaseName, "not_existing", false))
+                .isInstanceOf(TableNotFoundException.class);
+
+        getMetastore().dropDatabase(databaseName, false);
     }
 }

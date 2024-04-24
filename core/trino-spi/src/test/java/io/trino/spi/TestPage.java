@@ -132,11 +132,12 @@ public class TestPage
         Page page = new Page(block, block, block).getPositions(new int[] {0, 1, 1, 1, 2, 5, 5}, 1, 5);
         assertThat(page.getPositionCount()).isEqualTo(5);
         for (int i = 0; i < 3; i++) {
-            assertThat(page.getBlock(i).getLong(0, 0)).isEqualTo(1);
-            assertThat(page.getBlock(i).getLong(1, 0)).isEqualTo(1);
-            assertThat(page.getBlock(i).getLong(2, 0)).isEqualTo(1);
-            assertThat(page.getBlock(i).getLong(3, 0)).isEqualTo(2);
-            assertThat(page.getBlock(i).getLong(4, 0)).isEqualTo(5);
+            Block testBlock = page.getBlock(i);
+            assertThat(BIGINT.getLong(testBlock, 0)).isEqualTo(1);
+            assertThat(BIGINT.getLong(testBlock, 1)).isEqualTo(1);
+            assertThat(BIGINT.getLong(testBlock, 2)).isEqualTo(1);
+            assertThat(BIGINT.getLong(testBlock, 3)).isEqualTo(2);
+            assertThat(BIGINT.getLong(testBlock, 4)).isEqualTo(5);
         }
     }
 

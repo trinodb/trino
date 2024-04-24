@@ -25,7 +25,6 @@ import io.trino.operator.TaskContext;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.TypeProvider;
 
 import java.util.concurrent.Executor;
 
@@ -84,7 +83,6 @@ public class SqlTaskExecutionFactory
                 localExecutionPlan = planner.plan(
                         taskContext,
                         fragment.getRoot(),
-                        TypeProvider.copyOf(fragment.getSymbols()),
                         fragment.getOutputPartitioningScheme(),
                         fragment.getPartitionedSources(),
                         outputBuffer);

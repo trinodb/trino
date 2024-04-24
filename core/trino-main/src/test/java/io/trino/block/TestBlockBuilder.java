@@ -135,14 +135,14 @@ public class TestBlockBuilder
 
     private static void assertInvalidPosition(Block block, int[] positions, int offset, int length)
     {
-        assertThatThrownBy(() -> block.getPositions(positions, offset, length).getLong(0, 0))
+        assertThatThrownBy(() -> BIGINT.getLong(block.getPositions(positions, offset, length), 0))
                 .isInstanceOfAny(IllegalArgumentException.class, IndexOutOfBoundsException.class)
                 .hasMessage("Invalid position %d and length 1 in block with %d positions", positions[0], block.getPositionCount());
     }
 
     private static void assertInvalidOffset(Block block, int[] positions, int offset, int length)
     {
-        assertThatThrownBy(() -> block.getPositions(positions, offset, length).getLong(0, 0))
+        assertThatThrownBy(() -> BIGINT.getLong(block.getPositions(positions, offset, length), 0))
                 .isInstanceOfAny(IllegalArgumentException.class, IndexOutOfBoundsException.class)
                 .hasMessage(format("Invalid offset %d and length %d in array with %d elements", offset, length, positions.length));
     }

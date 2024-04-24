@@ -14,10 +14,10 @@
 package io.trino.cost;
 
 import io.trino.Session;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.PlanNode;
+
+import static java.util.Objects.requireNonNull;
 
 public interface StatsCalculator
 {
@@ -25,21 +25,29 @@ public interface StatsCalculator
      * Calculate stats for the {@code node}.
      *
      * @param node The node to compute stats for.
-     * @param sourceStats The stats provider for any child nodes' stats, if needed to compute stats for the {@code node}
-     * @param lookup Lookup to be used when resolving source nodes, allowing stats calculation to work within {@link IterativeOptimizer}
-     * @param types The type provider for all symbols in the scope.
-     * @param tableStatsProvider The table stats provider.
+     * @param context The context required to calculate stats.
      */
-    PlanNodeStatsEstimate calculateStats(
-            PlanNode node,
-            StatsProvider sourceStats,
-            Lookup lookup,
-            Session session,
-            TypeProvider types,
-            TableStatsProvider tableStatsProvider);
+    PlanNodeStatsEstimate calculateStats(PlanNode node, Context context);
 
     static StatsCalculator noopStatsCalculator()
     {
-        return (node, sourceStats, lookup, ignore, types, tableStatsProvider) -> PlanNodeStatsEstimate.unknown();
+        return (node, context) -> PlanNodeStatsEstimate.unknown();
+    }
+
+    record Context(
+            StatsProvider statsProvider,
+            Lookup lookup,
+            Session session,
+            TableStatsProvider tableStatsProvider,
+            RuntimeInfoProvider runtimeInfoProvider)
+    {
+        public Context
+        {
+            requireNonNull(statsProvider, "statsProvider is null");
+            requireNonNull(lookup, "lookup is null");
+            requireNonNull(session, "session is null");
+            requireNonNull(tableStatsProvider, "tableStatsProvider is null");
+            requireNonNull(runtimeInfoProvider, "runtimeInfoProvider is null");
+        }
     }
 }

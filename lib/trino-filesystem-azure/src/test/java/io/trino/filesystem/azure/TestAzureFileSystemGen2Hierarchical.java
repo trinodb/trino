@@ -29,6 +29,6 @@ class TestAzureFileSystemGen2Hierarchical
     void setup()
             throws IOException
     {
-        initialize(getRequiredEnvironmentVariable("ABFS_ACCOUNT"), getRequiredEnvironmentVariable("ABFS_ACCESS_KEY"), HIERARCHICAL);
+        initializeWithAccessKey(getRequiredEnvironmentVariable("ABFS_HIERARCHICAL_ACCOUNT"), getRequiredEnvironmentVariable("ABFS_HIERARCHICAL_ACCESS_KEY"), HIERARCHICAL);
     }
 }

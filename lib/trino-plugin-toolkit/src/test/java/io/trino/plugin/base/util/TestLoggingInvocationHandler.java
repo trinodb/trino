@@ -54,8 +54,8 @@ public class TestLoggingInvocationHandler
         assertThat(messages)
                 .hasSize(2)
                 .satisfies(list -> {
-                    assertThat(list.get(0)).matches("\\QInvocation of run(ok=true, s='xyz') succeeded in\\E " + DURATION_PATTERN);
-                    assertThat(list.get(1)).matches("\\QInvocation of run(ok=false, s='bad') took\\E " + DURATION_PATTERN +
+                    assertThat(list.get(0)).matches("\\QInvocation of run(unused=true, unused2='xyz') succeeded in\\E " + DURATION_PATTERN);
+                    assertThat(list.get(1)).matches("\\QInvocation of run(unused=false, unused2='bad') took\\E " + DURATION_PATTERN +
                             " \\Qand failed with java.lang.ArrayStoreException: bad\\E");
                 });
     }
@@ -87,15 +87,15 @@ public class TestLoggingInvocationHandler
         assertThat(messages)
                 .hasSize(2)
                 .satisfies(list -> {
-                    assertThat(list.get(0)).matches("\\QInvocation of run(ok=true, s='xyz') succeeded in\\E " + DURATION_PATTERN + " and returned 'result=xyz'");
-                    assertThat(list.get(1)).matches("\\QInvocation of run(ok=false, s='bad') took\\E " + DURATION_PATTERN +
+                    assertThat(list.get(0)).matches("\\QInvocation of run(unused=true, unused2='xyz') succeeded in\\E " + DURATION_PATTERN + " and returned 'result=xyz'");
+                    assertThat(list.get(1)).matches("\\QInvocation of run(unused=false, unused2='bad') took\\E " + DURATION_PATTERN +
                             " \\Qand failed with java.lang.ArrayStoreException: bad\\E");
                 });
     }
 
     private interface SomeInterface
     {
-        default String run(boolean ok, String s)
+        default String run(boolean unused, String unused2)
         {
             return null;
         }

@@ -22,10 +22,10 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.Expression;
 
 import java.util.Collection;
 import java.util.HashMap;

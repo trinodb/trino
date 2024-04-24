@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveAnalyzeCorruptStatistics
         extends AbstractTestQueryFramework
@@ -56,12 +55,13 @@ public class TestHiveAnalyzeCorruptStatistics
         assertQuerySucceeds("SHOW STATS FOR " + tableName);
 
         // ANALYZE and drop_stats are unsupported for tables having broken column statistics
-        assertThatThrownBy(() -> query("ANALYZE " + tableName))
+        assertThat(query("ANALYZE " + tableName))
+                .failure()
                 .hasMessage("Unexpected 2 statistics for 1 columns")
                 .hasStackTraceContaining("ThriftHiveMetastore.setTableColumnStatistics");
 
-        assertThatThrownBy(() -> query("CALL system.drop_stats('tpch', '" + tableName + "')"))
-                .hasMessageContaining("The query returned more than one instance BUT either unique is set to true or only aggregates are to be returned, so should have returned one result maximum");
+        assertThat(query("CALL system.drop_stats('tpch', '" + tableName + "')"))
+                .failure().hasMessageContaining("The query returned more than one instance BUT either unique is set to true or only aggregates are to be returned, so should have returned one result maximum");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -115,8 +115,8 @@ public class TestHiveAnalyzeCorruptStatistics
 
         // ANALYZE succeeds for a partitioned table with corrupt stats unlike a non-partitioned table with corrupt stats
         assertUpdate("ANALYZE " + tableName, 1);
-        assertThatThrownBy(() -> query("CALL system.drop_stats('tpch', '" + tableName + "')"))
-                .hasMessageContaining("The query returned more than one instance BUT either unique is set to true or only aggregates are to be returned, so should have returned one result maximum");
+        assertThat(query("CALL system.drop_stats('tpch', '" + tableName + "')"))
+                .failure().hasMessageContaining("The query returned more than one instance BUT either unique is set to true or only aggregates are to be returned, so should have returned one result maximum");
 
         assertUpdate("DROP TABLE " + tableName);
     }

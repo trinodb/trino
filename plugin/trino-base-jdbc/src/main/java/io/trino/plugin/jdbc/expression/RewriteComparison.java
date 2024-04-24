@@ -23,14 +23,10 @@ import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FunctionName;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.base.Verify.verifyNotNull;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.argument;
@@ -39,62 +35,14 @@ import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.call;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.expression;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.functionName;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
-import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 public class RewriteComparison
         implements ConnectorExpressionRule<Call, ParameterizedExpression>
 {
     private static final Capture<ConnectorExpression> LEFT = newCapture();
     private static final Capture<ConnectorExpression> RIGHT = newCapture();
-
-    public enum ComparisonOperator
-    {
-        EQUAL(EQUAL_OPERATOR_FUNCTION_NAME, "="),
-        NOT_EQUAL(NOT_EQUAL_OPERATOR_FUNCTION_NAME, "<>"),
-        LESS_THAN(LESS_THAN_OPERATOR_FUNCTION_NAME, "<"),
-        LESS_THAN_OR_EQUAL(LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, "<="),
-        GREATER_THAN(GREATER_THAN_OPERATOR_FUNCTION_NAME, ">"),
-        GREATER_THAN_OR_EQUAL(GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ">="),
-        IS_DISTINCT_FROM(IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME, "IS DISTINCT FROM"),
-        /**/;
-
-        private final FunctionName functionName;
-        private final String operator;
-
-        private static final Map<FunctionName, ComparisonOperator> OPERATOR_BY_FUNCTION_NAME = Stream.of(values())
-                .collect(toImmutableMap(ComparisonOperator::getFunctionName, identity()));
-
-        ComparisonOperator(FunctionName functionName, String operator)
-        {
-            this.functionName = requireNonNull(functionName, "functionName is null");
-            this.operator = requireNonNull(operator, "operator is null");
-        }
-
-        private FunctionName getFunctionName()
-        {
-            return functionName;
-        }
-
-        private String getOperator()
-        {
-            return operator;
-        }
-
-        private static ComparisonOperator forFunctionName(FunctionName functionName)
-        {
-            return verifyNotNull(OPERATOR_BY_FUNCTION_NAME.get(functionName), "Function name not recognized: %s", functionName);
-        }
-    }
 
     private final Pattern<Call> pattern;
 

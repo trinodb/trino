@@ -20,7 +20,8 @@ import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.spi.Page;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
@@ -44,13 +45,13 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public abstract class AbstractTestGeoAggregationFunctions
 {
-    private LocalQueryRunner runner;
+    private QueryRunner runner;
     private TestingFunctionResolution functionResolution;
 
     @BeforeAll
     public final void initTestFunctions()
     {
-        runner = LocalQueryRunner.builder(TEST_SESSION).build();
+        runner = new StandaloneQueryRunner(TEST_SESSION);
         runner.installPlugin(new GeoPlugin());
         functionResolution = new TestingFunctionResolution(runner);
     }

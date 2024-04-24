@@ -13,94 +13,105 @@
  */
 package io.trino.cost;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.LiteralEncoder;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.VarcharType;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Long.MAX_VALUE;
 
 public class TestScalarStatsCalculator
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction SUBTRACT_BIGINT = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction DIVIDE_BIGINT = FUNCTIONS.resolveOperator(OperatorType.DIVIDE, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
+
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-    private final ScalarStatsCalculator calculator = new ScalarStatsCalculator(functionResolution.getPlannerContext(), createTestingTypeAnalyzer(functionResolution.getPlannerContext()));
+    private final ScalarStatsCalculator calculator = new ScalarStatsCalculator(functionResolution.getPlannerContext());
     private final Session session = testSessionBuilder().build();
-    private final SqlParser sqlParser = new SqlParser();
 
     @Test
     public void testLiteral()
     {
-        assertCalculate(new GenericLiteral("TINYINT", "7"))
+        assertCalculate(new Constant(TINYINT, 7L))
                 .distinctValuesCount(1.0)
                 .lowValue(7)
                 .highValue(7)
                 .nullsFraction(0.0);
 
-        assertCalculate(new GenericLiteral("SMALLINT", "8"))
+        assertCalculate(new Constant(SMALLINT, 8L))
                 .distinctValuesCount(1.0)
                 .lowValue(8)
                 .highValue(8)
                 .nullsFraction(0.0);
 
-        assertCalculate(new GenericLiteral("INTEGER", "9"))
+        assertCalculate(new Constant(INTEGER, 9L))
                 .distinctValuesCount(1.0)
                 .lowValue(9)
                 .highValue(9)
                 .nullsFraction(0.0);
 
-        assertCalculate(new GenericLiteral("BIGINT", Long.toString(Long.MAX_VALUE)))
+        assertCalculate(new Constant(BIGINT, MAX_VALUE))
                 .distinctValuesCount(1.0)
                 .lowValue(Long.MAX_VALUE)
                 .highValue(Long.MAX_VALUE)
                 .nullsFraction(0.0);
 
-        assertCalculate(new DoubleLiteral("7.5"))
+        assertCalculate(new Constant(DOUBLE, 7.5))
                 .distinctValuesCount(1.0)
                 .lowValue(7.5)
                 .highValue(7.5)
                 .nullsFraction(0.0);
 
-        assertCalculate(new DecimalLiteral("75.5"))
+        assertCalculate(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("75.5"))))
                 .distinctValuesCount(1.0)
                 .lowValue(75.5)
                 .highValue(75.5)
                 .nullsFraction(0.0);
 
-        assertCalculate(new StringLiteral("blah"))
+        assertCalculate(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("blah")))
                 .distinctValuesCount(1.0)
                 .lowValueUnknown()
                 .highValueUnknown()
                 .nullsFraction(0.0);
 
-        assertCalculate(new NullLiteral())
+        assertCalculate(new Constant(UnknownType.UNKNOWN, null))
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()
                 .highValueUnknown()
@@ -113,7 +124,7 @@ public class TestScalarStatsCalculator
         assertCalculate(
                 functionResolution
                         .functionCallBuilder("length")
-                        .addArgument(createVarcharType(10), new Cast(new NullLiteral(), toSqlType(createVarcharType(10))))
+                        .addArgument(createVarcharType(10), new Constant(createVarcharType(10), null))
                         .build())
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()
@@ -123,10 +134,9 @@ public class TestScalarStatsCalculator
         assertCalculate(
                 functionResolution
                         .functionCallBuilder("length")
-                        .addArgument(createVarcharType(2), new SymbolReference("x"))
+                        .addArgument(createVarcharType(2), new Reference(createVarcharType(2), "x"))
                         .build(),
-                PlanNodeStatsEstimate.unknown(),
-                TypeProvider.viewOf(ImmutableMap.of(new Symbol("x"), createVarcharType(2))))
+                PlanNodeStatsEstimate.unknown())
                 .distinctValuesCountUnknown()
                 .lowValueUnknown()
                 .highValueUnknown()
@@ -136,8 +146,7 @@ public class TestScalarStatsCalculator
     @Test
     public void testVarbinaryConstant()
     {
-        LiteralEncoder literalEncoder = new LiteralEncoder(functionResolution.getPlannerContext());
-        Expression expression = literalEncoder.toExpression(Slices.utf8Slice("ala ma kota"), VARBINARY);
+        Expression expression = new Constant(VARBINARY, Slices.utf8Slice("ala ma kota"));
 
         assertCalculate(expression)
                 .distinctValuesCount(1.0)
@@ -157,18 +166,18 @@ public class TestScalarStatsCalculator
                 .setAverageRowSize(2.0)
                 .build();
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("x"), xStats)
+                .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
                 .build();
 
-        assertCalculate(expression("x"), inputStatistics).isEqualTo(xStats);
-        assertCalculate(expression("y"), inputStatistics).isEqualTo(SymbolStatsEstimate.unknown());
+        assertCalculate(new Reference(INTEGER, "x"), inputStatistics).isEqualTo(xStats);
+        assertCalculate(new Reference(INTEGER, "y"), inputStatistics).isEqualTo(SymbolStatsEstimate.unknown());
     }
 
     @Test
     public void testCastDoubleToBigint()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(UNKNOWN, "a"), SymbolStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(17.3)
@@ -178,9 +187,8 @@ public class TestScalarStatsCalculator
                 .build();
 
         assertCalculate(
-                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
-                inputStatistics,
-                TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
+                new Cast(new Reference(BIGINT, "a"), BIGINT),
+                inputStatistics)
                 .lowValue(2.0)
                 .highValue(17.0)
                 .distinctValuesCount(10)
@@ -192,7 +200,7 @@ public class TestScalarStatsCalculator
     public void testCastDoubleToShortRange()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(UNKNOWN, "a"), SymbolStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(3.3)
@@ -202,9 +210,8 @@ public class TestScalarStatsCalculator
                 .build();
 
         assertCalculate(
-                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
-                inputStatistics,
-                TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
+                new Cast(new Reference(BIGINT, "a"), BIGINT),
+                inputStatistics)
                 .lowValue(2.0)
                 .highValue(3.0)
                 .distinctValuesCount(2)
@@ -216,7 +223,7 @@ public class TestScalarStatsCalculator
     public void testCastDoubleToShortRangeUnknownDistinctValuesCount()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(UNKNOWN, "a"), SymbolStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(3.3)
@@ -225,9 +232,8 @@ public class TestScalarStatsCalculator
                 .build();
 
         assertCalculate(
-                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
-                inputStatistics,
-                TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
+                new Cast(new Reference(BIGINT, "a"), BIGINT),
+                inputStatistics)
                 .lowValue(2.0)
                 .highValue(3.0)
                 .distinctValuesCountUnknown()
@@ -239,7 +245,7 @@ public class TestScalarStatsCalculator
     public void testCastBigintToDouble()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(UNKNOWN, "a"), SymbolStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(2.0)
                         .setHighValue(10.0)
@@ -249,9 +255,8 @@ public class TestScalarStatsCalculator
                 .build();
 
         assertCalculate(
-                new Cast(new SymbolReference("a"), toSqlType(DOUBLE)),
-                inputStatistics,
-                TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), DOUBLE)))
+                new Cast(new Reference(DOUBLE, "a"), DOUBLE),
+                inputStatistics)
                 .lowValue(2.0)
                 .highValue(10.0)
                 .distinctValuesCount(4)
@@ -263,9 +268,8 @@ public class TestScalarStatsCalculator
     public void testCastUnknown()
     {
         assertCalculate(
-                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
-                PlanNodeStatsEstimate.unknown(),
-                TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
+                new Cast(new Reference(BIGINT, "a"), BIGINT),
+                PlanNodeStatsEstimate.unknown())
                 .lowValueUnknown()
                 .highValueUnknown()
                 .distinctValuesCountUnknown()
@@ -280,17 +284,12 @@ public class TestScalarStatsCalculator
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics)
     {
-        return assertCalculate(scalarExpression, inputStatistics, TypeProvider.empty());
-    }
-
-    private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, TypeProvider types)
-    {
         TransactionManager transactionManager = new TestingTransactionManager();
         Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
         return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, transactionSession, types));
+                    return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, transactionSession));
                 });
     }
 
@@ -298,44 +297,44 @@ public class TestScalarStatsCalculator
     public void testNonDivideArithmeticBinaryExpression()
     {
         PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(UNKNOWN, "x"), SymbolStatsEstimate.builder()
                         .setLowValue(-1)
                         .setHighValue(10)
                         .setDistinctValuesCount(4)
                         .setNullsFraction(0.1)
                         .setAverageRowSize(2.0)
                         .build())
-                .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.builder()
                         .setLowValue(-2)
                         .setHighValue(5)
                         .setDistinctValuesCount(3)
                         .setNullsFraction(0.2)
                         .setAverageRowSize(2.0)
                         .build())
-                .addSymbolStatistics(new Symbol("unknown"), SymbolStatsEstimate.unknown())
+                .addSymbolStatistics(new Symbol(UNKNOWN, "unknown"), SymbolStatsEstimate.unknown())
                 .setOutputRowCount(10)
                 .build();
 
-        assertCalculate(expression("x + y"), relationStats)
+        assertCalculate(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), relationStats)
                 .distinctValuesCount(10.0)
                 .lowValue(-3.0)
                 .highValue(15.0)
                 .nullsFraction(0.28)
                 .averageRowSize(2.0);
 
-        assertCalculate(expression("x + unknown"), relationStats)
+        assertCalculate(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "unknown"))), relationStats)
                 .isEqualTo(SymbolStatsEstimate.unknown());
-        assertCalculate(expression("unknown + unknown"), relationStats)
+        assertCalculate(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "unknown"), new Reference(BIGINT, "unknown"))), relationStats)
                 .isEqualTo(SymbolStatsEstimate.unknown());
 
-        assertCalculate(expression("x - y"), relationStats)
+        assertCalculate(new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), relationStats)
                 .distinctValuesCount(10.0)
                 .lowValue(-6.0)
                 .highValue(12.0)
                 .nullsFraction(0.28)
                 .averageRowSize(2.0);
 
-        assertCalculate(expression("x * y"), relationStats)
+        assertCalculate(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), relationStats)
                 .distinctValuesCount(10.0)
                 .lowValue(-20.0)
                 .highValue(50.0)
@@ -348,116 +347,116 @@ public class TestScalarStatsCalculator
     {
         SymbolStatsEstimate allNullStats = SymbolStatsEstimate.zero();
         PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(UNKNOWN, "x"), SymbolStatsEstimate.builder()
                         .setLowValue(-1)
                         .setHighValue(10)
                         .setDistinctValuesCount(4)
                         .setNullsFraction(0.1)
                         .setAverageRowSize(0)
                         .build())
-                .addSymbolStatistics(new Symbol("all_null"), allNullStats)
+                .addSymbolStatistics(new Symbol(UNKNOWN, "all_null"), allNullStats)
                 .setOutputRowCount(10)
                 .build();
 
-        assertCalculate(expression("x + all_null"), relationStats)
+        assertCalculate(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "all_null"))), relationStats)
                 .isEqualTo(allNullStats);
-        assertCalculate(expression("x - all_null"), relationStats)
+        assertCalculate(new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "all_null"))), relationStats)
                 .isEqualTo(allNullStats);
-        assertCalculate(expression("all_null - x"), relationStats)
+        assertCalculate(new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "all_null"), new Reference(BIGINT, "x"))), relationStats)
                 .isEqualTo(allNullStats);
-        assertCalculate(expression("all_null * x"), relationStats)
+        assertCalculate(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "all_null"), new Reference(BIGINT, "x"))), relationStats)
                 .isEqualTo(allNullStats);
-        assertCalculate(expression("x % all_null"), relationStats)
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "all_null"))), relationStats)
                 .isEqualTo(allNullStats);
-        assertCalculate(expression("all_null % x"), relationStats)
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "all_null"), new Reference(BIGINT, "x"))), relationStats)
                 .isEqualTo(allNullStats);
-        assertCalculate(expression("x / all_null"), relationStats)
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "all_null"))), relationStats)
                 .isEqualTo(allNullStats);
-        assertCalculate(expression("all_null / x"), relationStats)
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "all_null"), new Reference(BIGINT, "x"))), relationStats)
                 .isEqualTo(allNullStats);
     }
 
     @Test
     public void testDivideArithmeticBinaryExpression()
     {
-        assertCalculate(expression("x / y"), xyStats(-11, -3, -5, -4)).lowValue(0.6).highValue(2.75);
-        assertCalculate(expression("x / y"), xyStats(-11, -3, -5, 4)).lowValue(NEGATIVE_INFINITY).highValue(POSITIVE_INFINITY);
-        assertCalculate(expression("x / y"), xyStats(-11, -3, 4, 5)).lowValue(-2.75).highValue(-0.6);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-11, -3, -5, -4)).lowValue(0.6).highValue(2.75);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-11, -3, -5, 4)).lowValue(NEGATIVE_INFINITY).highValue(POSITIVE_INFINITY);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-11, -3, 4, 5)).lowValue(-2.75).highValue(-0.6);
 
-        assertCalculate(expression("x / y"), xyStats(-11, 0, -5, -4)).lowValue(0).highValue(2.75);
-        assertCalculate(expression("x / y"), xyStats(-11, 0, -5, 4)).lowValue(NEGATIVE_INFINITY).highValue(POSITIVE_INFINITY);
-        assertCalculate(expression("x / y"), xyStats(-11, 0, 4, 5)).lowValue(-2.75).highValue(0);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-11, 0, -5, -4)).lowValue(0).highValue(2.75);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-11, 0, -5, 4)).lowValue(NEGATIVE_INFINITY).highValue(POSITIVE_INFINITY);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-11, 0, 4, 5)).lowValue(-2.75).highValue(0);
 
-        assertCalculate(expression("x / y"), xyStats(-11, 3, -5, -4)).lowValue(-0.75).highValue(2.75);
-        assertCalculate(expression("x / y"), xyStats(-11, 3, -5, 4)).lowValue(NEGATIVE_INFINITY).highValue(POSITIVE_INFINITY);
-        assertCalculate(expression("x / y"), xyStats(-11, 3, 4, 5)).lowValue(-2.75).highValue(0.75);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-11, 3, -5, -4)).lowValue(-0.75).highValue(2.75);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-11, 3, -5, 4)).lowValue(NEGATIVE_INFINITY).highValue(POSITIVE_INFINITY);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-11, 3, 4, 5)).lowValue(-2.75).highValue(0.75);
 
-        assertCalculate(expression("x / y"), xyStats(0, 3, -5, -4)).lowValue(-0.75).highValue(0);
-        assertCalculate(expression("x / y"), xyStats(0, 3, -5, 4)).lowValue(NEGATIVE_INFINITY).highValue(POSITIVE_INFINITY);
-        assertCalculate(expression("x / y"), xyStats(0, 3, 4, 5)).lowValue(0).highValue(0.75);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 3, -5, -4)).lowValue(-0.75).highValue(0);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 3, -5, 4)).lowValue(NEGATIVE_INFINITY).highValue(POSITIVE_INFINITY);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 3, 4, 5)).lowValue(0).highValue(0.75);
 
-        assertCalculate(expression("x / y"), xyStats(3, 11, -5, -4)).lowValue(-2.75).highValue(-0.6);
-        assertCalculate(expression("x / y"), xyStats(3, 11, -5, 4)).lowValue(NEGATIVE_INFINITY).highValue(POSITIVE_INFINITY);
-        assertCalculate(expression("x / y"), xyStats(3, 11, 4, 5)).lowValue(0.6).highValue(2.75);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(3, 11, -5, -4)).lowValue(-2.75).highValue(-0.6);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(3, 11, -5, 4)).lowValue(NEGATIVE_INFINITY).highValue(POSITIVE_INFINITY);
+        assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(3, 11, 4, 5)).lowValue(0.6).highValue(2.75);
     }
 
     @Test
     public void testModulusArithmeticBinaryExpression()
     {
         // negative
-        assertCalculate(expression("x % y"), xyStats(-1, 0, -6, -4)).lowValue(-1).highValue(0);
-        assertCalculate(expression("x % y"), xyStats(-5, 0, -6, -4)).lowValue(-5).highValue(0);
-        assertCalculate(expression("x % y"), xyStats(-8, 0, -6, -4)).lowValue(-6).highValue(0);
-        assertCalculate(expression("x % y"), xyStats(-8, 0, -6, -4)).lowValue(-6).highValue(0);
-        assertCalculate(expression("x % y"), xyStats(-8, 0, -6, 4)).lowValue(-6).highValue(0);
-        assertCalculate(expression("x % y"), xyStats(-8, 0, -6, 6)).lowValue(-6).highValue(0);
-        assertCalculate(expression("x % y"), xyStats(-8, 0, 4, 6)).lowValue(-6).highValue(0);
-        assertCalculate(expression("x % y"), xyStats(-1, 0, 4, 6)).lowValue(-1).highValue(0);
-        assertCalculate(expression("x % y"), xyStats(-5, 0, 4, 6)).lowValue(-5).highValue(0);
-        assertCalculate(expression("x % y"), xyStats(-8, 0, 4, 6)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 0, -6, -4)).lowValue(-1).highValue(0);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 0, -6, -4)).lowValue(-5).highValue(0);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, -4)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, -4)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, 4)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, 6)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, 4, 6)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 0, 4, 6)).lowValue(-1).highValue(0);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 0, 4, 6)).lowValue(-5).highValue(0);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, 4, 6)).lowValue(-6).highValue(0);
 
         // positive
-        assertCalculate(expression("x % y"), xyStats(0, 5, -6, -4)).lowValue(0).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(0, 8, -6, -4)).lowValue(0).highValue(6);
-        assertCalculate(expression("x % y"), xyStats(0, 1, -6, 4)).lowValue(0).highValue(1);
-        assertCalculate(expression("x % y"), xyStats(0, 5, -6, 4)).lowValue(0).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(0, 8, -6, 4)).lowValue(0).highValue(6);
-        assertCalculate(expression("x % y"), xyStats(0, 1, 4, 6)).lowValue(0).highValue(1);
-        assertCalculate(expression("x % y"), xyStats(0, 5, 4, 6)).lowValue(0).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(0, 8, 4, 6)).lowValue(0).highValue(6);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 5, -6, -4)).lowValue(0).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 8, -6, -4)).lowValue(0).highValue(6);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 1, -6, 4)).lowValue(0).highValue(1);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 5, -6, 4)).lowValue(0).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 8, -6, 4)).lowValue(0).highValue(6);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 1, 4, 6)).lowValue(0).highValue(1);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 5, 4, 6)).lowValue(0).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 8, 4, 6)).lowValue(0).highValue(6);
 
         // mix
-        assertCalculate(expression("x % y"), xyStats(-1, 1, -6, -4)).lowValue(-1).highValue(1);
-        assertCalculate(expression("x % y"), xyStats(-1, 5, -6, -4)).lowValue(-1).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(-5, 1, -6, -4)).lowValue(-5).highValue(1);
-        assertCalculate(expression("x % y"), xyStats(-5, 5, -6, -4)).lowValue(-5).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(-5, 8, -6, -4)).lowValue(-5).highValue(6);
-        assertCalculate(expression("x % y"), xyStats(-8, 5, -6, -4)).lowValue(-6).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(-8, 8, -6, -4)).lowValue(-6).highValue(6);
-        assertCalculate(expression("x % y"), xyStats(-1, 1, -6, 4)).lowValue(-1).highValue(1);
-        assertCalculate(expression("x % y"), xyStats(-1, 5, -6, 4)).lowValue(-1).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(-5, 1, -6, 4)).lowValue(-5).highValue(1);
-        assertCalculate(expression("x % y"), xyStats(-5, 5, -6, 4)).lowValue(-5).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(-5, 8, -6, 4)).lowValue(-5).highValue(6);
-        assertCalculate(expression("x % y"), xyStats(-8, 5, -6, 4)).lowValue(-6).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(-8, 8, -6, 4)).lowValue(-6).highValue(6);
-        assertCalculate(expression("x % y"), xyStats(-1, 1, 4, 6)).lowValue(-1).highValue(1);
-        assertCalculate(expression("x % y"), xyStats(-1, 5, 4, 6)).lowValue(-1).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(-5, 1, 4, 6)).lowValue(-5).highValue(1);
-        assertCalculate(expression("x % y"), xyStats(-5, 5, 4, 6)).lowValue(-5).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(-5, 8, 4, 6)).lowValue(-5).highValue(6);
-        assertCalculate(expression("x % y"), xyStats(-8, 5, 4, 6)).lowValue(-6).highValue(5);
-        assertCalculate(expression("x % y"), xyStats(-8, 8, 4, 6)).lowValue(-6).highValue(6);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 1, -6, -4)).lowValue(-1).highValue(1);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 5, -6, -4)).lowValue(-1).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 1, -6, -4)).lowValue(-5).highValue(1);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 5, -6, -4)).lowValue(-5).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 8, -6, -4)).lowValue(-5).highValue(6);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 5, -6, -4)).lowValue(-6).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 8, -6, -4)).lowValue(-6).highValue(6);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 1, -6, 4)).lowValue(-1).highValue(1);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 5, -6, 4)).lowValue(-1).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 1, -6, 4)).lowValue(-5).highValue(1);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 5, -6, 4)).lowValue(-5).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 8, -6, 4)).lowValue(-5).highValue(6);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 5, -6, 4)).lowValue(-6).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 8, -6, 4)).lowValue(-6).highValue(6);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 1, 4, 6)).lowValue(-1).highValue(1);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 5, 4, 6)).lowValue(-1).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 1, 4, 6)).lowValue(-5).highValue(1);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 5, 4, 6)).lowValue(-5).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 8, 4, 6)).lowValue(-5).highValue(6);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 5, 4, 6)).lowValue(-6).highValue(5);
+        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 8, 4, 6)).lowValue(-6).highValue(6);
     }
 
     private PlanNodeStatsEstimate xyStats(double lowX, double highX, double lowY, double highY)
     {
         return PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(UNKNOWN, "x"), SymbolStatsEstimate.builder()
                         .setLowValue(lowX)
                         .setHighValue(highX)
                         .build())
-                .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.builder()
                         .setLowValue(lowY)
                         .setHighValue(highY)
                         .build())
@@ -468,14 +467,14 @@ public class TestScalarStatsCalculator
     public void testCoalesceExpression()
     {
         PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(UNKNOWN, "x"), SymbolStatsEstimate.builder()
                         .setLowValue(-1)
                         .setHighValue(10)
                         .setDistinctValuesCount(4)
                         .setNullsFraction(0.1)
                         .setAverageRowSize(2.0)
                         .build())
-                .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.builder()
                         .setLowValue(-2)
                         .setHighValue(5)
                         .setDistinctValuesCount(3)
@@ -485,23 +484,18 @@ public class TestScalarStatsCalculator
                 .setOutputRowCount(10)
                 .build();
 
-        assertCalculate(expression("coalesce(x, y)"), relationStats)
+        assertCalculate(new Coalesce(new Reference(INTEGER, "x"), new Reference(INTEGER, "y")), relationStats)
                 .distinctValuesCount(5)
                 .lowValue(-2)
                 .highValue(10)
                 .nullsFraction(0.02)
                 .averageRowSize(2.0);
 
-        assertCalculate(expression("coalesce(y, x)"), relationStats)
+        assertCalculate(new Coalesce(new Reference(INTEGER, "y"), new Reference(INTEGER, "x")), relationStats)
                 .distinctValuesCount(5)
                 .lowValue(-2)
                 .highValue(10)
                 .nullsFraction(0.02)
                 .averageRowSize(2.0);
-    }
-
-    private Expression expression(String sqlExpression)
-    {
-        return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(sqlExpression));
     }
 }

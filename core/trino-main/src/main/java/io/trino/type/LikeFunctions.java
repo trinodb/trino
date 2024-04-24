@@ -47,8 +47,9 @@ public final class LikeFunctions
 
     // TODO: this should not be callable from SQL
     @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true)
+    @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean likeVarchar(@SqlType("varchar") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)
+    public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)
     {
         return pattern.getMatcher().match(value.byteArray(), value.byteArrayOffset(), value.length());
     }
@@ -70,17 +71,6 @@ public final class LikeFunctions
         catch (RuntimeException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
-    }
-
-    public static boolean isMatchAllPattern(Slice pattern)
-    {
-        for (int i = 0; i < pattern.length(); i++) {
-            int current = pattern.getByte(i);
-            if (current != '%') {
-                return false;
-            }
-        }
-        return true;
     }
 
     public static boolean isLikePattern(Slice pattern, Optional<Slice> escape)

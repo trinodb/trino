@@ -40,8 +40,8 @@ public class JsonFieldDecoderTester
 {
     private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new ObjectMapperProvider().get());
 
-    private Optional<String> dataFormat;
-    private Optional<String> formatHint;
+    private final Optional<String> dataFormat;
+    private final Optional<String> formatHint;
 
     public JsonFieldDecoderTester()
     {

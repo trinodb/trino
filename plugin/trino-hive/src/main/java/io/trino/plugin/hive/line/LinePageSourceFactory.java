@@ -90,7 +90,7 @@ public abstract class LinePageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!lineReaderFactory.getHiveOutputFormatClassName().equals(schema.get(FILE_INPUT_FORMAT)) ||
+        if (!lineReaderFactory.getHiveInputFormatClassNames().contains(schema.get(FILE_INPUT_FORMAT)) ||
                 !lineDeserializerFactory.getHiveSerDeClassNames().contains(getDeserializerClassName(schema))) {
             return Optional.empty();
         }

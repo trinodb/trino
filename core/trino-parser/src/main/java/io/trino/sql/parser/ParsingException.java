@@ -17,7 +17,6 @@ import io.trino.sql.tree.NodeLocation;
 import org.antlr.v4.runtime.RecognitionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 
 public class ParsingException
         extends RuntimeException
@@ -68,6 +67,6 @@ public class ParsingException
     @Override
     public String getMessage()
     {
-        return format("line %s:%s: %s", getLineNumber(), getColumnNumber(), getErrorMessage());
+        return "line %s:%s: %s".formatted(getLineNumber(), getColumnNumber(), getErrorMessage());
     }
 }

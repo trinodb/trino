@@ -44,7 +44,7 @@ public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
                 .setSchema(schema)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("data");
 
         queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory));

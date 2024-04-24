@@ -14,10 +14,12 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,16 +32,27 @@ import static java.util.Objects.requireNonNull;
 
 public final class SymbolAliases
 {
-    private final Map<String, SymbolReference> map;
+    private final Map<String, Reference> map;
 
     public SymbolAliases()
     {
         this.map = ImmutableMap.of();
     }
 
-    private SymbolAliases(Map<String, SymbolReference> aliases)
+    private SymbolAliases(Map<String, Reference> aliases)
     {
         this.map = ImmutableMap.copyOf(requireNonNull(aliases, "aliases is null"));
+    }
+
+    public Expression rewrite(Expression expression)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>() {
+            @Override
+            public Expression rewriteReference(Reference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                return map.getOrDefault(node.name(), node);
+            }
+        }, expression);
     }
 
     public static Builder builder()
@@ -51,14 +64,19 @@ public final class SymbolAliases
     {
         Builder builder = new Builder(this);
 
-        for (Map.Entry<String, SymbolReference> alias : sourceAliases.map.entrySet()) {
+        for (Map.Entry<String, Reference> alias : sourceAliases.map.entrySet()) {
             builder.put(alias.getKey(), alias.getValue());
         }
 
         return builder.build();
     }
 
-    public SymbolReference get(String alias)
+    public Symbol getSymbol(String alias)
+    {
+        return Symbol.from(get(alias));
+    }
+
+    public Reference get(String alias)
     {
         /*
          * It's still kind of an open question if the right combination of anyTree() and
@@ -74,17 +92,17 @@ public final class SymbolAliases
         return getOptional(alias).orElseThrow(() -> new IllegalStateException(format("missing expression for alias %s", alias)));
     }
 
-    public Optional<SymbolReference> getOptional(String alias)
+    public Optional<Reference> getOptional(String alias)
     {
-        SymbolReference result = map.get(alias);
+        Reference result = map.get(alias);
         return Optional.ofNullable(result);
     }
 
-    private Map<String, SymbolReference> getUpdatedAssignments(Assignments assignments)
+    private Map<String, Reference> getUpdatedAssignments(Assignments assignments)
     {
-        ImmutableMap.Builder<String, SymbolReference> mapUpdate = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Reference> mapUpdate = ImmutableMap.builder();
         for (Map.Entry<Symbol, Expression> assignment : assignments.getMap().entrySet()) {
-            for (Map.Entry<String, SymbolReference> existingAlias : map.entrySet()) {
+            for (Map.Entry<String, Reference> existingAlias : map.entrySet()) {
                 if (assignment.getValue().equals(existingAlias.getValue())) {
                     // Simple symbol rename
                     mapUpdate.put(existingAlias.getKey(), assignment.getKey().toSymbolReference());
@@ -173,7 +191,7 @@ public final class SymbolAliases
 
     public static class Builder
     {
-        Map<String, SymbolReference> bindings;
+        Map<String, Reference> bindings;
 
         private Builder()
         {
@@ -185,22 +203,22 @@ public final class SymbolAliases
             bindings = new HashMap<>(initialAliases.map);
         }
 
-        public Builder put(String alias, SymbolReference symbolReference)
+        public Builder put(String alias, Reference reference)
         {
             requireNonNull(alias, "alias is null");
-            requireNonNull(symbolReference, "symbolReference is null");
+            requireNonNull(reference, "symbolReference is null");
 
             // Special case to allow identity binding (i.e. "ALIAS" -> expression("ALIAS"))
-            if (bindings.containsKey(alias) && bindings.get(alias).equals(symbolReference)) {
+            if (bindings.containsKey(alias) && bindings.get(alias).equals(reference)) {
                 return this;
             }
 
-            checkState(!bindings.containsKey(alias), "Alias '%s' already bound to expression '%s'. Tried to rebind to '%s'", alias, bindings.get(alias), symbolReference);
-            bindings.put(alias, symbolReference);
+            checkState(!bindings.containsKey(alias), "Alias '%s' already bound to expression '%s'. Tried to rebind to '%s'", alias, bindings.get(alias), reference);
+            bindings.put(alias, reference);
             return this;
         }
 
-        public Builder putAll(Map<String, SymbolReference> aliases)
+        public Builder putAll(Map<String, Reference> aliases)
         {
             aliases.entrySet()
                     .forEach(entry -> put(entry.getKey(), entry.getValue()));
@@ -212,7 +230,7 @@ public final class SymbolAliases
          * update existing bindings that have already been added. Unless you're
          * certain you want this behavior, you don't want it.
          */
-        private Builder putUnchecked(Map<String, SymbolReference> aliases)
+        private Builder putUnchecked(Map<String, Reference> aliases)
         {
             bindings.putAll(aliases);
             return this;

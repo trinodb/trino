@@ -13,11 +13,9 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.SemiJoinNode;
 
 import java.util.Optional;
@@ -36,9 +34,9 @@ public class SemiJoinStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(SemiJoinNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    public Optional<PlanNodeStatsEstimate> calculate(SemiJoinNode node, Context context)
     {
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
+        PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(node.getSource());
 
         // For now we just propagate statistics for source symbols.
         // Handling semiJoinOutput symbols requires support for correlation for boolean columns.

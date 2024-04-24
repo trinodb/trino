@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestReportMultiThreadedBeforeOrAfterMethod
 {
-    @Test
+    @org.junit.jupiter.api.Test
     public void test()
     {
         // no @BeforeMethod

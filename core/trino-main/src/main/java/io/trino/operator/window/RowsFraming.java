@@ -14,15 +14,15 @@
 package io.trino.operator.window;
 
 import io.trino.operator.PagesIndex;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.planner.plan.FrameBoundType;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static java.lang.Math.toIntExact;
 
 public class RowsFraming
@@ -35,7 +35,7 @@ public class RowsFraming
 
     public RowsFraming(FrameInfo frameInfo, int partitionStart, int partitionEnd, PagesIndex pagesIndex)
     {
-        checkArgument(frameInfo.getType() == WindowFrame.Type.ROWS, "Frame must be of type ROWS, actual: %s", frameInfo.getType());
+        checkArgument(frameInfo.getType() == ROWS, "Frame must be of type ROWS, actual: %s", frameInfo.getType());
 
         this.frameInfo = frameInfo;
         this.pagesIndex = pagesIndex;
@@ -90,8 +90,8 @@ public class RowsFraming
 
     private boolean emptyFrame(FrameInfo frameInfo, int rowPosition, int endPosition)
     {
-        FrameBound.Type startType = frameInfo.getStartType();
-        FrameBound.Type endType = frameInfo.getEndType();
+        FrameBoundType startType = frameInfo.getStartType();
+        FrameBoundType endType = frameInfo.getEndType();
 
         int positions = endPosition - rowPosition;
 
@@ -107,7 +107,7 @@ public class RowsFraming
             return false;
         }
 
-        FrameBound.Type type = frameInfo.getStartType();
+        FrameBoundType type = frameInfo.getStartType();
         if ((type != PRECEDING) && (type != FOLLOWING)) {
             return false;
         }

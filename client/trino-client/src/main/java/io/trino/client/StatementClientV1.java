@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -126,14 +127,9 @@ class StatementClientV1
 
         Request request = buildQueryRequest(session, query);
 
-        // Always materialize the first response to avoid losing the response body if the initial response parsing fails
-        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, OptionalLong.empty());
-        if ((response.getStatusCode() != HTTP_OK) || !response.hasValue()) {
-            state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
-            throw requestFailedException("starting query", request, response);
-        }
-
-        processResponse(response.getHeaders(), response.getValue());
+        // Pass empty as materializedJsonSizeLimit to always materialize the first response
+        // to avoid losing the response body if the initial response parsing fails
+        executeRequest(request, "starting query", OptionalLong.empty(), this::isTransient);
     }
 
     private Request buildQueryRequest(ClientSession session, String query)
@@ -145,7 +141,7 @@ class StatementClientV1
         url = url.newBuilder().encodedPath("/v1/statement").build();
 
         Request.Builder builder = prepareRequest(url)
-                .post(RequestBody.create(MEDIA_TYPE_TEXT, query));
+                .post(RequestBody.create(query, MEDIA_TYPE_TEXT));
 
         if (session.getSource() != null) {
             builder.addHeader(TRINO_HEADERS.requestSource(), session.getSource());
@@ -363,7 +359,11 @@ class StatementClientV1
         }
 
         Request request = prepareRequest(HttpUrl.get(nextUri)).build();
+        return executeRequest(request, "fetching next", OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE), (e) -> true);
+    }
 
+    private boolean executeRequest(Request request, String taskName, OptionalLong materializedJsonSizeLimit, Function<Exception, Boolean> isRetryable)
+    {
         Exception cause = null;
         long start = System.nanoTime();
         long attempts = 0;
@@ -398,9 +398,12 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
+                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, materializedJsonSizeLimit);
             }
             catch (RuntimeException e) {
+                if (!isRetryable.apply(e)) {
+                    throw e;
+                }
                 cause = e;
                 continue;
             }
@@ -408,16 +411,16 @@ class StatementClientV1
                 cause = response.getException();
                 continue;
             }
-
-            if ((response.getStatusCode() == HTTP_OK) && response.hasValue()) {
-                processResponse(response.getHeaders(), response.getValue());
-                return true;
+            if (response.getStatusCode() != HTTP_OK || !response.hasValue()) {
+                if (!shouldRetry(response.getStatusCode())) {
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    throw requestFailedException(taskName, request, response);
+                }
+                continue;
             }
 
-            if (!shouldRetry(response.getStatusCode())) {
-                state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
-                throw requestFailedException("fetching next", request, response);
-            }
+            processResponse(response.getHeaders(), response.getValue());
+            return true;
         }
     }
 

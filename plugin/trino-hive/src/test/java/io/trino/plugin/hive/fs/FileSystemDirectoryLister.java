@@ -15,7 +15,6 @@ package io.trino.plugin.hive.fs;
 
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 
 import java.io.IOException;
@@ -28,15 +27,5 @@ public class FileSystemDirectoryLister
             throws IOException
     {
         return new TrinoFileStatusRemoteIterator(fs.listFiles(location));
-    }
-
-    @Override
-    public void invalidate(Partition partition)
-    {
-    }
-
-    @Override
-    public void invalidate(Table table)
-    {
     }
 }

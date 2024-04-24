@@ -14,18 +14,16 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
-import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -126,24 +124,10 @@ public final class ExpressionExtractor
         }
 
         @Override
-        public Void visitUnnest(UnnestNode node, Void context)
-        {
-            node.getFilter().ifPresent(consumer);
-            return super.visitUnnest(node, context);
-        }
-
-        @Override
         public Void visitValues(ValuesNode node, Void context)
         {
             node.getRows().ifPresent(list -> list.forEach(consumer));
             return super.visitValues(node, context);
-        }
-
-        @Override
-        public Void visitApply(ApplyNode node, Void context)
-        {
-            node.getSubqueryAssignments().getExpressions().forEach(consumer);
-            return super.visitApply(node, context);
         }
     }
 }

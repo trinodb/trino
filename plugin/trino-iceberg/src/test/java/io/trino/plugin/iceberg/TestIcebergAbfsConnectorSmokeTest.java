@@ -53,9 +53,9 @@ public class TestIcebergAbfsConnectorSmokeTest
     public TestIcebergAbfsConnectorSmokeTest()
     {
         super(ORC);
-        this.container = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-container"), "container is null");
-        this.account = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-account"), "account is null");
-        this.accessKey = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-access-key"), "accessKey is null");
+        this.container = requireNonNull(System.getProperty("testing.azure-abfs-container"), "container is null");
+        this.account = requireNonNull(System.getProperty("testing.azure-abfs-account"), "account is null");
+        this.accessKey = requireNonNull(System.getProperty("testing.azure-abfs-access-key"), "accessKey is null");
         this.schemaName = "tpch_" + format.name().toLowerCase(ENGLISH);
         this.bucketName = "test-iceberg-smoke-test-" + randomNameSuffix();
     }
@@ -84,7 +84,7 @@ public class TestIcebergAbfsConnectorSmokeTest
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
-                                .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
+                                .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                                 .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                                 .put("hive.azure.abfs-storage-account", account)
                                 .put("hive.azure.abfs-access-key", accessKey)

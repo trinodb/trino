@@ -13,7 +13,11 @@
  */
 package io.trino.sql.planner;
 
+import io.trino.sql.ir.Constant;
+
+import java.util.Optional;
+
 public interface SymbolResolver
 {
-    Object getValue(Symbol symbol);
+    Optional<Constant> getValue(Symbol symbol);
 }

@@ -1448,7 +1448,7 @@ public class TestLocalExchange
         Page page = source.removePage();
         assertThat(page).isNotNull();
 
-        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(createChannelsHashGenerator(TYPES, new int[]{0}, TYPE_OPERATORS), partitionCount);
+        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(createChannelsHashGenerator(TYPES, new int[] {0}, TYPE_OPERATORS), partitionCount);
         for (int position = 0; position < page.getPositionCount(); position++) {
             assertThat(partitionGenerator.getPartition(page, position)).isEqualTo(partition);
         }

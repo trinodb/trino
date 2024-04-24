@@ -20,10 +20,10 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.execution.ManagedQueryExecution;
+import io.trino.memory.ClusterMemoryManager;
 import io.trino.server.ResourceGroupInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
-import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
@@ -82,10 +82,10 @@ public final class InternalResourceGroupManager<C>
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
 
     @Inject
-    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManager legacyManager, ClusterMemoryPoolManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
+    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManager legacyManager, ClusterMemoryManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
-        this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager, nodeInfo.getEnvironment());
+        this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager::addChangeListener, nodeInfo.getEnvironment());
         this.legacyManager = requireNonNull(legacyManager, "legacyManager is null");
         this.configurationManager = new AtomicReference<>(cast(legacyManager));
     }
@@ -179,6 +179,7 @@ public final class InternalResourceGroupManager<C>
     @PreDestroy
     public void destroy()
     {
+        configurationManager.get().shutdown();
         refreshExecutor.shutdownNow();
     }
 

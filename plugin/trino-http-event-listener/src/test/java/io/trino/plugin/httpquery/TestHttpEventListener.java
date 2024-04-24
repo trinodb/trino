@@ -393,7 +393,7 @@ class TestHttpEventListener
     }
 
     @Test
-    void testServerShoudRetry()
+    void testServerShouldRetry()
             throws Exception
     {
         testServerShouldRetry(503);

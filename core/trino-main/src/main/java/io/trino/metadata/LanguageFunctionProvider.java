@@ -14,24 +14,25 @@
 package io.trino.metadata;
 
 import io.trino.execution.TaskId;
-import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.sql.routine.ir.IrRoutine;
 
-import java.util.List;
+import java.util.Map;
 
 public interface LanguageFunctionProvider
 {
     LanguageFunctionProvider DISABLED = new LanguageFunctionProvider()
     {
         @Override
-        public ScalarFunctionImplementation specialize(FunctionManager functionManager, ResolvedFunction resolvedFunction, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
+        public ScalarFunctionImplementation specialize(FunctionId functionId, InvocationConvention invocationConvention, FunctionManager functionManager)
         {
             throw new UnsupportedOperationException("SQL language functions are disabled");
         }
 
         @Override
-        public void registerTask(TaskId taskId, List<LanguageScalarFunctionData> languageFunctions)
+        public void registerTask(TaskId taskId, Map<FunctionId, IrRoutine> languageFunctions)
         {
             if (!languageFunctions.isEmpty()) {
                 throw new UnsupportedOperationException("SQL language functions are disabled");
@@ -42,13 +43,9 @@ public interface LanguageFunctionProvider
         public void unregisterTask(TaskId taskId) {}
     };
 
-    ScalarFunctionImplementation specialize(
-            FunctionManager functionManager,
-            ResolvedFunction resolvedFunction,
-            FunctionDependencies functionDependencies,
-            InvocationConvention invocationConvention);
+    ScalarFunctionImplementation specialize(FunctionId functionId, InvocationConvention invocationConvention, FunctionManager functionManager);
 
-    void registerTask(TaskId taskId, List<LanguageScalarFunctionData> languageFunctions);
+    void registerTask(TaskId taskId, Map<FunctionId, IrRoutine> languageFunctions);
 
     void unregisterTask(TaskId taskId);
 }

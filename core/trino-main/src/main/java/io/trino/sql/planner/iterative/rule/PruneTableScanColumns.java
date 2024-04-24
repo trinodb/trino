@@ -26,7 +26,6 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
@@ -61,12 +60,10 @@ public class PruneTableScanColumns
     protected Optional<PlanNode> pushDownProjectOff(Context context, TableScanNode node, Set<Symbol> referencedOutputs)
     {
         Session session = context.getSession();
-        TypeProvider types = context.getSymbolAllocator().getTypes();
-
-        return pruneColumns(metadata, types, session, node, referencedOutputs);
+        return pruneColumns(metadata, session, node, referencedOutputs);
     }
 
-    public static Optional<PlanNode> pruneColumns(Metadata metadata, TypeProvider types, Session session, TableScanNode node, Set<Symbol> referencedOutputs)
+    public static Optional<PlanNode> pruneColumns(Metadata metadata, Session session, TableScanNode node, Set<Symbol> referencedOutputs)
     {
         List<Symbol> newOutputs = filteredCopy(node.getOutputSymbols(), referencedOutputs::contains);
 
@@ -75,7 +72,7 @@ public class PruneTableScanColumns
         }
 
         List<ConnectorExpression> projections = newOutputs.stream()
-                .map(symbol -> new Variable(symbol.getName(), types.get(symbol)))
+                .map(symbol -> new Variable(symbol.getName(), symbol.getType()))
                 .collect(toImmutableList());
 
         TableHandle handle = node.getTable();

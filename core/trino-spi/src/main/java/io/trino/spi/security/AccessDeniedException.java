@@ -14,6 +14,7 @@
 package io.trino.spi.security;
 
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.function.FunctionKind;
 
 import java.security.Principal;
@@ -425,11 +426,6 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("View owner '%s' cannot create view that selects from %s%s", identity.getUser(), sourceName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyGrantExecuteFunctionPrivilege(String functionName, Identity identity, TrinoPrincipal grantee)
-    {
-        throw new AccessDeniedException(format("'%s' cannot grant '%s' execution to %s", identity.getUser(), functionName, grantee));
-    }
-
     public static void denyRenameView(String viewName, String newViewName)
     {
         denyRenameView(viewName, newViewName, null);
@@ -450,16 +446,6 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set authorization for view %s to %s%s", viewName, principal, formatExtraInfo(extraInfo)));
     }
 
-    public static void denySetViewComment(String viewName)
-    {
-        denySetViewComment(viewName, null);
-    }
-
-    public static void denySetViewComment(String viewName, String extraInfo)
-    {
-        throw new AccessDeniedException(format("Cannot set comment for view %s%s", viewName, formatExtraInfo(extraInfo)));
-    }
-
     public static void denyDropView(String viewName)
     {
         denyDropView(viewName, null);
@@ -468,16 +454,6 @@ public class AccessDeniedException
     public static void denyDropView(String viewName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot drop view %s%s", viewName, formatExtraInfo(extraInfo)));
-    }
-
-    public static void denySelectView(String viewName)
-    {
-        denySelectView(viewName, null);
-    }
-
-    public static void denySelectView(String viewName, String extraInfo)
-    {
-        throw new AccessDeniedException(format("Cannot select from view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyCreateMaterializedView(String materializedViewName)
@@ -590,14 +566,49 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot revoke privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyGrantEntityPrivilege(String privilege, EntityKindAndName entity)
+    {
+        denyGrantEntityPrivilege(privilege, entity, null);
+    }
+
+    public static void denyGrantEntityPrivilege(String privilege, EntityKindAndName entity, String extraInfo)
+    {
+        entityPrivilegeException("grant", privilege, entity, extraInfo);
+    }
+
+    public static void denyDenyEntityPrivilege(String privilege, EntityKindAndName entity)
+    {
+        denyDenyEntityPrivilege(privilege, entity, null);
+    }
+
+    public static void denyDenyEntityPrivilege(String privilege, EntityKindAndName entity, String extraInfo)
+    {
+        entityPrivilegeException("deny", privilege, entity, extraInfo);
+    }
+
+    public static void denyRevokeEntityPrivilege(String privilege, EntityKindAndName entity)
+    {
+        denyRevokeEntityPrivilege(privilege, entity, null);
+    }
+
+    public static void denyRevokeEntityPrivilege(String privilege, EntityKindAndName entity, String extraInfo)
+    {
+        entityPrivilegeException("revoke", privilege, entity, extraInfo);
+    }
+
+    private static void entityPrivilegeException(String operation, String privilege, EntityKindAndName entity, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot %s privilege %s on %s %s%s",
+                operation,
+                privilege,
+                entity.entityKind().toLowerCase(Locale.ROOT),
+                entity.name(),
+                formatExtraInfo(extraInfo)));
+    }
+
     public static void denyShowRoles()
     {
         throw new AccessDeniedException("Cannot show roles");
-    }
-
-    public static void denyShowRoleAuthorizationDescriptors()
-    {
-        throw new AccessDeniedException("Cannot show role authorization descriptors");
     }
 
     public static void denyShowCurrentRoles()

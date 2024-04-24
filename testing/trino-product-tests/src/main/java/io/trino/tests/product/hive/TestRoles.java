@@ -33,7 +33,6 @@ import static io.trino.tempto.assertions.QueryAssert.anyOf;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TestGroups.ROLES;
 import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -84,14 +83,14 @@ public class TestRoles
                 .collect(toImmutableSet());
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testCreateRole()
     {
         onTrino().executeQuery(format("CREATE ROLE %s IN hive", ROLE1));
         assertThat(listRoles()).contains(ROLE1);
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropRole()
     {
         onHive().executeQuery(format("CREATE ROLE %s", ROLE1));
@@ -100,7 +99,7 @@ public class TestRoles
         assertThat(listRoles()).doesNotContain(ROLE1);
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testListRoles()
     {
         onTrino().executeQuery(format("CREATE ROLE %s IN hive", ROLE1));
@@ -109,7 +108,7 @@ public class TestRoles
         assertThat(actual.rows()).containsOnly(expected.rows().toArray(new List[] {}));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testCreateDuplicateRole()
     {
         onTrino().executeQuery(format("CREATE ROLE %s IN hive", ROLE1));
@@ -117,14 +116,14 @@ public class TestRoles
                 .hasMessageContaining("Role '%s' already exists", ROLE1);
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropNonExistentRole()
     {
         assertQueryFailure(() -> onTrino().executeQuery(format("DROP ROLE %s IN hive", ROLE3)))
                 .hasMessageContaining("Role '%s' does not exist", ROLE3);
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testCreateDropRoleAccessControl()
     {
         // Only users that are granted with "admin" role can create, drop and list roles
@@ -137,7 +136,7 @@ public class TestRoles
                 .hasMessageContaining("Cannot select from table information_schema.roles");
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testPublicRoleIsGrantedToEveryone()
     {
         assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
@@ -146,14 +145,14 @@ public class TestRoles
                 .contains(row("bob", "USER", "public", "NO"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAdminRoleIsGrantedToHdfs()
     {
         assertThat(onTrino().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .contains(row(userName, "USER", "admin", anyOf("YES", "NO")));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleToUser()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -164,7 +163,7 @@ public class TestRoles
                         row("alice", "USER", "role1", "NO"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleToRole()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -178,7 +177,7 @@ public class TestRoles
                         row("role1", "ROLE", "role2", "NO"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleWithAdminOption()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -192,7 +191,7 @@ public class TestRoles
                         row("role1", "ROLE", "role2", "YES"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleMultipleTimes()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -212,7 +211,7 @@ public class TestRoles
                         row("role1", "ROLE", "role2", "YES"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeRoleFromUser()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -228,7 +227,7 @@ public class TestRoles
                         row("alice", "USER", "public", "NO"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeRoleFromRole()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -248,7 +247,7 @@ public class TestRoles
                         row("alice", "USER", "role1", "NO"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeRoleFromOwner()
     {
         try {
@@ -274,7 +273,7 @@ public class TestRoles
         }
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropGrantedRole()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -290,7 +289,7 @@ public class TestRoles
                         row("alice", "USER", "public", "NO"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeTransitiveRoleFromUser()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -309,7 +308,7 @@ public class TestRoles
                         row("alice", "USER", "public", "NO"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeTransitiveRoleFromRole()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -332,7 +331,7 @@ public class TestRoles
                         row("alice", "USER", "role1", "NO"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropTransitiveRole()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -355,7 +354,7 @@ public class TestRoles
                         row("alice", "USER", "role1", "NO"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeAdminOption()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -378,7 +377,7 @@ public class TestRoles
                         row("role1", "ROLE", "role2", "NO"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeMultipleTimes()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -412,7 +411,7 @@ public class TestRoles
                         row("alice", "USER", "public", "NO"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRevokeRoleAccessControl()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -465,7 +464,7 @@ public class TestRoles
                 .hasMessageContaining("Cannot revoke roles [role1] from [USER bob]");
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testSetRole()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
@@ -510,7 +509,7 @@ public class TestRoles
                         row("role3"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testSetAdminRole()
     {
         onTrino().executeQuery("SET ROLE NONE IN hive");
@@ -524,7 +523,7 @@ public class TestRoles
                         row("admin"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testShowRoles()
     {
         assertThat(onTrino().executeQuery("SHOW ROLES FROM hive"))
@@ -548,7 +547,7 @@ public class TestRoles
                         row("role1"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testShowCurrentRoles()
     {
         assertThat(onPrestoAlice().executeQuery("SHOW CURRENT ROLES FROM hive"))
@@ -570,7 +569,7 @@ public class TestRoles
                         row("role2"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testShowRoleGrants()
     {
         assertThat(onTrino().executeQuery("SHOW ROLE GRANTS FROM hive"))
@@ -594,21 +593,21 @@ public class TestRoles
                         row("role1"));
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testSetRoleCreateDropSchema()
     {
         assertAdminExecute("CREATE SCHEMA hive.test_admin_schema");
         onTrino().executeQuery("DROP SCHEMA hive.test_admin_schema");
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAdminCanDropAnyTable()
     {
         onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
         assertAdminExecute("DROP TABLE hive.default.test_table");
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAdminCanRenameAnyTable()
     {
         onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
@@ -616,7 +615,7 @@ public class TestRoles
         onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table_1");
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAdminCanAddColumnToAnyTable()
     {
         onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
@@ -624,7 +623,7 @@ public class TestRoles
         onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table");
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAdminCanRenameColumnInAnyTable()
     {
         onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
@@ -632,7 +631,7 @@ public class TestRoles
         onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table");
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAdminCanShowAllGrants()
     {
         try {
@@ -674,7 +673,7 @@ public class TestRoles
         }
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAdminCanShowGrantsOnlyFromCurrentSchema()
     {
         try {
@@ -716,7 +715,7 @@ public class TestRoles
         }
     }
 
-    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testSetRoleTablePermissions()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");

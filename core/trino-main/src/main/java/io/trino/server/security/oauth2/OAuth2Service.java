@@ -174,9 +174,8 @@ public class OAuth2Service
             if (handlerState.isEmpty()) {
                 Response.ResponseBuilder builder = Response
                         .seeOther(URI.create(UI_LOCATION))
-                        .cookie(
-                                OAuthWebUiCookie.create(tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)), cookieExpirationTime),
-                                NonceCookie.delete());
+                        .cookie(OAuthWebUiCookie.create(tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)), cookieExpirationTime))
+                        .cookie(NonceCookie.delete());
                 if (oauth2Response.getIdToken().isPresent()) {
                     builder.cookie(OAuthIdTokenCookie.create(oauth2Response.getIdToken().get(), cookieExpirationTime));
                 }

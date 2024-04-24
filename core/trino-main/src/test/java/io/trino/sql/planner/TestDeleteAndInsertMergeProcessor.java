@@ -80,7 +80,7 @@ public class TestDeleteAndInsertMergeProcessor
         assertThat((int) TINYINT.getByte(outputPage.getBlock(3), 0)).isEqualTo(DELETE_OPERATION_NUMBER);
 
         // Show that the row to be deleted is rowId 0, e.g. ('Dave', 11, 'Devon')
-        SqlRow rowIdRow = outputPage.getBlock(4).getObject(0, SqlRow.class);
+        SqlRow rowIdRow = ((RowBlock) outputPage.getBlock(4)).getRow(0);
         assertThat(BIGINT.getLong(rowIdRow.getRawFieldBlock(1), rowIdRow.getRawIndex())).isEqualTo(0);
     }
 
@@ -104,10 +104,10 @@ public class TestDeleteAndInsertMergeProcessor
         Page inputPage = makePageFromBlocks(
                 5,
                 Optional.of(rowIdNulls),
-                new Block[]{
-                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[]{2, 0, 1, 2, 2}), // TransactionId
-                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[]{0, 0, 3, 1, 2}), // rowId
-                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[]{536870912, 0, 536870912, 536870912, 536870912})}, // bucket
+                new Block[] {
+                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {2, 0, 1, 2, 2}), // TransactionId
+                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {0, 0, 3, 1, 2}), // rowId
+                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[] {536870912, 0, 536870912, 536870912, 536870912})}, // bucket
                 new Block[] {
                         // customer
                         makeVarcharArrayBlock("Aaron", "Carol", "Dave", "Dave", "Ed"),
@@ -145,9 +145,9 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
                 5,
                 Optional.of(rowIdNulls),
                 new Block[] {
-                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[]{2, 0, 1, 2, 2}), // TransactionId
-                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[]{0, 0, 3, 1, 2}), // rowId
-                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[]{536870912, 0, 536870912, 536870912, 536870912})}, // bucket
+                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {2, 0, 1, 2, 2}), // TransactionId
+                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {0, 0, 3, 1, 2}), // rowId
+                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[] {536870912, 0, 536870912, 536870912, 536870912})}, // bucket
                 new Block[] {
                         // customer
                         makeVarcharArrayBlock("Aaron", "Carol", "Dave", "Dave", "Ed"),

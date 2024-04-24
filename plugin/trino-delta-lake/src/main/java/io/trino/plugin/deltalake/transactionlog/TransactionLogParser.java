@@ -267,10 +267,10 @@ public final class TransactionLogParser
         }
     }
 
-    public static long getMandatoryCurrentVersion(TrinoFileSystem fileSystem, String tableLocation)
+    public static long getMandatoryCurrentVersion(TrinoFileSystem fileSystem, String tableLocation, long readVersion)
             throws IOException
     {
-        long version = readLastCheckpoint(fileSystem, tableLocation).map(LastCheckpoint::getVersion).orElse(0L);
+        long version = readVersion;
 
         String transactionLogDir = getTransactionLogDir(tableLocation);
         while (true) {

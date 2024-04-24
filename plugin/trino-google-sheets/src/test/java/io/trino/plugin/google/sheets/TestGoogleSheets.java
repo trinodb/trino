@@ -42,7 +42,6 @@ import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsP
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGoogleSheets
         extends AbstractTestQueryFramework
@@ -266,33 +265,33 @@ public class TestGoogleSheets
     public void testSheetQueryWithSheetRangeInIdFails()
     {
         // Sheet ids with "#" are explicitly forbidden since "#" is the sheet separator
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s#%s'))".formatted(DATA_SHEET_ID, "number_text")))
-                .hasMessageContaining("Google sheet ID %s cannot contain '#'. Provide a range through the 'range' argument.".formatted(DATA_SHEET_ID + "#number_text"));
+                .failure().hasMessageContaining("Google sheet ID %s cannot contain '#'. Provide a range through the 'range' argument.".formatted(DATA_SHEET_ID + "#number_text"));
 
         // Attempting to put a sheet range in the id fails since the sheet id is invalid
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s%s'))".formatted(DATA_SHEET_ID, "number_text")))
-                .hasMessageContaining("Failed reading data from sheet: %snumber_text#$1:$10000".formatted(DATA_SHEET_ID));
+                .failure().hasMessageContaining("Failed reading data from sheet: %snumber_text#$1:$10000".formatted(DATA_SHEET_ID));
     }
 
     @Test
     public void testSheetQueryWithNoDataInRangeFails()
     {
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!D1:D1")))
-                .hasMessageContaining("No non-empty cells found in sheet: %s#number_text!D1:D1".formatted(DATA_SHEET_ID));
+                .failure().hasMessageContaining("No non-empty cells found in sheet: %s#number_text!D1:D1".formatted(DATA_SHEET_ID));
 
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!D12:E13")))
-                .hasMessageContaining("No non-empty cells found in sheet: %s#number_text!D12:E13".formatted(DATA_SHEET_ID));
+                .failure().hasMessageContaining("No non-empty cells found in sheet: %s#number_text!D12:E13".formatted(DATA_SHEET_ID));
     }
 
     @Test
     public void testSheetQueryWithInvalidSheetId()
     {
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(gsheets.system.sheet(id => 'DOESNOTEXIST'))"))
-                .hasMessageContaining("Failed reading data from sheet: DOESNOTEXIST");
+        assertThat(query("SELECT * FROM TABLE(gsheets.system.sheet(id => 'DOESNOTEXIST'))"))
+                .failure().hasMessageContaining("Failed reading data from sheet: DOESNOTEXIST");
     }
 
     @Test

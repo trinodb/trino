@@ -19,6 +19,7 @@ import jakarta.annotation.Nullable;
 import java.util.Arrays;
 
 import static java.lang.Math.ceil;
+import static java.lang.Math.clamp;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -97,7 +98,7 @@ final class BlockUtil
         long newSize = (long) currentSize + (currentSize >> 1);
 
         // ensure new size is within bounds
-        newSize = Math.min(Math.max(newSize, minimumSize), MAX_ARRAY_SIZE);
+        newSize = clamp(newSize, minimumSize, MAX_ARRAY_SIZE);
         return (int) newSize;
     }
 
@@ -361,17 +362,11 @@ final class BlockUtil
     static void appendRawBlockRange(Block rawBlock, int offset, int length, BlockBuilder blockBuilder)
     {
         rawBlock = rawBlock.getLoadedBlock();
-        if (rawBlock instanceof RunLengthEncodedBlock rleBlock) {
-            blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
-        }
-        else if (rawBlock instanceof DictionaryBlock dictionaryBlock) {
-            blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), offset, length);
-        }
-        else if (rawBlock instanceof ValueBlock valueBlock) {
-            blockBuilder.appendRange(valueBlock, offset, length);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported block type " + rawBlock.getClass().getSimpleName());
+        switch (rawBlock) {
+            case RunLengthEncodedBlock rleBlock -> blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
+            case DictionaryBlock dictionaryBlock -> blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), offset, length);
+            case ValueBlock valueBlock -> blockBuilder.appendRange(valueBlock, offset, length);
+            case LazyBlock ignored -> throw new IllegalStateException("Did not expect LazyBlock after loading " + rawBlock.getClass().getSimpleName());
         }
     }
 }

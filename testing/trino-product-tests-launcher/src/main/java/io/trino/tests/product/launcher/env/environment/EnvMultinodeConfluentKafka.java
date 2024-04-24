@@ -26,7 +26,6 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import java.io.File;
 
-import static io.trino.testing.TestingProperties.getConfluentVersion;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
@@ -44,8 +43,8 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class EnvMultinodeConfluentKafka
         extends EnvironmentProvider
 {
-    private static final File KAFKA_PROTOBUF_PROVIDER = new File("testing/trino-product-tests-launcher/target/kafka-protobuf-provider-" + getConfluentVersion() + ".jar");
-    private static final File KAFKA_PROTOBUF_TYPES = new File("testing/trino-product-tests-launcher/target/kafka-protobuf-types-" + getConfluentVersion() + ".jar");
+    private static final File KAFKA_PROTOBUF_PROVIDER = new File("testing/trino-product-tests-launcher/target/kafka-protobuf-provider.jar");
+    private static final File KAFKA_PROTOBUF_TYPES = new File("testing/trino-product-tests-launcher/target/kafka-protobuf-types.jar");
 
     private final ResourceProvider configDir;
 

@@ -14,15 +14,25 @@
 package io.trino.filesystem.manager;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
+import io.trino.filesystem.cache.AllowFilesystemCacheOnCoordinator;
+import io.trino.filesystem.cache.CacheFileSystemFactory;
+import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.filesystem.cache.DefaultCacheKeyProvider;
+import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
+import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.s3.S3FileSystemFactory;
@@ -91,6 +101,16 @@ public class FileSystemModule
             install(new GcsFileSystemModule());
             factories.addBinding("gs").to(GcsFileSystemFactory.class);
         }
+
+        newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(DefaultCachingHostAddressProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(boolean.class, AllowFilesystemCacheOnCoordinator.class)).setDefault().toInstance(false);
+
+        newOptionalBinder(binder, TrinoFileSystemCache.class);
+
+        if (config.isCacheEnabled()) {
+            install(new AlluxioFileSystemCacheModule(nodeManager.getCurrentNode().isCoordinator()));
+        }
     }
 
     @Provides
@@ -99,12 +119,17 @@ public class FileSystemModule
             Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
             LifeCycleManager lifeCycleManager,
             Map<String, TrinoFileSystemFactory> factories,
+            Optional<TrinoFileSystemCache> fileSystemCache,
+            Optional<CacheKeyProvider> keyProvider,
             Tracer tracer)
     {
         Optional<TrinoFileSystemFactory> hdfsFactory = hdfsFileSystemLoader.map(HdfsFileSystemLoader::create);
         hdfsFactory.ifPresent(lifeCycleManager::addInstance);
 
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(hdfsFactory, factories);
+        if (fileSystemCache.isPresent()) {
+            delegate = new CacheFileSystemFactory(tracer, delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
+        }
         return new TracingFileSystemFactory(tracer, delegate);
     }
 }

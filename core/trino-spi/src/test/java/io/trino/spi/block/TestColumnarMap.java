@@ -37,7 +37,7 @@ public class TestColumnarMap
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final MapType MAP_TYPE = new MapType(VARCHAR, VARCHAR, TYPE_OPERATORS);
-    private static final int[] MAP_SIZES = new int[]{16, 0, 13, 1, 2, 11, 4, 7};
+    private static final int[] MAP_SIZES = new int[] {16, 0, 13, 1, 2, 11, 4, 7};
 
     @Test
     public void test()
@@ -126,10 +126,10 @@ public class TestColumnarMap
                 Slice[] expectedEntry = expectedMap[i];
 
                 Slice expectedKey = expectedEntry[0];
-                assertBlockPosition(MAP_TYPE, keysBlock, elementsPosition, expectedKey);
+                assertBlockPosition(MAP_TYPE.getKeyType(), keysBlock, elementsPosition, expectedKey);
 
                 Slice expectedValue = expectedEntry[1];
-                assertBlockPosition(MAP_TYPE, valuesBlock, elementsPosition, expectedValue);
+                assertBlockPosition(MAP_TYPE.getValueType(), valuesBlock, elementsPosition, expectedValue);
 
                 elementsPosition++;
             }

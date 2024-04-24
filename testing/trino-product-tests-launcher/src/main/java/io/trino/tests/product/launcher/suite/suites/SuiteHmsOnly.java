@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteHmsOnly
@@ -31,7 +33,7 @@ public class SuiteHmsOnly
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
-                        .withGroups("configured_features", "hms_only")
+                        .withGroups(CONFIGURED_FEATURES, HMS_ONLY)
                         .build());
     }
 }

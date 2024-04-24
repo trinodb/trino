@@ -19,6 +19,7 @@ import io.trino.hive.formats.line.LineDeserializerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static io.trino.hive.formats.HiveFormatUtils.getTimestampFormatsSchemaProperty;
 import static io.trino.hive.formats.line.json.JsonConstants.HIVE_SERDE_CLASS_NAMES;
@@ -27,7 +28,7 @@ public class JsonDeserializerFactory
         implements LineDeserializerFactory
 {
     @Override
-    public List<String> getHiveSerDeClassNames()
+    public Set<String> getHiveSerDeClassNames()
     {
         return HIVE_SERDE_CLASS_NAMES;
     }

@@ -55,8 +55,13 @@ SELECT abs(-10); -- -20, not 10!
 ## Catalog routines
 
 You can store a routine in the context of a catalog, if the connector used in
-the catalog supports routine storage. In this scenario, the following commands
-can be used:
+the catalog supports routine storage. The following connectors support catalog
+routine storage:
+
+* [](/connector/hive)
+* [](/connector/memory)
+
+In this scenario, the following commands can be used:
 
 * [](/sql/create-function) to create and store a routine.
 * [](/sql/drop-function) to remove a routine.
@@ -153,8 +158,8 @@ terms of memory and processing. Take the following considerations into account
 when writing and running SQL routines:
 
 * Some checks for the runtime behavior of routines are in place. For example,
-  routines that use take longer to process than a hardcoded threshold are automatically
-  terminated.
+  routines that take longer to process than a hardcoded threshold are
+  automatically terminated.
 * Avoid creation of arrays in a looping construct. Each iteration creates a
   separate new array with all items and copies the data for each modification,
   leaving the prior array in memory for automated clean up later. Use a [lambda

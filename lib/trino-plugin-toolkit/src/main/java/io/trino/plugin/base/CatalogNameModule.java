@@ -15,6 +15,7 @@ package io.trino.plugin.base;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import io.trino.spi.catalog.CatalogName;
 
 import static java.util.Objects.requireNonNull;
 

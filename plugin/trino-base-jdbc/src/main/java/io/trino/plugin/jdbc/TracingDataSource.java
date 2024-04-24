@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.instrumentation.jdbc.datasource.OpenTelemetryDataSource;
+import io.opentelemetry.instrumentation.jdbc.datasource.JdbcTelemetry;
 
 import javax.sql.DataSource;
 
@@ -30,13 +30,13 @@ import static java.util.Objects.requireNonNull;
 
 public class TracingDataSource
 {
-    private final OpenTelemetry openTelemetry;
+    private final JdbcTelemetry jdbcTelemetry;
     private final Driver driver;
     private final String connectionUrl;
 
     public TracingDataSource(OpenTelemetry openTelemetry, Driver driver, String connectionUrl)
     {
-        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
+        this.jdbcTelemetry = JdbcTelemetry.builder(requireNonNull(openTelemetry, "openTelemetry is null")).build();
         this.driver = requireNonNull(driver, "driver is null");
         this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
     }
@@ -45,12 +45,7 @@ public class TracingDataSource
             throws SQLException
     {
         DataSource dataSource = new JdbcDataSource(driver, connectionUrl, properties);
-        try (OpenTelemetryDataSource openTelemetryDataSource = new OpenTelemetryDataSource(dataSource, openTelemetry)) {
-            return openTelemetryDataSource.getConnection();
-        }
-        catch (Exception e) {
-            throw new SQLException(e);
-        }
+        return jdbcTelemetry.wrap(dataSource).getConnection();
     }
 
     private static class JdbcDataSource

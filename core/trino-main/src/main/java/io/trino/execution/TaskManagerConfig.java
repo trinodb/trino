@@ -31,8 +31,8 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
+import static java.lang.Math.clamp;
+import static java.math.BigDecimal.TWO;
 
 @DefunctConfig({
         "experimental.big-query-max-task-memory",
@@ -45,7 +45,7 @@ import static java.lang.Math.min;
         "task.level-absolute-priority"})
 public class TaskManagerConfig
 {
-    private boolean threadPerDriverSchedulerEnabled;
+    private boolean threadPerDriverSchedulerEnabled = true;
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
     private boolean statisticsCpuTimerEnabled = true;
@@ -85,7 +85,7 @@ public class TaskManagerConfig
     // available processor. Whereas, on the worker nodes due to more available processors, the default value could
     // be above 1. Therefore, it can cause error due to config mismatch during execution. Additionally, cap
     // it to 64 in order to avoid small pages produced by local partitioning exchanges.
-    private int maxWriterCount = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2), 64);
+    private int maxWriterCount = clamp(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2, 64);
     // Default value of task concurrency should be above 1, otherwise it can create a plan with a single gather
     // exchange node on the coordinator due to a single available processor. Whereas, on the worker nodes due to
     // more available processors, the default value could be above 1. Therefore, it can cause error due to config
@@ -94,7 +94,7 @@ public class TaskManagerConfig
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */
-    private int taskConcurrency = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32);
+    private int taskConcurrency = clamp(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2, 32);
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 
@@ -102,7 +102,7 @@ public class TaskManagerConfig
     private int taskYieldThreads = 3;
     private int driverTimeoutThreads = 5;
 
-    private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
+    private BigDecimal levelTimeMultiplier = TWO;
 
     @Config("experimental.thread-per-driver-scheduler-enabled")
     public TaskManagerConfig setThreadPerDriverSchedulerEnabled(boolean enabled)
@@ -251,7 +251,6 @@ public class TaskManagerConfig
         return this;
     }
 
-    @NotNull
     public boolean isShareIndexLoading()
     {
         return shareIndexLoading;
@@ -286,9 +285,9 @@ public class TaskManagerConfig
 
     @LegacyConfig("task.shard.max-threads")
     @Config("task.max-worker-threads")
-    public TaskManagerConfig setMaxWorkerThreads(int maxWorkerThreads)
+    public TaskManagerConfig setMaxWorkerThreads(String maxWorkerThreads)
     {
-        this.maxWorkerThreads = maxWorkerThreads;
+        this.maxWorkerThreads = ThreadCountParser.DEFAULT.parse(maxWorkerThreads);
         return this;
     }
 

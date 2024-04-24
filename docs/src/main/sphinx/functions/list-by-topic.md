@@ -501,6 +501,13 @@ For more details, see {doc}`system`
 
 - {func}`version`
 
+## Table
+
+For more details, see [](/functions/table)
+
+- [exclude_columns()](exclude-columns-table-function)
+- [sequence()](sequence-table-function)
+
 ## T-Digest
 
 For more details, see {doc}`tdigest`

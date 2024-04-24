@@ -16,7 +16,6 @@ package io.trino.plugin.atop;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.Session;
-import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
@@ -28,9 +27,10 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static io.trino.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
+import static io.trino.plugin.atop.AtopQueryRunner.createQueryRunner;
+import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -65,8 +65,8 @@ public class TestAtopSecurity
     public void testNonAdminCannotRead()
     {
         Session bob = getSession("bob");
-        assertThatThrownBy(() -> queryRunner.execute(bob, "SELECT * FROM disks"))
-                .isInstanceOf(AccessDeniedException.class)
+        assertTrinoExceptionThrownBy(() -> queryRunner.execute(bob, "SELECT * FROM disks"))
+                .hasErrorCode(PERMISSION_DENIED)
                 .hasMessageMatching("Access Denied:.*");
     }
 

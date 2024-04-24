@@ -35,6 +35,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.join.PagesHash.getHashPosition;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -110,7 +111,7 @@ public final class BigintPagesHash
             long address = addresses.getLong(addressIndex);
             int blockIndex = decodeSliceIndex(address);
             int blockPosition = decodePosition(address);
-            long value = joinChannelBlocks.get(blockIndex).getLong(blockPosition, 0);
+            long value = BIGINT.getLong(joinChannelBlocks.get(blockIndex), blockPosition);
 
             int pos = getHashPosition(value, mask);
 
@@ -160,7 +161,7 @@ public final class BigintPagesHash
     @Override
     public int getAddressIndex(int position, Page hashChannelsPage)
     {
-        long value = hashChannelsPage.getBlock(0).getLong(position, 0);
+        long value = BIGINT.getLong(hashChannelsPage.getBlock(0), position);
         int pos = getHashPosition(value, mask);
 
         while (keys[pos] != -1) {
@@ -261,7 +262,7 @@ public final class BigintPagesHash
     private void extractAndHashValues(int[] positions, Page hashChannelsPage, int positionCount, long[] incomingValues, int[] hashPositions)
     {
         for (int i = 0; i < positionCount; i++) {
-            incomingValues[i] = hashChannelsPage.getBlock(0).getLong(positions[i], 0);
+            incomingValues[i] = BIGINT.getLong(hashChannelsPage.getBlock(0), positions[i]);
             hashPositions[i] = getHashPosition(incomingValues[i], mask);
         }
     }

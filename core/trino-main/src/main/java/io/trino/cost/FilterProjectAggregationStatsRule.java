@@ -14,9 +14,8 @@
 package io.trino.cost;
 
 import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -54,12 +53,12 @@ public class FilterProjectAggregationStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, Context context)
     {
-        if (!isNonEstimatablePredicateApproximationEnabled(session)) {
+        if (!isNonEstimatablePredicateApproximationEnabled(context.session())) {
             return Optional.empty();
         }
-        PlanNode nodeSource = lookup.resolve(node.getSource());
+        PlanNode nodeSource = context.lookup().resolve(node.getSource());
         AggregationNode aggregationNode;
         // TODO match the required source nodes through separate patterns when
         //  ComposableStatsCalculator allows patterns other than TypeOfPattern
@@ -67,26 +66,26 @@ public class FilterProjectAggregationStatsRule
             if (!projectNode.isIdentity()) {
                 return Optional.empty();
             }
-            PlanNode projectNodeSource = lookup.resolve(projectNode.getSource());
-            if (!(projectNodeSource instanceof AggregationNode)) {
+            PlanNode projectNodeSource = context.lookup().resolve(projectNode.getSource());
+            if (!(projectNodeSource instanceof AggregationNode value)) {
                 return Optional.empty();
             }
-            aggregationNode = (AggregationNode) projectNodeSource;
+            aggregationNode = value;
         }
-        else if (nodeSource instanceof AggregationNode) {
-            aggregationNode = (AggregationNode) nodeSource;
+        else if (nodeSource instanceof AggregationNode value) {
+            aggregationNode = value;
         }
         else {
             return Optional.empty();
         }
 
-        return calculate(node, aggregationNode, sourceStats, session, types);
+        return calculate(node, aggregationNode, context.statsProvider(), context.session());
     }
 
-    private Optional<PlanNodeStatsEstimate> calculate(FilterNode filterNode, AggregationNode aggregationNode, StatsProvider statsProvider, Session session, TypeProvider types)
+    private Optional<PlanNodeStatsEstimate> calculate(FilterNode filterNode, AggregationNode aggregationNode, StatsProvider statsProvider, Session session)
     {
         // We assume here that due to predicate pushdown all the filters left are on the aggregation result
-        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(statsProvider.getStats(filterNode.getSource()), filterNode.getPredicate(), session, types);
+        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(statsProvider.getStats(filterNode.getSource()), filterNode.getPredicate(), session);
         if (filteredStats.isOutputRowCountUnknown()) {
             PlanNodeStatsEstimate sourceStats = statsProvider.getStats(aggregationNode);
             if (sourceStats.isOutputRowCountUnknown()) {

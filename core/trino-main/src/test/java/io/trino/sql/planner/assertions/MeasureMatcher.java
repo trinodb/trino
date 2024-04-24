@@ -20,7 +20,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.rowpattern.ExpressionAndValuePointersEquivalence;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 
 import java.util.Map;
@@ -29,17 +29,16 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.sql.planner.assertions.PatternRecognitionExpressionRewriter.rewrite;
 import static java.util.Objects.requireNonNull;
 
 public class MeasureMatcher
         implements RvalueMatcher
 {
-    private final String expression;
+    private final ExpressionAndValuePointers expression;
     private final Map<IrLabel, Set<IrLabel>> subsets;
     private final Type type;
 
-    public MeasureMatcher(String expression, Map<IrLabel, Set<IrLabel>> subsets, Type type)
+    public MeasureMatcher(ExpressionAndValuePointers expression, Map<IrLabel, Set<IrLabel>> subsets, Type type)
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.subsets = requireNonNull(subsets, "subsets is null");
@@ -54,7 +53,7 @@ public class MeasureMatcher
             return result;
         }
 
-        Measure expectedMeasure = new Measure(rewrite(expression, subsets), type);
+        Measure expectedMeasure = new Measure(expression, type);
 
         for (Map.Entry<Symbol, Measure> assignment : patternRecognitionNode.getMeasures().entrySet()) {
             Measure actualMeasure = assignment.getValue();
@@ -73,11 +72,10 @@ public class MeasureMatcher
             return false;
         }
 
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-        return ExpressionAndValuePointersEquivalence.equivalent(
-                actual.getExpressionAndValuePointers(),
+        return ExpressionAndValuePointersMatcher.matches(
                 expected.getExpressionAndValuePointers(),
-                (actualSymbol, expectedSymbol) -> verifier.process(actualSymbol.toSymbolReference(), expectedSymbol.toSymbolReference()));
+                actual.getExpressionAndValuePointers(),
+                symbolAliases);
     }
 
     @Override

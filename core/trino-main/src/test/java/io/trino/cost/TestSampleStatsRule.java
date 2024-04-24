@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestSampleStatsRule
@@ -36,7 +37,7 @@ public class TestSampleStatsRule
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(
-                                new Symbol("a"),
+                                new Symbol(UNKNOWN, "a"),
                                 SymbolStatsEstimate.builder()
                                         .setDistinctValuesCount(20)
                                         .setNullsFraction(0.3)
@@ -44,7 +45,7 @@ public class TestSampleStatsRule
                                         .setHighValue(30)
                                         .build())
                         .addSymbolStatistics(
-                                new Symbol("b"),
+                                new Symbol(UNKNOWN, "b"),
                                 SymbolStatsEstimate.builder()
                                         .setDistinctValuesCount(40)
                                         .setNullsFraction(0.6)

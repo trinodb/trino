@@ -21,10 +21,10 @@ import jakarta.validation.constraints.Min;
 public class JdbcWriteConfig
 {
     public static final int MAX_ALLOWED_WRITE_BATCH_SIZE = 10_000_000;
-    static final int DEFAULT_WRITE_PARALELLISM = 8;
+    static final int DEFAULT_WRITE_PARALLELISM = 8;
 
     private int writeBatchSize = 1000;
-    private int writeParallelism = DEFAULT_WRITE_PARALELLISM;
+    private int writeParallelism = DEFAULT_WRITE_PARALLELISM;
 
     // Do not create temporary table during insert.
     // This means that the write operation can fail and leave the table in an inconsistent state.

@@ -13,13 +13,25 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -32,113 +44,119 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testInlineProjection()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a"),
+                        new Reference(BOOLEAN, "a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b > 0")),
-                                p.values(p.symbol("b")))))
+                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                p.values(p.symbol("b", INTEGER)))))
                 .matches(
                         project(
-                                ImmutableMap.of("a", expression("true")),
+                                ImmutableMap.of("a", expression(TRUE)),
                                 filter(
-                                        "b > 0",
+                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)),
                                         project(
-                                                ImmutableMap.of("b", expression("b")),
+                                                ImmutableMap.of("b", expression(new Reference(INTEGER, "b"))),
                                                 values("b")))));
 
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol c = p.symbol("c");
-                    Symbol d = p.symbol("d");
+                    Symbol a = p.symbol("a", BOOLEAN);
+                    Symbol b = p.symbol("b", INTEGER);
+                    Symbol c = p.symbol("c", INTEGER);
+                    Symbol d = p.symbol("d", INTEGER);
                     return p.filter(
-                            PlanBuilder.expression("a AND b > c"),
+                            new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Reference(INTEGER, "c")))),
                             p.project(
                                     Assignments.builder()
-                                            .put(a, PlanBuilder.expression("d IS NULL"))
-                                            .put(b, PlanBuilder.expression("b"))
-                                            .put(c, PlanBuilder.expression("c"))
+                                            .put(a, new IsNull(new Reference(INTEGER, "d")))
+                                            .put(b, new Reference(INTEGER, "b"))
+                                            .put(c, new Reference(INTEGER, "c"))
                                             .build(),
                                     p.values(b, c, d)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression("b"), "c", expression("c"), "a", expression("true")),
+                                ImmutableMap.of("b", expression(new Reference(INTEGER, "b")), "c", expression(new Reference(INTEGER, "c")), "a", expression(TRUE)),
                                 filter(
-                                        "d IS NULL AND b > c",
+                                        new Logical(AND, ImmutableList.of(new IsNull(new Reference(INTEGER, "d")), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Reference(INTEGER, "c")))),
                                         project(
-                                                ImmutableMap.of("d", expression("d"), "b", expression("b"), "c", expression("c")),
+                                                ImmutableMap.of("d", expression(new Reference(INTEGER, "d")), "b", expression(new Reference(INTEGER, "b")), "c", expression(new Reference(INTEGER, "c"))),
                                                 values("b", "c", "d")))));
     }
 
     @Test
     public void testNoSimpleConjuncts()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a OR false"),
+                        new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "a"), FALSE)),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b > 0")),
-                                p.values(p.symbol("b")))))
+                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
     }
 
     @Test
     public void testMultipleReferencesToConjunct()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a AND a"),
+                        new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "a"))),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b > 0")),
-                                p.values(p.symbol("b")))))
+                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
 
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a AND (a OR false)"),
+                        new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "a"), FALSE)))),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b > 0")),
-                                p.values(p.symbol("b")))))
+                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
     }
 
     @Test
     public void testInlineMultiple()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a AND b"),
+                        new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b"))),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("c > 0"), p.symbol("b"), PlanBuilder.expression("c > 5")),
-                                p.values(p.symbol("c")))))
+                                Assignments.of(
+                                        p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)),
+                                        p.symbol("b", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L))),
+                                p.values(p.symbol("c", INTEGER)))))
                 .matches(
                         project(
                                 filter(
-                                        "c > 0 AND c > 5",
+                                        new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L)))),
                                         project(
-                                                ImmutableMap.of("c", expression("c")),
+                                                ImmutableMap.of("c", expression(new Reference(INTEGER, "c"))),
                                                 values("c")))));
     }
 
     @Test
     public void testInlinePartially()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a AND a AND b"),
+                        new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b"))),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("c > 0"), p.symbol("b"), PlanBuilder.expression("c > 5")),
-                                p.values(p.symbol("c")))))
+                                Assignments.of(
+                                        p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)),
+                                        p.symbol("b", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L))),
+                                p.values(p.symbol("c", INTEGER)))))
                 .matches(
                         project(
-                                ImmutableMap.of("a", expression("a"), "b", expression("true")),
+                                ImmutableMap.of("a", expression(new Reference(BOOLEAN, "a")), "b", expression(TRUE)),
                                 filter(
-                                        "a AND c > 5", // combineConjuncts() removed duplicate conjunct `a`. The predicate is now eligible for further inlining.
+                                        new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L)))), // combineConjuncts() removed duplicate conjunct `a`. The predicate is now eligible for further inlining.
                                         project(
-                                                ImmutableMap.of("a", expression("c > 0"), "c", expression("c")),
+                                                ImmutableMap.of(
+                                                        "a", expression(new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L))),
+                                                        "c", expression(new Reference(INTEGER, "c"))),
                                                 values("c")))));
     }
 
@@ -146,33 +164,33 @@ public class TestInlineProjectIntoFilter
     public void testTrivialProjection()
     {
         // identity projection
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a"),
+                        new Reference(INTEGER, "a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("a")),
-                                p.values(p.symbol("a")))))
+                                Assignments.of(p.symbol("a", INTEGER), new Reference(INTEGER, "a")),
+                                p.values(p.symbol("a", INTEGER)))))
                 .doesNotFire();
 
         // renaming projection
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a"),
+                        new Reference(INTEGER, "a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b")),
-                                p.values(p.symbol("b")))))
+                                Assignments.of(p.symbol("a", INTEGER), new Reference(INTEGER, "b")),
+                                p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
     }
 
     @Test
     public void testCorrelationSymbol()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        PlanBuilder.expression("corr"),
+                        new Reference(INTEGER, "corr"),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b > 0")),
-                                p.values(p.symbol("b")))))
+                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
     }
 }

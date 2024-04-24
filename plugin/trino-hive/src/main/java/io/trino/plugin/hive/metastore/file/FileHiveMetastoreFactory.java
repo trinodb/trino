@@ -38,7 +38,7 @@ public class FileHiveMetastoreFactory
             FileHiveMetastoreConfig config,
             Tracer tracer)
     {
-        // file metastore does not support impersonation, so just create a single shared instance
+        // file metastore does not support impersonation, so create a single shared instance
         metastore = new TracingHiveMetastore(tracer,
                 new FileHiveMetastore(nodeVersion, fileSystemFactory, hideDeltaLakeTables, config));
     }

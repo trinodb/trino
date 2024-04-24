@@ -56,7 +56,6 @@ public abstract class BaseBigQueryFailureRecoveryTest
                 });
     }
 
-    @Test
     @Override
     protected boolean areWriteRetriesSupported()
     {

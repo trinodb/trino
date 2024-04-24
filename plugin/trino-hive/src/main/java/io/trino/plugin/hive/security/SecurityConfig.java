@@ -14,22 +14,23 @@
 package io.trino.plugin.hive.security;
 
 import io.airlift.configuration.Config;
+import io.trino.plugin.hive.security.HiveSecurityModule.HiveSecurity;
 import jakarta.validation.constraints.NotNull;
 
-import static io.trino.plugin.hive.security.HiveSecurityModule.LEGACY;
+import static io.trino.plugin.hive.security.HiveSecurityModule.HiveSecurity.ALLOW_ALL;
 
 public class SecurityConfig
 {
-    private String securitySystem = LEGACY;
+    private HiveSecurity securitySystem = ALLOW_ALL;
 
     @NotNull
-    public String getSecuritySystem()
+    public HiveSecurityModule.HiveSecurity getSecuritySystem()
     {
         return securitySystem;
     }
 
     @Config("hive.security")
-    public SecurityConfig setSecuritySystem(String securitySystem)
+    public SecurityConfig setSecuritySystem(HiveSecurity securitySystem)
     {
         this.securitySystem = securitySystem;
         return this;

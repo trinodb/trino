@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.UnnestNode;
 
@@ -70,7 +69,6 @@ public class PruneUnnestColumns
     {
         ImmutableSet.Builder<Symbol> referencedAndFilterSymbolsBuilder = ImmutableSet.<Symbol>builder()
                 .addAll(referencedOutputs);
-        unnestNode.getFilter().ifPresent(expression -> referencedAndFilterSymbolsBuilder.addAll(SymbolsExtractor.extractUnique(expression)));
         Set<Symbol> referencedAndFilterSymbols = referencedAndFilterSymbolsBuilder.build();
 
         List<Symbol> prunedReplicateSymbols = unnestNode.getReplicateSymbols().stream()
@@ -90,7 +88,6 @@ public class PruneUnnestColumns
                 prunedReplicateSymbols,
                 unnestNode.getMappings(),
                 prunedOrdinalitySymbol,
-                unnestNode.getJoinType(),
-                unnestNode.getFilter()));
+                unnestNode.getJoinType()));
     }
 }

@@ -42,7 +42,26 @@ public class LikePatternType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        throw new UnsupportedOperationException();
+        if (block.isNull(position)) {
+            return null;
+        }
+
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        Slice slice = valueBlock.getSlice(valuePosition);
+
+        // layout is: <patternLength> <pattern> <hasEscape> <escape>?
+        int length = slice.getInt(0);
+        String pattern = slice.toString(4, length, UTF_8);
+
+        boolean hasEscape = slice.getByte(4 + length) != 0;
+
+        if (hasEscape) {
+            char escape = (char) slice.getInt(4 + length + 1);
+            return "[" + pattern + "][" + escape + "]";
+        }
+
+        return "[" + pattern + "]";
     }
 
     @Override

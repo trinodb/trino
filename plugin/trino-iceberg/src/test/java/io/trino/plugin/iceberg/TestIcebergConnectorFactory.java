@@ -48,6 +48,7 @@ public class TestIcebergConnectorFactory
     private static void createConnector(Map<String, String> config)
     {
         ConnectorFactory factory = new IcebergConnectorFactory();
-        factory.create("test", config, new TestingConnectorContext());
+        factory.create("test", config, new TestingConnectorContext())
+                .shutdown();
     }
 }

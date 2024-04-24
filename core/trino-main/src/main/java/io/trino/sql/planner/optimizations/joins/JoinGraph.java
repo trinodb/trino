@@ -16,12 +16,9 @@ package io.trino.sql.planner.optimizations.joins;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-import io.trino.Session;
-import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.FilterNode;
@@ -30,7 +27,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -42,7 +38,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.iterative.rule.PushProjectionThroughJoin.pushProjectionThroughJoin;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -61,16 +57,9 @@ public class JoinGraph
     /**
      * Builds {@link JoinGraph} containing {@code plan} node.
      */
-    public static JoinGraph buildFrom(
-            PlannerContext plannerContext,
-            PlanNode plan,
-            Lookup lookup,
-            PlanNodeIdAllocator planNodeIdAllocator,
-            Session session,
-            TypeAnalyzer typeAnalyzer,
-            TypeProvider types)
+    public static JoinGraph buildFrom(PlanNode plan, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator)
     {
-        return plan.accept(new Builder(plannerContext, lookup, planNodeIdAllocator, session, typeAnalyzer, types), new Context());
+        return plan.accept(new Builder(lookup, planNodeIdAllocator), new Context());
     }
 
     public JoinGraph(PlanNode node)
@@ -202,21 +191,13 @@ public class JoinGraph
     private static class Builder
             extends PlanVisitor<JoinGraph, Context>
     {
-        private final PlannerContext plannerContext;
         private final Lookup lookup;
         private final PlanNodeIdAllocator planNodeIdAllocator;
-        private final Session session;
-        private final TypeAnalyzer typeAnalyzer;
-        private final TypeProvider types;
 
-        private Builder(PlannerContext plannerContext, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
+        private Builder(Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator)
         {
-            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.lookup = requireNonNull(lookup, "lookup cannot be null");
             this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator is null");
-            this.session = requireNonNull(session, "session is null");
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -257,7 +238,7 @@ public class JoinGraph
         @Override
         public JoinGraph visitProject(ProjectNode node, Context context)
         {
-            Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(plannerContext, node, lookup, planNodeIdAllocator, session, typeAnalyzer, types);
+            Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(node, lookup, planNodeIdAllocator);
             if (rewrittenNode.isPresent()) {
                 return rewrittenNode.get().accept(this, context);
             }

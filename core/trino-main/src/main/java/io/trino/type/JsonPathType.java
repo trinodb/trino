@@ -38,7 +38,7 @@ public class JsonPathType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        throw new UnsupportedOperationException();
+        return getObject(block, position);
     }
 
     @Override

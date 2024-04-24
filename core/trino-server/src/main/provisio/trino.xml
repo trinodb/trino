@@ -218,6 +218,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/opensearch">
+        <artifact id="${project.groupId}:trino-opensearch:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/oracle">
         <artifact id="${project.groupId}:trino-oracle:zip:${project.version}">
             <unpack />
@@ -290,6 +296,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/snowflake">
+        <artifact id="${project.groupId}:trino-snowflake:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/sqlserver">
         <artifact id="${project.groupId}:trino-sqlserver:zip:${project.version}">
             <unpack />
@@ -316,6 +328,12 @@
 
     <artifactSet to="plugin/tpch">
         <artifact id="${project.groupId}:trino-tpch:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/opa">
+        <artifact id="${project.groupId}:trino-opa:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

@@ -91,6 +91,7 @@ public class TestCdfWithNumberOfSplitsGreaterThanMaxBatchSizeInSplitSource
     private void assertTableChangesQuery(@Language("SQL") String sql, @Language("SQL") String expectedResult)
     {
         assertThat(query(sql))
+                .result()
                 .exceptColumns("_commit_timestamp")
                 .skippingTypesCheck()
                 .matches(expectedResult);

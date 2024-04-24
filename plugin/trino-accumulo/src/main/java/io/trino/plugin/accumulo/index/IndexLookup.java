@@ -27,8 +27,8 @@ import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import jakarta.annotation.PreDestroy;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.accumulo.core.client.BatchScanner;
-import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.Key;
@@ -53,8 +53,8 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.plugin.accumulo.AccumuloClient.getRangesFromDomain;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static io.trino.plugin.accumulo.AccumuloMetadataManager.getRangesFromDomain;
 import static io.trino.plugin.accumulo.conf.AccumuloSessionProperties.getIndexCardinalityCachePollingDuration;
 import static io.trino.plugin.accumulo.conf.AccumuloSessionProperties.getIndexSmallCardThreshold;
 import static io.trino.plugin.accumulo.conf.AccumuloSessionProperties.getIndexThreshold;
@@ -83,14 +83,14 @@ public class IndexLookup
     private static final Logger LOG = Logger.get(IndexLookup.class);
     private static final Range METRICS_TABLE_ROWID_RANGE = new Range(METRICS_TABLE_ROWID_AS_TEXT);
     private final ColumnCardinalityCache cardinalityCache;
-    private final Connector connector;
+    private final AccumuloClient connector;
     private final ExecutorService coreExecutor;
     private final BoundedExecutor executorService;
 
     @Inject
-    public IndexLookup(Connector connector, ColumnCardinalityCache cardinalityCache)
+    public IndexLookup(AccumuloClient client, ColumnCardinalityCache cardinalityCache)
     {
-        this.connector = requireNonNull(connector, "connector is null");
+        this.connector = requireNonNull(client, "client is null");
         this.cardinalityCache = requireNonNull(cardinalityCache, "cardinalityCache is null");
 
         // Create a bounded executor with a pool size at 4x number of processors

@@ -52,18 +52,18 @@ public class LearnStateFactory
         private final ObjectBigArray<List<FeatureVector>> featureVectorsArray = new ObjectBigArray<>();
         private final SliceBigArray parametersArray = new SliceBigArray();
         private final BiMap<String, Integer> labelEnumeration = HashBiMap.create();
-        private long groupId;
+        private int groupId;
         private int nextLabel;
         private long size;
 
         @Override
-        public void setGroupId(long groupId)
+        public void setGroupId(int groupId)
         {
             this.groupId = groupId;
         }
 
         @Override
-        public void ensureCapacity(long size)
+        public void ensureCapacity(int size)
         {
             labelsArray.ensureCapacity(size);
             featureVectorsArray.ensureCapacity(size);

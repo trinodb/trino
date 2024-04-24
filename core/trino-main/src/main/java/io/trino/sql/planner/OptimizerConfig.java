@@ -42,7 +42,7 @@ public class OptimizerConfig
     private double joinMultiClauseIndependenceFactor = 0.25;
 
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
-    private int maxReorderedJoins = 9;
+    private int maxReorderedJoins = 8;
     private int maxPrefetchedInformationSchemaPrefixes = 100;
 
     private boolean enableStatsCalculator = true;

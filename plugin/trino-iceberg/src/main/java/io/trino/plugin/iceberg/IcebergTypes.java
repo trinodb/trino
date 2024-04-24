@@ -165,7 +165,7 @@ public final class IcebergTypes
         if (icebergType instanceof Types.StringType) {
             // Partition values are passed as String, but min/max values are passed as a CharBuffer
             if (value instanceof CharBuffer) {
-                value = new String(((CharBuffer) value).array());
+                value = ((CharBuffer) value).toString();
             }
             return utf8Slice(((String) value));
         }

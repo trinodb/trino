@@ -89,7 +89,7 @@ public class ReaderProjectionsAdapter
 
     private static Block createAdaptedLazyBlock(Block inputBlock, List<Integer> dereferenceSequence)
     {
-        if (dereferenceSequence.size() == 0) {
+        if (dereferenceSequence.isEmpty()) {
             return inputBlock;
         }
 
@@ -129,7 +129,7 @@ public class ReaderProjectionsAdapter
          */
         private Block loadInternalBlock(List<Integer> dereferences, Block parentBlock)
         {
-            if (dereferences.size() == 0) {
+            if (dereferences.isEmpty()) {
                 return parentBlock.getLoadedBlock();
             }
 

@@ -49,9 +49,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJoinCompiler
 {
-    private static final TypeOperators typeOperators = new TypeOperators();
-    private static final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
-    private static final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
+    private final TypeOperators typeOperators = new TypeOperators();
+    private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
+    private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
 
     @Test
     public void testSingleChannel()

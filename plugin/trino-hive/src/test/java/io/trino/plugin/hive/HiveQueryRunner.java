@@ -16,12 +16,10 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -46,12 +44,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
-import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
-import static io.trino.plugin.hive.security.HiveSecurityModule.SQL_STANDARD;
 import static io.trino.plugin.tpch.ColumnNaming.SIMPLIFIED;
 import static io.trino.plugin.tpch.DecimalTypeMapping.DOUBLE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -81,7 +76,7 @@ public final class HiveQueryRunner
     private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
-    public static DistributedQueryRunner create()
+    public static QueryRunner create()
             throws Exception
     {
         return builder().build();
@@ -104,9 +99,7 @@ public final class HiveQueryRunner
         private ImmutableMap.Builder<String, String> hiveProperties = ImmutableMap.builder();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Optional<String> initialSchemasLocationBase = Optional.empty();
-        private Optional<Function<DistributedQueryRunner, HiveMetastore>> metastore = Optional.empty();
-        private Module module = EMPTY_MODULE;
-        private Optional<DirectoryLister> directoryLister = Optional.empty();
+        private Optional<Function<QueryRunner, HiveMetastore>> metastore = Optional.empty();
         private boolean tpcdsCatalogEnabled;
         private boolean tpchBucketedCatalogEnabled;
         private boolean createTpchSchemas = true;
@@ -160,23 +153,9 @@ public final class HiveQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public SELF setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
+        public SELF setMetastore(Function<QueryRunner, HiveMetastore> metastore)
         {
             this.metastore = Optional.of(metastore);
-            return self();
-        }
-
-        @CanIgnoreReturnValue
-        public SELF setModule(Module module)
-        {
-            this.module = requireNonNull(module, "module is null");
-            return self();
-        }
-
-        @CanIgnoreReturnValue
-        public SELF setDirectoryLister(DirectoryLister directoryLister)
-        {
-            this.directoryLister = Optional.ofNullable(directoryLister);
             return self();
         }
 
@@ -244,7 +223,7 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
                 }
 
-                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore, module, directoryLister));
+                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
@@ -256,7 +235,7 @@ public final class HiveQueryRunner
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
                 hiveProperties.put("hive.max-partitions-for-eager-load", "1000");
-                hiveProperties.put("hive.security", SQL_STANDARD);
+                hiveProperties.put("hive.security", "sql-standard");
                 hiveProperties.putAll(this.hiveProperties.buildOrThrow());
 
                 if (tpchBucketedCatalogEnabled) {
@@ -401,9 +380,9 @@ public final class HiveQueryRunner
             baseDataDir = Optional.of(path);
         }
 
-        DistributedQueryRunner queryRunner = builder()
+        QueryRunner queryRunner = builder()
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
-                .setHiveProperties(ImmutableMap.of("hive.security", ALLOW_ALL))
+                .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
                 .setSkipTimezoneSetup(true)
                 .setInitialTables(TpchTable.getTables())
                 .setBaseDataDir(baseDataDir)

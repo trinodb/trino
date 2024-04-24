@@ -23,10 +23,10 @@ import static java.util.Objects.requireNonNull;
 
 public class HudiBaseFile
 {
-    private transient FileEntry fileEntry;
+    private final transient FileEntry fileEntry;
     private final String fullPath;
     private final String fileName;
-    private long fileLen;
+    private final long fileLen;
 
     public HudiBaseFile(FileEntry fileEntry)
     {

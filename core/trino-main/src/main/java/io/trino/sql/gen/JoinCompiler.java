@@ -36,7 +36,6 @@ import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.slice.SizeOf;
 import io.trino.Session;
 import io.trino.cache.NonEvictableLoadingCache;
-import io.trino.operator.FlatHashStrategy;
 import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.join.BigintPagesHash;
@@ -89,7 +88,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.airlift.bytecode.expression.BytecodeExpressions.setStatic;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.operator.FlatHashStrategyCompiler.compileFlatHashStrategy;
 import static io.trino.operator.join.JoinUtils.getSingleBigintJoinChannel;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
@@ -122,8 +120,6 @@ public class JoinCompiler
             CacheLoader.from(key ->
                     internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
-    private final NonEvictableLoadingCache<List<Type>, FlatHashStrategy> flatHashStrategies;
-
     @Inject
     public JoinCompiler(TypeOperators typeOperators)
     {
@@ -135,11 +131,6 @@ public class JoinCompiler
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.enableSingleChannelBigintLookupSource = enableSingleChannelBigintLookupSource;
-        this.flatHashStrategies = buildNonEvictableCache(
-                    CacheBuilder.newBuilder()
-                            .recordStats()
-                            .maximumSize(1000),
-                    CacheLoader.from(key -> compileFlatHashStrategy(key, typeOperators)));
     }
 
     @Managed
@@ -154,12 +145,6 @@ public class JoinCompiler
     public CacheStatsMBean getHashStrategiesStats()
     {
         return new CacheStatsMBean(hashStrategies);
-    }
-
-    // This should be in a separate cache, but it is convenient during the transition to keep this in the join compiler
-    public FlatHashStrategy getFlatHashStrategy(List<Type> types)
-    {
-        return flatHashStrategies.getUnchecked(ImmutableList.copyOf(types));
     }
 
     public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<Integer> sortChannel, Optional<List<Integer>> outputChannels)
@@ -1165,10 +1150,9 @@ public class JoinCompiler
             if (this == obj) {
                 return true;
             }
-            if (!(obj instanceof CacheKey)) {
+            if (!(obj instanceof CacheKey other)) {
                 return false;
             }
-            CacheKey other = (CacheKey) obj;
             return Objects.equals(this.types, other.types) &&
                     Objects.equals(this.outputChannels, other.outputChannels) &&
                     Objects.equals(this.joinChannels, other.joinChannels) &&

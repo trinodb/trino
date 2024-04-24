@@ -20,49 +20,27 @@ import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class HiveSecurityModule
         extends AbstractConfigurationAwareModule
 {
-    public static final String LEGACY = "legacy";
-    public static final String FILE = "file";
-    public static final String READ_ONLY = "read-only";
-    public static final String SQL_STANDARD = "sql-standard";
-    public static final String ALLOW_ALL = "allow-all";
-    public static final String SYSTEM = "system";
+    public enum HiveSecurity
+    {
+        ALLOW_ALL, READ_ONLY, FILE, SQL_STANDARD, SYSTEM
+    }
 
     @Override
     protected void setup(Binder binder)
     {
         install(new ConnectorAccessControlModule());
-        bindSecurityModule(
-                LEGACY,
-                combine(
-                        new LegacySecurityModule(),
-                        new StaticAccessControlMetadataModule()));
-        bindSecurityModule(
-                FILE,
-                combine(
-                        new FileBasedAccessControlModule(),
-                        new StaticAccessControlMetadataModule()));
-        bindSecurityModule(
-                READ_ONLY,
-                combine(
-                        new ReadOnlySecurityModule(),
-                        new StaticAccessControlMetadataModule()));
-        bindSecurityModule(SQL_STANDARD, new SqlStandardSecurityModule());
-        bindSecurityModule(ALLOW_ALL, new AllowAllSecurityModule());
-        bindSecurityModule(SYSTEM, new SystemSecurityModule());
-    }
-
-    private void bindSecurityModule(String name, Module module)
-    {
-        install(conditionalModule(
-                SecurityConfig.class,
-                security -> name.equalsIgnoreCase(security.getSecuritySystem()),
-                module));
+        install(switch (buildConfigObject(SecurityConfig.class).getSecuritySystem()) {
+            case ALLOW_ALL -> new AllowAllSecurityModule();
+            case READ_ONLY -> combine(new ReadOnlySecurityModule(), new StaticAccessControlMetadataModule());
+            case FILE -> combine(new FileBasedAccessControlModule(), new StaticAccessControlMetadataModule());
+            case SQL_STANDARD -> new SqlStandardSecurityModule();
+            case SYSTEM -> new SystemSecurityModule();
+        });
     }
 
     private static class StaticAccessControlMetadataModule

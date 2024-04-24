@@ -14,6 +14,10 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.catalog.CatalogProperties;
+import io.trino.spi.catalog.CatalogStore;
+import io.trino.spi.connector.ConnectorName;
 
 import java.util.Collection;
 import java.util.Map;
@@ -27,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class InMemoryCatalogStore
         implements CatalogStore
 {
-    private final ConcurrentMap<String, StoredCatalog> catalogs = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, StoredCatalog> catalogs = new ConcurrentHashMap<>();
 
     @Override
     public Collection<StoredCatalog> getCatalogs()
@@ -36,7 +40,7 @@ public class InMemoryCatalogStore
     }
 
     @Override
-    public CatalogProperties createCatalogProperties(String catalogName, ConnectorName connectorName, Map<String, String> properties)
+    public CatalogProperties createCatalogProperties(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties)
     {
         return new CatalogProperties(
                 createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties)),
@@ -47,11 +51,12 @@ public class InMemoryCatalogStore
     @Override
     public void addOrReplaceCatalog(CatalogProperties catalogProperties)
     {
-        catalogs.put(catalogProperties.getCatalogHandle().getCatalogName(), new InMemoryStoredCatalog(catalogProperties));
+        CatalogName catalogName = catalogProperties.catalogHandle().getCatalogName();
+        catalogs.put(catalogName, new InMemoryStoredCatalog(catalogName, catalogProperties));
     }
 
     @Override
-    public void removeCatalog(String catalogName)
+    public void removeCatalog(CatalogName catalogName)
     {
         catalogs.remove(catalogName);
     }
@@ -59,17 +64,19 @@ public class InMemoryCatalogStore
     private static class InMemoryStoredCatalog
             implements StoredCatalog
     {
+        private final CatalogName catalogName;
         private final CatalogProperties catalogProperties;
 
-        public InMemoryStoredCatalog(CatalogProperties catalogProperties)
+        public InMemoryStoredCatalog(CatalogName catalogName, CatalogProperties catalogProperties)
         {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null");
         }
 
         @Override
-        public String getName()
+        public CatalogName name()
         {
-            return catalogProperties.getCatalogHandle().getCatalogName();
+            return catalogName;
         }
 
         @Override

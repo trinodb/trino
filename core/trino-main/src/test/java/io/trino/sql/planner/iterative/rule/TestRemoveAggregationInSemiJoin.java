@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -25,7 +26,7 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
 
 public class TestRemoveAggregationInSemiJoin
         extends BaseRuleTest
@@ -78,7 +79,7 @@ public class TestRemoveAggregationInSemiJoin
                 p.values(leftKey),
                 p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(rightKey, expression("count(rightValue)"), ImmutableList.of(BIGINT))
+                        .addAggregation(rightKey, aggregation("count", ImmutableList.of(new Reference(BIGINT, "rightValue"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("rightValue")))));
     }
 }

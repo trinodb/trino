@@ -24,11 +24,9 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.WindowNode.Frame;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
-import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
-import io.trino.sql.tree.SkipTo.Position;
 
 import java.util.List;
 import java.util.Map;
@@ -39,10 +37,10 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
-import static io.trino.sql.tree.WindowFrame.Type.ROWS;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -68,11 +66,10 @@ public class PatternRecognitionNode
     */
     private final Optional<Frame> commonBaseFrame;
     private final RowsPerMatch rowsPerMatch;
-    private final Optional<IrLabel> skipToLabel;
-    private final Position skipToPosition;
+    private final Set<IrLabel> skipToLabels;
+    private final SkipToPosition skipToPosition;
     private final boolean initial;
     private final IrRowPattern pattern;
-    private final Map<IrLabel, Set<IrLabel>> subsets;
     private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions;
 
     @JsonCreator
@@ -87,11 +84,10 @@ public class PatternRecognitionNode
             @JsonProperty("measures") Map<Symbol, Measure> measures,
             @JsonProperty("commonBaseFrame") Optional<Frame> commonBaseFrame,
             @JsonProperty("rowsPerMatch") RowsPerMatch rowsPerMatch,
-            @JsonProperty("skipToLabel") Optional<IrLabel> skipToLabel,
-            @JsonProperty("skipToPosition") Position skipToPosition,
+            @JsonProperty("skipToLabels") Set<IrLabel> skipToLabels,
+            @JsonProperty("skipToPosition") SkipToPosition skipToPosition,
             @JsonProperty("initial") boolean initial,
             @JsonProperty("pattern") IrRowPattern pattern,
-            @JsonProperty("subsets") Map<IrLabel, Set<IrLabel>> subsets,
             @JsonProperty("variableDefinitions") Map<IrLabel, ExpressionAndValuePointers> variableDefinitions)
 
     {
@@ -113,10 +109,8 @@ public class PatternRecognitionNode
         checkArgument(rowsPerMatch != WINDOW || commonBaseFrame.isPresent(), "Common base frame is required for pattern recognition in window");
         checkArgument(initial || rowsPerMatch == WINDOW, "Pattern search mode SEEK is only supported in window");
         commonBaseFrame.ifPresent(frame -> checkArgument(frame.getType() == ROWS && frame.getStartType() == CURRENT_ROW, "Invalid common base frame for pattern recognition in window"));
-        requireNonNull(skipToLabel, "skipToLabel is null");
         requireNonNull(skipToPosition, "skipToPosition is null");
         requireNonNull(pattern, "pattern is null");
-        requireNonNull(subsets, "subsets is null");
         requireNonNull(variableDefinitions, "variableDefinitions is null");
 
         this.source = source;
@@ -128,11 +122,10 @@ public class PatternRecognitionNode
         this.measures = ImmutableMap.copyOf(measures);
         this.commonBaseFrame = commonBaseFrame;
         this.rowsPerMatch = rowsPerMatch;
-        this.skipToLabel = skipToLabel;
+        this.skipToLabels = ImmutableSet.copyOf(skipToLabels);
         this.skipToPosition = skipToPosition;
         this.initial = initial;
         this.pattern = pattern;
-        this.subsets = subsets;
         this.variableDefinitions = ImmutableMap.copyOf(variableDefinitions);
     }
 
@@ -229,13 +222,13 @@ public class PatternRecognitionNode
     }
 
     @JsonProperty
-    public Optional<IrLabel> getSkipToLabel()
+    public Set<IrLabel> getSkipToLabels()
     {
-        return skipToLabel;
+        return skipToLabels;
     }
 
     @JsonProperty
-    public Position getSkipToPosition()
+    public SkipToPosition getSkipToPosition()
     {
         return skipToPosition;
     }
@@ -250,12 +243,6 @@ public class PatternRecognitionNode
     public IrRowPattern getPattern()
     {
         return pattern;
-    }
-
-    @JsonProperty
-    public Map<IrLabel, Set<IrLabel>> getSubsets()
-    {
-        return subsets;
     }
 
     @JsonProperty
@@ -284,11 +271,10 @@ public class PatternRecognitionNode
                 measures,
                 commonBaseFrame,
                 rowsPerMatch,
-                skipToLabel,
+                skipToLabels,
                 skipToPosition,
                 initial,
                 pattern,
-                subsets,
                 variableDefinitions);
     }
 

@@ -15,6 +15,14 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PushFilterThroughCountAggregation.PushFilterThroughCountAggregationWithProject;
 import io.trino.sql.planner.iterative.rule.PushFilterThroughCountAggregation.PushFilterThroughCountAggregationWithoutProject;
@@ -24,16 +32,28 @@ import io.trino.sql.planner.plan.Assignments;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestPushFilterThroughCountAggregation
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
+
     @Test
     public void testDoesNotFireWithNonGroupedAggregation()
     {
@@ -43,10 +63,10 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("count > 0"),
+                            new Comparison(GREATER_THAN, new Reference(INTEGER, "count"), new Constant(INTEGER, 0L)),
                             p.aggregation(builder -> builder
                                     .globalGrouping()
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -62,11 +82,11 @@ public class TestPushFilterThroughCountAggregation
                     Symbol count = p.symbol("count");
                     Symbol avg = p.symbol("avg");
                     return p.filter(
-                            PlanBuilder.expression("count > 0"),
+                            new Comparison(GREATER_THAN, new Reference(INTEGER, "count"), new Constant(INTEGER, 0L)),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
-                                    .addAggregation(avg, PlanBuilder.expression("avg(g)"), ImmutableList.of(BIGINT), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
+                                    .addAggregation(avg, PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(BIGINT, "g"))), ImmutableList.of(BIGINT), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -80,7 +100,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
                     return p.filter(
-                            PlanBuilder.expression("true"),
+                            TRUE,
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .source(p.values(g, mask))));
@@ -96,10 +116,10 @@ public class TestPushFilterThroughCountAggregation
                     Symbol g = p.symbol("g");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("count > 0"),
+                            new Comparison(GREATER_THAN, new Reference(INTEGER, "count"), new Constant(INTEGER, 0L)),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of())
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
                                     .source(p.values(g))));
                 })
                 .doesNotFire();
@@ -114,10 +134,10 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("count > 0"),
+                            new Comparison(GREATER_THAN, new Reference(INTEGER, "count"), new Constant(INTEGER, 0L)),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count(g)"), ImmutableList.of(BIGINT), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "g"))), ImmutableList.of(BIGINT), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -128,10 +148,10 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol avg = p.symbol("avg");
                     return p.filter(
-                            PlanBuilder.expression("avg > 0"),
+                            new Comparison(GREATER_THAN, new Reference(INTEGER, "avg"), new Constant(INTEGER, 0L)),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(avg, PlanBuilder.expression("avg(g)"), ImmutableList.of(BIGINT), mask)
+                                    .addAggregation(avg, PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(BIGINT, "g"))), ImmutableList.of(BIGINT), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -146,10 +166,10 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("count < BIGINT '0' AND count > BIGINT '0'"),
+                            new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)), new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .matches(
@@ -165,10 +185,10 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("true"),
+                            TRUE,
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -183,10 +203,10 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("(count < BIGINT '0' OR count >= BIGINT '0') AND g = BIGINT '5'"),
+                            new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Comparison(LESS_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)))), new Comparison(EQUAL, new Reference(BIGINT, "g"), new Constant(BIGINT, 5L)))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -201,17 +221,17 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("count > BIGINT '0'"),
+                            new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                 filter(
-                                        "mask",
+                                        new Reference(BOOLEAN, "mask"),
                                         values("g", "mask"))));
     }
 
@@ -224,19 +244,19 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("count > BIGINT '0' AND g > BIGINT '5'"),
+                            new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)), new Comparison(GREATER_THAN, new Reference(BIGINT, "g"), new Constant(BIGINT, 5L)))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .matches(
                         filter(
-                                "g > BIGINT '5'",
+                                new Comparison(GREATER_THAN, new Reference(BIGINT, "g"), new Constant(BIGINT, 5L)),
                                 aggregation(
-                                        ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                        ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(
-                                                "mask",
+                                                new Reference(BOOLEAN, "mask"),
                                                 values("g", "mask")))));
 
         tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
@@ -245,19 +265,19 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("count > BIGINT '0' AND count % 2 = BIGINT '0'"),
+                            new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)), new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "count"), new Constant(BIGINT, 2L))), new Constant(BIGINT, 0L)))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .matches(
                         filter(
-                                "count % 2 = BIGINT '0'",
+                                new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "count"), new Constant(BIGINT, 2L))), new Constant(BIGINT, 0L)),
                                 aggregation(
-                                        ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                        ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(
-                                                "mask",
+                                                new Reference(BOOLEAN, "mask"),
                                                 values("g", "mask")))));
     }
 
@@ -270,19 +290,19 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("count > BIGINT '5'"),
+                            new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 5L)),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .matches(
                         filter(
-                                "count > BIGINT '5'",
+                                new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 5L)),
                                 aggregation(
-                                        ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                        ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(
-                                                "mask",
+                                                new Reference(BOOLEAN, "mask"),
                                                 values("g", "mask")))));
     }
 
@@ -295,21 +315,21 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("count > BIGINT '0'"),
+                            new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)),
                             p.project(
                                     Assignments.identity(count),
                                     p.aggregation(builder -> builder
                                             .singleGroupingSet(g)
-                                            .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                            .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                             .source(p.values(g, mask)))));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("count", expression("count")),
+                                ImmutableMap.of("count", expression(new Reference(BIGINT, "count"))),
                                 aggregation(
-                                        ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                        ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(
-                                                "mask",
+                                                new Reference(BOOLEAN, "mask"),
                                                 values("g", "mask")))));
 
         tester().assertThat(new PushFilterThroughCountAggregationWithProject(tester().getPlannerContext()))
@@ -318,23 +338,23 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("count > BIGINT '0' AND g > BIGINT '5'"),
+                            new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)), new Comparison(GREATER_THAN, new Reference(BIGINT, "g"), new Constant(BIGINT, 5L)))),
                             p.project(
                                     Assignments.identity(count, g),
                                     p.aggregation(builder -> builder
                                             .singleGroupingSet(g)
-                                            .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                            .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                             .source(p.values(g, mask)))));
                 })
                 .matches(
                         filter(
-                                "g > BIGINT '5'",
+                                new Comparison(GREATER_THAN, new Reference(BIGINT, "g"), new Constant(BIGINT, 5L)),
                                 project(
-                                        ImmutableMap.of("count", expression("count"), "g", expression("g")),
+                                        ImmutableMap.of("count", expression(new Reference(BIGINT, "count")), "g", expression(new Reference(BIGINT, "g"))),
                                         aggregation(
-                                                ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                                 filter(
-                                                        "mask",
+                                                        new Reference(BOOLEAN, "mask"),
                                                         values("g", "mask"))))));
 
         tester().assertThat(new PushFilterThroughCountAggregationWithProject(tester().getPlannerContext()))
@@ -343,23 +363,23 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            PlanBuilder.expression("count > BIGINT '5'"),
+                            new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 5L)),
                             p.project(
                                     Assignments.identity(count),
                                     p.aggregation(builder -> builder
                                             .singleGroupingSet(g)
-                                            .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                            .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                             .source(p.values(g, mask)))));
                 })
                 .matches(
                         filter(
-                                "count > BIGINT '5'",
+                                new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 5L)),
                                 project(
-                                        ImmutableMap.of("count", expression("count")),
+                                        ImmutableMap.of("count", expression(new Reference(BIGINT, "count"))),
                                         aggregation(
-                                                ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                                 filter(
-                                                        "mask",
+                                                        new Reference(BOOLEAN, "mask"),
                                                         values("g", "mask"))))));
     }
 }

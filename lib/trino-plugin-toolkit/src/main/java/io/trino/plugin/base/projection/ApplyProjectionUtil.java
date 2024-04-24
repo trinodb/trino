@@ -91,7 +91,7 @@ public final class ApplyProjectionUtil
     }
 
     /**
-     * Replace all connector expressions with variables as given by {@param expressionToVariableMappings} in a top down manner.
+     * Replace all connector expressions with variables as given by {@code expressionToVariableMappings} in a top down manner.
      * i.e. if the replacement occurs for the parent, the children will not be visited.
      */
     public static ConnectorExpression replaceWithNewVariables(ConnectorExpression expression, Map<ConnectorExpression, Variable> expressionToVariableMappings)

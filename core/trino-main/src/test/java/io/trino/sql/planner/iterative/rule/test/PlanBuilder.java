@@ -38,10 +38,11 @@ import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -50,7 +51,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TestingConnectorIndexHandle;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.planner.TestingWriterTarget;
-import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.assertions.AggregationFunction;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.AggregationNode.Step;
@@ -71,6 +72,7 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
@@ -108,16 +110,12 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Row;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.TestingHandle;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingTableExecuteHandle;
 import io.trino.testing.TestingTransactionHandle;
-import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -129,9 +127,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -139,15 +136,15 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
-import static io.trino.util.MoreLists.nElements;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -155,7 +152,7 @@ public class PlanBuilder
 {
     private final PlanNodeIdAllocator idAllocator;
     private final Session session;
-    private final Map<Symbol, Type> symbols = new HashMap<>();
+    private final Map<String, Symbol> symbolsByName = new HashMap<>();
     private final FunctionResolver functionResolver;
 
     public PlanBuilder(PlanNodeIdAllocator idAllocator, PlannerContext plannerContext, Session session)
@@ -163,6 +160,11 @@ public class PlanBuilder
         this.idAllocator = idAllocator;
         this.session = session;
         functionResolver = plannerContext.getFunctionResolver();
+    }
+
+    public Session getSession()
+    {
+        return session;
     }
 
     public OutputNode output(List<String> columnNames, List<Symbol> outputs, PlanNode source)
@@ -238,10 +240,11 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, int rows, Symbol... columns)
     {
-        return values(
-                id,
-                ImmutableList.copyOf(columns),
-                nElements(rows, row -> nElements(columns.length, cell -> new NullLiteral())));
+        List<Expression> row = Arrays.stream(columns)
+                .map(symbol -> new Constant(symbol.getType(), null))
+                .collect(Collectors.toList());
+
+        return values(id, ImmutableList.copyOf(columns), nCopies(rows, row));
     }
 
     public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
@@ -411,7 +414,7 @@ public class PlanBuilder
     public class AggregationBuilder
     {
         private PlanNode source;
-        private Map<Symbol, Aggregation> assignments = new HashMap<>();
+        private final Map<Symbol, Aggregation> assignments = new HashMap<>();
         private AggregationNode.GroupingSetDescriptor groupingSets;
         private List<Symbol> preGroupedSymbols = new ArrayList<>();
         private Step step = Step.SINGLE;
@@ -425,27 +428,25 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes)
+        public AggregationBuilder addAggregation(Symbol output, AggregationFunction aggregation, List<Type> inputTypes)
         {
-            return addAggregation(output, expression, inputTypes, Optional.empty());
+            return addAggregation(output, aggregation, inputTypes, Optional.empty());
         }
 
-        public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Symbol mask)
+        public AggregationBuilder addAggregation(Symbol output, AggregationFunction aggregation, List<Type> inputTypes, Symbol mask)
         {
-            return addAggregation(output, expression, inputTypes, Optional.of(mask));
+            return addAggregation(output, aggregation, inputTypes, Optional.of(mask));
         }
 
-        private AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Optional<Symbol> mask)
+        private AggregationBuilder addAggregation(Symbol output, AggregationFunction aggregation, List<Type> inputTypes, Optional<Symbol> mask)
         {
-            checkArgument(expression instanceof FunctionCall);
-            FunctionCall aggregation = (FunctionCall) expression;
-            ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
+            ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
             return addAggregation(output, new Aggregation(
                     resolvedFunction,
-                    aggregation.getArguments(),
-                    aggregation.isDistinct(),
-                    aggregation.getFilter().map(Symbol::from),
-                    aggregation.getOrderBy().map(OrderingScheme::fromOrderBy),
+                    aggregation.arguments(),
+                    aggregation.distinct(),
+                    aggregation.filter(),
+                    aggregation.orderBy(),
                     mask));
         }
 
@@ -493,12 +494,6 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder groupIdSymbol(Symbol groupIdSymbol)
-        {
-            this.groupIdSymbol = Optional.of(groupIdSymbol);
-            return this;
-        }
-
         public AggregationBuilder nodeId(PlanNodeId nodeId)
         {
             this.nodeId = Optional.of(nodeId);
@@ -520,9 +515,9 @@ public class PlanBuilder
         }
     }
 
-    public ApplyNode apply(Assignments subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
+    public ApplyNode apply(Map<Symbol, ApplyNode.SetExpression> subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
+        io.trino.sql.tree.NullLiteral originSubquery = new io.trino.sql.tree.NullLiteral(); // does not matter for tests
         return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, originSubquery);
     }
 
@@ -533,12 +528,12 @@ public class PlanBuilder
 
     public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        return correlatedJoin(correlation, input, CorrelatedJoinNode.Type.INNER, TRUE_LITERAL, subquery);
+        return correlatedJoin(correlation, input, JoinType.INNER, TRUE, subquery);
     }
 
-    public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, CorrelatedJoinNode.Type type, Expression filter, PlanNode subquery)
+    public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, JoinType type, Expression filter, PlanNode subquery)
     {
-        NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
+        io.trino.sql.tree.NullLiteral originSubquery = new io.trino.sql.tree.NullLiteral(); // does not matter for tests
         return new CorrelatedJoinNode(idAllocator.getNextId(), input, subquery, correlation, type, filter, originSubquery);
     }
 
@@ -893,8 +888,8 @@ public class PlanBuilder
         private ExchangeNode.Scope scope = ExchangeNode.Scope.REMOTE;
         private PartitioningScheme partitioningScheme;
         private OrderingScheme orderingScheme;
-        private List<PlanNode> sources = new ArrayList<>();
-        private List<List<Symbol>> inputs = new ArrayList<>();
+        private final List<PlanNode> sources = new ArrayList<>();
+        private final List<List<Symbol>> inputs = new ArrayList<>();
 
         public ExchangeBuilder type(ExchangeNode.Type type)
         {
@@ -994,17 +989,17 @@ public class PlanBuilder
         }
     }
 
-    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
+    public JoinNode join(JoinType joinType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
     {
         return join(joinType, left, right, Optional.empty(), criteria);
     }
 
-    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, Expression filter, JoinNode.EquiJoinClause... criteria)
+    public JoinNode join(JoinType joinType, PlanNode left, PlanNode right, Expression filter, JoinNode.EquiJoinClause... criteria)
     {
         return join(joinType, left, right, Optional.of(filter), criteria);
     }
 
-    private JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, Optional<Expression> filter, JoinNode.EquiJoinClause... criteria)
+    private JoinNode join(JoinType joinType, PlanNode left, PlanNode right, Optional<Expression> filter, JoinNode.EquiJoinClause... criteria)
     {
         return join(
                 joinType,
@@ -1019,13 +1014,29 @@ public class PlanBuilder
                 ImmutableMap.of());
     }
 
-    public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> leftOutputSymbols, List<Symbol> rightOutputSymbols, Optional<Expression> filter)
+    public JoinNode join(JoinType type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> leftOutputSymbols, List<Symbol> rightOutputSymbols, Optional<Expression> filter)
     {
         return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, Optional.empty(), Optional.empty());
     }
 
+    public JoinNode join(JoinType type, JoinNode.DistributionType distributionType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
+    {
+        return join(
+                type,
+                left,
+                right,
+                ImmutableList.copyOf(criteria),
+                left.getOutputSymbols(),
+                right.getOutputSymbols(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(distributionType),
+                ImmutableMap.of());
+    }
+
     public JoinNode join(
-            JoinNode.Type type,
+            JoinType type,
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,
@@ -1039,7 +1050,7 @@ public class PlanBuilder
     }
 
     public JoinNode join(
-            JoinNode.Type type,
+            JoinType type,
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,
@@ -1054,7 +1065,7 @@ public class PlanBuilder
     }
 
     public JoinNode join(
-            JoinNode.Type type,
+            JoinType type,
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,
@@ -1284,20 +1295,19 @@ public class PlanBuilder
         return new StatisticAggregations(aggregations, groupingSymbols);
     }
 
-    public Aggregation aggregation(Expression expression, List<Type> inputTypes)
+    public Aggregation aggregation(AggregationFunction aggregation, List<Type> inputTypes)
     {
-        checkArgument(expression instanceof FunctionCall);
-        FunctionCall aggregation = (FunctionCall) expression;
-        ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
+        ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
         return new Aggregation(
                 resolvedFunction,
-                aggregation.getArguments(),
-                aggregation.isDistinct(),
-                aggregation.getFilter().map(Symbol::from),
-                aggregation.getOrderBy().map(OrderingScheme::fromOrderBy),
+                aggregation.arguments(),
+                aggregation.distinct(),
+                aggregation.filter(),
+                aggregation.orderBy(),
                 Optional.empty());
     }
 
+    @Deprecated
     public Symbol symbol(String name)
     {
         return symbol(name, BIGINT);
@@ -1305,15 +1315,11 @@ public class PlanBuilder
 
     public Symbol symbol(String name, Type type)
     {
-        Symbol symbol = new Symbol(name);
+        Symbol symbol = new Symbol(type, name);
 
-        Type old = symbols.put(symbol, type);
-        if (old != null && !old.equals(type)) {
-            throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old));
-        }
-
-        if (old == null) {
-            symbols.put(symbol, type);
+        Symbol old = symbolsByName.put(symbol.getName(), symbol);
+        if (old != null && !old.getType().equals(type)) {
+            throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old.getType()));
         }
 
         return symbol;
@@ -1321,10 +1327,10 @@ public class PlanBuilder
 
     public UnnestNode unnest(List<Symbol> replicateSymbols, List<UnnestNode.Mapping> mappings, PlanNode source)
     {
-        return unnest(replicateSymbols, mappings, Optional.empty(), INNER, Optional.empty(), source);
+        return unnest(replicateSymbols, mappings, Optional.empty(), INNER, source);
     }
 
-    public UnnestNode unnest(List<Symbol> replicateSymbols, List<UnnestNode.Mapping> mappings, Optional<Symbol> ordinalitySymbol, JoinNode.Type type, Optional<Expression> filter, PlanNode source)
+    public UnnestNode unnest(List<Symbol> replicateSymbols, List<UnnestNode.Mapping> mappings, Optional<Symbol> ordinalitySymbol, JoinType type, PlanNode source)
     {
         return new UnnestNode(
                 idAllocator.getNextId(),
@@ -1332,8 +1338,7 @@ public class PlanBuilder
                 replicateSymbols,
                 mappings,
                 ordinalitySymbol,
-                type,
-                filter);
+                type);
     }
 
     public WindowNode window(DataOrganizationSpecification specification, Map<Symbol, WindowNode.Function> functions, PlanNode source)
@@ -1407,20 +1412,33 @@ public class PlanBuilder
         return new RemoteSourceNode(idAllocator.getNextId(), sourceFragmentIds, outputs, orderingScheme, exchangeType, retryPolicy);
     }
 
-    public static Expression expression(@Language("SQL") String sql)
+    public static AggregationFunction aggregation(String name, List<Expression> arguments)
     {
-        return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
+        return new AggregationFunction(name, Optional.empty(), Optional.empty(), false, arguments);
     }
 
-    public static List<Expression> expressions(@Language("SQL") String... expressions)
+    public static AggregationFunction aggregation(String name, boolean distinct, List<Expression> arguments)
     {
-        return Stream.of(expressions)
-                .map(PlanBuilder::expression)
-                .collect(toImmutableList());
+        return new AggregationFunction(name, Optional.empty(), Optional.empty(), distinct, arguments);
     }
 
-    public TypeProvider getTypes()
+    public static AggregationFunction aggregation(String name, boolean distinct, List<Expression> arguments, Symbol filter)
     {
-        return TypeProvider.copyOf(symbols);
+        return new AggregationFunction(name, Optional.of(filter), Optional.empty(), distinct, arguments);
+    }
+
+    public static AggregationFunction aggregation(String name, List<Expression> arguments, Symbol filter)
+    {
+        return new AggregationFunction(name, Optional.of(filter), Optional.empty(), false, arguments);
+    }
+
+    public static AggregationFunction aggregation(String name, List<Expression> arguments, OrderingScheme orderBy)
+    {
+        return new AggregationFunction(name, Optional.empty(), Optional.of(orderBy), false, arguments);
+    }
+
+    public Collection<Symbol> getSymbols()
+    {
+        return symbolsByName.values();
     }
 }

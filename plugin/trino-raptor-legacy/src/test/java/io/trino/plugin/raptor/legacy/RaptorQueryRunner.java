@@ -31,7 +31,9 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -49,14 +51,14 @@ public final class RaptorQueryRunner
 
     private RaptorQueryRunner() {}
 
-    public static DistributedQueryRunner createRaptorQueryRunner(
+    public static QueryRunner createRaptorQueryRunner(
             Map<String, String> extraProperties,
             List<TpchTable<?>> tablesToLoad,
             boolean bucketed,
             Map<String, String> extraRaptorProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch"))
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch"))
                 .setExtraProperties(extraProperties)
                 .build();
 
@@ -64,15 +66,14 @@ public final class RaptorQueryRunner
         queryRunner.createCatalog("tpch", "tpch");
 
         queryRunner.installPlugin(new RaptorPlugin());
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().toFile();
         Map<String, String> raptorProperties = ImmutableMap.<String, String>builder()
                 .putAll(extraRaptorProperties)
                 .put("metadata.db.type", "h2")
-                .put("metadata.db.filename", new File(baseDir, "db").getAbsolutePath())
-                .put("storage.data-directory", new File(baseDir, "data").getAbsolutePath())
+                .put("metadata.db.filename", createTempDirectory("raptor-db").toString())
+                .put("storage.data-directory", createTempDirectory("raptor-data").toString())
                 .put("storage.max-shard-rows", "2000")
                 .put("backup.provider", "file")
-                .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
+                .put("backup.directory", createTempDirectory("raptor-backup").toString())
                 .buildOrThrow();
 
         queryRunner.createCatalog("raptor", "raptor_legacy", raptorProperties);
@@ -163,11 +164,19 @@ public final class RaptorQueryRunner
                 .build();
     }
 
+    public static Path createTempDirectory(String name)
+            throws IOException
+    {
+        Path tempDirectory = Files.createTempDirectory(name);
+        tempDirectory.toFile().deleteOnExit();
+        return tempDirectory.toAbsolutePath();
+    }
+
     public static void main(String[] args)
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        DistributedQueryRunner queryRunner = createRaptorQueryRunner(properties, ImmutableList.of(), false, ImmutableMap.of());
+        QueryRunner queryRunner = createRaptorQueryRunner(properties, ImmutableList.of(), false, ImmutableMap.of());
         Thread.sleep(10);
         Logger log = Logger.get(RaptorQueryRunner.class);
         log.info("======== SERVER STARTED ========");

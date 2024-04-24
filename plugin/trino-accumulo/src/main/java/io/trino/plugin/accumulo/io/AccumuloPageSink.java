@@ -28,11 +28,11 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeUtils;
 import io.trino.spi.type.VarcharType;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.BatchWriterConfig;
-import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.MutationsRejectedException;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.Mutation;
@@ -83,7 +83,7 @@ public class AccumuloPageSink
     private long numRows;
 
     public AccumuloPageSink(
-            Connector connector,
+            AccumuloClient client,
             AccumuloTable table,
             String username)
     {
@@ -102,14 +102,14 @@ public class AccumuloPageSink
         try {
             // Create a BatchWriter to the Accumulo table
             BatchWriterConfig conf = new BatchWriterConfig();
-            writer = connector.createBatchWriter(table.getFullTableName(), conf);
+            writer = client.createBatchWriter(table.getFullTableName(), conf);
 
             // If the table is indexed, create an instance of an Indexer, else empty
             if (table.isIndexed()) {
                 indexer = Optional.of(
                         new Indexer(
-                                connector,
-                                connector.securityOperations().getUserAuthorizations(username),
+                                client,
+                                client.securityOperations().getUserAuthorizations(username),
                                 table,
                                 conf));
             }

@@ -86,21 +86,21 @@ public class PlanNodeSearcher
         return this;
     }
 
-    public <T extends PlanNode> Optional<T> findFirst()
+    public Optional<PlanNode> findFirst()
     {
         return findFirstRecursive(node);
     }
 
-    private <T extends PlanNode> Optional<T> findFirstRecursive(PlanNode node)
+    private Optional<PlanNode> findFirstRecursive(PlanNode node)
     {
         node = lookup.resolve(node);
 
         if (where.test(node)) {
-            return Optional.of((T) node);
+            return Optional.of(node);
         }
         if (recurseOnlyWhen.test(node)) {
             for (PlanNode source : node.getSources()) {
-                Optional<T> found = findFirstRecursive(source);
+                Optional<PlanNode> found = findFirstRecursive(source);
                 if (found.isPresent()) {
                     return found;
                 }
@@ -112,24 +112,24 @@ public class PlanNodeSearcher
     /**
      * Return a list of matching nodes ordered as in pre-order traversal of the plan tree.
      */
-    public <T extends PlanNode> List<T> findAll()
+    public List<PlanNode> findAll()
     {
-        ImmutableList.Builder<T> nodes = ImmutableList.builder();
+        ImmutableList.Builder<PlanNode> nodes = ImmutableList.builder();
         findAllRecursive(node, nodes);
         return nodes.build();
     }
 
-    public <T extends PlanNode> T findOnlyElement()
+    public PlanNode findOnlyElement()
     {
         return getOnlyElement(findAll());
     }
 
-    private <T extends PlanNode> void findAllRecursive(PlanNode node, ImmutableList.Builder<T> nodes)
+    private void findAllRecursive(PlanNode node, ImmutableList.Builder<PlanNode> nodes)
     {
         node = lookup.resolve(node);
 
         if (where.test(node)) {
-            nodes.add((T) node);
+            nodes.add(node);
         }
         if (recurseOnlyWhen.test(node)) {
             for (PlanNode source : node.getSources()) {
@@ -151,7 +151,7 @@ public class PlanNodeSearcher
             checkArgument(
                     node.getSources().size() == 1,
                     "Unable to remove plan node as it contains 0 or more than 1 children");
-            return node.getSources().get(0);
+            return getOnlyElement(node.getSources());
         }
         if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources().stream()
@@ -175,7 +175,7 @@ public class PlanNodeSearcher
             checkArgument(
                     node.getSources().size() == 1,
                     "Unable to remove plan node as it contains 0 or more than 1 children");
-            return node.getSources().get(0);
+            return getOnlyElement(node.getSources());
         }
         if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources();
@@ -183,7 +183,7 @@ public class PlanNodeSearcher
                 return node;
             }
             if (sources.size() == 1) {
-                return replaceChildren(node, ImmutableList.of(removeFirstRecursive(sources.get(0))));
+                return replaceChildren(node, ImmutableList.of(removeFirstRecursive(getOnlyElement(sources))));
             }
             throw new IllegalArgumentException("Unable to remove first node when a node has multiple children, use removeAll instead");
         }
@@ -228,7 +228,7 @@ public class PlanNodeSearcher
             return node;
         }
         if (sources.size() == 1) {
-            return replaceChildren(node, ImmutableList.of(replaceFirstRecursive(node, sources.get(0))));
+            return replaceChildren(node, ImmutableList.of(replaceFirstRecursive(node, getOnlyElement(sources))));
         }
         throw new IllegalArgumentException("Unable to replace first node when a node has multiple children, use replaceAll instead");
     }

@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.TrinoException;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,12 +20,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -126,10 +126,10 @@ public class TestConditions
                 .binding("a", "'monkey'"))
                 .isNull(BOOLEAN);
 
-        assertThatThrownBy(() -> assertions.expression("a like 'monkey' escape 'foo'")
+        assertTrinoExceptionThrownBy(() -> assertions.expression("a like 'monkey' escape 'foo'")
                 .binding("a", "'monkey'")
                 .evaluate())
-                .isInstanceOf(TrinoException.class)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Escape string must be a single character");
     }
 

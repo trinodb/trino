@@ -120,7 +120,8 @@ public abstract class AbstractVariableWidthType
     @Override
     public int getFlatVariableWidthSize(Block block, int position)
     {
-        int length = block.getSliceLength(position);
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int length = variableWidthBlock.getSliceLength(block.getUnderlyingValuePosition(position));
         if (length <= 12) {
             return 0;
         }

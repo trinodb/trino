@@ -129,7 +129,7 @@ public class AddColumnTask
             }
 
             Map<String, Object> columnProperties = columnPropertyManager.getProperties(
-                    catalogHandle.getCatalogName(),
+                    catalogHandle.getCatalogName().toString(),
                     catalogHandle,
                     element.getProperties(),
                     session,

@@ -31,7 +31,7 @@ public class GcsFileIterator
         implements FileIterator
 {
     private final GcsLocation location;
-    private Iterator<Blob> blobIterator;
+    private final Iterator<Blob> blobIterator;
 
     public GcsFileIterator(GcsLocation location, Page<Blob> page)
     {

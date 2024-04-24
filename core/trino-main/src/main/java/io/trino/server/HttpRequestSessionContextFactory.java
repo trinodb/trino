@@ -69,8 +69,6 @@ import static java.util.Objects.requireNonNull;
 
 public class HttpRequestSessionContextFactory
 {
-    private static final Splitter DOT_SPLITTER = Splitter.on('.');
-
     private final PreparedStatementEncoder preparedStatementEncoder;
     private final Metadata metadata;
     private final GroupProvider groupProvider;
@@ -132,27 +130,22 @@ public class HttpRequestSessionContextFactory
         for (Entry<String, String> entry : parseSessionHeaders(protocolHeaders, headers).entrySet()) {
             String fullPropertyName = entry.getKey();
             String propertyValue = entry.getValue();
-            List<String> nameParts = DOT_SPLITTER.splitToList(fullPropertyName);
-            if (nameParts.size() == 1) {
-                String propertyName = nameParts.get(0);
 
-                assertRequest(!propertyName.isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
+            switch (parseSessionPropertyName(fullPropertyName)) {
+                case ParsedSessionPropertyName(Optional<String> catalogName, String propertyName) when catalogName.isEmpty() -> {
+                    assertRequest(!propertyName.isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
 
-                // catalog session properties cannot be validated until the transaction has stated, so we delay system property validation also
-                systemProperties.put(propertyName, propertyValue);
-            }
-            else if (nameParts.size() == 2) {
-                String catalogName = nameParts.get(0);
-                String propertyName = nameParts.get(1);
+                    // catalog session properties cannot be validated until the transaction has started, so we delay system property validation also
+                    systemProperties.put(propertyName, propertyValue);
+                }
+                case ParsedSessionPropertyName(Optional<String> catalogName, String propertyName) -> {
+                    assertRequest(!catalogName.orElseThrow().isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
+                    assertRequest(!propertyName.isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
 
-                assertRequest(!catalogName.isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
-                assertRequest(!propertyName.isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
-
-                // catalog session properties cannot be validated until the transaction has stated
-                catalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
-            }
-            else {
-                throw badRequest(format("Invalid %s header", protocolHeaders.requestSession()));
+                    // catalog session properties cannot be validated until the transaction has started
+                    catalogSessionProperties.computeIfAbsent(catalogName.orElseThrow(), id -> new HashMap<>()).put(propertyName, propertyValue);
+                }
+                default -> throw badRequest(format("Invalid %s header", protocolHeaders.requestSession()));
             }
         }
         requireNonNull(catalogSessionProperties, "catalogSessionProperties is null");
@@ -391,6 +384,15 @@ public class HttpRequestSessionContextFactory
         return builder.build();
     }
 
+    private static ParsedSessionPropertyName parseSessionPropertyName(String value)
+    {
+        int lastDotIndex = value.lastIndexOf('.');
+        if (lastDotIndex == -1) {
+            return new ParsedSessionPropertyName(Optional.empty(), value);
+        }
+        return new ParsedSessionPropertyName(Optional.of(value.substring(0, lastDotIndex)), value.substring(lastDotIndex + 1));
+    }
+
     @FormatMethod
     private static void assertRequest(boolean expression, String format, Object... args)
     {
@@ -458,5 +460,14 @@ public class HttpRequestSessionContextFactory
     private static String urlDecode(String value)
     {
         return URLDecoder.decode(value, UTF_8);
+    }
+
+    private record ParsedSessionPropertyName(Optional<String> catalog, String name)
+    {
+        ParsedSessionPropertyName
+        {
+            requireNonNull(catalog, "catalog is null");
+            requireNonNull(name, "name is null");
+        }
     }
 }

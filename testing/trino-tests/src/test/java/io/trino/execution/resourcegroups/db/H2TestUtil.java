@@ -29,6 +29,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.Plugin;
 import io.trino.spi.TrinoException;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 import java.util.List;
 import java.util.Random;
@@ -78,19 +79,19 @@ final class H2TestUtil
                 .build();
     }
 
-    public static void waitForCompleteQueryCount(DistributedQueryRunner queryRunner, int expectedCount)
+    public static void waitForCompleteQueryCount(QueryRunner queryRunner, int expectedCount)
             throws InterruptedException
     {
         waitForQueryCount(queryRunner, TERMINAL_QUERY_STATES, expectedCount);
     }
 
-    public static void waitForRunningQueryCount(DistributedQueryRunner queryRunner, int expectedCount)
+    public static void waitForRunningQueryCount(QueryRunner queryRunner, int expectedCount)
             throws InterruptedException
     {
         waitForQueryCount(queryRunner, ImmutableSet.of(RUNNING), expectedCount);
     }
 
-    public static void waitForQueryCount(DistributedQueryRunner queryRunner, Set<QueryState> countingStates, int expectedCount)
+    public static void waitForQueryCount(QueryRunner queryRunner, Set<QueryState> countingStates, int expectedCount)
             throws InterruptedException
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
@@ -116,16 +117,16 @@ final class H2TestUtil
         return dao;
     }
 
-    public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao)
+    public static QueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao)
             throws Exception
     {
         return createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT);
     }
 
-    public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, String environment)
+    public static QueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, String environment)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
+        QueryRunner queryRunner = DistributedQueryRunner
                 .builder(testSessionBuilder().setCatalog("tpch").setSchema("tiny").build())
                 .setNodeCount(2)
                 .setEnvironment(environment)
@@ -146,7 +147,7 @@ final class H2TestUtil
         }
     }
 
-    public static DistributedQueryRunner getSimpleQueryRunner()
+    public static QueryRunner getSimpleQueryRunner()
             throws Exception
     {
         String dbConfigUrl = getDbConfigUrl();
@@ -154,7 +155,7 @@ final class H2TestUtil
         return createQueryRunner(dbConfigUrl, dao);
     }
 
-    private static void setup(DistributedQueryRunner queryRunner, H2ResourceGroupsDao dao, String environment)
+    private static void setup(QueryRunner queryRunner, H2ResourceGroupsDao dao, String environment)
             throws InterruptedException
     {
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
@@ -184,7 +185,7 @@ final class H2TestUtil
         }
     }
 
-    public static List<ResourceGroupSelector> getSelectors(DistributedQueryRunner queryRunner)
+    public static List<ResourceGroupSelector> getSelectors(QueryRunner queryRunner)
     {
         try {
             return ((DbResourceGroupConfigurationManager) queryRunner.getCoordinator().getResourceGroupManager().get().getConfigurationManager()).getSelectors();

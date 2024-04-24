@@ -31,6 +31,6 @@ public record CorruptedIcebergTableHandle(SchemaTableName schemaTableName, Trino
     public TrinoException createException()
     {
         // Original exception originates from a different place. Create a new exception not to confuse reader with a stacktrace not matching call site.
-        return new TrinoException(originalException.getErrorCode(), originalException.getMessage(), originalException);
+        return new TrinoException(originalException::getErrorCode, originalException.getMessage(), originalException);
     }
 }

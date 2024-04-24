@@ -30,7 +30,7 @@ import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TestGroups.SQL_SERVER;
+import static io.trino.tests.product.TestGroups.SQLSERVER;
 import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.trino.tests.product.sqlserver.SqlServerDataTypesTableDefinition.SQLSERVER_ALL_TYPES;
 import static io.trino.tests.product.sqlserver.SqlServerTpchTableDefinitions.NATION;
@@ -82,14 +82,14 @@ public class TestSelect
         }
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testSelectNation()
     {
         QueryResult queryResult = onTrino().executeQuery("SELECT n_nationkey, n_name, n_regionkey, n_comment FROM " + NATION_TABLE_NAME);
         assertThat(queryResult).matches(PRESTO_NATION_RESULT);
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testNationSelfInnerJoin()
     {
         String sql = format(
@@ -109,7 +109,7 @@ public class TestSelect
                 row("CANADA", 3));
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testNationJoinRegion()
     {
         String sql = format(
@@ -123,7 +123,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row("CANADA", "AMERICA"));
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testAllDatatypes()
     {
         QueryResult queryResult = onTrino().executeQuery("SELECT * FROM " + ALL_TYPES_TABLE_NAME);
@@ -192,7 +192,7 @@ public class TestSelect
                         row(nCopies(19, null).toArray()));
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
         onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", CREATE_TABLE_AS_SELECT, NATION_TABLE_NAME));

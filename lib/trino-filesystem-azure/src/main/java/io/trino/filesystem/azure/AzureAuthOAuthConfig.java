@@ -72,7 +72,6 @@ public class AzureAuthOAuthConfig
         return tenantId;
     }
 
-    @ConfigSecuritySensitive
     @Config("azure.oauth.tenant-id")
     public AzureAuthOAuthConfig setTenantId(String tenantId)
     {

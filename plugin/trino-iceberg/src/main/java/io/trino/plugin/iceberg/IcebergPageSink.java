@@ -129,6 +129,7 @@ public class IcebergPageSink
     private long writtenBytes;
     private long memoryUsage;
     private long validationCpuNanos;
+    private long currentOpenWriters;
 
     public IcebergPageSink(
             Schema outputSchema,
@@ -326,10 +327,6 @@ public class IcebergPageSink
     {
         int[] writerIndexes = pagePartitioner.partitionPage(page);
 
-        if (pagePartitioner.getMaxIndex() >= maxOpenWriters) {
-            throw new TrinoException(ICEBERG_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions", maxOpenWriters));
-        }
-
         // expand writers list to new size
         while (writers.size() <= pagePartitioner.getMaxIndex()) {
             writers.add(null);
@@ -377,9 +374,14 @@ public class IcebergPageSink
             }
 
             writers.set(writerIndex, writer);
+            currentOpenWriters++;
             memoryUsage += writer.getWriter().getMemoryUsage();
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
+
+        if (currentOpenWriters > maxOpenWriters) {
+            throw new TrinoException(ICEBERG_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions", maxOpenWriters));
+        }
 
         return writerIndexes;
     }
@@ -416,6 +418,7 @@ public class IcebergPageSink
         memoryUsage -= currentMemory;
 
         writers.set(writerIndex, null);
+        currentOpenWriters--;
 
         CommitTaskData task = new CommitTaskData(
                 writeContext.getPath(),

@@ -24,6 +24,8 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
@@ -34,10 +36,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.sanity.TypeValidator;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.WindowFrame;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import org.junit.jupiter.api.Test;
 
@@ -50,13 +48,13 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -98,11 +96,11 @@ public class TestTypeValidator
     @Test
     public void testValidProject()
     {
-        Expression expression1 = new Cast(columnB.toSymbolReference(), toSqlType(BIGINT));
-        Expression expression2 = new Cast(columnC.toSymbolReference(), toSqlType(BIGINT));
+        Expression expression1 = new Cast(columnB.toSymbolReference(), BIGINT);
+        Expression expression2 = new Cast(columnC.toSymbolReference(), BIGINT);
         Assignments assignments = Assignments.builder()
-                .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1)
-                .put(symbolAllocator.newSymbol(expression2, BIGINT), expression2)
+                .put(symbolAllocator.newSymbol(expression1), expression1)
+                .put(symbolAllocator.newSymbol(expression2), expression2)
                 .build();
         PlanNode node = new ProjectNode(
                 newId(),
@@ -137,13 +135,11 @@ public class TestTypeValidator
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
+                RANGE,
+                UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 Optional.empty(),
-                FrameBound.Type.UNBOUNDED_FOLLOWING,
-                Optional.empty(),
-                Optional.empty(),
+                UNBOUNDED_FOLLOWING,
                 Optional.empty(),
                 Optional.empty());
 
@@ -181,38 +177,6 @@ public class TestTypeValidator
                 singleGroupingSet(ImmutableList.of(columnA, columnB)));
 
         assertTypesValid(node);
-    }
-
-    @Test
-    public void testValidTypeOnlyCoercion()
-    {
-        Expression expression = new Cast(columnB.toSymbolReference(), toSqlType(BIGINT));
-        Assignments assignments = Assignments.builder()
-                .put(symbolAllocator.newSymbol(expression, BIGINT), expression)
-                .put(symbolAllocator.newSymbol(columnE.toSymbolReference(), VARCHAR), columnE.toSymbolReference()) // implicit coercion from varchar(3) to varchar
-                .build();
-        PlanNode node = new ProjectNode(newId(), baseTableScan, assignments);
-
-        assertTypesValid(node);
-    }
-
-    @Test
-    public void testInvalidProject()
-    {
-        Expression expression1 = new Cast(columnB.toSymbolReference(), toSqlType(INTEGER));
-        Expression expression2 = new Cast(columnA.toSymbolReference(), toSqlType(INTEGER));
-        Assignments assignments = Assignments.builder()
-                .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1) // should be INTEGER
-                .put(symbolAllocator.newSymbol(expression1, INTEGER), expression2)
-                .build();
-        PlanNode node = new ProjectNode(
-                newId(),
-                baseTableScan,
-                assignments);
-
-        assertThatThrownBy(() -> assertTypesValid(node))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageMatching("type of symbol 'expr(_[0-9]+)?' is expected to be bigint, but the actual type is integer");
     }
 
     @Test
@@ -266,13 +230,11 @@ public class TestTypeValidator
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
+                RANGE,
+                UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 Optional.empty(),
-                FrameBound.Type.UNBOUNDED_FOLLOWING,
-                Optional.empty(),
-                Optional.empty(),
+                UNBOUNDED_FOLLOWING,
                 Optional.empty(),
                 Optional.empty());
 
@@ -301,13 +263,11 @@ public class TestTypeValidator
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
+                RANGE,
+                UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 Optional.empty(),
-                FrameBound.Type.UNBOUNDED_FOLLOWING,
-                Optional.empty(),
-                Optional.empty(),
+                UNBOUNDED_FOLLOWING,
                 Optional.empty(),
                 Optional.empty());
 
@@ -351,7 +311,7 @@ public class TestTypeValidator
 
     private void assertTypesValid(PlanNode node)
     {
-        TYPE_VALIDATOR.validate(node, TEST_SESSION, PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT), symbolAllocator.getTypes(), WarningCollector.NOOP);
+        TYPE_VALIDATOR.validate(node, TEST_SESSION, PLANNER_CONTEXT, WarningCollector.NOOP);
     }
 
     private static PlanNodeId newId()

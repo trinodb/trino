@@ -36,8 +36,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,7 +44,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 // some tests may invalidate the whole cache affecting therefore other concurrent tests
 @Execution(SAME_THREAD)
 public class TestTransactionScopeCachingDirectoryLister
-        extends BaseCachingDirectoryListerTest<TransactionScopeCachingDirectoryLister>
 {
     private static final Column TABLE_COLUMN = new Column(
             "column",
@@ -56,7 +53,7 @@ public class TestTransactionScopeCachingDirectoryLister
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
             Optional.of("location"),
-            Optional.of(new HiveBucketProperty(ImmutableList.of("column"), BUCKETING_V1, 10, ImmutableList.of(new SortingColumn("column", SortingColumn.Order.ASCENDING)))),
+            Optional.of(new HiveBucketProperty(ImmutableList.of("column"), 10, ImmutableList.of(new SortingColumn("column", SortingColumn.Order.ASCENDING)))),
             true,
             ImmutableMap.of("param", "value2"));
     private static final Table TABLE = new Table(
@@ -71,18 +68,6 @@ public class TestTransactionScopeCachingDirectoryLister
             Optional.of("original_text"),
             Optional.of("expanded_text"),
             OptionalLong.empty());
-
-    @Override
-    protected TransactionScopeCachingDirectoryLister createDirectoryLister()
-    {
-        return (TransactionScopeCachingDirectoryLister) new TransactionScopeCachingDirectoryListerFactory(DataSize.of(1, MEGABYTE), Optional.empty()).get(new FileSystemDirectoryLister());
-    }
-
-    @Override
-    protected boolean isCached(TransactionScopeCachingDirectoryLister directoryLister, Location location)
-    {
-        return directoryLister.isCached(location);
-    }
 
     @Test
     public void testConcurrentDirectoryListing()

@@ -31,7 +31,7 @@ class TestAzureFileSystemConfig
     void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(AzureFileSystemConfig.class)
-                .setAuthType(AuthType.NONE)
+                .setAuthType(AuthType.DEFAULT)
                 .setReadBlockSize(DataSize.of(4, Unit.MEGABYTE))
                 .setWriteBlockSize(DataSize.of(4, Unit.MEGABYTE))
                 .setMaxWriteConcurrency(8)

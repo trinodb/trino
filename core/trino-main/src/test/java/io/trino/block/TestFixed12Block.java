@@ -84,7 +84,7 @@ public class TestFixed12Block
 
         testCompactBlock(new Fixed12Block(0, Optional.empty(), new int[0]));
         testCompactBlock(new Fixed12Block(valueIsNull.length, Optional.of(valueIsNull), intArray));
-        testIncompactBlock(new Fixed12Block(valueIsNull.length - 2, Optional.of(valueIsNull), intArray));
+        testNotCompactBlock(new Fixed12Block(valueIsNull.length - 2, Optional.of(valueIsNull), intArray));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)
@@ -124,45 +124,16 @@ public class TestFixed12Block
     }
 
     @Override
-    protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
-        assertThat(block.getLong(position, 0)).isEqualTo(expectedBytes.getLong(0));
-        assertThat(block.getInt(position, 8)).isEqualTo(expectedBytes.getInt(8));
-    }
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
 
-    @Override
-    protected boolean isByteAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isShortAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isIntAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isLongAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isAlignedLongAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isSliceAccessSupported()
-    {
-        return false;
+        Fixed12Block fixed12Block = (Fixed12Block) block;
+        Slice expectedBytes = (Slice) expectedValue;
+        assertThat(fixed12Block.getFixed12First(position)).isEqualTo(expectedBytes.getLong(0));
+        assertThat(fixed12Block.getFixed12Second(position)).isEqualTo(expectedBytes.getInt(8));
     }
 }

@@ -28,7 +28,6 @@ public class QueryExplainerFactory
     private final PlanOptimizersFactory planOptimizersFactory;
     private final PlanFragmenter planFragmenter;
     private final PlannerContext plannerContext;
-    private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final NodeVersion version;
@@ -38,7 +37,6 @@ public class QueryExplainerFactory
             PlanOptimizersFactory planOptimizersFactory,
             PlanFragmenter planFragmenter,
             PlannerContext plannerContext,
-            StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             NodeVersion version)
@@ -46,7 +44,6 @@ public class QueryExplainerFactory
         this.planOptimizersFactory = requireNonNull(planOptimizersFactory, "planOptimizersFactory is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.plannerContext = requireNonNull(plannerContext, "metadata is null");
-        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.version = requireNonNull(version, "version is null");
@@ -59,7 +56,6 @@ public class QueryExplainerFactory
                 planFragmenter,
                 plannerContext,
                 analyzerFactory,
-                statementAnalyzerFactory,
                 statsCalculator,
                 costCalculator,
                 version);

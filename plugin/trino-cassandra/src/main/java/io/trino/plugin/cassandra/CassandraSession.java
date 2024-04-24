@@ -79,6 +79,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static io.trino.plugin.cassandra.CassandraMetadata.PRESTO_COMMENT_METADATA;
@@ -307,11 +308,11 @@ public class CassandraSession
                 keyspace.getViews().values().stream())
                 .filter(table -> table.getName().asInternal().equalsIgnoreCase(caseInsensitiveTableName))
                 .collect(toImmutableList());
-        if (tables.size() == 0) {
+        if (tables.isEmpty()) {
             throw new TableNotFoundException(new SchemaTableName(keyspace.getName().asInternal(), caseInsensitiveTableName));
         }
         if (tables.size() == 1) {
-            return tables.get(0);
+            return getOnlyElement(tables);
         }
         String tableNames = tables.stream()
                 .map(metadata -> metadata.getName().asInternal())

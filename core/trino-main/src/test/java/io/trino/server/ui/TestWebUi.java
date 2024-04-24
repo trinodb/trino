@@ -309,12 +309,12 @@ public class TestWebUi
         assertThat(body).contains("action=\"/ui/login\"");
         assertThat(body).contains("method=\"post\"");
 
-        assertThat(body).doesNotContain("// This value will be replaced");
+        assertThat(body).doesNotContain("<!-- This value will be replaced -->");
         if (sendPassword) {
-            assertThat(body).contains("var hidePassword = false;");
+            assertThat(body).contains("<div class=\"hidden\" id=\"hide-password\">false</div>");
         }
         else {
-            assertThat(body).contains("var hidePassword = true;");
+            assertThat(body).contains("<div class=\"hidden\" id=\"hide-password\">true</div>");
         }
 
         logIn(baseUri, client, username, password, sendPassword);

@@ -22,6 +22,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.io.BufferedWriter;
@@ -57,14 +58,14 @@ public class DruidQueryRunner
 
     private DruidQueryRunner() {}
 
-    public static DistributedQueryRunner createDruidQueryRunnerTpch(
+    public static QueryRunner createDruidQueryRunnerTpch(
             TestingDruidServer testingDruidServer,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = null;
+        QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
@@ -164,7 +165,7 @@ public class DruidQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createDruidQueryRunnerTpch(
+        QueryRunner queryRunner = createDruidQueryRunnerTpch(
                 new TestingDruidServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),

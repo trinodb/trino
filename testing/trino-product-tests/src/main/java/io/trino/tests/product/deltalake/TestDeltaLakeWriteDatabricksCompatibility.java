@@ -63,7 +63,6 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     @BeforeMethodWithContext
     public void setup()
     {
-        super.setUp();
         s3 = new S3ClientFactory().createS3Client(s3ServerType);
     }
 

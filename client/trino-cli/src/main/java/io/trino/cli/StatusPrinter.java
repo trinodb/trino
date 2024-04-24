@@ -61,9 +61,9 @@ public class StatusPrinter
     private final StatementClient client;
     private final PrintStream out;
     private final ConsolePrinter console;
+    private final boolean checkInput;
 
     private boolean debug;
-    private boolean checkInput;
 
     public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean checkInput)
     {

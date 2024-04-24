@@ -27,7 +27,6 @@ import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;
 import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
-import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
@@ -156,28 +155,17 @@ public final class ParquetTypeUtils
     @SuppressWarnings("deprecation")
     public static ParquetEncoding getParquetEncoding(Encoding encoding)
     {
-        switch (encoding) {
-            case PLAIN:
-                return ParquetEncoding.PLAIN;
-            case RLE:
-                return ParquetEncoding.RLE;
-            case BYTE_STREAM_SPLIT:
-                // TODO: https://github.com/trinodb/trino/issues/8357
-                throw new ParquetDecodingException("Unsupported Parquet encoding: " + encoding);
-            case BIT_PACKED:
-                return ParquetEncoding.BIT_PACKED;
-            case PLAIN_DICTIONARY:
-                return ParquetEncoding.PLAIN_DICTIONARY;
-            case DELTA_BINARY_PACKED:
-                return ParquetEncoding.DELTA_BINARY_PACKED;
-            case DELTA_LENGTH_BYTE_ARRAY:
-                return ParquetEncoding.DELTA_LENGTH_BYTE_ARRAY;
-            case DELTA_BYTE_ARRAY:
-                return ParquetEncoding.DELTA_BYTE_ARRAY;
-            case RLE_DICTIONARY:
-                return ParquetEncoding.RLE_DICTIONARY;
-        }
-        throw new ParquetDecodingException("Unsupported Parquet encoding: " + encoding);
+        return switch (encoding) {
+            case PLAIN -> ParquetEncoding.PLAIN;
+            case RLE -> ParquetEncoding.RLE;
+            case BYTE_STREAM_SPLIT -> ParquetEncoding.BYTE_STREAM_SPLIT;
+            case BIT_PACKED -> ParquetEncoding.BIT_PACKED;
+            case PLAIN_DICTIONARY -> ParquetEncoding.PLAIN_DICTIONARY;
+            case DELTA_BINARY_PACKED -> ParquetEncoding.DELTA_BINARY_PACKED;
+            case DELTA_LENGTH_BYTE_ARRAY -> ParquetEncoding.DELTA_LENGTH_BYTE_ARRAY;
+            case DELTA_BYTE_ARRAY -> ParquetEncoding.DELTA_BYTE_ARRAY;
+            case RLE_DICTIONARY -> ParquetEncoding.RLE_DICTIONARY;
+        };
     }
 
     public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, GroupType groupType)
@@ -319,7 +307,15 @@ public final class ParquetTypeUtils
         return result;
     }
 
+    /**
+     * Assumes the parent of columnIO is a MessageColumnIO, i.e. columnIO should be a top level column in the schema.
+     */
     public static Optional<Field> constructField(Type type, ColumnIO columnIO)
+    {
+        return constructField(type, columnIO, true);
+    }
+
+    private static Optional<Field> constructField(Type type, ColumnIO columnIO, boolean isTopLevel)
     {
         if (columnIO == null) {
             return Optional.empty();
@@ -334,7 +330,7 @@ public final class ParquetTypeUtils
             boolean structHasParameters = false;
             for (RowType.Field rowField : fields) {
                 String name = rowField.getName().orElseThrow().toLowerCase(Locale.ENGLISH);
-                Optional<Field> field = constructField(rowField.getType(), lookupColumnByName(groupColumnIO, name));
+                Optional<Field> field = constructField(rowField.getType(), lookupColumnByName(groupColumnIO, name), false);
                 structHasParameters |= field.isPresent();
                 fieldsBuilder.add(field);
             }
@@ -349,19 +345,41 @@ public final class ParquetTypeUtils
             if (keyValueColumnIO.getChildrenCount() != 2) {
                 return Optional.empty();
             }
-            Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0));
-            Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
+            Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0), false);
+            Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1), false);
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
         }
         if (type instanceof ArrayType arrayType) {
+            // Per the parquet spec (https://github.com/apache/parquet-format/blob/master/LogicalTypes.md):
+            // `A repeated field that is neither contained by a LIST- or MAP-annotated group nor annotated by LIST or MAP should be interpreted as a required list of required elements
+            // where the element type is the type of the field.`
+            //
+            // A parquet encoding for a required list of strings can be expressed in two ways, however for backwards compatibility they should be handled the same, so here we need
+            // to adjust repetition and definition levels when converting ColumnIOs to Fields.
+            //      1. required group colors (LIST) {
+            //              repeated group list {
+            //                  required string element;
+            //              }
+            //         }
+            //      2. repeated binary colors (STRING);
+            if (columnIO instanceof PrimitiveColumnIO primitiveColumnIO) {
+                if (columnIO.getType().getRepetition() != REPEATED || repetitionLevel == 0 || definitionLevel == 0) {
+                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported schema for Parquet column (%s)", primitiveColumnIO.getColumnDescriptor()));
+                }
+                PrimitiveField primitiveFieldElement = new PrimitiveField(arrayType.getElementType(), true, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId());
+                return Optional.of(new GroupField(type, repetitionLevel - 1, definitionLevel - 1, true, ImmutableList.of(Optional.of(primitiveFieldElement))));
+            }
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
             }
-            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(groupColumnIO.getChild(0)));
+            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(groupColumnIO.getChild(0)), false);
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
+        if (primitiveColumnIO.getType().getRepetition() == REPEATED && isTopLevel) {
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, primitiveColumnIO.getColumnDescriptor()));
+        }
         return Optional.of(new PrimitiveField(type, required, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId()));
     }
 }

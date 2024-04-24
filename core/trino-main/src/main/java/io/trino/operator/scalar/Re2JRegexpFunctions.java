@@ -13,10 +13,10 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.re2j.Matcher;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.trino.re2j.Matcher;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Description;

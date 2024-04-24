@@ -450,6 +450,34 @@ public class TestAcidTables
         assertThat(deleteDeltaSubdirPath).isEqualTo("delete_delta_0000013_0000013_0005");
     }
 
+    @Test
+    public void testSkippingSubDirectories()
+            throws IOException
+    {
+        TrinoFileSystem fileSystem = new MemoryFileSystem();
+        createFile(fileSystem, "memory:///tbl/part1/base_1/bucket_0", FAKE_DATA);
+        createFile(fileSystem, "memory:///tbl/part1/base_1/base_1/bucket_0", FAKE_DATA);
+        createFile(fileSystem, "memory:///tbl/part1/delta_025_025/bucket_0", FAKE_DATA);
+        createFile(fileSystem, "memory:///tbl/part1/delta_025_025/delta_025_025/bucket_0", FAKE_DATA);
+        createFile(fileSystem, "memory:///tbl/part1/delete_delta_029_029/bucket_0", FAKE_DATA);
+        createFile(fileSystem, "memory:///tbl/part1/delete_delta_029_029/delete_delta_029_029/bucket_0", FAKE_DATA);
+
+        AcidState state = getAcidState(
+                fileSystem,
+                Location.of("memory:///tbl/part1"),
+                new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
+
+        // Subdirectories in base directory should be skipped similar to Hive implementation
+        assertThat(state.baseDirectory()).contains(Location.of("memory:///tbl/part1/base_1"));
+        assertThat(state.originalFiles()).isEmpty();
+
+        // Subdirectories in delta directories should be skipped similar to Hive implementation
+        List<ParsedDelta> deltas = state.deltas();
+        assertThat(deltas.size()).isEqualTo(2);
+        assertThat(deltas.get(0).path()).isEqualTo("memory:///tbl/part1/delta_025_025");
+        assertThat(deltas.get(1).path()).isEqualTo("memory:///tbl/part1/delete_delta_029_029");
+    }
+
     private static void createFile(TrinoFileSystem fileSystem, String location, byte[] data)
             throws IOException
     {

@@ -22,13 +22,11 @@ import io.trino.connector.MutableGrants;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.sql.query.QueryAssertions;
+import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import org.junit.jupiter.api.AfterAll;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.EnumSet;
 
@@ -37,42 +35,35 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
 public class TestGrantOnSchema
+        extends AbstractTestQueryFramework
 {
     private final Session admin = sessionOf("admin");
     private final Grants<String> schemaGrants = new MutableGrants<>();
-    private DistributedQueryRunner queryRunner;
-    private QueryAssertions assertions;
 
-    @BeforeAll
-    public void initClass()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        queryRunner = DistributedQueryRunner.builder(admin).build();
-        MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                .withListSchemaNames(session -> ImmutableList.of("information_schema", "default"))
-                .withListTables((session, schema) ->
-                        "default".equalsIgnoreCase(schema) ? ImmutableList.of("table_one") : ImmutableList.of())
-                .withSchemaGrants(schemaGrants)
+        return DistributedQueryRunner.builder(admin)
+                .setAdditionalSetup(queryRunner -> {
+                    MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                            .withListSchemaNames(session -> ImmutableList.of("information_schema", "default"))
+                            .withListTables((session, schema) ->
+                                    "default".equalsIgnoreCase(schema) ? ImmutableList.of("table_one") : ImmutableList.of())
+                            .withSchemaGrants(schemaGrants)
+                            .build();
+                    queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
+                    queryRunner.createCatalog("local", "mock");
+                })
                 .build();
-        queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
-        queryRunner.createCatalog("local", "mock");
-        assertions = new QueryAssertions(queryRunner);
-        schemaGrants.grant(new TrinoPrincipal(USER, admin.getUser()), "default", EnumSet.allOf(Privilege.class), true);
     }
 
-    @AfterAll
-    public void teardown()
+    @BeforeAll
+    public void setUp()
     {
-        assertions.close();
-        assertions = null;
-        queryRunner = null; // closed by assertions.close
+        schemaGrants.grant(new TrinoPrincipal(USER, admin.getUser()), "default", EnumSet.allOf(Privilege.class), true);
     }
 
     @Test
@@ -88,10 +79,10 @@ public class TestGrantOnSchema
         Session user = sessionOf(username);
         schemaGrants.grant(new TrinoPrincipal(USER, user.getUser()), "default", EnumSet.allOf(Privilege.class), grantOption);
 
-        assertThat(assertions.query(admin, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
-        assertThat(assertions.query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
-        assertThat(assertions.query(admin, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
-        assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
+        assertThat(query(admin, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
+        assertThat(query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
+        assertThat(query(admin, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
+        assertThat(query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
     }
 
     @Test
@@ -107,11 +98,11 @@ public class TestGrantOnSchema
         String username = randomUsername();
         Session user = sessionOf(username);
 
-        queryRunner.execute(admin, format("GRANT %s ON SCHEMA default TO %s", privilege, username));
+        assertUpdate(admin, format("GRANT %s ON SCHEMA default TO %s", privilege, username));
 
-        assertThat(assertions.query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
-        assertThat(assertions.query(admin, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
-        assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
+        assertThat(query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
+        assertThat(query(admin, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
+        assertThat(query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
     }
 
     @Test
@@ -127,44 +118,44 @@ public class TestGrantOnSchema
         String username = randomUsername();
         Session user = sessionOf(username);
 
-        queryRunner.execute(admin, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, username));
+        assertUpdate(admin, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, username));
 
-        assertThat(assertions.query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
-        assertions.query(user, format("GRANT %s ON SCHEMA default TO %s", privilege, randomUsername()));
-        assertions.query(user, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, randomUsername()));
+        assertThat(query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
+        assertUpdate(user, format("GRANT %s ON SCHEMA default TO %s", privilege, randomUsername()));
+        assertUpdate(user, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, randomUsername()));
     }
 
     @Test
     public void testGrantOnNonExistingCatalog()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT SELECT ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT CREATE ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT ALL PRIVILEGES ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
+        assertThat(query(admin, format("GRANT SELECT ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
+        assertThat(query(admin, format("GRANT CREATE ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
+        assertThat(query(admin, format("GRANT ALL PRIVILEGES ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
     }
 
     @Test
     public void testGrantOnNonExistingSchema()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT SELECT ON SCHEMA missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'local.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT CREATE ON SCHEMA missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'local.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT ALL PRIVILEGES ON SCHEMA missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'local.missing_schema' does not exist");
+        assertThat(query(admin, format("GRANT SELECT ON SCHEMA missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'local.missing_schema' does not exist");
+        assertThat(query(admin, format("GRANT CREATE ON SCHEMA missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'local.missing_schema' does not exist");
+        assertThat(query(admin, format("GRANT ALL PRIVILEGES ON SCHEMA missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'local.missing_schema' does not exist");
     }
 
     @Test
     public void testAccessDenied()
     {
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT SELECT ON SCHEMA default TO %s", randomUsername())))
-                .hasMessageContaining("Access Denied: Cannot grant privilege SELECT on schema default");
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT CREATE ON SCHEMA default TO %s", randomUsername())))
-                .hasMessageContaining("Access Denied: Cannot grant privilege CREATE on schema default");
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT ALL PRIVILEGES ON SCHEMA default TO %s", randomUsername())))
-                .hasMessageContaining("Access Denied: Cannot grant privilege CREATE on schema default");
+        assertThat(query(sessionOf(randomUsername()), format("GRANT SELECT ON SCHEMA default TO %s", randomUsername())))
+                .failure().hasMessageContaining("Access Denied: Cannot grant privilege SELECT on schema default");
+        assertThat(query(sessionOf(randomUsername()), format("GRANT CREATE ON SCHEMA default TO %s", randomUsername())))
+                .failure().hasMessageContaining("Access Denied: Cannot grant privilege CREATE on schema default");
+        assertThat(query(sessionOf(randomUsername()), format("GRANT ALL PRIVILEGES ON SCHEMA default TO %s", randomUsername())))
+                .failure().hasMessageContaining("Access Denied: Cannot grant privilege CREATE on schema default");
     }
 
     private static Session sessionOf(String username)

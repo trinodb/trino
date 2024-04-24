@@ -13,15 +13,17 @@
  */
 package io.trino.hive.formats.line.regex;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.LineDeserializerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hive.formats.HiveClassNames.REGEX_SERDE_CLASS;
 
 public class RegexDeserializerFactory
         implements LineDeserializerFactory
@@ -30,9 +32,9 @@ public class RegexDeserializerFactory
     static final String REGEX_CASE_SENSITIVE_KEY = "input.regex.case.insensitive";
 
     @Override
-    public List<String> getHiveSerDeClassNames()
+    public Set<String> getHiveSerDeClassNames()
     {
-        return ImmutableList.of("org.apache.hadoop.hive.serde2.RegexSerDe");
+        return ImmutableSet.of(REGEX_SERDE_CLASS);
     }
 
     @Override

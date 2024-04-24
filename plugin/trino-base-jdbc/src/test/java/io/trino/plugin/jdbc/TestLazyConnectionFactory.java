@@ -55,14 +55,14 @@ public class TestLazyConnectionFactory
 
         Injector injector = Guice.createInjector(binder -> {
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).toInstance(
-                    new DriverConnectionFactory(new Driver(), config, new EmptyCredentialProvider()));
+                    DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), new EmptyCredentialProvider()).build());
             binder.install(new RetryingConnectionFactoryModule());
         });
 
         try (LazyConnectionFactory lazyConnectionFactory = injector.getInstance(LazyConnectionFactory.class)) {
             Connection connection = lazyConnectionFactory.openConnection(SESSION);
             connection.close();
-            assertThatThrownBy(() -> connection.createStatement())
+            assertThatThrownBy(connection::createStatement)
                     .hasMessage("Connection is already closed");
         }
     }

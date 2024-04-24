@@ -21,6 +21,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.collect.Sets.union;
 import static io.trino.cost.EstimateAssertion.assertEstimateEquals;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class PlanNodeStatsAssertion
 {
@@ -52,7 +53,7 @@ public class PlanNodeStatsAssertion
 
     public PlanNodeStatsAssertion symbolStats(String symbolName, Consumer<SymbolStatsAssertion> symbolStatsAssertionConsumer)
     {
-        return symbolStats(new Symbol(symbolName), symbolStatsAssertionConsumer);
+        return symbolStats(new Symbol(UNKNOWN, symbolName), symbolStatsAssertionConsumer);
     }
 
     public PlanNodeStatsAssertion symbolStats(Symbol symbol, Consumer<SymbolStatsAssertion> columnAssertionConsumer)
@@ -64,7 +65,7 @@ public class PlanNodeStatsAssertion
 
     public PlanNodeStatsAssertion symbolStatsUnknown(String symbolName)
     {
-        return symbolStatsUnknown(new Symbol(symbolName));
+        return symbolStatsUnknown(new Symbol(UNKNOWN, symbolName));
     }
 
     public PlanNodeStatsAssertion symbolStatsUnknown(Symbol symbol)

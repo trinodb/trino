@@ -40,20 +40,26 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.eventlistener.BaseViewReferenceInfo;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
+import io.trino.spi.eventlistener.ColumnMaskReferenceInfo;
+import io.trino.spi.eventlistener.MaterializedViewReferenceInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
+import io.trino.spi.eventlistener.RowFilterReferenceInfo;
 import io.trino.spi.eventlistener.TableInfo;
+import io.trino.spi.eventlistener.TableReferenceInfo;
+import io.trino.spi.eventlistener.ViewReferenceInfo;
 import io.trino.spi.function.table.Argument;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
+import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FieldReference;
@@ -81,6 +87,7 @@ import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.SubqueryExpression;
+import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.Unnest;
@@ -150,17 +157,22 @@ public class Analysis
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
     // Record fields prefixed with labels in row pattern recognition context
-    private final Map<NodeRef<DereferenceExpression>, LabelPrefixedReference> labelDereferences = new LinkedHashMap<>();
-
-    private final Set<NodeRef<FunctionCall>> patternRecognitionFunctions = new LinkedHashSet<>();
-
+    private final Map<NodeRef<Expression>, Optional<String>> labels = new LinkedHashMap<>();
     private final Map<NodeRef<RangeQuantifier>, Range> ranges = new LinkedHashMap<>();
-
     private final Map<NodeRef<RowPattern>, Set<String>> undefinedLabels = new LinkedHashMap<>();
-
     private final Map<NodeRef<WindowOperation>, MeasureDefinition> measureDefinitions = new LinkedHashMap<>();
 
-    private final Set<NodeRef<FunctionCall>> patternAggregations = new LinkedHashSet<>();
+    // Pattern function analysis (classifier, match_number, aggregations and prev/next/first/last) in the context of the given node
+    private final Map<NodeRef<Expression>, List<PatternInputAnalysis>> patternInputsAnalysis = new LinkedHashMap<>();
+
+    // FunctionCall nodes corresponding to any of the special pattern recognition functions
+    private final Set<NodeRef<FunctionCall>> patternRecognitionFunctionCalls = new LinkedHashSet<>();
+
+    // FunctionCall nodes corresponding to any of the navigation functions (prev/next/first/last)
+    private final Set<NodeRef<FunctionCall>> patternNavigationFunctions = new LinkedHashSet<>();
+
+    private final Map<NodeRef<Identifier>, String> resolvedLabels = new LinkedHashMap<>();
+    private final Map<NodeRef<SubsetDefinition>, Set<String>> subsets = new LinkedHashMap<>();
 
     // for JSON features
     private final Map<NodeRef<Node>, JsonPathAnalysis> jsonPathAnalyses = new LinkedHashMap<>();
@@ -201,7 +213,6 @@ public class Analysis
 
     private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
-    private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
 
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = new LinkedHashMap<>();
@@ -237,6 +248,8 @@ public class Analysis
     // for recursive view detection
     private final Deque<Table> tablesForView = new ArrayDeque<>();
 
+    private final Deque<TableReferenceInfo> referenceChain = new ArrayDeque<>();
+
     // row id field for update/delete queries
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
     private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
@@ -249,6 +262,7 @@ public class Analysis
     private final Map<NodeRef<TableFunctionInvocation>, TableFunctionInvocationAnalysis> tableFunctionAnalyses = new LinkedHashMap<>();
     private final Set<NodeRef<Relation>> aliasedRelations = new LinkedHashSet<>();
     private final Set<NodeRef<TableFunctionInvocation>> polymorphicTableFunctions = new LinkedHashSet<>();
+    private final Map<NodeRef<Table>, List<Field>> materializedViewStorageTableFields = new LinkedHashMap<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
@@ -341,6 +355,11 @@ public class Analysis
         return unmodifiableMap(types);
     }
 
+    public boolean isAnalyzed(Expression expression)
+    {
+        return expression instanceof DataType || types.containsKey(NodeRef.of(expression));
+    }
+
     public Type getType(Expression expression)
     {
         Type type = types.get(NodeRef.of(expression));
@@ -363,13 +382,9 @@ public class Analysis
         return unmodifiableMap(coercions);
     }
 
-    public Set<NodeRef<Expression>> getTypeOnlyCoercions()
-    {
-        return unmodifiableSet(typeOnlyCoercions);
-    }
-
     public Type getCoercion(Expression expression)
     {
+        checkArgument(isAnalyzed(expression), "Expression has not been analyzed (%s): %s", expression.getClass().getName(), expression);
         return coercions.get(NodeRef.of(expression));
     }
 
@@ -396,11 +411,6 @@ public class Analysis
     public boolean isAggregation(QuerySpecification node)
     {
         return groupingSets.containsKey(NodeRef.of(node));
-    }
-
-    public boolean isTypeOnlyCoercion(Expression expression)
-    {
-        return typeOnlyCoercions.contains(NodeRef.of(expression));
     }
 
     public GroupingSetAnalysis getGroupingSets(QuerySpecification node)
@@ -638,7 +648,8 @@ public class Analysis
             Optional<TableHandle> handle,
             QualifiedObjectName name,
             String authorization,
-            Scope accessControlScope)
+            Scope accessControlScope,
+            Optional<String> viewText)
     {
         tables.put(
                 NodeRef.of(table),
@@ -649,7 +660,9 @@ public class Analysis
                         accessControlScope,
                         tablesForView.isEmpty() &&
                                 rowFilterScopes.isEmpty() &&
-                                columnMaskScopes.isEmpty()));
+                                columnMaskScopes.isEmpty(),
+                        viewText,
+                        referenceChain));
     }
 
     public Set<ResolvedFunction> getResolvedFunctions()
@@ -701,22 +714,17 @@ public class Analysis
         this.types.putAll(types);
     }
 
-    public void addCoercion(Expression expression, Type type, boolean isTypeOnlyCoercion)
+    public void addCoercion(Expression expression, Type type)
     {
         this.coercions.put(NodeRef.of(expression), type);
-        if (isTypeOnlyCoercion) {
-            this.typeOnlyCoercions.add(NodeRef.of(expression));
-        }
     }
 
     public void addCoercions(
             Map<NodeRef<Expression>, Type> coercions,
-            Set<NodeRef<Expression>> typeOnlyCoercions,
             Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation,
             Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison)
     {
         this.coercions.putAll(coercions);
-        this.typeOnlyCoercions.addAll(typeOnlyCoercions);
         this.sortKeyCoercionsForFrameBoundCalculation.putAll(sortKeyCoercionsForFrameBoundCalculation);
         this.sortKeyCoercionsForFrameBoundComparison.putAll(sortKeyCoercionsForFrameBoundComparison);
     }
@@ -868,14 +876,23 @@ public class Analysis
         return Optional.ofNullable(expandableBaseScopes.get(NodeRef.of(node)));
     }
 
-    public void registerTableForView(Table tableReference)
+    public void registerTableForView(Table tableReference, QualifiedObjectName name, boolean isMaterializedView)
     {
         tablesForView.push(requireNonNull(tableReference, "tableReference is null"));
+        BaseViewReferenceInfo referenceInfo;
+        if (isMaterializedView) {
+            referenceInfo = new MaterializedViewReferenceInfo(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+        }
+        else {
+            referenceInfo = new ViewReferenceInfo(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+        }
+        referenceChain.push(referenceInfo);
     }
 
     public void unregisterTableForView()
     {
         tablesForView.pop();
+        referenceChain.pop();
     }
 
     public boolean hasTableInView(Table tableReference)
@@ -955,24 +972,37 @@ public class Analysis
         tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
     }
 
-    public void addLabelDereferences(Map<NodeRef<DereferenceExpression>, LabelPrefixedReference> dereferences)
+    public void addLabels(Map<NodeRef<Expression>, Optional<String>> labels)
     {
-        labelDereferences.putAll(dereferences);
+        this.labels.putAll(labels);
     }
 
-    public LabelPrefixedReference getLabelDereference(DereferenceExpression expression)
+    public void addPatternRecognitionInputs(Map<NodeRef<Expression>, List<PatternInputAnalysis>> functions)
     {
-        return labelDereferences.get(NodeRef.of(expression));
+        patternInputsAnalysis.putAll(functions);
+
+        functions.values().stream()
+                .flatMap(List::stream)
+                .map(PatternInputAnalysis::expression)
+                .filter(FunctionCall.class::isInstance)
+                .map(FunctionCall.class::cast)
+                .map(NodeRef::of)
+                .forEach(patternRecognitionFunctionCalls::add);
     }
 
-    public void addPatternRecognitionFunctions(Set<NodeRef<FunctionCall>> functions)
+    public void addPatternNavigationFunctions(Set<NodeRef<FunctionCall>> functions)
     {
-        patternRecognitionFunctions.addAll(functions);
+        patternNavigationFunctions.addAll(functions);
+    }
+
+    public Optional<String> getLabel(Expression expression)
+    {
+        return labels.get(NodeRef.of(expression));
     }
 
     public boolean isPatternRecognitionFunction(FunctionCall functionCall)
     {
-        return patternRecognitionFunctions.contains(NodeRef.of(functionCall));
+        return patternRecognitionFunctionCalls.contains(NodeRef.of(functionCall));
     }
 
     public void setRanges(Map<NodeRef<RangeQuantifier>, Range> quantifierRanges)
@@ -1012,16 +1042,6 @@ public class Analysis
     public MeasureDefinition getMeasureDefinition(WindowOperation measure)
     {
         return measureDefinitions.get(NodeRef.of(measure));
-    }
-
-    public void setPatternAggregations(Set<NodeRef<FunctionCall>> aggregations)
-    {
-        patternAggregations.addAll(aggregations);
-    }
-
-    public boolean isPatternAggregation(FunctionCall function)
-    {
-        return patternAggregations.contains(NodeRef.of(function));
     }
 
     public void setJsonPathAnalyses(Map<NodeRef<Node>, JsonPathAnalysis> pathAnalyses)
@@ -1089,14 +1109,16 @@ public class Analysis
         return rowFilterScopes.contains(new RowFilterScopeEntry(table, identity));
     }
 
-    public void registerTableForRowFiltering(QualifiedObjectName table, String identity)
+    public void registerTableForRowFiltering(QualifiedObjectName table, String identity, String filterExpression)
     {
         rowFilterScopes.add(new RowFilterScopeEntry(table, identity));
+        referenceChain.push(new RowFilterReferenceInfo(filterExpression, table.getCatalogName(), table.getSchemaName(), table.getObjectName()));
     }
 
     public void unregisterTableForRowFiltering(QualifiedObjectName table, String identity)
     {
         rowFilterScopes.remove(new RowFilterScopeEntry(table, identity));
+        referenceChain.pop();
     }
 
     public void addRowFilter(Table table, Expression filter)
@@ -1126,14 +1148,16 @@ public class Analysis
         return columnMaskScopes.contains(new ColumnMaskScopeEntry(table, column, identity));
     }
 
-    public void registerTableForColumnMasking(QualifiedObjectName table, String column, String identity)
+    public void registerTableForColumnMasking(QualifiedObjectName table, String column, String identity, String maskExpression)
     {
         columnMaskScopes.add(new ColumnMaskScopeEntry(table, column, identity));
+        referenceChain.push(new ColumnMaskReferenceInfo(maskExpression, table.getCatalogName(), table.getSchemaName(), table.getObjectName(), column));
     }
 
     public void unregisterTableForColumnMasking(QualifiedObjectName table, String column, String identity)
     {
         columnMaskScopes.remove(new ColumnMaskScopeEntry(table, column, identity));
+        referenceChain.pop();
     }
 
     public void addColumnMask(Table table, String column, Expression mask)
@@ -1178,7 +1202,9 @@ public class Analysis
                                     .map(Expression::toString)
                                     .collect(toImmutableList()),
                             columns,
-                            info.isDirectlyReferenced());
+                            info.isDirectlyReferenced(),
+                            info.getViewText(),
+                            info.getReferenceChain());
                 })
                 .collect(toImmutableList());
     }
@@ -1269,6 +1295,11 @@ public class Analysis
         return tableFunctionAnalyses.get(NodeRef.of(node));
     }
 
+    public Set<NodeRef<TableFunctionInvocation>> getPolymorphicTableFunctions()
+    {
+        return ImmutableSet.copyOf(polymorphicTableFunctions);
+    }
+
     public void setRelationName(Relation relation, QualifiedName name)
     {
         relationNames.put(NodeRef.of(relation), name);
@@ -1311,6 +1342,56 @@ public class Analysis
                 .map(Insert::getTable)
                 .map(tableReference -> tableReference == table) // intentional comparison by reference
                 .orElse(FALSE);
+    }
+
+    public List<PatternInputAnalysis> getPatternInputsAnalysis(Expression expression)
+    {
+        return patternInputsAnalysis.get(NodeRef.of(expression));
+    }
+
+    public boolean isPatternNavigationFunction(FunctionCall node)
+    {
+        return patternNavigationFunctions.contains(NodeRef.of(node));
+    }
+
+    public String getResolvedLabel(Identifier identifier)
+    {
+        return resolvedLabels.get(NodeRef.of(identifier));
+    }
+
+    public Set<String> getLabels(SubsetDefinition subset)
+    {
+        return subsets.get(NodeRef.of(subset));
+    }
+
+    public void addSubsetLabels(SubsetDefinition subset, Set<String> labels)
+    {
+        subsets.put(NodeRef.of(subset), labels);
+    }
+
+    public void addSubsetLabels(Map<NodeRef<SubsetDefinition>, Set<String>> subsets)
+    {
+        this.subsets.putAll(subsets);
+    }
+
+    public void addResolvedLabel(Identifier label, String resolved)
+    {
+        resolvedLabels.put(NodeRef.of(label), resolved);
+    }
+
+    public void addResolvedLabels(Map<NodeRef<Identifier>, String> labels)
+    {
+        resolvedLabels.putAll(labels);
+    }
+
+    public List<Field> getMaterializedViewStorageTableFields(Table node)
+    {
+        return materializedViewStorageTableFields.get(NodeRef.of(node));
+    }
+
+    public void setMaterializedViewStorageTableFields(Table node, List<Field> fields)
+    {
+        materializedViewStorageTableFields.put(NodeRef.of(node), fields);
     }
 
     @Immutable
@@ -1988,19 +2069,25 @@ public class Analysis
         private final String authorization;
         private final Scope accessControlScope; // synthetic scope for analysis of row filters and masks
         private final boolean directlyReferenced;
+        private final Optional<String> viewText;
+        private final List<TableReferenceInfo> referenceChain;
 
         public TableEntry(
                 Optional<TableHandle> handle,
                 QualifiedObjectName name,
                 String authorization,
                 Scope accessControlScope,
-                boolean directlyReferenced)
+                boolean directlyReferenced,
+                Optional<String> viewText,
+                Iterable<TableReferenceInfo> referenceChain)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.name = requireNonNull(name, "name is null");
             this.authorization = requireNonNull(authorization, "authorization is null");
             this.accessControlScope = requireNonNull(accessControlScope, "accessControlScope is null");
             this.directlyReferenced = directlyReferenced;
+            this.viewText = requireNonNull(viewText, "viewText is null");
+            this.referenceChain = ImmutableList.copyOf(requireNonNull(referenceChain, "referenceChain is null"));
         }
 
         public Optional<TableHandle> getHandle()
@@ -2013,11 +2100,6 @@ public class Analysis
             return name;
         }
 
-        public boolean isDirectlyReferenced()
-        {
-            return directlyReferenced;
-        }
-
         public String getAuthorization()
         {
             return authorization;
@@ -2026,6 +2108,21 @@ public class Analysis
         public Scope getAccessControlScope()
         {
             return accessControlScope;
+        }
+
+        public boolean isDirectlyReferenced()
+        {
+            return directlyReferenced;
+        }
+
+        public Optional<String> getViewText()
+        {
+            return viewText;
+        }
+
+        public List<TableReferenceInfo> getReferenceChain()
+        {
+            return referenceChain;
         }
     }
 

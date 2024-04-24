@@ -17,15 +17,13 @@ import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tests.product.TestGroups.LOGICAL;
-import static io.trino.tests.product.TestGroups.QUERY_ENGINE;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLogical
         extends ProductTest
 {
-    @Test(groups = {LOGICAL, QUERY_ENGINE})
+    @Test
     public void testLogicalOperatorsExists()
     {
         assertThat(onTrino().executeQuery("select true AND true")).containsExactlyInOrder(row(true));

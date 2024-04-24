@@ -16,7 +16,7 @@ package io.trino.plugin.kafka.schema.confluent;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.plugin.kafka.KafkaQueryRunnerBuilder;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 
 import java.util.HashMap;
@@ -42,7 +42,7 @@ public final class KafkaWithConfluentSchemaRegistryQueryRunner
         }
 
         @Override
-        public void preInit(DistributedQueryRunner queryRunner)
+        public void preInit(QueryRunner queryRunner)
         {
             Map<String, String> properties = new HashMap<>(extraKafkaProperties);
             properties.putIfAbsent("kafka.table-description-supplier", "confluent");
@@ -56,7 +56,7 @@ public final class KafkaWithConfluentSchemaRegistryQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = builder(TestingKafka.createWithSchemaRegistry())
+        QueryRunner queryRunner = builder(TestingKafka.createWithSchemaRegistry())
                 .build();
         Logger log = Logger.get(KafkaWithConfluentSchemaRegistryQueryRunner.class);
         log.info("======== SERVER STARTED ========");

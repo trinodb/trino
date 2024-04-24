@@ -13,9 +13,11 @@
  */
 package io.trino.connector;
 
+import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorName;
 
 import java.util.concurrent.atomic.AtomicReference;
 

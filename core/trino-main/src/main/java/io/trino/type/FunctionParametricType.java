@@ -49,6 +49,6 @@ public final class FunctionParametricType
                 parameters);
         List<Type> types = parameters.stream().map(TypeParameter::getType).collect(toList());
 
-        return new FunctionType(types.subList(0, types.size() - 1), types.get(types.size() - 1));
+        return new FunctionType(types.subList(0, types.size() - 1), types.getLast());
     }
 }

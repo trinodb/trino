@@ -15,7 +15,10 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.tracing.Tracing;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
@@ -31,6 +34,7 @@ import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Split;
+import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
@@ -65,11 +69,9 @@ import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 
 public final class TaskTestUtils
@@ -84,7 +86,7 @@ public final class TaskTestUtils
 
     public static final ImmutableList<SplitAssignment> EMPTY_SPLIT_ASSIGNMENTS = ImmutableList.of();
 
-    public static final Symbol SYMBOL = new Symbol("column");
+    public static final Symbol SYMBOL = new Symbol(BIGINT, "column");
 
     public static final PlanFragment PLAN_FRAGMENT = new PlanFragment(
             new PlanFragmentId("fragment"),
@@ -95,7 +97,7 @@ public final class TaskTestUtils
                     ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT)),
                     false,
                     Optional.empty()),
-            ImmutableMap.of(SYMBOL, VARCHAR),
+            ImmutableSet.of(SYMBOL),
             SOURCE_DISTRIBUTION,
             Optional.empty(),
             ImmutableList.of(TABLE_SCAN_NODE_ID),
@@ -103,7 +105,7 @@ public final class TaskTestUtils
                     .withBucketToPartition(Optional.of(new int[1])),
             StatsAndCosts.empty(),
             ImmutableList.of(),
-            ImmutableList.of(),
+            ImmutableMap.of(),
             Optional.empty());
 
     public static final DynamicFilterId DYNAMIC_FILTER_SOURCE_ID = new DynamicFilterId("filter");
@@ -120,7 +122,7 @@ public final class TaskTestUtils
                             false,
                             Optional.empty()),
                     ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, SYMBOL)),
-            ImmutableMap.of(SYMBOL, VARCHAR),
+            ImmutableSet.of(SYMBOL),
             SOURCE_DISTRIBUTION,
             Optional.empty(),
             ImmutableList.of(TABLE_SCAN_NODE_ID),
@@ -128,7 +130,7 @@ public final class TaskTestUtils
                     .withBucketToPartition(Optional.of(new int[1])),
             StatsAndCosts.empty(),
             ImmutableList.of(),
-            ImmutableList.of(),
+            ImmutableMap.of(),
             Optional.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()
@@ -151,7 +153,6 @@ public final class TaskTestUtils
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
-                createTestingTypeAnalyzer(PLANNER_CONTEXT),
                 Optional.empty(),
                 pageSourceManager,
                 new IndexManager(CatalogServiceProvider.fail()),
@@ -174,12 +175,13 @@ public final class TaskTestUtils
                 },
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(PLANNER_CONTEXT.getTypeOperators()),
+                new FlatHashStrategyCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new OrderingCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,
                 PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
-                new ExchangeManagerRegistry(),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
                 new NodeVersion("test"),
                 new CompilerConfig());
     }

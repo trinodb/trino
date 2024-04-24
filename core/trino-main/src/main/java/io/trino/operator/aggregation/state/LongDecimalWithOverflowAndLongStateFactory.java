@@ -52,10 +52,10 @@ public class LongDecimalWithOverflowAndLongStateFactory
         private LongBigArray overflows; // lazily initialized on the first overflow
 
         @Override
-        public void ensureCapacity(long size)
+        public void ensureCapacity(int size)
         {
             longs.ensureCapacity(size);
-            unscaledDecimals.ensureCapacity(size * 2);
+            unscaledDecimals.ensureCapacity(size * 2L);
             if (overflows != null) {
                 overflows.ensureCapacity(size);
             }
@@ -82,13 +82,13 @@ public class LongDecimalWithOverflowAndLongStateFactory
         @Override
         public long[] getDecimalArray()
         {
-            return unscaledDecimals.getSegment(getGroupId() * 2);
+            return unscaledDecimals.getSegment(getGroupId() * 2L);
         }
 
         @Override
         public int getDecimalArrayOffset()
         {
-            return unscaledDecimals.getOffset(getGroupId() * 2);
+            return unscaledDecimals.getOffset(getGroupId() * 2L);
         }
 
         @Override

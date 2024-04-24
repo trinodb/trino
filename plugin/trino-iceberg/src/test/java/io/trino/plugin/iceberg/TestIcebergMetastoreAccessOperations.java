@@ -18,7 +18,7 @@ import com.google.common.collect.Multiset;
 import io.trino.Session;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -34,7 +34,6 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES_WITH_PARAMETER;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.REPLACE_TABLE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
@@ -42,6 +41,7 @@ import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
 import static io.trino.plugin.iceberg.TableType.MANIFESTS;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
+import static io.trino.plugin.iceberg.TableType.METADATA_LOG_ENTRIES;
 import static io.trino.plugin.iceberg.TableType.PARTITIONS;
 import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.REFS;
@@ -56,7 +56,7 @@ public class TestIcebergMetastoreAccessOperations
     private static final int MAX_PREFIXES_COUNT = 10;
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return IcebergQueryRunner.builder()
@@ -301,6 +301,12 @@ public class TestIcebergMetastoreAccessOperations
                         .addCopies(GET_TABLE, 1)
                         .build());
 
+        // select from $metadata_log_entries
+        assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$metadata_log_entries\"",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .build());
+
         // select from $snapshots
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$snapshots\"",
                 ImmutableMultiset.<MetastoreMethod>builder()
@@ -336,7 +342,7 @@ public class TestIcebergMetastoreAccessOperations
 
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
-                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS, MATERIALIZED_VIEW_STORAGE);
+                .containsExactly(DATA, HISTORY, METADATA_LOG_ENTRIES, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS, MATERIALIZED_VIEW_STORAGE);
     }
 
     @Test
@@ -376,7 +382,6 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLES)
                         .addCopies(GET_TABLE, tables * 2)
-                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
                         .build());
 
         // Pointed lookup
@@ -422,14 +427,12 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLES)
                         .addCopies(GET_TABLE, tables * 2)
-                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
                         .build());
 
         // Bulk retrieval for two schemas
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent') AND table_name LIKE 'test_select_s_m_t_comments%'",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLES, 2)
-                        .addCopies(GET_TABLES_WITH_PARAMETER, 4)
                         .addCopies(GET_TABLE, tables * 2)
                         .build());
 
@@ -475,21 +478,21 @@ public class TestIcebergMetastoreAccessOperations
         // Bulk retrieval
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_TABLES_WITH_PARAMETER)
+                        .add(GET_TABLES)
                         .addCopies(GET_TABLE, 4)
                         .build());
 
         // Bulk retrieval without selecting freshness
         assertMetastoreInvocations(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_TABLES_WITH_PARAMETER)
+                        .add(GET_TABLES)
                         .addCopies(GET_TABLE, 2)
                         .build());
 
         // Bulk retrieval for two schemas
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent')",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
+                        .addCopies(GET_TABLES, 2)
                         .addCopies(GET_TABLE, 4)
                         .build());
 

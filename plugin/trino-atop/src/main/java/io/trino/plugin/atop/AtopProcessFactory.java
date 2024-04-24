@@ -18,8 +18,8 @@ import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
-import io.trino.plugin.base.CatalogName;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import jakarta.annotation.PreDestroy;
 
 import java.io.BufferedReader;

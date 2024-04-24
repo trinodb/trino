@@ -16,9 +16,9 @@ package io.trino.plugin.accumulo;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.TrinoException;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
-import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.NamespaceExistsException;
 import org.apache.accumulo.core.client.NamespaceNotEmptyException;
@@ -45,18 +45,18 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloTableManager
 {
     private static final Logger LOG = Logger.get(AccumuloTableManager.class);
-    private final Connector connector;
+    private final AccumuloClient client;
 
     @Inject
-    public AccumuloTableManager(Connector connector)
+    public AccumuloTableManager(AccumuloClient client)
     {
-        this.connector = requireNonNull(connector, "connector is null");
+        this.client = requireNonNull(client, "client is null");
     }
 
     public void createNamespace(String schema)
     {
         try {
-            connector.namespaceOperations().create(schema);
+            client.namespaceOperations().create(schema);
         }
         catch (NamespaceExistsException e) {
             throw new TrinoException(ALREADY_EXISTS, "Namespace already exists: " + schema, e);
@@ -69,7 +69,7 @@ public class AccumuloTableManager
     public void dropNamespace(String schema)
     {
         try {
-            connector.namespaceOperations().delete(schema);
+            client.namespaceOperations().delete(schema);
         }
         catch (AccumuloException | AccumuloSecurityException | NamespaceNotFoundException | NamespaceNotEmptyException e) {
             throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to delete Accumulo namespace: " + schema, e);
@@ -79,7 +79,7 @@ public class AccumuloTableManager
     public boolean namespaceExists(String schema)
     {
         try {
-            return connector.namespaceOperations().exists(schema);
+            return client.namespaceOperations().exists(schema);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
             throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to check for existence Accumulo namespace: " + schema, e);
@@ -88,13 +88,13 @@ public class AccumuloTableManager
 
     public boolean exists(String table)
     {
-        return connector.tableOperations().exists(table);
+        return client.tableOperations().exists(table);
     }
 
     public void createAccumuloTable(String table)
     {
         try {
-            connector.tableOperations().create(table);
+            client.tableOperations().create(table);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
             throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to create Accumulo table", e);
@@ -111,7 +111,7 @@ public class AccumuloTableManager
         }
 
         try {
-            connector.tableOperations().setLocalityGroups(tableName, groups);
+            client.tableOperations().setLocalityGroups(tableName, groups);
             LOG.debug("Set locality groups for %s to %s", tableName, groups);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
@@ -126,12 +126,12 @@ public class AccumuloTableManager
     {
         try {
             // Remove any existing iterator settings of the same name, if applicable
-            Map<String, EnumSet<IteratorScope>> iterators = connector.tableOperations().listIterators(table);
+            Map<String, EnumSet<IteratorScope>> iterators = client.tableOperations().listIterators(table);
             if (iterators.containsKey(setting.getName())) {
-                connector.tableOperations().removeIterator(table, setting.getName(), iterators.get(setting.getName()));
+                client.tableOperations().removeIterator(table, setting.getName(), iterators.get(setting.getName()));
             }
 
-            connector.tableOperations().attachIterator(table, setting);
+            client.tableOperations().attachIterator(table, setting);
         }
         catch (AccumuloSecurityException | AccumuloException e) {
             throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to set iterator on table " + table, e);
@@ -144,7 +144,7 @@ public class AccumuloTableManager
     public void deleteAccumuloTable(String tableName)
     {
         try {
-            connector.tableOperations().delete(tableName);
+            client.tableOperations().delete(tableName);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
             throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to delete Accumulo table", e);
@@ -157,7 +157,7 @@ public class AccumuloTableManager
     public void renameAccumuloTable(String oldName, String newName)
     {
         try {
-            connector.tableOperations().rename(oldName, newName);
+            client.tableOperations().rename(oldName, newName);
         }
         catch (AccumuloSecurityException | AccumuloException e) {
             throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to rename table", e);

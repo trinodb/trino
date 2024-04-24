@@ -47,12 +47,13 @@ public final class CountColumn
     }
 
     @RemoveInputFunction
-    public static void removeInput(
+    public static boolean removeInput(
             @AggregationState LongState state,
             @BlockPosition @SqlType("T") ValueBlock block,
             @BlockIndex int position)
     {
         state.setValue(state.getValue() - 1);
+        return true;
     }
 
     @CombineFunction

@@ -15,7 +15,7 @@ package io.trino.sql.query;
 
 import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLag
 {
@@ -23,11 +23,11 @@ public class TestLag
     public void testNullOffset()
     {
         try (QueryAssertions assertions = new QueryAssertions()) {
-            assertThatThrownBy(() -> assertions.query("""
+            assertThat(assertions.query("""
                     SELECT lag(v, null) OVER (ORDER BY k)
                     FROM (VALUES (1, 10), (2, 20)) t(k, v)
                     """))
-                    .hasMessageMatching("Offset must not be null");
+                    .failure().hasMessageMatching("Offset must not be null");
         }
     }
 }

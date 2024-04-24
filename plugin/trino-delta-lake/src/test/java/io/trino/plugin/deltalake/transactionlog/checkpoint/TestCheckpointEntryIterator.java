@@ -609,6 +609,8 @@ public class TestCheckpointEntryIterator
         assertThat(entries).element(3).extracting(DeltaLakeTransactionLogEntry::getRemove).isEqualTo(
                 new RemoveFileEntry(
                         "age=42/part-00000-951068bd-bcf4-4094-bb94-536f3c41d31f.c000.snappy.parquet",
+                        // partitionValues information is missing in the checkpoint
+                        null,
                         1579190155406L,
                         false));
 
@@ -921,6 +923,7 @@ public class TestCheckpointEntryIterator
         Set<RemoveFileEntry> removeEntries = IntStream.range(0, numRemoveEntries).mapToObj(x ->
                         new RemoveFileEntry(
                                 UUID.randomUUID().toString(),
+                                ImmutableMap.of("part_key", "2023-01-01 00:00:00"),
                                 1000,
                                 true))
                 .collect(toImmutableSet());

@@ -389,7 +389,13 @@ public class ParquetWriter
                 .withPageSize(writerOption.getMaxPageSize())
                 .build();
 
-        this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodec, parquetTimeZone);
+        this.columnWriters = ParquetWriters.getColumnWriters(
+                messageType,
+                primitiveTypes,
+                parquetProperties,
+                compressionCodec,
+                writerOption.getMaxPageValueCount(),
+                parquetTimeZone);
     }
 
     private static class FileFooter

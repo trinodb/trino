@@ -16,7 +16,6 @@ package io.trino.testing.datatype;
 import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TemporaryRelation;
@@ -99,7 +98,8 @@ public final class SqlDataTypeTest
         @SuppressWarnings("resource") // Closing QueryAssertions would close the QueryRunner
         QueryAssertions queryAssertions = new QueryAssertions(queryRunner);
 
-        QueryAssert assertion = assertThat(queryAssertions.query(session, "SELECT * FROM " + temporaryRelation.getName()));
+        QueryAssertions.ResultAssert assertion = assertThat(queryAssertions.query(session, "SELECT * FROM " + temporaryRelation.getName()))
+                .result();
         MaterializedResult expected = queryRunner.execute(session, testCases.stream()
                 .map(TestCase::getExpectedLiteral)
                 .collect(joining(",", "VALUES ROW(", ")")));
@@ -109,7 +109,7 @@ public final class SqlDataTypeTest
             TestCase testCase = testCases.get(column);
             if (testCase.getExpectedType().isPresent()) {
                 Type expectedType = testCase.getExpectedType().get();
-                assertion.outputHasType(column, expectedType);
+                assertion.hasType(column, expectedType);
                 assertThat(expected.getTypes())
                         .as(format("Expected literal type at column %d (check consistency of expected type and expected literal)", column + 1))
                         .element(column).isEqualTo(expectedType);

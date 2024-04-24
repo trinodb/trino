@@ -21,8 +21,8 @@ import io.trino.operator.window.pattern.LogicalIndexNavigation;
 import io.trino.operator.window.pattern.MatchAggregation;
 import io.trino.operator.window.pattern.MatchAggregation.MatchAggregationInstantiator;
 import io.trino.operator.window.pattern.MeasureComputation.MeasureComputationSupplier;
-import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
-import io.trino.sql.tree.SkipTo;
+import io.trino.sql.planner.plan.RowsPerMatch;
+import io.trino.sql.planner.plan.SkipToPosition;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,7 +39,7 @@ public class PatternRecognitionPartitionerSupplier
     private final Optional<FrameInfo> commonBaseFrame;
     private final RowsPerMatch rowsPerMatch;
     private final Optional<LogicalIndexNavigation> skipToNavigation;
-    private final SkipTo.Position skipToPosition;
+    private final SkipToPosition skipToPosition;
     private final boolean initial;
     private final Matcher matcher;
     private final List<EvaluationSupplier> labelEvaluations;
@@ -53,7 +53,7 @@ public class PatternRecognitionPartitionerSupplier
             Optional<FrameInfo> commonBaseFrame,
             RowsPerMatch rowsPerMatch,
             Optional<LogicalIndexNavigation> skipToNavigation,
-            SkipTo.Position skipToPosition,
+            SkipToPosition skipToPosition,
             boolean initial,
             Matcher matcher,
             List<EvaluationSupplier> labelEvaluations,

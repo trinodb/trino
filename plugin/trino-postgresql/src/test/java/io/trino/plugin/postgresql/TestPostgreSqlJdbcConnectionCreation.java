@@ -19,7 +19,6 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.BaseJdbcConnectionCreationTest;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
@@ -59,7 +58,9 @@ public class TestPostgreSqlJdbcConnectionCreation
         CredentialProvider credentialProvider = new StaticCredentialProvider(
                 Optional.of(postgreSqlServer.getUser()),
                 Optional.of(postgreSqlServer.getPassword()));
-        DriverConnectionFactory delegate = new DriverConnectionFactory(new Driver(), postgreSqlServer.getJdbcUrl(), connectionProperties, credentialProvider, OpenTelemetry.noop());
+        DriverConnectionFactory delegate = DriverConnectionFactory.builder(new Driver(), postgreSqlServer.getJdbcUrl(), credentialProvider)
+                .setConnectionProperties(connectionProperties)
+                .build();
         this.connectionFactory = new ConnectionCountingConnectionFactory(delegate);
         return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableList.of(NATION, REGION), connectionFactory);
     }
@@ -90,13 +91,13 @@ public class TestPostgreSqlJdbcConnectionCreation
         assertJdbcConnections("SHOW STATS FOR nation", 2, Optional.empty());
     }
 
-    private static DistributedQueryRunner createPostgreSqlQueryRunner(
+    private static QueryRunner createPostgreSqlQueryRunner(
             TestingPostgreSqlServer server,
             Iterable<TpchTable<?>> tables,
             ConnectionCountingConnectionFactory connectionCountingConnectionFactory)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 // to make sure we always open connections in the same way
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .build();

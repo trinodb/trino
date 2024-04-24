@@ -59,7 +59,6 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import jakarta.annotation.PreDestroy;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.phoenix.jdbc.PhoenixDriver;
@@ -75,6 +74,7 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 import static io.trino.plugin.phoenix5.ConfigurationInstantiator.newEmptyConfiguration;
@@ -147,6 +147,9 @@ public class PhoenixClientModule
         install(new JdbcDiagnosticModule());
         install(new IdentifierMappingModule());
         install(new DecimalModule());
+
+        closingBinder(binder)
+                .registerExecutor(ExecutorService.class, ForRecordCursor.class);
     }
 
     private void checkConfiguration(String connectionUrl)
@@ -167,12 +170,13 @@ public class PhoenixClientModule
             throws SQLException
     {
         return new ConfiguringConnectionFactory(
-                new DriverConnectionFactory(
-                        PhoenixDriver.INSTANCE, // Note: for some reason new PhoenixDriver won't work.
-                        config.getConnectionUrl(),
-                        getConnectionProperties(config),
-                        new EmptyCredentialProvider(),
-                        openTelemetry),
+                DriverConnectionFactory.builder(
+                                PhoenixDriver.INSTANCE, // Note: for some reason new PhoenixDriver won't work.
+                                config.getConnectionUrl(),
+                                new EmptyCredentialProvider())
+                        .setConnectionProperties(getConnectionProperties(config))
+                        .setOpenTelemetry(openTelemetry)
+                        .build(),
                 connection -> {
                     // Per JDBC spec, a Driver is expected to have new connections in auto-commit mode.
                     // This seems not to be true for PhoenixDriver, so we need to be explicit here.
@@ -209,11 +213,5 @@ public class PhoenixClientModule
     public ExecutorService createRecordCursorExecutor()
     {
         return newDirectExecutorService();
-    }
-
-    @PreDestroy
-    public void shutdownRecordCursorExecutor(@ForRecordCursor ExecutorService executor)
-    {
-        executor.shutdownNow();
     }
 }

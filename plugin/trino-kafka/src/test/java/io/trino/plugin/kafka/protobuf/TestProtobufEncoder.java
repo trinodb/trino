@@ -396,7 +396,7 @@ public class TestProtobufEncoder
         BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
         Block mapBlock = mapType.createBlockFromKeyValue(
                 Optional.empty(),
-                new int[]{0, 1},
+                new int[] {0, 1},
                 nativeValueToBlock(VARCHAR, utf8Slice("Key")),
                 rowBlockBuilder.build());
         mapType.appendTo(
@@ -409,12 +409,12 @@ public class TestProtobufEncoder
         Block arrayBlock = fromElementBlock(
                 1,
                 Optional.empty(),
-                new int[]{0, rowBlockBuilder.getPositionCount()},
+                new int[] {0, rowBlockBuilder.getPositionCount()},
                 rowBlockBuilder.build());
         listType.appendTo(arrayBlock, 0, listBlockBuilder);
 
         BlockBuilder nestedBlockBuilder = nestedRowType.createBlockBuilder(null, 1);
-        Block rowBlock = fromFieldBlocks(1, new Block[]{listBlockBuilder.build(), mapBlockBuilder.build(), rowBlockBuilder.build()});
+        Block rowBlock = fromFieldBlocks(1, new Block[] {listBlockBuilder.build(), mapBlockBuilder.build(), rowBlockBuilder.build()});
         nestedRowType.appendTo(rowBlock, 0, nestedBlockBuilder);
 
         rowEncoder.appendColumnValue(nestedBlockBuilder.build(), 0);

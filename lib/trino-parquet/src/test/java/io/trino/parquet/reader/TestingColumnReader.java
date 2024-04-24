@@ -68,6 +68,7 @@ import java.util.Map.Entry;
 import java.util.function.IntFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.parquet.ParquetTestUtils.toTrinoDictionaryPage;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
@@ -79,8 +80,11 @@ import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimeType.TIME_NANOS;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
@@ -89,10 +93,10 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
@@ -127,8 +131,8 @@ public class TestingColumnReader
             .put(REAL, IntArrayBlock.class)
             .put(DoubleType.DOUBLE, LongArrayBlock.class)
             .put(VARCHAR, VariableWidthBlock.class)
-            .put(DecimalType.createDecimalType(8, 0), LongArrayBlock.class)
-            .put(DecimalType.createDecimalType(38, 2), Int128ArrayBlock.class)
+            .put(createDecimalType(8, 0), LongArrayBlock.class)
+            .put(createDecimalType(38, 2), Int128ArrayBlock.class)
             .put(TIME_MILLIS, LongArrayBlock.class)
             .put(TIMESTAMP_MILLIS, LongArrayBlock.class)
             .put(TIMESTAMP_TZ_MILLIS, LongArrayBlock.class)
@@ -342,16 +346,24 @@ public class TestingColumnReader
         };
     }
 
-    private static final Assertion<Number> ASSERT_BYTE = (values, block, offset, blockOffset) -> assertThat(block.getByte(blockOffset, 0)).isEqualTo(values[offset].byteValue());
-    private static final Assertion<Number> ASSERT_SHORT = (values, block, offset, blockOffset) -> assertThat(block.getShort(blockOffset, 0)).isEqualTo(values[offset].shortValue());
-    private static final Assertion<Number> ASSERT_INT = (values, block, offset, blockOffset) -> assertThat(block.getInt(blockOffset, 0)).isEqualTo(values[offset].intValue());
-    private static final Assertion<Float> ASSERT_FLOAT = (values, block, offset, blockOffset) -> assertThat(intBitsToFloat(block.getInt(blockOffset, 0))).isEqualTo(values[offset].floatValue());
-    private static final Assertion<Number> ASSERT_LONG = (values, block, offset, blockOffset) -> assertThat(block.getLong(blockOffset, 0)).isEqualTo(values[offset].longValue());
-    private static final Assertion<Double> ASSERT_DOUBLE = (values, block, offset, blockOffset) -> assertThat(Double.longBitsToDouble(block.getLong(blockOffset, 0))).isEqualTo(values[offset].doubleValue());
+    private static final Assertion<Number> ASSERT_BOOLEAN = (values, block, offset, blockOffset) -> assertThat(BooleanType.BOOLEAN.getBoolean(block, blockOffset)).isEqualTo(values[offset].byteValue() != 0);
+    private static final Assertion<Number> ASSERT_BYTE = (values, block, offset, blockOffset) -> assertThat(TINYINT.getByte(block, blockOffset)).isEqualTo(values[offset].byteValue());
+    private static final Assertion<Number> ASSERT_SHORT = (values, block, offset, blockOffset) -> assertThat(SMALLINT.getShort(block, blockOffset)).isEqualTo(values[offset].shortValue());
+    private static final Assertion<Number> ASSERT_INT = (values, block, offset, blockOffset) -> assertThat(INTEGER.getInt(block, blockOffset)).isEqualTo(values[offset].intValue());
+    private static final Assertion<Float> ASSERT_FLOAT = (values, block, offset, blockOffset) -> assertThat(REAL.getFloat(block, blockOffset)).isEqualTo(values[offset].floatValue());
+    private static final Assertion<Number> ASSERT_LONG = (values, block, offset, blockOffset) -> assertThat(BIGINT.getLong(block, blockOffset)).isEqualTo(values[offset].longValue());
+    private static final Assertion<Double> ASSERT_DOUBLE = (values, block, offset, blockOffset) -> assertThat(DoubleType.DOUBLE.getDouble(block, blockOffset)).isEqualTo(values[offset].doubleValue());
     private static final Assertion<Float> ASSERT_DOUBLE_STORED_AS_FLOAT = (values, block, offset, blockOffset) ->
-            assertThat(Double.longBitsToDouble(block.getLong(blockOffset, 0))).isEqualTo(values[offset].floatValue());
-    private static final Assertion<Number> ASSERT_INT_128 = new Assertion<>()
+            assertThat(DoubleType.DOUBLE.getDouble(block, blockOffset)).isEqualTo(values[offset].floatValue());
+
+    private record Int128Assertion(Type type)
+            implements Assertion<Number>
     {
+        private Int128Assertion
+        {
+            checkArgument(type.getJavaType().equals(Int128.class));
+        }
+
         @Override
         public void assertPosition(Number[] expected, Block block, int index, int blockIndex)
         {
@@ -367,8 +379,9 @@ public class TestingColumnReader
                     assertThat(expected[2 * (offset + i) + 1]).isNull();
                 }
                 else {
-                    assertThat(block.getLong(blockOffset + i, 0)).isEqualTo(expected[2 * (offset + i)].longValue());
-                    assertThat(block.getLong(blockOffset + i, 8)).isEqualTo(expected[2 * (offset + i) + 1].longValue());
+                    Int128 value = (Int128) type.getObject(block, blockOffset + i);
+                    assertThat(value.getHigh()).isEqualTo(expected[2 * (offset + i)].longValue());
+                    assertThat(value.getLow()).isEqualTo(expected[2 * (offset + i) + 1].longValue());
                 }
             }
         }
@@ -379,28 +392,23 @@ public class TestingColumnReader
             assertThat(expected.length).isEqualTo(block.getPositionCount() * 2);
             assertBlock(expected, block, 0, 0, block.getPositionCount());
         }
-    };
-
-    private static Assertion<Number> assertRescaled(int scale)
-    {
-        return (expected, block, index, blockIndex) -> {
-            long multiplier = longTenToNth(scale);
-            assertThat(block.getLong(blockIndex, 0)).isEqualTo(expected[index].longValue() * multiplier);
-        };
     }
 
-    private static Assertion<Number> assertShortToLongRescaled(int scale)
+    private static Assertion<Number> assertShortDecimal(DecimalType decimalType)
     {
-        long multiplier = longTenToNth(scale);
-        return (expected, block, index, blockIndex) -> {
-            assertThat(block.getLong(blockIndex, 0)).isEqualTo(0);
-            assertThat(block.getLong(blockIndex, 8)).isEqualTo(expected[index].longValue() * multiplier);
-        };
+        long multiplier = longTenToNth(decimalType.getScale());
+        return (expected, block, index, blockIndex) -> assertThat(decimalType.getLong(block, blockIndex)).isEqualTo(expected[index].longValue() * multiplier);
     }
 
-    private static Assertion<Number> assertLongToShortRescaled(int scale)
+    private static Assertion<Number> assertLongDecimal(DecimalType decimalType)
     {
-        long multiplier = longTenToNth(scale);
+        long multiplier = longTenToNth(decimalType.getScale());
+        return (expected, block, index, blockIndex) -> assertThat(decimalType.getObject(block, blockIndex)).isEqualTo(Int128.valueOf(0, expected[index].longValue() * multiplier));
+    }
+
+    private static Assertion<Number> assertLongToShortRescaled(DecimalType decimalType)
+    {
+        long multiplier = longTenToNth(decimalType.getScale());
         return new Assertion<>()
         {
             @Override
@@ -420,7 +428,7 @@ public class TestingColumnReader
             @Override
             public void assertPosition(Number[] expected, Block block, int index, int blockIndex)
             {
-                assertThat(block.getLong(blockIndex, 0)).isEqualTo(expected[2 * index + 1].longValue() * multiplier);
+                assertThat(decimalType.getLong(block, blockIndex)).isEqualTo(expected[2 * index + 1].longValue() * multiplier);
             }
 
             @Override
@@ -432,9 +440,8 @@ public class TestingColumnReader
         };
     }
 
-    private static Assertion<Number> assertLongRescaled(int scale)
+    private static Assertion<Number> assertUuid()
     {
-        long multiplier = longTenToNth(scale);
         return new Assertion<>()
         {
             @Override
@@ -454,8 +461,43 @@ public class TestingColumnReader
             @Override
             public void assertPosition(Number[] expected, Block block, int index, int blockIndex)
             {
-                assertThat(block.getLong(blockIndex, 0)).isEqualTo(0);
-                assertThat(block.getLong(blockIndex, 8)).isEqualTo(expected[2 * index + 1].longValue() * multiplier);
+                Slice uuid = UUID.getSlice(block, blockIndex);
+                assertThat(uuid.getLong(0)).isEqualTo(expected[2 * index].longValue());
+                assertThat(uuid.getLong(8)).isEqualTo(expected[2 * index + 1].longValue());
+            }
+
+            @Override
+            public void assertBlock(Number[] expected, Block block)
+            {
+                assertThat(expected.length).isEqualTo(block.getPositionCount() * 2);
+                assertBlock(expected, block, 0, 0, block.getPositionCount());
+            }
+        };
+    }
+
+    private static Assertion<Number> assertLongRescaled(DecimalType decimalType)
+    {
+        long multiplier = longTenToNth(decimalType.getScale());
+        return new Assertion<>()
+        {
+            @Override
+            public void assertBlock(Number[] expected, Block block, int offset, int blockOffset, int length)
+            {
+                for (int i = 0; i < length; i++) {
+                    if (block.isNull(blockOffset + i)) {
+                        assertThat(expected[2 * (offset + i)]).isNull();
+                        assertThat(expected[2 * (offset + i) + 1]).isNull();
+                    }
+                    else {
+                        assertPosition(expected, block, offset + i, blockOffset + i);
+                    }
+                }
+            }
+
+            @Override
+            public void assertPosition(Number[] expected, Block block, int index, int blockIndex)
+            {
+                assertThat(decimalType.getObject(block, blockIndex)).isEqualTo(Int128.valueOf(0, expected[2 * index + 1].longValue() * multiplier));
             }
 
             @Override
@@ -468,16 +510,15 @@ public class TestingColumnReader
     }
 
     private static final Assertion<String> ASSERT_BINARY = (values, block, offset, blockOffset) -> {
-        int positionLength = block.getSliceLength(blockOffset);
-        assertThat(block.getSlice(blockOffset, 0, positionLength).getBytes()).isEqualTo(values[offset].getBytes(UTF_8));
+        assertThat(VARBINARY.getSlice(block, blockOffset).getBytes()).isEqualTo(values[offset].getBytes(UTF_8));
     };
 
-    private static Assertion<Number> assertTime(int precision)
+    private static Assertion<Number> assertTime(TimeType timeType, int precision)
     {
-        return assertTime(precision, -precision);
+        return assertTime(timeType, precision, -precision);
     }
 
-    private static Assertion<Number> assertTime(int precision, int rounding)
+    private static Assertion<Number> assertTime(TimeType timeType, int precision, int rounding)
     {
         long multiplier = LongMath.pow(10, max(0, precision));
         return (values, block, offset, blockOffset) -> {
@@ -485,11 +526,11 @@ public class TestingColumnReader
             if (rounding > 0 | precision < 0) {
                 value = Timestamps.round(value, rounding) / LongMath.pow(10, -precision);
             }
-            assertThat(block.getLong(blockOffset, 0)).isEqualTo(value * multiplier);
+            assertThat(timeType.getLong(block, blockOffset)).isEqualTo(value * multiplier);
         };
     }
 
-    private static Assertion<DecodedTimestamp> assertInt96Short(int rounding)
+    private static Assertion<DecodedTimestamp> assertTimestampMicros(int rounding)
     {
         return (values, block, offset, blockOffset) -> {
             long epochSeconds = values[offset].epochSeconds();
@@ -497,25 +538,26 @@ public class TestingColumnReader
             long epochNanos = epochSeconds * Timestamps.NANOSECONDS_PER_SECOND + nanos;
             long expectedMicros = Timestamps.round(epochNanos, rounding) / 1000;
 
-            assertThat(block.getLong(blockOffset, 0)).isEqualTo(expectedMicros);
+            assertThat(TIMESTAMP_MICROS.getLong(block, blockOffset)).isEqualTo(expectedMicros);
         };
     }
 
-    private static Assertion<DecodedTimestamp> assertInt96Long()
+    private static Assertion<DecodedTimestamp> assertTimestampNanos()
     {
         return (values, block, offset, blockOffset) -> {
             long epochSeconds = values[offset].epochSeconds();
             int nanos = values[offset].nanosOfSecond();
             long epochNanos = epochSeconds * Timestamps.NANOSECONDS_PER_SECOND + nanos;
 
-            long actualEpochMicros = block.getLong(blockOffset, 0);
-            long actualNanos = block.getInt(blockOffset, 8) / 1000;
+            LongTimestamp timestamp = (LongTimestamp) TIMESTAMP_NANOS.getObject(block, blockOffset);
+            long actualEpochMicros = timestamp.getEpochMicros();
+            long actualNanos = timestamp.getPicosOfMicro() / 1000;
             long actualEpochNanos = actualEpochMicros * 1000 + actualNanos;
             assertThat(actualEpochNanos).isEqualTo(epochNanos);
         };
     }
 
-    private static Assertion<DecodedTimestamp> assertInt96ShortWithTimezone()
+    private static Assertion<DecodedTimestamp> assertTimestampWithTimeZoneMillis()
     {
         return (values, block, offset, blockOffset) -> {
             long epochSeconds = values[offset].epochSeconds();
@@ -523,7 +565,7 @@ public class TestingColumnReader
             long epochNanos = epochSeconds * Timestamps.NANOSECONDS_PER_SECOND + nanos;
             long expectedMillis = Timestamps.round(epochNanos, 6) / 1000000;
 
-            long packed = block.getLong(blockOffset, 0);
+            long packed = TIMESTAMP_TZ_MILLIS.getLong(block, blockOffset);
             long blockMillis = unpackMillisUtc(packed);
             TimeZoneKey timeZoneKey = unpackZoneKey(packed);
             assertThat(timeZoneKey).isEqualTo(UTC_KEY);
@@ -532,29 +574,29 @@ public class TestingColumnReader
         };
     }
 
-    public static Assertion<Number> assertLongTimestamp(int precision)
+    public static Assertion<Number> assertTimestampNanos(int precision)
     {
         int multiplier = IntMath.pow(10, precision);
         return (values, block, offset, blockOffset) ->
         {
-            LongTimestamp value = (LongTimestamp) TIMESTAMP_PICOS.getObject(block, blockOffset);
+            LongTimestamp value = (LongTimestamp) TIMESTAMP_NANOS.getObject(block, blockOffset);
             // We ignore higher bits of long timestamp as we only test on small numbers
             long longValue = (value.getEpochMicros() * 1_000_000) + value.getPicosOfMicro();
             assertThat(longValue).isEqualTo(values[offset].longValue() * multiplier);
         };
     }
 
-    private static Assertion<Number> assertTimestampWithTimeZone(int precision)
+    private static Assertion<Number> assertTimestampWithTimeZoneMillis(int precision)
     {
-        return assertTimestampWithTimeZone(precision, -precision);
+        return assertTimestampWithTimeZoneMillis(precision, -precision);
     }
 
-    private static Assertion<Number> assertTimestampWithTimeZone(int precision, int rounding)
+    private static Assertion<Number> assertTimestampWithTimeZoneMillis(int precision, int rounding)
     {
         long multiplier = LongMath.pow(10, max(0, precision));
         return (values, block, offset, blockOffset) ->
         {
-            long packed = block.getLong(blockOffset, 0);
+            long packed = TIMESTAMP_TZ_MILLIS.getLong(block, blockOffset);
             long millisUtc = unpackMillisUtc(packed);
             TimeZoneKey timeZoneKey = unpackZoneKey(packed);
             long value = values[offset].longValue();
@@ -566,14 +608,14 @@ public class TestingColumnReader
         };
     }
 
-    private static Assertion<Number> assertLongTimestampWithTimeZone(int precision)
+    private static Assertion<Number> assertLongTimestampWithTimeZoneNanos(int precision)
     {
         long multiplier = LongMath.pow(10, precision);
         return (values, block, offset, blockOffset) ->
         {
             LongTimestampWithTimeZone packed = (LongTimestampWithTimeZone) TIMESTAMP_TZ_NANOS.getObject(block, blockOffset);
             long longValue = (packed.getEpochMillis() * 1_000_000_000) + packed.getPicosOfMilli();
-            TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(packed.getTimeZoneKey());
+            TimeZoneKey timeZoneKey = getTimeZoneKey(packed.getTimeZoneKey());
             long value = values[offset].longValue();
             assertThat(timeZoneKey).isEqualTo(UTC_KEY);
             assertThat(longValue).isEqualTo(value * multiplier);
@@ -629,14 +671,14 @@ public class TestingColumnReader
     private static ColumnReaderFormat<?>[] columnReaders()
     {
         return new ColumnReaderFormat[] {
-                new ColumnReaderFormat<>(BOOLEAN, BooleanType.BOOLEAN, BOOLEAN_WRITER, null, WRITE_BOOLEAN, ASSERT_BYTE),
+                new ColumnReaderFormat<>(BOOLEAN, BooleanType.BOOLEAN, BOOLEAN_WRITER, null, WRITE_BOOLEAN, ASSERT_BOOLEAN),
                 new ColumnReaderFormat<>(FLOAT, REAL, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_FLOAT),
                 // FLOAT parquet primitive type can be read as a DOUBLE or REAL type in Trino
                 new ColumnReaderFormat<>(FLOAT, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_DOUBLE_STORED_AS_FLOAT),
                 new ColumnReaderFormat<>(DOUBLE, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_DOUBLE_WRITER, WRITE_DOUBLE, ASSERT_DOUBLE),
-                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 // INT32 can be read as a ShortDecimalType in Trino without decimal logical type annotation as well
-                new ColumnReaderFormat<>(INT32, createDecimalType(8, 0), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
+                new ColumnReaderFormat<>(INT32, createDecimalType(8, 0), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, INTEGER, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, SMALLINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_SHORT, ASSERT_SHORT),
@@ -649,18 +691,18 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(INT64, SMALLINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_SHORT),
                 new ColumnReaderFormat<>(INT64, TINYINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_BYTE),
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), createDecimalType(2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, ASSERT_LONG),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(2, 38), createDecimalType(38, 2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), ASSERT_INT_128),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, uuidType(), UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, ASSERT_INT_128),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, null, UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, ASSERT_INT_128),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(2, 38), createDecimalType(38, 2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), new Int128Assertion(createDecimalType(38, 2))),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, uuidType(), UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, assertUuid()),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, null, UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, assertUuid()),
                 // Trino type precision is irrelevant since the data is always stored as picoseconds
-                new ColumnReaderFormat<>(INT32, timeType(false, MILLIS), TimeType.TIME_MILLIS, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertTime(9)),
-                new ColumnReaderFormat<>(INT64, timeType(false, MICROS), TimeType.TIME_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertTime(6)),
+                new ColumnReaderFormat<>(INT32, timeType(false, MILLIS), TIME_MILLIS, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertTime(TIME_MICROS, 9)),
+                new ColumnReaderFormat<>(INT64, timeType(false, MICROS), TIME_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertTime(TIME_MICROS, 6)),
                 // Reading a column TimeLogicalTypeAnnotation as a BIGINT
                 new ColumnReaderFormat<>(INT64, timeType(false, MICROS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
                 // Short decimals
-                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 // INT32 values can be read as zero scale decimals provided the precision is at least 10 to accommodate the largest possible integer
-                new ColumnReaderFormat<>(INT32, createDecimalType(10), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
+                new ColumnReaderFormat<>(INT32, createDecimalType(10), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), INTEGER, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), SMALLINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_SHORT, ASSERT_SHORT),
@@ -681,36 +723,36 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(BINARY, decimalType(0, 8), SMALLINT, PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY_DECIMAL, ASSERT_SHORT),
                 new ColumnReaderFormat<>(BINARY, decimalType(0, 8), TINYINT, PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY_DECIMAL, ASSERT_BYTE),
                 // Long decimals
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(2, 38), createDecimalType(38, 2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), ASSERT_INT_128),
-                new ColumnReaderFormat<>(BINARY, 16, decimalType(2, 38), createDecimalType(38, 2), PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY_LONG_DECIMAL, ASSERT_INT_128),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(2, 38), createDecimalType(38, 2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), new Int128Assertion(createDecimalType(38, 2))),
+                new ColumnReaderFormat<>(BINARY, 16, decimalType(2, 38), createDecimalType(38, 2), PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY_LONG_DECIMAL, new Int128Assertion(createDecimalType(38, 2))),
                 // Rescaled decimals
-                new ColumnReaderFormat<>(INT32, decimalType(0, 7), createDecimalType(8, 1), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertRescaled(1)),
-                new ColumnReaderFormat<>(INT64, decimalType(0, 7), createDecimalType(8, 2), PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertRescaled(2)),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 7), createDecimalType(8, 3), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, assertRescaled(3)),
-                new ColumnReaderFormat<>(INT32, decimalType(0, 7), createDecimalType(30, 1), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertShortToLongRescaled(1)),
-                new ColumnReaderFormat<>(INT64, decimalType(0, 7), createDecimalType(30, 2), PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertShortToLongRescaled(2)),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 7), createDecimalType(30, 3), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, assertShortToLongRescaled(3)),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(0, 38), createDecimalType(8, 1), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), assertLongToShortRescaled(1)),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(0, 38), createDecimalType(37, 2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), assertLongRescaled(2)),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 7), createDecimalType(8, 1), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertShortDecimal(createDecimalType(8, 1))),
+                new ColumnReaderFormat<>(INT64, decimalType(0, 7), createDecimalType(8, 2), PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertShortDecimal(createDecimalType(8, 2))),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 7), createDecimalType(8, 3), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, assertShortDecimal(createDecimalType(8, 3))),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 7), createDecimalType(30, 1), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertLongDecimal(createDecimalType(30, 1))),
+                new ColumnReaderFormat<>(INT64, decimalType(0, 7), createDecimalType(30, 2), PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertLongDecimal(createDecimalType(30, 2))),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 7), createDecimalType(30, 3), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, assertLongDecimal(createDecimalType(30, 3))),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(0, 38), createDecimalType(8, 1), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), assertLongToShortRescaled(createDecimalType(8, 1))),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(0, 38), createDecimalType(37, 2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), assertLongRescaled(createDecimalType(37, 2))),
                 // Timestamps.
                 //  The `precision` and `rounding` arguments at the end of every assertion may be difficult to understand. They are a direct
                 // consequence of various Trino timestamp representations.
-                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(3)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_PICOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestamp(9)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_TZ_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZone(0)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(0, 3)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(0)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestamp(6)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_TZ_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZone(-3, 3)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_TZ_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestampWithTimeZone(6)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(-3, 6)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(-3)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestamp(3)),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_MILLIS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertInt96Short(6)),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_MICROS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertInt96Short(3)),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_NANOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertInt96Long()),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_PICOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertInt96Long()),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_MILLIS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertInt96ShortWithTimezone()),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_MILLIS, 3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_PICOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampNanos(9)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_TZ_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZoneMillis(0)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_MICROS, 0, 3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_MICROS, 0)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampNanos(6)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_TZ_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZoneMillis(-3, 3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_TZ_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestampWithTimeZoneNanos(6)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_NANOS, -3, 6)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_NANOS, -3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampNanos(3)),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_MILLIS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampMicros(6)),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_MICROS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampMicros(3)),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_NANOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampNanos()),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_PICOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampNanos()),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_MILLIS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampWithTimeZoneMillis()),
                 // timestamps read as bigint
                 new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, ASSERT_LONG),

@@ -36,7 +36,7 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -71,22 +71,22 @@ public class TestAddLocalExchangesForTaskScaleWriters
     private static final ConnectorPartitioningHandle CONNECTOR_PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder().build());
-        queryRunner.createCatalog(
+        PlanTester planTester = PlanTester.create(testSessionBuilder().build());
+        planTester.createCatalog(
                 "mock_with_scaled_writers",
                 createConnectorFactory("mock_with_scaled_writers", true, true),
                 ImmutableMap.of());
-        queryRunner.createCatalog(
+        planTester.createCatalog(
                 "mock_without_scaled_writers",
                 createConnectorFactory("mock_without_scaled_writers", true, false),
                 ImmutableMap.of());
-        queryRunner.createCatalog(
+        planTester.createCatalog(
                 "mock_without_multiple_writer_per_partition",
                 createConnectorFactory("mock_without_multiple_writer_per_partition", false, true),
                 ImmutableMap.of());
-        return queryRunner;
+        return planTester;
     }
 
     private MockConnectorFactory createConnectorFactory(
@@ -401,7 +401,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         @Language("SQL") String query = "ALTER TABLE system_partitioned_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setCatalog("mock_with_scaled_writers")
                 .setSchema("mock")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
@@ -413,7 +413,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
                 anyTree(
                         node(TableExecuteNode.class,
                                 exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                        exchange(REMOTE, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
                                                 node(TableScanNode.class))))));
     }
 
@@ -422,7 +422,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         @Language("SQL") String query = "ALTER TABLE unpartitioned_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setCatalog("mock_with_scaled_writers")
                 .setSchema("mock")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")

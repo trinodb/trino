@@ -56,16 +56,9 @@ public final class ColumnarTestUtils
         }
         assertThat(block.isNull(position)).isFalse();
 
-        if (expectedValue instanceof Slice expected) {
-            int length = block.getSliceLength(position);
-            assertThat(length).isEqualTo(expected.length());
-
-            Slice actual = block.getSlice(position, 0, length);
-            assertThat(actual).isEqualTo(expected);
-        }
-        else if (type instanceof ArrayType arrayType) {
+        if (type instanceof ArrayType arrayType) {
             Block actual = arrayType.getObject(block, position);
-            assertBlock(type, actual, (Slice[]) expectedValue);
+            assertBlock(arrayType.getElementType(), actual, (Slice[]) expectedValue);
         }
         else if (type instanceof RowType rowType) {
             SqlRow actual = rowType.getObject(block, position);
@@ -86,13 +79,16 @@ public final class ColumnarTestUtils
             Slice[] expectedKeys = Arrays.stream(expected)
                     .map(pair -> pair[0])
                     .toArray(Slice[]::new);
-            assertBlock(type, actualKeys, expectedKeys);
+            assertBlock(mapType.getKeyType(), actualKeys, expectedKeys);
 
             Block actualValues = actual.getRawValueBlock().getRegion(actual.getRawOffset(), actual.getSize());
             Slice[] expectedValues = Arrays.stream(expected)
                     .map(pair -> pair[1])
                     .toArray(Slice[]::new);
-            assertBlock(type, actualValues, expectedValues);
+            assertBlock(mapType.getValueType(), actualValues, expectedValues);
+        }
+        else if (expectedValue instanceof Slice expected) {
+            assertThat(type.getSlice(block, position)).isEqualTo(expected);
         }
         else {
             throw new IllegalArgumentException(expectedValue.getClass().getName());

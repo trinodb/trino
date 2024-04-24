@@ -135,13 +135,19 @@ public class IpAddressType
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
+        appendTo(
+                (Int128ArrayBlock) block.getUnderlyingValueBlock(),
+                block.getUnderlyingValuePosition(position),
+                (Int128ArrayBlockBuilder) blockBuilder);
+    }
+
+    private void appendTo(Int128ArrayBlock block, int position, Int128ArrayBlockBuilder blockBuilder)
+    {
         if (block.isNull(position)) {
             blockBuilder.appendNull();
         }
         else {
-            ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
-                    block.getLong(position, 0),
-                    block.getLong(position, SIZE_OF_LONG));
+            blockBuilder.writeInt128(block.getInt128High(position), block.getInt128Low(position));
         }
     }
 
@@ -165,9 +171,14 @@ public class IpAddressType
     @Override
     public final Slice getSlice(Block block, int position)
     {
+        return getSlice((Int128ArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
+    }
+
+    private Slice getSlice(Int128ArrayBlock block, int position)
+    {
         Slice value = Slices.allocate(INT128_BYTES);
-        value.setLong(0, block.getLong(position, 0));
-        value.setLong(SIZE_OF_LONG, block.getLong(position, SIZE_OF_LONG));
+        value.setLong(0, block.getInt128High(position));
+        value.setLong(SIZE_OF_LONG, block.getInt128Low(position));
         return value;
     }
 
@@ -223,10 +234,10 @@ public class IpAddressType
     private static boolean equalOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
-                leftBlock.getLong(leftPosition, 0),
-                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
-                rightBlock.getLong(rightPosition, 0),
-                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+                leftBlock.getInt128High(leftPosition),
+                leftBlock.getInt128Low(leftPosition),
+                rightBlock.getInt128High(rightPosition),
+                rightBlock.getInt128Low(rightPosition));
     }
 
     private static boolean equal(long leftLow, long leftHigh, long rightLow, long rightHigh)
@@ -243,7 +254,7 @@ public class IpAddressType
     @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
     {
-        return xxHash64(block.getLong(position, 0), block.getLong(position, SIZE_OF_LONG));
+        return xxHash64(block.getInt128High(position), block.getInt128Low(position));
     }
 
     private static long xxHash64(long low, long high)
@@ -265,10 +276,10 @@ public class IpAddressType
     private static long comparisonOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return compareBigEndian(
-                leftBlock.getLong(leftPosition, 0),
-                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
-                rightBlock.getLong(rightPosition, 0),
-                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+                leftBlock.getInt128High(leftPosition),
+                leftBlock.getInt128Low(leftPosition),
+                rightBlock.getInt128High(rightPosition),
+                rightBlock.getInt128Low(rightPosition));
     }
 
     private static int compareBigEndian(long leftLow64le, long leftHigh64le, long rightLow64le, long rightHigh64le)

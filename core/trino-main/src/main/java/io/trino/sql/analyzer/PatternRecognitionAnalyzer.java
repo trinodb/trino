@@ -38,14 +38,12 @@ import io.trino.sql.tree.VariableDefinition;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.INVALID_LABEL;
-import static io.trino.spi.StandardErrorCode.INVALID_PATTERN_RECOGNITION_FUNCTION;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
 import static io.trino.spi.StandardErrorCode.INVALID_RANGE;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_PATTERN;
@@ -54,9 +52,10 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_WITH_UNMATCHED;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static io.trino.sql.util.AstUtils.preOrder;
-import static java.util.Objects.requireNonNull;
 
 public class PatternRecognitionAnalyzer
 {
@@ -190,7 +189,7 @@ public class PatternRecognitionAnalyzer
     public static void validatePatternExclusions(Optional<RowsPerMatch> rowsPerMatch, RowPattern pattern)
     {
         // exclusion syntax is not allowed in row pattern if ALL ROWS PER MATCH WITH UNMATCHED ROWS is specified
-        if (rowsPerMatch.isPresent() && rowsPerMatch.get().isUnmatchedRows()) {
+        if (rowsPerMatch.isPresent() && (rowsPerMatch.get() == ALL_WITH_UNMATCHED || rowsPerMatch.get() == WINDOW)) {
             preOrder(pattern)
                     .filter(ExcludedPattern.class::isInstance)
                     .findFirst()
@@ -210,54 +209,8 @@ public class PatternRecognitionAnalyzer
                 });
     }
 
-    public static void validateNoMatchNumber(List<MeasureDefinition> measures, List<VariableDefinition> variableDefinitions, Set<NodeRef<FunctionCall>> patternRecognitionFunctions)
-    {
-        List<Expression> expressions = Streams.concat(
-                measures.stream()
-                        .map(MeasureDefinition::getExpression),
-                variableDefinitions.stream()
-                        .map(VariableDefinition::getExpression))
-                .collect(toImmutableList());
-        expressions.forEach(expression -> preOrder(expression)
-                .filter(child -> patternRecognitionFunctions.contains(NodeRef.of(child)))
-                .filter(child -> ((FunctionCall) child).getName().getSuffix().equalsIgnoreCase("MATCH_NUMBER"))
-                .findFirst()
-                .ifPresent(matchNumber -> {
-                    throw semanticException(INVALID_PATTERN_RECOGNITION_FUNCTION, matchNumber, "MATCH_NUMBER function is not supported in window");
-                }));
-    }
-
     private static String label(Identifier identifier)
     {
         return identifier.getCanonicalValue();
-    }
-
-    public static class PatternRecognitionAnalysis
-    {
-        private final Set<String> allLabels;
-        private final Set<String> undefinedLabels;
-        private final Map<NodeRef<RangeQuantifier>, Range> ranges;
-
-        public PatternRecognitionAnalysis(Set<String> allLabels, Set<String> undefinedLabels, Map<NodeRef<RangeQuantifier>, Range> ranges)
-        {
-            this.allLabels = requireNonNull(allLabels, "allLabels is null");
-            this.undefinedLabels = ImmutableSet.copyOf(requireNonNull(undefinedLabels, "undefinedLabels is null"));
-            this.ranges = ImmutableMap.copyOf(requireNonNull(ranges, "ranges is null"));
-        }
-
-        public Set<String> getAllLabels()
-        {
-            return allLabels;
-        }
-
-        public Set<String> getUndefinedLabels()
-        {
-            return undefinedLabels;
-        }
-
-        public Map<NodeRef<RangeQuantifier>, Range> getRanges()
-        {
-            return ranges;
-        }
     }
 }

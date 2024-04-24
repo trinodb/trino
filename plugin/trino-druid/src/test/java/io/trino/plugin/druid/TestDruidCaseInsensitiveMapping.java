@@ -17,11 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.mapping.TableMappingRule;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import io.trino.testng.services.ManageTestResources;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -48,7 +46,6 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestDruidCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
-    @ManageTestResources.Suppress(because = "Not a TestNG test class")
     private TestingDruidServer druidServer;
     private Path mappingFile;
 
@@ -67,7 +64,7 @@ public class TestDruidCaseInsensitiveMapping
     {
         druidServer = new TestingDruidServer();
         mappingFile = createRuleBasedIdentifierMappingFile();
-        DistributedQueryRunner queryRunner = createDruidQueryRunnerTpch(
+        QueryRunner queryRunner = createDruidQueryRunnerTpch(
                 druidServer,
                 ImmutableMap.of(),
                 ImmutableMap.of("case-insensitive-name-matching", "true",

@@ -22,6 +22,7 @@ import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.type.Reals.toReal;
 import static java.lang.String.format;
 
 public final class VarcharOperators
@@ -89,7 +90,7 @@ public final class VarcharOperators
     public static long castToFloat(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Float.floatToIntBits(Float.parseFloat(slice.toStringUtf8()));
+            return toReal(Float.parseFloat(slice.toStringUtf8()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to REAL", slice.toStringUtf8()));

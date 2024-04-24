@@ -17,14 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.Row;
 
 import java.util.Set;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.Patterns.emptyValues;
 import static io.trino.sql.planner.plan.Patterns.exchange;
 import static io.trino.sql.planner.plan.Patterns.mergeWriter;
@@ -106,7 +107,7 @@ public final class RemoveEmptyMergeWriterRuleSet
                     new ValuesNode(
                             node.getId(),
                             node.getOutputSymbols(),
-                            ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral("BIGINT", "0"))))));
+                            ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 0L))))));
         }
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
 
 public class TestRemoveRedundantEnforceSingleRowNode
         extends BaseRuleTest
@@ -31,7 +32,7 @@ public class TestRemoveRedundantEnforceSingleRowNode
     {
         tester().assertThat(new RemoveRedundantEnforceSingleRowNode())
                 .on(p -> p.enforceSingleRow(p.aggregation(builder -> builder
-                        .addAggregation(p.symbol("c"), expression("count(a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                         .globalGrouping()
                         .source(p.values(p.symbol("a"))))))
                 .matches(node(AggregationNode.class, values("a")));

@@ -804,9 +804,7 @@ public class TestDecimalCasts
 
         assertThat(assertions.expression("cast(a as DECIMAL(18,0))")
                 .binding("a", "DOUBLE '123456789123456784'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("123456789123456780", createDecimalType(18))
-                        : decimal("123456789123456784", createDecimalType(18)));
+                .isEqualTo(decimal("123456789123456780", createDecimalType(18)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(18,9))")
                 .binding("a", "DOUBLE '123456789.123456790'"))
@@ -1139,75 +1137,51 @@ public class TestDecimalCasts
 
         assertThat(assertions.expression("cast(a as DECIMAL(17,0))")
                 .binding("a", "REAL '12345678400000000'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("12345678000000000", createDecimalType(17))
-                        : decimal("12345678400000000", createDecimalType(17)));
+                .isEqualTo(decimal("12345678000000000", createDecimalType(17)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(17,0))")
                 .binding("a", "REAL '-12345678400000000'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("-12345678000000000", createDecimalType(17))
-                        : decimal("-12345678400000000", createDecimalType(17)));
+                .isEqualTo(decimal("-12345678000000000", createDecimalType(17)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(20,10))")
                 .binding("a", "REAL '1234567940'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("1234568000.0000000000", createDecimalType(20, 10))
-                        : decimal("1234567940.0000000000", createDecimalType(20, 10)));
+                .isEqualTo(decimal("1234568000.0000000000", createDecimalType(20, 10)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(20,10))")
                 .binding("a", "REAL '-1234567940'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("-1234568000.0000000000", createDecimalType(20, 10))
-                        : decimal("-1234567940.0000000000", createDecimalType(20, 10)));
+                .isEqualTo(decimal("-1234568000.0000000000", createDecimalType(20, 10)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(30,20))")
                 .binding("a", "REAL '1234567940'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("1234568000.00000000000000000000", createDecimalType(30, 20))
-                        : decimal("1234567940.00000000000000000000", createDecimalType(30, 20)));
+                .isEqualTo(decimal("1234568000.00000000000000000000", createDecimalType(30, 20)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(30,20))")
                 .binding("a", "REAL '-1234567940'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("-1234568000.00000000000000000000", createDecimalType(30, 20))
-                        : decimal("-1234567940.00000000000000000000", createDecimalType(30, 20)));
+                .isEqualTo(decimal("-1234568000.00000000000000000000", createDecimalType(30, 20)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(18,0))")
                 .binding("a", "REAL '123456790519087104'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("123456790000000000", createDecimalType(18))
-                        : decimal("123456791000000000", createDecimalType(18)));
+                .isEqualTo(decimal("123456790000000000", createDecimalType(18)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(18,0))")
                 .binding("a", "REAL '-123456790519087104'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("-123456790000000000", createDecimalType(18))
-                        : decimal("-123456791000000000", createDecimalType(18)));
+                .isEqualTo(decimal("-123456790000000000", createDecimalType(18)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(20,2))")
                 .binding("a", "REAL '123456790519087104'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("123456790000000000.00", createDecimalType(20, 2))
-                        : decimal("123456791000000000.00", createDecimalType(20, 2)));
+                .isEqualTo(decimal("123456790000000000.00", createDecimalType(20, 2)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(20,2))")
                 .binding("a", "REAL '-123456790519087104'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("-123456790000000000.00", createDecimalType(20, 2))
-                        : decimal("-123456791000000000.00", createDecimalType(20, 2)));
+                .isEqualTo(decimal("-123456790000000000.00", createDecimalType(20, 2)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(18,2))")
                 .binding("a", "REAL '1234567905190871'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("1234568000000000.00", createDecimalType(18, 2))
-                        : decimal("1234567950000000.00", createDecimalType(18, 2)));
+                .isEqualTo(decimal("1234568000000000.00", createDecimalType(18, 2)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(18,2))")
                 .binding("a", "REAL '-1234567905190871'"))
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? decimal("-1234568000000000.00", createDecimalType(18, 2))
-                        : decimal("-1234567950000000.00", createDecimalType(18, 2)));
+                .isEqualTo(decimal("-1234568000000000.00", createDecimalType(18, 2)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(18,9))")
                 .binding("a", "REAL '1456213.432632456'"))
@@ -1247,9 +1221,7 @@ public class TestDecimalCasts
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20, 10))")
                 .binding("a", "REAL '98765430784.0'").evaluate())
-                .hasMessage(Runtime.version().feature() >= 19
-                        ? "Cannot cast REAL '9.876543E10' to DECIMAL(20, 10)"
-                        : "Cannot cast REAL '9.8765431E10' to DECIMAL(20, 10)")
+                .hasMessage("Cannot cast REAL '9.876543E10' to DECIMAL(20, 10)")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a AS DECIMAL(10,5))")

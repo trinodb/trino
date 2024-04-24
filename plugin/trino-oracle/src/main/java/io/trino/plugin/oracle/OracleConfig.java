@@ -39,7 +39,6 @@ public class OracleConfig
     private int connectionPoolMaxSize = 30;
     private Duration inactiveConnectionTimeout = new Duration(20, MINUTES);
 
-    @NotNull
     public boolean isSynonymsEnabled()
     {
         return synonymsEnabled;
@@ -90,7 +89,6 @@ public class OracleConfig
         return this;
     }
 
-    @NotNull
     public boolean isConnectionPoolEnabled()
     {
         return connectionPoolEnabled;

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import org.junit.jupiter.api.Test;
@@ -57,6 +58,7 @@ public class TestHiveSplitSource
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat(),
+                new DefaultCachingHostAddressProvider(),
                 false);
 
         // add 10 splits
@@ -92,6 +94,7 @@ public class TestHiveSplitSource
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat(),
+                new DefaultCachingHostAddressProvider(),
                 false);
 
         // add two splits, one of the splits is dynamically pruned
@@ -119,6 +122,7 @@ public class TestHiveSplitSource
                 new TestingHiveSplitLoader(),
                 Executors.newSingleThreadExecutor(),
                 new CounterStat(),
+                new DefaultCachingHostAddressProvider(),
                 false);
 
         // One byte larger than the initial split max size
@@ -147,6 +151,7 @@ public class TestHiveSplitSource
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat(),
+                new DefaultCachingHostAddressProvider(),
                 false);
 
         // add some splits
@@ -198,6 +203,7 @@ public class TestHiveSplitSource
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat(),
+                new DefaultCachingHostAddressProvider(),
                 false);
 
         SettableFuture<ConnectorSplit> splits = SettableFuture.create();
@@ -253,6 +259,7 @@ public class TestHiveSplitSource
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat(),
+                new DefaultCachingHostAddressProvider(),
                 false);
         int testSplitSizeInBytes = new TestSplit(0).getEstimatedSizeInBytes();
 

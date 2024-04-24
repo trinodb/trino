@@ -133,7 +133,7 @@ class ArbitraryDistributionSplitAssigner
                     partitionAssignment.getPartitionId(),
                     planNodeId,
                     false,
-                    singleSourcePartition(SINGLE_SOURCE_PARTITION_ID, splits),
+                    singleSourcePartition(splits),
                     noMoreSplits));
         }
         if (noMoreSplits) {
@@ -159,7 +159,7 @@ class ArbitraryDistributionSplitAssigner
                             0,
                             replicatedSourceId,
                             false,
-                            singleSourcePartition(SINGLE_SOURCE_PARTITION_ID, replicatedSplits.get(replicatedSourceId)),
+                            singleSourcePartition(replicatedSplits.get(replicatedSourceId)),
                             true));
                 }
                 for (PlanNodeId partitionedSourceId : partitionedSources) {
@@ -181,7 +181,7 @@ class ArbitraryDistributionSplitAssigner
                                     partitionAssignment.getPartitionId(),
                                     partitionedSourceNodeId,
                                     false,
-                                    singleSourcePartition(0, ImmutableList.of()),
+                                    singleSourcePartition(ImmutableList.of()),
                                     true));
                         }
                         // seal partition
@@ -196,7 +196,7 @@ class ArbitraryDistributionSplitAssigner
         return assignment.build();
     }
 
-    private ListMultimap<Integer, Split> singleSourcePartition(int sourcePartitionId, List<Split> splits)
+    private ListMultimap<Integer, Split> singleSourcePartition(List<Split> splits)
     {
         ImmutableListMultimap.Builder<Integer, Split> builder = ImmutableListMultimap.builder();
         builder.putAll(0, splits);
@@ -250,7 +250,7 @@ class ArbitraryDistributionSplitAssigner
                             partitionAssignment.getPartitionId(),
                             replicatedSourceId,
                             false,
-                            singleSourcePartition(SINGLE_SOURCE_PARTITION_ID, replicatedSplits.get(replicatedSourceId)),
+                            singleSourcePartition(replicatedSplits.get(replicatedSourceId)),
                             completedSources.contains(replicatedSourceId)));
                 }
             }
@@ -258,7 +258,7 @@ class ArbitraryDistributionSplitAssigner
                     partitionAssignment.getPartitionId(),
                     planNodeId,
                     true,
-                    singleSourcePartition(SINGLE_SOURCE_PARTITION_ID, ImmutableList.of(split)),
+                    singleSourcePartition(ImmutableList.of(split)),
                     false));
             partitionAssignment.assignSplit(splitSizeInBytes);
         }
@@ -277,7 +277,7 @@ class ArbitraryDistributionSplitAssigner
                             0,
                             replicatedSourceId,
                             false,
-                            singleSourcePartition(SINGLE_SOURCE_PARTITION_ID, replicatedSplits.get(replicatedSourceId)),
+                            singleSourcePartition(replicatedSplits.get(replicatedSourceId)),
                             true));
                 }
                 for (PlanNodeId partitionedSourceId : partitionedSources) {

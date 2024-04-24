@@ -15,11 +15,14 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -47,7 +50,7 @@ public class TestPruneGroupIdColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression("a"), "k", expression("k"), "group_id", expression("group_id")),
+                                ImmutableMap.of("a", expression(new Reference(BIGINT, "a")), "k", expression(new Reference(BIGINT, "k")), "group_id", expression(new Reference(INTEGER, "group_id"))),
                                 groupId(
                                         ImmutableList.of(ImmutableList.of("k"), ImmutableList.of("k")),
                                         ImmutableList.of("a"),

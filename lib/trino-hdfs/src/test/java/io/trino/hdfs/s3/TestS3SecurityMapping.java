@@ -38,6 +38,7 @@ import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_IAM_ROLE;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_KMS_KEY_ID;
+import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_REGION;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_ROLE_SESSION_NAME;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_SECRET_KEY;
 import static java.util.Objects.requireNonNull;
@@ -235,6 +236,12 @@ public class TestS3SecurityMapping
                 path("s3://endpointbucket/bar"),
                 credentials("AKIAxxxaccess", "iXbXxxxsecret").withEndpoint("http://localhost:7753"));
 
+        // matches prefix -- mapping provides credentials and region
+        assertMapping(
+                provider,
+                path("s3://regionalbucket/bar"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret").withRegion("us-west-2"));
+
         // matches role session name
         assertMapping(
                 provider,
@@ -290,7 +297,8 @@ public class TestS3SecurityMapping
     public void testMappingWithoutRoleCredentialsFallbackShouldFail()
     {
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                        Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
     }
@@ -302,7 +310,8 @@ public class TestS3SecurityMapping
         Optional<Boolean> useClusterDefault = Optional.of(true);
 
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), iamRole, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), iamRole, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                        Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty(), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
     }
@@ -314,7 +323,8 @@ public class TestS3SecurityMapping
         Optional<String> kmsKeyId = Optional.of("CLIENT_S3CRT_KEY_ID");
 
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), kmsKeyId, Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), kmsKeyId, Optional.empty(),
+                        Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty(), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("KMS key ID cannot be provided together with useClusterDefault");
     }
@@ -325,7 +335,8 @@ public class TestS3SecurityMapping
         Optional<String> roleSessionName = Optional.of("iam-trino-session");
 
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), roleSessionName, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), roleSessionName, Optional.empty(), Optional.empty(),
+                        Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("iamRole must be provided when roleSessionName is provided");
     }
@@ -347,6 +358,7 @@ public class TestS3SecurityMapping
         assertThat(configuration.get(S3_KMS_KEY_ID)).isEqualTo(mappingResult.getKmsKeyId().orElse(null));
         assertThat(configuration.get(S3_ENDPOINT)).isEqualTo(mappingResult.getEndpoint().orElse(null));
         assertThat(configuration.get(S3_ROLE_SESSION_NAME)).isEqualTo(mappingResult.getRoleSessionName().orElse(null));
+        assertThat(configuration.get(S3_REGION)).isEqualTo(mappingResult.getRegion().orElse(null));
     }
 
     private static void assertMappingFails(DynamicConfigurationProvider provider, MappingSelector selector, String message)
@@ -435,22 +447,27 @@ public class TestS3SecurityMapping
     {
         public static MappingResult credentials(String accessKey, String secretKey)
         {
-            return new MappingResult(Optional.of(accessKey), Optional.of(secretKey), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+            return new MappingResult(Optional.of(accessKey), Optional.of(secretKey), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         }
 
         public static MappingResult role(String role)
         {
-            return new MappingResult(Optional.empty(), Optional.empty(), Optional.of(role), Optional.empty(), Optional.empty(), Optional.empty());
+            return new MappingResult(Optional.empty(), Optional.empty(), Optional.of(role), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         }
 
         public static MappingResult clusterDefaultRole()
         {
-            return new MappingResult(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+            return new MappingResult(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         }
 
         public static MappingResult endpoint(String endpoint)
         {
-            return new MappingResult(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(endpoint), Optional.empty());
+            return new MappingResult(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(endpoint), Optional.empty(), Optional.empty());
+        }
+
+        public static MappingResult region(String region)
+        {
+            return new MappingResult(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(region));
         }
 
         private final Optional<String> accessKey;
@@ -459,8 +476,10 @@ public class TestS3SecurityMapping
         private final Optional<String> kmsKeyId;
         private final Optional<String> endpoint;
         private final Optional<String> roleSessionName;
+        private final Optional<String> region;
 
-        private MappingResult(Optional<String> accessKey, Optional<String> secretKey, Optional<String> role, Optional<String> kmsKeyId, Optional<String> endpoint, Optional<String> roleSessionName)
+        private MappingResult(Optional<String> accessKey, Optional<String> secretKey, Optional<String> role, Optional<String> kmsKeyId, Optional<String> endpoint,
+                Optional<String> roleSessionName, Optional<String> region)
         {
             this.accessKey = requireNonNull(accessKey, "accessKey is null");
             this.secretKey = requireNonNull(secretKey, "secretKey is null");
@@ -468,21 +487,27 @@ public class TestS3SecurityMapping
             this.kmsKeyId = requireNonNull(kmsKeyId, "kmsKeyId is null");
             this.endpoint = requireNonNull(endpoint, "endpoint is null");
             this.roleSessionName = requireNonNull(roleSessionName, "roleSessionName is null");
+            this.region = requireNonNull(region, "region is null");
         }
 
         public MappingResult withEndpoint(String endpoint)
         {
-            return new MappingResult(accessKey, secretKey, role, kmsKeyId, Optional.of(endpoint), Optional.empty());
+            return new MappingResult(accessKey, secretKey, role, kmsKeyId, Optional.of(endpoint), Optional.empty(), region);
         }
 
         public MappingResult withKmsKeyId(String kmsKeyId)
         {
-            return new MappingResult(accessKey, secretKey, role, Optional.of(kmsKeyId), endpoint, Optional.empty());
+            return new MappingResult(accessKey, secretKey, role, Optional.of(kmsKeyId), endpoint, Optional.empty(), region);
+        }
+
+        public MappingResult withRegion(String region)
+        {
+            return new MappingResult(accessKey, secretKey, role, kmsKeyId, endpoint, Optional.empty(), Optional.of(region));
         }
 
         public MappingResult withRoleSessionName(String roleSessionName)
         {
-            return new MappingResult(accessKey, secretKey, role, kmsKeyId, Optional.empty(), Optional.of(roleSessionName));
+            return new MappingResult(accessKey, secretKey, role, kmsKeyId, Optional.empty(), Optional.of(roleSessionName), region);
         }
 
         public Optional<String> getAccessKey()
@@ -513,6 +538,11 @@ public class TestS3SecurityMapping
         public Optional<String> getRoleSessionName()
         {
             return roleSessionName;
+        }
+
+        public Optional<String> getRegion()
+        {
+            return region;
         }
     }
 }

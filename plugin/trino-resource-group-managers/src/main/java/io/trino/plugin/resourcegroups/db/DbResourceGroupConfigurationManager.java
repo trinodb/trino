@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
@@ -70,6 +71,8 @@ public class DbResourceGroupConfigurationManager
         extends AbstractResourceConfigurationManager
 {
     private static final Logger log = Logger.get(DbResourceGroupConfigurationManager.class);
+
+    private final Optional<LifeCycleManager> lifeCycleManager;
     private final ResourceGroupsDao dao;
     private final ConcurrentMap<ResourceGroupId, ResourceGroup> groups = new ConcurrentHashMap<>();
     @GuardedBy("this")
@@ -89,9 +92,45 @@ public class DbResourceGroupConfigurationManager
     private final CounterStat refreshFailures = new CounterStat();
 
     @Inject
-    public DbResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, DbResourceGroupConfig config, ResourceGroupsDao dao, @ForEnvironment String environment)
+    public DbResourceGroupConfigurationManager(
+            LifeCycleManager lifeCycleManager,
+            ClusterMemoryPoolManager memoryPoolManager,
+            DbResourceGroupConfig config,
+            ResourceGroupsDao dao,
+            @ForEnvironment String environment)
+    {
+        this(
+                Optional.of(lifeCycleManager),
+                memoryPoolManager,
+                config,
+                dao,
+                environment);
+    }
+
+    @VisibleForTesting
+    DbResourceGroupConfigurationManager(
+            ClusterMemoryPoolManager memoryPoolManager,
+            DbResourceGroupConfig config,
+            ResourceGroupsDao dao,
+            String environment)
+    {
+        this(
+                Optional.empty(),
+                memoryPoolManager,
+                config,
+                dao,
+                environment);
+    }
+
+    private DbResourceGroupConfigurationManager(
+            Optional<LifeCycleManager> lifeCycleManager,
+            ClusterMemoryPoolManager memoryPoolManager,
+            DbResourceGroupConfig config,
+            ResourceGroupsDao dao,
+            String environment)
     {
         super(memoryPoolManager);
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         requireNonNull(dao, "daoProvider is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.maxRefreshInterval = config.getMaxRefreshInterval();
@@ -378,5 +417,11 @@ public class DbResourceGroupConfigurationManager
     public CounterStat getRefreshFailures()
     {
         return refreshFailures;
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.ifPresent(LifeCycleManager::stop);
     }
 }

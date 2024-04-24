@@ -13,15 +13,13 @@
  */
 package io.trino.sql.query;
 
-import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -61,20 +59,24 @@ public class TestExecuteImmediate
     @Test
     public void testSyntaxError()
     {
-        assertThatThrownBy(() -> assertions.query("EXECUTE IMMEDIATE 'SELECT ''foo'"))
-                .isInstanceOf(ParsingException.class)
+        assertThat(assertions.query("EXECUTE IMMEDIATE 'SELECT ''foo'"))
+                .failure()
+                .hasErrorCode(SYNTAX_ERROR)
                 .hasMessageMatching("line 1:27: mismatched input '''. Expecting: .*");
-        assertThatThrownBy(() -> assertions.query("EXECUTE IMMEDIATE\n'SELECT ''foo'"))
-                .isInstanceOf(ParsingException.class)
+        assertThat(assertions.query("EXECUTE IMMEDIATE\n'SELECT ''foo'"))
+                .failure()
+                .hasErrorCode(SYNTAX_ERROR)
                 .hasMessageMatching("line 2:8: mismatched input '''. Expecting: .*");
     }
 
     @Test
     public void testSemanticError()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.query("EXECUTE IMMEDIATE 'SELECT * FROM tiny.tpch.orders'"))
-                .hasMessageMatching("line 1:34: Catalog 'tiny' does not exist");
-        assertTrinoExceptionThrownBy(() -> assertions.query("EXECUTE IMMEDIATE\n'SELECT *\nFROM tiny.tpch.orders'"))
-                .hasMessageMatching("line 3:6: Catalog 'tiny' does not exist");
+        assertThat(assertions.query("EXECUTE IMMEDIATE 'SELECT * FROM tiny.tpch.orders'"))
+                .failure()
+                .hasMessageMatching("line 1:34: Catalog 'tiny' not found");
+        assertThat(assertions.query("EXECUTE IMMEDIATE\n'SELECT *\nFROM tiny.tpch.orders'"))
+                .failure()
+                .hasMessageMatching("line 3:6: Catalog 'tiny' not found");
     }
 }

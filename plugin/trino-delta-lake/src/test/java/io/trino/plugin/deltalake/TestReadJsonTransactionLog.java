@@ -25,12 +25,10 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.math.BigInteger;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
@@ -68,7 +66,7 @@ public class TestReadJsonTransactionLog
                 .map(this::deserialize)
                 .map(DeltaLakeTransactionLogEntry::getRemove)
                 .filter(Objects::nonNull)
-                .map(RemoveFileEntry::getPath)
+                .map(RemoveFileEntry::path)
                 .filter(Objects::nonNull)
                 .count()).isEqualTo(6);
 
@@ -76,7 +74,7 @@ public class TestReadJsonTransactionLog
                 .map(this::deserialize)
                 .map(DeltaLakeTransactionLogEntry::getRemove)
                 .filter(Objects::nonNull)
-                .map(RemoveFileEntry::getPath)
+                .map(RemoveFileEntry::path)
                 .filter(Objects::nonNull)
                 .count()).isEqualTo(6);
     }
@@ -86,9 +84,9 @@ public class TestReadJsonTransactionLog
             throws JsonProcessingException
     {
         LastCheckpoint lastCheckpoint = objectMapper.readValue("{\"version\":10,\"size\":17}", LastCheckpoint.class);
-        assertThat(lastCheckpoint.getVersion()).isEqualTo(10L);
-        assertThat(lastCheckpoint.getSize()).isEqualTo(BigInteger.valueOf(17L));
-        assertThat(lastCheckpoint.getParts()).isEqualTo(Optional.empty());
+        assertThat(lastCheckpoint.version()).isEqualTo(10L);
+        assertThat(lastCheckpoint.size()).isEqualTo(17);
+        assertThat(lastCheckpoint.parts()).isEmpty();
     }
 
     @Test
@@ -96,9 +94,9 @@ public class TestReadJsonTransactionLog
             throws JsonProcessingException
     {
         LastCheckpoint lastCheckpoint = objectMapper.readValue("{\"version\":237580,\"size\":658573,\"parts\":2}", LastCheckpoint.class);
-        assertThat(lastCheckpoint.getVersion()).isEqualTo(237580L);
-        assertThat(lastCheckpoint.getSize()).isEqualTo(BigInteger.valueOf(658573L));
-        assertThat(lastCheckpoint.getParts()).isEqualTo(Optional.of(2));
+        assertThat(lastCheckpoint.version()).isEqualTo(237580L);
+        assertThat(lastCheckpoint.size()).isEqualTo(658573L);
+        assertThat(lastCheckpoint.parts()).hasValue(2);
     }
 
     private Stream<String> readJsonTransactionLogs(String location)

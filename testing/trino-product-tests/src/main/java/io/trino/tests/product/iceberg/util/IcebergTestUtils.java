@@ -26,6 +26,11 @@ public final class IcebergTestUtils
         return (String) onTrino().executeQuery("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName).getOnlyValue();
     }
 
+    public static String getLatestMetadataFilename(String catalog, String schema, String tableName)
+    {
+        return (String) onTrino().executeQuery("SELECT substring(file, strpos(file, '/', -1) + 1) FROM %s.%s.\"%s$metadata_log_entries\" ORDER BY timestamp DESC LIMIT 1".formatted(catalog, schema, tableName)).getOnlyValue();
+    }
+
     public static String stripNamenodeURI(String location)
     {
         return URI.create(location).getPath();

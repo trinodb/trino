@@ -13,30 +13,27 @@
  */
 package io.trino.plugin.hive.fs;
 
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-import io.trino.filesystem.Location;
+import com.google.common.collect.ImmutableMap;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.List;
-
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // some tests may invalidate the whole cache affecting therefore other concurrent tests
 @Execution(SAME_THREAD)
 public class TestCachingDirectoryLister
-        extends BaseCachingDirectoryListerTest<CachingDirectoryLister>
+        extends BaseCachingDirectoryListerTest
 {
     @Override
-    protected CachingDirectoryLister createDirectoryLister()
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        return new CachingDirectoryLister(Duration.valueOf("5m"), DataSize.of(1, MEGABYTE), List.of("tpch.*"));
-    }
-
-    @Override
-    protected boolean isCached(CachingDirectoryLister directoryLister, Location location)
-    {
-        return directoryLister.isCached(location);
+        return createQueryRunner(ImmutableMap.<String, String>builder()
+                .put("hive.allow-register-partition-procedure", "true")
+                .put("hive.recursive-directories", "true")
+                .put("hive.file-status-cache-expire-time", "5m")
+                .put("hive.file-status-cache.max-retained-size", "1MB")
+                .put("hive.file-status-cache-tables", "tpch.*")
+                .buildOrThrow());
     }
 }

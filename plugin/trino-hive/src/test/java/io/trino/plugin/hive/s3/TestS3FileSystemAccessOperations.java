@@ -22,7 +22,6 @@ import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import org.intellij.lang.annotations.Language;
@@ -164,8 +163,8 @@ public class TestS3FileSystemAccessOperations
 
     private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Multiset<String> expectedAccesses)
     {
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        queryRunner.executeWithQueryId(session, query);
+        QueryRunner queryRunner = getDistributedQueryRunner();
+        queryRunner.executeWithPlan(session, query);
         assertMultisetsEqual(getOperations(queryRunner.getSpans()), expectedAccesses);
     }
 

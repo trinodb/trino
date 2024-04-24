@@ -14,30 +14,37 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.Grants;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.connector.MutableGrants;
+import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.time.Duration;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.OptionalLong;
 
 import static io.trino.common.Randoms.randomUsername;
 import static io.trino.spi.security.PrincipalType.USER;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.QueryAssertions.assertUpdate;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -51,9 +58,11 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestGrantOnTable
 {
     private final SchemaTableName table = new SchemaTableName("default", "table_one");
+    private final SchemaTableName view = new SchemaTableName("default", "test_view");
+    private final SchemaTableName materializedView = new SchemaTableName("default", "test_materialized_view");
     private final Session admin = sessionOf("admin");
     private final Grants<SchemaTableName> tableGrants = new MutableGrants<>();
-    private DistributedQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private QueryAssertions assertions;
 
     @BeforeAll
@@ -63,15 +72,42 @@ public class TestGrantOnTable
         queryRunner = DistributedQueryRunner.builder(admin).build();
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("default"))
-                .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName) ? ImmutableList.of(table.getTableName()) : ImmutableList.of())
+                .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName)
+                        ? ImmutableList.of(table.getTableName(), view.getTableName(), materializedView.getTableName())
+                        : ImmutableList.of())
                 .withGetTableHandle((session, tableName) -> tableName.equals(table) ? new MockConnectorTableHandle(tableName) : null)
                 .withSchemaGrants(new MutableGrants<>())
                 .withTableGrants(tableGrants)
+                .withGetViews((session, schemaTablePrefix) ->
+                        ImmutableMap.of(
+                                view, new ConnectorViewDefinition(
+                                        "SELECT nationkey AS test_column FROM tpch.tiny.nation",
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        true,
+                                        ImmutableList.of())))
+                .withGetMaterializedViews((connectorSession, prefix) ->
+                        ImmutableMap.of(
+                                materializedView, new ConnectorMaterializedViewDefinition(
+                                        "SELECT nationkey AS test_column FROM tpch.tiny.nation",
+                                        Optional.of(new CatalogSchemaTableName("mock", "default", "test_materialized_view$materialized_view_storage")),
+                                        Optional.of("mock"),
+                                        Optional.of("default"),
+                                        ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test_column", BIGINT.getTypeId(), Optional.empty())),
+                                        Optional.of(Duration.ZERO),
+                                        Optional.empty(),
+                                        Optional.of("alice"),
+                                        ImmutableList.of())))
                 .build();
         queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
         queryRunner.createCatalog("local", "mock");
         assertions = new QueryAssertions(queryRunner);
         tableGrants.grant(new TrinoPrincipal(USER, "admin"), table, EnumSet.allOf(Privilege.class), true);
+        tableGrants.grant(new TrinoPrincipal(USER, "admin"), view, EnumSet.allOf(Privilege.class), true);
+        tableGrants.grant(new TrinoPrincipal(USER, "admin"), materializedView, EnumSet.allOf(Privilege.class), true);
     }
 
     @AfterAll
@@ -95,7 +131,8 @@ public class TestGrantOnTable
         Session user = sessionOf(username);
         tableGrants.grant(new TrinoPrincipal(USER, username), table, EnumSet.allOf(Privilege.class), grantOption);
 
-        assertThat(assertions.query(admin, "SHOW TABLES FROM local.default")).matches("VALUES (VARCHAR 'table_one')");
+        assertThat(assertions.query(admin, "SHOW TABLES FROM local.default"))
+                .matches("VALUES VARCHAR 'table_one', 'test_view', 'test_materialized_view'");
         assertThat(assertions.query(user, "SHOW TABLES FROM local.default")).matches("VALUES (VARCHAR 'table_one')");
     }
 
@@ -118,6 +155,30 @@ public class TestGrantOnTable
         queryRunner.execute(admin, format("GRANT %s ON TABLE table_one TO %s", privilege, username));
 
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
+    }
+
+    @Test
+    public void testGrantOnView()
+    {
+        String username = randomUsername();
+        Session user = sessionOf(username);
+        assertThat(assertions.query(user, "SHOW TABLES FROM default"))
+                .result().isEmpty();
+        queryRunner.execute(admin, format("GRANT SELECT ON TABLE test_view TO %s", username));
+        assertThat(assertions.query(user, "SHOW TABLES FROM default"))
+                .matches("VALUES (VARCHAR 'test_view')");
+    }
+
+    @Test
+    public void testGrantOnMaterializedView()
+    {
+        String username = randomUsername();
+        Session user = sessionOf(username);
+        assertThat(assertions.query(user, "SHOW TABLES FROM default"))
+                .result().isEmpty();
+        queryRunner.execute(admin, format("GRANT SELECT ON TABLE test_materialized_view TO %s", username));
+        assertThat(assertions.query(user, "SHOW TABLES FROM default"))
+                .matches("VALUES (VARCHAR 'test_materialized_view')");
     }
 
     @Test

@@ -23,6 +23,7 @@ import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.Fixed12Block.FIXED12_BYTES;
 import static io.trino.spi.block.Fixed12Block.encodeFixed12;
 import static java.lang.Math.max;
+import static java.util.Objects.checkIndex;
 
 public class Fixed12BlockBuilder
         implements BlockBuilder
@@ -243,6 +244,13 @@ public class Fixed12BlockBuilder
             blockBuilderStatus.addBytes(Byte.BYTES + FIXED12_BYTES);
         }
         return this;
+    }
+
+    @Override
+    public void resetTo(int position)
+    {
+        checkIndex(position, positionCount + 1);
+        positionCount = position;
     }
 
     @Override

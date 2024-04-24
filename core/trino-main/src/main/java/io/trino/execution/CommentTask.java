@@ -32,6 +32,7 @@ import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -116,7 +117,7 @@ public class CommentTask
     private void commentOnView(Comment statement, Session session)
     {
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
-        if (metadata.getView(session, viewName).isEmpty()) {
+        if (!metadata.isView(session, viewName)) {
             String additionalInformation;
             if (metadata.getMaterializedView(session, viewName).isPresent()) {
                 additionalInformation = ", but a materialized view with that name exists. Setting comments on materialized views is unsupported.";
@@ -140,8 +141,9 @@ public class CommentTask
                 .orElseThrow(() -> semanticException(MISSING_TABLE, statement, "Table must be specified"));
 
         QualifiedObjectName originalObjectName = createQualifiedObjectName(session, statement, prefix);
-        if (metadata.isView(session, originalObjectName)) {
-            ViewDefinition viewDefinition = metadata.getView(session, originalObjectName).get();
+        Optional<ViewDefinition> view = metadata.getView(session, originalObjectName);
+        if (view.isPresent()) {
+            ViewDefinition viewDefinition = view.get();
             ViewColumn viewColumn = findAndCheckViewColumn(statement, session, viewDefinition, originalObjectName);
             metadata.setViewColumnComment(session, originalObjectName, viewColumn.getName(), statement.getComment());
         }

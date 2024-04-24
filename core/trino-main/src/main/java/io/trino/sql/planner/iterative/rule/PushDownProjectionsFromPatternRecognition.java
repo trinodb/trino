@@ -17,7 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -26,18 +27,19 @@ import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.Patterns.patternRecognition;
 
@@ -100,11 +102,10 @@ public class PushDownProjectionsFromPatternRecognition
                 rewrittenMeasureDefinitions,
                 node.getCommonBaseFrame(),
                 node.getRowsPerMatch(),
-                node.getSkipToLabel(),
+                node.getSkipToLabels(),
                 node.getSkipToPosition(),
                 node.isInitial(),
                 node.getPattern(),
-                node.getSubsets(),
                 rewrittenVariableDefinitions);
 
         return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), patternRecognitionNode, ImmutableSet.copyOf(node.getOutputSymbols())).orElse(patternRecognitionNode));
@@ -124,44 +125,46 @@ public class PushDownProjectionsFromPatternRecognition
 
     private static ExpressionAndValuePointers rewrite(ExpressionAndValuePointers expression, Assignments.Builder assignments, Context context)
     {
-        ImmutableList.Builder<ValuePointer> rewrittenPointers = ImmutableList.builder();
-        for (ValuePointer valuePointer : expression.getValuePointers()) {
-            if (valuePointer instanceof ScalarValuePointer) {
-                rewrittenPointers.add(valuePointer);
-            }
-            else {
-                AggregationValuePointer aggregationPointer = (AggregationValuePointer) valuePointer;
-                Set<Symbol> runtimeEvaluatedSymbols = ImmutableSet.of(aggregationPointer.getClassifierSymbol(), aggregationPointer.getMatchNumberSymbol());
-                List<Type> argumentTypes = aggregationPointer.getFunction().getSignature().getArgumentTypes();
+        ImmutableList.Builder<ExpressionAndValuePointers.Assignment> rewrittenAssignments = ImmutableList.builder();
+        for (ExpressionAndValuePointers.Assignment assignment : expression.getAssignments()) {
+            ValuePointer valuePointer = assignment.valuePointer();
 
-                ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
-                for (int i = 0; i < aggregationPointer.getArguments().size(); i++) {
-                    Expression argument = aggregationPointer.getArguments().get(i);
-                    if (argument instanceof SymbolReference || SymbolsExtractor.extractUnique(argument).stream()
-                            .anyMatch(runtimeEvaluatedSymbols::contains)) {
-                        rewrittenArguments.add(argument);
-                    }
-                    else {
-                        Symbol symbol = context.getSymbolAllocator().newSymbol(argument, argumentTypes.get(i));
-                        assignments.put(symbol, argument);
-                        rewrittenArguments.add(symbol.toSymbolReference());
-                    }
-                }
+            rewrittenAssignments.add(new ExpressionAndValuePointers.Assignment(
+                    assignment.symbol(),
+                    switch (valuePointer) {
+                        case ClassifierValuePointer pointer -> pointer;
+                        case MatchNumberValuePointer pointer -> pointer;
+                        case ScalarValuePointer pointer -> pointer;
+                        case AggregationValuePointer pointer -> {
+                            Set<Symbol> runtimeEvaluatedSymbols = ImmutableSet.of(pointer.getClassifierSymbol(), pointer.getMatchNumberSymbol()).stream()
+                                    .filter(Optional::isPresent)
+                                    .map(Optional::get)
+                                    .collect(toImmutableSet());
 
-                rewrittenPointers.add(new AggregationValuePointer(
-                        aggregationPointer.getFunction(),
-                        aggregationPointer.getSetDescriptor(),
-                        rewrittenArguments.build(),
-                        aggregationPointer.getClassifierSymbol(),
-                        aggregationPointer.getMatchNumberSymbol()));
-            }
+                            ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
+                            for (int i = 0; i < pointer.getArguments().size(); i++) {
+                                Expression argument = pointer.getArguments().get(i);
+                                if (argument instanceof Reference || SymbolsExtractor.extractUnique(argument).stream()
+                                        .anyMatch(runtimeEvaluatedSymbols::contains)) {
+                                    rewrittenArguments.add(argument);
+                                }
+                                else {
+                                    Symbol symbol = context.getSymbolAllocator().newSymbol(argument);
+                                    assignments.put(symbol, argument);
+                                    rewrittenArguments.add(symbol.toSymbolReference());
+                                }
+                            }
+
+                            yield new AggregationValuePointer(
+                                    pointer.getFunction(),
+                                    pointer.getSetDescriptor(),
+                                    rewrittenArguments.build(),
+                                    pointer.getClassifierSymbol(),
+                                    pointer.getMatchNumberSymbol());
+                        }
+                    }));
         }
 
-        return new ExpressionAndValuePointers(
-                expression.getExpression(),
-                expression.getLayout(),
-                rewrittenPointers.build(),
-                expression.getClassifierSymbols(),
-                expression.getMatchNumberSymbols());
+        return new ExpressionAndValuePointers(expression.getExpression(), rewrittenAssignments.build());
     }
 }

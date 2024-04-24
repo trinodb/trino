@@ -17,6 +17,7 @@ public enum TableType
 {
     DATA,
     HISTORY,
+    METADATA_LOG_ENTRIES,
     SNAPSHOTS,
     MANIFESTS,
     PARTITIONS,

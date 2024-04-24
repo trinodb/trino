@@ -157,7 +157,7 @@ public class TestDecimalCoercers
 
     private static void assertCoercion(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionUtils.CoercionContext(DEFAULT_PRECISION, true)).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionUtils.CoercionContext(DEFAULT_PRECISION, false)).orElseThrow()
                 .apply(nativeValueToBlock(fromType, valueToBeCoerced));
         assertThat(blockToNativeValue(toType, coercedValue))
                 .isEqualTo(expectedValue);

@@ -17,12 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.SchemaFunctionName;
@@ -81,11 +84,13 @@ import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
+import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
@@ -124,6 +129,7 @@ public class FileBasedSystemAccessControl
     public static final String NAME = "file";
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
+    private final LifeCycleManager lifeCycleManager;
     private final List<CatalogAccessControlRule> catalogRules;
     private final Optional<List<QueryAccessRule>> queryAccessRules;
     private final Optional<List<ImpersonationRule>> impersonationRules;
@@ -140,6 +146,7 @@ public class FileBasedSystemAccessControl
     private final Set<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules;
 
     private FileBasedSystemAccessControl(
+            LifeCycleManager lifeCycleManager,
             List<CatalogAccessControlRule> catalogRules,
             Optional<List<QueryAccessRule>> queryAccessRules,
             Optional<List<ImpersonationRule>> impersonationRules,
@@ -153,6 +160,7 @@ public class FileBasedSystemAccessControl
             List<CatalogFunctionAccessControlRule> functionRules,
             List<CatalogProcedureAccessControlRule> procedureRules)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.catalogRules = catalogRules;
         this.queryAccessRules = queryAccessRules;
         this.impersonationRules = impersonationRules;
@@ -294,7 +302,7 @@ public class FileBasedSystemAccessControl
     public void checkCanExecuteQuery(Identity identity)
     {
         if (!canAccessQuery(identity, Optional.empty(), QueryAccessRule.AccessMode.EXECUTE)) {
-            denyViewQuery();
+            denyExecuteQuery();
         }
     }
 
@@ -321,7 +329,7 @@ public class FileBasedSystemAccessControl
     public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         if (!canAccessQuery(identity, Optional.of(queryOwner.getUser()), QueryAccessRule.AccessMode.KILL)) {
-            denyViewQuery();
+            denyKillQuery();
         }
     }
 
@@ -873,6 +881,24 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanGrantEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanDenyEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanRevokeEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void checkCanCreateRole(SystemSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
     {
         // file based
@@ -1152,6 +1178,12 @@ public class FileBasedSystemAccessControl
                 .orElse(false);
     }
 
+    @Override
+    public final void shutdown()
+    {
+        lifeCycleManager.stop();
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -1159,6 +1191,7 @@ public class FileBasedSystemAccessControl
 
     public static final class Builder
     {
+        private LifeCycleManager lifeCycleManager;
         private List<CatalogAccessControlRule> catalogRules = ImmutableList.of(CatalogAccessControlRule.ALLOW_ALL);
         private Optional<List<QueryAccessRule>> queryAccessRules = Optional.empty();
         private Optional<List<ImpersonationRule>> impersonationRules = Optional.empty();
@@ -1171,6 +1204,12 @@ public class FileBasedSystemAccessControl
         private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL);
         private List<CatalogFunctionAccessControlRule> functionRules = ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_BUILTIN);
         private List<CatalogProcedureAccessControlRule> procedureRules = ImmutableList.of(CatalogProcedureAccessControlRule.ALLOW_BUILTIN);
+
+        public Builder setLifeCycleManager(LifeCycleManager lifeCycleManager)
+        {
+            this.lifeCycleManager = lifeCycleManager;
+            return this;
+        }
 
         @SuppressWarnings("unused")
         public Builder denyAllAccess()
@@ -1265,6 +1304,7 @@ public class FileBasedSystemAccessControl
         public FileBasedSystemAccessControl build()
         {
             return new FileBasedSystemAccessControl(
+                    lifeCycleManager,
                     catalogRules,
                     queryAccessRules,
                     impersonationRules,

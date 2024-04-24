@@ -22,12 +22,12 @@ import io.trino.operator.scalar.ArraySortFunction;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.iterative.Rule;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Set;
@@ -59,14 +59,14 @@ public class ArraySortAfterArrayDistinct
 
     private static Expression rewrite(Expression expression, Metadata metadata)
     {
-        if (expression instanceof SymbolReference) {
+        if (expression instanceof Reference) {
             return expression;
         }
         return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata), expression);
     }
 
     private static class Visitor
-            extends io.trino.sql.tree.ExpressionRewriter<Void>
+            extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final Metadata metadata;
 
@@ -76,19 +76,19 @@ public class ArraySortAfterArrayDistinct
         }
 
         @Override
-        public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteCall(Call node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-            if (metadata.decodeFunction(rewritten.getName()).getSignature().getName().equals(ARRAY_DISTINCT_NAME) &&
-                    getOnlyElement(rewritten.getArguments()) instanceof FunctionCall) {
-                Expression expression = getOnlyElement(rewritten.getArguments());
-                FunctionCall functionCall = (FunctionCall) expression;
-                ResolvedFunction resolvedFunction = metadata.decodeFunction(functionCall.getName());
-                if (resolvedFunction.getSignature().getName().equals(ARRAY_SORT_NAME)) {
-                    List<Expression> arraySortArguments = functionCall.getArguments();
+            Call rewritten = treeRewriter.defaultRewrite(node, context);
+            if (node.function().getName().equals(ARRAY_DISTINCT_NAME) &&
+                    getOnlyElement(rewritten.arguments()) instanceof Call) {
+                Expression expression = getOnlyElement(rewritten.arguments());
+                Call call = (Call) expression;
+                ResolvedFunction resolvedFunction = call.function();
+                if (resolvedFunction.getName().equals(ARRAY_SORT_NAME)) {
+                    List<Expression> arraySortArguments = call.arguments();
                     List<Type> arraySortArgumentsTypes = resolvedFunction.getSignature().getArgumentTypes();
 
-                    FunctionCall arrayDistinctCall = BuiltinFunctionCallBuilder.resolve(metadata)
+                    Call arrayDistinctCall = BuiltinFunctionCallBuilder.resolve(metadata)
                             .setName(ArrayDistinctFunction.NAME)
                             .setArguments(
                                     ImmutableList.of(arraySortArgumentsTypes.get(0)),

@@ -18,15 +18,15 @@ import io.trino.spi.function.GroupedAccumulatorState;
 public abstract class AbstractGroupedAccumulatorState
         implements GroupedAccumulatorState
 {
-    private long groupId;
+    private int groupId;
 
     @Override
-    public final void setGroupId(long groupId)
+    public final void setGroupId(int groupId)
     {
         this.groupId = groupId;
     }
 
-    protected final long getGroupId()
+    protected final int getGroupId()
     {
         return groupId;
     }

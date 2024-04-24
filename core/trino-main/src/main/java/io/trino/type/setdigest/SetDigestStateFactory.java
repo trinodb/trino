@@ -42,17 +42,17 @@ public class SetDigestStateFactory
             implements GroupedAccumulatorState, SetDigestState
     {
         private final ObjectBigArray<SetDigest> digests = new ObjectBigArray<>();
-        private long groupId;
+        private int groupId;
         private long size;
 
         @Override
-        public void setGroupId(long groupId)
+        public void setGroupId(int groupId)
         {
             this.groupId = groupId;
         }
 
         @Override
-        public void ensureCapacity(long size)
+        public void ensureCapacity(int size)
         {
             digests.ensureCapacity(size);
         }

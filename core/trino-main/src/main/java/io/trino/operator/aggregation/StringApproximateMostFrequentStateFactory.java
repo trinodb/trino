@@ -85,7 +85,7 @@ public class StringApproximateMostFrequentStateFactory
         }
 
         @Override
-        public void ensureCapacity(long size)
+        public void ensureCapacity(int size)
         {
             histograms.ensureCapacity(size);
         }

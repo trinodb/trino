@@ -26,7 +26,7 @@ public class QueryExecutionMBean
     private final ThreadPoolExecutorMBean executorMBean;
 
     @Inject
-    public QueryExecutionMBean(@ForQueryExecution ExecutorService executor)
+    public QueryExecutionMBean(@QueryExecutorInternal ExecutorService executor)
     {
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
     }

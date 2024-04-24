@@ -65,19 +65,13 @@ public class StaticTokenAwareMetastoreClientFactory
                 authenticationConfig.getAuthenticationType());
     }
 
-    public StaticTokenAwareMetastoreClientFactory(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
-    {
-        this(metastoreUris, metastoreUsername, clientFactory, Ticker.systemTicker());
-    }
-
     private StaticTokenAwareMetastoreClientFactory(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory, Ticker ticker)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
         this.backoffs = metastoreUris.stream()
                 .map(StaticTokenAwareMetastoreClientFactory::checkMetastoreUri)
-                .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
-                .map(address -> new Backoff(address, ticker))
+                .map(uri -> new Backoff(uri, ticker))
                 .collect(toImmutableList());
 
         this.metastoreUsername = metastoreUsername;
@@ -105,7 +99,7 @@ public class StaticTokenAwareMetastoreClientFactory
         TException lastException = null;
         for (Backoff backoff : backoffsSorted) {
             try {
-                return getClient(backoff.getAddress(), backoff, delegationToken);
+                return getClient(backoff.getUri(), backoff, delegationToken);
             }
             catch (TException e) {
                 lastException = e;
@@ -116,10 +110,10 @@ public class StaticTokenAwareMetastoreClientFactory
         throw new TException("Failed connecting to Hive metastore: " + addresses, lastException);
     }
 
-    private ThriftMetastoreClient getClient(HostAndPort address, Backoff backoff, Optional<String> delegationToken)
+    private ThriftMetastoreClient getClient(URI uri, Backoff backoff, Optional<String> delegationToken)
             throws TException
     {
-        ThriftMetastoreClient client = new FailureAwareThriftMetastoreClient(clientFactory.create(address, delegationToken), new Callback()
+        ThriftMetastoreClient client = new FailureAwareThriftMetastoreClient(clientFactory.create(uri, delegationToken), new Callback()
         {
             @Override
             public void success()
@@ -156,20 +150,25 @@ public class StaticTokenAwareMetastoreClientFactory
         static final long MIN_BACKOFF = new Duration(50, MILLISECONDS).roundTo(NANOSECONDS);
         static final long MAX_BACKOFF = new Duration(60, SECONDS).roundTo(NANOSECONDS);
 
-        private final HostAndPort address;
+        private final URI uri;
         private final Ticker ticker;
         private long backoffDuration = MIN_BACKOFF;
         private OptionalLong lastFailureTimestamp = OptionalLong.empty();
 
-        Backoff(HostAndPort address, Ticker ticker)
+        Backoff(URI uri, Ticker ticker)
         {
-            this.address = requireNonNull(address, "address is null");
+            this.uri = requireNonNull(uri, "uri is null");
             this.ticker = requireNonNull(ticker, "ticker is null");
         }
 
         public HostAndPort getAddress()
         {
-            return address;
+            return HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        }
+
+        public URI getUri()
+        {
+            return uri;
         }
 
         synchronized void fail()

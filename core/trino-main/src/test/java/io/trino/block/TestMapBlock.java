@@ -38,7 +38,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.StructuralTestUtil.mapType;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -67,7 +66,7 @@ public class TestMapBlock
         // TODO: Add test case for a sliced MapBlock
 
         // underlying key/value block is not compact
-        testIncompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
+        testNotCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
     }
 
     @Test
@@ -286,21 +285,15 @@ public class TestMapBlock
     }
 
     @Override
-    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
+    protected <T> void assertPositionValue(Block mapBlock, int position, T expectedValue)
     {
-        if (expectedValue instanceof Map) {
-            assertValue(block, position, (Map<String, Long>) expectedValue);
+        if (expectedValue == null) {
+            assertThat(mapBlock.isNull(position)).isTrue();
             return;
         }
-        super.assertPositionValue(block, position, expectedValue);
-    }
 
-    private void assertValue(Block mapBlock, int position, Map<String, Long> map)
-    {
+        Map<String, Long> map = (Map<String, Long>) expectedValue;
         MapType mapType = mapType(VARCHAR, BIGINT);
-
-        // null maps are handled by assertPositionValue
-        requireNonNull(map, "map is null");
 
         assertThat(mapBlock.isNull(position)).isFalse();
         SqlMap sqlMap = mapType.getObject(mapBlock, position);

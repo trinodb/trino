@@ -13,6 +13,8 @@
  */
 package io.trino.tests.product.deltalake;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
@@ -151,6 +153,43 @@ public class TestDeltaLakeAlterTableCompatibility
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (2, 'part2')");
             assertThat(onTrino().executeQuery("SELECT col, new_part FROM delta.default." + tableName))
                     .containsOnly(row(1, "part1"), row(2, "part2"));
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testDropNotNullConstraint()
+    {
+        testDropNotNullConstraint("id");
+        testDropNotNullConstraint("name");
+        testDropNotNullConstraint("none");
+    }
+
+    private void testDropNotNullConstraint(String columnMappingMode)
+    {
+        String tableName = "test_dl_drop_not_null_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(data1 int NOT NULL, data2 int NOT NULL, part1 int NOT NULL, part2 int NOT NULL) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                "PARTITIONED BY (part1, part2)" +
+                "TBLPROPERTIES ('delta.columnMapping.mode'='" + columnMappingMode + "')");
+        try {
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " ALTER COLUMN data1 DROP NOT NULL");
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " ALTER COLUMN part1 DROP NOT NULL");
+
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ALTER COLUMN data2 DROP NOT NULL");
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ALTER COLUMN part2 DROP NOT NULL");
+
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (NULL, NULL, NULL, NULL)");
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (NULL, NULL, NULL, NULL)");
+
+            List<QueryAssert.Row> expected = ImmutableList.of(row(null, null, null, null), row(null, null, null, null));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).containsOnly(expected);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(expected);
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -430,7 +469,7 @@ public class TestDeltaLakeAlterTableCompatibility
         String tableName = "test_dl_add_column_unsupported_writer_feature_" + randomNameSuffix();
 
         onDelta().executeQuery("CREATE TABLE default." + tableName + "" +
-                "(a int, b int) " +
+                "(a int, b int NOT NULL) " +
                 "USING DELTA " +
                 "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 "TBLPROPERTIES ('delta.feature.generatedColumns'='supported')");
@@ -440,6 +479,8 @@ public class TestDeltaLakeAlterTableCompatibility
             assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN a TO renamed"))
                     .hasMessageContaining("Unsupported writer features: [generatedColumns]");
             assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN b"))
+                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
+            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ALTER COLUMN b DROP NOT NULL"))
                     .hasMessageContaining("Unsupported writer features: [generatedColumns]");
             assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " EXECUTE OPTIMIZE"))
                     .hasMessageContaining("Unsupported writer features: [generatedColumns]");

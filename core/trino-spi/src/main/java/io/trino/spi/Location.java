@@ -15,8 +15,10 @@ package io.trino.spi;
 
 import com.google.errorprone.annotations.Immutable;
 
+import java.util.Objects;
+
 @Immutable
-public class Location
+public final class Location
 {
     private final int lineNumber;
     private final int columnNumber;
@@ -43,6 +45,20 @@ public class Location
     public int getColumnNumber()
     {
         return columnNumber;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        return (o instanceof Location other) &&
+                (lineNumber == other.lineNumber) &&
+                (columnNumber == other.columnNumber);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(lineNumber, columnNumber);
     }
 
     @Override

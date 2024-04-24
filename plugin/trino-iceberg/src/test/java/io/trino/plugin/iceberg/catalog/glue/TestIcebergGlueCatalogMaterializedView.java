@@ -27,14 +27,14 @@ import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import io.trino.plugin.iceberg.BaseIcebergMaterializedViewTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -42,11 +42,7 @@ import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
 public class TestIcebergGlueCatalogMaterializedView
         extends BaseIcebergMaterializedViewTest
 {
@@ -61,7 +57,7 @@ public class TestIcebergGlueCatalogMaterializedView
         this.schemaDirectory = Files.createTempDirectory("test_iceberg").toFile();
         schemaDirectory.deleteOnExit();
 
-        return IcebergQueryRunner.builder()
+        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.of(
                                 "iceberg.catalog.type", "glue",
@@ -72,6 +68,13 @@ public class TestIcebergGlueCatalogMaterializedView
                                 .withSchemaName(schemaName)
                                 .build())
                 .build();
+
+        queryRunner.createCatalog("iceberg_legacy_mv", "iceberg", Map.of(
+                "iceberg.catalog.type", "glue",
+                "hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath(),
+                "iceberg.materialized-views.hide-storage-table", "false"));
+
+        return queryRunner;
     }
 
     @Override

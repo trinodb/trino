@@ -15,23 +15,30 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.assertions.AggregationFunction;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.FunctionCall;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestSingleDistinctAggregationToGroupBy
         extends BaseRuleTest
@@ -42,7 +49,7 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), expression("count(input1)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
                                         p.symbol("input1"),
@@ -56,8 +63,8 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), expression("count(DISTINCT input2)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2"))), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
                                         p.symbol("input1"),
@@ -71,8 +78,8 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), expression("count(input2)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "input2"))), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
                                         p.symbol("input1"),
@@ -86,13 +93,13 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output"), expression("count(DISTINCT input1) filter (where filter1)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1")), new Symbol(UNKNOWN, "filter1")), ImmutableList.of(BIGINT))
                         .source(
                                 p.project(
                                         Assignments.builder()
                                                 .putIdentity(p.symbol("input1"))
                                                 .putIdentity(p.symbol("input2"))
-                                                .put(p.symbol("filter1"), expression("input2 > 0"))
+                                                .put(p.symbol("filter1", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "input2"), new Constant(INTEGER, 0L)))
                                                 .build(),
                                         p.values(
                                                 p.symbol("input1"),
@@ -106,7 +113,7 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output"), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(p.symbol("input")))))
                 .matches(
@@ -114,7 +121,7 @@ public class TestSingleDistinctAggregationToGroupBy
                                 globalAggregation(),
                                 ImmutableMap.of(
                                         Optional.of("output"),
-                                        functionCall("count", ImmutableList.of("input"))),
+                                        aggregationFunction("count", ImmutableList.of("input"))),
                                 Optional.empty(),
                                 SINGLE,
                                 aggregation(
@@ -131,16 +138,16 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), expression("sum(DISTINCT input)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(p.symbol("input")))))
                 .matches(
                         aggregation(
                                 globalAggregation(),
-                                ImmutableMap.<Optional<String>, ExpectedValueProvider<FunctionCall>>builder()
-                                        .put(Optional.of("output1"), functionCall("count", ImmutableList.of("input")))
-                                        .put(Optional.of("output2"), functionCall("sum", ImmutableList.of("input")))
+                                ImmutableMap.<Optional<String>, ExpectedValueProvider<AggregationFunction>>builder()
+                                        .put(Optional.of("output1"), aggregationFunction("count", ImmutableList.of("input")))
+                                        .put(Optional.of("output2"), aggregationFunction("sum", ImmutableList.of("input")))
                                         .buildOrThrow(),
                                 Optional.empty(),
                                 SINGLE,
@@ -158,16 +165,16 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), expression("corr(DISTINCT x, y)"), ImmutableList.of(REAL, REAL))
-                        .addAggregation(p.symbol("output2"), expression("corr(DISTINCT y, x)"), ImmutableList.of(REAL, REAL))
+                        .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("corr", true, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), ImmutableList.of(BIGINT, BIGINT))
+                        .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("corr", true, ImmutableList.of(new Reference(BIGINT, "y"), new Reference(BIGINT, "x"))), ImmutableList.of(BIGINT, BIGINT))
                         .source(
-                                p.values(p.symbol("x"), p.symbol("y")))))
+                                p.values(p.symbol("x", BIGINT), p.symbol("y", BIGINT)))))
                 .matches(
                         aggregation(
                                 globalAggregation(),
-                                ImmutableMap.<Optional<String>, ExpectedValueProvider<FunctionCall>>builder()
-                                        .put(Optional.of("output1"), functionCall("corr", ImmutableList.of("x", "y")))
-                                        .put(Optional.of("output2"), functionCall("corr", ImmutableList.of("y", "x")))
+                                ImmutableMap.<Optional<String>, ExpectedValueProvider<AggregationFunction>>builder()
+                                        .put(Optional.of("output1"), aggregationFunction("corr", ImmutableList.of("x", "y")))
+                                        .put(Optional.of("output2"), aggregationFunction("corr", ImmutableList.of("y", "x")))
                                         .buildOrThrow(),
                                 Optional.empty(),
                                 SINGLE,

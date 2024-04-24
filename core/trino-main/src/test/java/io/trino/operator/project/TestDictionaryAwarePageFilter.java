@@ -32,6 +32,7 @@ import java.util.stream.IntStream;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -196,7 +197,7 @@ public class TestDictionaryAwarePageFilter
 
         IntSet expectedSelectedPositions = new IntArraySet(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
-            if (isSelected(filterRange, block.getLong(position, 0))) {
+            if (isSelected(filterRange, BIGINT.getLong(block, position))) {
                 expectedSelectedPositions.add(position);
             }
         }
@@ -280,7 +281,7 @@ public class TestDictionaryAwarePageFilter
             boolean sequential = true;
             IntArrayList selectedPositions = new IntArrayList();
             for (int position = 0; position < block.getPositionCount(); position++) {
-                long value = block.getLong(position, 0);
+                long value = BIGINT.getLong(block, position);
                 verifyPositive(value);
 
                 boolean selected = isSelected(filterRange, value);

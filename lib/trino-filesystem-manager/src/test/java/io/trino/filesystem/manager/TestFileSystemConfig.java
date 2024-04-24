@@ -31,7 +31,8 @@ public class TestFileSystemConfig
                 .setHadoopEnabled(true)
                 .setNativeAzureEnabled(false)
                 .setNativeS3Enabled(false)
-                .setNativeGcsEnabled(false));
+                .setNativeGcsEnabled(false)
+                .setCacheEnabled(false));
     }
 
     @Test
@@ -42,13 +43,15 @@ public class TestFileSystemConfig
                 .put("fs.native-azure.enabled", "true")
                 .put("fs.native-s3.enabled", "true")
                 .put("fs.native-gcs.enabled", "true")
+                .put("fs.cache.enabled", "true")
                 .buildOrThrow();
 
         FileSystemConfig expected = new FileSystemConfig()
                 .setHadoopEnabled(false)
                 .setNativeAzureEnabled(true)
                 .setNativeS3Enabled(true)
-                .setNativeGcsEnabled(true);
+                .setNativeGcsEnabled(true)
+                .setCacheEnabled(true);
 
         assertFullMapping(properties, expected);
     }

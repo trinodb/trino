@@ -49,14 +49,16 @@ to saturate the underlying spilling device (for example, when using RAID).
 - **Type:** {ref}`prop-type-data-size`
 - **Default value:** `100GB`
 
-Max spill space to be used by all queries on a single node.
+Max spill space to use by all queries on a single node. This only needs to be
+configured on worker nodes.
 
 ## `query-max-spill-per-node`
 
 - **Type:** {ref}`prop-type-data-size`
 - **Default value:** `100GB`
 
-Max spill space to be used by a single query on a single node.
+Max spill space to use by a single query on a single node. This only needs to be
+configured on worker nodes.
 
 ## `aggregation-operator-unspill-memory-limit`
 
@@ -65,12 +67,14 @@ Max spill space to be used by a single query on a single node.
 
 Limit for memory used for unspilling a single aggregation operator instance.
 
-## `spill-compression-enabled`
+(prop-spill-compression-codec)=
+## `spill-compression-codec`
 
-- **Type:** {ref}`prop-type-boolean`
-- **Default value:** `false`
+- **Type:** {ref}`prop-type-string`
+- **Allowed values:** `NONE`, `LZ4`, `ZSTD`
+- **Default value:** `NONE`
 
-Enables data compression for pages spilled to disk.
+The compression codec to use when spilling pages to disk.
 
 ## `spill-encryption-enabled`
 

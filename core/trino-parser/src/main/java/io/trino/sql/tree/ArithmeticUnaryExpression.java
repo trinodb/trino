@@ -63,16 +63,6 @@ public class ArithmeticUnaryExpression
         return new ArithmeticUnaryExpression(Optional.of(location), Sign.MINUS, value);
     }
 
-    public static ArithmeticUnaryExpression positive(Expression value)
-    {
-        return new ArithmeticUnaryExpression(Optional.empty(), Sign.PLUS, value);
-    }
-
-    public static ArithmeticUnaryExpression negative(Expression value)
-    {
-        return new ArithmeticUnaryExpression(Optional.empty(), Sign.MINUS, value);
-    }
-
     public Expression getValue()
     {
         return value;

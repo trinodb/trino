@@ -18,7 +18,6 @@ import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.BaseTestParquetWithBloomFilters;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.mapred.JobConf;
@@ -47,7 +46,7 @@ public class TestHiveParquetWithBloomFilters
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder().build();
+        QueryRunner queryRunner = HiveQueryRunner.builder().build();
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
         return queryRunner;
     }

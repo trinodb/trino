@@ -15,19 +15,14 @@ package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.List;
 import java.util.NoSuchElementException;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static java.lang.String.format;
@@ -37,27 +32,19 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 // some tests may invalidate the whole cache affecting therefore other concurrent tests
 @Execution(SAME_THREAD)
 public class TestCachingDirectoryListerRecursiveFilesOnly
-        extends BaseCachingDirectoryListerTest<CachingDirectoryLister>
+        extends BaseCachingDirectoryListerTest
 {
-    @Override
-    protected CachingDirectoryLister createDirectoryLister()
-    {
-        return new CachingDirectoryLister(Duration.valueOf("5m"), DataSize.of(1, MEGABYTE), List.of("tpch.*"));
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createQueryRunner(ImmutableMap.of(
-                "hive.allow-register-partition-procedure", "true",
-                "hive.recursive-directories", "true"));
-    }
-
-    @Override
-    protected boolean isCached(CachingDirectoryLister directoryLister, Location location)
-    {
-        return directoryLister.isCached(location);
+        return createQueryRunner(ImmutableMap.<String, String>builder()
+                .put("hive.allow-register-partition-procedure", "true")
+                .put("hive.recursive-directories", "true")
+                .put("hive.file-status-cache-expire-time", "5m")
+                .put("hive.file-status-cache.max-retained-size", "1MB")
+                .put("hive.file-status-cache-tables", "tpch.*")
+                .buildOrThrow());
     }
 
     @Test

@@ -55,7 +55,6 @@ connector. The following connectors support fault-tolerant execution:
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:
 
-
 :::{list-table} Fault-tolerant execution configuration properties
 :widths: 30, 50, 20
 :header-rows: 1
@@ -76,11 +75,14 @@ execution on a Trino cluster:
     exceeded" error message unless an [exchange manager](fte-exchange-manager)
     is configured.
   - `32MB`
-* - `exchange.compression-enabled`
-  - Enable compression of spooling data. Setting to `true` is recommended
-    when using an [exchange manager](fte-exchange-manager).
-  - ``false``
+* - `fault-tolerant-execution.exchange-encryption-enabled`
+  - Enable encryption of spooling data, see [Encryption](fte-encryption) for details. 
+    Setting this property to false is not recommended if Trino processes sensitive data.
+  - ``true``
 :::
+
+Find further related properties in [](/admin/properties), specifically in
+[](/admin/properties-resource-management) and [](/admin/properties-exchange).
 
 (fte-retry-policy)=
 
@@ -144,6 +146,14 @@ volume. As a best practice, it is recommended to run a dedicated cluster
 with a `TASK` retry policy for large batch queries, separate from another
 cluster that handles short queries.
 :::
+
+(fte-encryption)=
+## Encryption
+
+Trino encrypts data before spooling it to storage. This prevents access to query
+data by anyone besides the Trino cluster that wrote it, including administrators
+of the storage system. A new encryption key is randomly generated for every
+query, and the key is discarded once a query is completed.
 
 ## Advanced configuration
 
@@ -449,7 +459,11 @@ the property may be configured for:
   - AWS S3, GCS
 * - `exchange.s3.endpoint`
   - S3 storage endpoint server if using an S3-compatible storage system that
-    is not AWS. If using AWS S3, this can be ignored. If using GCS, set it
+    is not AWS. If using AWS S3, this can be ignored unless HTTPS is required 
+    by an AWS bucket policy. If TLS is required, then this property can be 
+    set to an https endpoint such as ``https://s3.us-east-1.amazonaws.com``. 
+    Note that TLS is redundant due to {ref}`automatic encryption <fte-encryption>`. 
+    If using GCS, set it
     to `https://storage.googleapis.com`.
   -
   - Any S3-compatible storage
@@ -502,8 +516,8 @@ the property may be configured for:
   - HDFS
 :::
 
-It is recommended to set the `exchange.compression-enabled` property to
-`true` in the cluster's `config.properties` file, to reduce the exchange
+It is recommended to set the `exchange.compression-codec` property to
+`LZ4` in the cluster's `config.properties` file, to reduce the exchange
 manager's overall I/O load. It is also recommended to configure a bucket
 lifecycle rule to automatically expire abandoned objects in the event of a node
 crash.

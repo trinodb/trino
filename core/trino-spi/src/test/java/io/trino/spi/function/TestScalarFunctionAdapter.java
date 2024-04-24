@@ -62,6 +62,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -70,6 +71,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.invoke.MethodHandles.identity;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
@@ -96,6 +98,29 @@ public class TestScalarFunctionAdapter
                 false,
                 true);
         verifyAllAdaptations(actualConvention, "neverNull", RETURN_TYPE, ARGUMENT_TYPES);
+    }
+
+    @Test
+    public void testAdaptNullableReturnToBlockBuilder()
+            throws Throwable
+    {
+        // adapt identity(Double):Double to identity(Double, BlockBuilder):void
+        MethodHandle adaptedMethodHandle = ScalarFunctionAdapter.adapt(
+                identity(Double.class),
+                DOUBLE,
+                ImmutableList.of(DOUBLE),
+                simpleConvention(NULLABLE_RETURN, BOXED_NULLABLE),
+                simpleConvention(BLOCK_BUILDER, BOXED_NULLABLE));
+
+        // verify non-null and null value are written to the block
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 1);
+        adaptedMethodHandle.invoke(1.1, blockBuilder);
+        adaptedMethodHandle.invoke(null, blockBuilder);
+        Block block = blockBuilder.buildValueBlock();
+        assertThat(block.getPositionCount()).isEqualTo(2);
+        assertThat(block.isNull(0)).isFalse();
+        assertThat(DOUBLE.getDouble(block, 0)).isEqualTo(1.1);
+        assertThat(block.isNull(1)).isTrue();
     }
 
     @Test

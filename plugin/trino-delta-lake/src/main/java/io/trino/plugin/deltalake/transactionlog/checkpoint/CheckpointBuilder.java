@@ -54,14 +54,14 @@ public class CheckpointBuilder
         if (entry == null) {
             return;
         }
-        TransactionEntry currentEntry = transactionEntries.get(entry.getAppId());
+        TransactionEntry currentEntry = transactionEntries.get(entry.appId());
         // TODO: Investigate if logic is ok. (https://github.com/trinodb/trino/issues/12029)
         // It is not super obvious from documentation if we should compare version to find a winner
         // Or should just latest entry for given appId win.
-        if (currentEntry != null && currentEntry.getVersion() > entry.getVersion()) {
+        if (currentEntry != null && currentEntry.version() > entry.version()) {
             return;
         }
-        transactionEntries.put(entry.getAppId(), entry);
+        transactionEntries.put(entry.appId(), entry);
     }
 
     private void handleAddFileEntry(@Nullable AddFileEntry entry)
@@ -78,8 +78,8 @@ public class CheckpointBuilder
         if (entry == null) {
             return;
         }
-        removeFileEntries.put(entry.getPath(), entry);
-        addFileEntries.remove(entry.getPath());
+        removeFileEntries.put(entry.path(), entry);
+        addFileEntries.remove(entry.path());
     }
 
     public CheckpointEntries build()

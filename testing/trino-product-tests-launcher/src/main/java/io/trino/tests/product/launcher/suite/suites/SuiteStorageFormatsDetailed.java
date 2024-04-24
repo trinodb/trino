@@ -21,6 +21,9 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.HIVE_COMPRESSION;
+import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteStorageFormatsDetailed
@@ -31,7 +34,7 @@ public class SuiteStorageFormatsDetailed
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
-                        .withGroups("configured_features", "storage_formats_detailed", "hive_compression")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS_DETAILED, HIVE_COMPRESSION)
                         .build());
     }
 }

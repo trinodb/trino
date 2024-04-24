@@ -21,8 +21,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.trino.plugin.deltalake.DeltaLakeSecurityModule.ALLOW_ALL;
-import static io.trino.plugin.deltalake.DeltaLakeSecurityModule.READ_ONLY;
+import static io.trino.plugin.deltalake.DeltaLakeSecurityModule.DeltaLakeSecurity.ALLOW_ALL;
+import static io.trino.plugin.deltalake.DeltaLakeSecurityModule.DeltaLakeSecurity.READ_ONLY;
 
 public class TestDeltaLakeSecurityConfig
 {

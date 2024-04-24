@@ -134,7 +134,7 @@ public class RowPositionsAppender
         ensureCapacity(1);
         RowBlock sourceRowBlock = (RowBlock) value;
 
-        List<Block> fieldBlocks = sourceRowBlock.getChildren();
+        List<Block> fieldBlocks = sourceRowBlock.getFieldBlocks();
         for (int i = 0; i < fieldAppenders.length; i++) {
             fieldAppenders[i].append(position, fieldBlocks.get(i));
         }
@@ -162,17 +162,12 @@ public class RowPositionsAppender
             }
             result = fromNotNullSuppressedFieldBlocks(positionCount, hasNullRow ? Optional.of(rowIsNull) : Optional.empty(), fieldBlocks);
         }
+        else if (hasNullRow) {
+            Block nullRowBlock = type.createBlockBuilder(null, 0).appendNull().build();
+            result = RunLengthEncodedBlock.create(nullRowBlock, positionCount);
+        }
         else {
-            for (UnnestingPositionsAppender fieldAppender : fieldAppenders) {
-                fieldAppender.reset();
-            }
-            if (hasNullRow) {
-                Block nullRowBlock = type.createBlockBuilder(null, 0).appendNull().build();
-                result = RunLengthEncodedBlock.create(nullRowBlock, positionCount);
-            }
-            else {
-                result = type.createBlockBuilder(null, 0).build();
-            }
+            result = type.createBlockBuilder(null, 0).build();
         }
 
         reset();
@@ -214,6 +209,9 @@ public class RowPositionsAppender
     @Override
     public void reset()
     {
+        for (UnnestingPositionsAppender field : fieldAppenders) {
+            field.reset();
+        }
         initialEntryCount = calculateBlockResetSize(positionCount);
         initialized = false;
         rowIsNull = new boolean[0];

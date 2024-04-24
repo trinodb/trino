@@ -14,17 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
-import io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
-import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.ALLOW_ALL;
-import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.FILE;
-import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.READ_ONLY;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 
 public class IcebergSecurityModule
         extends AbstractConfigurationAwareModule
@@ -33,17 +28,12 @@ public class IcebergSecurityModule
     protected void setup(Binder binder)
     {
         install(new ConnectorAccessControlModule());
-        bindSecurityModule(ALLOW_ALL, new AllowAllSecurityModule());
-        bindSecurityModule(READ_ONLY, new ReadOnlySecurityModule());
-        bindSecurityModule(FILE, new FileBasedAccessControlModule());
-        // SYSTEM: do not bind an ConnectorAccessControl so the engine will use system security with system roles
-    }
-
-    private void bindSecurityModule(IcebergSecurity icebergSecurity, Module module)
-    {
-        install(conditionalModule(
-                IcebergSecurityConfig.class,
-                security -> icebergSecurity == security.getSecuritySystem(),
-                module));
+        install(switch (buildConfigObject(IcebergSecurityConfig.class).getSecuritySystem()) {
+            case ALLOW_ALL -> new AllowAllSecurityModule();
+            case READ_ONLY -> new ReadOnlySecurityModule();
+            case FILE -> new FileBasedAccessControlModule();
+            // do not bind a ConnectorAccessControl so the engine will use system security with system roles
+            case SYSTEM -> EMPTY_MODULE;
+        });
     }
 }

@@ -31,6 +31,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -57,7 +58,7 @@ public class TestDictionaryBlock
         Block block = DictionaryBlock.create(1, dictionary, new int[] {1, 5, 9});
         assertThat(block).isInstanceOf(VariableWidthBlock.class);
         assertThat(block.getPositionCount()).isEqualTo(1);
-        assertThat(block.getSlice(0, 0, block.getSliceLength(0))).isEqualTo(expectedValues[1]);
+        assertThat(VARBINARY.getSlice(block, 0)).isEqualTo(expectedValues[1]);
     }
 
     @Test
@@ -402,5 +403,18 @@ public class TestDictionaryBlock
         for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
             assertThat(dictionaryBlock.getId(position)).isEqualTo(expected[position]);
         }
+    }
+
+    @Override
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
+    {
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
+
+        assertThat(block.isNull(position)).isFalse();
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        assertThat(variableWidthBlock.getSlice(block.getUnderlyingValuePosition(position))).isEqualTo(expectedValue);
     }
 }

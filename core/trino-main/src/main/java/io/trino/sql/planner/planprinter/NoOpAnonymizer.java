@@ -20,9 +20,10 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionFormatter;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.Expression;
 
 import static io.trino.sql.planner.Partitioning.ArgumentBinding;
 import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsTarget;
@@ -52,7 +53,7 @@ public class NoOpAnonymizer
     @Override
     public String anonymize(Expression expression)
     {
-        return expression.toString();
+        return ExpressionFormatter.formatExpression(expression);
     }
 
     @Override

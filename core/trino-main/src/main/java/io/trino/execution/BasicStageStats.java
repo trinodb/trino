@@ -38,16 +38,19 @@ public class BasicStageStats
             0,
             0,
             0,
+            0,
 
             DataSize.ofBytes(0),
             0,
             new Duration(0, MILLISECONDS),
+            DataSize.ofBytes(0),
 
             DataSize.ofBytes(0),
             0,
-
             DataSize.ofBytes(0),
+
             0,
+            DataSize.ofBytes(0),
 
             0,
             0,
@@ -71,13 +74,16 @@ public class BasicStageStats
     private final int queuedDrivers;
     private final int runningDrivers;
     private final int completedDrivers;
+    private final int blockedDrivers;
     private final DataSize physicalInputDataSize;
     private final long physicalInputPositions;
     private final Duration physicalInputReadTime;
+    private final DataSize physicalWrittenDataSize;
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
+    private final DataSize spilledDataSize;
     private final double cumulativeUserMemory;
     private final double failedCumulativeUserMemory;
     private final DataSize userMemoryReservation;
@@ -100,16 +106,19 @@ public class BasicStageStats
             int queuedDrivers,
             int runningDrivers,
             int completedDrivers,
+            int blockedDrivers,
 
             DataSize physicalInputDataSize,
             long physicalInputPositions,
             Duration physicalInputReadTime,
+            DataSize physicalWrittenDataSize,
 
             DataSize internalNetworkInputDataSize,
             long internalNetworkInputPositions,
 
             DataSize rawInputDataSize,
             long rawInputPositions,
+            DataSize spilledDataSize,
 
             double cumulativeUserMemory,
             double failedCumulativeUserMemory,
@@ -133,13 +142,16 @@ public class BasicStageStats
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
         this.completedDrivers = completedDrivers;
+        this.blockedDrivers = blockedDrivers;
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
         this.physicalInputPositions = physicalInputPositions;
         this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
+        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.rawInputPositions = rawInputPositions;
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.failedCumulativeUserMemory = failedCumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
@@ -184,6 +196,11 @@ public class BasicStageStats
         return completedDrivers;
     }
 
+    public int getBlockedDrivers()
+    {
+        return blockedDrivers;
+    }
+
     public DataSize getPhysicalInputDataSize()
     {
         return physicalInputDataSize;
@@ -192,6 +209,16 @@ public class BasicStageStats
     public long getPhysicalInputPositions()
     {
         return physicalInputPositions;
+    }
+
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
+    }
+
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize;
     }
 
     public DataSize getInternalNetworkInputDataSize()
@@ -214,9 +241,9 @@ public class BasicStageStats
         return rawInputPositions;
     }
 
-    public Duration getPhysicalInputReadTime()
+    public DataSize getSpilledDataSize()
     {
-        return physicalInputReadTime;
+        return spilledDataSize;
     }
 
     public double getCumulativeUserMemory()
@@ -287,6 +314,7 @@ public class BasicStageStats
         int queuedDrivers = 0;
         int runningDrivers = 0;
         int completedDrivers = 0;
+        int blockedDrivers = 0;
 
         double cumulativeUserMemory = 0;
         double failedCumulativeUserMemory = 0;
@@ -301,12 +329,14 @@ public class BasicStageStats
         long physicalInputDataSize = 0;
         long physicalInputPositions = 0;
         long physicalInputReadTime = 0;
+        long physicalWrittenBytes = 0;
 
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
 
         long rawInputDataSize = 0;
         long rawInputPositions = 0;
+        long spilledDataSize = 0;
 
         boolean isScheduled = true;
 
@@ -320,6 +350,7 @@ public class BasicStageStats
             queuedDrivers += stageStats.getQueuedDrivers();
             runningDrivers += stageStats.getRunningDrivers();
             completedDrivers += stageStats.getCompletedDrivers();
+            blockedDrivers += stageStats.getBlockedDrivers();
 
             cumulativeUserMemory += stageStats.getCumulativeUserMemory();
             failedCumulativeUserMemory += stageStats.getFailedCumulativeUserMemory();
@@ -339,12 +370,14 @@ public class BasicStageStats
             physicalInputDataSize += stageStats.getPhysicalInputDataSize().toBytes();
             physicalInputPositions += stageStats.getPhysicalInputPositions();
             physicalInputReadTime += stageStats.getPhysicalInputReadTime().roundTo(MILLISECONDS);
+            physicalWrittenBytes += stageStats.getPhysicalWrittenDataSize().toBytes();
 
             internalNetworkInputDataSize += stageStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += stageStats.getInternalNetworkInputPositions();
 
             rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
             rawInputPositions += stageStats.getRawInputPositions();
+            spilledDataSize += stageStats.getSpilledDataSize().toBytes();
         }
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
@@ -365,16 +398,19 @@ public class BasicStageStats
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
+                blockedDrivers,
 
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
                 new Duration(physicalInputReadTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
+                succinctBytes(physicalWrittenBytes),
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
 
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
+                succinctBytes(spilledDataSize),
 
                 cumulativeUserMemory,
                 failedCumulativeUserMemory,

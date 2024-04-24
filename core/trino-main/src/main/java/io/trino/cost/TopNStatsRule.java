@@ -13,12 +13,10 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.TopNNode;
 
 import java.util.Optional;
@@ -43,9 +41,9 @@ public class TopNStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(TopNNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(TopNNode node, Context context)
     {
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
+        PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(node.getSource());
         double rowCount = sourceStats.getOutputRowCount();
 
         /* CreatePartialTopN rule runs after ReorderJoins but before DetermineJoinDistributionType and DetermineSemiJoinDistributionType.

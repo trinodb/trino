@@ -1,11 +1,11 @@
 ### Decimal type handling
 
-`DECIMAL` types with unspecified precision or scale are mapped to a Trino
-`DECIMAL` with a default precision of 38 and default scale of 0. The scale can
-be changed by setting the `decimal-mapping` configuration property or the
-`decimal_mapping` session property to `allow_overflow`. The scale of the
-resulting type is controlled via the `decimal-default-scale` configuration
-property or the `decimal-rounding-mode` session property. The precision is
+`DECIMAL` types with unspecified precision or scale are ignored unless the
+`decimal-mapping` configuration property or the `decimal_mapping` session
+property is set to `allow_overflow`. Then such types are mapped to a Trino
+`DECIMAL` with a default precision of 38 and default scale of 0. To change the
+scale of the resulting type, use the `decimal-default-scale` configuration
+property or the `decimal_default_scale` session property. The precision is
 always 38.
 
 By default, values that require rounding or truncation to fit will cause a

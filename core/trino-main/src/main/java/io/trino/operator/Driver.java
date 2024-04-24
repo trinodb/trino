@@ -131,9 +131,9 @@ public class Driver
 
         Optional<SourceOperator> sourceOperator = Optional.empty();
         for (Operator operator : operators) {
-            if (operator instanceof SourceOperator) {
+            if (operator instanceof SourceOperator value) {
                 checkArgument(sourceOperator.isEmpty(), "There must be at most one SourceOperator");
-                sourceOperator = Optional.of((SourceOperator) operator);
+                sourceOperator = Optional.of(value);
             }
         }
         this.sourceOperator = sourceOperator;
@@ -195,7 +195,7 @@ public class Driver
     {
         checkLockHeld("Lock must be held to call isTerminatingOrDoneInternal");
 
-        boolean terminatingOrDone = state.get() != State.ALIVE || activeOperators.isEmpty() || activeOperators.get(activeOperators.size() - 1).isFinished() || driverContext.isTerminatingOrDone();
+        boolean terminatingOrDone = state.get() != State.ALIVE || activeOperators.isEmpty() || activeOperators.getLast().isFinished() || driverContext.isTerminatingOrDone();
         if (terminatingOrDone) {
             state.compareAndSet(State.ALIVE, State.NEED_DESTRUCTION);
         }

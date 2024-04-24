@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import io.opentelemetry.api.trace.Span;
 import io.trino.execution.TaskFailureListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.QueryId;
@@ -23,6 +24,7 @@ public interface DirectExchangeClientSupplier
     DirectExchangeClient get(
             QueryId queryId,
             ExchangeId exchangeId,
+            Span parentSpan,
             LocalMemoryContext memoryContext,
             TaskFailureListener taskFailureListener,
             RetryPolicy retryPolicy);

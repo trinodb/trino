@@ -19,6 +19,7 @@ import io.trino.hive.formats.line.LineSerializerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static io.trino.hive.formats.line.csv.CsvConstants.DEFAULT_QUOTE;
 import static io.trino.hive.formats.line.csv.CsvConstants.DEFAULT_SEPARATOR;
@@ -33,7 +34,7 @@ public class CsvSerializerFactory
         implements LineSerializerFactory
 {
     @Override
-    public List<String> getHiveSerDeClassNames()
+    public Set<String> getHiveSerDeClassNames()
     {
         return HIVE_SERDE_CLASS_NAMES;
     }

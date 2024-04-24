@@ -766,6 +766,10 @@ g .cluster:hover {
     cursor: pointer;
 }
 
+#live-plan-container {
+    margin-top: -20px;
+}
+
 /** ============== **/
 /** Stage Page **/
 /** ============== **/

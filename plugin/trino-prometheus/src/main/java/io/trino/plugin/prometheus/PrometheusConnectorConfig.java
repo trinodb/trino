@@ -14,6 +14,7 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.HttpHeaders;
 import com.google.inject.ConfigurationException;
 import com.google.inject.spi.Message;
 import io.airlift.configuration.Config;
@@ -36,6 +37,7 @@ public class PrometheusConnectorConfig
     private Duration maxQueryRangeDuration = new Duration(21, TimeUnit.DAYS);
     private Duration cacheDuration = new Duration(30, TimeUnit.SECONDS);
     private Duration readTimeout = new Duration(10, TimeUnit.SECONDS);
+    private String httpAuthHeaderName = HttpHeaders.AUTHORIZATION;
     private File bearerTokenFile;
     private String user;
     private String password;
@@ -94,6 +96,19 @@ public class PrometheusConnectorConfig
     public PrometheusConnectorConfig setCacheDuration(Duration cacheConfigDuration)
     {
         this.cacheDuration = cacheConfigDuration;
+        return this;
+    }
+
+    public String getHttpAuthHeaderName()
+    {
+        return httpAuthHeaderName;
+    }
+
+    @Config("prometheus.auth.http.header.name")
+    @ConfigDescription("Name of the HTTP header to use for authorization")
+    public PrometheusConnectorConfig setHttpAuthHeaderName(String httpHeaderName)
+    {
+        this.httpAuthHeaderName = httpHeaderName;
         return this;
     }
 

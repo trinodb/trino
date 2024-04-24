@@ -20,7 +20,6 @@ import io.airlift.log.Logger;
 import io.trino.testing.containers.TestContainers.DockerArchitecture;
 import io.trino.testing.containers.TestContainers.DockerArchitectureInfo;
 import io.trino.tests.product.launcher.env.DockerContainer;
-import io.trino.tests.product.launcher.env.EnvironmentOptions;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
@@ -55,10 +54,10 @@ public abstract class TarDownloadingJdkProvider
     private final Path downloadPath;
     private final Logger log = Logger.get(getClass());
 
-    public TarDownloadingJdkProvider(EnvironmentOptions environmentOptions)
+    public TarDownloadingJdkProvider(Path jdkDownloadPath)
     {
         try {
-            this.downloadPath = firstNonNull(environmentOptions.jdkDownloadPath, Files.createTempDirectory("ptl-temp-path"));
+            this.downloadPath = firstNonNull(jdkDownloadPath, Files.createTempDirectory("ptl-temp-path"));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -66,6 +65,8 @@ public abstract class TarDownloadingJdkProvider
     }
 
     protected abstract String getDownloadUri(DockerArchitecture architecture);
+
+    protected abstract String getName();
 
     @Override
     public String getJavaHome()

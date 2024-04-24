@@ -67,7 +67,7 @@ public final class SqlServerQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession(testingSqlServer.getUsername()))
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession(testingSqlServer.getUsername()))
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setAdditionalSetup(moreSetup)
@@ -113,7 +113,7 @@ public final class SqlServerQueryRunner
         // SqlServer is using docker container so in case that shutdown hook is not called, developer can easily clean docker container on their own
         Runtime.getRuntime().addShutdownHook(new Thread(testingSqlServer::close));
 
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) createSqlServerQueryRunner(
+        QueryRunner queryRunner = createSqlServerQueryRunner(
                 testingSqlServer,
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),

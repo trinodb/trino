@@ -21,8 +21,6 @@ import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static java.lang.Math.toIntExact;
-
 public final class GroupedMultimapAggregationState
         extends AbstractMultimapAggregationState
         implements GroupedAccumulatorState
@@ -54,15 +52,15 @@ public final class GroupedMultimapAggregationState
     }
 
     @Override
-    public void setGroupId(long groupId)
+    public void setGroupId(int groupId)
     {
-        this.groupId = toIntExact(groupId);
+        this.groupId = groupId;
     }
 
     @Override
-    public void ensureCapacity(long size)
+    public void ensureCapacity(int size)
     {
-        setMaxGroupId(toIntExact(size));
+        setMaxGroupId(size);
     }
 
     @Override

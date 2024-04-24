@@ -24,7 +24,7 @@ import io.trino.plugin.kinesis.KinesisClientProvider;
 public class KinesisTestClientManager
         implements KinesisClientProvider
 {
-    private AmazonKinesisClient client = new MockKinesisClient();
+    private final AmazonKinesisClient client = new MockKinesisClient();
     private final AmazonDynamoDBClient dynamoDBClient;
     private final AmazonS3Client amazonS3Client;
 

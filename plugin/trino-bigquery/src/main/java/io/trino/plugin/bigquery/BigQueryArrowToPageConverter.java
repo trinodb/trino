@@ -103,7 +103,6 @@ public class BigQueryArrowToPageConverter
                 .map(field -> field.createVector(allocator))
                 .collect(toImmutableList());
         root = new VectorSchemaRoot(vectors);
-        verify(vectors.size() == columns.size(), "Vectors, columns size differ");
         loader = new VectorLoader(root, INSTANCE);
     }
 

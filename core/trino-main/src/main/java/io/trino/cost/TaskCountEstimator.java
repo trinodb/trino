@@ -23,6 +23,7 @@ import io.trino.operator.RetryPolicy;
 import java.util.Set;
 import java.util.function.IntSupplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.getCostEstimationWorkerCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
@@ -42,12 +43,17 @@ public class TaskCountEstimator
         requireNonNull(nodeManager, "nodeManager is null");
         this.numberOfNodes = () -> {
             Set<InternalNode> activeNodes = nodeManager.getAllNodes().getActiveNodes();
+            int count;
             if (schedulerIncludeCoordinator) {
-                return activeNodes.size();
+                count = activeNodes.size();
             }
-            return toIntExact(activeNodes.stream()
-                    .filter(node -> !node.isCoordinator())
-                    .count());
+            else {
+                count = toIntExact(activeNodes.stream()
+                        .filter(node -> !node.isCoordinator())
+                        .count());
+            }
+            // At least 1 even if no worker nodes currently registered. This is to prevent underflow or other mis-estimations.
+            return Math.max(count, 1);
         };
     }
 
@@ -60,9 +66,12 @@ public class TaskCountEstimator
     {
         Integer costEstimationWorkerCount = getCostEstimationWorkerCount(session);
         if (costEstimationWorkerCount != null) {
+            // validated to be at least 1
             return costEstimationWorkerCount;
         }
-        return numberOfNodes.getAsInt();
+        int count = numberOfNodes.getAsInt();
+        checkState(count > 0, "%s should return positive number of nodes: %s", numberOfNodes, count);
+        return count;
     }
 
     public int estimateHashedTaskCount(Session session)

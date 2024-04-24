@@ -14,46 +14,59 @@
 package io.trino.sql.planner;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@JsonSerialize(keyUsing = SymbolKeySerializer.class)
 public class Symbol
         implements Comparable<Symbol>
 {
     private final String name;
+    private final Type type;
 
     public static Symbol from(Expression expression)
     {
-        checkArgument(expression instanceof SymbolReference, "Unexpected expression: %s", expression);
-        return new Symbol(((SymbolReference) expression).getName());
+        if (!(expression instanceof Reference symbol)) {
+            throw new IllegalArgumentException("Unexpected expression: " + expression);
+        }
+        return new Symbol(symbol.type(), symbol.name());
     }
 
     @JsonCreator
-    public Symbol(String name)
+    public Symbol(Type type, String name)
     {
         requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
+        this.type = type;
         this.name = name;
     }
 
-    @JsonValue
+    @JsonProperty
     public String getName()
     {
         return name;
     }
 
-    public SymbolReference toSymbolReference()
+    @JsonProperty
+    public Type getType()
     {
-        return new SymbolReference(name);
+        return type;
+    }
+
+    public Reference toSymbolReference()
+    {
+        return new Reference(type, name);
     }
 
     @Override
     public String toString()
     {
-        return name;
+        return name + "::[" + type + "]";
     }
 
     @Override

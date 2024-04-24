@@ -13,7 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -48,48 +47,6 @@ public final class LazyBlock
     public int getPositionCount()
     {
         return positionCount;
-    }
-
-    @Override
-    public int getSliceLength(int position)
-    {
-        return getBlock().getSliceLength(position);
-    }
-
-    @Override
-    public byte getByte(int position, int offset)
-    {
-        return getBlock().getByte(position, offset);
-    }
-
-    @Override
-    public short getShort(int position, int offset)
-    {
-        return getBlock().getShort(position, offset);
-    }
-
-    @Override
-    public int getInt(int position, int offset)
-    {
-        return getBlock().getInt(position, offset);
-    }
-
-    @Override
-    public long getLong(int position, int offset)
-    {
-        return getBlock().getLong(position, offset);
-    }
-
-    @Override
-    public Slice getSlice(int position, int offset, int length)
-    {
-        return getBlock().getSlice(position, offset, length);
-    }
-
-    @Override
-    public <T> T getObject(int position, Class<T> clazz)
-    {
-        return getBlock().getObject(position, clazz);
     }
 
     @Override
@@ -210,12 +167,6 @@ public final class LazyBlock
     public boolean mayHaveNull()
     {
         return getBlock().mayHaveNull();
-    }
-
-    @Override
-    public List<Block> getChildren()
-    {
-        return singletonList(getBlock());
     }
 
     public Block getBlock()
@@ -390,21 +341,43 @@ public final class LazyBlock
         }
 
         /**
-         * If the block is unloaded, add the listeners; otherwise call this method on child blocks
+         * If the block is unloaded, add the listeners; otherwise call this method on the nested blocks
          */
-        @SuppressWarnings("AccessingNonPublicFieldOfAnotherObject")
         private static void addListenersRecursive(Block block, List<Consumer<Block>> listeners)
         {
-            if (block instanceof LazyBlock) {
-                LazyData lazyData = ((LazyBlock) block).lazyData;
-                if (!lazyData.isTopLevelBlockLoaded()) {
-                    lazyData.addListeners(listeners);
-                    return;
-                }
+            if (block == null) {
+                return;
             }
 
-            for (Block child : block.getChildren()) {
-                addListenersRecursive(child, listeners);
+            switch (block) {
+                case LazyBlock lazyBlock -> {
+                    LazyData lazyData = lazyBlock.lazyData;
+                    if (lazyData.isTopLevelBlockLoaded()) {
+                        addListenersRecursive(lazyBlock.getBlock(), listeners);
+                    }
+                    else {
+                        lazyData.addListeners(listeners);
+                    }
+                }
+                case DictionaryBlock dictionaryBlock -> addListenersRecursive(dictionaryBlock.getDictionary(), listeners);
+                case RunLengthEncodedBlock runLengthEncodedBlock -> addListenersRecursive(runLengthEncodedBlock.getValue(), listeners);
+                case ValueBlock valueBlock -> {
+                    switch (valueBlock) {
+                        case ArrayBlock arrayBlock -> addListenersRecursive(arrayBlock.getRawElementBlock(), listeners);
+                        case MapBlock mapBlock -> {
+                            addListenersRecursive(mapBlock.getRawKeyBlock(), listeners);
+                            addListenersRecursive(mapBlock.getRawValueBlock(), listeners);
+                        }
+                        case RowBlock rowBlock -> {
+                            for (Block fieldBlock : rowBlock.getFieldBlocks()) {
+                                addListenersRecursive(fieldBlock, listeners);
+                            }
+                        }
+                        default -> {
+                            // no other value blocks are container types
+                        }
+                    }
+                }
             }
         }
     }

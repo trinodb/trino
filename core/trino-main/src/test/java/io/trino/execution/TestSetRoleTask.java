@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.client.NodeVersion;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
@@ -28,7 +29,8 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.SetRole;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -64,7 +66,7 @@ public class TestSetRoleTask
     private static final String USER_NAME = "user";
     private static final String ROLE_NAME = "bar";
 
-    private LocalQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private Metadata metadata;
@@ -74,21 +76,21 @@ public class TestSetRoleTask
     @BeforeAll
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, USER_NAME), ROLE_NAME, false)))
-                .build();
-        queryRunner.createCatalog(CATALOG_NAME, mockConnectorFactory, ImmutableMap.of());
+                .build()));
+        queryRunner.createCatalog(CATALOG_NAME, "mock", ImmutableMap.of());
 
-        MockConnectorFactory systemConnectorFactory = MockConnectorFactory.builder()
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withName("system_role_connector")
-                .build();
-        queryRunner.createCatalog(SYSTEM_ROLE_CATALOG_NAME, systemConnectorFactory, ImmutableMap.of());
+                .build()));
+        queryRunner.createCatalog(SYSTEM_ROLE_CATALOG_NAME, "system_role_connector", ImmutableMap.of());
 
         transactionManager = queryRunner.getTransactionManager();
         accessControl = queryRunner.getAccessControl();
-        metadata = queryRunner.getMetadata();
-        parser = queryRunner.getSqlParser();
+        metadata = queryRunner.getPlannerContext().getMetadata();
+        parser = new SqlParser();
         executor = newCachedThreadPool(daemonThreadsNamed("test-set-role-task-executor-%s"));
     }
 
@@ -131,7 +133,7 @@ public class TestSetRoleTask
     {
         assertTrinoExceptionThrownBy(() -> executeSetRole("SET ROLE foo IN invalid"))
                 .hasErrorCode(CATALOG_NOT_FOUND)
-                .hasMessage("line 1:1: Catalog 'invalid' does not exist");
+                .hasMessage("line 1:1: Catalog 'invalid' not found");
     }
 
     @Test

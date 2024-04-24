@@ -108,12 +108,12 @@ public class AccumuloConfig
 
     @Config(ZOOKEEPER_METADATA_ROOT)
     @ConfigDescription("Sets the root znode for metadata storage")
-    public void setZkMetadataRoot(String zkMetadataRoot)
+    public AccumuloConfig setZkMetadataRoot(String zkMetadataRoot)
     {
         this.zkMetadataRoot = zkMetadataRoot;
+        return this;
     }
 
-    @NotNull
     @Min(1)
     public int getCardinalityCacheSize()
     {
@@ -122,9 +122,10 @@ public class AccumuloConfig
 
     @Config(CARDINALITY_CACHE_SIZE)
     @ConfigDescription("Sets the cardinality cache size")
-    public void setCardinalityCacheSize(int cardinalityCacheSize)
+    public AccumuloConfig setCardinalityCacheSize(int cardinalityCacheSize)
     {
         this.cardinalityCacheSize = cardinalityCacheSize;
+        return this;
     }
 
     @NotNull
@@ -135,8 +136,9 @@ public class AccumuloConfig
 
     @Config(CARDINALITY_CACHE_EXPIRE_DURATION)
     @ConfigDescription("Sets the cardinality cache expiration")
-    public void setCardinalityCacheExpiration(Duration cardinalityCacheExpiration)
+    public AccumuloConfig setCardinalityCacheExpiration(Duration cardinalityCacheExpiration)
     {
         this.cardinalityCacheExpiration = cardinalityCacheExpiration;
+        return this;
     }
 }

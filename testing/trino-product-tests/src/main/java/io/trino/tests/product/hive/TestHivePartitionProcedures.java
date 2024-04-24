@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static io.trino.tests.product.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
@@ -51,7 +50,7 @@ public class TestHivePartitionProcedures
     @Inject
     private HdfsDataSourceWriter hdfsDataSourceWriter;
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterPartition()
     {
@@ -69,7 +68,7 @@ public class TestHivePartitionProcedures
         assertThat(hdfsClient.exist(getTablePath(FIRST_TABLE, 1) + "/col=a/")).isTrue();
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterViewTableShouldFail()
     {
@@ -80,7 +79,7 @@ public class TestHivePartitionProcedures
                 .hasMessageContaining("Table is a view: default." + VIEW_TABLE);
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterMissingTableShouldFail()
     {
@@ -90,7 +89,7 @@ public class TestHivePartitionProcedures
                 .hasMessageContaining("Table 'default.missing_table' not found");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterUnpartitionedTableShouldFail()
     {
@@ -100,7 +99,7 @@ public class TestHivePartitionProcedures
                 .hasMessageContaining("Table is not partitioned: default." + SECOND_TABLE);
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterInvalidPartitionColumnsShouldFail()
     {
@@ -110,7 +109,7 @@ public class TestHivePartitionProcedures
                 .hasMessageContaining("Provided partition column names do not match actual partition column names: [col]");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterMissingPartitionShouldFail()
     {
@@ -120,7 +119,7 @@ public class TestHivePartitionProcedures
                 .hasMessageContaining("Partition 'col=f' does not exist");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionMissingTableShouldFail()
     {
@@ -128,7 +127,7 @@ public class TestHivePartitionProcedures
                 .hasMessageContaining("Table 'default.missing_table' not found");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterUnpartitionedTableShouldFail()
     {
@@ -138,7 +137,7 @@ public class TestHivePartitionProcedures
                 .hasMessageContaining("Table is not partitioned: default." + SECOND_TABLE);
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterViewTableShouldFail()
     {
@@ -149,7 +148,7 @@ public class TestHivePartitionProcedures
                 .hasMessageContaining("Table is a view: default." + VIEW_TABLE);
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionCollisionShouldFail()
     {
@@ -159,7 +158,7 @@ public class TestHivePartitionProcedures
                 .hasMessageContaining("Partition [col=a] is already registered");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionInvalidPartitionColumnsShouldFail()
     {
@@ -169,7 +168,7 @@ public class TestHivePartitionProcedures
                 .hasMessageContaining("Provided partition column names do not match actual partition column names: [col]");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionInvalidLocationShouldFail()
     {
@@ -179,7 +178,7 @@ public class TestHivePartitionProcedures
                 .hasMessageContaining("Partition location does not exist: /some/non/existing/path");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionWithDefaultPartitionLocation()
     {
@@ -197,7 +196,7 @@ public class TestHivePartitionProcedures
         assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("b", "c");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartition()
     {
@@ -217,7 +216,7 @@ public class TestHivePartitionProcedures
         assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("a", "b", "c", "f");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionFromAnyLocation()
     {

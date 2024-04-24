@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.SizeOf;
 import org.apache.iceberg.types.Types;
 
 import java.util.List;
@@ -27,6 +28,9 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.MAP;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
@@ -36,6 +40,8 @@ import static java.util.Objects.requireNonNull;
 
 public class ColumnIdentity
 {
+    private static final int INSTANCE_SIZE = instanceSize(ColumnIdentity.class);
+
     private final int id;
     private final String name;
     private final TypeCategory typeCategory;
@@ -132,6 +138,16 @@ public class ColumnIdentity
     public String toString()
     {
         return id + ":" + name;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // type is not accounted for as the instances are cached (by TypeRegistry) and shared
+        return INSTANCE_SIZE
+                + sizeOf(id)
+                + estimatedSizeOf(name)
+                + estimatedSizeOf(children, SizeOf::sizeOf, ColumnIdentity::getRetainedSizeInBytes)
+                + estimatedSizeOf(childFieldIdToIndex, SizeOf::sizeOf, SizeOf::sizeOf);
     }
 
     public enum TypeCategory

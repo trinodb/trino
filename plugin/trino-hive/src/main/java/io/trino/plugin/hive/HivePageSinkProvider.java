@@ -150,9 +150,9 @@ public class HivePageSinkProvider
         OptionalInt bucketCount = OptionalInt.empty();
         List<SortingColumn> sortedBy = ImmutableList.of();
 
-        if (handle.getBucketProperty().isPresent()) {
-            bucketCount = OptionalInt.of(handle.getBucketProperty().get().getBucketCount());
-            sortedBy = handle.getBucketProperty().get().getSortedBy();
+        if (handle.getBucketInfo().isPresent()) {
+            bucketCount = OptionalInt.of(handle.getBucketInfo().get().bucketCount());
+            sortedBy = handle.getBucketInfo().get().sortedBy();
         }
 
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastoreFactory.createMetastore(Optional.of(session.getIdentity())), perTransactionMetastoreCacheMaximumSize);
@@ -186,11 +186,10 @@ public class HivePageSinkProvider
                 temporaryStagingDirectoryPath);
 
         return new HivePageSink(
-                handle,
                 writerFactory,
                 handle.getInputColumns(),
-                handle.isTransactional(),
-                handle.getBucketProperty(),
+                handle.getTransaction(),
+                handle.getBucketInfo(),
                 pageIndexerFactory,
                 maxOpenPartitions,
                 writeVerificationExecutor,

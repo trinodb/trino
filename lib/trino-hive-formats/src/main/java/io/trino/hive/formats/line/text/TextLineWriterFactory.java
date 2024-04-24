@@ -22,13 +22,15 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Optional;
 
+import static io.trino.hive.formats.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
+
 public class TextLineWriterFactory
         implements LineWriterFactory
 {
     @Override
     public String getHiveOutputFormatClassName()
     {
-        return "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat";
+        return HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
     }
 
     @Override

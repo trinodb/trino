@@ -19,7 +19,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -68,7 +67,7 @@ public class TestLateral
     @Test
     public void testNotInScope()
     {
-        assertThatThrownBy(() -> assertions.query("SELECT * FROM (VALUES 1) t(a), (SELECT * FROM LATERAL (SELECT a))"))
-                .hasMessage("line 1:63: Column 'a' cannot be resolved");
+        assertThat(assertions.query("SELECT * FROM (VALUES 1) t(a), (SELECT * FROM LATERAL (SELECT a))"))
+                .failure().hasMessage("line 1:63: Column 'a' cannot be resolved");
     }
 }

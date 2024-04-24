@@ -12,11 +12,10 @@ jobs:
   triage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@v4
+      - uses: actions/labeler@v5
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           # Do not sync labels as this reverts manually added "tests:hive" label.
           # Syncing labels requires that we define "components" labels.
-          # See https://github.com/actions/labeler/issues/112#issuecomment-999953377 for why an empty string instead of false.
-          sync-labels: ''
+          sync-labels: false
           configuration-path: .github/config/labeler-config.yml

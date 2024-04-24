@@ -21,7 +21,6 @@ import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.Storage;
@@ -33,9 +32,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
+import static io.trino.plugin.hive.metastore.file.ColumnStatistics.fromHiveColumnStatistics;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionMetadata
@@ -49,7 +50,7 @@ public class PartitionMetadata
 
     private final Optional<String> externalLocation;
 
-    private final Map<String, HiveColumnStatistics> columnStatistics;
+    private final Map<String, ColumnStatistics> columnStatistics;
 
     @JsonCreator
     public PartitionMetadata(
@@ -59,7 +60,7 @@ public class PartitionMetadata
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
             @JsonProperty("externalLocation") Optional<String> externalLocation,
-            @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
+            @JsonProperty("columnStatistics") Map<String, ColumnStatistics> columnStatistics)
     {
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
@@ -94,7 +95,8 @@ public class PartitionMetadata
 
         bucketProperty = partition.getStorage().getBucketProperty();
         serdeParameters = partition.getStorage().getSerdeParameters();
-        columnStatistics = ImmutableMap.copyOf(statistics.getColumnStatistics());
+        columnStatistics = statistics.getColumnStatistics().entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> fromHiveColumnStatistics(entry.getValue())));
     }
 
     @JsonProperty
@@ -134,7 +136,7 @@ public class PartitionMetadata
     }
 
     @JsonProperty
-    public Map<String, HiveColumnStatistics> getColumnStatistics()
+    public Map<String, ColumnStatistics> getColumnStatistics()
     {
         return columnStatistics;
     }
@@ -144,7 +146,7 @@ public class PartitionMetadata
         return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, serdeParameters, externalLocation, columnStatistics);
     }
 
-    public PartitionMetadata withColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
+    public PartitionMetadata withColumnStatistics(Map<String, ColumnStatistics> columnStatistics)
     {
         return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, serdeParameters, externalLocation, columnStatistics);
     }

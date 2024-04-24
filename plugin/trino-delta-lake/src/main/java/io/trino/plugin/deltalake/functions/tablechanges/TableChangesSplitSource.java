@@ -102,7 +102,7 @@ public class TableChangesSplitSource
                                         cdcEntry.getPath(),
                                         cdcEntry.getCanonicalPartitionValues()));
                             }
-                            if (entry.getRemove() != null && entry.getRemove().isDataChange()) {
+                            if (entry.getRemove() != null && entry.getRemove().dataChange()) {
                                 containsRemoveEntry = true;
                             }
                         }
@@ -112,6 +112,7 @@ public class TableChangesSplitSource
                         if (!containsRemoveEntry) {
                             for (DeltaLakeTransactionLogEntry entry : entries) {
                                 if (entry.getAdd() != null && entry.getAdd().isDataChange()) {
+                                    // paths can be absolute as well in case of shallow-cloned tables
                                     AddFileEntry addEntry = entry.getAdd();
                                     splits.add(mapToDeltaLakeTableChangesSplit(
                                             commitInfo,
@@ -154,9 +155,9 @@ public class TableChangesSplitSource
                 path,
                 length,
                 canonicalPartitionValues,
-                commitInfoEntry.getTimestamp(),
+                commitInfoEntry.timestamp(),
                 source,
-                commitInfoEntry.getVersion());
+                commitInfoEntry.version());
     }
 
     @Override

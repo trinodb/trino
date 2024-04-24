@@ -14,7 +14,6 @@
 package io.trino.operator.scalar.timetz;
 
 import io.trino.spi.StandardErrorCode;
-import io.trino.sql.parser.ParsingException;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,9 +21,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -146,8 +145,8 @@ public class TestExtract
     @Test
     public void testMillisecond()
     {
-        assertThatThrownBy(assertions.expression("EXTRACT(MILLISECOND FROM TIME '12:34:56+08:35')")::evaluate)
-                .isInstanceOf(ParsingException.class)
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MILLISECOND FROM TIME '12:34:56+08:35')")::evaluate)
+                .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:12: Invalid EXTRACT field: MILLISECOND");
 
         assertThat(assertions.expression("millisecond(TIME '12:34:56+08:35')")).matches("BIGINT '0'");

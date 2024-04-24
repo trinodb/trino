@@ -45,7 +45,7 @@ public final class PlanAssert
 
     public static void assertPlan(Session session, Metadata metadata, FunctionManager functionManager, StatsCalculator statsCalculator, Plan actual, Lookup lookup, PlanMatchPattern pattern)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, actual.getTypes(), new CachingTableStatsProvider(metadata, session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session));
         assertPlan(session, metadata, functionManager, statsProvider, actual, lookup, pattern);
     }
 
@@ -53,7 +53,7 @@ public final class PlanAssert
     {
         MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, lookup), pattern);
         if (!matches.isMatch()) {
-            String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
+            String formattedPlan = textLogicalPlan(actual.getRoot(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
             if (!containsGroupReferences(actual.getRoot())) {
                 throw new AssertionError(format(
                         "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]",
@@ -61,7 +61,7 @@ public final class PlanAssert
                         formattedPlan));
             }
             PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
-            String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
+            String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
             throw new AssertionError(format(
                     "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n] which resolves to [\n\n%s\n]",
                     pattern,

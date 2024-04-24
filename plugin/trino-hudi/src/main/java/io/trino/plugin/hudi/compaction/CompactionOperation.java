@@ -28,13 +28,13 @@ import static java.util.Objects.requireNonNull;
 
 public class CompactionOperation
 {
-    private String baseInstantTime;
-    private Optional<String> dataFileCommitTime;
-    private List<String> deltaFileNames;
-    private Optional<String> dataFileName;
-    private HudiFileGroupId id;
-    private Map<String, Double> metrics;
-    private Optional<String> bootstrapFilePath;
+    private final String baseInstantTime;
+    private final Optional<String> dataFileCommitTime;
+    private final List<String> deltaFileNames;
+    private final Optional<String> dataFileName;
+    private final HudiFileGroupId id;
+    private final Map<String, Double> metrics;
+    private final Optional<String> bootstrapFilePath;
 
     public CompactionOperation(
             String baseInstantTime,

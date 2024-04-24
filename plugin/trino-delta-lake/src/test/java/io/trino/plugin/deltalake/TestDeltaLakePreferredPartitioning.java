@@ -54,7 +54,7 @@ public class TestDeltaLakePreferredPartitioning
                 .setCatalog(DELTA_CATALOG)
                 .setSchema(schema)
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");

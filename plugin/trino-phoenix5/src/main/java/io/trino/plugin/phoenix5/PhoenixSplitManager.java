@@ -135,17 +135,17 @@ public class PhoenixSplitManager
             long regionSize = -1;
             List<InputSplit> inputSplits = new ArrayList<>(splits.size());
             for (List<Scan> scans : queryPlan.getScans()) {
-                HRegionLocation location = regionLocator.getRegionLocation(scans.get(0).getStartRow(), false);
+                HRegionLocation location = regionLocator.getRegionLocation(scans.getFirst().getStartRow(), false);
                 String regionLocation = location.getHostname();
 
                 if (log.isDebugEnabled()) {
                     log.debug(
                             "Scan count[%d] : %s ~ %s",
                             scans.size(),
-                            Bytes.toStringBinary(scans.get(0).getStartRow()),
-                            Bytes.toStringBinary(scans.get(scans.size() - 1).getStopRow()));
+                            Bytes.toStringBinary(scans.getFirst().getStartRow()),
+                            Bytes.toStringBinary(scans.getLast().getStopRow()));
                     log.debug("First scan : %swith scanAttribute : %s [scanCache, cacheBlock, scanBatch] : [%d, %s, %d] and  regionLocation : %s",
-                            scans.get(0), scans.get(0).getAttributesMap(), scans.get(0).getCaching(), scans.get(0).getCacheBlocks(), scans.get(0).getBatch(), regionLocation);
+                            scans.getFirst(), scans.getFirst().getAttributesMap(), scans.getFirst().getCaching(), scans.getFirst().getCacheBlocks(), scans.getFirst().getBatch(), regionLocation);
                     for (int i = 0, limit = scans.size(); i < limit; i++) {
                         log.debug("EXPECTED_UPPER_REGION_KEY[%d] : %s", i, Bytes.toStringBinary(scans.get(i).getAttribute(EXPECTED_UPPER_REGION_KEY)));
                     }

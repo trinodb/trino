@@ -211,11 +211,11 @@ public class InternalHiveSplitFactory
                 start,
                 blocks.get(0).getStart());
         checkArgument(
-                start + length == blocks.get(blocks.size() - 1).getEnd(),
+                start + length == blocks.getLast().getEnd(),
                 "Split (%s) end (%s) does not match last block end (%s)",
                 path,
                 start + length,
-                blocks.get(blocks.size() - 1).getEnd());
+                blocks.getLast().getEnd());
         for (int i = 1; i < blocks.size(); i++) {
             checkArgument(
                     blocks.get(i - 1).getEnd() == blocks.get(i).getStart(),

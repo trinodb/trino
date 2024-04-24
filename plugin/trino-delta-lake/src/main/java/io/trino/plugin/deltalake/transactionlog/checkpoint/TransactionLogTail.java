@@ -50,15 +50,6 @@ public class TransactionLogTail
         this.version = version;
     }
 
-    public static TransactionLogTail loadNewTail(
-            TrinoFileSystem fileSystem,
-            String tableLocation,
-            Optional<Long> startVersion)
-            throws IOException
-    {
-        return loadNewTail(fileSystem, tableLocation, startVersion, Optional.empty());
-    }
-
     // Load a section of the Transaction Log JSON entries. Optionally from a given start version (exclusive) through an end version (inclusive)
     public static TransactionLogTail loadNewTail(
             TrinoFileSystem fileSystem,
@@ -120,6 +111,12 @@ public class TransactionLogTail
     {
         Location transactionLogFilePath = getTransactionLogJsonEntryPath(transactionLogDir, entryNumber);
         TrinoInputFile inputFile = fileSystem.newInputFile(transactionLogFilePath);
+        return getEntriesFromJson(entryNumber, inputFile);
+    }
+
+    public static Optional<List<DeltaLakeTransactionLogEntry>> getEntriesFromJson(long entryNumber, TrinoInputFile inputFile)
+            throws IOException
+    {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(inputFile.newStream(), UTF_8),
                 JSON_LOG_ENTRY_READ_BUFFER_SIZE)) {
@@ -127,7 +124,7 @@ public class TransactionLogTail
             String line = reader.readLine();
             while (line != null) {
                 DeltaLakeTransactionLogEntry deltaLakeTransactionLogEntry = parseJson(line);
-                if (deltaLakeTransactionLogEntry.getCommitInfo() != null && deltaLakeTransactionLogEntry.getCommitInfo().getVersion() == 0L) {
+                if (deltaLakeTransactionLogEntry.getCommitInfo() != null && deltaLakeTransactionLogEntry.getCommitInfo().version() == 0L) {
                     // In case that the commit info version is missing, use the version from the transaction log file name
                     deltaLakeTransactionLogEntry = deltaLakeTransactionLogEntry.withCommitInfo(deltaLakeTransactionLogEntry.getCommitInfo().withVersion(entryNumber));
                 }

@@ -16,25 +16,20 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.type.RowType;
-import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeAnalyzer;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TryExpression;
-import io.trino.sql.util.AstUtils;
 
 import java.util.Map;
 import java.util.Optional;
@@ -43,11 +38,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -64,15 +57,6 @@ public class InlineProjections
     private static final Pattern<ProjectNode> PATTERN = project()
             .with(source().matching(project().capturedAs(CHILD)));
 
-    private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
-
-    public InlineProjections(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
-    {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-    }
-
     @Override
     public Pattern<ProjectNode> getPattern()
     {
@@ -84,19 +68,19 @@ public class InlineProjections
     {
         ProjectNode child = captures.get(CHILD);
 
-        return inlineProjections(plannerContext, parent, child, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes())
+        return inlineProjections(parent, child)
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }
 
-    static Optional<ProjectNode> inlineProjections(PlannerContext plannerContext, ProjectNode parent, ProjectNode child, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    static Optional<ProjectNode> inlineProjections(ProjectNode parent, ProjectNode child)
     {
         // squash identity projections
         if (parent.isIdentity() && child.isIdentity()) {
             return Optional.of((ProjectNode) parent.replaceChildren(ImmutableList.of(child.getSource())));
         }
 
-        Set<Symbol> targets = extractInliningTargets(plannerContext, parent, child, session, typeAnalyzer, types);
+        Set<Symbol> targets = extractInliningTargets(parent, child);
         if (targets.isEmpty()) {
             return Optional.empty();
         }
@@ -165,7 +149,7 @@ public class InlineProjections
         return inlineSymbols(mapping, expression);
     }
 
-    private static Set<Symbol> extractInliningTargets(PlannerContext plannerContext, ProjectNode parent, ProjectNode child, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    private static Set<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child)
     {
         // candidates for inlining are
         //   1. references to simple constants or symbol references
@@ -185,27 +169,19 @@ public class InlineProjections
 
         // find references to simple constants or symbol references
         Set<Symbol> basicReferences = dependencies.keySet().stream()
-                .filter(input -> isEffectivelyLiteral(plannerContext, session, child.getAssignments().get(input)) || child.getAssignments().get(input) instanceof SymbolReference)
+                .filter(input -> child.getAssignments().get(input) instanceof Constant || child.getAssignments().get(input) instanceof Reference)
                 .filter(input -> !child.getAssignments().isIdentity(input)) // skip identities, otherwise, this rule will keep firing forever
-                .collect(toSet());
-
-        // exclude any complex inputs to TRY expressions. Inlining them would potentially
-        // change the semantics of those expressions
-        Set<Symbol> tryArguments = parent.getAssignments()
-                .getExpressions().stream()
-                .flatMap(expression -> extractTryArguments(expression).stream())
                 .collect(toSet());
 
         Set<Symbol> singletons = dependencies.entrySet().stream()
                 .filter(entry -> entry.getValue() == 1) // reference appears just once across all expressions in parent project node
-                .filter(entry -> !tryArguments.contains(entry.getKey())) // they are not inputs to TRY. Otherwise, inlining might change semantics
                 .filter(entry -> !child.getAssignments().isIdentity(entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
                 .filter(entry -> {
                     // skip dereferences, otherwise, inlining can cause conflicts with PushdownDereferences
                     Expression assignment = child.getAssignments().get(entry.getKey());
 
-                    if (assignment instanceof SubscriptExpression) {
-                        if (typeAnalyzer.getType(session, types, ((SubscriptExpression) assignment).getBase()) instanceof RowType) {
+                    if (assignment instanceof FieldReference) {
+                        if (((FieldReference) assignment).base().type() instanceof RowType) {
                             return false;
                         }
                     }
@@ -218,17 +194,8 @@ public class InlineProjections
         return Sets.union(singletons, basicReferences);
     }
 
-    private static Set<Symbol> extractTryArguments(Expression expression)
-    {
-        return AstUtils.preOrder(expression)
-                .filter(TryExpression.class::isInstance)
-                .map(TryExpression.class::cast)
-                .flatMap(tryExpression -> SymbolsExtractor.extractAll(tryExpression).stream())
-                .collect(toSet());
-    }
-
     private static boolean isSymbolReference(Symbol symbol, Expression expression)
     {
-        return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName());
+        return expression instanceof Reference reference && reference.name().equals(symbol.getName());
     }
 }

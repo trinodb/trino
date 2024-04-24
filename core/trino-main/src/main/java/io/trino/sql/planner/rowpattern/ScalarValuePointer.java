@@ -21,8 +21,8 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class ScalarValuePointer
-        extends ValuePointer
+public final class ScalarValuePointer
+        implements ValuePointer
 {
     private final LogicalIndexPointer logicalIndexPointer;
     private final Symbol inputSymbol;

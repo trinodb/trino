@@ -37,7 +37,9 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.parquet.ParquetReaderConfig.PARQUET_READER_MAX_SMALL_FILE_THRESHOLD;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_BLOCK_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_PAGE_SIZE;
+import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_PAGE_VALUE_COUNT;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_PAGE_SIZE;
+import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_PAGE_VALUE_COUNT;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -49,15 +51,16 @@ public final class DeltaLakeSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String MAX_SPLIT_SIZE = "max_split_size";
-    public static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     public static final String VACUUM_MIN_RETENTION = "vacuum_min_retention";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
+    private static final String PARQUET_IGNORE_STATISTICS = "parquet_ignore_statistics";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    private static final String PARQUET_WRITER_PAGE_VALUE_COUNT = "parquet_writer_page_value_count";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String IDLE_WRITER_MIN_FILE_SIZE = "idle_writer_min_file_size";
     private static final String COMPRESSION_CODEC = "compression_codec";
@@ -85,11 +88,6 @@ public final class DeltaLakeSessionProperties
                         MAX_SPLIT_SIZE,
                         "Max split size",
                         deltaLakeConfig.getMaxSplitSize(),
-                        true),
-                dataSizeProperty(
-                        MAX_INITIAL_SPLIT_SIZE,
-                        "Max initial split size",
-                        deltaLakeConfig.getMaxInitialSplitSize(),
                         true),
                 durationProperty(
                         VACUUM_MIN_RETENTION,
@@ -131,6 +129,11 @@ public final class DeltaLakeSessionProperties
                         "Use Parquet column index",
                         parquetReaderConfig.isUseColumnIndex(),
                         false),
+                booleanProperty(
+                        PARQUET_IGNORE_STATISTICS,
+                        "Ignore statistics from Parquet to allow querying files with corrupted or incorrect statistics",
+                        parquetReaderConfig.isIgnoreStatistics(),
+                        false),
                 dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
                         "Parquet: Writer block size",
@@ -144,6 +147,18 @@ public final class DeltaLakeSessionProperties
                         value -> {
                             validateMinDataSize(PARQUET_WRITER_PAGE_SIZE, value, DataSize.valueOf(PARQUET_WRITER_MIN_PAGE_SIZE));
                             validateMaxDataSize(PARQUET_WRITER_PAGE_SIZE, value, DataSize.valueOf(PARQUET_WRITER_MAX_PAGE_SIZE));
+                        },
+                        false),
+                integerProperty(
+                        PARQUET_WRITER_PAGE_VALUE_COUNT,
+                        "Parquet: Writer page row count",
+                        parquetWriterConfig.getPageValueCount(),
+                        value -> {
+                            if (value < PARQUET_WRITER_MIN_PAGE_VALUE_COUNT || value > PARQUET_WRITER_MAX_PAGE_VALUE_COUNT) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be between %s and %s: %s", PARQUET_WRITER_PAGE_VALUE_COUNT, PARQUET_WRITER_MIN_PAGE_VALUE_COUNT, PARQUET_WRITER_MAX_PAGE_VALUE_COUNT, value));
+                            }
                         },
                         false),
                 dataSizeProperty(
@@ -190,6 +205,7 @@ public final class DeltaLakeSessionProperties
                         deltaLakeConfig.getCompressionCodec(),
                         value -> {
                             if (value == HiveCompressionCodec.LZ4) {
+                                // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, "Unsupported codec: LZ4");
                             }
                         },
@@ -222,11 +238,6 @@ public final class DeltaLakeSessionProperties
         return session.getProperty(MAX_SPLIT_SIZE, DataSize.class);
     }
 
-    public static DataSize getMaxInitialSplitSize(ConnectorSession session)
-    {
-        return session.getProperty(MAX_INITIAL_SPLIT_SIZE, DataSize.class);
-    }
-
     public static Duration getVacuumMinRetention(ConnectorSession session)
     {
         return session.getProperty(VACUUM_MIN_RETENTION, Duration.class);
@@ -257,6 +268,11 @@ public final class DeltaLakeSessionProperties
         return session.getProperty(PARQUET_USE_COLUMN_INDEX, Boolean.class);
     }
 
+    public static boolean isParquetIgnoreStatistics(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_IGNORE_STATISTICS, Boolean.class);
+    }
+
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_BLOCK_SIZE, DataSize.class);
@@ -265,6 +281,11 @@ public final class DeltaLakeSessionProperties
     public static DataSize getParquetWriterPageSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+    }
+
+    public static int getParquetWriterPageValueCount(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_PAGE_VALUE_COUNT, Integer.class);
     }
 
     public static long getTargetMaxFileSize(ConnectorSession session)

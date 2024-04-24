@@ -150,6 +150,7 @@ public class CreateEmptyPartitionProcedure
             hiveMetadata.finishInsert(
                     session,
                     hiveInsertTableHandle,
+                    ImmutableList.of(),
                     ImmutableList.of(serializedPartitionUpdate),
                     ImmutableList.of());
             hiveMetadata.commit();

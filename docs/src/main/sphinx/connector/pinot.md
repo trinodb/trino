@@ -185,9 +185,20 @@ according to the following table:
   - `VARCHAR`
 :::
 
-Pinot does not allow null values in any data type.
-
 No other types are supported.
+
+#### Date Type
+
+For Pinot `DateTimeFields`, if the `FormatSpec` is in days,
+then it is converted to a Trino `DATE` type.
+Pinot allows for `LONG` fields to have a `FormatSpec` of days as well, if the 
+value is larger than `Integer.MAX_VALUE` then the conversion to Trino `DATE` fails.  
+
+#### Null Handling
+
+If a Pinot TableSpec has `nullHandlingEnabled` set to true, then for numeric 
+types the null value is encoded as `MIN_VALUE` for that type. 
+For Pinot `STRING` type, the value `null` is interpreted as a `NULL` value.
 
 (pinot-sql-support)=
 

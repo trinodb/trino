@@ -54,11 +54,10 @@ public class OptimizeRowPattern
                 node.getMeasures(),
                 node.getCommonBaseFrame(),
                 node.getRowsPerMatch(),
-                node.getSkipToLabel(),
+                node.getSkipToLabels(),
                 node.getSkipToPosition(),
                 node.isInitial(),
                 optimizedPattern,
-                node.getSubsets(),
                 node.getVariableDefinitions()));
     }
 }

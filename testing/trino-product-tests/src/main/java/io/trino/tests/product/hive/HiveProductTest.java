@@ -15,10 +15,15 @@ package io.trino.tests.product.hive;
 
 import com.google.inject.Inject;
 import io.trino.tempto.ProductTest;
+import io.trino.tests.product.TestGroups;
 
 public class HiveProductTest
         extends ProductTest
 {
+    static {
+        TestGroups.FakeUsageForMavenDependencyChecker.fakeUse();
+    }
+
     @Inject
     private HiveVersionProvider hiveVersionProvider;
 

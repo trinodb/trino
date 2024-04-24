@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
-import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
@@ -27,17 +26,17 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Collection;
@@ -46,13 +45,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.function.Function;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Maps.immutableEntry;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
-import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionFromTable;
 import static java.util.Objects.requireNonNull;
 
@@ -94,95 +89,39 @@ public class HiveMetastoreClosure
         return delegate.getTable(databaseName, tableName);
     }
 
-    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
-        return delegate.getSupportedColumnStatistics(type);
+        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames);
     }
 
-    public PartitionStatistics getTableStatistics(String databaseName, String tableName, Optional<Set<String>> columns)
-    {
-        Table table = getExistingTable(databaseName, tableName);
-        if (columns.isPresent()) {
-            Set<String> requestedColumnNames = columns.get();
-            List<Column> requestedColumns = table.getDataColumns().stream()
-                    .filter(column -> requestedColumnNames.contains(column.getName()))
-                    .collect(toImmutableList());
-            table = Table.builder(table).setDataColumns(requestedColumns).build();
-        }
-        return delegate.getTableStatistics(table);
-    }
-
-    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
-    {
-        return getPartitionStatistics(databaseName, tableName, partitionNames, Optional.empty());
-    }
-
-    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames, Optional<Set<String>> columns)
-    {
-        Table table = getExistingTable(databaseName, tableName);
-        List<Partition> partitions = getExistingPartitionsByNames(table, ImmutableList.copyOf(partitionNames));
-        if (columns.isPresent()) {
-            Set<String> requestedColumnNames = columns.get();
-            List<Column> requestedColumns = table.getDataColumns().stream()
-                    .filter(column -> requestedColumnNames.contains(column.getName()))
-                    .collect(toImmutableList());
-            table = Table.builder(table).setDataColumns(requestedColumns).build();
-            partitions = partitions.stream().map(partition -> Partition.builder(partition).setColumns(requestedColumns).build()).collect(toImmutableList());
-        }
-        return delegate.getPartitionStatistics(table, partitions);
-    }
-
-    public void updateTableStatistics(String databaseName,
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
+            String databaseName,
             String tableName,
-            AcidTransaction transaction,
-            Function<PartitionStatistics, PartitionStatistics> update)
+            Set<String> partitionNames,
+            Set<String> columnNames)
     {
-        delegate.updateTableStatistics(databaseName, tableName, transaction, update);
+        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames);
     }
 
-    public void updatePartitionsStatistics(String databaseName,
-            String tableName,
-            String partitionName,
-            Function<PartitionStatistics, PartitionStatistics> update)
+    public boolean useSparkTableStatistics()
+    {
+        return delegate.useSparkTableStatistics();
+    }
+
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    {
+        delegate.updateTableStatistics(databaseName, tableName, transaction, mode, statisticsUpdate);
+    }
+
+    public void updatePartitionStatistics(String databaseName, String tableName, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
         Table table = getExistingTable(databaseName, tableName);
-        delegate.updatePartitionsStatistics(table, partitionName, update);
+        delegate.updatePartitionStatistics(table, mode, partitionUpdates);
     }
 
-    public void updatePartitionStatistics(String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
-    {
-        Table table = getExistingTable(databaseName, tableName);
-        delegate.updatePartitionStatistics(table, updates);
-    }
-
-    public List<String> getTables(String databaseName)
+    public List<TableInfo> getTables(String databaseName)
     {
         return delegate.getTables(databaseName);
-    }
-
-    public Optional<List<SchemaTableName>> getAllTables()
-    {
-        return delegate.getAllTables();
-    }
-
-    public Map<String, RelationType> getRelationTypes(String databaseName)
-    {
-        return delegate.getRelationTypes(databaseName);
-    }
-
-    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
-    {
-        return delegate.getAllRelationTypes();
-    }
-
-    public List<String> getViews(String databaseName)
-    {
-        return delegate.getViews(databaseName);
-    }
-
-    public Optional<List<SchemaTableName>> getAllViews()
-    {
-        return delegate.getAllViews();
     }
 
     public void createDatabase(Database database)
@@ -277,18 +216,6 @@ public class HiveMetastoreClosure
             }
         }
         return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
-    }
-
-    private List<Partition> getExistingPartitionsByNames(Table table, List<String> partitionNames)
-    {
-        Map<String, Partition> partitions = getPartitionsByNames(table, partitionNames).entrySet().stream()
-                .map(entry -> immutableEntry(entry.getKey(), entry.getValue().orElseThrow(() ->
-                        new PartitionNotFoundException(table.getSchemaTableName(), extractPartitionValues(entry.getKey())))))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-
-        return partitionNames.stream()
-                .map(partitions::get)
-                .collect(toImmutableList());
     }
 
     public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)

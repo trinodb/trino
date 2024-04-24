@@ -432,6 +432,67 @@ any catalog, and allows all users to create, drop, and execute functions (includ
 }
 ```
 
+(system-file-procedure-rules)=
+#### Procedure rules
+
+These rules control the ability of a user to execute procedures.
+
+Procedures are used for administrative operations on a specific catalog, such as
+registering external tables or flushing the connector's cache. Available
+procedures are detailed in the connector documentation pages.
+
+When procedure rules are present, the authorization is based on the first
+matching rule, processed from top to bottom. If no rules match, the
+authorization is denied. If procedure rules are not present, only procedures in
+`system.builtin` can be executed.
+
+Each procedure rule is composed of the following fields:
+
+- `user` (optional): regular expression to match against user name.
+  Defaults to `.*`.
+- `role` (optional): regular expression to match against role names.
+  Defaults to `.*`.
+- `group` (optional): regular expression to match against group names.
+  Defaults to `.*`.
+- `catalog` (optional): regular expression to match against catalog name.
+  Defaults to `.*`.
+- `schema` (optional): regular expression to match against schema name.
+  Defaults to `.*`.
+- `procedure` (optional): regular expression to match against procedure names.
+  Defaults to `.*`.
+- `privileges` (required): zero or more of `EXECUTE`, `GRANT_EXECUTE`.
+
+The following example allows the `admin` user to execute and grant execution
+rights to call `register_table` and `unregister_table` in the `system` schema of
+a catalog called  `delta`, that uses the [Delta Lake
+connector](/connector/delta-lake). It allows all users to execute the
+`delta.sytem.vacuum` procedure.
+
+```json
+{
+  "procedures": [
+    {
+      "user": "admin",
+      "catalog": "delta",
+      "schema": "system",
+      "procedure": "register_table|unregister_table",
+      "privileges": [
+        "EXECUTE",
+        "GRANT_EXECUTE"
+      ]
+    },
+    {
+      "catalog": "delta",
+      "schema": "system",
+      "procedure": "vacuum",
+      "privileges": [
+        "EXECUTE"
+      ]
+    }
+  ]
+}
+```
+
 (verify-rules)=
 
 #### Verify configuration
@@ -652,11 +713,17 @@ as `group@example.net`, you can use the following rules.
 These rules specify which users can access the system information management
 interface. System information access includes the following aspects:
 
-- Read access to details such as Trino version, uptime of the node, and others
-  from the `/v1/info` and `/v1/status` REST endpoints.
+- Read access to sensitive information from REST endpoints, such as `/v1/node`
+  and `/v1/thread`.
 - Read access with the {doc}`system information functions </functions/system>`.
 - Read access with the {doc}`/connector/system`.
 - Write access to trigger {doc}`/admin/graceful-shutdown`.
+
+The following REST endpoints are always public and not affected by these rules:
+
+- `GET /v1/info`
+- `GET /v1/info/state`
+- `GET /v1/status`
 
 The user is granted or denied access based on the first matching
 rule read from top to bottom. If no rules are specified, all access to system

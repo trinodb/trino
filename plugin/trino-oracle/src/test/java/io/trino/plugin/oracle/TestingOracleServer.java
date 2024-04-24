@@ -14,11 +14,11 @@
 package io.trino.plugin.oracle;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
-import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
@@ -65,24 +65,31 @@ public class TestingOracleServer
     public static final String TEST_SCHEMA = TEST_USER; // schema and user is the same thing in Oracle
     public static final String TEST_PASS = "trino_test_password";
 
-    private final OracleContainer container;
+    private OracleContainer container;
 
     private Closeable cleanup = () -> {};
 
     public TestingOracleServer()
     {
-        container = Failsafe.with(CONTAINER_RETRY_POLICY).get(this::createContainer);
+        Failsafe.with(CONTAINER_RETRY_POLICY).run(this::createContainer);
     }
 
-    private OracleContainer createContainer()
+    private void createContainer()
     {
         OracleContainer container = new OracleContainer("gvenzl/oracle-xe:11.2.0.2-full")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/container-entrypoint-initdb.d/01-init.sql")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
                 .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql")
                 .usingSid();
-        cleanup = startOrReuse(container);
-        return container;
+        try {
+            this.cleanup = startOrReuse(container);
+            this.container = container;
+        }
+        catch (Throwable e) {
+            try (container) {
+                throw e;
+            }
+        }
     }
 
     private Path createConfigureScript()
@@ -127,11 +134,9 @@ public class TestingOracleServer
 
     private ConnectionFactory getConnectionFactory(String connectionUrl, String username, String password)
     {
-        StatisticsAwareConnectionFactory connectionFactory = new StatisticsAwareConnectionFactory(new DriverConnectionFactory(
-                new OracleDriver(),
-                new BaseJdbcConfig().setConnectionUrl(connectionUrl),
-                StaticCredentialProvider.of(username, password)));
-        return new RetryingConnectionFactory(connectionFactory, new DefaultRetryStrategy());
+        StatisticsAwareConnectionFactory connectionFactory = new StatisticsAwareConnectionFactory(
+                DriverConnectionFactory.builder(new OracleDriver(), connectionUrl, StaticCredentialProvider.of(username, password)).build());
+        return new RetryingConnectionFactory(connectionFactory, ImmutableSet.of(new DefaultRetryStrategy()));
     }
 
     @Override

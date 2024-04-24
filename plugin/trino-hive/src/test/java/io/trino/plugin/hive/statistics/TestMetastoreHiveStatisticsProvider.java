@@ -73,6 +73,7 @@ import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.cal
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateRangeForPartitioningKey;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.convertPartitionValueToDouble;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.createDataColumnStatistics;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.getDistinctValuesCount;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.getPartitionsSample;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.validatePartitionStatistics;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
@@ -151,9 +152,9 @@ public class TestMetastoreHiveStatisticsProvider
         assertInvalidStatistics(
                 PartitionStatistics.builder()
                         .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
-                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setTotalSizeInBytes(-1).build()))
+                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setAverageColumnLength(-1).build()))
                         .build(),
-                invalidColumnStatistics("totalSizeInBytes must be greater than or equal to zero: -1"));
+                invalidColumnStatistics("averageColumnLength must be greater than or equal to zero: -1.0"));
         assertInvalidStatistics(
                 PartitionStatistics.builder()
                         .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
@@ -169,21 +170,9 @@ public class TestMetastoreHiveStatisticsProvider
         assertInvalidStatistics(
                 PartitionStatistics.builder()
                         .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
-                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setDistinctValuesCount(-1).build()))
+                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setDistinctValuesWithNullCount(-1).build()))
                         .build(),
                 invalidColumnStatistics("distinctValuesCount must be greater than or equal to zero: -1"));
-        assertInvalidStatistics(
-                PartitionStatistics.builder()
-                        .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
-                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setDistinctValuesCount(1).build()))
-                        .build(),
-                invalidColumnStatistics("distinctValuesCount must be less than or equal to rowCount. distinctValuesCount: 1. rowCount: 0."));
-        assertInvalidStatistics(
-                PartitionStatistics.builder()
-                        .setBasicStatistics(new HiveBasicStatistics(0, 1, 0, 0))
-                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setDistinctValuesCount(1).setNullsCount(1).build()))
-                        .build(),
-                invalidColumnStatistics("distinctValuesCount must be less than or equal to nonNullsCount. distinctValuesCount: 1. nonNullsCount: 0."));
         assertInvalidStatistics(
                 PartitionStatistics.builder()
                         .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
@@ -460,22 +449,65 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCalculateDistinctValuesCount()
     {
-        assertThat(calculateDistinctValuesCount(ImmutableList.of())).isEqualTo(Estimate.unknown());
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(HiveColumnStatistics.empty()))).isEqualTo(Estimate.unknown());
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(HiveColumnStatistics.empty(), HiveColumnStatistics.empty()))).isEqualTo(Estimate.unknown());
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1)))).isEqualTo(Estimate.of(1));
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), distinctValuesCount(2)))).isEqualTo(Estimate.of(2));
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), HiveColumnStatistics.empty()))).isEqualTo(Estimate.of(1));
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())))).isEqualTo(Estimate.unknown());
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(0), OptionalLong.empty())))).isEqualTo(Estimate.of(1));
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(10), OptionalLong.empty(), OptionalLong.empty())))).isEqualTo(Estimate.unknown());
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(10), OptionalLong.of(10), OptionalLong.empty())))).isEqualTo(Estimate.of(2));
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.of(10), OptionalLong.empty())))).isEqualTo(Estimate.unknown());
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty())))).isEqualTo(Estimate.of(1));
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.empty())))).isEqualTo(Estimate.of(0));
-        assertThat(calculateDistinctValuesCount(ImmutableList.of(
-                createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty()),
-                createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(10), OptionalLong.empty())))).isEqualTo(Estimate.of(2));
+        assertThat(getDistinctValuesCount(COLUMN, PartitionStatistics.empty())).isEmpty();
+        assertThat(getDistinctValuesCount(COLUMN, distinctValuesCount(1))).hasValue(1);
+
+        // Hive includes null in distinct values count. If column has nulls, decrease distinct values count by 1.
+        assertThat(getDistinctValuesCount(
+                COLUMN,
+                new PartitionStatistics(
+                        new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(10), OptionalLong.empty(), OptionalLong.empty()),
+                        ImmutableMap.of(COLUMN, HiveColumnStatistics.builder()
+                                .setNullsCount(3)
+                                .setDistinctValuesWithNullCount(5)
+                                .build()))))
+                .hasValue(4);
+
+        // if column only has a non-null row, count should not be zero
+        assertThat(getDistinctValuesCount(
+                COLUMN,
+                new PartitionStatistics(
+                        new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(10), OptionalLong.empty(), OptionalLong.empty()),
+                        ImmutableMap.of(COLUMN, HiveColumnStatistics.builder()
+                                .setNullsCount(3)
+                                .setDistinctValuesWithNullCount(1)
+                                .build()))))
+                .hasValue(1);
+
+        // Hive may have a distinct value much larger than the row count
+        assertThat(getDistinctValuesCount(
+                COLUMN,
+                new PartitionStatistics(
+                        new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(5), OptionalLong.empty(), OptionalLong.empty()),
+                        ImmutableMap.of(COLUMN, HiveColumnStatistics.builder()
+                                .setDistinctValuesWithNullCount(10)
+                                .build()))))
+                .hasValue(5);
+        assertThat(getDistinctValuesCount(
+                COLUMN,
+                new PartitionStatistics(
+                        new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(5), OptionalLong.empty(), OptionalLong.empty()),
+                        ImmutableMap.of(COLUMN, HiveColumnStatistics.builder()
+                                .setNullsCount(3)
+                                .setDistinctValuesWithNullCount(10)
+                                .build()))))
+                .hasValue(2);
+
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()))).isEmpty();
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.of(1), OptionalLong.of(0), OptionalLong.empty()))).hasValue(1);
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.of(10), OptionalLong.empty(), OptionalLong.empty()))).isEmpty();
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.of(10), OptionalLong.of(10), OptionalLong.empty()))).hasValue(2);
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.empty(), OptionalLong.of(10), OptionalLong.empty()))).isEmpty();
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty()))).hasValue(1);
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.empty()))).hasValue(0);
+
+        assertThat(calculateDistinctValuesCount(COLUMN, ImmutableList.of())).isEqualTo(Estimate.unknown());
+        assertThat(calculateDistinctValuesCount(COLUMN, ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty()))).isEqualTo(Estimate.unknown());
+        assertThat(calculateDistinctValuesCount(COLUMN, ImmutableList.of(distinctValuesCount(1), distinctValuesCount(2)))).isEqualTo(Estimate.of(2));
+        assertThat(calculateDistinctValuesCount(COLUMN, ImmutableList.of(distinctValuesCount(1), PartitionStatistics.empty()))).isEqualTo(Estimate.of(1));
+        assertThat(calculateDistinctValuesCount(COLUMN, ImmutableList.of(
+                booleanDistinctValuesCount(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty()),
+                booleanDistinctValuesCount(OptionalLong.of(1), OptionalLong.of(10), OptionalLong.empty())))).isEqualTo(Estimate.of(2));
     }
 
     @Test
@@ -499,23 +531,23 @@ public class TestMetastoreHiveStatisticsProvider
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCount(1000)), 1000)).isEqualTo(Estimate.unknown());
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(dataSize(1000)), 1000)).isEqualTo(Estimate.unknown());
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(dataSize(1000), rowsCount(1000)), 1000)).isEqualTo(Estimate.unknown());
-        assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(500, 1000)), 2000)).isEqualTo(Estimate.of(4000));
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(500, 2)), 2000)).isEqualTo(Estimate.of(4000));
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(0, 0)), 2000)).isEqualTo(Estimate.unknown());
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(0, 0)), 0)).isEqualTo(Estimate.zero());
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(1000, 0)), 2000)).isEqualTo(Estimate.of(0));
         assertThat(calculateDataSize(
                 COLUMN,
                 ImmutableList.of(
-                        rowsCountAndDataSize(500, 1000),
-                        rowsCountAndDataSize(1000, 5000)),
+                        rowsCountAndDataSize(500, 2),
+                        rowsCountAndDataSize(1000, 5)),
                 5000)).isEqualTo(Estimate.of(20000));
         assertThat(calculateDataSize(
                 COLUMN,
                 ImmutableList.of(
                         dataSize(1000),
-                        rowsCountAndDataSize(500, 1000),
+                        rowsCountAndDataSize(500, 2),
                         rowsCount(3000),
-                        rowsCountAndDataSize(1000, 5000)),
+                        rowsCountAndDataSize(1000, 5)),
                 5000)).isEqualTo(Estimate.of(20000));
     }
 
@@ -564,9 +596,10 @@ public class TestMetastoreHiveStatisticsProvider
     public void testGetTableStatistics()
     {
         String partitionName = "p1=string1/p2=1234";
+        // Hive includes the null in distinct count, so provided value is 301, but actual distinct count is 300
         PartitionStatistics statistics = PartitionStatistics.builder()
                 .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(1000), OptionalLong.empty(), OptionalLong.empty()))
-                .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
+                .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(301))))
                 .build();
         HiveStatisticsProvider statisticsProvider = new AbstractHiveStatisticsProvider()
         {
@@ -618,9 +651,10 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testGetTableStatisticsUnpartitioned()
     {
+        // Hive includes the null in distinct count, so provided value is 301, but actual distinct count is 300
         PartitionStatistics statistics = PartitionStatistics.builder()
                 .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(1000), OptionalLong.empty(), OptionalLong.empty()))
-                .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
+                .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(301))))
                 .build();
         HiveStatisticsProvider statisticsProvider = new AbstractHiveStatisticsProvider()
         {
@@ -834,7 +868,7 @@ public class TestMetastoreHiveStatisticsProvider
 
     private static PartitionStatistics dataSize(long dataSize)
     {
-        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setTotalSizeInBytes(dataSize).build()));
+        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setAverageColumnLength(dataSize).build()));
     }
 
     private static PartitionStatistics rowsCountAndNullsCount(long rowsCount, long nullsCount)
@@ -844,18 +878,24 @@ public class TestMetastoreHiveStatisticsProvider
                 ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setNullsCount(nullsCount).build()));
     }
 
-    private static PartitionStatistics rowsCountAndDataSize(long rowsCount, long dataSize)
+    private static PartitionStatistics rowsCountAndDataSize(long rowsCount, long averageColumnLength)
     {
         return new PartitionStatistics(
                 new HiveBasicStatistics(0, rowsCount, 0, 0),
-                ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setTotalSizeInBytes(dataSize).build()));
+                ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setAverageColumnLength(averageColumnLength).build()));
     }
 
-    private static HiveColumnStatistics distinctValuesCount(long count)
+    private static PartitionStatistics distinctValuesCount(long count)
     {
-        return HiveColumnStatistics.builder()
-                .setDistinctValuesCount(count)
-                .build();
+        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of(COLUMN, HiveColumnStatistics.builder()
+                .setDistinctValuesWithNullCount(count)
+                .build()));
+    }
+
+    private static PartitionStatistics booleanDistinctValuesCount(OptionalLong trueCount, OptionalLong falseCount, OptionalLong nullsCount)
+    {
+        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(),
+                ImmutableMap.of(COLUMN, createBooleanColumnStatistics(trueCount, falseCount, nullsCount)));
     }
 
     private static HiveColumnStatistics integerRange(long min, long max)

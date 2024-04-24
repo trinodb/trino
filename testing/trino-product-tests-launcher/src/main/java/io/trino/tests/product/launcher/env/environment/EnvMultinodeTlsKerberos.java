@@ -22,6 +22,7 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.ServerPackage;
+import io.trino.tests.product.launcher.env.Tracing;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
@@ -50,6 +51,7 @@ public final class EnvMultinodeTlsKerberos
     private final JdkProvider jdkProvider;
     private final File serverPackage;
     private final boolean debug;
+    private final boolean tracing;
 
     @Inject
     public EnvMultinodeTlsKerberos(
@@ -59,7 +61,8 @@ public final class EnvMultinodeTlsKerberos
             EnvironmentConfig config,
             @ServerPackage File serverPackage,
             JdkProvider jdkProvider,
-            @Debug boolean debug)
+            @Debug boolean debug,
+            @Tracing boolean tracing)
     {
         super(ImmutableList.of(standard, hadoopKerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
@@ -69,6 +72,7 @@ public final class EnvMultinodeTlsKerberos
         this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
+        this.tracing = tracing;
     }
 
     @Override
@@ -89,7 +93,7 @@ public final class EnvMultinodeTlsKerberos
     @SuppressWarnings("resource")
     private DockerContainer createTrinoWorker(String workerName)
     {
-        return createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, trinoDockerImageName, workerName)
+        return createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, tracing, trinoDockerImageName, workerName)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-worker.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties")), CONTAINER_TRINO_HIVE_PROPERTIES)

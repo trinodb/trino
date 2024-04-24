@@ -14,6 +14,9 @@
 package io.trino.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.tracing.Tracing;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
@@ -31,7 +34,8 @@ public class TestLazyExchangeDataSource
         try (LazyExchangeDataSource source = new LazyExchangeDataSource(
                 new QueryId("query"),
                 new ExchangeId("exchange"),
-                (queryId, exchangeId, memoryContext, taskFailureListener, retryPolicy) -> {
+                Span.getInvalid(),
+                (queryId, exchangeId, span, memoryContext, taskFailureListener, retryPolicy) -> {
                     throw new UnsupportedOperationException();
                 },
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), TestLazyExchangeDataSource.class.getSimpleName()),
@@ -39,7 +43,7 @@ public class TestLazyExchangeDataSource
                     throw new UnsupportedOperationException();
                 },
                 RetryPolicy.NONE,
-                new ExchangeManagerRegistry())) {
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()))) {
             ListenableFuture<Void> first = source.isBlocked();
             ListenableFuture<Void> second = source.isBlocked();
             assertThat(first)

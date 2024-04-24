@@ -28,9 +28,9 @@ public class NessieContainer
 {
     private static final Logger log = Logger.get(NessieContainer.class);
 
-    public static final String DEFAULT_IMAGE = "projectnessie/nessie:0.71.0";
+    public static final String DEFAULT_IMAGE = "ghcr.io/projectnessie/nessie:0.79.0";
     public static final String DEFAULT_HOST_NAME = "nessie";
-    public static final String VERSION_STORE_TYPE = "INMEMORY";
+    public static final String VERSION_STORE_TYPE = "IN_MEMORY";
 
     public static final int PORT = 19121;
 

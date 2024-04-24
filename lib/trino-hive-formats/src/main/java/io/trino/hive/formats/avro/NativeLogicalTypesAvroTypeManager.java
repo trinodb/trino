@@ -238,7 +238,7 @@ public class NativeLogicalTypesAvroTypeManager
                 }
                 if (timestampType.isShort()) {
                     // Don't use method reference because it causes an NPE in errorprone
-                    yield (block, position) -> timestampType.getLong(block, position);
+                    yield timestampType::getLong;
                 }
                 else {
                     yield (block, position) ->

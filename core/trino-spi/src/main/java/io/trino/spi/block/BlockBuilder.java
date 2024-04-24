@@ -62,6 +62,15 @@ public interface BlockBuilder
     BlockBuilder appendNull();
 
     /**
+     * Rolls back added data to the specified position.
+     * Resetting may result in a block without nulls with the may-have-nulls flag set.
+     * The PageBuilder status will not be updated to reflect the removed data size.
+     *
+     * @throws IllegalArgumentException if the position is greater than the current position count
+     */
+    void resetTo(int position);
+
+    /**
      * Builds the block. This method can be called multiple times.
      * The return value may be a block such as RLE to allow for optimizations when all block values are the same.
      */

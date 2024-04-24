@@ -187,7 +187,7 @@ public class TestKuduConnectorTest
     @Override
     public void testShowColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
+        assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
     }
 
     @Test
@@ -430,11 +430,11 @@ public class TestKuduConnectorTest
         assertUpdate("DROP TABLE " + validTableName);
 
         String invalidTableName = baseTableName + "z".repeat(256 - baseTableName.length() + 1);
-        assertThatThrownBy(() -> query("CREATE TABLE " + invalidTableName + "(" +
+        assertThat(query("CREATE TABLE " + invalidTableName + "(" +
                 "id INT WITH (primary_key=true)," +
                 "a VARCHAR)" +
                 "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)"))
-                .hasMessageContaining("invalid table name");
+                .failure().hasMessageContaining("invalid table name");
         assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isFalse();
     }
 

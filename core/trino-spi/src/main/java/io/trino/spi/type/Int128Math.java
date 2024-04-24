@@ -20,6 +20,7 @@ import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static java.lang.Integer.toUnsignedLong;
 import static java.lang.Math.abs;
+import static java.lang.Math.unsignedMultiplyHigh;
 import static java.lang.System.arraycopy;
 import static java.util.Arrays.fill;
 
@@ -1357,16 +1358,6 @@ public final class Int128Math
     private static long signExtension(long value)
     {
         return value >> 63;
-    }
-
-    // TODO: replace with JDK 18's Math.unsignedMultiplyHigh
-    private static long unsignedMultiplyHigh(long x, long y)
-    {
-        // From Hacker's Delight 2nd Ed. 8-3: High-Order Product Signed from/to Unsigned
-        long result = Math.multiplyHigh(x, y);
-        result += (y & (x >> 63)); // equivalent to: if (x < 0) result += y;
-        result += (x & (y >> 63)); // equivalent to: if (y < 0) result += x;
-        return result;
     }
 
     private static int compareUnsigned(long leftHigh, long leftLow, long rightHigh, long rightLow)

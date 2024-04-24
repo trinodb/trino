@@ -16,14 +16,13 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.metadata.InternalFunctionBundle;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.PrincipalType;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -36,6 +35,7 @@ import java.util.Optional;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -49,7 +49,7 @@ public class TestMetadataQueryOptimization
     private File baseDir;
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
@@ -64,18 +64,11 @@ public class TestMetadataQueryOptimization
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
+        PlanTester planTester = PlanTester.create(session);
+        planTester.installPlugin(new TestingIcebergPlugin(baseDir.toPath()));
+        planTester.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of());
 
-        InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();
-        new IcebergPlugin().getFunctions().forEach(functions::functions);
-        queryRunner.addFunctions(functions.build());
-
-        queryRunner.createCatalog(
-                ICEBERG_CATALOG,
-                new TestingIcebergConnectorFactory(baseDir.toPath()),
-                ImmutableMap.of());
-
-        HiveMetastore metastore = ((IcebergConnector) queryRunner.getConnector(ICEBERG_CATALOG)).getInjector()
+        HiveMetastore metastore = ((IcebergConnector) planTester.getConnector(ICEBERG_CATALOG)).getInjector()
                 .getInstance(HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
 
@@ -86,7 +79,7 @@ public class TestMetadataQueryOptimization
                 .build();
         metastore.createDatabase(database);
 
-        return queryRunner;
+        return planTester;
     }
 
     @Test
@@ -94,11 +87,11 @@ public class TestMetadataQueryOptimization
     {
         String testTable = "test_metadata_optimization";
 
-        getQueryRunner().execute(format(
+        getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (a, b, c) WITH (PARTITIONING = ARRAY['b', 'c']) AS VALUES (5, 6, 7), (8, 9, 10)",
                 testTable));
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty("optimize_metadata_queries", "true")
                 .build();
 
@@ -108,15 +101,15 @@ public class TestMetadataQueryOptimization
                 anyTree(values(
                         ImmutableList.of("b", "c"),
                         ImmutableList.of(
-                                ImmutableList.of(new LongLiteral("6"), new LongLiteral("7")),
-                                ImmutableList.of(new LongLiteral("9"), new LongLiteral("10"))))));
+                                ImmutableList.of(new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)),
+                                ImmutableList.of(new Constant(INTEGER, 9L), new Constant(INTEGER, 10L))))));
 
         assertPlan(
                 format("SELECT DISTINCT b, c FROM %s WHERE b > 7", testTable),
                 session,
                 anyTree(values(
                         ImmutableList.of("b", "c"),
-                        ImmutableList.of(ImmutableList.of(new LongLiteral("9"), new LongLiteral("10"))))));
+                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 9L), new Constant(INTEGER, 10L))))));
 
         assertPlan(
                 format("SELECT DISTINCT b, c FROM %s WHERE b > 7 AND c < 8", testTable),

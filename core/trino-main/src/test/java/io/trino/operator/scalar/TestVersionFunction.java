@@ -27,7 +27,7 @@ public class TestVersionFunction
         try (QueryAssertions assertions = new QueryAssertions()) {
             assertThat(assertions.function("version"))
                     .hasType(VARCHAR)
-                    .isEqualTo("<unknown>");
+                    .isEqualTo("testversion");
         }
     }
 }

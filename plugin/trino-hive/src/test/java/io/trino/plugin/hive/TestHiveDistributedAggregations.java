@@ -16,8 +16,6 @@ package io.trino.plugin.hive;
 import io.trino.testing.AbstractTestAggregations;
 import io.trino.testing.QueryRunner;
 
-import static io.trino.tpch.TpchTable.getTables;
-
 public class TestHiveDistributedAggregations
         extends AbstractTestAggregations
 {
@@ -26,7 +24,7 @@ public class TestHiveDistributedAggregations
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setInitialTables(getTables())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 }

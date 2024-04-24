@@ -68,7 +68,10 @@ public class TestPartitionedOutputOperator
         partitionedOutputOperator.addInput(page);
 
         OperatorContext operatorContext = partitionedOutputOperator.getOperatorContext();
-        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes());
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(0);
         assertThat(operatorContext.getOutputPositions().getTotalCount()).isEqualTo(page.getPositionCount());
+
+        partitionedOutputOperator.finish();
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes());
     }
 }

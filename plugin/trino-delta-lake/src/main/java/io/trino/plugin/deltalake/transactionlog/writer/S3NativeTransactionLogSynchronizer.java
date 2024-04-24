@@ -98,7 +98,7 @@ public class S3NativeTransactionLogSynchronizer
                 else {
                     if (lockInfo.getEntryFilename().equals(newEntryFilename)) {
                         if (currentLock.isPresent()) {
-                            throw new IllegalStateException(format(
+                            throw new TransactionConflictException(format(
                                     "Multiple live locks found for: %s; lock1: %s; lock2: %s",
                                     newLogEntryPath,
                                     currentLock.get().getLockFilename(),
@@ -140,10 +140,8 @@ public class S3NativeTransactionLogSynchronizer
                 throw new TransactionConflictException("Target file was created during locking: " + newLogEntryPath);
             }
 
-            // write transaction log entry
-            try (OutputStream outputStream = fileSystem.newOutputFile(newLogEntryPath).create()) {
-                outputStream.write(entryContents);
-            }
+            // write transaction log entry atomically by keeping in mind that S3 does not support creating files exclusively
+            fileSystem.newOutputFile(newLogEntryPath).createOrOverwrite(entryContents);
         }
         catch (IOException e) {
             throw new UncheckedIOException("Internal error while writing " + newLogEntryPath, e);

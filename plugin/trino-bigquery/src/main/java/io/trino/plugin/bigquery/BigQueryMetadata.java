@@ -22,7 +22,6 @@ import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.QueryParameterValue;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardTableDefinition;
-import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
@@ -76,14 +75,12 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -101,7 +98,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
-import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_TABLE_ERROR;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_OPERATION;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_DATE;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_TIME;
@@ -153,8 +150,8 @@ public class BigQueryMetadata
         BigQueryClient client = bigQueryClientFactory.create(session);
         String projectId = client.getProjectId();
 
-        Stream<String> remoteSchemaNames = Streams.stream(client.listDatasets(projectId))
-                .map(dataset -> dataset.getDatasetId().getDataset())
+        Stream<String> remoteSchemaNames = Streams.stream(client.listDatasetIds(projectId))
+                .map(DatasetId::getDataset)
                 .distinct();
 
         // filter out all the ambiguous schemas to prevent failures if anyone tries to access the listed schemas
@@ -214,23 +211,26 @@ public class BigQueryMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         try {
-            Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName));
-            for (Table table : tables) {
+            Iterable<TableId> tableIds = client.listTableIds(DatasetId.of(projectId, remoteSchemaName));
+            for (TableId tableId : tableIds) {
                 // filter ambiguous tables
-                client.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
+                client.toRemoteTable(projectId, remoteSchemaName, tableId.getTable().toLowerCase(ENGLISH), tableIds)
                         .filter(RemoteDatabaseObject::isAmbiguous)
                         .ifPresentOrElse(
-                                remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, table.getTableId().getTable()),
-                                () -> tableNames.add(new SchemaTableName(client.toSchemaName(DatasetId.of(projectId, table.getTableId().getDataset())), table.getTableId().getTable())));
+                                remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, tableId.getTable()),
+                                () -> tableNames.add(new SchemaTableName(client.toSchemaName(DatasetId.of(projectId, tableId.getDataset())), tableId.getTable())));
             }
         }
-        catch (BigQueryException e) {
-            if (e.getCode() == 404 && e.getMessage().contains("Not found: Dataset")) {
+        catch (TrinoException e) {
+            if (e.getErrorCode() == BIGQUERY_LISTING_TABLE_ERROR.toErrorCode() &&
+                    e.getCause() instanceof BigQueryException bigQueryException &&
+                    bigQueryException.getCode() == 404 &&
+                    bigQueryException.getMessage().contains("Not found: Dataset")) {
                 // Dataset not found error is ignored because listTables is used for metadata queries (SELECT FROM information_schema)
                 log.debug("Dataset disappeared during listing operation: %s", remoteSchemaName);
             }
             else {
-                throw new TrinoException(BIGQUERY_LISTING_DATASET_ERROR, "Exception happened during listing BigQuery dataset: " + remoteSchemaName, e);
+                throw e;
             }
         }
         return tableNames.build();
@@ -270,7 +270,7 @@ public class BigQueryMetadata
                 .withProjectedColumns(columns.build());
     }
 
-    private ConnectorTableHandle getTableHandleIgnoringConflicts(ConnectorSession session, SchemaTableName schemaTableName)
+    private Optional<TableInfo> getTableInfoIgnoringConflicts(ConnectorSession session, SchemaTableName schemaTableName)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         DatasetId localDatasetId = client.toDatasetId(schemaTableName.getSchemaName());
@@ -280,18 +280,7 @@ public class BigQueryMetadata
         String remoteTableName = client.toRemoteTable(localDatasetId.getProject(), remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getAnyRemoteName)
                 .orElse(schemaTableName.getTableName());
-        Optional<TableInfo> tableInfo = client.getTable(TableId.of(localDatasetId.getProject(), remoteSchemaName, remoteTableName));
-        if (tableInfo.isEmpty()) {
-            log.debug("Table [%s.%s] was not found", schemaTableName.getSchemaName(), schemaTableName.getTableName());
-            return null;
-        }
-
-        return new BigQueryTableHandle(new BigQueryNamedRelationHandle(
-                schemaTableName,
-                new RemoteTableName(tableInfo.get().getTableId()),
-                tableInfo.get().getDefinition().getType().toString(),
-                getPartitionType(tableInfo.get().getDefinition()),
-                Optional.ofNullable(tableInfo.get().getDescription())));
+        return client.getTable(TableId.of(localDatasetId.getProject(), remoteSchemaName, remoteTableName));
     }
 
     @Override
@@ -379,31 +368,22 @@ public class BigQueryMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
+        BigQueryClient client = bigQueryClientFactory.create(session);
         log.debug("listTableColumns(session=%s, prefix=%s)", session, prefix);
         List<SchemaTableName> tables = prefix.toOptionalSchemaTableName()
                 .<List<SchemaTableName>>map(ImmutableList::of)
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
 
-        List<BigQueryTableHandle> tableHandles = processInParallel(tables, table -> getTableHandleIgnoringConflicts(session, table))
-                .filter(Objects::nonNull)
-                .map(BigQueryTableHandle.class::cast)
+        List<TableInfo> tableInfos = processInParallel(tables, table -> getTableInfoIgnoringConflicts(session, table))
+                .flatMap(Optional::stream)
                 .collect(toImmutableList());
 
-        return processInParallel(tableHandles, tableHandle -> safeGetTableMetadata(session, tableHandle))
-                .filter(Objects::nonNull)
-                .collect(toImmutableMap(ConnectorTableMetadata::getTable, ConnectorTableMetadata::getColumns));
-    }
-
-    @Nullable
-    private ConnectorTableMetadata safeGetTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        try {
-            return getTableMetadata(session, tableHandle);
-        }
-        catch (TableNotFoundException e) {
-            // table disappeared during listing operation
-            return null;
-        }
+        return tableInfos.stream()
+                .collect(toImmutableMap(
+                        table -> new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable()),
+                        table -> client.buildColumnHandles(table).stream()
+                                .map(BigQueryColumnHandle::getColumnMetadata)
+                                .collect(toImmutableList())));
     }
 
     protected <T, R> Stream<R> processInParallel(List<T> list, Function<T, R> function)
@@ -675,7 +655,12 @@ public class BigQueryMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishInsert(
+            ConnectorSession session,
+            ConnectorInsertTableHandle insertHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
     {
         BigQueryInsertTableHandle handle = (BigQueryInsertTableHandle) insertHandle;
         return finishInsert(session, handle.getRemoteTableName(), handle.getTemporaryRemoteTableName(), handle.getPageSinkIdColumnName(), handle.getColumnNames(), fragments);

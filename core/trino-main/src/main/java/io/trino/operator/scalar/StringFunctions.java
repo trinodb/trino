@@ -30,6 +30,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.Chars;
 import io.trino.spi.type.StandardTypes;
 import io.trino.type.CodePointsType;
 import io.trino.type.Constraint;
@@ -200,6 +201,15 @@ public final class StringFunctions
     public static Slice reverse(@SqlType("varchar(x)") Slice slice)
     {
         return SliceUtf8.reverse(slice);
+    }
+
+    @Description("Reverse all code points in a given string")
+    @ScalarFunction(value = "reverse")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charReverse(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    {
+        return SliceUtf8.reverse(padSpaces(slice, (int) x));
     }
 
     @Description("Returns index of first occurrence of a substring (or 0 if not found)")
@@ -713,6 +723,16 @@ public final class StringFunctions
     @ScalarFunction("lpad")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.VARCHAR)
+    public static Slice leftPad(@LiteralParameter("x") long x, @SqlType("char(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
+    {
+        text = padSpaces(text, toIntExact(x));
+        return leftPad(text, targetLength, padString);
+    }
+
+    @Description("Pads a string on the left")
+    @ScalarFunction("lpad")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice leftPad(@SqlType("varchar(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
     {
         return pad(text, targetLength, padString, 0);
@@ -878,6 +898,15 @@ public final class StringFunctions
     public static Slice toUtf8(@SqlType("varchar(x)") Slice slice)
     {
         return slice;
+    }
+
+    @Description("Encodes the string to UTF-8")
+    @ScalarFunction
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toUtf8(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    {
+        return Chars.padSpaces(slice, toIntExact(x));
     }
 
     // TODO: implement N arguments char concat

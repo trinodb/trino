@@ -53,11 +53,80 @@ public class TestBooleanCoercer
                 .hasMessageContaining("Varchar representation of false exceeds varchar(1) bounds");
     }
 
+    @Test
+    public void testVarcharToBoolean()
+    {
+        // Valid false values
+        assertVarcharToBooleanCoercion("FALSE", false);
+        assertVarcharToBooleanCoercion("OFF", false);
+        assertVarcharToBooleanCoercion("NO", false);
+        assertVarcharToBooleanCoercion("0", false);
+        assertVarcharToBooleanCoercion("", false);
+
+        // false values in mixed cases
+        assertVarcharToBooleanCoercion("FAlSE", false);
+        assertVarcharToBooleanCoercion("OfF", false);
+        assertVarcharToBooleanCoercion("nO", false);
+        assertVarcharToBooleanCoercion("no", false);
+
+        // True values
+        assertVarcharToBooleanCoercion("YES", true);
+        assertVarcharToBooleanCoercion("TRUE", true);
+        assertVarcharToBooleanCoercion("TR", true);
+        assertVarcharToBooleanCoercion("T", true);
+        assertVarcharToBooleanCoercion("Y", true);
+        assertVarcharToBooleanCoercion("1", true);
+        assertVarcharToBooleanCoercion("-1", true);
+        assertVarcharToBooleanCoercion("-123", true);
+        assertVarcharToBooleanCoercion("123", true);
+
+        // Extension of false values
+        assertVarcharToBooleanCoercion("FALSEE", true);
+        assertVarcharToBooleanCoercion("OFFF", true);
+        assertVarcharToBooleanCoercion("NO0", true);
+        assertVarcharToBooleanCoercion("00", true);
+    }
+
+    @Test
+    public void testVarcharToBooleanForOrc()
+    {
+        // Valid false values
+        assertVarcharToBooleanCoercion("0", true, false);
+        assertVarcharToBooleanCoercion("-0", true, false);
+        assertVarcharToBooleanCoercion("00", true, false);
+
+        // True values
+        assertVarcharToBooleanCoercion("1", true, true);
+        assertVarcharToBooleanCoercion("-1", true, true);
+        assertVarcharToBooleanCoercion("-123", true, true);
+        assertVarcharToBooleanCoercion("123", true, true);
+
+        // Non numeric values
+        assertVarcharToBooleanCoercion("FALSE", true, null);
+        assertVarcharToBooleanCoercion("OFF", true, null);
+        assertVarcharToBooleanCoercion("NO", true, null);
+        assertVarcharToBooleanCoercion("T", true, null);
+        assertVarcharToBooleanCoercion("Y", true, null);
+    }
+
     private void assertBooleanToVarcharCoercion(Type toType, boolean valueToBeCoerced, Slice expectedValue)
     {
         Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(BOOLEAN), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, false)).orElseThrow()
                 .apply(nativeValueToBlock(BOOLEAN, valueToBeCoerced));
         assertThat(blockToNativeValue(toType, coercedValue))
+                .isEqualTo(expectedValue);
+    }
+
+    private void assertVarcharToBooleanCoercion(String valueToBeCoerced, Boolean expectedValue)
+    {
+        assertVarcharToBooleanCoercion(valueToBeCoerced, false, expectedValue);
+    }
+
+    private void assertVarcharToBooleanCoercion(String valueToBeCoerced, boolean isOrcFile, Boolean expectedValue)
+    {
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(BOOLEAN), new CoercionContext(DEFAULT_PRECISION, isOrcFile)).orElseThrow()
+                .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(valueToBeCoerced)));
+        assertThat(blockToNativeValue(BOOLEAN, coercedValue))
                 .isEqualTo(expectedValue);
     }
 }

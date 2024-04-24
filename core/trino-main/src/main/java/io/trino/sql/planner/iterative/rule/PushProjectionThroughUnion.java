@@ -18,15 +18,14 @@ import com.google.common.collect.ImmutableListMultimap;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.UnionNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashMap;
 import java.util.List;
@@ -68,7 +67,7 @@ public class PushProjectionThroughUnion
         ImmutableList.Builder<PlanNode> outputSources = ImmutableList.builder();
 
         for (int i = 0; i < source.getSources().size(); i++) {
-            Map<Symbol, SymbolReference> outputToInput = source.sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
+            Map<Symbol, Reference> outputToInput = source.sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
             Assignments.Builder assignments = Assignments.builder(); // assignments for the new ProjectNode
 
             // mapping from current ProjectNode to new ProjectNode, used to identify the output layout
@@ -77,8 +76,7 @@ public class PushProjectionThroughUnion
             // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
             for (Map.Entry<Symbol, Expression> entry : parent.getAssignments().entrySet()) {
                 Expression translatedExpression = inlineSymbols(outputToInput, entry.getValue());
-                Type type = context.getSymbolAllocator().getTypes().get(entry.getKey());
-                Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression, type);
+                Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression);
                 assignments.put(symbol, translatedExpression);
                 projectSymbolMapping.put(entry.getKey(), symbol);
             }
@@ -93,6 +91,6 @@ public class PushProjectionThroughUnion
     {
         return !project.getAssignments()
                 .getExpressions().stream()
-                .allMatch(SymbolReference.class::isInstance);
+                .allMatch(Reference.class::isInstance);
     }
 }

@@ -16,17 +16,19 @@ package io.trino.hive.formats.line.openxjson;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 public class OpenXJsonOptions
 {
     public static final OpenXJsonOptions DEFAULT_OPEN_X_JSON_OPTIONS = builder().build();
 
-    static final ImmutableList<String> HIVE_SERDE_CLASS_NAMES = ImmutableList.of("org.openx.data.jsonserde.JsonSerDe");
+    static final Set<String> HIVE_SERDE_CLASS_NAMES = ImmutableSet.of("org.openx.data.jsonserde.JsonSerDe");
 
     private static final String CASE_INSENSITIVE_KEY = "case.insensitive";
     private static final String FIELD_MAPPING_KEY_PREFIX = "mapping.";

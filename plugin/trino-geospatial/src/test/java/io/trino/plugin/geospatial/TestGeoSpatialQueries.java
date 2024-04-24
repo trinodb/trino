@@ -35,7 +35,7 @@ public class TestGeoSpatialQueries
     {
         Session session = testSessionBuilder().build();
         // Distributed runner exercises the client protocol as well.
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .build();
         try {
             queryRunner.installPlugin(new GeoPlugin());
@@ -51,12 +51,12 @@ public class TestGeoSpatialQueries
     public void testGeometryResult()
     {
         assertThat(query("SELECT ST_Point(52.233, 21.016)"))
-                .matches(MaterializedResult.resultBuilder(getSession(), GEOMETRY)
+                .result().matches(MaterializedResult.resultBuilder(getSession(), GEOMETRY)
                         .row("POINT (52.233 21.016)")
                         .build());
 
         assertThat(query("SELECT ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')"))
-                .matches(MaterializedResult.resultBuilder(getSession(), GEOMETRY)
+                .result().matches(MaterializedResult.resultBuilder(getSession(), GEOMETRY)
                         .row("POLYGON ((0 0, 1 0, 1 1, 1 1, 0 1, 0 0))")
                         .build());
     }
@@ -65,7 +65,7 @@ public class TestGeoSpatialQueries
     public void testSphericalGeographyResult()
     {
         assertThat(query("SELECT to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))'))"))
-                .matches(MaterializedResult.resultBuilder(getSession(), SPHERICAL_GEOGRAPHY)
+                .result().matches(MaterializedResult.resultBuilder(getSession(), SPHERICAL_GEOGRAPHY)
                         .row("POLYGON ((0 0, 1 0, 1 1, 1 1, 0 1, 0 0))")
                         .build());
     }

@@ -15,9 +15,7 @@ package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.spi.type.DoubleType;
-import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 
 import java.util.OptionalInt;
@@ -25,8 +23,8 @@ import java.util.Random;
 
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.DoubleApacheParquetValueDecoder;
 import static io.trino.parquet.reader.flat.LongColumnAdapter.LONG_ADAPTER;
-import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.DOUBLE;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -107,36 +105,5 @@ public final class TestDoubleValueDecoders
         }
 
         return getWrittenBuffer(valuesWriter);
-    }
-
-    private static final class DoubleApacheParquetValueDecoder
-            implements ValueDecoder<long[]>
-    {
-        private final ValuesReader delegate;
-
-        public DoubleApacheParquetValueDecoder(ValuesReader delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(long[] values, int offset, int length)
-        {
-            for (int i = offset; i < offset + length; i++) {
-                values[i] = Double.doubleToLongBits(delegate.readDouble());
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
     }
 }

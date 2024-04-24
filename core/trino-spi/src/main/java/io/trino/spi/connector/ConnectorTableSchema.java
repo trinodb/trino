@@ -16,6 +16,7 @@ package io.trino.spi.connector;
 import io.trino.spi.Experimental;
 
 import java.util.List;
+import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
 
@@ -68,11 +69,10 @@ public class ConnectorTableSchema
     @Override
     public String toString()
     {
-        return new StringBuilder("ConnectorTableSchema{")
-                .append("table=").append(table)
-                .append(", columns=").append(columns)
-                .append(", checkConstraints=").append(checkConstraints)
-                .append('}')
+        return new StringJoiner(", ", ConnectorTableSchema.class.getSimpleName() + "[", "]")
+                .add("table=" + table)
+                .add("columns=" + columns)
+                .add("checkConstraints=" + checkConstraints)
                 .toString();
     }
 }

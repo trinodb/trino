@@ -24,7 +24,6 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
@@ -38,11 +37,13 @@ import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 
@@ -56,6 +57,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
@@ -181,10 +183,10 @@ public class VacuumProcedure
 
             TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), handle.getReadVersion());
             ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
-            if (protocolEntry.getMinWriterVersion() > MAX_WRITER_VERSION) {
-                throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %d writer version".formatted(protocolEntry.getMinWriterVersion()));
+            if (protocolEntry.minWriterVersion() > MAX_WRITER_VERSION) {
+                throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %d writer version".formatted(protocolEntry.minWriterVersion()));
             }
-            Set<String> unsupportedWriterFeatures = unsupportedWriterFeatures(protocolEntry.getWriterFeatures().orElse(ImmutableSet.of()));
+            Set<String> unsupportedWriterFeatures = unsupportedWriterFeatures(protocolEntry.writerFeatures().orElse(ImmutableSet.of()));
             if (!unsupportedWriterFeatures.isEmpty()) {
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(unsupportedWriterFeatures));
             }
@@ -198,22 +200,33 @@ public class VacuumProcedure
             // Retain all active files and every file removed by a "recent" transaction (except for the oldest "recent").
             // Any remaining file are not live, and not needed to read any "recent" snapshot.
             List<Long> recentVersions = transactionLogAccess.getPastTableVersions(fileSystem, transactionLogDir, threshold, tableSnapshot.getVersion());
-            Set<String> retainedPaths = Stream.concat(
-                            transactionLogAccess.getActiveFiles(tableSnapshot, handle.getMetadataEntry(), handle.getProtocolEntry(), session).stream()
-                                    .map(AddFileEntry::getPath),
-                            transactionLogAccess.getJsonEntries(
-                                            fileSystem,
-                                            transactionLogDir,
-                                            // discard oldest "recent" snapshot, since we take RemoveFileEntry only, to identify files that are no longer
-                                            // active files, but still needed to read a "recent" snapshot
-                                            recentVersions.stream().sorted(naturalOrder())
-                                                    .skip(1)
-                                                    .collect(toImmutableList()))
-                                    .map(DeltaLakeTransactionLogEntry::getRemove)
-                                    .filter(Objects::nonNull)
-                                    .map(RemoveFileEntry::getPath))
-                    .peek(path -> checkState(!path.startsWith(tableLocation), "Unexpected absolute path in transaction log: %s", path))
-                    .collect(toImmutableSet());
+            Set<String> retainedPaths;
+            try (Stream<AddFileEntry> activeAddEntries = transactionLogAccess.getActiveFiles(
+                    session,
+                    tableSnapshot,
+                    handle.getMetadataEntry(),
+                    handle.getProtocolEntry(),
+                    TupleDomain.all(),
+                    alwaysFalse())) {
+                retainedPaths = Stream.concat(
+                                activeAddEntries
+                                        // paths can be absolute as well in case of shallow-cloned tables, and they shouldn't be deleted as part of vacuum because according to
+                                        // delta-protocol absolute paths are inherited from base table and the vacuum procedure should only list and delete local file references
+                                        .map(AddFileEntry::getPath),
+                                transactionLogAccess.getJsonEntries(
+                                                fileSystem,
+                                                transactionLogDir,
+                                                // discard oldest "recent" snapshot, since we take RemoveFileEntry only, to identify files that are no longer
+                                                // active files, but still needed to read a "recent" snapshot
+                                                recentVersions.stream().sorted(naturalOrder())
+                                                        .skip(1)
+                                                        .collect(toImmutableList()))
+                                        .map(DeltaLakeTransactionLogEntry::getRemove)
+                                        .filter(Objects::nonNull)
+                                        .map(RemoveFileEntry::path))
+                        .peek(path -> checkState(!path.startsWith(tableLocation), "Unexpected absolute path in transaction log: %s", path))
+                        .collect(toImmutableSet());
+            }
 
             log.debug(
                     "[%s] attempting to vacuum table %s [%s] with %s retention (expiry threshold %s). %s data file paths marked for retention",

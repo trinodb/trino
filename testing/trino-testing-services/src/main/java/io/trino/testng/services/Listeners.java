@@ -21,7 +21,12 @@ import org.testng.ITestResult;
 
 import static java.lang.String.format;
 
-final class Listeners
+/**
+ * @see io.trino.testing.services.junit.Listeners for utlity class for JUnit listeners
+ * @deprecated Deprecated because TestNG is deprecated. Use JUnit instead.
+ */
+@Deprecated
+public final class Listeners
 {
     private Listeners() {}
 

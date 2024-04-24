@@ -22,12 +22,19 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Not;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
@@ -36,15 +43,6 @@ import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Frame;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -61,20 +59,20 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.tableFunction;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
-import static io.trino.sql.tree.LogicalExpression.Operator.OR;
-import static io.trino.sql.tree.WindowFrame.Type.ROWS;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -135,9 +133,8 @@ public class ImplementTableFunctionSource
             Optional.empty(),
             UNBOUNDED_FOLLOWING,
             Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
             Optional.empty());
+
     private static final DataOrganizationSpecification UNORDERED_SINGLE_PARTITION = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
     private final Metadata metadata;
@@ -379,7 +376,7 @@ public class ImplementTableFunctionSource
         List<Expression> copartitionConjuncts = Streams.zip(
                         leftPartitionBy.stream(),
                         rightPartitionBy.stream(),
-                        (leftColumn, rightColumn) -> new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, leftColumn, rightColumn)))
+                        (leftColumn, rightColumn) -> new Not(new Comparison(IS_DISTINCT_FROM, leftColumn, rightColumn)))
                 .collect(toImmutableList());
 
         // Align matching partitions (co-partitions) from left and right source, according to row number.
@@ -395,18 +392,18 @@ public class ImplementTableFunctionSource
         //      (R1 > S2 AND R2 = 1)
         //      OR
         //      (R2 > S1 AND R1 = 1))
-        Expression joinCondition = new LogicalExpression(
+        Expression joinCondition = new Logical(
                 AND,
                 ImmutableList.<Expression>builder()
                         .addAll(copartitionConjuncts)
-                        .add(new LogicalExpression(OR, ImmutableList.of(
-                                new ComparisonExpression(EQUAL, leftRowNumber, rightRowNumber),
-                                new LogicalExpression(AND, ImmutableList.of(
-                                        new ComparisonExpression(GREATER_THAN, leftRowNumber, rightPartitionSize),
-                                        new ComparisonExpression(EQUAL, rightRowNumber, new GenericLiteral("BIGINT", "1")))),
-                                new LogicalExpression(AND, ImmutableList.of(
-                                        new ComparisonExpression(GREATER_THAN, rightRowNumber, leftPartitionSize),
-                                        new ComparisonExpression(EQUAL, leftRowNumber, new GenericLiteral("BIGINT", "1")))))))
+                        .add(new Logical(OR, ImmutableList.of(
+                                new Comparison(EQUAL, leftRowNumber, rightRowNumber),
+                                new Logical(AND, ImmutableList.of(
+                                        new Comparison(GREATER_THAN, leftRowNumber, rightPartitionSize),
+                                        new Comparison(EQUAL, rightRowNumber, new Constant(BIGINT, 1L)))),
+                                new Logical(AND, ImmutableList.of(
+                                        new Comparison(GREATER_THAN, rightRowNumber, leftPartitionSize),
+                                        new Comparison(EQUAL, leftRowNumber, new Constant(BIGINT, 1L)))))))
                         .build());
 
         // The join type depends on the prune when empty property of the sources.
@@ -444,7 +441,7 @@ public class ImplementTableFunctionSource
         //   1      'a'    null   null
         //   2      'b'    2      'c'
         //   null   null   3      'd'
-        JoinNode.Type joinType;
+        JoinType joinType;
         if (left.pruneWhenEmpty() && right.pruneWhenEmpty()) {
             joinType = INNER;
         }
@@ -500,21 +497,21 @@ public class ImplementTableFunctionSource
 
         // Derive row number for joined partitions: this is the bigger partition's row number. One of the combined values might be null as a result of outer join.
         Symbol joinedRowNumber = context.getSymbolAllocator().newSymbol("combined_row_number", BIGINT);
-        Expression rowNumberExpression = new IfExpression(
-                new ComparisonExpression(
+        Expression rowNumberExpression = ifExpression(
+                new Comparison(
                         GREATER_THAN,
-                        new CoalesceExpression(leftRowNumber, new GenericLiteral("BIGINT", "-1")),
-                        new CoalesceExpression(rightRowNumber, new GenericLiteral("BIGINT", "-1"))),
+                        new Coalesce(leftRowNumber, new Constant(BIGINT, -1L)),
+                        new Coalesce(rightRowNumber, new Constant(BIGINT, -1L))),
                 leftRowNumber,
                 rightRowNumber);
 
         // Derive partition size for joined partitions: this is the bigger partition's size. One of the combined values might be null as a result of outer join.
         Symbol joinedPartitionSize = context.getSymbolAllocator().newSymbol("combined_partition_size", BIGINT);
-        Expression partitionSizeExpression = new IfExpression(
-                new ComparisonExpression(
+        Expression partitionSizeExpression = ifExpression(
+                new Comparison(
                         GREATER_THAN,
-                        new CoalesceExpression(leftPartitionSize, new GenericLiteral("BIGINT", "-1")),
-                        new CoalesceExpression(rightPartitionSize, new GenericLiteral("BIGINT", "-1"))),
+                        new Coalesce(leftPartitionSize, new Constant(BIGINT, -1L)),
+                        new Coalesce(rightPartitionSize, new Constant(BIGINT, -1L))),
                 leftPartitionSize,
                 rightPartitionSize);
 
@@ -526,10 +523,10 @@ public class ImplementTableFunctionSource
         for (int i = 0; i < copartitionedNodes.leftPartitionBy().size(); i++) {
             Symbol leftColumn = copartitionedNodes.leftPartitionBy().get(i);
             Symbol rightColumn = copartitionedNodes.rightPartitionBy().get(i);
-            Type type = context.getSymbolAllocator().getTypes().get(leftColumn);
+            Type type = leftColumn.getType();
 
             Symbol joinedColumn = context.getSymbolAllocator().newSymbol("combined_partition_column", type);
-            joinedPartitionByAssignments.put(joinedColumn, new CoalesceExpression(leftColumn.toSymbolReference(), rightColumn.toSymbolReference()));
+            joinedPartitionByAssignments.put(joinedColumn, new Coalesce(leftColumn.toSymbolReference(), rightColumn.toSymbolReference()));
             joinedPartitionBy.add(joinedColumn);
         }
 
@@ -570,16 +567,16 @@ public class ImplementTableFunctionSource
         // (R1 > S2 AND R2 = 1)
         // OR
         // (R2 > S1 AND R1 = 1)
-        Expression joinCondition = new LogicalExpression(OR, ImmutableList.of(
-                new ComparisonExpression(EQUAL, leftRowNumber, rightRowNumber),
-                new LogicalExpression(AND, ImmutableList.of(
-                        new ComparisonExpression(GREATER_THAN, leftRowNumber, rightPartitionSize),
-                        new ComparisonExpression(EQUAL, rightRowNumber, new GenericLiteral("BIGINT", "1")))),
-                new LogicalExpression(AND, ImmutableList.of(
-                        new ComparisonExpression(GREATER_THAN, rightRowNumber, leftPartitionSize),
-                        new ComparisonExpression(EQUAL, leftRowNumber, new GenericLiteral("BIGINT", "1"))))));
+        Expression joinCondition = new Logical(OR, ImmutableList.of(
+                new Comparison(EQUAL, leftRowNumber, rightRowNumber),
+                new Logical(AND, ImmutableList.of(
+                        new Comparison(GREATER_THAN, leftRowNumber, rightPartitionSize),
+                        new Comparison(EQUAL, rightRowNumber, new Constant(BIGINT, 1L)))),
+                new Logical(AND, ImmutableList.of(
+                        new Comparison(GREATER_THAN, rightRowNumber, leftPartitionSize),
+                        new Comparison(EQUAL, leftRowNumber, new Constant(BIGINT, 1L))))));
 
-        JoinNode.Type joinType;
+        JoinType joinType;
         if (left.pruneWhenEmpty() && right.pruneWhenEmpty()) {
             joinType = INNER;
         }
@@ -631,21 +628,21 @@ public class ImplementTableFunctionSource
 
         // Derive row number for joined partitions: this is the bigger partition's row number. One of the combined values might be null as a result of outer join.
         Symbol joinedRowNumber = context.getSymbolAllocator().newSymbol("combined_row_number", BIGINT);
-        Expression rowNumberExpression = new IfExpression(
-                new ComparisonExpression(
+        Expression rowNumberExpression = ifExpression(
+                new Comparison(
                         GREATER_THAN,
-                        new CoalesceExpression(leftRowNumber, new GenericLiteral("BIGINT", "-1")),
-                        new CoalesceExpression(rightRowNumber, new GenericLiteral("BIGINT", "-1"))),
+                        new Coalesce(leftRowNumber, new Constant(BIGINT, -1L)),
+                        new Coalesce(rightRowNumber, new Constant(BIGINT, -1L))),
                 leftRowNumber,
                 rightRowNumber);
 
         // Derive partition size for joined partitions: this is the bigger partition's size. One of the combined values might be null as a result of outer join.
         Symbol joinedPartitionSize = context.getSymbolAllocator().newSymbol("combined_partition_size", BIGINT);
-        Expression partitionSizeExpression = new IfExpression(
-                new ComparisonExpression(
+        Expression partitionSizeExpression = ifExpression(
+                new Comparison(
                         GREATER_THAN,
-                        new CoalesceExpression(leftPartitionSize, new GenericLiteral("BIGINT", "-1")),
-                        new CoalesceExpression(rightPartitionSize, new GenericLiteral("BIGINT", "-1"))),
+                        new Coalesce(leftPartitionSize, new Constant(BIGINT, -1L)),
+                        new Coalesce(rightPartitionSize, new Constant(BIGINT, -1L))),
                 leftPartitionSize,
                 rightPartitionSize);
 
@@ -685,7 +682,7 @@ public class ImplementTableFunctionSource
             symbolsToMarkers.put(symbol, marker);
             Expression actual = symbol.toSymbolReference();
             Expression reference = referenceSymbol.toSymbolReference();
-            assignments.put(marker, new IfExpression(new ComparisonExpression(EQUAL, actual, reference), actual, new Cast(new NullLiteral(), toSqlType(BIGINT))));
+            assignments.put(marker, ifExpression(new Comparison(EQUAL, actual, reference), actual, new Constant(BIGINT, null)));
         }
 
         PlanNode project = new ProjectNode(

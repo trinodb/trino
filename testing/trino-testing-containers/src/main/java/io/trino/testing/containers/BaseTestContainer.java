@@ -132,15 +132,23 @@ public abstract class BaseTestContainer
 
     public void start()
     {
-        Failsafe.with(RetryPolicy.builder()
-                        .withMaxRetries(startupRetryLimit)
-                        .onRetry(event -> log.warn(
-                                "%s initialization failed (attempt %s), will retry. Exception: %s",
-                                this.getClass().getSimpleName(),
-                                event.getAttemptCount(),
-                                event.getLastException().getMessage()))
-                        .build())
-                .get(() -> TestContainers.startOrReuse(this.container));
+        GenericContainer<?> container = this.container;
+        try {
+            Failsafe.with(RetryPolicy.builder()
+                            .withMaxRetries(startupRetryLimit)
+                            .onRetry(event -> log.warn(
+                                    "%s initialization failed (attempt %s), will retry. Exception: %s",
+                                    this.getClass().getSimpleName(),
+                                    event.getAttemptCount(),
+                                    event.getLastException().getMessage()))
+                            .build())
+                    .get(() -> TestContainers.startOrReuse(container));
+        }
+        catch (Throwable e) {
+            try (container) {
+                throw e;
+            }
+        }
     }
 
     public void stop()

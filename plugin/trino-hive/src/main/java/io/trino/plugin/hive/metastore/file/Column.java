@@ -125,7 +125,7 @@ public class Column
                 .collect(toImmutableList());
     }
 
-    public static Column fromMetastoreModel(io.trino.plugin.hive.metastore.Column metastoreColumn)
+    private static Column fromMetastoreModel(io.trino.plugin.hive.metastore.Column metastoreColumn)
     {
         return new Column(
                 metastoreColumn.getName(),
@@ -141,7 +141,7 @@ public class Column
                 .collect(toImmutableList());
     }
 
-    public static io.trino.plugin.hive.metastore.Column toMetastoreModel(Column fileMetastoreColumn)
+    private static io.trino.plugin.hive.metastore.Column toMetastoreModel(Column fileMetastoreColumn)
     {
         return new io.trino.plugin.hive.metastore.Column(
                 fileMetastoreColumn.getName(),

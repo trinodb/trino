@@ -14,11 +14,9 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 
@@ -49,7 +47,7 @@ public class AggregationStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(AggregationNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(AggregationNode node, Context context)
     {
         if (node.getGroupingSetCount() != 1 || node.getStep() == INTERMEDIATE) {
             return Optional.empty();
@@ -58,13 +56,13 @@ public class AggregationStatsRule
         PlanNodeStatsEstimate estimate;
 
         if (node.getStep() == PARTIAL) {
-            estimate = partialGroupBy(statsProvider.getStats(node.getSource()),
+            estimate = partialGroupBy(context.statsProvider().getStats(node.getSource()),
                     node.getGroupingKeys(),
                     node.getAggregations());
         }
         else {
             estimate = groupBy(
-                    statsProvider.getStats(node.getSource()),
+                    context.statsProvider().getStats(node.getSource()),
                     node.getGroupingKeys(),
                     node.getAggregations());
         }

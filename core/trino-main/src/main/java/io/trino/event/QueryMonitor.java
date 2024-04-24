@@ -92,6 +92,7 @@ import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.sql.planner.planprinter.PlanPrinter.jsonDistributedPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
+import static io.trino.util.MoreMath.firstNonNaN;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
@@ -717,7 +718,7 @@ public class QueryMonitor
                 (long) snapshot.getMin(),
                 (long) snapshot.getMax(),
                 (long) snapshot.getTotal(),
-                snapshot.getTotal() / snapshot.getCount());
+                firstNonNaN(snapshot.getTotal() / snapshot.getCount(), 0.0));
     }
 
     private static List<StageOutputBufferUtilization> getStageOutputBufferUtilizations(QueryInfo queryInfo)

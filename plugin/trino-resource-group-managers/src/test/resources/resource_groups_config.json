@@ -15,7 +15,8 @@
           "softMemoryLimit": "2MB",
           "hardConcurrencyLimit": 3,
           "maxQueued": 4,
-          "schedulingWeight": 5
+          "schedulingWeight": 5,
+          "jmxExport": false
         }
       ]
     }

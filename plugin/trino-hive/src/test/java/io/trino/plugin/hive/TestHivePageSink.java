@@ -24,6 +24,7 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
+import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -41,7 +42,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingNodeManager;
 import io.trino.tpch.LineItem;
@@ -71,6 +71,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveCompressionOption.LZ4;
 import static io.trino.plugin.hive.HiveCompressionOption.NONE;
+import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
@@ -132,15 +133,12 @@ public class TestHivePageSink
                 if (codec == NONE) {
                     continue;
                 }
-                if ((format == PARQUET) && (codec == LZ4)) {
-                    // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
-                    continue;
-                }
                 config.setHiveCompressionCodec(codec);
 
+                // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
                 if (!isSupportedCodec(format, codec)) {
                     assertThatThrownBy(() -> writeTestFile(fileSystemFactory, config, sortingFileWriterConfig, metastore, makeFileName(config)))
-                            .hasMessage("Compression codec " + codec + " not supported for " + format);
+                            .hasMessage("Compression codec " + codec + " not supported for " + format.humanName());
                     continue;
                 }
 
@@ -183,8 +181,8 @@ public class TestHivePageSink
         List<HiveColumnHandle> columnHandles = getPartitionedColumnHandles(SHIP_MODE.getColumnName());
         Location location = makeFileName(config);
         ConnectorPageSink pageSink = createPageSink(fileSystemFactory, transaction, config, sortingFileWriterConfig, metastore, location, stats, columnHandles);
-        Page truckPage = createPage(lineItem -> lineItem.getShipMode().equals("TRUCK"));
-        Page shipPage = createPage(lineItem -> lineItem.getShipMode().equals("SHIP"));
+        Page truckPage = createPage(lineItem -> lineItem.shipMode().equals("TRUCK"));
+        Page shipPage = createPage(lineItem -> lineItem.shipMode().equals("SHIP"));
 
         pageSink.appendPage(truckPage);
         pageSink.appendPage(shipPage);
@@ -220,7 +218,7 @@ public class TestHivePageSink
 
     private static boolean isSupportedCodec(HiveStorageFormat storageFormat, HiveCompressionOption compressionOption)
     {
-        if (storageFormat == HiveStorageFormat.AVRO && compressionOption == LZ4) {
+        if ((storageFormat == AVRO || storageFormat == PARQUET) && compressionOption == LZ4) {
             return false;
         }
         return true;
@@ -392,7 +390,7 @@ public class TestHivePageSink
                 HDFS_FILE_SYSTEM_FACTORY,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastore),
-                new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators())),
+                new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators())),
                 TESTING_TYPE_MANAGER,
                 config,
                 sortingFileWriterConfig,

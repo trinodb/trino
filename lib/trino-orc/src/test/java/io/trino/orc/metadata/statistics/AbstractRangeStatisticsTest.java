@@ -13,6 +13,7 @@
  */
 package io.trino.orc.metadata.statistics;
 
+import static io.airlift.testing.EquivalenceTester.equivalenceTester;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -28,6 +29,12 @@ public abstract class AbstractRangeStatisticsTest<R extends RangeStatistics<T>, 
         assertMinMaxStatistics(min, null);
         assertMinMaxStatistics(null, max);
 
+        assertMinMaxInverted(min, max);
+    }
+
+    @SuppressWarnings("ArgumentSelectionDefectChecker")
+    private void assertMinMaxInverted(T min, T max)
+    {
         if (!min.equals(max)) {
             assertThatThrownBy(() -> getCreateStatistics(max, min))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -46,7 +53,8 @@ public abstract class AbstractRangeStatisticsTest<R extends RangeStatistics<T>, 
         assertThat(statistics.getMin()).isEqualTo(min);
         assertThat(statistics.getMax()).isEqualTo(max);
 
-        assertThat(statistics).isEqualTo(statistics);
-        assertThat(statistics.hashCode()).isEqualTo(statistics.hashCode());
+        equivalenceTester()
+                .addEquivalentGroup(statistics)
+                .check();
     }
 }

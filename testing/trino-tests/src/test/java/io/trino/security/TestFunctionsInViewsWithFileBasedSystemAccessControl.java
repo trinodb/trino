@@ -58,7 +58,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
             throws Exception
     {
         String securityConfigFile = new File(getResource("file-based-system-functions-access.json").toURI()).getPath();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
+        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog(Optional.empty())
                         .setSchema(Optional.empty())
                         .setPath(SqlPath.buildPath("mock.function", Optional.empty()))

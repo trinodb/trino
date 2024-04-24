@@ -13,29 +13,37 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestMergeFilters
         extends BaseRuleTest
 {
-    private final Metadata metadata = createTestMetadataManager();
-
     @Test
     public void test()
     {
-        tester().assertThat(new MergeFilters(metadata))
+        tester().assertThat(new MergeFilters())
                 .on(p ->
-                        p.filter(expression("b > 44"),
-                                p.filter(expression("a < 42"),
+                        p.filter(
+                                new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 44L)),
+                                p.filter(
+                                        new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 42L)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
-                .matches(filter("(a < 42) AND (b > 44)", values(ImmutableMap.of("a", 0, "b", 1))));
+                .matches(filter(
+                        new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 42L)), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 44L)))),
+                        values(ImmutableMap.of("a", 0, "b", 1))));
     }
 }

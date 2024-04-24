@@ -22,7 +22,7 @@ import io.trino.testing.TestingConnectorSession;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.data.Offset.offset;
 
 public final class DecoderTestUtil
 {
@@ -55,7 +55,7 @@ public final class DecoderTestUtil
     {
         FieldValueProvider provider = decodedRow.get(handle);
         assertThat(provider).isNotNull();
-        assertEquals(provider.getDouble(), value, 0.0001);
+        assertThat(provider.getDouble()).isCloseTo(value, offset(0.0001));
     }
 
     public static void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, boolean value)

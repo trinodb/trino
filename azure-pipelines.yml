@@ -33,7 +33,7 @@ jobs:
             cd $(Build.SourcesDirectory)/core/docker
             chmod g+w ${HOME}
             chmod ug+x ./build.sh
-            ./build.sh -a amd64 -t $(Build.BuildId)
+            ./build.sh -a amd64 -b $(Build.BuildId)
             if [ $? -ne 0 ]; then
             echo "Docker build failed"
             exit 1
@@ -70,7 +70,7 @@ jobs:
       JAVA_TOOL_OPTIONS: " -Xmx8g"
       DOCKER_BUILDKIT: 1
     container:
-      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:trino_20240328204745_b9712
+      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:trino_20240417110737_b9788
       options: --entrypoint="" --user=0
       endpoint: uchimera
       volumes:

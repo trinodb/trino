@@ -343,7 +343,7 @@ class FunctionBinder
     {
         BoundSignature boundSignature = new BoundSignature(
                 new CatalogSchemaFunctionName(
-                        functionMetadata.catalogHandle().getCatalogName(),
+                        functionMetadata.catalogHandle().getCatalogName().toString(),
                         functionMetadata.schemaName(),
                         functionMetadata.functionMetadata().getCanonicalName()),
                 typeManager.getType(signature.getReturnType()),
@@ -394,7 +394,7 @@ class FunctionBinder
             int variableArgumentCount = signature.getArgumentTypes().size() - fixedArgumentNullability.size();
             argumentNullability = ImmutableList.<Boolean>builder()
                     .addAll(fixedArgumentNullability)
-                    .addAll(nCopies(variableArgumentCount, argumentNullability.get(argumentNullability.size() - 1)))
+                    .addAll(nCopies(variableArgumentCount, argumentNullability.getLast()))
                     .build();
         }
         newMetadata.argumentNullability(argumentNullability);
@@ -449,12 +449,19 @@ class FunctionBinder
         }
     }
 
-    record CatalogFunctionBinding(CatalogHandle catalogHandle, FunctionMetadata functionMetadata, FunctionBinding functionBinding)
+    /**
+     * Represents a function that has been bound to actual types.
+     *
+     * @param catalogHandle handle to the catalog containing the function
+     * @param boundFunctionMetadata metadata for the function with type parameters replaced with actual types
+     * @param functionBinding function binding containing function id, signature, and bound type parameters
+     */
+    record CatalogFunctionBinding(CatalogHandle catalogHandle, FunctionMetadata boundFunctionMetadata, FunctionBinding functionBinding)
     {
         CatalogFunctionBinding
         {
             requireNonNull(catalogHandle, "catalogHandle is null");
-            requireNonNull(functionMetadata, "functionMetadata is null");
+            requireNonNull(boundFunctionMetadata, "boundFunctionMetadata is null");
             requireNonNull(functionBinding, "functionBinding is null");
         }
     }

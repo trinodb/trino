@@ -44,12 +44,12 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloSplitManager
         implements ConnectorSplitManager
 {
-    private final AccumuloClient client;
+    private final AccumuloMetadataManager metadataManager;
 
     @Inject
-    public AccumuloSplitManager(AccumuloClient client)
+    public AccumuloSplitManager(AccumuloMetadataManager metadataManager)
     {
-        this.client = requireNonNull(client, "client is null");
+        this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
     }
 
     @Override
@@ -73,7 +73,7 @@ public class AccumuloSplitManager
         Optional<Domain> rDom = getRangeDomain(rowIdName, handle.getConstraint());
 
         // Call out to our client to retrieve all tablet split metadata using the row ID domain and the secondary index
-        List<TabletSplitMetadata> tabletSplits = client.getTabletSplits(session, schemaName, tableName, rDom, constraints, handle.getSerializerInstance());
+        List<TabletSplitMetadata> tabletSplits = metadataManager.getTabletSplits(session, schemaName, tableName, rDom, constraints, handle.getSerializerInstance());
 
         // Pack the tablet split metadata into a connector split
         ImmutableList.Builder<ConnectorSplit> cSplits = ImmutableList.builder();

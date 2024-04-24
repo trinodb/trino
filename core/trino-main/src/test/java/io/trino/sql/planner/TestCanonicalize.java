@@ -17,23 +17,23 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LongLiteral;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 
 public class TestCanonicalize
         extends BasePlanTest
@@ -49,7 +49,7 @@ public class TestCanonicalize
                         ") t\n" +
                         "CROSS JOIN (VALUES 2)",
                 anyTree(
-                        values(ImmutableList.of("field", "expr"), ImmutableList.of(ImmutableList.of(new LongLiteral("2"), new GenericLiteral("BIGINT", "1"))))));
+                        values(ImmutableList.of("field", "expr"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 2L), new Constant(BIGINT, 1L))))));
     }
 
     @Test
@@ -67,15 +67,15 @@ public class TestCanonicalize
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specification)
-                                        .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(windowFunction("row_number", ImmutableList.of(), DEFAULT_FRAME)),
                                 values("A"))),
                 ImmutableList.of(
-                        new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                        new UnaliasSymbolReferences(),
                         new IterativeOptimizer(
-                                getQueryRunner().getPlannerContext(),
+                                getPlanTester().getPlannerContext(),
                                 new RuleStatsRecorder(),
-                                getQueryRunner().getStatsCalculator(),
-                                getQueryRunner().getCostCalculator(),
+                                getPlanTester().getStatsCalculator(),
+                                getPlanTester().getCostCalculator(),
                                 ImmutableSet.of(new RemoveRedundantIdentityProjections()))));
     }
 }

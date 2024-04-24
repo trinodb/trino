@@ -34,7 +34,7 @@ import java.util.Deque;
 import java.util.stream.Stream;
 
 import static com.google.common.reflect.Reflection.newProxy;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.RETURN;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_NPE;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_SQL_EXCEPTION;
@@ -141,17 +141,17 @@ public class TestRetryingConnectionFactory
     }
 
     @Test
-    public void testOverridingRetryStrategyWorks()
+    public void testAdditionalRetryStrategyWorks()
             throws Exception
     {
-        Injector injector = createInjectorWithOverridenStrategy(THROW_SQL_RECOVERABLE_EXCEPTION, RETURN);
+        Injector injector = createInjectorWithAdditionalStrategy(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_SQL_TRANSIENT_EXCEPTION, RETURN);
         ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
         MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
 
         Connection connection = factory.openConnection(SESSION);
 
         assertThat(connection).isNotNull();
-        assertThat(mock.getCallCount()).isEqualTo(2);
+        assertThat(mock.getCallCount()).isEqualTo(3);
     }
 
     private static Injector createInjector(MockConnectorFactory.Action... actions)
@@ -164,18 +164,18 @@ public class TestRetryingConnectionFactory
         });
     }
 
-    private static Injector createInjectorWithOverridenStrategy(MockConnectorFactory.Action... actions)
+    private static Injector createInjectorWithAdditionalStrategy(MockConnectorFactory.Action... actions)
     {
         return Guice.createInjector(binder -> {
             binder.bind(MockConnectorFactory.Action[].class).toInstance(actions);
             binder.bind(MockConnectorFactory.class).in(Scopes.SINGLETON);
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(Key.get(MockConnectorFactory.class));
             binder.install(new RetryingConnectionFactoryModule());
-            newOptionalBinder(binder, RetryStrategy.class).setBinding().to(OverrideRetryStrategy.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, RetryStrategy.class).addBinding().to(AdditionalRetryStrategy.class).in(Scopes.SINGLETON);
         });
     }
 
-    private static class OverrideRetryStrategy
+    private static class AdditionalRetryStrategy
             implements RetryStrategy
     {
         @Override

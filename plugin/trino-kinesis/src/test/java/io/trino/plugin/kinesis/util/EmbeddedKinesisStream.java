@@ -27,7 +27,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class EmbeddedKinesisStream
         implements Closeable
 {
-    private AmazonKinesisClient amazonKinesisClient;
+    private final AmazonKinesisClient amazonKinesisClient;
 
     public EmbeddedKinesisStream(String accessKey, String secretKey)
     {

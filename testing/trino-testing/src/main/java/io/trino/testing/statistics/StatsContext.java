@@ -16,22 +16,18 @@ package io.trino.testing.statistics;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 public class StatsContext
 {
     private final Map<String, Symbol> columnSymbols;
-    private final TypeProvider types;
 
-    public StatsContext(Map<String, Symbol> columnSymbols, TypeProvider types)
+    public StatsContext(Map<String, Symbol> columnSymbols)
     {
         this.columnSymbols = ImmutableMap.copyOf(columnSymbols);
-        this.types = requireNonNull(types, "types is null");
     }
 
     public Symbol getSymbolForColumn(String columnName)
@@ -42,6 +38,6 @@ public class StatsContext
 
     public Type getTypeForSymbol(Symbol symbol)
     {
-        return types.get(symbol);
+        return symbol.getType();
     }
 }

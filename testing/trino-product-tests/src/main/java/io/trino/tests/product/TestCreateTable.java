@@ -20,7 +20,6 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.CREATE_TABLE;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestCreateTable
         extends ProductTest
 {
-    @Test(groups = CREATE_TABLE)
+    @Test
     public void shouldCreateTableAsSelect()
     {
         String tableName = "create_table_as_select";
@@ -38,7 +37,7 @@ public class TestCreateTable
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(25);
     }
 
-    @Test(groups = CREATE_TABLE)
+    @Test
     public void shouldCreateTableAsEmptySelect()
     {
         String tableName = "create_table_as_empty_select";
@@ -50,7 +49,7 @@ public class TestCreateTable
     /**
      * {@code BaseConnectorTest.testCreateTableSchemaNotFound()} copy run against Thrift metastore.
      */
-    @Test(groups = CREATE_TABLE)
+    @Test
     public void shouldNotCreateTableInNonExistentSchema()
     {
         String schemaName = "test_schema_" + randomNameSuffix();
@@ -63,7 +62,7 @@ public class TestCreateTable
                 .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Schema '" + schemaName + "' does not exist");
     }
 
-    @Test(groups = CREATE_TABLE)
+    @Test
     public void shouldNotCreateExternalTableInNonExistentSchema()
     {
         String schemaName = "test_schema_" + randomNameSuffix();

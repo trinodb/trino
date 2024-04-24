@@ -97,6 +97,7 @@ final class SplitGenerators
             this.wakeupExecutor = wakeupExecutor;
         }
 
+        @SuppressWarnings("ArgumentSelectionDefectChecker")
         @Override
         public IntermediateSplitSpecification next()
         {

@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation.histogram;
 
 import com.google.common.base.Throwables;
-import com.google.common.primitives.Ints;
 import io.trino.operator.VariableWidthData;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
@@ -36,6 +35,7 @@ import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
 import static io.trino.operator.VariableWidthData.POINTER_SIZE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.clamp;
 import static java.lang.Math.multiplyExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.checkIndex;
@@ -139,7 +139,7 @@ public final class TypedHistogram
     private static byte[][] createRecordGroups(int capacity, int recordSize)
     {
         if (capacity < RECORDS_PER_GROUP) {
-            return new byte[][]{new byte[multiplyExact(capacity, recordSize)]};
+            return new byte[][] {new byte[multiplyExact(capacity, recordSize)]};
         }
 
         byte[][] groups = new byte[(capacity + 1) >> RECORDS_PER_GROUP_SHIFT][];
@@ -167,7 +167,7 @@ public final class TypedHistogram
 
         int currentSize = groupRecordIndex.length;
         if (requiredSize > currentSize) {
-            groupRecordIndex = Arrays.copyOf(groupRecordIndex, Ints.constrainToRange(requiredSize * 2, 1024, MAX_ARRAY_SIZE));
+            groupRecordIndex = Arrays.copyOf(groupRecordIndex, clamp(requiredSize * 2L, 1024, MAX_ARRAY_SIZE));
             Arrays.fill(groupRecordIndex, currentSize, groupRecordIndex.length, -1);
         }
     }

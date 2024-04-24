@@ -427,7 +427,7 @@ public class SignatureBinder
             List<TypeSignature> formalTypeParameterTypeSignatures = formalTypeSignature.getTypeParametersAsTypeSignatures();
             resultBuilder.add(new FunctionSolver(
                     getLambdaArgumentTypeSignatures(formalTypeSignature),
-                    formalTypeParameterTypeSignatures.get(formalTypeParameterTypeSignatures.size() - 1),
+                    formalTypeParameterTypeSignatures.getLast(),
                     actualTypeSignatureProvider));
             return true;
         }
@@ -646,7 +646,7 @@ public class SignatureBinder
 
         ImmutableList.Builder<TypeSignature> builder = ImmutableList.builder();
         builder.addAll(formalTypeSignatures);
-        TypeSignature lastTypeSignature = formalTypeSignatures.get(formalTypeSignatures.size() - 1);
+        TypeSignature lastTypeSignature = formalTypeSignatures.getLast();
         for (int i = 1; i < variableArityArgumentsCount; i++) {
             builder.add(lastTypeSignature);
         }

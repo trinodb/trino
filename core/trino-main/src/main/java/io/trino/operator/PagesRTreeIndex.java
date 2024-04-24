@@ -23,6 +23,7 @@ import io.trino.operator.join.JoinFilterFunction;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -136,16 +137,19 @@ public class PagesRTreeIndex
      * for each of these addresses to apply additional join filters.
      */
     @Override
-    public int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel)
+    public int[] findJoinPositions(int position, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel)
     {
-        Block probeGeometryBlock = probe.getBlock(probeGeometryChannel);
+        Block probeBlock = probe.getBlock(probeGeometryChannel);
+        VariableWidthBlock probeGeometryBlock = (VariableWidthBlock) probeBlock.getUnderlyingValueBlock();
+        int probePosition = probeBlock.getUnderlyingValuePosition(position);
+
         if (probeGeometryBlock.isNull(probePosition)) {
             return EMPTY_ADDRESSES;
         }
 
         int probePartition = probePartitionChannel.map(channel -> INTEGER.getInt(probe.getBlock(channel), probePosition)).orElse(-1);
 
-        Slice slice = probeGeometryBlock.getSlice(probePosition, 0, probeGeometryBlock.getSliceLength(probePosition));
+        Slice slice = probeGeometryBlock.getSlice(probePosition);
         OGCGeometry probeGeometry = deserialize(slice);
         verifyNotNull(probeGeometry);
         if (probeGeometry.isEmpty()) {

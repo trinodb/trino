@@ -22,46 +22,27 @@ import io.trino.execution.executor.timesharing.SimulationController.TaskSpecific
 
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 abstract class SimulationTask
 {
     private final TaskSpecification specification;
-    private final TaskId taskId;
 
     private final Set<SimulationSplit> runningSplits = Sets.newConcurrentHashSet();
     private final Set<SimulationSplit> completedSplits = Sets.newConcurrentHashSet();
 
     private final TaskHandle taskHandle;
-    private final AtomicBoolean killed = new AtomicBoolean();
 
     public SimulationTask(TimeSharingTaskExecutor taskExecutor, TaskSpecification specification, TaskId taskId)
     {
         this.specification = specification;
-        this.taskId = taskId;
         taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, SECONDS), OptionalInt.empty());
-    }
-
-    public void setKilled()
-    {
-        killed.set(true);
-    }
-
-    public boolean isKilled()
-    {
-        return killed.get();
     }
 
     public Set<SimulationSplit> getCompletedSplits()
     {
         return completedSplits;
-    }
-
-    TaskId getTaskId()
-    {
-        return taskId;
     }
 
     public TaskHandle getTaskHandle()

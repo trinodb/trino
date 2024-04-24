@@ -42,6 +42,9 @@ public class PostgreSqlConnectionFactoryModule
     {
         Properties connectionProperties = new Properties();
         connectionProperties.put(REWRITE_BATCHED_INSERTS.getName(), "true");
-        return new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), connectionProperties, credentialProvider, openTelemetry);
+        return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(connectionProperties)
+                .setOpenTelemetry(openTelemetry)
+                .build();
     }
 }

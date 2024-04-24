@@ -13,9 +13,9 @@
  */
 package io.trino.sql;
 
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
@@ -31,6 +31,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionFormatter
 {
+    @Test
+    public void testIdentifier()
+    {
+        assertFormattedExpression(
+                new Identifier("abc"),
+                "abc");
+        assertFormattedExpression(
+                new Identifier("with a space"),
+                "\"with a space\"");
+        assertFormattedExpression(
+                new Identifier("with \" quote, $ dollar and ' apostrophe"),
+                "\"with \"\" quote, $ dollar and ' apostrophe\"");
+    }
+
     @Test
     public void testStringLiteral()
     {
@@ -49,13 +63,13 @@ public class TestExpressionFormatter
     public void testCharLiteral()
     {
         assertFormattedExpression(
-                new CharLiteral("test"),
+                new GenericLiteral("CHAR", "test"),
                 "CHAR 'test'");
         assertFormattedExpression(
-                new CharLiteral("攻殻機動隊"),
+                new GenericLiteral("CHAR", "攻殻機動隊"),
                 "CHAR '攻殻機動隊'");
         assertFormattedExpression(
-                new CharLiteral("😂"),
+                new GenericLiteral("CHAR", "😂"),
                 "CHAR '😂'");
     }
 

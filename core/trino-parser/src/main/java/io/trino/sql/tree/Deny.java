@@ -26,27 +26,25 @@ public class Deny
         extends Statement
 {
     private final Optional<List<String>> privileges; // missing means ALL PRIVILEGES
-    private final Optional<GrantOnType> type;
-    private final QualifiedName name;
+    private final GrantObject grantObject;
     private final PrincipalSpecification grantee;
 
-    public Deny(Optional<List<String>> privileges, Optional<GrantOnType> type, QualifiedName name, PrincipalSpecification grantee)
+    public Deny(Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
     {
-        this(Optional.empty(), privileges, type, name, grantee);
+        this(Optional.empty(), privileges, grantObject, grantee);
     }
 
-    public Deny(NodeLocation location, Optional<List<String>> privileges, Optional<GrantOnType> type, QualifiedName name, PrincipalSpecification grantee)
+    public Deny(NodeLocation location, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
     {
-        this(Optional.of(location), privileges, type, name, grantee);
+        this(Optional.of(location), privileges, grantObject, grantee);
     }
 
-    private Deny(Optional<NodeLocation> location, Optional<List<String>> privileges, Optional<GrantOnType> type, QualifiedName name, PrincipalSpecification grantee)
+    private Deny(Optional<NodeLocation> location, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
     {
         super(location);
         requireNonNull(privileges, "privileges is null");
         this.privileges = privileges.map(ImmutableList::copyOf);
-        this.type = requireNonNull(type, "type is null");
-        this.name = requireNonNull(name, "name is null");
+        this.grantObject = requireNonNull(grantObject, "grantScope is null");
         this.grantee = requireNonNull(grantee, "grantee is null");
     }
 
@@ -55,14 +53,9 @@ public class Deny
         return privileges;
     }
 
-    public Optional<GrantOnType> getType()
+    public GrantObject getGrantObject()
     {
-        return type;
-    }
-
-    public QualifiedName getName()
-    {
-        return name;
+        return grantObject;
     }
 
     public PrincipalSpecification getGrantee()
@@ -85,7 +78,7 @@ public class Deny
     @Override
     public int hashCode()
     {
-        return Objects.hash(privileges, type, name, grantee);
+        return Objects.hash(privileges, grantObject, grantee);
     }
 
     @Override
@@ -99,8 +92,7 @@ public class Deny
         }
         Deny o = (Deny) obj;
         return Objects.equals(privileges, o.privileges) &&
-                Objects.equals(type, o.type) &&
-                Objects.equals(name, o.name) &&
+                Objects.equals(grantObject, o.grantObject) &&
                 Objects.equals(grantee, o.grantee);
     }
 
@@ -109,8 +101,7 @@ public class Deny
     {
         return toStringHelper(this)
                 .add("privileges", privileges)
-                .add("type", type)
-                .add("name", name)
+                .add("grantScope", grantObject)
                 .add("grantee", grantee)
                 .toString();
     }

@@ -19,14 +19,13 @@ import org.testng.annotations.Test;
 import java.util.UUID;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tests.product.TestGroups.BLACKHOLE_CONNECTOR;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBlackHoleConnector
 {
-    @Test(groups = BLACKHOLE_CONNECTOR)
+    @Test
     public void blackHoleConnector()
     {
         String nullTable = "\"blackhole\".default.nation_" + UUID.randomUUID().toString().replace("-", "");

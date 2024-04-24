@@ -27,7 +27,6 @@ import java.util.Optional;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static io.trino.tests.product.TestGroups.HIVE_COERCION;
 import static io.trino.tests.product.TestGroups.JDBC;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -96,6 +95,7 @@ public class TestHiveCoercionOnPartitionedTable
     {
         String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
         String floatType = fileFormat.toLowerCase(ENGLISH).contains("parquet") ? "DOUBLE" : "FLOAT";
+        String varcharTypeForBooleanCoercion = fileFormat.toLowerCase(ENGLISH).contains("orc") ? "VARCHAR(5)" : "STRING";
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE TABLE %NAME%(" +
@@ -104,6 +104,10 @@ public class TestHiveCoercionOnPartitionedTable
                         "    list_to_list               ARRAY<STRUCT<ti2int: TINYINT, si2bi: SMALLINT, bi2vc: BIGINT, remove: STRING>>, " +
                         "    map_to_map                 MAP<TINYINT, STRUCT<ti2bi: TINYINT, int2bi: INT, float2double: " + floatType + ">>, " +
                         "    boolean_to_varchar         BOOLEAN," +
+                        "    string_to_boolean          STRING," +
+                        "    special_string_to_boolean  STRING," +
+                        "    numeric_string_to_boolean  STRING," +
+                        "    varchar_to_boolean         " + varcharTypeForBooleanCoercion + "," +
                         "    tinyint_to_smallint        TINYINT," +
                         "    tinyint_to_int             TINYINT," +
                         "    tinyint_to_bigint          TINYINT," +
@@ -150,10 +154,22 @@ public class TestHiveCoercionOnPartitionedTable
                         "    long_decimal_to_varchar            DECIMAL(20,12)," +
                         "    short_decimal_to_bounded_varchar   DECIMAL(10,5)," +
                         "    long_decimal_to_bounded_varchar    DECIMAL(20,12)," +
+                        "    varchar_to_tinyint                 VARCHAR(4)," +
+                        "    string_to_tinyint                  STRING," +
+                        "    varchar_to_smallint                VARCHAR(6)," +
+                        "    string_to_smallint                 STRING," +
+                        "    varchar_to_integer                 VARCHAR(11)," +
+                        "    string_to_integer                  STRING," +
+                        "    varchar_to_bigint                  VARCHAR(40)," +
+                        "    string_to_bigint                   STRING," +
                         "    varchar_to_bigger_varchar          VARCHAR(3)," +
                         "    varchar_to_smaller_varchar         VARCHAR(3)," +
                         "    varchar_to_date                    VARCHAR(10)," +
                         "    varchar_to_distant_date            VARCHAR(12)," +
+                        "    varchar_to_float                   VARCHAR(40)," +
+                        "    string_to_float                    STRING," +
+                        "    varchar_to_float_infinity          VARCHAR(40)," +
+                        "    varchar_to_special_float           VARCHAR(40)," +
                         "    varchar_to_double                  VARCHAR(40)," +
                         "    string_to_double                   STRING," +
                         "    varchar_to_double_infinity         VARCHAR(40)," +
@@ -162,6 +178,9 @@ public class TestHiveCoercionOnPartitionedTable
                         "    date_to_bounded_varchar            DATE," +
                         "    char_to_bigger_char                CHAR(3)," +
                         "    char_to_smaller_char               CHAR(3)," +
+                        "    string_to_char                     STRING," +
+                        "    varchar_to_bigger_char             VARCHAR(4)," +
+                        "    varchar_to_smaller_char            VARCHAR(20)," +
                         "    timestamp_millis_to_date           TIMESTAMP," +
                         "    timestamp_micros_to_date           TIMESTAMP," +
                         "    timestamp_nanos_to_date            TIMESTAMP," +
@@ -289,91 +308,91 @@ public class TestHiveCoercionOnPartitionedTable
     }
 
     @Requires(TextRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionTextFile()
     {
         doTestHiveCoercion(HIVE_COERCION_TEXTFILE);
     }
 
     @Requires(TextRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionTextFile()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_TEXTFILE);
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionOrc()
     {
         doTestHiveCoercion(HIVE_COERCION_ORC);
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionOrc()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_ORC);
     }
 
     @Requires(RcTextRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionRcText()
     {
         doTestHiveCoercion(HIVE_COERCION_RCTEXT);
     }
 
     @Requires(RcTextRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionRcText()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_RCTEXT);
     }
 
     @Requires(RcBinaryRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionRcBinary()
     {
         doTestHiveCoercion(HIVE_COERCION_RCBINARY);
     }
 
     @Requires(RcBinaryRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionRcBinary()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_RCBINARY);
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionParquet()
     {
         doTestHiveCoercion(HIVE_COERCION_PARQUET);
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionParquet()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_PARQUET);
     }
 
     @Requires(SequenceRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionSequence()
     {
         doTestHiveCoercion(HIVE_COERCION_SEQUENCE);
     }
 
     @Requires(SequenceRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionSequence()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_SEQUENCE);
     }
 
     @Requires(AvroRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionAvro()
     {
         String tableName = mutableTableInstanceOf(HIVE_COERCION_AVRO).getNameInDatabase();

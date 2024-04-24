@@ -148,23 +148,21 @@ class DenseDfaMatcher
 
             for (int e = start; e <= end; e++) {
                 Pattern item = pattern.get(e);
-                if (item instanceof Pattern.Literal literal) {
-                    for (byte current : literal.value().getBytes(UTF_8)) {
-                        state = matchByte(builder, state, current);
+                switch (item) {
+                    case Pattern.Literal literal -> {
+                        for (byte current : literal.value().getBytes(UTF_8)) {
+                            state = matchByte(builder, state, current);
+                        }
                     }
-                }
-                else if (item instanceof Pattern.Any any) {
-                    for (int i = 0; i < any.length(); i++) {
-                        int next = builder.addState();
-                        matchSingleUtf8(builder, state, next);
-                        state = next;
+                    case Pattern.Any any -> {
+                        for (int i = 0; i < any.length(); i++) {
+                            int next = builder.addState();
+                            matchSingleUtf8(builder, state, next);
+                            state = next;
+                        }
                     }
-                }
-                else if (item instanceof Pattern.ZeroOrMore) {
-                    matchSingleUtf8(builder, state, state);
-                }
-                else {
-                    throw new UnsupportedOperationException("Not supported: " + item.getClass().getName());
+                    case Pattern.ZeroOrMore zeroOrMore -> matchSingleUtf8(builder, state, state);
+                    default -> throw new UnsupportedOperationException("Not supported: " + item.getClass().getName());
                 }
             }
 

@@ -18,7 +18,20 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -28,20 +41,27 @@ import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.DataType;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.NumericParameter;
 import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -55,20 +75,20 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestDynamicFilter
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction MOD_BIGINT = FUNCTIONS.resolveFunction("mod", fromTypes(BIGINT, BIGINT));
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction SUBTRACT_BIGINT = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT));
+
     public TestDynamicFilter()
     {
         super(ImmutableMap.of(
@@ -112,7 +132,7 @@ public class TestDynamicFilter
                 anyTree(
                         join(RIGHT, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .dynamicFilter("ORDERS_OK", "LINEITEM_OK")
+                                .dynamicFilter(BIGINT, "ORDERS_OK", "LINEITEM_OK")
                                 .left(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
@@ -128,14 +148,14 @@ public class TestDynamicFilter
                 output(
                         join(RIGHT, builder -> builder
                                 .equiCriteria("ORDERS_OK", "expr")
-                                .dynamicFilter("ORDERS_OK", "expr")
+                                .dynamicFilter(BIGINT, "ORDERS_OK", "expr")
                                 .left(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
                                 .right(
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("expr", expression("LINEITEM_OK + BIGINT '1'")),
+                                                        ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "LINEITEM_OK"), new Constant(BIGINT, 1L))))),
                                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))))));
     }
 
@@ -147,13 +167,13 @@ public class TestDynamicFilter
                         join(RIGHT, builder -> builder
                                 .left(
                                         filter(
-                                                TRUE_LITERAL,
+                                                TRUE,
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
                                 .right(
                                         exchange(
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))
-                                .filter("LINEITEM_OK < ORDERS_OK")
-                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern("ORDERS_OK", GREATER_THAN, "LINEITEM_OK"))))));
+                                .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "LINEITEM_OK"), new Reference(BIGINT, "ORDERS_OK")))
+                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern(new Reference(BIGINT, "ORDERS_OK"), GREATER_THAN, "LINEITEM_OK"))))));
     }
 
     @Test
@@ -172,12 +192,13 @@ public class TestDynamicFilter
     public void testCrossJoinInequalityDF()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey > l.orderkey",
-                anyTree(filter("O_ORDERKEY > L_ORDERKEY",
+                anyTree(filter(
+                        new Comparison(GREATER_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                         join(INNER, builder -> builder
-                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", GREATER_THAN, "L_ORDERKEY")))
+                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern(new Reference(BIGINT, "O_ORDERKEY"), GREATER_THAN, "L_ORDERKEY")))
                                 .left(
                                         filter(
-                                                TRUE_LITERAL,
+                                                TRUE,
                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
                                 .right(
                                         exchange(
@@ -188,12 +209,13 @@ public class TestDynamicFilter
     public void testCrossJoinInequalityDFWithConditionReversed()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey < o.orderkey",
-                anyTree(filter("O_ORDERKEY > L_ORDERKEY",
+                anyTree(filter(
+                        new Comparison(GREATER_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                         join(INNER, builder -> builder
-                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", GREATER_THAN, "L_ORDERKEY")))
+                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern(new Reference(BIGINT, "O_ORDERKEY"), GREATER_THAN, "L_ORDERKEY")))
                                 .left(
                                         filter(
-                                                TRUE_LITERAL,
+                                                TRUE,
                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
                                 .right(
                                         exchange(
@@ -204,40 +226,43 @@ public class TestDynamicFilter
     public void testCrossJoinBetweenDF()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey AND l.partkey",
-                anyTree(filter("O_ORDERKEY BETWEEN L_ORDERKEY AND L_PARTKEY",
+                anyTree(filter(
+                        new Between(new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"), new Reference(BIGINT, "L_PARTKEY")),
                         join(INNER, builder -> builder
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new DynamicFilterPattern("O_ORDERKEY", GREATER_THAN_OR_EQUAL, "L_ORDERKEY"),
-                                                new DynamicFilterPattern("O_ORDERKEY", LESS_THAN_OR_EQUAL, "L_PARTKEY")))
+                                                new DynamicFilterPattern(new Reference(BIGINT, "O_ORDERKEY"), GREATER_THAN_OR_EQUAL, "L_ORDERKEY"),
+                                                new DynamicFilterPattern(new Reference(BIGINT, "O_ORDERKEY"), LESS_THAN_OR_EQUAL, "L_PARTKEY")))
                                 .left(
                                         filter(
-                                                TRUE_LITERAL,
+                                                TRUE,
                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
                                 .right(
                                         exchange(
                                                 tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))))));
 
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey AND l.partkey - 1",
-                anyTree(filter("O_ORDERKEY BETWEEN L_ORDERKEY AND L_PARTKEY - BIGINT '1'",
+                anyTree(filter(
+                        new Between(new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"), new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_PARTKEY"), new Constant(BIGINT, 1L)))),
                         join(INNER, builder -> builder
-                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", GREATER_THAN_OR_EQUAL, "L_ORDERKEY")))
+                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern(new Reference(BIGINT, "O_ORDERKEY"), GREATER_THAN_OR_EQUAL, "L_ORDERKEY")))
                                 .left(
                                         filter(
-                                                TRUE_LITERAL,
+                                                TRUE,
                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
                                 .right(
                                         exchange(
                                                 tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))))));
 
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey + 1 AND l.partkey",
-                anyTree(filter("O_ORDERKEY BETWEEN L_ORDERKEY + BIGINT '1' AND L_PARTKEY",
+                anyTree(filter(
+                        new Between(new Reference(BIGINT, "O_ORDERKEY"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_ORDERKEY"), new Constant(BIGINT, 1L))), new Reference(BIGINT, "L_PARTKEY")),
                         join(INNER, builder -> builder
                                 .dynamicFilter(ImmutableList.of(
-                                        new DynamicFilterPattern("O_ORDERKEY", LESS_THAN_OR_EQUAL, "L_PARTKEY")))
+                                        new DynamicFilterPattern(new Reference(BIGINT, "O_ORDERKEY"), LESS_THAN_OR_EQUAL, "L_PARTKEY")))
                                 .left(
                                         filter(
-                                                TRUE_LITERAL,
+                                                TRUE,
                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
                                 .right(
                                         exchange(
@@ -248,29 +273,22 @@ public class TestDynamicFilter
     public void testCrossJoinInequalityWithCastOnTheLeft()
     {
         assertPlan("SELECT o.comment, l.comment FROM lineitem l, orders o WHERE o.comment < l.comment",
-                anyTree(filter("CAST(L_COMMENT AS varchar(79)) > O_COMMENT",
+                anyTree(filter(
+                        new Comparison(GREATER_THAN, new Cast(new Reference(VARCHAR, "L_COMMENT"), createVarcharType(79)), new Reference(createVarcharType(79), "O_COMMENT")),
                         join(INNER, builder -> builder
                                 .dynamicFilter(ImmutableList.of(
-                                        new DynamicFilterPattern(typeOnlyCast("L_COMMENT", varchar(79)), GREATER_THAN, "O_COMMENT", false)))
+                                        new DynamicFilterPattern(typeOnlyCast("L_COMMENT", createVarcharType(79)), GREATER_THAN, "O_COMMENT", false)))
                                 .left(
-                                        filter(TRUE_LITERAL,
+                                        filter(TRUE,
                                                 tableScan("lineitem", ImmutableMap.of("L_COMMENT", "comment"))))
                                 .right(
                                         exchange(
                                                 tableScan("orders", ImmutableMap.of("O_COMMENT", "comment"))))))));
     }
 
-    private DataType varchar(int size)
+    private Expression typeOnlyCast(String symbol, Type asDataType)
     {
-        return new GenericDataType(
-                Optional.empty(),
-                new Identifier("varchar"),
-                ImmutableList.of(new NumericParameter(Optional.empty(), String.valueOf(size))));
-    }
-
-    private Expression typeOnlyCast(String symbol, DataType asDataType)
-    {
-        return new Cast(new Symbol(symbol).toSymbolReference(), asDataType, false, true);
+        return new Cast(new Symbol(UNKNOWN, symbol).toSymbolReference(), asDataType, false);
     }
 
     @Test
@@ -281,17 +299,18 @@ public class TestDynamicFilter
         assertPlan("SELECT o.comment, l.comment FROM orders o, lineitem l WHERE o.comment < l.comment",
                 anyTree(
                         project(
-                                filter("O_COMMENT < expr",
+                                filter(
+                                        new Comparison(LESS_THAN, new Reference(VARCHAR, "O_COMMENT"), new Reference(VARCHAR, "expr")),
                                         join(INNER, builder -> builder
-                                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern("O_COMMENT", LESS_THAN, "expr")))
+                                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern(new Reference(VARCHAR, "O_COMMENT"), LESS_THAN, "expr")))
                                                 .left(
                                                         filter(
-                                                                TRUE_LITERAL,
+                                                                TRUE,
                                                                 tableScan("orders", ImmutableMap.of("O_COMMENT", "comment"))))
                                                 .right(
                                                         anyTree(
                                                                 project(
-                                                                        ImmutableMap.of("expr", expression("CAST(L_COMMENT AS varchar(79))")),
+                                                                        ImmutableMap.of("expr", expression(new Cast(new Reference(VARCHAR, "L_COMMENT"), createVarcharType(79)))),
                                                                         tableScan("lineitem",
                                                                                 ImmutableMap.of("L_COMMENT", "comment"))))))))));
     }
@@ -303,7 +322,7 @@ public class TestDynamicFilter
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .dynamicFilter("ORDERS_OK", "LINEITEM_OK")
+                                .dynamicFilter(BIGINT, "ORDERS_OK", "LINEITEM_OK")
                                 .left(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
@@ -319,7 +338,7 @@ public class TestDynamicFilter
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .dynamicFilter("ORDERS_OK", "LINEITEM_OK")
+                                .dynamicFilter(BIGINT, "ORDERS_OK", "LINEITEM_OK")
                                 .left(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
@@ -332,12 +351,13 @@ public class TestDynamicFilter
     public void testIsNotDistinctFromJoin()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS NOT DISTINCT FROM o.orderkey",
-                anyTree(filter("O_ORDERKEY IS NOT DISTINCT FROM L_ORDERKEY",
+                anyTree(filter(
+                        new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"))),
                         join(INNER, builder -> builder
-                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", EQUAL, "L_ORDERKEY", true)))
+                                .dynamicFilter(ImmutableList.of(new DynamicFilterPattern(new Reference(BIGINT, "O_ORDERKEY"), EQUAL, "L_ORDERKEY", true)))
                                 .left(
                                         filter(
-                                                TRUE_LITERAL,
+                                                TRUE,
                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
                                 .right(
                                         exchange(
@@ -345,7 +365,8 @@ public class TestDynamicFilter
 
         // Dynamic filter is not supported for IS DISTINCT FROM
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS DISTINCT FROM o.orderkey",
-                anyTree(filter("O_ORDERKEY IS DISTINCT FROM L_ORDERKEY",
+                anyTree(filter(
+                        new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                         join(INNER, builder -> builder
                                 .left(
                                         tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
@@ -355,7 +376,8 @@ public class TestDynamicFilter
 
         // extendedprice and totalprice are of DOUBLE type, dynamic filter is not supported with IS NOT DISTINCT FROM clause on DOUBLE or REAL types
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.extendedprice IS NOT DISTINCT FROM o.totalprice",
-                anyTree(filter("O_TOTALPRICE IS NOT DISTINCT FROM L_EXTENDEDPRICE",
+                anyTree(filter(
+                        new Not(new Comparison(IS_DISTINCT_FROM, new Reference(DOUBLE, "O_TOTALPRICE"), new Reference(DOUBLE, "L_EXTENDEDPRICE"))),
                         join(INNER, builder -> builder
                                 .left(
                                         tableScan("orders", ImmutableMap.of("O_TOTALPRICE", "totalprice")))
@@ -411,12 +433,12 @@ public class TestDynamicFilter
                                 .equiCriteria("expr_orders", "expr_lineitem")
                                 .left(
                                         project(
-                                                ImmutableMap.of("expr_orders", expression("CAST(ORDERS_OK AS int)")),
+                                                ImmutableMap.of("expr_orders", expression(new Cast(new Reference(BIGINT, "ORDERS_OK"), INTEGER))),
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
                                 .right(
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("expr_lineitem", expression("CAST(LINEITEM_OK AS int)")),
+                                                        ImmutableMap.of("expr_lineitem", expression(new Cast(new Reference(BIGINT, "LINEITEM_OK"), INTEGER))),
                                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))))));
 
         // Dynamic filter is removed due to double cast on orders.orderkey
@@ -426,7 +448,7 @@ public class TestDynamicFilter
                                 .equiCriteria("expr_orders", "LINEITEM_OK")
                                 .left(
                                         project(
-                                                ImmutableMap.of("expr_orders", expression("CAST(CAST(ORDERS_OK AS int) AS bigint)")),
+                                                ImmutableMap.of("expr_orders", expression(new Cast(new Cast(new Reference(BIGINT, "ORDERS_OK"), INTEGER), BIGINT))),
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
                                 .right(
                                         anyTree(
@@ -443,7 +465,7 @@ public class TestDynamicFilter
                                 .equiCriteria("expr_linenumber", "ORDERS_OK")
                                 .left(
                                         project(
-                                                ImmutableMap.of("expr_linenumber", expression("CAST(LINEITEM_LN AS bigint)")),
+                                                ImmutableMap.of("expr_linenumber", expression(new Cast(new Reference(INTEGER, "LINEITEM_LN"), BIGINT))),
                                                 node(FilterNode.class,
                                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_LN", "linenumber")))
                                                         .with(numberOfDynamicFilters(1))))
@@ -461,7 +483,9 @@ public class TestDynamicFilter
                                 .equiCriteria(ImmutableList.of(
                                         equiJoinClause("ORDERS_OK", "LINEITEM_OK"),
                                         equiJoinClause("ORDERS_CK", "LINEITEM_PK")))
-                                .dynamicFilter(ImmutableMap.of("ORDERS_OK", "LINEITEM_OK", "ORDERS_CK", "LINEITEM_PK"))
+                                .dynamicFilter(ImmutableMap.of(
+                                        new Reference(BIGINT, "ORDERS_OK"), "LINEITEM_OK",
+                                        new Reference(BIGINT, "ORDERS_CK"), "LINEITEM_PK"))
                                 .left(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey", "ORDERS_CK", "custkey"))))
@@ -477,7 +501,7 @@ public class TestDynamicFilter
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .dynamicFilter("ORDERS_OK", "LINEITEM_OK")
+                                .dynamicFilter(BIGINT, "ORDERS_OK", "LINEITEM_OK")
                                 .left(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
@@ -493,7 +517,7 @@ public class TestDynamicFilter
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("X", "Y")
-                                .dynamicFilter("X", "Y")
+                                .dynamicFilter(BIGINT, "X", "Y")
                                 .left(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("X", "orderkey"))))
@@ -513,10 +537,10 @@ public class TestDynamicFilter
                                 FilterNode.class,
                                 join(INNER, builder -> builder
                                         .equiCriteria("O_SHIPPRIORITY", "L_LINENUMBER")
-                                        .filter("O_ORDERKEY < L_ORDERKEY")
+                                        .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")))
                                         .dynamicFilter(ImmutableList.of(
-                                                new DynamicFilterPattern("O_SHIPPRIORITY", EQUAL, "L_LINENUMBER"),
-                                                new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")))
+                                                new DynamicFilterPattern(new Reference(createVarcharType(1), "O_SHIPPRIORITY"), EQUAL, "L_LINENUMBER"),
+                                                new DynamicFilterPattern(new Reference(BIGINT, "O_ORDERKEY"), LESS_THAN, "L_ORDERKEY")))
                                         .left(
                                                 anyTree(tableScan("orders", ImmutableMap.of(
                                                         "O_SHIPPRIORITY", "shippriority",
@@ -535,14 +559,14 @@ public class TestDynamicFilter
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("PART_PK", "LINEITEM_OK")
-                                .dynamicFilter("PART_PK", "LINEITEM_OK")
+                                .dynamicFilter(BIGINT, "PART_PK", "LINEITEM_OK")
                                 .left(
                                         anyTree(tableScan("part", ImmutableMap.of("PART_PK", "partkey"))))
                                 .right(
                                         anyTree(
                                                 join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                         .equiCriteria("LINEITEM_OK", "ORDERS_OK")
-                                                        .dynamicFilter("LINEITEM_OK", "ORDERS_OK")
+                                                        .dynamicFilter(BIGINT, "LINEITEM_OK", "ORDERS_OK")
                                                         .left(
                                                                 anyTree(
                                                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))
@@ -559,11 +583,13 @@ public class TestDynamicFilter
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("LINEITEM_OK", "PART_PK")
-                                .dynamicFilter(ImmutableMap.of("LINEITEM_OK", "PART_PK", "ORDERS_OK", "PART_PK"))
+                                .dynamicFilter(ImmutableMap.of(
+                                        new Reference(BIGINT, "LINEITEM_OK"), "PART_PK",
+                                        new Reference(BIGINT, "ORDERS_OK"), "PART_PK"))
                                 .left(
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
                                                 .equiCriteria("LINEITEM_OK", "ORDERS_OK")
-                                                .dynamicFilter("LINEITEM_OK", "ORDERS_OK")
+                                                .dynamicFilter(BIGINT, "LINEITEM_OK", "ORDERS_OK")
                                                 .left(
                                                         node(FilterNode.class,
                                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))
@@ -591,7 +617,7 @@ public class TestDynamicFilter
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDERS_CK", "ORDERS_CK6")
-                                .dynamicFilter("ORDERS_CK", "ORDERS_CK6")
+                                .dynamicFilter(BIGINT, "ORDERS_CK", "ORDERS_CK6")
                                 .left(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_CK", "clerk"))))
@@ -625,10 +651,10 @@ public class TestDynamicFilter
                                 .equiCriteria(ImmutableList.of(equiJoinClause("K0", "K2"), equiJoinClause("S", "V2")))
                                 .left(
                                         project(
-                                                ImmutableMap.of("S", expression("V0 + V1")),
+                                                ImmutableMap.of("S", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "V0"), new Reference(BIGINT, "V1"))))),
                                                 join(INNER, leftJoinBuilder -> leftJoinBuilder
                                                         .equiCriteria("K0", "K1")
-                                                        .dynamicFilter("K0", "K1")
+                                                        .dynamicFilter(BIGINT, "K0", "K1")
                                                         .left(
                                                                 node(
                                                                         FilterNode.class,
@@ -652,7 +678,8 @@ public class TestDynamicFilter
                 "SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
                 noSemiJoinRewrite(),
                 anyTree(
-                        filter("S",
+                        filter(
+                                new Reference(BOOLEAN, "S"),
                                 semiJoin("X", "Y", "S", true,
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("X", "orderkey"))),
@@ -667,7 +694,8 @@ public class TestDynamicFilter
         assertPlan(
                 "SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM lineitem WHERE linenumber < 0)",
                 anyTree(
-                        filter("NOT S",
+                        filter(
+                                new Not(new Reference(BOOLEAN, "S")),
                                 semiJoin("X", "Y", "S", false,
                                         tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                         anyTree(
@@ -689,9 +717,11 @@ public class TestDynamicFilter
                 "SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0) AND orderkey > 0",
                 noSemiJoinRewrite(),
                 anyTree(
-                        filter("S",
+                        filter(
+                                new Reference(BOOLEAN, "S"),
                                 semiJoin("X", "Y", "S", true,
-                                        filter("X > BIGINT '0'",
+                                        filter(
+                                                new Comparison(GREATER_THAN, new Reference(BIGINT, "X"), new Constant(BIGINT, 0L)),
                                                 tableScan("orders", ImmutableMap.of("X", "orderkey"))),
                                         anyTree(
                                                 tableScan("lineitem", ImmutableMap.of("Y", "orderkey")))))));
@@ -705,12 +735,14 @@ public class TestDynamicFilter
                         "(SELECT lineitem.partkey FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders))",
                 noSemiJoinRewrite(),
                 anyTree(
-                        filter("S0",
+                        filter(
+                                new Reference(BOOLEAN, "S0"),
                                 semiJoin("PART_PK", "LINEITEM_PK", "S0", true,
                                         anyTree(
                                                 tableScan("part", ImmutableMap.of("PART_PK", "partkey"))),
                                         anyTree(
-                                                filter("S1",
+                                                filter(
+                                                        new Reference(BOOLEAN, "S1"),
                                                         project(
                                                                 semiJoin("LINEITEM_OK", "ORDERS_OK", "S1", true,
                                                                         anyTree(
@@ -728,9 +760,10 @@ public class TestDynamicFilter
                         "SELECT t.partkey FROM t WHERE t.partkey IN (SELECT part.partkey FROM part)",
                 noSemiJoinRewrite(),
                 anyTree(
-                        filter("S0",
+                        filter(
+                                new Reference(BOOLEAN, "S0"),
                                 semiJoin("LINEITEM_PK_PLUS_1000", "PART_PK", "S0", false,
-                                        project(ImmutableMap.of("LINEITEM_PK_PLUS_1000", expression("(LINEITEM_PK + BIGINT '1000')")),
+                                        project(ImmutableMap.of("LINEITEM_PK_PLUS_1000", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "LINEITEM_PK"), new Constant(BIGINT, 1000L))))),
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_PK", "partkey"))),
                                         anyTree(
                                                 tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))));
@@ -741,11 +774,12 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.orderkey FROM orders o JOIN lineitem l ON o.orderkey + 1 < l.orderkey",
                 anyTree(
-                        filter("expr < LINEITEM_OK",
+                        filter(
+                                new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "LINEITEM_OK")),
                                 join(INNER, builder -> builder
                                         .left(
                                                 project(
-                                                        ImmutableMap.of("expr", expression("ORDERS_OK + BIGINT '1'")),
+                                                        ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "ORDERS_OK"), new Constant(BIGINT, 1L))))),
                                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
                                         .right(
                                                 anyTree(
@@ -757,16 +791,17 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.orderkey FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey + 1",
                 anyTree(
-                        filter("ORDERS_OK < expr",
+                        filter(
+                                new Comparison(LESS_THAN, new Reference(BIGINT, "ORDERS_OK"), new Reference(BIGINT, "expr")),
                                 join(INNER, builder -> builder
-                                        .dynamicFilter(ImmutableList.of(new DynamicFilterPattern("ORDERS_OK", LESS_THAN, "expr")))
+                                        .dynamicFilter(ImmutableList.of(new DynamicFilterPattern(new Reference(BIGINT, "ORDERS_OK"), LESS_THAN, "expr")))
                                         .left(
-                                                filter(TRUE_LITERAL,
+                                                filter(TRUE,
                                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
                                         .right(
                                                 anyTree(
                                                         project(
-                                                                ImmutableMap.of("expr", expression("LINEITEM_OK + BIGINT '1'")),
+                                                                ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "LINEITEM_OK"), new Constant(BIGINT, 1L))))),
                                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))))));
     }
 
@@ -774,7 +809,8 @@ public class TestDynamicFilter
     public void testExpressionNotPushedDownToLeftJoinSource()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey + 1 < l.orderkey",
-                anyTree(filter("ORDERS_OK + BIGINT '1' < LINEITEM_OK",
+                anyTree(filter(
+                        new Comparison(LESS_THAN, new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "ORDERS_OK"), new Constant(BIGINT, 1L))), new Reference(BIGINT, "LINEITEM_OK")),
                         join(INNER, builder -> builder
                                 .left(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
                                 .right(exchange(
@@ -786,17 +822,18 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey < l.orderkey + 1",
                 anyTree(
-                        filter("ORDERS_OK < expr",
+                        filter(
+                                new Comparison(LESS_THAN, new Reference(BIGINT, "ORDERS_OK"), new Reference(BIGINT, "expr")),
                                 join(INNER, builder -> builder
-                                        .dynamicFilter(ImmutableList.of(new DynamicFilterPattern("ORDERS_OK", LESS_THAN, "expr")))
+                                        .dynamicFilter(ImmutableList.of(new DynamicFilterPattern(new Reference(BIGINT, "ORDERS_OK"), LESS_THAN, "expr")))
                                         .left(
                                                 filter(
-                                                        TRUE_LITERAL,
+                                                        TRUE,
                                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
                                         .right(
                                                 anyTree(
                                                         project(
-                                                                ImmutableMap.of("expr", expression("LINEITEM_OK + BIGINT '1'")),
+                                                                ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "LINEITEM_OK"), new Constant(BIGINT, 1L))))),
                                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))))));
     }
 
@@ -808,19 +845,20 @@ public class TestDynamicFilter
                         // 'mod' function is used in the join condition to trigger expression push-down by PushInequalityFilterExpressionBelowJoinRuleSet
                         "WHERE f.nationkey >= mod(d.nationkey, 2) AND f.suppkey >= mod(d.nationkey, 2)",
                 anyTree(
-                        filter("(nationkey >= mod) AND (suppkey >= mod)",
+                        filter(
+                                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "nationkey"), new Reference(BIGINT, "mod")), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "suppkey"), new Reference(BIGINT, "mod")))),
                                 join(INNER, builder -> builder
                                         .dynamicFilter(
                                                 ImmutableList.of(
-                                                        new DynamicFilterPattern("nationkey", GREATER_THAN_OR_EQUAL, "mod"),
-                                                        new DynamicFilterPattern("suppkey", GREATER_THAN_OR_EQUAL, "mod")))
+                                                        new DynamicFilterPattern(new Reference(BIGINT, "nationkey"), GREATER_THAN_OR_EQUAL, "mod"),
+                                                        new DynamicFilterPattern(new Reference(BIGINT, "suppkey"), GREATER_THAN_OR_EQUAL, "mod")))
                                         .left(
                                                 anyTree(
                                                         tableScan("supplier", ImmutableMap.of("nationkey", "nationkey", "suppkey", "suppkey"))))
                                         .right(
                                                 anyTree(
                                                         project(
-                                                                ImmutableMap.of("mod", expression("mod(n_nationkey, BIGINT '2')")),
+                                                                ImmutableMap.of("mod", expression(new Call(MOD_BIGINT, ImmutableList.of(new Reference(BIGINT, "n_nationkey"), new Constant(BIGINT, 2L))))),
                                                                 tableScan("nation", ImmutableMap.of("n_nationkey", "nationkey")))))))));
     }
 
@@ -845,7 +883,7 @@ public class TestDynamicFilter
 
     private Session noSemiJoinRewrite()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                 .build();
     }

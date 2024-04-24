@@ -19,6 +19,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.Expression;
 
@@ -59,7 +60,7 @@ public class DropCatalogTask
         }
 
         accessControl.checkCanDropCatalog(stateMachine.getSession().toSecurityContext(), statement.getCatalogName().toString());
-        catalogManager.dropCatalog(statement.getCatalogName().toString(), statement.isExists());
+        catalogManager.dropCatalog(new CatalogName(statement.getCatalogName().toString()), statement.isExists());
         return immediateVoidFuture();
     }
 }

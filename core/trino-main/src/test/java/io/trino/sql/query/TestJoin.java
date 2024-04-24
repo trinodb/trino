@@ -25,15 +25,14 @@ import java.util.List;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static java.util.function.Predicate.not;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -127,8 +126,9 @@ public class TestJoin
                 SELECT * FROM t
                 WHERE CAST(x AS bigint) IS NOT NULL AND y = 'hello'
                 """))
-                .hasOutputTypes(List.of(VARCHAR, VARCHAR))
-                .returnsEmptyResult();
+                .result()
+                .hasTypes(List.of(VARCHAR, VARCHAR))
+                .isEmpty();
     }
 
     @Test
@@ -185,53 +185,53 @@ public class TestJoin
                 .matches("VALUES (1,1)");
 
         // correlation in join clause not allowed for outer join
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) FULL JOIN (VALUES 1, 3, NULL) u(x) ON u.x IN (VALUES t.x)"))
-                .hasMessage("line 1:93: Reference to column 't.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:93: Reference to column 't.x' from outer scope not allowed in this context");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) FULL JOIN (VALUES 1, 3, NULL) u(x) ON u.x IN (VALUES u.x)"))
-                .hasMessage("line 1:93: Reference to column 'u.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:93: Reference to column 'u.x' from outer scope not allowed in this context");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) FULL JOIN (VALUES 1, 3, NULL) u(x) ON t.x IN (VALUES t.x)"))
-                .hasMessage("line 1:93: Reference to column 't.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:93: Reference to column 't.x' from outer scope not allowed in this context");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) FULL JOIN (VALUES 1, 3, NULL) u(x) ON t.x IN (VALUES u.x)"))
-                .hasMessage("line 1:93: Reference to column 'u.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:93: Reference to column 'u.x' from outer scope not allowed in this context");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) LEFT JOIN (VALUES 1, 3, NULL) u(x) ON u.x IN (VALUES t.x)"))
-                .hasMessage("line 1:93: Reference to column 't.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:93: Reference to column 't.x' from outer scope not allowed in this context");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) LEFT JOIN (VALUES 1, 3, NULL) u(x) ON u.x IN (VALUES u.x)"))
-                .hasMessage("line 1:93: Reference to column 'u.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:93: Reference to column 'u.x' from outer scope not allowed in this context");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) LEFT JOIN (VALUES 1, 3, NULL) u(x) ON t.x IN (VALUES t.x)"))
-                .hasMessage("line 1:93: Reference to column 't.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:93: Reference to column 't.x' from outer scope not allowed in this context");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) LEFT JOIN (VALUES 1, 3, NULL) u(x) ON t.x IN (VALUES u.x)"))
-                .hasMessage("line 1:93: Reference to column 'u.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:93: Reference to column 'u.x' from outer scope not allowed in this context");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) RIGHT JOIN (VALUES 1, 3, NULL) u(x) ON u.x IN (VALUES t.x)"))
-                .hasMessage("line 1:94: Reference to column 't.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:94: Reference to column 't.x' from outer scope not allowed in this context");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) RIGHT JOIN (VALUES 1, 3, NULL) u(x) ON u.x IN (VALUES u.x)"))
-                .hasMessage("line 1:94: Reference to column 'u.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:94: Reference to column 'u.x' from outer scope not allowed in this context");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) RIGHT JOIN (VALUES 1, 3, NULL) u(x) ON t.x IN (VALUES t.x)"))
-                .hasMessage("line 1:94: Reference to column 't.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:94: Reference to column 't.x' from outer scope not allowed in this context");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2, NULL) t(x) RIGHT JOIN (VALUES 1, 3, NULL) u(x) ON t.x IN (VALUES u.x)"))
-                .hasMessage("line 1:94: Reference to column 'u.x' from outer scope not allowed in this context");
+                .failure().hasMessage("line 1:94: Reference to column 'u.x' from outer scope not allowed in this context");
     }
 
     @Test
@@ -247,7 +247,8 @@ public class TestJoin
         //   StatementAnalyzer.visitJoin needs to be updated to check whether the join criteria is an InPredicate or QualifiedComparison
         //   with mixed references to both sides of the join. For that, the Expression needs to be analyzed against a hybrid scope made of both branches
         //   of the join, instead of using the output scope of the Join node. This, in turn requires adding support for multiple scopes in ExpressionAnalyzer
-        assertThatThrownBy(() -> assertions.query("SELECT * FROM (VALUES 1, 2, NULL) t(x) RIGHT JOIN (VALUES 1, 3, NULL) u(x) ON t.x + u.x > ALL (VALUES 1)"));
+        assertThat(assertions.query("SELECT * FROM (VALUES 1, 2, NULL) t(x) RIGHT JOIN (VALUES 1, 3, NULL) u(x) ON t.x + u.x > ALL (VALUES 1)"))
+                .nonTrinoExceptionFailure().hasMessageMatching("Invalid node. Expression dependencies .* not in source plan output .*");
     }
 
     @Test
@@ -258,7 +259,7 @@ public class TestJoin
                 "VALUES (2, BIGINT '2')",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 join(INNER, builder -> builder
                                         .left(anyTree(values("y")))
                                         .right(values()))

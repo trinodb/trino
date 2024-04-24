@@ -33,7 +33,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static java.lang.Float.floatToIntBits;
+import static io.trino.type.Reals.toReal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -71,10 +71,10 @@ public class TestDomainCoercer
                 true);
         assertThat(applySaturatedCasts(original, REAL)).isEqualTo(Domain.create(
                 ValueSet.ofRanges(
-                        lessThan(REAL, (long) floatToIntBits(0.0f)),
-                        range(REAL, (long) floatToIntBits(0.0f), false, (long) floatToIntBits(1.0f), false),
-                        range(REAL, (long) floatToIntBits(2.0f), true, (long) floatToIntBits(3.0f), true),
-                        greaterThan(REAL, (long) floatToIntBits(4.0f))),
+                        lessThan(REAL, toReal(0.0f)),
+                        range(REAL, toReal(0.0f), false, toReal(1.0f), false),
+                        range(REAL, toReal(2.0f), true, toReal(3.0f), true),
+                        greaterThan(REAL, toReal(4.0f))),
                 true));
     }
 
@@ -88,7 +88,7 @@ public class TestDomainCoercer
                         ValueSet.ofRanges(range(DOUBLE, 0.0, true, ((double) Float.MAX_VALUE) * 10, true)),
                         true),
                 REAL)).isEqualTo(Domain.create(
-                ValueSet.ofRanges(range(REAL, (long) floatToIntBits(0.0f), true, (long) floatToIntBits(Float.MAX_VALUE), true)),
+                ValueSet.ofRanges(range(REAL, toReal(0.0f), true, toReal(Float.MAX_VALUE), true)),
                 true));
 
         // low below and high above target type range
@@ -97,7 +97,7 @@ public class TestDomainCoercer
                         ValueSet.ofRanges(
                                 range(DOUBLE, ((double) Float.MAX_VALUE) * -2, true, ((double) Float.MAX_VALUE) * 10, true)),
                         true),
-                REAL)).isEqualTo(Domain.create(ValueSet.ofRanges(lessThanOrEqual(REAL, (long) floatToIntBits(Float.MAX_VALUE))), true));
+                REAL)).isEqualTo(Domain.create(ValueSet.ofRanges(lessThanOrEqual(REAL, toReal(Float.MAX_VALUE))), true));
 
         assertThat(applySaturatedCasts(
                 Domain.create(
@@ -106,7 +106,7 @@ public class TestDomainCoercer
                         true),
                 REAL)).isEqualTo(Domain.create(
                 ValueSet.ofRanges(
-                        lessThanOrEqual(REAL, (long) floatToIntBits(Float.MAX_VALUE))),
+                        lessThanOrEqual(REAL, toReal(Float.MAX_VALUE))),
                 true));
 
         assertThat(applySaturatedCasts(

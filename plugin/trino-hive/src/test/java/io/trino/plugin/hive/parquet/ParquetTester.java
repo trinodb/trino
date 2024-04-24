@@ -18,7 +18,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -745,7 +744,7 @@ class ParquetTester
     {
         return stream(iterables)
                 .map(ImmutableList::copyOf)
-                .map(Lists::reverse)
+                .map(List::reversed)
                 .toArray(Iterable<?>[]::new);
     }
 
@@ -811,7 +810,8 @@ class ParquetTester
                 schemaConverter.getMessageType(),
                 schemaConverter.getPrimitiveTypes(),
                 ParquetWriterOptions.builder()
-                        .setMaxPageSize(DataSize.ofBytes(100))
+                        .setMaxPageSize(DataSize.ofBytes(2000))
+                        .setMaxPageValueCount(200)
                         .setMaxBlockSize(DataSize.ofBytes(100000))
                         .build(),
                 compressionCodec,

@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.thrift.api.datatypes;
 
-import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
 public interface TrinoThriftColumnData
 {
-    Block toBlock(Type desiredType);
+    ValueBlock toBlock(Type desiredType);
 
     int numberOfRecords();
 }

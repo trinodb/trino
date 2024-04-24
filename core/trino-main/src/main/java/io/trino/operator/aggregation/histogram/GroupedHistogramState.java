@@ -44,9 +44,9 @@ public class GroupedHistogramState
     }
 
     @Override
-    public void ensureCapacity(long size)
+    public void ensureCapacity(int size)
     {
-        histogram.setMaxGroupId(toIntExact(size));
+        histogram.setMaxGroupId(size);
     }
 
     @Override

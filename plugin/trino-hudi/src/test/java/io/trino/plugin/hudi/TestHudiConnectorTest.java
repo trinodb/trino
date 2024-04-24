@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
 import static io.trino.plugin.hudi.testing.HudiTestUtils.COLUMNS_TO_HIDE;
-import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiConnectorTest
@@ -35,7 +34,7 @@ public class TestHudiConnectorTest
         return createHudiQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of("hudi.columns-to-hide", COLUMNS_TO_HIDE),
-                new TpchHudiTablesInitializer(COPY_ON_WRITE, REQUIRED_TPCH_TABLES));
+                new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES));
     }
 
     @Override

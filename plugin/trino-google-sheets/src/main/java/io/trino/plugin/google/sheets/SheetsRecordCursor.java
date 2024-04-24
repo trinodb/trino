@@ -81,7 +81,7 @@ public class SheetsRecordCursor
     {
         List<String> currentVals = null;
         // Skip empty rows from sheet
-        while (currentVals == null || currentVals.size() == 0) {
+        while (currentVals == null || currentVals.isEmpty()) {
             if (currentIndex == dataValues.size()) {
                 return false;
             }

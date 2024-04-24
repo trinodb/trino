@@ -1,0 +1,51 @@
+name: "process-test-results"
+description: "Upload test results and annotate CI jobs"
+inputs:
+  artifact-name:
+    description: "Artifact name, must be unique across all jobs"
+    required: false
+    default: ${{ github.job }}
+  has-failed-tests:
+    description: "If any test in the calling job has failed"
+    required: true
+  upload-heap-dump:
+    description: "Should any heap dump files (hprof) be uploaded"
+    required: false
+    default: false
+
+runs:
+  using: composite
+  steps:
+  - name: Upload test results
+    uses: actions/upload-artifact@v4
+    if: format('{0}', inputs.has-failed-tests) == 'true'
+    with:
+      name: results ${{ inputs.artifact-name }}
+      if-no-files-found: 'ignore'
+      path: |
+        **/target/surefire-reports
+        **/target/checkstyle-*
+        testing/trino-product-tests/target/*
+        logs/*
+      retention-days: 5
+  - name: Upload test report
+    uses: actions/upload-artifact@v4
+    # Always upload the test report for the annotate.yml workflow,
+    # but only the single XML file to keep the artifact small
+    with:
+      # Name prefix is checked in the `Annotate checks` workflow
+      name: test report ${{ inputs.artifact-name }}
+      if-no-files-found: 'ignore'
+      path: |
+        **/surefire-reports/TEST-*.xml
+        testing/trino-product-tests/target/reports/**/testng-results.xml
+      retention-days: 5
+  - name: Upload heap dump
+    uses: actions/upload-artifact@v4
+    if: format('{0}', inputs.upload-heap-dump) == 'true'
+    with:
+      name: heap dump ${{ inputs.artifact-name }}
+      if-no-files-found: 'ignore'
+      path: |
+        **/*.hprof
+      retention-days: 14

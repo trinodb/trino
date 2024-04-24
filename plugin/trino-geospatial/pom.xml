@@ -4,13 +4,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>435</version>
+        <version>444</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-geospatial</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Geospatial Plugin</description>
+    <description>Trino - Geospatial support</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

@@ -33,12 +33,10 @@ public final class StaticHostProvider
     }
 
     private final List<InetSocketAddress> serverAddresses = new ArrayList<InetSocketAddress>(5);
+    private final Resolver resolver;
 
     private int lastIndex = -1;
-
     private int currentIndex = -1;
-
-    private Resolver resolver;
 
     /**
      * Constructs a SimpleHostSet.
@@ -50,7 +48,7 @@ public final class StaticHostProvider
      */
     public StaticHostProvider(Collection<InetSocketAddress> serverAddresses)
     {
-        this.resolver = name -> InetAddress.getAllByName(name);
+        this.resolver = InetAddress::getAllByName;
         init(serverAddresses);
     }
 

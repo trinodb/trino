@@ -14,7 +14,7 @@
 package io.trino.server;
 
 import com.google.inject.Inject;
-import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.execution.resourcegroups.ResourceGroupInfoProvider;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import jakarta.ws.rs.Encoded;
@@ -38,12 +38,12 @@ import static java.util.Objects.requireNonNull;
 @Path("/v1/resourceGroupState")
 public class ResourceGroupStateInfoResource
 {
-    private final ResourceGroupManager<?> resourceGroupManager;
+    private final ResourceGroupInfoProvider resourceGroupInfoProvider;
 
     @Inject
-    public ResourceGroupStateInfoResource(ResourceGroupManager<?> resourceGroupManager)
+    public ResourceGroupStateInfoResource(ResourceGroupInfoProvider resourceGroupInfoProvider)
     {
-        this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
+        this.resourceGroupInfoProvider = requireNonNull(resourceGroupInfoProvider, "resourceGroupInfoProvider is null");
     }
 
     @ResourceSecurity(MANAGEMENT_READ)
@@ -54,7 +54,7 @@ public class ResourceGroupStateInfoResource
     public ResourceGroupInfo getQueryStateInfos(@PathParam("resourceGroupId") String resourceGroupIdString)
     {
         if (!isNullOrEmpty(resourceGroupIdString)) {
-            return resourceGroupManager.tryGetResourceGroupInfo(
+            return resourceGroupInfoProvider.tryGetResourceGroupInfo(
                     new ResourceGroupId(
                             Arrays.stream(resourceGroupIdString.split("/"))
                                     .map(ResourceGroupStateInfoResource::urlDecode)

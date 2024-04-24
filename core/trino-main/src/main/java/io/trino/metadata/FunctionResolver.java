@@ -14,12 +14,12 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBinder.CatalogFunctionBinding;
-import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.TrinoException;
@@ -31,6 +31,7 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionDependencyDeclaration.CastDependency;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependency;
 import io.trino.spi.function.FunctionDependencyDeclaration.OperatorDependency;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.Type;
@@ -68,21 +69,18 @@ public class FunctionResolver
     private final TypeManager typeManager;
     private final LanguageFunctionManager languageFunctionManager;
     private final WarningCollector warningCollector;
-    private final ResolvedFunctionDecoder functionDecoder;
     private final FunctionBinder functionBinder;
 
     public FunctionResolver(
             Metadata metadata,
             TypeManager typeManager,
             LanguageFunctionManager languageFunctionManager,
-            ResolvedFunctionDecoder functionDecoder,
             WarningCollector warningCollector)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.functionDecoder = requireNonNull(functionDecoder, "functionDecoder is null");
         this.functionBinder = new FunctionBinder(metadata, typeManager);
     }
 
@@ -102,11 +100,6 @@ public class FunctionResolver
 
     private boolean isFunctionKind(Session session, QualifiedName name, FunctionKind functionKind, AccessControl accessControl)
     {
-        Optional<ResolvedFunction> resolvedFunction = functionDecoder.fromQualifiedName(name);
-        if (resolvedFunction.isPresent()) {
-            return resolvedFunction.get().getFunctionKind() == functionKind;
-        }
-
         for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name, accessControl)) {
             Collection<CatalogFunctionMetadata> candidates = metadata.getFunctions(session, catalogSchemaFunctionName);
             if (!candidates.isEmpty()) {
@@ -121,11 +114,6 @@ public class FunctionResolver
 
     public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes, AccessControl accessControl)
     {
-        Optional<ResolvedFunction> resolvedFunction = functionDecoder.fromQualifiedName(name);
-        if (resolvedFunction.isPresent()) {
-            return resolvedFunction.get();
-        }
-
         CatalogFunctionBinding catalogFunctionBinding = bindFunction(
                 session,
                 name,
@@ -133,7 +121,7 @@ public class FunctionResolver
                 catalogSchemaFunctionName -> metadata.getFunctions(session, catalogSchemaFunctionName),
                 accessControl);
 
-        FunctionMetadata functionMetadata = catalogFunctionBinding.functionMetadata();
+        FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();
         if (functionMetadata.isDeprecated()) {
             warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION, "Use of deprecated function: %s: %s".formatted(name, functionMetadata.getDescription())));
         }
@@ -143,37 +131,39 @@ public class FunctionResolver
 
     private ResolvedFunction resolve(Session session, CatalogFunctionBinding functionBinding, AccessControl accessControl)
     {
-        FunctionDependencyDeclaration dependencies;
         if (isTrinoSqlLanguageFunction(functionBinding.functionBinding().getFunctionId())) {
-            dependencies = languageFunctionManager.getDependencies(session, functionBinding.functionBinding().getFunctionId(), accessControl);
-        }
-        else {
-            dependencies = metadata.getFunctionDependencies(
+            FunctionId resolvedFunctionId = languageFunctionManager.analyzeAndPlan(
                     session,
-                    functionBinding.catalogHandle(),
                     functionBinding.functionBinding().getFunctionId(),
-                    functionBinding.functionBinding().getBoundSignature());
+                    accessControl);
+
+            return new ResolvedFunction(
+                    functionBinding.functionBinding().getBoundSignature(),
+                    functionBinding.catalogHandle(),
+                    resolvedFunctionId,
+                    functionBinding.boundFunctionMetadata().getKind(),
+                    functionBinding.boundFunctionMetadata().isDeterministic(),
+                    functionBinding.boundFunctionMetadata().getFunctionNullability(),
+                    ImmutableMap.of(),
+                    ImmutableSet.of());
         }
 
-        ResolvedFunction resolvedFunction = resolveFunctionBinding(
+        FunctionDependencyDeclaration dependencies = metadata.getFunctionDependencies(
+                session,
+                functionBinding.catalogHandle(),
+                functionBinding.functionBinding().getFunctionId(),
+                functionBinding.functionBinding().getBoundSignature());
+
+        return resolveFunctionBinding(
                 metadata,
                 typeManager,
                 functionBinder,
-                functionDecoder,
                 functionBinding.catalogHandle(),
                 functionBinding.functionBinding(),
-                functionBinding.functionMetadata(),
+                functionBinding.boundFunctionMetadata(),
                 dependencies,
                 catalogSchemaFunctionName -> metadata.getFunctions(session, catalogSchemaFunctionName),
                 catalogFunctionBinding -> resolve(session, catalogFunctionBinding, accessControl));
-
-        // For SQL language functions, register the resolved function with the function manager,
-        // allowing the resolved function to be used later to retrieve the implementation.
-        if (isTrinoSqlLanguageFunction(resolvedFunction.getFunctionId())) {
-            languageFunctionManager.registerResolvedFunction(session, resolvedFunction);
-        }
-
-        return resolvedFunction;
     }
 
     private CatalogFunctionBinding bindFunction(
@@ -210,7 +200,6 @@ public class FunctionResolver
             Metadata metadata,
             TypeManager typeManager,
             FunctionBinder functionBinder,
-            ResolvedFunctionDecoder functionDecoder,
             CatalogHandle catalogHandle,
             FunctionBinding functionBinding,
             FunctionMetadata functionMetadata,
@@ -226,17 +215,11 @@ public class FunctionResolver
         for (FunctionDependency functionDependency : dependencies.getFunctionDependencies()) {
             try {
                 CatalogSchemaFunctionName name = functionDependency.getName();
-                Optional<ResolvedFunction> resolvedFunction = functionDecoder.fromCatalogSchemaFunctionName(name);
-                if (resolvedFunction.isPresent()) {
-                    functions.add(resolvedFunction.get());
-                }
-                else {
-                    CatalogFunctionBinding catalogFunctionBinding = functionBinder.bindFunction(
-                            fromTypeSignatures(applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding)),
-                            candidateLoader.apply(name),
-                            name.toString());
-                    functions.add(resolver.apply(catalogFunctionBinding));
-                }
+                CatalogFunctionBinding catalogFunctionBinding = functionBinder.bindFunction(
+                        fromTypeSignatures(applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding)),
+                        candidateLoader.apply(name),
+                        name.toString());
+                functions.add(resolver.apply(catalogFunctionBinding));
             }
             catch (TrinoException e) {
                 if (!functionDependency.isOptional()) {

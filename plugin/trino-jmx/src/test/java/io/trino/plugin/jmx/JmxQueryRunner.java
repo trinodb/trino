@@ -15,6 +15,7 @@ package io.trino.plugin.jmx;
 
 import io.trino.Session;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
@@ -25,10 +26,10 @@ public final class JmxQueryRunner
     private JmxQueryRunner() {}
 
     @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
-    public static DistributedQueryRunner createJmxQueryRunner()
+    public static QueryRunner createJmxQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = null;
+        QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession()).build();
 

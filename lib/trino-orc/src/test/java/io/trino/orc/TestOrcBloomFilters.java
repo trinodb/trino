@@ -28,13 +28,13 @@ import io.trino.orc.metadata.statistics.BloomFilter;
 import io.trino.orc.metadata.statistics.ColumnStatistics;
 import io.trino.orc.metadata.statistics.IntegerStatistics;
 import io.trino.orc.metadata.statistics.Utf8BloomFilterBuilder;
-import io.trino.orc.proto.OrcProto;
-import io.trino.orc.protobuf.CodedInputStream;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
+import org.apache.orc.OrcProto;
+import org.apache.orc.protobuf.CodedInputStream;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;

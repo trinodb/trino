@@ -533,9 +533,7 @@ public class TestDeltaLakeDeleteCompatibility
 
             List<Row> expected = ImmutableList.of(row(2, 22), row(4, 44));
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).contains(expected);
-            // TODO https://github.com/trinodb/trino/issues/17205 Fix below assertion when supporting absolute path
-            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .hasMessageContaining("Failed to generate splits");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
             dropDeltaTableWithRetry("default." + baseTableName);

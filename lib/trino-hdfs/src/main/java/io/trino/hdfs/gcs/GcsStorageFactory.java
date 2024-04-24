@@ -13,10 +13,10 @@
  */
 package io.trino.hdfs.gcs;
 
+import com.google.cloud.hadoop.repackaged.gcs.com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.client.http.HttpTransport;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.services.storage.Storage;
-import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.gcsio.GoogleCloudStorageOptions;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HttpTransportFactory;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.RetryHttpInitializer;
@@ -31,10 +31,11 @@ import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.cloud.hadoop.fs.gcs.TrinoGoogleHadoopFileSystemConfiguration.getGcsOptionsBuilder;
-import static com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HadoopCredentialsConfiguration.CLOUD_PLATFORM_SCOPE;
+import static com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.CredentialFactory.DEFAULT_SCOPES;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.hdfs.gcs.GcsConfigurationProvider.GCS_OAUTH_KEY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -46,7 +47,7 @@ public class GcsStorageFactory
     private static final String APPLICATION_NAME = "Trino";
 
     private final boolean useGcsAccessToken;
-    private final Optional<GoogleCredentials> jsonGoogleCredential;
+    private final Optional<GoogleCredential> jsonGoogleCredential;
 
     @Inject
     public GcsStorageFactory(HiveGcsConfig hiveGcsConfig)
@@ -58,12 +59,12 @@ public class GcsStorageFactory
         String jsonKeyFilePath = hiveGcsConfig.getJsonKeyFilePath();
         if (jsonKey != null) {
             try (InputStream inputStream = new ByteArrayInputStream(jsonKey.getBytes(UTF_8))) {
-                jsonGoogleCredential = Optional.of(GoogleCredentials.fromStream(inputStream).createScoped(CLOUD_PLATFORM_SCOPE));
+                jsonGoogleCredential = Optional.of(GoogleCredential.fromStream(inputStream).createScoped(DEFAULT_SCOPES));
             }
         }
         else if (jsonKeyFilePath != null) {
             try (FileInputStream inputStream = new FileInputStream(jsonKeyFilePath)) {
-                jsonGoogleCredential = Optional.of(GoogleCredentials.fromStream(inputStream).createScoped(CLOUD_PLATFORM_SCOPE));
+                jsonGoogleCredential = Optional.of(GoogleCredential.fromStream(inputStream).createScoped(DEFAULT_SCOPES));
             }
         }
         else {
@@ -76,23 +77,24 @@ public class GcsStorageFactory
         try {
             GoogleCloudStorageOptions gcsOptions = getGcsOptionsBuilder(environment.getConfiguration(context, path)).build();
             HttpTransport httpTransport = HttpTransportFactory.createHttpTransport(
+                    gcsOptions.getTransportType(),
                     gcsOptions.getProxyAddress(),
                     gcsOptions.getProxyUsername(),
                     gcsOptions.getProxyPassword());
-            GoogleCredentials credential;
+            GoogleCredential credential;
             if (useGcsAccessToken) {
                 String accessToken = nullToEmpty(context.getIdentity().getExtraCredentials().get(GCS_OAUTH_KEY));
                 try (ByteArrayInputStream inputStream = new ByteArrayInputStream(accessToken.getBytes(UTF_8))) {
-                    credential = GoogleCredentials.fromStream(inputStream).createScoped(CLOUD_PLATFORM_SCOPE);
+                    credential = GoogleCredential.fromStream(inputStream).createScoped(DEFAULT_SCOPES);
                 }
             }
             else {
                 credential = jsonGoogleCredential.orElseThrow(() -> new IllegalStateException("GCS credentials not configured"));
             }
             return new Storage.Builder(httpTransport, JacksonFactory.getDefaultInstance(), new RetryHttpInitializer(credential, RetryHttpInitializerOptions.builder()
-                        .setReadTimeout(gcsOptions.getHttpRequestReadTimeout())
+                        .setReadTimeout(Duration.ofMillis(gcsOptions.getHttpRequestReadTimeout()))
                         .setMaxRequestRetries(gcsOptions.getMaxHttpRequestRetries())
-                        .build()))
+                    .build()))
                     .setApplicationName(APPLICATION_NAME)
                     .build();
         }

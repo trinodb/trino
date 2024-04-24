@@ -13,7 +13,6 @@
  */
 package io.trino.likematcher;
 
-import com.google.common.base.Strings;
 import io.trino.type.LikePattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -88,11 +87,11 @@ public class TestLikeMatcher
         assertTrue(match("%abaca%", "abababababacabababa"));
         assertFalse(match("%bcccccccca%", "bbbbbbbbxax"));
         assertFalse(match("%bbxxxxxa%", "bbbxxxxaz"));
-        assertFalse(match("%aaaaaaxaaaaaa%", Strings.repeat("a", 20) +
-                                          Strings.repeat("b", 20) +
-                                          Strings.repeat("a", 20) +
-                                          Strings.repeat("b", 20) +
-                                          "the quick brown fox jumps over the lazy dog"));
+        assertFalse(match("%aaaaaaxaaaaaa%", "a".repeat(20) +
+                "b".repeat(20) +
+                "a".repeat(20) +
+                "b".repeat(20) +
+                "the quick brown fox jumps over the lazy dog"));
 
         assertFalse(match("%abaaa%", "ababaa"));
 

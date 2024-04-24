@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.Reference;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,10 +29,10 @@ public class MatchResult
         return new MatchResult(true, new SymbolAliases());
     }
 
-    public static MatchResult match(String alias, SymbolReference symbolReference)
+    public static MatchResult match(String alias, Reference reference)
     {
         SymbolAliases newAliases = SymbolAliases.builder()
-                .put(alias, symbolReference)
+                .put(alias, reference)
                 .build();
         return new MatchResult(true, newAliases);
     }

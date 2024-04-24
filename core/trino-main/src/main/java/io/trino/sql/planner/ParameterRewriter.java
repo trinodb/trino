@@ -41,12 +41,6 @@ public class ParameterRewriter
         this.analysis = null;
     }
 
-    public ParameterRewriter(Analysis analysis)
-    {
-        this.analysis = analysis;
-        this.parameters = analysis.getParameters();
-    }
-
     @Override
     protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
     {
@@ -68,11 +62,7 @@ public class ParameterRewriter
 
         Type coercion = analysis.getCoercion(original);
         if (coercion != null) {
-            rewritten = new Cast(
-                    rewritten,
-                    toSqlType(coercion),
-                    false,
-                    analysis.isTypeOnlyCoercion(original));
+            rewritten = new Cast(rewritten, toSqlType(coercion), false);
         }
         return rewritten;
     }

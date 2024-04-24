@@ -595,4 +595,68 @@ public class TestAggregateWindowFunction
                         .row(null, null, null)
                         .build());
     }
+
+    @Test
+    public void testAverageRowsRollingWithNanAndInfinity()
+    {
+        assertWindowQueryWithNan("avg(orderkey) OVER (ORDER BY orderdate ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, DOUBLE)
+                        .row(6.0, "F", 6.0)
+                        .row(3.0, "F", 4.5)
+                        .row(33.0, "F", 14.0)
+                        .row(Double.NaN, "F", Double.NaN)
+                        .row(32.0, "O", Double.NaN)
+                        .row(4.0, "O", Double.NaN)
+                        .row(1.0, "O", 12.333333333333334)
+                        .row(7.0, "O", 4.0)
+                        .row(2.0, "O", 3.3333333333333335)
+                        .row(34.0, "O", 14.333333333333334)
+                        .build());
+
+        assertWindowQueryWithInfinity("avg(orderkey) OVER (ORDER BY orderdate ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, DOUBLE)
+                        .row(6.0, "F", 6.0)
+                        .row(3.0, "F", 4.5)
+                        .row(33.0, "F", 14.0)
+                        .row(Double.POSITIVE_INFINITY, "F", Double.POSITIVE_INFINITY)
+                        .row(32.0, "O", Double.POSITIVE_INFINITY)
+                        .row(4.0, "O", Double.POSITIVE_INFINITY)
+                        .row(1.0, "O", 12.333333333333334)
+                        .row(7.0, "O", 4.0)
+                        .row(2.0, "O", 3.3333333333333335)
+                        .row(34.0, "O", 14.333333333333334)
+                        .build());
+    }
+
+    @Test
+    public void testSumRowsRollingWithNanAndInfinity()
+    {
+        assertWindowQueryWithNan("sum(orderkey) OVER (ORDER BY orderdate ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, DOUBLE)
+                        .row(6.0, "F", 6.0)
+                        .row(3.0, "F", 9.0)
+                        .row(33.0, "F", 42.0)
+                        .row(Double.NaN, "F", Double.NaN)
+                        .row(32.0, "O", Double.NaN)
+                        .row(4.0, "O", Double.NaN)
+                        .row(1.0, "O", 37.0)
+                        .row(7.0, "O", 12.0)
+                        .row(2.0, "O", 10.0)
+                        .row(34.0, "O", 43.0)
+                        .build());
+
+        assertWindowQueryWithInfinity("sum(orderkey) OVER (ORDER BY orderdate ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, DOUBLE)
+                        .row(6.0, "F", 6.0)
+                        .row(3.0, "F", 9.0)
+                        .row(33.0, "F", 42.0)
+                        .row(Double.POSITIVE_INFINITY, "F", Double.POSITIVE_INFINITY)
+                        .row(32.0, "O", Double.POSITIVE_INFINITY)
+                        .row(4.0, "O", Double.POSITIVE_INFINITY)
+                        .row(1.0, "O", 37.0)
+                        .row(7.0, "O", 12.0)
+                        .row(2.0, "O", 10.0)
+                        .row(34.0, "O", 43.0)
+                        .build());
+    }
 }

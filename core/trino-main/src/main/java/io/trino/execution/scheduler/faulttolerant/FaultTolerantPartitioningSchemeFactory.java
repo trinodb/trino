@@ -63,9 +63,10 @@ public class FaultTolerantPartitioningSchemeFactory
             if (partitionCount.isPresent()) {
                 verify(
                         result.getPartitionCount() == partitionCount.get(),
-                        "expected partitionCount to be %s but got %s",
+                        "expected partitionCount to be %s but got %s; handle=%s",
                         partitionCount.get(),
-                        result.getPartitionCount());
+                        result.getPartitionCount(),
+                        handle);
             }
             cache.put(cacheKey, result);
         }

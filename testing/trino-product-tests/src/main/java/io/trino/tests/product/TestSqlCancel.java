@@ -43,7 +43,6 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tests.product.TestGroups.CANCEL_QUERY;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
@@ -84,7 +83,7 @@ public class TestSqlCancel
         closer = null;
     }
 
-    @Test(groups = CANCEL_QUERY, timeOut = 60_000L)
+    @Test(timeOut = 60_000L)
     public void cancelCreateTable()
             throws Exception
     {
@@ -96,7 +95,7 @@ public class TestSqlCancel
                 .hasMessageContaining("Table 'hive.default.%s' does not exist", tableName);
     }
 
-    @Test(groups = CANCEL_QUERY, timeOut = 60_000L)
+    @Test(timeOut = 60_000L)
     public void cancelInsertInto()
             throws Exception
     {
@@ -108,7 +107,7 @@ public class TestSqlCancel
         onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
-    @Test(groups = CANCEL_QUERY, timeOut = 60_000L)
+    @Test(timeOut = 60_000L)
     public void cancelSelect()
             throws Exception
     {

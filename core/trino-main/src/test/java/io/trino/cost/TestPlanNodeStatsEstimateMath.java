@@ -21,6 +21,7 @@ import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValu
 import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static io.trino.cost.PlanNodeStatsEstimateMath.capStats;
 import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -28,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPlanNodeStatsEstimateMath
 {
-    private static final Symbol SYMBOL = new Symbol("symbol");
+    private static final Symbol SYMBOL = new Symbol(UNKNOWN, "symbol");
     private static final StatisticRange NON_EMPTY_RANGE = openRange(1);
 
     @Test

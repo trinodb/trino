@@ -105,7 +105,7 @@ public class TestFlatColumnReader
 
         Block block = reader.readNonNull().getBlock();
         assertThat(block.getPositionCount()).isEqualTo(1);
-        assertThat(block.getInt(0, 0)).isEqualTo(42);
+        assertThat(INTEGER.getInt(block, 0)).isEqualTo(42);
     }
 
     @Test

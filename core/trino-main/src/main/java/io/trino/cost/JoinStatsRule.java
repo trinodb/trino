@@ -15,14 +15,13 @@ package io.trino.cost;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
 import io.trino.util.MoreMath;
 
 import java.util.Collection;
@@ -37,9 +36,9 @@ import static io.trino.SystemSessionProperties.getJoinMultiClauseIndependenceFac
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.PlanNodeStatsEstimateMath.estimateCorrelatedConjunctionRowCount;
 import static io.trino.cost.SymbolStatsEstimate.buildFrom;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.plan.Patterns.join;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.util.MoreMath.firstNonNaN;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
@@ -78,37 +77,37 @@ public class JoinStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(JoinNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(JoinNode node, Context context)
     {
-        PlanNodeStatsEstimate leftStats = sourceStats.getStats(node.getLeft());
-        PlanNodeStatsEstimate rightStats = sourceStats.getStats(node.getRight());
-        PlanNodeStatsEstimate crossJoinStats = crossJoinStats(node, leftStats, rightStats, types);
+        PlanNodeStatsEstimate leftStats = context.statsProvider().getStats(node.getLeft());
+        PlanNodeStatsEstimate rightStats = context.statsProvider().getStats(node.getRight());
+        PlanNodeStatsEstimate crossJoinStats = crossJoinStats(node, leftStats, rightStats);
 
         switch (node.getType()) {
             case INNER:
-                return Optional.of(computeInnerJoinStats(node, crossJoinStats, session, types));
+                return Optional.of(computeInnerJoinStats(node, crossJoinStats, context.session()));
             case LEFT:
-                return Optional.of(computeLeftJoinStats(node, leftStats, rightStats, crossJoinStats, session, types));
+                return Optional.of(computeLeftJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
             case RIGHT:
-                return Optional.of(computeRightJoinStats(node, leftStats, rightStats, crossJoinStats, session, types));
+                return Optional.of(computeRightJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
             case FULL:
-                return Optional.of(computeFullJoinStats(node, leftStats, rightStats, crossJoinStats, session, types));
+                return Optional.of(computeFullJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
         }
         throw new IllegalStateException("Unknown join type: " + node.getType());
     }
 
+    @SuppressWarnings("ArgumentSelectionDefectChecker")
     private PlanNodeStatsEstimate computeFullJoinStats(
             JoinNode node,
             PlanNodeStatsEstimate leftStats,
             PlanNodeStatsEstimate rightStats,
             PlanNodeStatsEstimate crossJoinStats,
-            Session session,
-            TypeProvider types)
+            Session session)
     {
-        PlanNodeStatsEstimate rightJoinComplementStats = calculateJoinComplementStats(node.getFilter(), flippedCriteria(node), rightStats, leftStats, types);
+        PlanNodeStatsEstimate rightJoinComplementStats = calculateJoinComplementStats(node.getFilter(), flippedCriteria(node), rightStats, leftStats);
         return addJoinComplementStats(
                 rightStats,
-                computeLeftJoinStats(node, leftStats, rightStats, crossJoinStats, session, types),
+                computeLeftJoinStats(node, leftStats, rightStats, crossJoinStats, session),
                 rightJoinComplementStats);
     }
 
@@ -117,34 +116,33 @@ public class JoinStatsRule
             PlanNodeStatsEstimate leftStats,
             PlanNodeStatsEstimate rightStats,
             PlanNodeStatsEstimate crossJoinStats,
-            Session session,
-            TypeProvider types)
+            Session session)
     {
-        PlanNodeStatsEstimate innerJoinStats = computeInnerJoinStats(node, crossJoinStats, session, types);
-        PlanNodeStatsEstimate leftJoinComplementStats = calculateJoinComplementStats(node.getFilter(), node.getCriteria(), leftStats, rightStats, types);
+        PlanNodeStatsEstimate innerJoinStats = computeInnerJoinStats(node, crossJoinStats, session);
+        PlanNodeStatsEstimate leftJoinComplementStats = calculateJoinComplementStats(node.getFilter(), node.getCriteria(), leftStats, rightStats);
         return addJoinComplementStats(
                 leftStats,
                 innerJoinStats,
                 leftJoinComplementStats);
     }
 
+    @SuppressWarnings("ArgumentSelectionDefectChecker")
     private PlanNodeStatsEstimate computeRightJoinStats(
             JoinNode node,
             PlanNodeStatsEstimate leftStats,
             PlanNodeStatsEstimate rightStats,
             PlanNodeStatsEstimate crossJoinStats,
-            Session session,
-            TypeProvider types)
+            Session session)
     {
-        PlanNodeStatsEstimate innerJoinStats = computeInnerJoinStats(node, crossJoinStats, session, types);
-        PlanNodeStatsEstimate rightJoinComplementStats = calculateJoinComplementStats(node.getFilter(), flippedCriteria(node), rightStats, leftStats, types);
+        PlanNodeStatsEstimate innerJoinStats = computeInnerJoinStats(node, crossJoinStats, session);
+        PlanNodeStatsEstimate rightJoinComplementStats = calculateJoinComplementStats(node.getFilter(), flippedCriteria(node), rightStats, leftStats);
         return addJoinComplementStats(
                 rightStats,
                 innerJoinStats,
                 rightJoinComplementStats);
     }
 
-    private PlanNodeStatsEstimate computeInnerJoinStats(JoinNode node, PlanNodeStatsEstimate crossJoinStats, Session session, TypeProvider types)
+    private PlanNodeStatsEstimate computeInnerJoinStats(JoinNode node, PlanNodeStatsEstimate crossJoinStats, Session session)
     {
         List<EquiJoinClause> equiJoinCriteria = node.getCriteria();
 
@@ -153,10 +151,10 @@ public class JoinStatsRule
                 return crossJoinStats;
             }
             // TODO: this might explode stats
-            return filterStatsCalculator.filterStats(crossJoinStats, node.getFilter().get(), session, types);
+            return filterStatsCalculator.filterStats(crossJoinStats, node.getFilter().get(), session);
         }
 
-        PlanNodeStatsEstimate equiJoinEstimate = filterByEquiJoinClauses(crossJoinStats, node.getCriteria(), session, types);
+        PlanNodeStatsEstimate equiJoinEstimate = filterByEquiJoinClauses(crossJoinStats, node.getCriteria(), session);
 
         if (equiJoinEstimate.isOutputRowCountUnknown()) {
             return PlanNodeStatsEstimate.unknown();
@@ -166,10 +164,10 @@ public class JoinStatsRule
             return equiJoinEstimate;
         }
 
-        PlanNodeStatsEstimate filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, node.getFilter().get(), session, types);
+        PlanNodeStatsEstimate filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, node.getFilter().get(), session);
 
         if (filteredEquiJoinEstimate.isOutputRowCountUnknown()) {
-            return normalizer.normalize(equiJoinEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT), types);
+            return normalizer.normalize(equiJoinEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT));
         }
 
         return filteredEquiJoinEstimate;
@@ -178,16 +176,15 @@ public class JoinStatsRule
     private PlanNodeStatsEstimate filterByEquiJoinClauses(
             PlanNodeStatsEstimate stats,
             Collection<EquiJoinClause> clauses,
-            Session session,
-            TypeProvider types)
+            Session session)
     {
         checkArgument(!clauses.isEmpty(), "clauses is empty");
         // Join equality clauses are usually correlated. Therefore, we shouldn't treat each join equality
         // clause separately because stats estimates would be way off.
         List<PlanNodeStatsEstimateWithClause> knownEstimates = clauses.stream()
                 .map(clause -> {
-                    ComparisonExpression predicate = new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference());
-                    return new PlanNodeStatsEstimateWithClause(filterStatsCalculator.filterStats(stats, predicate, session, types), clause);
+                    Comparison predicate = new Comparison(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference());
+                    return new PlanNodeStatsEstimateWithClause(filterStatsCalculator.filterStats(stats, predicate, session), clause);
                 })
                 .collect(toImmutableList());
 
@@ -198,7 +195,7 @@ public class JoinStatsRule
         if (isNaN(outputRowCount)) {
             return PlanNodeStatsEstimate.unknown();
         }
-        return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedJoinClause(stats, knownEstimates)), types);
+        return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedJoinClause(stats, knownEstimates)));
     }
 
     private static Map<Symbol, SymbolStatsEstimate> intersectCorrelatedJoinClause(
@@ -250,8 +247,7 @@ public class JoinStatsRule
             Optional<Expression> filter,
             List<JoinNode.EquiJoinClause> criteria,
             PlanNodeStatsEstimate leftStats,
-            PlanNodeStatsEstimate rightStats,
-            TypeProvider types)
+            PlanNodeStatsEstimate rightStats)
     {
         if (rightStats.getOutputRowCount() == 0) {
             // no left side rows are matched
@@ -264,7 +260,7 @@ public class JoinStatsRule
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            return normalizer.normalize(leftStats.mapOutputRowCount(rowCount -> 0.0), types);
+            return normalizer.normalize(leftStats.mapOutputRowCount(rowCount -> 0.0));
         }
 
         // TODO: add support for non-equality conditions (e.g: <=, !=, >)
@@ -277,7 +273,7 @@ public class JoinStatsRule
                 .map(drivingClause -> calculateJoinComplementStats(leftStats, rightStats, drivingClause, criteria.size() - 1 + numberOfFilterClauses))
                 .filter(estimate -> !estimate.isOutputRowCountUnknown())
                 .max(comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
-                .map(estimate -> normalizer.normalize(estimate, types))
+                .map(normalizer::normalize)
                 .orElse(PlanNodeStatsEstimate.unknown());
     }
 
@@ -375,7 +371,7 @@ public class JoinStatsRule
         return outputStats.build();
     }
 
-    private PlanNodeStatsEstimate crossJoinStats(JoinNode node, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats, TypeProvider types)
+    private PlanNodeStatsEstimate crossJoinStats(JoinNode node, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats)
     {
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(leftStats.getOutputRowCount() * rightStats.getOutputRowCount());
@@ -383,7 +379,7 @@ public class JoinStatsRule
         node.getLeft().getOutputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, leftStats.getSymbolStatistics(symbol)));
         node.getRight().getOutputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, rightStats.getSymbolStatistics(symbol)));
 
-        return normalizer.normalize(builder.build(), types);
+        return normalizer.normalize(builder.build());
     }
 
     private List<JoinNode.EquiJoinClause> flippedCriteria(JoinNode node)

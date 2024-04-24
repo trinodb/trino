@@ -35,9 +35,6 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.FunctionBundle;
-import io.trino.metadata.FunctionManager;
-import io.trino.metadata.LanguageFunctionManager;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.BasicQueryInfo;
@@ -50,11 +47,10 @@ import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
-import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.security.SystemAccessControl;
-import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -81,6 +77,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
@@ -107,7 +104,7 @@ public class DistributedQueryRunner
     private Runnable registerNewWorker;
     private final InMemorySpanExporter spanExporter = InMemorySpanExporter.create();
     private final List<TestingTrinoServer> servers = new CopyOnWriteArrayList<>();
-    private final List<FunctionBundle> functionBundles = new CopyOnWriteArrayList<>(ImmutableList.of(AbstractTestQueries.CUSTOM_FUNCTIONS));
+    private final List<FunctionBundle> functionBundles = new CopyOnWriteArrayList<>(ImmutableList.of(CustomFunctionBundle.CUSTOM_FUNCTIONS));
     private final List<Plugin> plugins = new CopyOnWriteArrayList<>();
 
     private final Closer closer = Closer.create();
@@ -115,6 +112,8 @@ public class DistributedQueryRunner
     private TestingTrinoClient trinoClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private final AtomicInteger concurrentQueries = new AtomicInteger();
+    private volatile boolean spansValid = true;
 
     private boolean closed;
 
@@ -148,8 +147,8 @@ public class DistributedQueryRunner
             long discoveryStart = System.nanoTime();
             discoveryServer = new TestingDiscoveryServer(environment);
             closer.register(() -> closeUnchecked(discoveryServer));
-            closer.register(() -> extraCloseables.forEach(DistributedQueryRunner::closeUnchecked));
-            log.info("Created TestingDiscoveryServer in %s", nanosSince(discoveryStart));
+            extraCloseables.forEach(closeable -> closer.register(() -> closeUnchecked(closeable)));
+            log.debug("Created TestingDiscoveryServer in %s", nanosSince(discoveryStart));
 
             registerNewWorker = () -> createServer(
                     false,
@@ -239,7 +238,7 @@ public class DistributedQueryRunner
                 environment,
                 additionalModule,
                 baseDataDir,
-                Optional.of(SimpleSpanProcessor.create(spanExporter)),
+                SimpleSpanProcessor.create(spanExporter),
                 systemAccessControlConfiguration,
                 systemAccessControls,
                 eventListeners));
@@ -268,7 +267,7 @@ public class DistributedQueryRunner
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            Optional<SpanProcessor> spanProcessor,
+            SpanProcessor spanProcessor,
             Optional<FactoryConfiguration> systemAccessControlConfiguration,
             Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners)
@@ -310,7 +309,7 @@ public class DistributedQueryRunner
                 .build();
 
         String nodeRole = coordinator ? "coordinator" : "worker";
-        log.info("Created TestingTrinoServer %s in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
+        log.debug("Created TestingTrinoServer %s in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
 
         return server;
     }
@@ -337,8 +336,10 @@ public class DistributedQueryRunner
         return trinoClient;
     }
 
+    @Override
     public List<SpanData> getSpans()
     {
+        checkState(spansValid, "No valid spans, queries were executing concurrently");
         return spanExporter.getFinishedSpanItems();
     }
 
@@ -361,15 +362,9 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public Metadata getMetadata()
+    public PlannerContext getPlannerContext()
     {
-        return coordinator.getMetadata();
-    }
-
-    @Override
-    public TypeManager getTypeManager()
-    {
-        return coordinator.getTypeManager();
+        return coordinator.getPlannerContext();
     }
 
     @Override
@@ -385,27 +380,9 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public FunctionManager getFunctionManager()
-    {
-        return coordinator.getFunctionManager();
-    }
-
-    @Override
-    public LanguageFunctionManager getLanguageFunctionManager()
-    {
-        return coordinator.getLanguageFunctionManager();
-    }
-
-    @Override
     public SplitManager getSplitManager()
     {
         return coordinator.getSplitManager();
-    }
-
-    @Override
-    public ExchangeManager getExchangeManager()
-    {
-        return coordinator.getExchangeManager();
     }
 
     @Override
@@ -443,14 +420,10 @@ public class DistributedQueryRunner
         return coordinator.getSessionPropertyDefaults();
     }
 
+    @Override
     public TestingTrinoServer getCoordinator()
     {
         return coordinator;
-    }
-
-    public Optional<TestingTrinoServer> getBackupCoordinator()
-    {
-        return backupCoordinator;
     }
 
     public List<TestingTrinoServer> getServers()
@@ -472,18 +445,13 @@ public class DistributedQueryRunner
         servers.forEach(server -> server.addFunctions(functionBundle));
     }
 
-    public void createCatalog(String catalogName, String connectorName)
-    {
-        createCatalog(catalogName, connectorName, ImmutableMap.of());
-    }
-
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         long start = System.nanoTime();
         coordinator.createCatalog(catalogName, connectorName, properties);
         backupCoordinator.ifPresent(backup -> backup.createCatalog(catalogName, connectorName, properties));
-        log.info("Created catalog %s in %s", catalogName, nanosSince(start));
+        log.debug("Created catalog %s in %s", catalogName, nanosSince(start));
     }
 
     @Override
@@ -511,24 +479,30 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public MaterializedResult execute(@Language("SQL") String sql)
+    public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return execute(getDefaultSession(), sql);
+        return executeInternal(session, sql).getResult();
     }
 
     @Override
-    public MaterializedResult execute(Session session, @Language("SQL") String sql)
+    public MaterializedResultWithPlan executeWithPlan(Session session, String sql)
     {
-        return executeWithQueryId(session, sql).getResult();
+        ResultWithQueryId<MaterializedResult> result = executeInternal(session, sql);
+        return new MaterializedResultWithPlan(result.getQueryId(), coordinator.getQueryPlan(result.getQueryId()), result.getResult());
     }
 
-    public MaterializedResultWithQueryId executeWithQueryId(Session session, @Language("SQL") String sql)
+    private ResultWithQueryId<MaterializedResult> executeInternal(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
         try {
-            spanExporter.reset();
-            ResultWithQueryId<MaterializedResult> result = trinoClient.execute(session, sql);
-            return new MaterializedResultWithQueryId(result.getQueryId(), result.getResult());
+            spansValid = concurrentQueries.incrementAndGet() == 1;
+            try {
+                spanExporter.reset();
+                return trinoClient.execute(session, sql);
+            }
+            finally {
+                concurrentQueries.decrementAndGet();
+            }
         }
         catch (Throwable e) {
             e.addSuppressed(new Exception("SQL: " + sql));
@@ -540,29 +514,29 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
-    {
-        MaterializedResultWithQueryId resultWithQueryId = executeWithQueryId(session, sql);
-        return new MaterializedResultWithPlan(resultWithQueryId.getResult().toTestTypes(), getQueryPlan(resultWithQueryId.getQueryId()));
-    }
-
-    @Override
     public Plan createPlan(Session session, String sql)
     {
         // session must be in a transaction registered with the transaction manager in this query runner
         getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
-        return coordinator.getQueryExplainer().getLogicalPlan(
-                session,
-                coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
-                ImmutableList.of(),
-                WarningCollector.NOOP,
-                createPlanOptimizersStatsCollector());
+        spansValid = concurrentQueries.incrementAndGet() == 1;
+        try {
+            spanExporter.reset();
+            return coordinator.getQueryExplainer().getLogicalPlan(
+                    session,
+                    coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
+                    ImmutableList.of(),
+                    WarningCollector.NOOP,
+                    createPlanOptimizersStatsCollector());
+        }
+        finally {
+            concurrentQueries.decrementAndGet();
+        }
     }
 
     public Plan getQueryPlan(QueryId queryId)
     {
-        return coordinator.getQueryPlan(queryId);
+        return coordinator.getQueryPlan(queryId).orElseThrow();
     }
 
     @Override
@@ -656,6 +630,7 @@ public class DistributedQueryRunner
     public static class Builder<SELF extends Builder<?>>
     {
         private Session defaultSession;
+        private boolean withTracing;
         private int nodeCount = 3;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
@@ -673,6 +648,8 @@ public class DistributedQueryRunner
         protected Builder(Session defaultSession)
         {
             this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
+            String tracingEnabled = firstNonNull(getenv("TESTS_TRACING_ENABLED"), "false");
+            this.withTracing = parseBoolean(tracingEnabled) || tracingEnabled.equals("1");
         }
 
         @CanIgnoreReturnValue
@@ -715,13 +692,6 @@ public class DistributedQueryRunner
         public SELF setCoordinatorProperties(Map<String, String> coordinatorProperties)
         {
             this.coordinatorProperties = ImmutableMap.copyOf(coordinatorProperties);
-            return self();
-        }
-
-        @CanIgnoreReturnValue
-        public SELF addCoordinatorProperties(Map<String, String> coordinatorProperties)
-        {
-            this.coordinatorProperties = addProperties(this.coordinatorProperties, coordinatorProperties);
             return self();
         }
 
@@ -826,21 +796,10 @@ public class DistributedQueryRunner
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF withTracing()
         {
-            OpenTracingCollector collector = new OpenTracingCollector();
-            collector.start();
-            extraCloseables = ImmutableList.of(collector);
-            this.addExtraProperties(Map.of("tracing.enabled", "true", "tracing.exporter.endpoint", collector.getExporterEndpoint().toString()));
-            this.setEventListener(new EventListener()
-            {
-                @Override
-                public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
-                {
-                    String queryId = queryCompletedEvent.getMetadata().getQueryId();
-                    log.info("TRACING: %s :: %s", queryId, collector.searchForQueryId(queryId));
-                }
-            });
+            this.withTracing = true;
             return self();
         }
 
@@ -853,9 +812,22 @@ public class DistributedQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            String tracingEnabled = firstNonNull(getenv("TESTS_TRACING_ENABLED"), "false");
-            if (parseBoolean(tracingEnabled) || tracingEnabled.equals("1")) {
-                withTracing();
+            if (withTracing) {
+                checkState(extraCloseables.isEmpty(), "extraCloseables already set");
+                OpenTracingCollector collector = new OpenTracingCollector();
+                collector.start();
+                extraCloseables = ImmutableList.of(collector);
+                addExtraProperties(Map.of("tracing.enabled", "true", "tracing.exporter.endpoint", collector.getExporterEndpoint().toString()));
+                checkState(eventListeners.isEmpty(), "eventListeners already set");
+                setEventListener(new EventListener()
+                {
+                    @Override
+                    public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
+                    {
+                        String queryId = queryCompletedEvent.getMetadata().getQueryId();
+                        log.info("TRACING: %s :: %s", queryId, collector.searchForQueryId(queryId));
+                    }
+                });
             }
 
             Optional<FactoryConfiguration> systemAccessControlConfiguration = this.systemAccessControlConfiguration;

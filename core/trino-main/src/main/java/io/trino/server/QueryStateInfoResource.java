@@ -15,7 +15,7 @@ package io.trino.server;
 
 import com.google.inject.Inject;
 import io.trino.dispatcher.DispatchManager;
-import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.execution.resourcegroups.ResourceGroupInfoProvider;
 import io.trino.security.AccessControl;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
@@ -53,19 +53,19 @@ import static java.util.Objects.requireNonNull;
 public class QueryStateInfoResource
 {
     private final DispatchManager dispatchManager;
-    private final ResourceGroupManager<?> resourceGroupManager;
+    private final ResourceGroupInfoProvider resourceGroupInfoProvider;
     private final AccessControl accessControl;
     private final HttpRequestSessionContextFactory sessionContextFactory;
 
     @Inject
     public QueryStateInfoResource(
             DispatchManager dispatchManager,
-            ResourceGroupManager<?> resourceGroupManager,
+            ResourceGroupInfoProvider resourceGroupInfoProvider,
             AccessControl accessControl,
             HttpRequestSessionContextFactory sessionContextFactory)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
-        this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
+        this.resourceGroupInfoProvider = requireNonNull(resourceGroupInfoProvider, "resourceGroupInfoProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
     }
@@ -97,7 +97,7 @@ public class QueryStateInfoResource
             return createQueuedQueryStateInfo(
                     queryInfo,
                     groupId,
-                    groupId.map(group -> resourceGroupManager.tryGetPathToRoot(group)
+                    groupId.map(group -> resourceGroupInfoProvider.tryGetPathToRoot(group)
                             .orElseThrow(() -> new IllegalStateException("Resource group not found: " + group))));
         }
         return createQueryStateInfo(queryInfo, groupId);

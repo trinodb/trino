@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -22,7 +23,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
 import org.apache.iceberg.BaseTable;
@@ -74,9 +74,7 @@ public interface TrinoCatalog
 
     void renameNamespace(ConnectorSession session, String source, String target);
 
-    List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace);
-
-    Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace);
+    List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace);
 
     Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
             ConnectorSession session,
@@ -151,13 +149,9 @@ public interface TrinoCatalog
 
     void dropView(ConnectorSession session, SchemaTableName schemaViewName);
 
-    List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace);
-
     Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace);
 
     Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName);
-
-    List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace);
 
     void createMaterializedView(
             ConnectorSession session,

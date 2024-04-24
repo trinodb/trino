@@ -18,9 +18,7 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.DynamicConfigurationProvider;
-import io.trino.hdfs.rubix.RubixEnabledConfig;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -35,7 +33,6 @@ public class HiveGcsModule
         newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(GoogleGcsConfigurationInitializer.class).in(Scopes.SINGLETON);
 
         if (buildConfigObject(HiveGcsConfig.class).isUseGcsAccessToken()) {
-            checkArgument(!buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(), "Use of GCS access token is not compatible with Hive caching");
             newSetBinder(binder, DynamicConfigurationProvider.class).addBinding().to(GcsConfigurationProvider.class).in(Scopes.SINGLETON);
         }
 

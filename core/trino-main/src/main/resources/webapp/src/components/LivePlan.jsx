@@ -18,14 +18,7 @@ import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
 
-import {
-    formatRows,
-    getStageStateColor,
-    initializeGraph,
-    initializeSvg,
-    parseAndFormatDataSize,
-    truncateString
-} from "../utils";
+import {formatRows, getStageStateColor, initializeGraph, initializeSvg, parseAndFormatDataSize, truncateString} from "../utils";
 import {QueryHeader} from "./QueryHeader";
 
 type StageStatisticsProps = {

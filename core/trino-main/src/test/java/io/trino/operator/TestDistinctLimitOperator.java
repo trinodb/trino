@@ -19,7 +19,6 @@ import io.trino.RowPagesBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.AfterAll;
@@ -55,7 +54,7 @@ public class TestDistinctLimitOperator
 {
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-    private final JoinCompiler joinCompiler = new JoinCompiler(new TypeOperators());
+    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators());
 
     @AfterAll
     public void tearDown()
@@ -87,7 +86,7 @@ public class TestDistinctLimitOperator
                 Ints.asList(0),
                 5,
                 rowPagesBuilder.getHashChannel(),
-                joinCompiler);
+                hashStrategyCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -123,7 +122,7 @@ public class TestDistinctLimitOperator
                 Ints.asList(0),
                 3,
                 rowPagesBuilder.getHashChannel(),
-                joinCompiler);
+                hashStrategyCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -158,7 +157,7 @@ public class TestDistinctLimitOperator
                 Ints.asList(0),
                 5,
                 rowPagesBuilder.getHashChannel(),
-                joinCompiler);
+                hashStrategyCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -188,7 +187,7 @@ public class TestDistinctLimitOperator
                 ImmutableList.of(0),
                 Integer.MAX_VALUE,
                 Optional.of(1),
-                joinCompiler);
+                hashStrategyCompiler);
 
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((DistinctLimitOperator) operator).getCapacity(), 450_000);
         assertGreaterThanOrEqual(result.getYieldCount(), 5);

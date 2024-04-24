@@ -153,7 +153,8 @@ public class TableChangesSplitSource
                 IcebergFileFormat.fromIceberg(task.file().format()),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                icebergTable.io().properties());
     }
 
     private TableChangesSplit toSplit(DeletedDataFileScanTask task)
@@ -171,6 +172,7 @@ public class TableChangesSplitSource
                 IcebergFileFormat.fromIceberg(task.file().format()),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                icebergTable.io().properties());
     }
 }

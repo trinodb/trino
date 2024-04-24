@@ -19,6 +19,8 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.TestingColumnHandle;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.Rule.Context;
@@ -31,8 +33,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,10 +52,10 @@ public class TestRuleTester
                             (node, captures, context) -> Result.ofPlanNode(node.replaceChildren(node.getSources()))))
                     .on(p ->
                             p.project(
-                                    Assignments.of(p.symbol("y"), expression("x")),
+                                    Assignments.of(p.symbol("y", INTEGER), new Reference(INTEGER, "x")),
                                     p.values(
                                             ImmutableList.of(p.symbol("x")),
-                                            ImmutableList.of(ImmutableList.of(expression("1"))))));
+                                            ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L))))));
 
             PlanMatchPattern expected = values(ImmutableList.of("different"), ImmutableList.of());
             assertThatThrownBy(() -> ruleAssert.matches(expected))
@@ -74,7 +76,7 @@ public class TestRuleTester
                     .on(p ->
                             p.values(
                                     List.of(p.symbol("x")),
-                                    List.of(List.of(expression("1")))));
+                                    List.of(List.of(new Constant(INTEGER, 1L)))));
 
             PlanMatchPattern expected = values(List.of("whatever"), List.of());
             assertThatThrownBy(() -> ruleAssert.matches(expected))

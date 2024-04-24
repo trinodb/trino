@@ -59,12 +59,10 @@ public class MySqlClientModule
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MySqlConfig mySqlConfig, OpenTelemetry openTelemetry)
             throws SQLException
     {
-        return new DriverConnectionFactory(
-                new Driver(),
-                config.getConnectionUrl(),
-                getConnectionProperties(mySqlConfig),
-                credentialProvider,
-                openTelemetry);
+        return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(getConnectionProperties(mySqlConfig))
+                .setOpenTelemetry(openTelemetry)
+                .build();
     }
 
     public static Properties getConnectionProperties(MySqlConfig mySqlConfig)

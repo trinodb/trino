@@ -52,11 +52,6 @@ public class TestingProperties
         return getProjectProperty("docker.images.version");
     }
 
-    public static String getConfluentVersion()
-    {
-        return getProjectProperty("confluent.version");
-    }
-
     private static String getProjectProperty(String name)
     {
         return requireNonNull(properties.get().getProperty(name), name + " is null");

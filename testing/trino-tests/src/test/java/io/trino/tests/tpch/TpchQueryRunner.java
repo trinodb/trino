@@ -16,7 +16,7 @@ package io.trino.tests.tpch;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 public final class TpchQueryRunner
 {
@@ -26,7 +26,7 @@ public final class TpchQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+        QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
                 .setExtraProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.http.port", "8080")
                         .put("sql.default-catalog", "tpch")

@@ -15,7 +15,6 @@ package io.trino.sql.jsonpath;
 
 import io.trino.sql.jsonpath.tree.PathNode;
 
-import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
 import static java.util.Objects.requireNonNull;
 
@@ -60,8 +59,7 @@ public final class PathNodeRef<T extends PathNode>
     @Override
     public String toString()
     {
-        return format(
-                "@%s: %s",
+        return "@%s: %s".formatted(
                 Integer.toHexString(identityHashCode(pathNode)),
                 pathNode);
     }

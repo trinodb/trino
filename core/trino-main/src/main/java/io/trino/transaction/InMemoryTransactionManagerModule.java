@@ -13,22 +13,19 @@
  */
 package io.trino.transaction;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
-import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.trino.metadata.CatalogManager;
 import io.trino.spi.VersionEmbedder;
-import jakarta.annotation.PreDestroy;
 
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
@@ -39,7 +36,9 @@ public class InMemoryTransactionManagerModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(TransactionManagerConfig.class);
-        binder.bind(ExecutorCleanup.class).asEagerSingleton();
+        closingBinder(binder)
+                .registerExecutor(ExecutorService.class, ForTransactionManager.class)
+                .registerExecutor(ScheduledExecutorService.class, ForTransactionManager.class);
     }
 
     @Provides
@@ -68,27 +67,5 @@ public class InMemoryTransactionManagerModule
             @ForTransactionManager ExecutorService finishingExecutor)
     {
         return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, versionEmbedder.embedVersion(finishingExecutor));
-    }
-
-    public static class ExecutorCleanup
-    {
-        private final List<ExecutorService> executors;
-
-        @Inject
-        public ExecutorCleanup(
-                @ForTransactionManager ExecutorService transactionFinishingExecutor,
-                @ForTransactionManager ScheduledExecutorService transactionIdleExecutor)
-        {
-            executors = ImmutableList.<ExecutorService>builder()
-                    .add(transactionFinishingExecutor)
-                    .add(transactionIdleExecutor)
-                    .build();
-        }
-
-        @PreDestroy
-        public void shutdown()
-        {
-            executors.forEach(ExecutorService::shutdownNow);
-        }
     }
 }

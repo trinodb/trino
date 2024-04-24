@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -144,7 +144,7 @@ public final class PropertyUtil
         Object sqlObjectValue;
         try {
             Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-            Object value = evaluateConstantExpression(rewritten, propertyType, plannerContext, session, accessControl, parameters);
+            Object value = evaluateConstant(rewritten, propertyType, plannerContext, session, accessControl);
 
             // convert to object value type of SQL type
             Block block = writeNativeValue(propertyType, value);

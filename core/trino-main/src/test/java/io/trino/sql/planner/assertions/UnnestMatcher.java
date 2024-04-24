@@ -17,11 +17,10 @@ import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UnnestNode.Mapping;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,16 +38,14 @@ final class UnnestMatcher
     private final List<String> replicateSymbols;
     private final List<PlanMatchPattern.UnnestMapping> unnestMappings;
     private final Optional<String> ordinalitySymbol;
-    private final JoinNode.Type type;
-    private final Optional<Expression> filter;
+    private final JoinType type;
 
-    public UnnestMatcher(List<String> replicateSymbols, List<PlanMatchPattern.UnnestMapping> unnestMappings, Optional<String> ordinalitySymbol, JoinNode.Type type, Optional<Expression> filter)
+    public UnnestMatcher(List<String> replicateSymbols, List<PlanMatchPattern.UnnestMapping> unnestMappings, Optional<String> ordinalitySymbol, JoinType type)
     {
         this.replicateSymbols = requireNonNull(replicateSymbols, "replicateSymbols is null");
         this.unnestMappings = requireNonNull(unnestMappings, "unnestMappings is null");
         this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
         this.type = requireNonNull(type, "type is null");
-        this.filter = requireNonNull(filter, "filter is null");
     }
 
     @Override
@@ -99,16 +96,6 @@ final class UnnestMatcher
             return NO_MATCH;
         }
 
-        if (filter.isPresent() != unnestNode.getFilter().isPresent()) {
-            return NO_MATCH;
-        }
-        if (filter.isEmpty()) {
-            return MatchResult.match();
-        }
-        if (!new ExpressionVerifier(symbolAliases).process(unnestNode.getFilter().get(), filter.get())) {
-            return NO_MATCH;
-        }
-
         return MatchResult.match();
     }
 
@@ -121,7 +108,6 @@ final class UnnestMatcher
                 .add("replicateSymbols", replicateSymbols)
                 .add("unnestMappings", unnestMappings)
                 .add("ordinalitySymbol", ordinalitySymbol.orElse(null))
-                .add("filter", filter.orElse(null))
                 .toString();
     }
 }

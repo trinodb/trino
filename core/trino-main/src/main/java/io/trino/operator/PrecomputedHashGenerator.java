@@ -17,6 +17,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.spi.type.BigintType.BIGINT;
 
 public class PrecomputedHashGenerator
         implements HashGenerator
@@ -32,7 +33,7 @@ public class PrecomputedHashGenerator
     public long hashPosition(int position, Page page)
     {
         Block hashBlock = page.getBlock(hashChannel);
-        return hashBlock.getLong(position, 0);
+        return BIGINT.getLong(hashBlock, position);
     }
 
     @Override

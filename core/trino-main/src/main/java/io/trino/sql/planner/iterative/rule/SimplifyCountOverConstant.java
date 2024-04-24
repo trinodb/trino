@@ -14,35 +14,29 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
-import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -84,7 +78,7 @@ public class SimplifyCountOverConstant
             Symbol symbol = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
 
-            if (isCountOverConstant(context.getSession(), aggregation, child.getAssignments())) {
+            if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
                 aggregations.put(symbol, new AggregationNode.Aggregation(
                         countFunction,
@@ -107,7 +101,7 @@ public class SimplifyCountOverConstant
                 .build());
     }
 
-    private boolean isCountOverConstant(Session session, AggregationNode.Aggregation aggregation, Assignments inputs)
+    private boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs)
     {
         BoundSignature signature = aggregation.getResolvedFunction().getSignature();
         if (!signature.getName().equals(COUNT_NAME) || signature.getArgumentTypes().size() != 1) {
@@ -115,24 +109,10 @@ public class SimplifyCountOverConstant
         }
 
         Expression argument = aggregation.getArguments().get(0);
-        if (argument instanceof SymbolReference) {
+        if (argument instanceof Reference) {
             argument = inputs.get(Symbol.from(argument));
         }
 
-        if (isEffectivelyLiteral(plannerContext, session, argument)) {
-            Object value = evaluateConstantExpression(
-                    argument,
-                    ImmutableMap.of(),
-                    ImmutableSet.of(),
-                    plannerContext,
-                    session,
-                    new AllowAllAccessControl(),
-                    ImmutableSet.of(),
-                    ImmutableMap.of());
-            verify(!(value instanceof Expression));
-            return value != null;
-        }
-
-        return false;
+        return argument instanceof Constant constant && constant.value() != null;
     }
 }

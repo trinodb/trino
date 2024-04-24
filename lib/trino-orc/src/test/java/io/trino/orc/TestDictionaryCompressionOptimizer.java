@@ -460,7 +460,7 @@ public class TestDictionaryCompressionOptimizer
                 for (TestDictionaryColumn dictionaryColumn : dictionaryColumns) {
                     dictionaryColumn.advanceTo(rowCount);
                 }
-                optimizer.optimize(toIntExact(getBufferedBytes()), getRowCount());
+                optimizer.optimize(getBufferedBytes(), getRowCount());
             }
         }
 

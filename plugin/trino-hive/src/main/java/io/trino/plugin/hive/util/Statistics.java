@@ -15,7 +15,6 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.metastore.BooleanStatistics;
@@ -50,7 +49,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Sets.intersection;
 import static io.trino.plugin.hive.HiveBasicStatistics.createZeroStatistics;
 import static io.trino.plugin.hive.HiveColumnStatisticType.MAX_VALUE;
 import static io.trino.plugin.hive.HiveColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
@@ -61,9 +59,6 @@ import static io.trino.plugin.hive.HiveColumnStatisticType.NUMBER_OF_TRUE_VALUES
 import static io.trino.plugin.hive.HiveColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
-import static io.trino.plugin.hive.util.Statistics.ReduceOperator.ADD;
-import static io.trino.plugin.hive.util.Statistics.ReduceOperator.MAX;
-import static io.trino.plugin.hive.util.Statistics.ReduceOperator.MIN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -78,182 +73,6 @@ import static java.util.Objects.requireNonNull;
 public final class Statistics
 {
     private Statistics() {}
-
-    public static PartitionStatistics merge(PartitionStatistics first, PartitionStatistics second)
-    {
-        if (first.getBasicStatistics().getRowCount().isPresent() && first.getBasicStatistics().getRowCount().getAsLong() == 0) {
-            return second;
-        }
-        if (second.getBasicStatistics().getRowCount().isPresent() && second.getBasicStatistics().getRowCount().getAsLong() == 0) {
-            return first;
-        }
-
-        return new PartitionStatistics(
-                reduce(first.getBasicStatistics(), second.getBasicStatistics(), ADD),
-                merge(first.getColumnStatistics(), second.getColumnStatistics()));
-    }
-
-    public static HiveBasicStatistics reduce(HiveBasicStatistics first, HiveBasicStatistics second, ReduceOperator operator)
-    {
-        return new HiveBasicStatistics(
-                reduce(first.getFileCount(), second.getFileCount(), operator, false),
-                reduce(first.getRowCount(), second.getRowCount(), operator, false),
-                reduce(first.getInMemoryDataSizeInBytes(), second.getInMemoryDataSizeInBytes(), operator, false),
-                reduce(first.getOnDiskDataSizeInBytes(), second.getOnDiskDataSizeInBytes(), operator, false));
-    }
-
-    public static Map<String, HiveColumnStatistics> merge(Map<String, HiveColumnStatistics> first, Map<String, HiveColumnStatistics> second)
-    {
-        // only keep columns that have statistics for both sides
-        Set<String> columns = intersection(first.keySet(), second.keySet());
-        return columns.stream()
-                .collect(toImmutableMap(
-                        column -> column,
-                        column -> merge(first.get(column), second.get(column))));
-    }
-
-    public static HiveColumnStatistics merge(HiveColumnStatistics first, HiveColumnStatistics second)
-    {
-        return new HiveColumnStatistics(
-                mergeIntegerStatistics(first.getIntegerStatistics(), second.getIntegerStatistics()),
-                mergeDoubleStatistics(first.getDoubleStatistics(), second.getDoubleStatistics()),
-                mergeDecimalStatistics(first.getDecimalStatistics(), second.getDecimalStatistics()),
-                mergeDateStatistics(first.getDateStatistics(), second.getDateStatistics()),
-                mergeBooleanStatistics(first.getBooleanStatistics(), second.getBooleanStatistics()),
-                reduce(first.getMaxValueSizeInBytes(), second.getMaxValueSizeInBytes(), MAX, true),
-                reduce(first.getTotalSizeInBytes(), second.getTotalSizeInBytes(), ADD, true),
-                reduce(first.getNullsCount(), second.getNullsCount(), ADD, false),
-                reduce(first.getDistinctValuesCount(), second.getDistinctValuesCount(), MAX, false));
-    }
-
-    private static Optional<IntegerStatistics> mergeIntegerStatistics(Optional<IntegerStatistics> first, Optional<IntegerStatistics> second)
-    {
-        // normally, either both or none is present
-        if (first.isPresent() && second.isPresent()) {
-            return Optional.of(new IntegerStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<DoubleStatistics> mergeDoubleStatistics(Optional<DoubleStatistics> first, Optional<DoubleStatistics> second)
-    {
-        // normally, either both or none is present
-        if (first.isPresent() && second.isPresent()) {
-            return Optional.of(new DoubleStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<DecimalStatistics> mergeDecimalStatistics(Optional<DecimalStatistics> first, Optional<DecimalStatistics> second)
-    {
-        // normally, either both or none is present
-        if (first.isPresent() && second.isPresent()) {
-            return Optional.of(new DecimalStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<DateStatistics> mergeDateStatistics(Optional<DateStatistics> first, Optional<DateStatistics> second)
-    {
-        // normally, either both or none is present
-        if (first.isPresent() && second.isPresent()) {
-            return Optional.of(new DateStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<BooleanStatistics> mergeBooleanStatistics(Optional<BooleanStatistics> first, Optional<BooleanStatistics> second)
-    {
-        // normally, either both or none is present
-        if (first.isPresent() && second.isPresent()) {
-            return Optional.of(new BooleanStatistics(
-                    reduce(first.get().getTrueCount(), second.get().getTrueCount(), ADD, false),
-                    reduce(first.get().getFalseCount(), second.get().getFalseCount(), ADD, false)));
-        }
-        return Optional.empty();
-    }
-
-    private static OptionalLong reduce(OptionalLong first, OptionalLong second, ReduceOperator operator, boolean returnFirstNonEmpty)
-    {
-        if (first.isPresent() && second.isPresent()) {
-            switch (operator) {
-                case ADD:
-                    return OptionalLong.of(first.getAsLong() + second.getAsLong());
-                case SUBTRACT:
-                    return OptionalLong.of(first.getAsLong() - second.getAsLong());
-                case MAX:
-                    return OptionalLong.of(max(first.getAsLong(), second.getAsLong()));
-                case MIN:
-                    return OptionalLong.of(min(first.getAsLong(), second.getAsLong()));
-            }
-            throw new IllegalArgumentException("Unexpected operator: " + operator);
-        }
-        if (returnFirstNonEmpty) {
-            return first.isPresent() ? first : second;
-        }
-        return OptionalLong.empty();
-    }
-
-    private static OptionalDouble reduce(OptionalDouble first, OptionalDouble second, ReduceOperator operator, boolean returnFirstNonEmpty)
-    {
-        if (first.isPresent() && second.isPresent()) {
-            switch (operator) {
-                case ADD:
-                    return OptionalDouble.of(first.getAsDouble() + second.getAsDouble());
-                case SUBTRACT:
-                    return OptionalDouble.of(first.getAsDouble() - second.getAsDouble());
-                case MAX:
-                    return OptionalDouble.of(max(first.getAsDouble(), second.getAsDouble()));
-                case MIN:
-                    return OptionalDouble.of(min(first.getAsDouble(), second.getAsDouble()));
-            }
-            throw new IllegalArgumentException("Unexpected operator: " + operator);
-        }
-        if (returnFirstNonEmpty) {
-            return first.isPresent() ? first : second;
-        }
-        return OptionalDouble.empty();
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T extends Comparable<? super T>> Optional<T> reduce(Optional<T> first, Optional<T> second, ReduceOperator operator, boolean returnFirstNonEmpty)
-    {
-        if (first.isPresent() && second.isPresent()) {
-            switch (operator) {
-                case ADD:
-                case SUBTRACT:
-                    // unsupported
-                    break;
-                case MAX:
-                    return Optional.of(max(first.get(), second.get()));
-                case MIN:
-                    return Optional.of(min(first.get(), second.get()));
-            }
-            throw new IllegalArgumentException("Unexpected operator: " + operator);
-        }
-        if (returnFirstNonEmpty) {
-            return first.isPresent() ? first : second;
-        }
-        return Optional.empty();
-    }
-
-    private static <T extends Comparable<? super T>> T max(T first, T second)
-    {
-        return first.compareTo(second) >= 0 ? first : second;
-    }
-
-    private static <T extends Comparable<? super T>> T min(T first, T second)
-    {
-        return first.compareTo(second) <= 0 ? first : second;
-    }
 
     public static PartitionStatistics createEmptyPartitionStatistics(Map<String, Type> columnTypes, Map<String, Set<HiveColumnStatisticType>> columnStatisticsMetadataTypes)
     {
@@ -279,10 +98,10 @@ public final class Statistics
                 result.setMaxValueSizeInBytes(0);
                 return;
             case TOTAL_SIZE_IN_BYTES:
-                result.setTotalSizeInBytes(0);
+                result.setAverageColumnLength(0);
                 return;
             case NUMBER_OF_DISTINCT_VALUES:
-                result.setDistinctValuesCount(0);
+                result.setDistinctValuesWithNullCount(0);
                 return;
             case NUMBER_OF_NON_NULL_VALUES:
                 result.setNullsCount(0);
@@ -361,7 +180,7 @@ public final class Statistics
     }
 
     @VisibleForTesting
-    static HiveColumnStatistics createHiveColumnStatistics(
+    public static HiveColumnStatistics createHiveColumnStatistics(
             Map<HiveColumnStatisticType, Block> computedStatistics,
             Type columnType,
             long rowCount)
@@ -382,7 +201,9 @@ public final class Statistics
 
         // TOTAL_VALUES_SIZE_IN_BYTES
         if (computedStatistics.containsKey(TOTAL_SIZE_IN_BYTES)) {
-            result.setTotalSizeInBytes(getIntegerValue(BIGINT, computedStatistics.get(TOTAL_SIZE_IN_BYTES)));
+            OptionalLong totalSizeInBytes = getIntegerValue(BIGINT, computedStatistics.get(TOTAL_SIZE_IN_BYTES));
+            OptionalLong numNonNullValues = getIntegerValue(BIGINT, computedStatistics.get(NUMBER_OF_NON_NULL_VALUES));
+            result.setAverageColumnLength(getAverageColumnLength(totalSizeInBytes, numNonNullValues));
         }
 
         // NUMBER OF NULLS
@@ -395,12 +216,8 @@ public final class Statistics
             // number of distinct value is estimated using HLL, and can be higher than the number of non null values
             long numberOfNonNullValues = BIGINT.getLong(computedStatistics.get(NUMBER_OF_NON_NULL_VALUES), 0);
             long numberOfDistinctValues = BIGINT.getLong(computedStatistics.get(NUMBER_OF_DISTINCT_VALUES), 0);
-            if (numberOfDistinctValues > numberOfNonNullValues) {
-                result.setDistinctValuesCount(numberOfNonNullValues);
-            }
-            else {
-                result.setDistinctValuesCount(numberOfDistinctValues);
-            }
+            // Hive expects NDV to be one greater when column has a null
+            result.setDistinctValuesWithNullCount(Math.min(numberOfDistinctValues, numberOfNonNullValues) + (rowCount > numberOfNonNullValues ? 1 : 0));
         }
 
         // NUMBER OF FALSE, NUMBER OF TRUE
@@ -480,11 +297,16 @@ public final class Statistics
         return Optional.of(Decimals.readBigDecimal((DecimalType) type, block, 0));
     }
 
-    public enum ReduceOperator
+    private static OptionalDouble getAverageColumnLength(OptionalLong totalSizeInBytes, OptionalLong numNonNullValues)
     {
-        ADD,
-        SUBTRACT,
-        MIN,
-        MAX,
+        if (totalSizeInBytes.isEmpty() || numNonNullValues.isEmpty()) {
+            return OptionalDouble.empty();
+        }
+
+        long nonNullsCount = numNonNullValues.getAsLong();
+        if (nonNullsCount <= 0) {
+            return OptionalDouble.empty();
+        }
+        return OptionalDouble.of(((double) totalSizeInBytes.getAsLong()) / nonNullsCount);
     }
 }

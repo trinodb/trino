@@ -14,10 +14,10 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.NodeRef;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.NodeRef;
 
 import java.util.Map;
 

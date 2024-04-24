@@ -16,6 +16,7 @@ package io.trino.spi.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Array;
@@ -110,12 +111,13 @@ public class TestRowBlockFieldExtraction
 
         for (int fieldId = 0; fieldId < 5; fieldId++) {
             Block fieldBlock = nullSuppressedFields.get(fieldId);
+            Type fieldType = rowType.getTypeParameters().get(fieldId);
             for (int position = 0; position < expectedValues.length; position++) {
                 T expectedRow = expectedValues[position];
                 assertThat(block.isNull(position)).isEqualTo(expectedRow == null);
 
                 Object expectedElement = expectedRow == null ? null : Array.get(expectedRow, fieldId);
-                assertBlockPosition(rowType, fieldBlock, position, expectedElement);
+                assertBlockPosition(fieldType, fieldBlock, position, expectedElement);
             }
         }
     }
@@ -127,6 +129,7 @@ public class TestRowBlockFieldExtraction
 
         for (int fieldId = 0; fieldId < 5; fieldId++) {
             Block fieldBlock = nullSuppressedFields.get(fieldId);
+            Type fieldType = rowType.getTypeParameters().get(fieldId);
             int nullSuppressedPosition = 0;
             for (int position = 0; position < expectedValues.length; position++) {
                 T expectedRow = expectedValues[position];
@@ -135,7 +138,7 @@ public class TestRowBlockFieldExtraction
                     continue;
                 }
                 Object expectedElement = Array.get(expectedRow, fieldId);
-                assertBlockPosition(rowType, fieldBlock, nullSuppressedPosition, expectedElement);
+                assertBlockPosition(fieldType, fieldBlock, nullSuppressedPosition, expectedElement);
                 nullSuppressedPosition++;
             }
         }

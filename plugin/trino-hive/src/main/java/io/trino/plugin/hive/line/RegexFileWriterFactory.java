@@ -28,8 +28,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.hive.formats.HiveClassNames.REGEX_SERDE_CLASS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
-import static io.trino.plugin.hive.util.HiveClassNames.REGEX_SERDE_CLASS;
 
 public class RegexFileWriterFactory
         implements HiveFileWriterFactory

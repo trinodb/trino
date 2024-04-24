@@ -28,7 +28,7 @@ import java.util.Map;
 import static org.apache.hadoop.hive.serde2.lazy.LazyFactory.createLazyObject;
 import static org.apache.hadoop.hive.serde2.lazy.objectinspector.LazyObjectInspectorFactory.getLazySimpleMapObjectInspector;
 import static org.apache.hadoop.hive.serde2.lazy.objectinspector.primitive.LazyPrimitiveObjectInspectorFactory.getLazyStringObjectInspector;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLazyMap
 {
@@ -45,7 +45,7 @@ public class TestLazyMap
         assertMapDecode("\\N\u0003ignored\u0002\u0003", ImmutableMap.of(lazyString(""), lazyString("")));
 
         HashMap<Object, Object> expectedMap = new HashMap<>();
-        expectedMap.put("null", null);
+        expectedMap.put(lazyString("null"), null);
         assertMapDecode("\\N\u0003ignored\u0002null\u0003\\N", expectedMap);
     }
 
@@ -63,7 +63,7 @@ public class TestLazyMap
         lazyMap.init(newByteArrayRef(encodedMap), 0, encodedMap.length());
 
         Map<Object, Object> map = lazyMap.getMap();
-        assertEquals(map, expectedMap);
+        assertThat(map).isEqualTo(expectedMap);
     }
 
     private static LazyString lazyString(String string)

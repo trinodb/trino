@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.testing.QueryRunner;
@@ -21,9 +22,6 @@ import io.trino.testing.containers.Minio;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
-import java.io.OutputStream;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -132,9 +130,8 @@ public class TestIcebergMinioOrcConnectorTest
         checkArgument(expectedValue != 0);
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_as_integer", "(\"_col0\") AS VALUES 0, NULL")) {
             String orcFilePath = (String) computeScalar(format("SELECT DISTINCT file_path FROM \"%s$files\"", table.getName()));
-            try (OutputStream outputStream = fileSystem.newOutputFile(Location.of(orcFilePath)).createOrOverwrite()) {
-                Files.copy(new File(getResource(orcFileResourceName).toURI()).toPath(), outputStream);
-            }
+            byte[] orcFileData = Resources.toByteArray(getResource(orcFileResourceName));
+            fileSystem.newOutputFile(Location.of(orcFilePath)).createOrOverwrite(orcFileData);
             fileSystem.deleteFiles(List.of(Location.of(orcFilePath.replaceAll("/([^/]*)$", ".$1.crc"))));
 
             Session ignoreFileSizeFromMetadata = Session.builder(getSession())

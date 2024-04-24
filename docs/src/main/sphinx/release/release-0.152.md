@@ -25,9 +25,9 @@
 
 - Fix resource leak in Parquet reader.
 - Rename JMX stat `AllViews` to `GetAllViews` in `ThriftHiveMetastore`.
-- Add file based security, which can be configured with the `hive.security`
-  and `security.config-file` config properties. See {doc}`/connector/hive-security`
-  for more details.
+- Add file based security, which can be configured with the `hive.security` and
+  `security.config-file` config properties. See [](hive-security) for more
+  details.
 - Add support for custom S3 credentials providers using the
   `presto.s3.credentials-provider` Hadoop configuration property.
 

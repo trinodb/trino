@@ -103,7 +103,7 @@ public class TpchRecordSetProvider
         @Override
         public long getIdentifier(E entity)
         {
-            return entity.getRowNumber();
+            return entity.rowNumber();
         }
 
         @Override

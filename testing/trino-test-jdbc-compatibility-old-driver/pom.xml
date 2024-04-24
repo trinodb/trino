@@ -5,17 +5,17 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>435</version>
+        <version>444</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-test-jdbc-compatibility-old-driver</artifactId>
-    <description>Trino - Tests whether older Trino JDBC clients are compatible with current Trino server</description>
+    <description>Trino - Old JDBC driver compatibility tests</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <!-- Version needs to be hardcoded for the release plugin to work. It will be updated by the release plugin. -->
-        <dep.presto-jdbc-under-test>435</dep.presto-jdbc-under-test>
+        <dep.presto-jdbc-under-test>444</dep.presto-jdbc-under-test>
     </properties>
 
     <dependencies>

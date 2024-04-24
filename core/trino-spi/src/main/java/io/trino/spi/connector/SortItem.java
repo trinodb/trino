@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
 
@@ -66,12 +67,9 @@ public class SortItem
     @Override
     public String toString()
     {
-        return new StringBuilder("SortItem{")
-                .append("name=")
-                .append(name)
-                .append(", sortOrder=")
-                .append(sortOrder)
-                .append("}")
+        return new StringJoiner(", ", SortItem.class.getSimpleName() + "[", "]")
+                .add("name='" + name + "'")
+                .add("sortOrder=" + sortOrder)
                 .toString();
     }
 }

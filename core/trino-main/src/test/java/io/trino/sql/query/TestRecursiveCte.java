@@ -22,7 +22,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import static io.trino.SystemSessionProperties.MAX_RECURSION_DEPTH;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -276,13 +275,13 @@ public class TestRecursiveCte
     @Test
     public void testRecursionDepthLimitExceeded()
     {
-        assertThatThrownBy(() -> assertions.query("WITH RECURSIVE t(n) AS (" +
+        assertThat(assertions.query("WITH RECURSIVE t(n) AS (" +
                 "          SELECT 1" +
                 "          UNION ALL" +
                 "          SELECT * FROM t" +
                 "          )" +
                 "          SELECT * FROM t"))
-                .hasMessage("Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.", getMaxRecursionDepth(assertions.getDefaultSession()));
+                .failure().hasMessage("Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.", getMaxRecursionDepth(assertions.getDefaultSession()));
     }
 
     @Test

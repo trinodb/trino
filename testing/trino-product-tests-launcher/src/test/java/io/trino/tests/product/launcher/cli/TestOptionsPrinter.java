@@ -14,7 +14,7 @@
 package io.trino.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 

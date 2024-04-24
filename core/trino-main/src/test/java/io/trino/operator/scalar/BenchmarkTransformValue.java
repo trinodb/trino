@@ -27,6 +27,7 @@ import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.LambdaDefinitionExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.VariableReferenceExpression;
@@ -130,8 +131,7 @@ public class BenchmarkTransformValue
             projectionsBuilder.add(call(resolvedFunction, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
-                            ImmutableList.of(elementType, elementType),
-                            ImmutableList.of("x", "y"),
+                            ImmutableList.of(new Symbol(elementType, "x"), new Symbol(elementType, "y")),
                             call(lessThan, ImmutableList.of(
                                     constant(compareValue, elementType),
                                     new VariableReferenceExpression("y", elementType)))))));

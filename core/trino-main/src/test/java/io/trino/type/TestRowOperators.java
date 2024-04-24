@@ -31,7 +31,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -115,7 +114,7 @@ public class TestRowOperators
     public void testRowTypeLookup()
     {
         TypeSignature signature = RowType.from(ImmutableList.of(field("b", BIGINT))).getTypeSignature();
-        Type type = ((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getTypeManager().getType(signature);
+        Type type = assertions.getQueryRunner().getPlannerContext().getTypeManager().getType(signature);
         assertThat(type.getTypeSignature().getParameters().size()).isEqualTo(1);
         assertThat(type.getTypeSignature().getParameters().get(0).getNamedTypeSignature().getName().get()).isEqualTo("b");
     }
@@ -935,7 +934,7 @@ public class TestRowOperators
             if (fieldValue != null) {
                 Type fieldType = types.get(i);
                 try {
-                    fieldHashCode = (long) ((LocalQueryRunner) assertions.getQueryRunner()).getTypeOperators().getHashCodeOperator(fieldType, simpleConvention(FAIL_ON_NULL, NEVER_NULL))
+                    fieldHashCode = (long) assertions.getQueryRunner().getPlannerContext().getTypeOperators().getHashCodeOperator(fieldType, simpleConvention(FAIL_ON_NULL, NEVER_NULL))
                             .invoke(fieldValue);
                 }
                 catch (Throwable throwable) {

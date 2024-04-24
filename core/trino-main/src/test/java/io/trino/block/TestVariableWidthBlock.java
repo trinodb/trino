@@ -135,9 +135,9 @@ public class TestVariableWidthBlock
         testCompactBlock(new VariableWidthBlock(0, EMPTY_SLICE, new int[1], Optional.empty()));
         testCompactBlock(new VariableWidthBlock(valueIsNull.length, compactSlice, offsets, Optional.of(valueIsNull)));
 
-        testIncompactBlock(new VariableWidthBlock(valueIsNull.length - 1, compactSlice, offsets, Optional.of(valueIsNull)));
+        testNotCompactBlock(new VariableWidthBlock(valueIsNull.length - 1, compactSlice, offsets, Optional.of(valueIsNull)));
         // underlying slice is not compact
-        testIncompactBlock(new VariableWidthBlock(valueIsNull.length, incompactSlice, offsets, Optional.of(valueIsNull)));
+        testNotCompactBlock(new VariableWidthBlock(valueIsNull.length, incompactSlice, offsets, Optional.of(valueIsNull)));
     }
 
     private void assertVariableWithValues(Slice[] expectedValues)
@@ -163,5 +163,17 @@ public class TestVariableWidthBlock
             }
         }
         return blockBuilder;
+    }
+
+    @Override
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
+    {
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
+
+        assertThat(block.isNull(position)).isFalse();
+        assertThat(((VariableWidthBlock) block).getSlice(position)).isEqualTo(expectedValue);
     }
 }

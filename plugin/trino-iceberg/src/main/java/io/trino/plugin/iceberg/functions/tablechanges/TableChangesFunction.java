@@ -134,24 +134,28 @@ public class TableChangesFunction
                 VarcharType.createUnboundedVarcharType(),
                 ImmutableList.of(),
                 VarcharType.createUnboundedVarcharType(),
+                false,
                 Optional.empty()));
         columnHandlesBuilder.add(new IcebergColumnHandle(
                 new ColumnIdentity(DATA_CHANGE_VERSION_ID, DATA_CHANGE_VERSION_NAME, PRIMITIVE, ImmutableList.of()),
                 BIGINT,
                 ImmutableList.of(),
                 BIGINT,
+                false,
                 Optional.empty()));
         columnHandlesBuilder.add(new IcebergColumnHandle(
                 new ColumnIdentity(DATA_CHANGE_TIMESTAMP_ID, DATA_CHANGE_TIMESTAMP_NAME, PRIMITIVE, ImmutableList.of()),
                 TIMESTAMP_TZ_MILLIS,
                 ImmutableList.of(),
                 TIMESTAMP_TZ_MILLIS,
+                false,
                 Optional.empty()));
         columnHandlesBuilder.add(new IcebergColumnHandle(
                 new ColumnIdentity(DATA_CHANGE_ORDINAL_ID, DATA_CHANGE_ORDINAL_NAME, PRIMITIVE, ImmutableList.of()),
                 INTEGER,
                 ImmutableList.of(),
                 INTEGER,
+                false,
                 Optional.empty()));
         List<IcebergColumnHandle> columnHandles = columnHandlesBuilder.build();
 

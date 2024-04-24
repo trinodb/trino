@@ -44,6 +44,6 @@ public class SetDigestStateSerializer
     @Override
     public void deserialize(Block block, int index, SetDigestState state)
     {
-        state.setDigest(SetDigest.newInstance(block.getSlice(index, 0, block.getSliceLength(index))));
+        state.setDigest(SetDigest.newInstance(SET_DIGEST.getSlice(block, index)));
     }
 }

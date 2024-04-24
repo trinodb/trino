@@ -27,10 +27,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.BatchScanner;
-import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.security.Authorizations;
 
 import java.util.List;
@@ -59,7 +59,7 @@ public class AccumuloRecordSet
     private final String rowIdName;
 
     public AccumuloRecordSet(
-            Connector connector,
+            AccumuloClient client,
             ConnectorSession session,
             AccumuloSplit split,
             String username,
@@ -85,7 +85,7 @@ public class AccumuloRecordSet
 
         try {
             // Create the BatchScanner and set the ranges from the split
-            scanner = connector.createBatchScanner(table.getFullTableName(), getScanAuthorizations(session, table, connector, username), 10);
+            scanner = client.createBatchScanner(table.getFullTableName(), getScanAuthorizations(session, table, client, username), 10);
             scanner.setRanges(split.getRanges());
         }
         catch (Exception e) {
@@ -96,22 +96,22 @@ public class AccumuloRecordSet
     /**
      * Gets the scanner authorizations to use for scanning tables.
      * <p>
-     * In order of priority: session username authorizations, then table property, then the default connector auths.
+     * In order of priority: session username authorizations, then table property, then the default client auths.
      *
      * @param session Current session
      * @param table Accumulo table
-     * @param connector Accumulo connector
+     * @param client Accumulo client
      * @param username Accumulo username
      * @return Scan authorizations
      * @throws AccumuloException If a generic Accumulo error occurs
      * @throws AccumuloSecurityException If a security exception occurs
      */
-    private static Authorizations getScanAuthorizations(ConnectorSession session, AccumuloTableHandle table, Connector connector, String username)
+    private static Authorizations getScanAuthorizations(ConnectorSession session, AccumuloTableHandle table, AccumuloClient client, String username)
             throws AccumuloException, AccumuloSecurityException
     {
         String sessionScanUser = AccumuloSessionProperties.getScanUsername(session);
         if (sessionScanUser != null) {
-            Authorizations scanAuths = connector.securityOperations().getUserAuthorizations(sessionScanUser);
+            Authorizations scanAuths = client.securityOperations().getUserAuthorizations(sessionScanUser);
             LOG.debug("Using session scanner auths for user %s: %s", sessionScanUser, scanAuths);
             return scanAuths;
         }
@@ -122,7 +122,7 @@ public class AccumuloRecordSet
             LOG.debug("scan_auths table property set: %s", auths);
             return auths;
         }
-        Authorizations auths = connector.securityOperations().getUserAuthorizations(username);
+        Authorizations auths = client.securityOperations().getUserAuthorizations(username);
         LOG.debug("scan_auths table property not set, using user auths: %s", auths);
         return auths;
     }

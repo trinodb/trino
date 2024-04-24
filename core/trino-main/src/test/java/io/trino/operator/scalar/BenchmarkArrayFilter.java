@@ -33,6 +33,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.LambdaDefinitionExpression;
 import io.trino.sql.relational.RowExpression;
@@ -153,8 +154,7 @@ public class BenchmarkArrayFilter
                 projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(
                         field(0, arrayType),
                         new LambdaDefinitionExpression(
-                                ImmutableList.of(BIGINT),
-                                ImmutableList.of("x"),
+                                ImmutableList.of(new Symbol(BIGINT, "x")),
                                 new CallExpression(lessThan, ImmutableList.of(constant(0L, BIGINT), new VariableReferenceExpression("x", BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
@@ -219,8 +219,7 @@ public class BenchmarkArrayFilter
                 projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(
                         field(0, arrayType),
                         new LambdaDefinitionExpression(
-                                ImmutableList.of(elementType),
-                                ImmutableList.of("x"),
+                                ImmutableList.of(new Symbol(elementType, "x")),
                                 new CallExpression(
                                         lessThan,
                                         ImmutableList.of(

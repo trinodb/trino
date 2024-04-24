@@ -32,7 +32,6 @@ import io.trino.tests.product.launcher.env.EnvironmentFactory;
 import io.trino.tests.product.launcher.env.EnvironmentModule;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
 import io.trino.tests.product.launcher.env.jdk.JdkProvider;
-import io.trino.tests.product.launcher.env.jdk.JdkProviderFactory;
 import io.trino.tests.product.launcher.testcontainers.ExistingNetwork;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
@@ -177,7 +176,7 @@ public final class TestRun
         @Inject
         public Execution(
                 EnvironmentFactory environmentFactory,
-                JdkProviderFactory jdkProviderFactory,
+                JdkProvider jdkProvider,
                 EnvironmentOptions environmentOptions,
                 EnvironmentConfig environmentConfig,
                 TestRunOptions testRunOptions,
@@ -187,7 +186,7 @@ public final class TestRun
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
             this.debugSuspend = testRunOptions.debugSuspend;
-            this.jdkProvider = jdkProviderFactory.get(requireNonNull(environmentOptions.jdkProvider, "environmentOptions.jdkProvider is null"));
+            this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
             this.testJar = requireNonNull(testRunOptions.testJar, "testRunOptions.testJar is null");
             this.cliJar = requireNonNull(testRunOptions.cliJar, "testRunOptions.cliJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testRunOptions.testArguments is null"));
@@ -266,7 +265,7 @@ public final class TestRun
             if (impactedFeatures.isEmpty()) {
                 return true;
             }
-            if (impactedFeatures.get().size() == 0) {
+            if (impactedFeatures.get().isEmpty()) {
                 return false;
             }
             Map<String, List<String>> featuresByName = impactedFeatures.get().stream().collect(groupingBy(feature -> {

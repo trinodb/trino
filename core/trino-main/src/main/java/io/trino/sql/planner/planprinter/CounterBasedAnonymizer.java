@@ -22,31 +22,20 @@ import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
-import io.trino.sql.ExpressionFormatter;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionFormatter;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SystemPartitioningHandle;
-import io.trino.sql.tree.BinaryLiteral;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.CharLiteral;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.Partitioning.ArgumentBinding;
 import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsHandle;
 import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsTarget;
@@ -56,7 +45,6 @@ import static io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.RefreshMaterializedViewTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
@@ -111,50 +99,20 @@ public class CounterBasedAnonymizer
         return anonymizeExpressionFormatter.process(expression);
     }
 
-    private String anonymizeSymbolReference(SymbolReference node)
+    private String anonymizeSymbolReference(Reference node)
     {
         return '"' + anonymize(Symbol.from(node)) + '"';
     }
 
-    private String anonymizeLiteral(Literal node)
+    private String anonymizeLiteral(Constant literal)
     {
-        if (node instanceof StringLiteral literal) {
-            return anonymizeLiteral("string", literal.getValue());
-        }
-        if (node instanceof GenericLiteral literal) {
-            return anonymizeLiteral(literal.getType(), literal.getValue());
-        }
-        if (node instanceof CharLiteral literal) {
-            return anonymizeLiteral("char", literal.getValue());
-        }
-        if (node instanceof BinaryLiteral literal) {
-            return anonymizeLiteral("binary", new String(literal.getValue(), UTF_8));
-        }
-        if (node instanceof DecimalLiteral literal) {
-            return anonymizeLiteral("decimal", literal.getValue());
-        }
-        if (node instanceof DoubleLiteral literal) {
-            return anonymizeLiteral("double", literal.getValue());
-        }
-        if (node instanceof LongLiteral literal) {
-            return anonymizeLiteral("long", literal.getParsedValue());
-        }
-        if (node instanceof TimestampLiteral literal) {
-            return anonymizeLiteral("timestamp", literal.getValue());
-        }
-        if (node instanceof TimeLiteral literal) {
-            return anonymizeLiteral("time", literal.getValue());
-        }
-        if (node instanceof IntervalLiteral literal) {
-            return anonymizeLiteral("interval", literal.getValue());
-        }
-        if (node instanceof BooleanLiteral literal) {
-            return String.valueOf(literal.getValue());
-        }
-        if (node instanceof NullLiteral) {
+        if (literal.value() == null) {
             return "null";
         }
-        throw new UnsupportedOperationException("Anonymization is not supported for literal " + node);
+        if (literal.type().equals(BOOLEAN)) {
+            return literal.value().toString();
+        }
+        return anonymizeLiteral(literal.type().getDisplayName(), literal.value());
     }
 
     private <T> String anonymizeLiteral(String type, T value)
@@ -187,7 +145,7 @@ public class CounterBasedAnonymizer
     public String anonymize(IndexHandle indexHandle)
     {
         return formatMap(ImmutableMap.of(
-                "catalog", anonymize(indexHandle.getCatalogHandle().getCatalogName(), ObjectType.CATALOG),
+                "catalog", anonymize(indexHandle.getCatalogHandle().getCatalogName().toString(), ObjectType.CATALOG),
                 "connectorHandleType", indexHandle.getConnectorHandle().getClass().getSimpleName()));
     }
 
@@ -207,7 +165,7 @@ public class CounterBasedAnonymizer
         ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder()
                 .put("connectorHandleType", connectorHandle.getClass().getSimpleName());
         partitioningHandle.getCatalogHandle()
-                .ifPresent(catalog -> result.put("catalog", anonymize(catalog.getCatalogName(), ObjectType.CATALOG)));
+                .ifPresent(catalog -> result.put("catalog", anonymize(catalog.getCatalogName().toString(), ObjectType.CATALOG)));
 
         if (connectorHandle instanceof SystemPartitioningHandle) {
             result.put("partitioning", ((SystemPartitioningHandle) connectorHandle).getPartitioningName())
@@ -242,7 +200,7 @@ public class CounterBasedAnonymizer
     {
         if (target instanceof WriteStatisticsHandle) {
             return anonymize(
-                    ((WriteStatisticsHandle) target).getHandle().getCatalogHandle().getCatalogName(),
+                    ((WriteStatisticsHandle) target).getHandle().getCatalogHandle().getCatalogName().toString(),
                     ObjectType.CATALOG);
         }
         throw new UnsupportedOperationException("Anonymization is not supported for WriterTarget type: " + target.getClass().getSimpleName());
@@ -251,19 +209,19 @@ public class CounterBasedAnonymizer
     @Override
     public String anonymize(TableHandle tableHandle)
     {
-        return anonymize(tableHandle.getCatalogHandle().getCatalogName(), ObjectType.CATALOG);
+        return anonymize(tableHandle.getCatalogHandle().getCatalogName().toString(), ObjectType.CATALOG);
     }
 
     @Override
     public String anonymize(TableExecuteHandle tableHandle)
     {
-        return anonymize(tableHandle.getCatalogHandle().getCatalogName(), ObjectType.CATALOG);
+        return anonymize(tableHandle.getCatalogHandle().getCatalogName().toString(), ObjectType.CATALOG);
     }
 
     private String anonymize(CreateTarget target)
     {
         return anonymize(
-                target.getHandle().getCatalogHandle().getCatalogName(),
+                target.getHandle().getCatalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }
@@ -271,7 +229,7 @@ public class CounterBasedAnonymizer
     private String anonymize(InsertTarget target)
     {
         return anonymize(
-                target.getHandle().getCatalogHandle().getCatalogName(),
+                target.getHandle().getCatalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }
@@ -279,7 +237,7 @@ public class CounterBasedAnonymizer
     private String anonymize(MergeTarget target)
     {
         return anonymize(
-                target.getHandle().getCatalogHandle().getCatalogName(),
+                target.getHandle().getCatalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }
@@ -287,7 +245,7 @@ public class CounterBasedAnonymizer
     private String anonymize(RefreshMaterializedViewTarget target)
     {
         return anonymize(
-                target.getInsertHandle().getCatalogHandle().getCatalogName(),
+                target.getInsertHandle().getCatalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }
@@ -295,7 +253,7 @@ public class CounterBasedAnonymizer
     private String anonymize(TableExecuteTarget target)
     {
         return anonymize(
-                target.getExecuteHandle().getCatalogHandle().getCatalogName(),
+                target.getExecuteHandle().getCatalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }

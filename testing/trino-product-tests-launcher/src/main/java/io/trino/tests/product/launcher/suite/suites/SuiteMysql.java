@@ -22,6 +22,9 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.MARIADB;
+import static io.trino.tests.product.TestGroups.MYSQL;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteMysql
@@ -32,10 +35,10 @@ public class SuiteMysql
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeMysql.class)
-                        .withGroups("configured_features", "mysql")
+                        .withGroups(CONFIGURED_FEATURES, MYSQL)
                         .build(),
                 testOnEnvironment(EnvMultinodeMariadb.class)
-                        .withGroups("configured_features", "mariadb")
+                        .withGroups(CONFIGURED_FEATURES, MARIADB)
                         .build());
     }
 }

@@ -18,8 +18,6 @@ import org.apache.kudu.client.KuduClient;
 
 import javax.security.auth.Subject;
 
-import java.security.PrivilegedAction;
-
 import static java.util.Objects.requireNonNull;
 import static org.apache.kudu.client.KuduClient.KuduClientBuilder;
 
@@ -33,7 +31,7 @@ public class KerberizedKuduClient
     {
         requireNonNull(kuduClientBuilder, "kuduClientBuilder is null");
         this.cachingKerberosAuthentication = requireNonNull(cachingKerberosAuthentication, "cachingKerberosAuthentication is null");
-        kuduClient = Subject.doAs(cachingKerberosAuthentication.getSubject(), (PrivilegedAction<KuduClient>) kuduClientBuilder::build);
+        kuduClient = Subject.callAs(cachingKerberosAuthentication.getSubject(), kuduClientBuilder::build);
     }
 
     @Override

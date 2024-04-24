@@ -54,14 +54,14 @@ public class PinotSegmentPageSource
         implements ConnectorPageSource
 {
     private final List<PinotColumnHandle> columnHandles;
-
     private final List<Type> columnTypes;
+    private final long targetSegmentPageSizeBytes;
+    private final PinotDataFetcher pinotDataFetcher;
+
     private long completedBytes;
     private long estimatedMemoryUsageInBytes;
     private PinotDataTableWithSize currentDataTable;
     private boolean closed;
-    private long targetSegmentPageSizeBytes;
-    private PinotDataFetcher pinotDataFetcher;
 
     public PinotSegmentPageSource(
             long targetSegmentPageSizeBytes,
@@ -71,7 +71,7 @@ public class PinotSegmentPageSource
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.columnTypes = columnHandles
                 .stream()
-                .map(columnHandle -> columnHandle.getDataType())
+                .map(PinotColumnHandle::getDataType)
                 .collect(Collectors.toList());
         this.targetSegmentPageSizeBytes = targetSegmentPageSizeBytes;
         this.pinotDataFetcher = requireNonNull(pinotDataFetcher, "pinotDataFetcher is null");

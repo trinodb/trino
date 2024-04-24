@@ -15,7 +15,6 @@ package io.trino.cost;
 
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Memo;
 import io.trino.sql.planner.plan.PlanNode;
@@ -38,22 +37,20 @@ public class CachingCostProvider
     private final StatsProvider statsProvider;
     private final Optional<Memo> memo;
     private final Session session;
-    private final TypeProvider types;
 
     private final Map<PlanNode, PlanCostEstimate> cache = new IdentityHashMap<>();
 
-    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Session session, TypeProvider types)
+    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Session session)
     {
-        this(costCalculator, statsProvider, Optional.empty(), session, types);
+        this(costCalculator, statsProvider, Optional.empty(), session);
     }
 
-    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Session session, TypeProvider types)
+    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Session session)
     {
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
         this.memo = requireNonNull(memo, "memo is null");
         this.session = requireNonNull(session, "session is null");
-        this.types = requireNonNull(types, "types is null");
     }
 
     @Override
@@ -66,8 +63,8 @@ public class CachingCostProvider
         requireNonNull(node, "node is null");
 
         try {
-            if (node instanceof GroupReference) {
-                return getGroupCost((GroupReference) node);
+            if (node instanceof GroupReference group) {
+                return getGroupCost(group);
             }
 
             PlanCostEstimate cost = cache.get(node);
@@ -106,6 +103,6 @@ public class CachingCostProvider
 
     private PlanCostEstimate calculateCost(PlanNode node)
     {
-        return costCalculator.calculateCost(node, statsProvider, this, session, types);
+        return costCalculator.calculateCost(node, statsProvider, this, session);
     }
 }

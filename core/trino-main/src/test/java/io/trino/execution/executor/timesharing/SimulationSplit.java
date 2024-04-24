@@ -39,7 +39,6 @@ abstract class SimulationSplit
 
     private final AtomicInteger calls = new AtomicInteger(0);
 
-    private final long createdNanos = System.nanoTime();
     private final AtomicLong completedProcessNanos = new AtomicLong();
     private final AtomicLong startNanos = new AtomicLong(-1);
     private final AtomicLong doneNanos = new AtomicLong(-1);
@@ -55,24 +54,9 @@ abstract class SimulationSplit
         this.scheduledTimeNanos = scheduledTimeNanos;
     }
 
-    long getCreatedNanos()
-    {
-        return createdNanos;
-    }
-
     long getCompletedProcessNanos()
     {
         return completedProcessNanos.get();
-    }
-
-    long getStartNanos()
-    {
-        return startNanos.get();
-    }
-
-    long getDoneNanos()
-    {
-        return doneNanos.get();
     }
 
     long getWaitNanos()
@@ -90,16 +74,6 @@ abstract class SimulationSplit
         return scheduledTimeNanos;
     }
 
-    String getTaskId()
-    {
-        return task.getTaskId().toString();
-    }
-
-    SimulationTask getTask()
-    {
-        return task;
-    }
-
     boolean isKilled()
     {
         return killed.get();
@@ -109,7 +83,6 @@ abstract class SimulationSplit
     {
         waitNanos.addAndGet(System.nanoTime() - lastReadyTime.get());
         killed.set(true);
-        task.setKilled();
     }
 
     @Override

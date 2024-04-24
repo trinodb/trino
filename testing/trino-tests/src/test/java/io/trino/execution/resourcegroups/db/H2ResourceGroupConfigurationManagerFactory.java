@@ -18,6 +18,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.airlift.node.NodeModule;
 import io.trino.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
+import io.trino.plugin.resourcegroups.db.ForEnvironment;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
@@ -52,7 +53,7 @@ public class H2ResourceGroupConfigurationManagerFactory
                     new JsonModule(),
                     new H2ResourceGroupsModule(),
                     new NodeModule(),
-                    binder -> binder.bind(ResourceGroupConfigurationManagerContext.class).toInstance(context),
+                    binder -> binder.bind(String.class).annotatedWith(ForEnvironment.class).toInstance(context.getEnvironment()),
                     binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
             Injector injector = app

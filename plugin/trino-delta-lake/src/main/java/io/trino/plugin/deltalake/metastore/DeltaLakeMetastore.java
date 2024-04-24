@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake.metastore;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
@@ -38,9 +37,9 @@ public interface DeltaLakeMetastore
 
     void dropDatabase(String databaseName, boolean deleteData);
 
-    void createTable(ConnectorSession session, Table table, PrincipalPrivileges principalPrivileges);
+    void createTable(Table table, PrincipalPrivileges principalPrivileges);
 
-    void dropTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, boolean deleteData);
+    void dropTable(SchemaTableName schemaTableName, String tableLocation, boolean deleteData);
 
-    void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
+    void renameTable(SchemaTableName from, SchemaTableName to);
 }

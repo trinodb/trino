@@ -31,7 +31,7 @@
 
 ## Hive connector
 
-* Add support for [IBM Cloud Object Storage](/connector/hive-cos). ({issue}`14625`)
+* Add support for [IBM Cloud Object Storage](/object-storage/legacy-cos). ({issue}`14625`)
 * Allow creating tables with an Avro schema literal using the new table property
   `avro_schema_literal`. ({issue}`14426`)
 * Fix potential query failure or incorrect results when reading from a table

@@ -62,10 +62,13 @@ public final class HiveCoercionPolicy
         Type toType = typeManager.getType(toHiveType.getTypeSignature(hiveTimestampPrecision));
         if (fromType instanceof VarcharType) {
             return toType instanceof VarcharType ||
+                    toType instanceof CharType ||
+                    toHiveType.equals(HIVE_BOOLEAN) ||
                     toHiveType.equals(HIVE_BYTE) ||
                     toHiveType.equals(HIVE_SHORT) ||
                     toHiveType.equals(HIVE_INT) ||
                     toHiveType.equals(HIVE_LONG) ||
+                    toHiveType.equals(HIVE_FLOAT) ||
                     toHiveType.equals(HIVE_DOUBLE) ||
                     toHiveType.equals(HIVE_DATE) ||
                     toHiveType.equals(HIVE_TIMESTAMP);

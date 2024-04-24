@@ -16,8 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
@@ -30,10 +30,12 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestPruneJoinColumns
         extends BaseRuleTest
@@ -45,7 +47,7 @@ public class TestPruneJoinColumns
                 .on(p -> buildProjectedJoin(p, symbol -> symbol.getName().equals("rightValue")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("rightValue", PlanMatchPattern.expression("rightValue")),
+                                ImmutableMap.of("rightValue", expression(new Reference(BIGINT, "rightValue"))),
                                 join(INNER, builder -> builder
                                         .equiCriteria("leftKey", "rightKey")
                                         .left(values(ImmutableList.of("leftKey", "leftValue")))

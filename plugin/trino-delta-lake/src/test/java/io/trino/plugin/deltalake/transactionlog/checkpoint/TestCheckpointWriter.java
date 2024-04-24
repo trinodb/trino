@@ -175,6 +175,7 @@ public class TestCheckpointWriter
 
         RemoveFileEntry removeFileEntry = new RemoveFileEntry(
                 "removeFilePath",
+                ImmutableMap.of("part_key", "7.0"),
                 1000,
                 true);
 
@@ -195,11 +196,11 @@ public class TestCheckpointWriter
         writer.write(entries, createOutputFile(targetPath));
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
-        assertThat(readEntries.getTransactionEntries()).isEqualTo(entries.getTransactionEntries());
-        assertThat(readEntries.getRemoveFileEntries()).isEqualTo(entries.getRemoveFileEntries());
-        assertThat(readEntries.getMetadataEntry()).isEqualTo(entries.getMetadataEntry());
-        assertThat(readEntries.getProtocolEntry()).isEqualTo(entries.getProtocolEntry());
-        assertThat(readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+        assertThat(readEntries.transactionEntries()).isEqualTo(entries.transactionEntries());
+        assertThat(readEntries.removeFileEntries()).isEqualTo(entries.removeFileEntries());
+        assertThat(readEntries.metadataEntry()).isEqualTo(entries.metadataEntry());
+        assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
+        assertThat(readEntries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
     }
 
     @Test
@@ -242,11 +243,11 @@ public class TestCheckpointWriter
         ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
         TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
 
-        Block[] minMaxRowFieldBlocks = new Block[]{
+        Block[] minMaxRowFieldBlocks = new Block[] {
                 nativeValueToBlock(IntegerType.INTEGER, 1L),
                 nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a"))
         };
-        Block[] nullCountRowFieldBlocks = new Block[]{
+        Block[] nullCountRowFieldBlocks = new Block[] {
                 nativeValueToBlock(BigintType.BIGINT, 0L),
                 nativeValueToBlock(BigintType.BIGINT, 15L)
         };
@@ -311,6 +312,7 @@ public class TestCheckpointWriter
 
         RemoveFileEntry removeFileEntry = new RemoveFileEntry(
                 "removeFilePath",
+                ImmutableMap.of("part_key", "7.0"),
                 1000,
                 true);
 
@@ -331,11 +333,11 @@ public class TestCheckpointWriter
         writer.write(entries, createOutputFile(targetPath));
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
-        assertThat(readEntries.getTransactionEntries()).isEqualTo(entries.getTransactionEntries());
-        assertThat(readEntries.getRemoveFileEntries()).isEqualTo(entries.getRemoveFileEntries());
-        assertThat(readEntries.getMetadataEntry()).isEqualTo(entries.getMetadataEntry());
-        assertThat(readEntries.getProtocolEntry()).isEqualTo(entries.getProtocolEntry());
-        assertThat(readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+        assertThat(readEntries.transactionEntries()).isEqualTo(entries.transactionEntries());
+        assertThat(readEntries.removeFileEntries()).isEqualTo(entries.removeFileEntries());
+        assertThat(readEntries.metadataEntry()).isEqualTo(entries.metadataEntry());
+        assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
+        assertThat(readEntries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
     }
 
     @Test
@@ -359,11 +361,11 @@ public class TestCheckpointWriter
                 ImmutableMap.of(),
                 1000);
         ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
-        Block[] minMaxRowFieldBlocks = new Block[]{
+        Block[] minMaxRowFieldBlocks = new Block[] {
                 nativeValueToBlock(IntegerType.INTEGER, 1L),
                 nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a"))
         };
-        Block[] nullCountRowFieldBlocks = new Block[]{
+        Block[] nullCountRowFieldBlocks = new Block[] {
                 nativeValueToBlock(BigintType.BIGINT, 0L),
                 nativeValueToBlock(BigintType.BIGINT, 15L)
         };
@@ -399,7 +401,7 @@ public class TestCheckpointWriter
         writer.write(entries, createOutputFile(targetPath));
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, false);
-        AddFileEntry addFileEntry = getOnlyElement(readEntries.getAddFileEntries());
+        AddFileEntry addFileEntry = getOnlyElement(readEntries.addFileEntries());
         assertThat(addFileEntry.getStats()).isPresent();
 
         DeltaLakeParquetFileStatistics fileStatistics = (DeltaLakeParquetFileStatistics) addFileEntry.getStats().get();

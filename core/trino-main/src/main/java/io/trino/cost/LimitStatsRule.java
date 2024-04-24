@@ -13,10 +13,8 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.LimitNode;
 
 import java.util.Optional;
@@ -40,9 +38,9 @@ public class LimitStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(LimitNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(LimitNode node, Context context)
     {
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
+        PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(node.getSource());
         if (sourceStats.getOutputRowCount() <= node.getCount()) {
             return Optional.of(sourceStats);
         }

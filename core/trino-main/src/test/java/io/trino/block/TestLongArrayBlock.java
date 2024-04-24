@@ -13,7 +13,6 @@
  */
 package io.trino.block;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LongArrayBlock;
@@ -21,8 +20,8 @@ import io.trino.spi.block.LongArrayBlockBuilder;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.Random;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongArrayBlock
@@ -31,7 +30,7 @@ public class TestLongArrayBlock
     @Test
     public void test()
     {
-        Slice[] expectedValues = createTestValue(17);
+        Long[] expectedValues = createTestValue(17);
         assertFixedWithValues(expectedValues);
         assertFixedWithValues(alternatingNullValues(expectedValues));
     }
@@ -39,7 +38,7 @@ public class TestLongArrayBlock
     @Test
     public void testCopyPositions()
     {
-        Slice[] expectedValues = alternatingNullValues(createTestValue(17));
+        Long[] expectedValues = alternatingNullValues(createTestValue(17));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 2, 4, 6, 7, 9, 10, 16);
     }
@@ -47,7 +46,7 @@ public class TestLongArrayBlock
     @Test
     public void testLazyBlockBuilderInitialization()
     {
-        Slice[] expectedValues = createTestValue(100);
+        Long[] expectedValues = createTestValue(100);
         BlockBuilder emptyBlockBuilder = new LongArrayBlockBuilder(null, 0);
 
         LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, expectedValues.length);
@@ -66,8 +65,13 @@ public class TestLongArrayBlock
     @Test
     public void testEstimatedDataSizeForStats()
     {
-        Slice[] expectedValues = createTestValue(100);
-        assertEstimatedDataSizeForStats(createBlockBuilderWithValues(expectedValues), expectedValues);
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(createTestValue(100));
+        Block block = blockBuilder.build();
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            assertThat(block.getEstimatedDataSizeForStats(i)).isEqualTo(Long.BYTES);
+        }
+
+        assertThat(new LongArrayBlockBuilder(null, 22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
     }
 
     @Test
@@ -78,64 +82,53 @@ public class TestLongArrayBlock
 
         testCompactBlock(new LongArrayBlock(0, Optional.empty(), new long[0]));
         testCompactBlock(new LongArrayBlock(longArray.length, Optional.of(valueIsNull), longArray));
-        testIncompactBlock(new LongArrayBlock(longArray.length - 1, Optional.of(valueIsNull), longArray));
+        testNotCompactBlock(new LongArrayBlock(longArray.length - 1, Optional.of(valueIsNull), longArray));
     }
 
-    private void assertFixedWithValues(Slice[] expectedValues)
+    private void assertFixedWithValues(Long[] expectedValues)
     {
         Block block = createBlockBuilderWithValues(expectedValues).build();
         assertBlock(block, expectedValues);
     }
 
-    private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
+    private static BlockBuilder createBlockBuilderWithValues(Long[] expectedValues)
     {
         LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }
 
-    private static void writeValues(Slice[] expectedValues, LongArrayBlockBuilder blockBuilder)
+    private static void writeValues(Long[] expectedValues, LongArrayBlockBuilder blockBuilder)
     {
-        for (Slice expectedValue : expectedValues) {
+        for (Long expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeLong(expectedValue.getLong(0));
+                blockBuilder.writeLong(expectedValue.longValue());
             }
         }
     }
 
-    private static Slice[] createTestValue(int positionCount)
+    private static Long[] createTestValue(int positionCount)
     {
-        Slice[] expectedValues = new Slice[positionCount];
+        Long[] expectedValues = new Long[positionCount];
+        Random random = new Random(0);
         for (int position = 0; position < positionCount; position++) {
-            expectedValues[position] = createExpectedValue(SIZE_OF_LONG);
+            expectedValues[position] = random.nextLong();
         }
         return expectedValues;
     }
 
     @Override
-    protected boolean isByteAccessSupported()
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
-        return false;
-    }
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
 
-    @Override
-    protected boolean isShortAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isIntAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isSliceAccessSupported()
-    {
-        return false;
+        assertThat(block.isNull(position)).isFalse();
+        assertThat(((LongArrayBlock) block).getLong(position)).isEqualTo(((Long) expectedValue).longValue());
     }
 }

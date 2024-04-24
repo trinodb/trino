@@ -28,16 +28,15 @@ import io.trino.hive.thrift.metastore.PrivilegeBag;
 import io.trino.hive.thrift.metastore.Role;
 import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.Table;
+import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.hive.thrift.metastore.TxnToWriteId;
 import io.trino.plugin.hive.acid.AcidOperation;
-import io.trino.spi.connector.SchemaTableName;
 import org.apache.thrift.TException;
 
 import java.io.Closeable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public interface ThriftMetastoreClient
         extends Closeable
@@ -51,19 +50,7 @@ public interface ThriftMetastoreClient
     Database getDatabase(String databaseName)
             throws TException;
 
-    List<String> getAllTables(String databaseName)
-            throws TException;
-
-    Optional<List<SchemaTableName>> getAllTables()
-            throws TException;
-
-    List<String> getAllViews(String databaseName)
-            throws TException;
-
-    Optional<List<SchemaTableName>> getAllViews()
-            throws TException;
-
-    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    List<TableMeta> getTableMeta(String databaseName)
             throws TException;
 
     void createDatabase(Database database)

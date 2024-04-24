@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.RuleStats;
+import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
 import io.trino.sql.planner.optimizations.OptimizerStats;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 
@@ -23,7 +24,9 @@ import java.util.Map;
 
 public interface PlanOptimizersFactory
 {
-    List<PlanOptimizer> get();
+    List<PlanOptimizer> getPlanOptimizers();
+
+    List<AdaptivePlanOptimizer> getAdaptivePlanOptimizers();
 
     default Map<Class<?>, OptimizerStats> getOptimizerStats()
     {

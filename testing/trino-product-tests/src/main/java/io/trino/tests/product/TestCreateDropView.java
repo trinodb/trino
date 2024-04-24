@@ -21,7 +21,6 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.context.ContextDsl.executeWith;
 import static io.trino.tempto.sql.SqlContexts.createViewAs;
-import static io.trino.tests.product.TestGroups.CREATE_DROP_VIEW;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -31,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestCreateDropView
         extends ProductTest
 {
-    @Test(groups = CREATE_DROP_VIEW)
+    @Test
     public void createSimpleView()
     {
         executeWith(createViewAs("SELECT * FROM nation", onTrino()), view -> {
@@ -40,7 +39,7 @@ public class TestCreateDropView
         });
     }
 
-    @Test(groups = CREATE_DROP_VIEW)
+    @Test
     public void querySimpleViewQualified()
     {
         executeWith(createViewAs("SELECT * FROM nation", onTrino()), view -> {
@@ -49,7 +48,7 @@ public class TestCreateDropView
         });
     }
 
-    @Test(groups = CREATE_DROP_VIEW)
+    @Test
     public void createViewWithAggregate()
     {
         executeWith(createViewAs("SELECT n_regionkey, count(*) countries FROM nation GROUP BY n_regionkey ORDER BY n_regionkey", onTrino()), view -> {
@@ -58,7 +57,7 @@ public class TestCreateDropView
         });
     }
 
-    @Test(groups = {CREATE_DROP_VIEW, SMOKE})
+    @Test(groups = SMOKE)
     public void createOrReplaceSimpleView()
     {
         executeWith(createViewAs("SELECT * FROM nation", onTrino()), view -> {
@@ -69,7 +68,7 @@ public class TestCreateDropView
         });
     }
 
-    @Test(groups = CREATE_DROP_VIEW)
+    @Test
     public void createSimpleViewTwiceShouldFail()
     {
         executeWith(createViewAs("SELECT * FROM nation", onTrino()), view -> {
@@ -80,7 +79,7 @@ public class TestCreateDropView
         });
     }
 
-    @Test(groups = {CREATE_DROP_VIEW, SMOKE})
+    @Test(groups = SMOKE)
     public void dropViewTest()
     {
         executeWith(createViewAs("SELECT * FROM nation", onTrino()), view -> {

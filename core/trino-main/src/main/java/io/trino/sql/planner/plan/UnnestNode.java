@@ -16,18 +16,13 @@ package io.trino.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.plan.JoinNode.Type;
-import io.trino.sql.tree.Expression;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -41,8 +36,7 @@ public class UnnestNode
     private final List<Symbol> replicateSymbols;
     private final List<Mapping> mappings;
     private final Optional<Symbol> ordinalitySymbol;
-    private final Type joinType;
-    private final Optional<Expression> filter;
+    private final JoinType joinType;
 
     @JsonCreator
     public UnnestNode(
@@ -51,8 +45,7 @@ public class UnnestNode
             @JsonProperty("replicateSymbols") List<Symbol> replicateSymbols,
             @JsonProperty("mappings") List<Mapping> mappings,
             @JsonProperty("ordinalitySymbol") Optional<Symbol> ordinalitySymbol,
-            @JsonProperty("joinType") Type joinType,
-            @JsonProperty("filter") Optional<Expression> filter)
+            @JsonProperty("joinType") JoinType joinType)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
@@ -63,11 +56,6 @@ public class UnnestNode
         this.mappings = ImmutableList.copyOf(mappings);
         this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
         this.joinType = requireNonNull(joinType, "joinType is null");
-        this.filter = requireNonNull(filter, "filter is null");
-        if (filter.isPresent()) {
-            Set<Symbol> outputs = ImmutableSet.copyOf(getOutputSymbols());
-            checkArgument(outputs.containsAll(SymbolsExtractor.extractUnique(filter.get())), "Outputs do not contain all filter symbols");
-        }
     }
 
     @Override
@@ -109,15 +97,9 @@ public class UnnestNode
     }
 
     @JsonProperty
-    public Type getJoinType()
+    public JoinType getJoinType()
     {
         return joinType;
-    }
-
-    @JsonProperty
-    public Optional<Expression> getFilter()
-    {
-        return filter;
     }
 
     @Override
@@ -135,7 +117,7 @@ public class UnnestNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateSymbols, mappings, ordinalitySymbol, joinType, filter);
+        return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateSymbols, mappings, ordinalitySymbol, joinType);
     }
 
     public static class Mapping

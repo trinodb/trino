@@ -42,10 +42,9 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 // to trigger spilling
                 .put("exchange.deduplication-buffer-size", "1kB")
                 .put("fault-tolerant-execution-task-memory", "1GB")
-                // limit number of threads to detect potential thread leaks
-                .put("query.executor-pool-size", "10")
+
                 // enable exchange compression to follow production deployment recommendations
-                .put("exchange.compression-enabled", "true")
+                .put("exchange.compression-codec", "LZ4")
                 .put("max-tasks-waiting-for-execution-per-query", "2")
                 .put("max-tasks-waiting-for-node-per-stage", "2")
                 .put("query.schedule-split-batch-size", "2")
@@ -55,6 +54,7 @@ public final class FaultTolerantExecutionConnectorTestHelper
     public static Map<String, String> enforceRuntimeAdaptivePartitioningProperties()
     {
         return ImmutableMap.<String, String>builder()
+                .put("fault-tolerant-execution-adaptive-query-planning-enabled", "true")
                 .put("fault-tolerant-execution-runtime-adaptive-partitioning-enabled", "true")
                 .put("fault-tolerant-execution-runtime-adaptive-partitioning-partition-count", "40")
                 // to ensure runtime adaptive partitioning is triggered

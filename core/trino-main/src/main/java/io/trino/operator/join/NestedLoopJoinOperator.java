@@ -100,7 +100,7 @@ public class NestedLoopJoinOperator
                     nestedLoopJoinBridge,
                     probeChannels,
                     buildChannels,
-                    () -> joinBridgeManager.probeOperatorClosed());
+                    joinBridgeManager::probeOperatorClosed);
         }
 
         @Override

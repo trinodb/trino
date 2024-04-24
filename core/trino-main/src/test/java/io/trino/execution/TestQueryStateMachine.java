@@ -16,26 +16,41 @@ package io.trino.execution;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.testing.TestingTicker;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.client.FailureInfo;
 import io.trino.client.NodeVersion;
+import io.trino.execution.warnings.DefaultWarningCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.warnings.WarningCollectorConfig;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
+import io.trino.server.BasicQueryInfo;
+import io.trino.server.BasicQueryStats;
+import io.trino.server.ResultQueryInfo;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.ErrorType;
 import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoWarning;
+import io.trino.spi.WarningCode;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.tracing.TracingMetadata;
+import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -49,11 +64,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.tracing.Tracing.noopTracer;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.DISPATCHING;
 import static io.trino.execution.QueryState.FAILED;
@@ -67,6 +90,7 @@ import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -189,7 +213,7 @@ public class TestQueryStateMachine
     private void assertAllTimeSpentInQueueing(QueryState expectedState, Consumer<QueryStateMachine> stateTransition)
     {
         TestingTicker ticker = new TestingTicker();
-        QueryStateMachine stateMachine = createQueryStateMachineWithTicker(ticker);
+        QueryStateMachine stateMachine = queryStateMachine().withTicker(ticker).build();
         ticker.increment(7, MILLISECONDS);
 
         stateTransition.accept(stateMachine);
@@ -331,7 +355,7 @@ public class TestQueryStateMachine
     public void testPlanningTimeDuration()
     {
         TestingTicker mockTicker = new TestingTicker();
-        QueryStateMachine stateMachine = createQueryStateMachineWithTicker(mockTicker);
+        QueryStateMachine stateMachine = queryStateMachine().withTicker(mockTicker).build();
         assertState(stateMachine, QUEUED);
 
         mockTicker.increment(25, MILLISECONDS);
@@ -408,6 +432,212 @@ public class TestQueryStateMachine
         assertThat(stateMachine.getPeakTaskUserMemory()).isEqualTo(5);
         assertThat(stateMachine.getPeakTaskTotalMemory()).isEqualTo(5);
         assertThat(stateMachine.getPeakTaskRevocableMemory()).isEqualTo(10);
+    }
+
+    @Test
+    public void testPreserveFirstFailure()
+            throws Exception
+    {
+        CountDownLatch cleanup = new CountDownLatch(1);
+        QueryStateMachine queryStateMachine = queryStateMachine()
+                .withMetadata(new TracingMetadata(noopTracer(), createTestMetadataManager())
+                {
+                    @Override
+                    public void cleanupQuery(Session session)
+                    {
+                        cleanup.countDown();
+                        super.cleanupQuery(session);
+                    }
+                })
+                .build();
+
+        Future<?> anotherThread = executor.submit(() -> {
+            checkState(awaitUninterruptibly(cleanup, 10, SECONDS), "Timed out waiting for cleanup latch");
+            queryStateMachine.transitionToFailed(new IllegalStateException("Second exception"));
+        });
+        Future<?> failingThread = executor.submit(() -> {
+            queryStateMachine.transitionToFailed(new TrinoException(TYPE_MISMATCH, "First exception"));
+        });
+
+        failingThread.get(10, SECONDS);
+        anotherThread.get(10, SECONDS);
+
+        ExecutionFailureInfo failureInfo = queryStateMachine.getFinalQueryInfo().orElseThrow().getFailureInfo();
+        assertThat(failureInfo).isNotNull();
+        assertThat(failureInfo.getErrorCode()).isEqualTo(TYPE_MISMATCH.toErrorCode());
+        assertThat(failureInfo.getMessage()).isEqualTo("First exception");
+
+        BasicQueryInfo basicQueryInfo = queryStateMachine.getBasicQueryInfo(Optional.empty());
+        assertThat(basicQueryInfo.getErrorCode()).isEqualTo(TYPE_MISMATCH.toErrorCode());
+    }
+
+    @Test
+    public void testPreserveCancellation()
+            throws Exception
+    {
+        CountDownLatch cleanup = new CountDownLatch(1);
+        QueryStateMachine queryStateMachine = queryStateMachine()
+                .withMetadata(new TracingMetadata(noopTracer(), createTestMetadataManager())
+                {
+                    @Override
+                    public void cleanupQuery(Session session)
+                    {
+                        cleanup.countDown();
+                        super.cleanupQuery(session);
+                    }
+                })
+                .build();
+
+        Future<?> anotherThread = executor.submit(() -> {
+            checkState(awaitUninterruptibly(cleanup, 10, SECONDS), "Timed out waiting for cleanup latch");
+            queryStateMachine.transitionToFailed(new IllegalStateException("Second exception"));
+        });
+        Future<?> cancellingThread = executor.submit(queryStateMachine::transitionToCanceled);
+
+        cancellingThread.get(10, SECONDS);
+        anotherThread.get(10, SECONDS);
+
+        ExecutionFailureInfo failureInfo = queryStateMachine.getFinalQueryInfo().orElseThrow().getFailureInfo();
+        assertThat(failureInfo).isNotNull();
+        assertThat(failureInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());
+        assertThat(failureInfo.getMessage()).isEqualTo("Query was canceled");
+
+        BasicQueryInfo basicQueryInfo = queryStateMachine.getBasicQueryInfo(Optional.empty());
+        assertThat(basicQueryInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());
+    }
+
+    @Test
+    public void testGetResultQueryInfo()
+    {
+        List<TrinoWarning> trinoWarnings = ImmutableList.of(new TrinoWarning(new WarningCode(0, "name"), "message"));
+        TransactionId transactionId = TransactionId.valueOf(UUID.randomUUID().toString());
+        int stageCount = 4;
+        int baseStatValue = 1;
+
+        QueryStateMachine stateMachine = queryStateMachine()
+                .withSetPath("path")
+                .withSetCatalog("catalog")
+                .withSetSchema("schema")
+                .withSetRoles(ImmutableMap.of("role", SelectedRole.valueOf("NONE")))
+                .withWarningCollector(new DefaultWarningCollector(new WarningCollectorConfig()))
+                .withSetAuthorizationUser("user")
+                .withWarnings(trinoWarnings)
+                .withAddPreparedStatements(ImmutableMap.of("ps", "ps"))
+                .withTransactionId(transactionId)
+                .build();
+        stateMachine.resultsConsumed();
+
+        BasicStageInfo rootStage = createBasicStageInfo(stageCount, StageState.FINISHED, baseStatValue);
+        ResultQueryInfo queryInfo = stateMachine.getResultQueryInfo(Optional.of(rootStage));
+        BasicQueryStats stats = queryInfo.queryStats();
+
+        assertThat(queryInfo.state()).isEqualTo(QUEUED);
+        assertThat(queryInfo.scheduled()).isTrue();
+        assertThat(queryInfo.updateType()).isEqualTo("update type");
+        assertThat(queryInfo.finalQueryInfo()).isFalse();
+        assertThat(queryInfo.errorCode()).isNull();
+        assertThat(queryInfo.outputStage().get()).isEqualTo(rootStage);
+        assertThat(queryInfo.failureInfo()).isNull();
+        assertThat(queryInfo.setPath().get()).isEqualTo("path");
+        assertThat(queryInfo.setCatalog().get()).isEqualTo("catalog");
+        assertThat(queryInfo.setSchema().get()).isEqualTo("schema");
+        assertThat(queryInfo.setAuthorizationUser().get()).isEqualTo("user");
+        assertThat(queryInfo.resetAuthorizationUser()).isFalse();
+        assertThat(queryInfo.setSessionProperties()).isEqualTo(ImmutableMap.of("drink", "coffee", "fruit", "apple"));
+        assertThat(queryInfo.resetSessionProperties()).isEqualTo(ImmutableSet.of("candy"));
+        assertThat(queryInfo.setRoles()).isEqualTo(ImmutableMap.of("role", SelectedRole.valueOf("NONE")));
+        assertThat(queryInfo.addedPreparedStatements()).isEqualTo(ImmutableMap.of("ps", "ps"));
+        assertThat(queryInfo.deallocatedPreparedStatements()).isEmpty();
+        assertThat(queryInfo.startedTransactionId().get()).isEqualTo(transactionId);
+        assertThat(queryInfo.clearTransactionId()).isFalse();
+        assertThat(queryInfo.warnings()).isEqualTo(trinoWarnings);
+
+        assertStats(stats, baseStatValue * stageCount);
+
+        stateMachine.transitionToFailed(new TrinoException(() -> new ErrorCode(0, "", ErrorType.EXTERNAL), "", new IOException()));
+        queryInfo = stateMachine.getResultQueryInfo(Optional.of(rootStage));
+        assertThat(queryInfo.failureInfo()).isNotNull();
+        assertThat(queryInfo.errorCode().getCode()).isEqualTo(0);
+        assertThat(queryInfo.finalQueryInfo()).isTrue();
+        assertThat(queryInfo.state()).isEqualTo(FAILED);
+    }
+
+    private void assertStats(BasicQueryStats stats, int expectedStatsValue)
+    {
+        assertThat(stats.getCreateTime()).isNotNull();
+        assertThat(stats.getEndTime()).isNull();
+        assertThat(stats.getQueuedTime()).isNotNull();
+        assertThat(stats.getElapsedTime()).isNotNull();
+        assertThat(stats.getExecutionTime()).isNotNull();
+        assertThat(stats.getFailedTasks()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getTotalDrivers()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getQueuedDrivers()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getRunningDrivers()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getCompletedDrivers()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getBlockedDrivers()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getRawInputDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
+        assertThat(stats.getRawInputPositions()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getPhysicalInputDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
+        assertThat(stats.getPhysicalWrittenDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
+        assertThat(stats.getSpilledDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
+        assertThat(stats.getCumulativeUserMemory()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getFailedCumulativeUserMemory()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getUserMemoryReservation()).isEqualTo(succinctBytes(expectedStatsValue));
+        assertThat(stats.getTotalMemoryReservation()).isEqualTo(succinctBytes(expectedStatsValue));
+        assertThat(stats.getPeakTotalMemoryReservation()).isEqualTo(succinctBytes(0));
+        assertThat(stats.getPeakUserMemoryReservation()).isEqualTo(succinctBytes(0));
+        assertThat(stats.getTotalCpuTime()).isEqualTo(Duration.succinctDuration(expectedStatsValue, SECONDS));
+        assertThat(stats.getFailedCpuTime()).isEqualTo(Duration.succinctDuration(expectedStatsValue, SECONDS));
+        assertThat(stats.getTotalScheduledTime()).isEqualTo(Duration.succinctDuration(expectedStatsValue, SECONDS));
+        assertThat(stats.getFailedScheduledTime()).isEqualTo(Duration.succinctDuration(expectedStatsValue, SECONDS));
+        assertThat(stats.isFullyBlocked()).isFalse();
+        assertThat(stats.getBlockedReasons()).isEmpty();
+        assertThat(stats.getProgressPercentage()).isEmpty();
+        assertThat(stats.getRunningPercentage()).isEmpty();
+    }
+
+    private BasicStageInfo createBasicStageInfo(int count, StageState state, int baseValue)
+    {
+        return new BasicStageInfo(
+                StageId.valueOf(ImmutableList.of("s", String.valueOf(count))),
+                state,
+                false,
+                createBasicStageStats(baseValue),
+                count == 1 ? ImmutableList.of() : ImmutableList.of(createBasicStageInfo(count - 1, state, baseValue)),
+                ImmutableList.of());
+    }
+
+    private BasicStageStats createBasicStageStats(int value)
+    {
+        return new BasicStageStats(
+                false,
+                value,
+                value,
+                value,
+                value,
+                value,
+                value,
+                DataSize.of(value, DataSize.Unit.BYTE),
+                value,
+                Duration.succinctDuration(value, SECONDS),
+                DataSize.of(value, DataSize.Unit.BYTE),
+                DataSize.of(value, DataSize.Unit.BYTE),
+                value,
+                DataSize.of(value, DataSize.Unit.BYTE),
+                value,
+                DataSize.of(value, DataSize.Unit.BYTE),
+                value,
+                value,
+                DataSize.of(value, DataSize.Unit.BYTE),
+                succinctBytes(value),
+                Duration.succinctDuration(value, SECONDS),
+                Duration.succinctDuration(value, SECONDS),
+                Duration.succinctDuration(value, SECONDS),
+                Duration.succinctDuration(value, SECONDS),
+                false,
+                ImmutableSet.of(),
+                OptionalDouble.of(value),
+                OptionalDouble.of(value));
     }
 
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState)
@@ -514,48 +744,156 @@ public class TestQueryStateMachine
 
     private QueryStateMachine createQueryStateMachine()
     {
-        return createQueryStateMachineWithTicker(Ticker.systemTicker());
+        return queryStateMachine().build();
     }
 
-    private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker)
+    private QueryStateMachineBuilder queryStateMachine()
     {
-        Metadata metadata = createTestMetadataManager();
-        TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControl = new AccessControlManager(
-                NodeVersion.UNKNOWN,
-                transactionManager,
-                emptyEventListenerManager(),
-                new AccessControlConfig(),
-                OpenTelemetry.noop(),
-                DefaultSystemAccessControl.NAME);
-        accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
-        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
-                Optional.empty(),
-                QUERY,
-                Optional.empty(),
-                TEST_SESSION,
-                LOCATION,
-                new ResourceGroupId("test"),
-                false,
-                transactionManager,
-                accessControl,
-                executor,
-                ticker,
-                metadata,
-                WarningCollector.NOOP,
-                createPlanOptimizersStatsCollector(),
-                QUERY_TYPE,
-                true,
-                new NodeVersion("test"));
-        stateMachine.setInputs(INPUTS);
-        stateMachine.setOutput(OUTPUT);
-        stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
-        stateMachine.setUpdateType(UPDATE_TYPE);
-        for (Entry<String, String> entry : SET_SESSION_PROPERTIES.entrySet()) {
-            stateMachine.addSetSessionProperties(entry.getKey(), entry.getValue());
+        return new QueryStateMachineBuilder();
+    }
+
+    private class QueryStateMachineBuilder
+    {
+        private Ticker ticker = Ticker.systemTicker();
+        private Metadata metadata;
+        private WarningCollector warningCollector = WarningCollector.NOOP;
+        private String setCatalog;
+        private String setPath;
+        private String setSchema;
+        private Map<String, SelectedRole> setRoles = ImmutableMap.of();
+        private List<TrinoWarning> warnings = ImmutableList.of();
+        private String setAuthorizationUser;
+        private TransactionId transactionId;
+        private ImmutableMap<String, String> addPreparedStatements = ImmutableMap.of();
+
+        @CanIgnoreReturnValue
+        public QueryStateMachineBuilder withTicker(Ticker ticker)
+        {
+            this.ticker = ticker;
+            return this;
         }
-        RESET_SESSION_PROPERTIES.forEach(stateMachine::addResetSessionProperties);
-        return stateMachine;
+
+        @CanIgnoreReturnValue
+        public QueryStateMachineBuilder withMetadata(Metadata metadata)
+        {
+            this.metadata = metadata;
+            return this;
+        }
+
+        public QueryStateMachineBuilder withWarningCollector(WarningCollector warningCollector)
+        {
+            this.warningCollector = warningCollector;
+            return this;
+        }
+
+        public QueryStateMachineBuilder withSetPath(String setPath)
+        {
+            this.setPath = setPath;
+            return this;
+        }
+
+        public QueryStateMachineBuilder withSetCatalog(String setCatalog)
+        {
+            this.setCatalog = setCatalog;
+            return this;
+        }
+
+        public QueryStateMachineBuilder withSetSchema(String setSchema)
+        {
+            this.setSchema = setSchema;
+            return this;
+        }
+
+        public QueryStateMachineBuilder withSetAuthorizationUser(String setAuthorizationUser)
+        {
+            this.setAuthorizationUser = setAuthorizationUser;
+            return this;
+        }
+
+        public QueryStateMachineBuilder withSetRoles(Map<String, SelectedRole> setRoles)
+        {
+            this.setRoles = ImmutableMap.copyOf(setRoles);
+            return this;
+        }
+
+        public QueryStateMachineBuilder withWarnings(List<TrinoWarning> warnings)
+        {
+            this.warnings = ImmutableList.copyOf(warnings);
+            return this;
+        }
+
+        public QueryStateMachineBuilder withTransactionId(TransactionId transactionId)
+        {
+            this.transactionId = transactionId;
+            return this;
+        }
+
+        public QueryStateMachineBuilder withAddPreparedStatements(Map<String, String> preparedStatements)
+        {
+            this.addPreparedStatements = ImmutableMap.copyOf(preparedStatements);
+            return this;
+        }
+
+        public QueryStateMachine build()
+        {
+            if (metadata == null) {
+                metadata = createTestMetadataManager();
+            }
+            TransactionManager transactionManager = createTestTransactionManager();
+            AccessControlManager accessControl = new AccessControlManager(
+                    NodeVersion.UNKNOWN,
+                    transactionManager,
+                    emptyEventListenerManager(),
+                    new AccessControlConfig(),
+                    OpenTelemetry.noop(),
+                    DefaultSystemAccessControl.NAME);
+            accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
+            QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
+                    Optional.empty(),
+                    QUERY,
+                    Optional.empty(),
+                    TEST_SESSION,
+                    LOCATION,
+                    new ResourceGroupId("test"),
+                    false,
+                    transactionManager,
+                    accessControl,
+                    executor,
+                    ticker,
+                    metadata,
+                    warningCollector,
+                    createPlanOptimizersStatsCollector(),
+                    QUERY_TYPE,
+                    true,
+                    new NodeVersion("test"));
+            stateMachine.setInputs(INPUTS);
+            stateMachine.setOutput(OUTPUT);
+            stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
+            if (setPath != null) {
+                stateMachine.setSetPath(setPath);
+            }
+            if (setCatalog != null) {
+                stateMachine.setSetCatalog(setCatalog);
+            }
+            if (setSchema != null) {
+                stateMachine.setSetSchema(setSchema);
+            }
+            if (setAuthorizationUser != null) {
+                stateMachine.setSetAuthorizationUser(setAuthorizationUser);
+            }
+            addPreparedStatements.forEach(stateMachine::addPreparedStatement);
+            if (transactionId != null) {
+                stateMachine.setStartedTransactionId(transactionId);
+            }
+            setRoles.forEach(stateMachine::addSetRole);
+            stateMachine.setUpdateType(UPDATE_TYPE);
+            for (Entry<String, String> entry : SET_SESSION_PROPERTIES.entrySet()) {
+                stateMachine.addSetSessionProperties(entry.getKey(), entry.getValue());
+            }
+            warnings.forEach(warning -> stateMachine.getWarningCollector().add(warning));
+            RESET_SESSION_PROPERTIES.forEach(stateMachine::addResetSessionProperties);
+            return stateMachine;
+        }
     }
 
     private static void assertEqualSessionsWithoutTransactionId(Session actual, Session expected)

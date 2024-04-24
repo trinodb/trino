@@ -15,16 +15,11 @@ package io.trino.execution.resourcegroups.db;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.Singleton;
 import io.trino.plugin.resourcegroups.db.DbResourceGroupConfig;
 import io.trino.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
-import io.trino.plugin.resourcegroups.db.ForEnvironment;
 import io.trino.plugin.resourcegroups.db.H2DaoProvider;
 import io.trino.plugin.resourcegroups.db.ResourceGroupsDao;
-import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
-import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -37,14 +32,5 @@ public class H2ResourceGroupsModule
         configBinder(binder).bindConfig(DbResourceGroupConfig.class);
         binder.bind(ResourceGroupsDao.class).toProvider(H2DaoProvider.class).in(Scopes.SINGLETON);
         binder.bind(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
-        binder.bind(ResourceGroupConfigurationManager.class).to(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
-    }
-
-    @Provides
-    @Singleton
-    @ForEnvironment
-    public String getEnvironment(ResourceGroupConfigurationManagerContext context)
-    {
-        return context.getEnvironment();
     }
 }

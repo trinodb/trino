@@ -61,6 +61,11 @@ public class SphericalGeographyType
         if (block.isNull(position)) {
             return null;
         }
-        return deserialize(getSlice(block, position)).asText();
+        try {
+            return deserialize(getSlice(block, position)).asText();
+        }
+        catch (Exception e) {
+            return "<invalid geometry>";
+        }
     }
 }

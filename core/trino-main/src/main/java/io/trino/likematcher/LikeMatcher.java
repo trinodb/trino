@@ -66,21 +66,20 @@ public class LikeMatcher
         int maxSize = 0;
         boolean unbounded = false;
         for (Pattern expression : parsed) {
-            if (expression instanceof Literal literal) {
-                int length = literal.value().getBytes(UTF_8).length;
-                minSize += length;
-                maxSize += length;
-            }
-            else if (expression instanceof Pattern.ZeroOrMore) {
-                unbounded = true;
-            }
-            else if (expression instanceof Any any) {
-                int length = any.length();
-                minSize += length;
-                maxSize += length * 4; // at most 4 bytes for a single UTF-8 codepoint
-            }
-            else {
-                throw new UnsupportedOperationException("Not supported: " + expression.getClass().getName());
+            switch (expression) {
+                case Literal literal -> {
+                    int length = literal.value().getBytes(UTF_8).length;
+                    minSize += length;
+                    maxSize += length;
+                }
+                case Pattern.ZeroOrMore zeroOrMore -> {
+                    unbounded = true;
+                }
+                case Any any -> {
+                    int length = any.length();
+                    minSize += length;
+                    maxSize += length * 4; // at most 4 bytes for a single UTF-8 codepoint
+                }
             }
         }
 
@@ -92,12 +91,12 @@ public class LikeMatcher
 
         int patternStart = 0;
         int patternEnd = parsed.size() - 1;
-        if (parsed.size() > 0 && parsed.get(0) instanceof Literal literal) {
+        if (parsed.size() > 0 && parsed.getFirst() instanceof Literal literal) {
             prefix = literal.value().getBytes(UTF_8);
             patternStart++;
         }
 
-        if (parsed.size() > 1 && parsed.get(parsed.size() - 1) instanceof Literal literal) {
+        if (parsed.size() > 1 && parsed.getLast() instanceof Literal literal) {
             suffix = literal.value().getBytes(UTF_8);
             patternEnd--;
         }

@@ -68,6 +68,12 @@
       "endpoint": "http://localhost:7753"
     },
     {
+      "prefix": "s3://regionalbucket",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "region": "us-west-2"
+    },
+    {
       "prefix": "s3://somebucket",
       "iamRole": "arn:aws:iam::1234567891012:role/default",
       "roleSessionName": "iam-trino-session"

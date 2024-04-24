@@ -22,14 +22,13 @@ import io.airlift.node.NodeInfo;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.tracing.Tracing;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.connector.CatalogConnector;
 import io.trino.connector.CatalogFactory;
-import io.trino.connector.CatalogProperties;
 import io.trino.connector.CatalogPruneTask;
 import io.trino.connector.CatalogPruneTaskConfig;
-import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.MockConnectorFactory;
@@ -43,9 +42,12 @@ import io.trino.execution.executor.TaskHandle;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.WorkerLanguageFunctionProvider;
+import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorName;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
 import io.trino.sql.planner.PlanFragment;
@@ -116,13 +118,13 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         @Override
         public CatalogConnector createCatalog(CatalogProperties catalogProperties)
         {
-            Connector connector = MockConnectorFactory.create().create(catalogProperties.getCatalogHandle().getCatalogName(), catalogProperties.getProperties(), new TestingConnectorContext());
+            Connector connector = MockConnectorFactory.create().create(catalogProperties.catalogHandle().getCatalogName().toString(), catalogProperties.properties(), new TestingConnectorContext());
             ConnectorServices noOpConnectorService = new ConnectorServices(
                     Tracing.noopTracer(),
-                    catalogProperties.getCatalogHandle(),
+                    catalogProperties.catalogHandle(),
                     connector);
             return new CatalogConnector(
-                    catalogProperties.getCatalogHandle(),
+                    catalogProperties.catalogHandle(),
                     new ConnectorName("mock"),
                     noOpConnectorService,
                     noOpConnectorService,
@@ -196,7 +198,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         Future<Void> catalogTaskFuture = Futures.submit(() ->
         {
             for (int i = 0; i < NUM_TASKS; i++) {
-                String catalogName = "catalog_" + i;
+                CatalogName catalogName = new CatalogName("catalog_" + i);
                 CatalogHandle catalogHandle = createRootCatalogHandle(catalogName, new CatalogHandle.CatalogVersion(UUID.randomUUID().toString()));
                 TaskId taskId = newTaskId();
                 workerTaskManager.updateTask(
@@ -263,7 +265,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 noopTracer(),
-                new ExchangeManagerRegistry(),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
                 ignore -> true);
     }
 

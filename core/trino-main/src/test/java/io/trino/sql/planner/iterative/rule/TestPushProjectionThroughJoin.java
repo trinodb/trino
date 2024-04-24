@@ -16,6 +16,11 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -25,8 +30,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -36,24 +39,26 @@ import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.rule.PushProjectionThroughJoin.pushProjectionThroughJoin;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
-import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.PLUS;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPushProjectionThroughJoin
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction NEGATION_BIGINT = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(BIGINT));
+
     @Test
     public void testPushesProjectionThroughJoin()
     {
@@ -69,14 +74,14 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        a3, new ArithmeticUnaryExpression(MINUS, a2.toSymbolReference()),
-                        b2, new ArithmeticUnaryExpression(PLUS, b1.toSymbolReference())),
+                        a3, new Call(NEGATION_BIGINT, ImmutableList.of(a2.toSymbolReference())),
+                        b2, new Call(NEGATION_BIGINT, ImmutableList.of(b1.toSymbolReference()))),
                 p.join(
                         INNER,
                         // intermediate non-identity projections should be fully inlined
                         p.project(
                                 Assignments.of(
-                                        a2, new ArithmeticUnaryExpression(PLUS, a0.toSymbolReference()),
+                                        a2, new Call(NEGATION_BIGINT, ImmutableList.of(a0.toSymbolReference())),
                                         a1, a1.toSymbolReference()),
                                 p.project(
                                         Assignments.builder()
@@ -88,29 +93,28 @@ public class TestPushProjectionThroughJoin
                         new JoinNode.EquiJoinClause(a1, b1)));
 
         Session session = testSessionBuilder().build();
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(PLANNER_CONTEXT, planNode, noLookup(), idAllocator, session, createTestingTypeAnalyzer(
-                PLANNER_CONTEXT), p.getTypes());
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(planNode, noLookup(), idAllocator);
         assertThat(rewritten.isPresent()).isTrue();
         assertPlan(
                 session,
                 dummyMetadata(),
                 createTestingFunctionManager(),
                 node -> unknown(),
-                new Plan(rewritten.get(), p.getTypes(), empty()), noLookup(),
+                new Plan(rewritten.get(), empty()), noLookup(),
                 join(INNER, builder -> builder
-                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("a1"), new Symbol("b1"))))
+                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, "a1"), new Symbol(UNKNOWN, "b1"))))
                         .left(
                                 strictProject(ImmutableMap.of(
-                                                "a3", expression("-(+a0)"),
-                                                "a1", expression("a1")),
+                                                "a3", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "a0")))))),
+                                                "a1", expression(new Reference(BIGINT, "a1"))),
                                         strictProject(ImmutableMap.of(
-                                                        "a0", expression("a0"),
-                                                        "a1", expression("a1")),
+                                                        "a0", expression(new Reference(BIGINT, "a0")),
+                                                        "a1", expression(new Reference(BIGINT, "a1"))),
                                                 PlanMatchPattern.values("a0", "a1"))))
                         .right(
                                 strictProject(ImmutableMap.of(
-                                                "b2", expression("+b1"),
-                                                "b1", expression("b1")),
+                                                "b2", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "b1")))),
+                                                "b1", expression(new Reference(BIGINT, "b1"))),
                                         PlanMatchPattern.values("b0", "b1"))))
                         .withExactOutputs("a3", "b2"));
     }
@@ -125,13 +129,12 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        c, new ArithmeticBinaryExpression(ADD, a.toSymbolReference(), b.toSymbolReference())),
+                        c, new Call(ADD_BIGINT, ImmutableList.of(a.toSymbolReference(), b.toSymbolReference()))),
                 p.join(
                         INNER,
                         p.values(a),
                         p.values(b)));
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(PLANNER_CONTEXT, planNode, noLookup(), new PlanNodeIdAllocator(), testSessionBuilder().build(), createTestingTypeAnalyzer(
-                PLANNER_CONTEXT), p.getTypes());
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(planNode, noLookup(), new PlanNodeIdAllocator());
         assertThat(rewritten).isEmpty();
     }
 
@@ -145,13 +148,12 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        c, new ArithmeticUnaryExpression(MINUS, a.toSymbolReference())),
+                        c, new Call(NEGATION_BIGINT, ImmutableList.of(a.toSymbolReference()))),
                 p.join(
                         LEFT,
                         p.values(a),
                         p.values(b)));
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(PLANNER_CONTEXT, planNode, noLookup(), new PlanNodeIdAllocator(), testSessionBuilder().build(), createTestingTypeAnalyzer(
-                PLANNER_CONTEXT), p.getTypes());
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(planNode, noLookup(), new PlanNodeIdAllocator());
         assertThat(rewritten).isEmpty();
     }
 }

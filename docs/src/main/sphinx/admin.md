@@ -6,6 +6,7 @@
 admin/web-interface
 admin/tuning
 admin/jmx
+admin/opentelemetry
 admin/properties
 admin/spill
 admin/resource-groups

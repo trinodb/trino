@@ -189,7 +189,10 @@ to the following table:
   - `TIMESTAMP(n)`
   - MariaDB stores the current timestamp by default. Enable
     [explicit_defaults_for_timestamp](https://mariadb.com/docs/reference/mdb/system-variables/explicit_defaults_for_timestamp/)
-    to avoid implicit default values and use `NULL` as the default value. 
+    to avoid implicit default values and use `NULL` as the default value.
+* - `DATETIME(n)`
+  - `TIMESTAMP(n)`
+  - 
 :::
 
 No other types are supported.

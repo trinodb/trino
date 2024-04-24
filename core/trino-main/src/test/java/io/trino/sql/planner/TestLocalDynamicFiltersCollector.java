@@ -25,8 +25,8 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.planner.plan.DynamicFilterId;
-import io.trino.sql.tree.Cast;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -37,11 +37,10 @@ import java.util.concurrent.CompletableFuture;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLocalDynamicFiltersCollector
@@ -59,8 +58,7 @@ public class TestLocalDynamicFiltersCollector
         DynamicFilter filter = createDynamicFilter(
                 collector,
                 ImmutableList.of(new DynamicFilters.Descriptor(filterId, symbol.toSymbolReference())),
-                ImmutableMap.of(symbol, column),
-                symbolAllocator.getTypes());
+                ImmutableMap.of(symbol, column));
 
         assertThat(filter.getColumnsCovered())
                 .describedAs("columns covered")
@@ -95,9 +93,8 @@ public class TestLocalDynamicFiltersCollector
         ColumnHandle column = new TestingColumnHandle("column");
         DynamicFilter filter = createDynamicFilter(
                 collector,
-                ImmutableList.of(new DynamicFilters.Descriptor(filterId, new Cast(symbol.toSymbolReference(), toSqlType(BIGINT)))),
-                ImmutableMap.of(symbol, column),
-                symbolAllocator.getTypes());
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId, new Cast(symbol.toSymbolReference(), BIGINT))),
+                ImmutableMap.of(symbol, column));
 
         assertThat(filter.getColumnsCovered())
                 .describedAs("columns covered")
@@ -133,8 +130,7 @@ public class TestLocalDynamicFiltersCollector
         DynamicFilter filter = createDynamicFilter(
                 collector,
                 ImmutableList.of(new DynamicFilters.Descriptor(filterId, symbol.toSymbolReference())),
-                ImmutableMap.of(symbol, column),
-                symbolAllocator.getTypes());
+                ImmutableMap.of(symbol, column));
 
         // Filter is blocked and not completed.
         CompletableFuture<?> isBlocked = filter.isBlocked();
@@ -173,8 +169,7 @@ public class TestLocalDynamicFiltersCollector
                 ImmutableList.of(
                         new DynamicFilters.Descriptor(filterId, symbol1.toSymbolReference()),
                         new DynamicFilters.Descriptor(filterId, symbol2.toSymbolReference())),
-                ImmutableMap.of(symbol1, column1, symbol2, column2),
-                symbolAllocator.getTypes());
+                ImmutableMap.of(symbol1, column1, symbol2, column2));
 
         assertThat(filter.getColumnsCovered())
                 .describedAs("columns covered")
@@ -213,8 +208,7 @@ public class TestLocalDynamicFiltersCollector
                 ImmutableList.of(
                         new DynamicFilters.Descriptor(filterId1, symbol.toSymbolReference(), GREATER_THAN),
                         new DynamicFilters.Descriptor(filterId2, symbol.toSymbolReference(), LESS_THAN)),
-                ImmutableMap.of(symbol, column),
-                symbolAllocator.getTypes());
+                ImmutableMap.of(symbol, column));
 
         assertThat(filter.getColumnsCovered())
                 .describedAs("columns covered")
@@ -256,8 +250,7 @@ public class TestLocalDynamicFiltersCollector
                 ImmutableList.of(
                         new DynamicFilters.Descriptor(filterId1, symbol1.toSymbolReference(), EQUAL, true),
                         new DynamicFilters.Descriptor(filterId2, symbol2.toSymbolReference(), EQUAL, true)),
-                ImmutableMap.of(symbol1, column1, symbol2, column2),
-                symbolAllocator.getTypes());
+                ImmutableMap.of(symbol1, column1, symbol2, column2));
 
         assertThat(filter.getColumnsCovered())
                 .describedAs("columns covered")
@@ -299,8 +292,7 @@ public class TestLocalDynamicFiltersCollector
                 ImmutableList.of(
                         new DynamicFilters.Descriptor(filter1, symbol.toSymbolReference()),
                         new DynamicFilters.Descriptor(filter2, symbol.toSymbolReference())),
-                ImmutableMap.of(symbol, column),
-                symbolAllocator.getTypes());
+                ImmutableMap.of(symbol, column));
 
         assertThat(filter.getColumnsCovered())
                 .describedAs("columns covered")
@@ -356,8 +348,7 @@ public class TestLocalDynamicFiltersCollector
         DynamicFilter filter = createDynamicFilter(
                 collector,
                 ImmutableList.of(new DynamicFilters.Descriptor(usedFilterId, usedSymbol.toSymbolReference())),
-                ImmutableMap.of(usedSymbol, usedColumn),
-                symbolAllocator.getTypes());
+                ImmutableMap.of(usedSymbol, usedColumn));
 
         // Filter is blocking and not completed.
         CompletableFuture<?> isBlocked = filter.isBlocked();
@@ -401,8 +392,7 @@ public class TestLocalDynamicFiltersCollector
                 ImmutableList.of(
                         new DynamicFilters.Descriptor(registeredFilterId, registeredSymbol.toSymbolReference()),
                         new DynamicFilters.Descriptor(unregisteredFilterId, unregisteredSymbol.toSymbolReference())),
-                ImmutableMap.of(registeredSymbol, registeredColumn, unregisteredSymbol, unregisteredColumn),
-                symbolAllocator.getTypes());
+                ImmutableMap.of(registeredSymbol, registeredColumn, unregisteredSymbol, unregisteredColumn));
 
         // Filter is blocked and not completed.
         CompletableFuture<?> isBlocked = filter.isBlocked();
@@ -423,9 +413,8 @@ public class TestLocalDynamicFiltersCollector
     private DynamicFilter createDynamicFilter(
             LocalDynamicFiltersCollector collector,
             List<DynamicFilters.Descriptor> descriptors,
-            Map<Symbol, ColumnHandle> columnsMap,
-            TypeProvider typeProvider)
+            Map<Symbol, ColumnHandle> columnsMap)
     {
-        return collector.createDynamicFilter(descriptors, columnsMap, typeProvider, PLANNER_CONTEXT);
+        return collector.createDynamicFilter(descriptors, columnsMap, PLANNER_CONTEXT);
     }
 }

@@ -99,14 +99,12 @@ public class Procedure
     @Override
     public String toString()
     {
-        return new StringBuilder()
-                .append(schema).append('.').append(name)
-                .append('(')
-                .append(arguments.stream()
+        return schema + '.' + name +
+                '(' +
+                arguments.stream()
                         .map(Object::toString)
-                        .collect(joining(", ")))
-                .append(')')
-                .toString();
+                        .collect(joining(", ")) +
+                ')';
     }
 
     public static class Argument

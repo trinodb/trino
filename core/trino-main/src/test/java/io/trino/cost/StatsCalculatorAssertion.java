@@ -15,8 +15,7 @@ package io.trino.cost;
 
 import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -37,18 +36,17 @@ public class StatsCalculatorAssertion
     private final QueryRunner queryRunner;
     private final Session session;
     private final PlanNode planNode;
-    private final TypeProvider types;
 
     private final Map<PlanNode, PlanNodeStatsEstimate> sourcesStats;
+    private RuntimeInfoProvider runtimeInfoProvider = RuntimeInfoProvider.noImplementation();
 
     private Optional<TableStatsProvider> tableStatsProvider = Optional.empty();
 
-    StatsCalculatorAssertion(QueryRunner queryRunner, Session session, PlanNode planNode, TypeProvider types)
+    StatsCalculatorAssertion(QueryRunner queryRunner, Session session, PlanNode planNode)
     {
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
         this.session = requireNonNull(session, "session cannot be null");
         this.planNode = requireNonNull(planNode, "planNode is null");
-        this.types = requireNonNull(types, "types is null");
 
         sourcesStats = new HashMap<>();
         planNode.getSources().forEach(child -> sourcesStats.put(child, PlanNodeStatsEstimate.unknown()));
@@ -86,15 +84,22 @@ public class StatsCalculatorAssertion
         return this;
     }
 
+    public StatsCalculatorAssertion withRuntimeInfoProvider(RuntimeInfoProvider runtimeInfoProvider)
+    {
+        this.runtimeInfoProvider = runtimeInfoProvider;
+        return this;
+    }
+
     public StatsCalculatorAssertion check(Consumer<PlanNodeStatsAssertion> statisticsAssertionConsumer)
     {
         PlanNodeStatsEstimate statsEstimate = queryRunner.getStatsCalculator().calculateStats(
                 planNode,
-                this::getSourceStats,
-                noLookup(),
-                session,
-                types,
-                tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getMetadata(), session)));
+                new StatsCalculator.Context(
+                        this::getSourceStats,
+                        noLookup(),
+                        session,
+                        tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session)),
+                        runtimeInfoProvider));
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate));
         return this;
     }
@@ -104,20 +109,21 @@ public class StatsCalculatorAssertion
         Optional<PlanNodeStatsEstimate> statsEstimate = calculatedStats(
                 rule,
                 planNode,
-                this::getSourceStats,
-                noLookup(),
-                session,
-                types,
-                tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getMetadata(), session)));
+                new StatsCalculator.Context(
+                        this::getSourceStats,
+                        noLookup(),
+                        session,
+                        tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session)),
+                        runtimeInfoProvider));
         checkState(statsEstimate.isPresent(), "Expected stats estimates to be present");
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate.get()));
         return this;
     }
 
     @SuppressWarnings("unchecked")
-    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculatedStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculatedStats(Rule<T> rule, PlanNode node, Context context)
     {
-        return rule.calculate((T) node, sourceStats, lookup, session, types, tableStatsProvider);
+        return rule.calculate((T) node, context);
     }
 
     private PlanNodeStatsEstimate getSourceStats(PlanNode sourceNode)

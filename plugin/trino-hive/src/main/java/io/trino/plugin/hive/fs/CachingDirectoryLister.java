@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.fs;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
@@ -118,6 +117,12 @@ public class CachingDirectoryLister
     }
 
     @Override
+    public void invalidate(Location location)
+    {
+        cache.invalidate(location);
+    }
+
+    @Override
     public void invalidate(Table table)
     {
         if (isCacheEnabledFor(table.getSchemaTableName()) && isLocationPresent(table.getStorage())) {
@@ -205,8 +210,8 @@ public class CachingDirectoryLister
         return cache.stats().requestCount();
     }
 
-    @VisibleForTesting
-    boolean isCached(Location location)
+    @Override
+    public boolean isCached(Location location)
     {
         ValueHolder cached = cache.getIfPresent(location);
         return cached != null && cached.getFiles().isPresent();

@@ -22,6 +22,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
+import io.trino.execution.buffer.CompressionCodec;
 import io.trino.sql.analyzer.RegexLibrary;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -35,6 +36,8 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 
 @DefunctConfig({
@@ -80,7 +83,7 @@ public class FeaturesConfig
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */
-    private boolean exchangeCompressionEnabled;
+    private CompressionCodec exchangeCompressionCodec = NONE;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean omitDateTimeTypePrecision;
     private int maxRecursionDepth = 10;
@@ -217,12 +220,15 @@ public class FeaturesConfig
         return this;
     }
 
+    @Deprecated(forRemoval = true)
     public RegexLibrary getRegexLibrary()
     {
         return regexLibrary;
     }
 
-    @Config("regex-library")
+    @Deprecated(forRemoval = true)
+    @Config("deprecated.regex-library")
+    @LegacyConfig("regex-library")
     public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
     {
         this.regexLibrary = regexLibrary;
@@ -328,15 +334,24 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isExchangeCompressionEnabled()
-    {
-        return exchangeCompressionEnabled;
-    }
-
-    @Config("exchange.compression-enabled")
+    @Deprecated
+    @LegacyConfig(value = "exchange.compression-enabled", replacedBy = "exchange.compression-codec")
     public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
     {
-        this.exchangeCompressionEnabled = exchangeCompressionEnabled;
+        this.exchangeCompressionCodec = exchangeCompressionEnabled ? LZ4 : NONE;
+        return this;
+    }
+
+    public CompressionCodec getExchangeCompressionCodec()
+    {
+        return exchangeCompressionCodec;
+    }
+
+    @Config("exchange.compression-codec")
+    @ConfigDescription("Compression codec used for data in exchanges")
+    public FeaturesConfig setExchangeCompressionCodec(CompressionCodec exchangeCompressionCodec)
+    {
+        this.exchangeCompressionCodec = exchangeCompressionCodec;
         return this;
     }
 
@@ -500,6 +515,6 @@ public class FeaturesConfig
 
     public void applyFaultTolerantExecutionDefaults()
     {
-        exchangeCompressionEnabled = true;
+        exchangeCompressionCodec = LZ4;
     }
 }

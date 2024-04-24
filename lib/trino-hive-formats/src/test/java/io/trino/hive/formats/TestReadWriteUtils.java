@@ -20,12 +20,54 @@ import org.apache.hadoop.io.WritableUtils;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 
+import static io.trino.hive.formats.ReadWriteUtils.calculateTruncationLength;
 import static io.trino.hive.formats.ReadWriteUtils.computeVIntLength;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Math.min;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestReadWriteUtils
 {
+    @Test
+    public void testCalculateTruncationLength()
+    {
+        testCalculateTruncationLength('a');
+        testCalculateTruncationLength(30528);
+        testCalculateTruncationLength(128165);
+    }
+
+    private static void testCalculateTruncationLength(int codePoint)
+    {
+        testCalculateTruncationLength(codePoint, 50, 50, 20);
+        testCalculateTruncationLength(codePoint, 20, 20, 50);
+        testCalculateTruncationLength(codePoint, 100, 50, 20);
+        testCalculateTruncationLength(codePoint, 100, 20, 50);
+    }
+
+    private static void testCalculateTruncationLength(int codePoint, int inputSize, int fieldSize, int truncatedSize)
+    {
+        assertThat(inputSize).isGreaterThanOrEqualTo(fieldSize);
+
+        int[] inputCodePoints = new int[inputSize];
+        Arrays.fill(inputCodePoints, codePoint);
+
+        byte[] inputBytes = new String(inputCodePoints, 0, inputSize).getBytes(UTF_8);
+        assertThat(new String(inputBytes, UTF_8).codePoints().count()).isEqualTo(inputSize);
+
+        byte[] fieldBytes = new String(inputCodePoints, 0, fieldSize).getBytes(UTF_8);
+        assertThat(new String(fieldBytes, UTF_8).codePoints().count()).isEqualTo(fieldSize);
+
+        byte[] expectedBytes = new String(inputCodePoints, 0, min(truncatedSize, fieldSize)).getBytes(UTF_8);
+        assertThat(new String(expectedBytes, UTF_8).codePoints().count()).isEqualTo(min(truncatedSize, fieldSize));
+
+        Slice slice = Slices.wrappedBuffer(inputBytes);
+        assertThat(calculateTruncationLength(createVarcharType(truncatedSize), slice, 0, fieldBytes.length))
+                .isEqualTo(expectedBytes.length);
+    }
+
     @Test
     public void testVIntLength()
     {

@@ -10,8 +10,9 @@ DROP TABLE  [ IF EXISTS ] table_name
 
 Drops an existing table.
 
-The optional `IF EXISTS` clause causes the error to be suppressed if
-the table does not exist.
+The optional `IF EXISTS` clause causes the error to be suppressed if the table
+does not exist. The error is not suppressed if a Trino view with the same name
+exists.
 
 ## Examples
 

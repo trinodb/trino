@@ -36,7 +36,6 @@ import javax.security.auth.login.LoginException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.Principal;
-import java.security.PrivilegedAction;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Locale;
@@ -100,7 +99,7 @@ public class KerberosAuthenticator
             loginContext.login();
 
             GSSName gssName = config.getNameType().getGSSName(gssManager, config.getServiceName(), hostname);
-            serverCredential = doAs(loginContext.getSubject(), () -> gssManager.createCredential(
+            serverCredential = callAs(loginContext.getSubject(), () -> gssManager.createCredential(
                     gssName,
                     INDEFINITE_LIFETIME,
                     new Oid[] {
@@ -167,7 +166,7 @@ public class KerberosAuthenticator
 
     private Optional<Principal> authenticate(String token)
     {
-        GSSContext context = doAs(loginContext.getSubject(), () -> gssManager.createContext(serverCredential));
+        GSSContext context = callAs(loginContext.getSubject(), () -> gssManager.createContext(serverCredential));
 
         try {
             byte[] inputToken = Base64.getDecoder().decode(token);
@@ -202,9 +201,9 @@ public class KerberosAuthenticator
                 throws GSSException;
     }
 
-    private static <T> T doAs(Subject subject, GssSupplier<T> action)
+    private static <T> T callAs(Subject subject, GssSupplier<T> action)
     {
-        return Subject.doAs(subject, (PrivilegedAction<T>) () -> {
+        return Subject.callAs(subject, () -> {
             try {
                 return action.get();
             }

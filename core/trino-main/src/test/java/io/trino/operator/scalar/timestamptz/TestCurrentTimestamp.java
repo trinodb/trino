@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCurrentTimestamp
@@ -30,7 +31,7 @@ public class TestCurrentTimestamp
         try (QueryAssertions assertions = new QueryAssertions()) {
             Session session = Session.builder(assertions.getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.UTC_KEY)
-                    .setStart(Instant.ofEpochSecond(0, 999_999_999))
+                    .setSystemProperty(SESSION_START_TIME_PROPERTY, Instant.ofEpochSecond(0, 999_999_999).toString())
                     .build();
 
             assertThat(assertions.expression("current_timestamp(0)", session)).matches("TIMESTAMP '1970-01-01 00:00:01 UTC'");
@@ -55,7 +56,7 @@ public class TestCurrentTimestamp
         try (QueryAssertions assertions = new QueryAssertions()) {
             Session session = Session.builder(assertions.getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.UTC_KEY)
-                    .setStart(Instant.ofEpochSecond(0, 1))
+                    .setSystemProperty(SESSION_START_TIME_PROPERTY, Instant.ofEpochSecond(0, 1).toString())
                     .build();
 
             assertThat(assertions.expression("current_timestamp(0)", session)).matches("TIMESTAMP '1970-01-01 00:00:00 UTC'");

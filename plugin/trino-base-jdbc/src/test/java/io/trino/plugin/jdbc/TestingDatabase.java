@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -24,7 +23,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -46,7 +44,7 @@ final class TestingDatabase
         String connectionUrl = "jdbc:h2:mem:" + databaseName + ";NON_KEYWORDS=KEY,VALUE"; // key and value are reserved keywords in H2 2.x
         jdbcClient = new TestingH2JdbcClient(
                 new BaseJdbcConfig(),
-                new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new EmptyCredentialProvider(), OpenTelemetry.noop()));
+                DriverConnectionFactory.builder(new Driver(), connectionUrl, new EmptyCredentialProvider()).build());
 
         connection = DriverManager.getConnection(connectionUrl);
         connection.createStatement().execute("CREATE SCHEMA example");

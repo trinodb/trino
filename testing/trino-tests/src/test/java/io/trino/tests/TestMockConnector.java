@@ -58,7 +58,7 @@ public class TestMockConnector
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

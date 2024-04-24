@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.MarkDistinctHash;
 import io.trino.operator.UpdateMemory;
 import io.trino.operator.Work;
@@ -23,7 +24,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 
 import java.util.List;
 import java.util.Optional;
@@ -38,18 +38,18 @@ public class DistinctAccumulatorFactory
 {
     private final AccumulatorFactory delegate;
     private final List<Type> argumentTypes;
-    private final JoinCompiler joinCompiler;
+    private final FlatHashStrategyCompiler hashStrategyCompiler;
     private final Session session;
 
     public DistinctAccumulatorFactory(
             AccumulatorFactory delegate,
             List<Type> argumentTypes,
-            JoinCompiler joinCompiler,
+            FlatHashStrategyCompiler hashStrategyCompiler,
             Session session)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
-        this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+        this.hashStrategyCompiler = requireNonNull(hashStrategyCompiler, "hashStrategyCompiler is null");
         this.session = requireNonNull(session, "session is null");
     }
 
@@ -66,7 +66,7 @@ public class DistinctAccumulatorFactory
                 delegate.createAccumulator(lambdaProviders),
                 argumentTypes,
                 session,
-                joinCompiler);
+                hashStrategyCompiler);
     }
 
     @Override
@@ -82,7 +82,7 @@ public class DistinctAccumulatorFactory
                 delegate.createGroupedAccumulator(lambdaProviders),
                 argumentTypes,
                 session,
-                joinCompiler);
+                hashStrategyCompiler);
     }
 
     @Override
@@ -107,14 +107,14 @@ public class DistinctAccumulatorFactory
                 Accumulator accumulator,
                 List<Type> inputTypes,
                 Session session,
-                JoinCompiler joinCompiler)
+                FlatHashStrategyCompiler hashStrategyCompiler)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.hash = new MarkDistinctHash(
                     session,
                     inputTypes,
                     false,
-                    joinCompiler,
+                    hashStrategyCompiler,
                     UpdateMemory.NOOP);
         }
 
@@ -181,7 +181,7 @@ public class DistinctAccumulatorFactory
                 GroupedAccumulator accumulator,
                 List<Type> inputTypes,
                 Session session,
-                JoinCompiler joinCompiler)
+                FlatHashStrategyCompiler hashStrategyCompiler)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.hash = new MarkDistinctHash(
@@ -191,7 +191,7 @@ public class DistinctAccumulatorFactory
                             .addAll(inputTypes)
                             .build(),
                     false,
-                    joinCompiler,
+                    hashStrategyCompiler,
                     UpdateMemory.NOOP);
         }
 
@@ -202,7 +202,7 @@ public class DistinctAccumulatorFactory
         }
 
         @Override
-        public void setGroupCount(long groupCount)
+        public void setGroupCount(int groupCount)
         {
             accumulator.setGroupCount(groupCount);
         }

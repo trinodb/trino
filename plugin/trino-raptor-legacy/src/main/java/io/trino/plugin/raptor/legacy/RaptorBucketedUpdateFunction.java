@@ -14,6 +14,8 @@
 package io.trino.plugin.raptor.legacy;
 
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.BucketFunction;
 
@@ -25,7 +27,8 @@ public class RaptorBucketedUpdateFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        SqlRow row = page.getBlock(0).getObject(position, SqlRow.class);
+        Block block = page.getBlock(0);
+        SqlRow row = ((RowBlock) block.getUnderlyingValueBlock()).getRow(block.getUnderlyingValuePosition(position));
         return INTEGER.getInt(row.getRawFieldBlock(0), row.getRawIndex()); // bucket field of row ID
     }
 }

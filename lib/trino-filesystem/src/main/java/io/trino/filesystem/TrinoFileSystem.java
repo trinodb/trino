@@ -78,7 +78,7 @@ public interface TrinoFileSystem
 
     /**
      * Deletes the specified file. The file location path cannot be empty, and must not end with
-     * a slash or whitespace. If the file is a director, an exception is raised. If the file does
+     * a slash or whitespace. If the file is a directory, an exception is raised. If the file does
      * not exist, this method is a noop.
      *
      * @throws IllegalArgumentException if location is not valid for this file system
@@ -127,6 +127,8 @@ public interface TrinoFileSystem
      * to be atomic, but it is required that if an error occurs, the source, target, or both
      * must exist with the data from the source.  This operation may or may not preserve the
      * last modified time.
+     * <p>
+     * For file systems which do not support rename (e.g. S3), this operation fails.
      *
      * @throws IllegalArgumentException if either location is not valid for this file system
      */

@@ -18,6 +18,8 @@ import com.google.cloud.http.HttpTransportOptions;
 import com.google.inject.Inject;
 import io.grpc.HttpConnectProxiedSocketAddress;
 import io.grpc.ProxiedSocketAddress;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.instrumentation.apachehttpclient.v4_3.ApacheHttpClientTelemetry;
 import io.trino.spi.TrinoException;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -63,7 +65,7 @@ public interface ProxyTransportFactory
         private final Optional<String> proxyPassword;
 
         @Inject
-        public DefaultProxyTransportFactory(BigQueryProxyConfig proxyConfig)
+        public DefaultProxyTransportFactory(OpenTelemetry openTelemetry, BigQueryProxyConfig proxyConfig)
         {
             requireNonNull(proxyConfig, "proxyConfig is null");
             this.proxyUri = proxyConfig.getUri();
@@ -71,7 +73,7 @@ public interface ProxyTransportFactory
             this.proxyPassword = proxyConfig.getPassword();
 
             this.sslContext = buildSslContext(proxyConfig.getKeystorePath(), proxyConfig.getKeystorePassword(), proxyConfig.getTruststorePath(), proxyConfig.getTruststorePassword());
-            this.transportOptions = buildTransportOptions(sslContext, proxyUri, proxyUsername, proxyPassword);
+            this.transportOptions = buildTransportOptions(openTelemetry, sslContext, proxyUri, proxyUsername, proxyPassword);
         }
 
         @Override
@@ -99,12 +101,12 @@ public interface ProxyTransportFactory
             return builder.build();
         }
 
-        private static HttpTransportOptions buildTransportOptions(Optional<SSLContext> sslContext, URI proxyUri, Optional<String> proxyUser, Optional<String> proxyPassword)
+        private static HttpTransportOptions buildTransportOptions(OpenTelemetry openTelemetry, Optional<SSLContext> sslContext, URI proxyUri, Optional<String> proxyUser, Optional<String> proxyPassword)
         {
             HttpHost proxyHost = new HttpHost(proxyUri.getHost(), proxyUri.getPort());
             HttpRoutePlanner httpRoutePlanner = new DefaultProxyRoutePlanner(proxyHost);
 
-            HttpClientBuilder httpClientBuilder = ApacheHttpTransport.newDefaultHttpClientBuilder()
+            HttpClientBuilder httpClientBuilder = ApacheHttpClientTelemetry.create(openTelemetry).newHttpClientBuilder()
                     .setRoutePlanner(httpRoutePlanner);
 
             if (sslContext.isPresent()) {

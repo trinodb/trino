@@ -36,7 +36,7 @@ public final class OracleQueryRunner
 {
     private OracleQueryRunner() {}
 
-    public static DistributedQueryRunner createOracleQueryRunner(
+    public static QueryRunner createOracleQueryRunner(
             TestingOracleServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
@@ -46,7 +46,7 @@ public final class OracleQueryRunner
         return createOracleQueryRunner(server, extraProperties, Map.of(), connectorProperties, tables, queryRunner -> {});
     }
 
-    public static DistributedQueryRunner createOracleQueryRunner(
+    public static QueryRunner createOracleQueryRunner(
             TestingOracleServer server,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
@@ -55,7 +55,7 @@ public final class OracleQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = null;
+        QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
@@ -100,7 +100,7 @@ public final class OracleQueryRunner
             throws Exception
     {
         TestingOracleServer server = new TestingOracleServer();
-        DistributedQueryRunner queryRunner = createOracleQueryRunner(
+        QueryRunner queryRunner = createOracleQueryRunner(
                 server,
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.<String, String>builder()

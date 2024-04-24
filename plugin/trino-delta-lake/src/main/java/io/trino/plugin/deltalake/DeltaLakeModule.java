@@ -21,9 +21,11 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.base.CatalogName;
+import io.trino.filesystem.cache.AllowFilesystemCacheOnCoordinator;
+import io.trino.filesystem.cache.CacheKeyProvider;
 import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
+import io.trino.plugin.deltalake.cache.DeltaLakeCacheKeyProvider;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesFunctionProvider;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesProcessorProvider;
 import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
@@ -48,13 +50,10 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFacto
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.PropertiesSystemTableProvider;
 import io.trino.plugin.hive.SystemTableProvider;
-import io.trino.plugin.hive.TransactionalMetadata;
-import io.trino.plugin.hive.TransactionalMetadataFactory;
-import io.trino.plugin.hive.fs.DirectoryLister;
-import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -148,34 +147,9 @@ public class DeltaLakeModule
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(TableChangesFunctionProvider.class).in(Scopes.SINGLETON);
         binder.bind(FunctionProvider.class).to(DeltaLakeFunctionProvider.class).in(Scopes.SINGLETON);
         binder.bind(TableChangesProcessorProvider.class).in(Scopes.SINGLETON);
-    }
 
-    @Singleton
-    @Provides
-    public TransactionalMetadataFactory createTransactionalMetadataFactory()
-    {
-        // fake implementation of TransactionalMetadataFactory used by HiveTransactionManager.
-        // not used in Delta lake connector.
-        return (identity, autoCommit) -> new TransactionalMetadata()
-        {
-            @Override
-            public SemiTransactionalHiveMetastore getMetastore()
-            {
-                throw new RuntimeException("SemiTransactionalHiveMetastore is not used by Delta");
-            }
-
-            @Override
-            public DirectoryLister getDirectoryLister()
-            {
-                throw new RuntimeException("DirectoryLister is not used by Delta");
-            }
-
-            @Override
-            public void commit() {}
-
-            @Override
-            public void rollback() {}
-        };
+        newOptionalBinder(binder, CacheKeyProvider.class).setBinding().to(DeltaLakeCacheKeyProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(boolean.class, AllowFilesystemCacheOnCoordinator.class)).setBinding().toInstance(true);
     }
 
     @Singleton

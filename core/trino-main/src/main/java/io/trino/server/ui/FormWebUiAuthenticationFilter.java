@@ -35,6 +35,7 @@ import java.security.Key;
 import java.security.SecureRandom;
 import java.time.ZonedDateTime;
 import java.util.Date;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -69,6 +70,8 @@ public class FormWebUiAuthenticationFilter
     private final Function<String, String> jwtGenerator;
     private final FormAuthenticator formAuthenticator;
     private final Optional<Authenticator> authenticator;
+
+    private static final MultipartUiCookie MULTIPART_COOKIE = new MultipartUiCookie(TRINO_UI_COOKIE, "/ui");
 
     @Inject
     public FormWebUiAuthenticationFilter(
@@ -225,7 +228,7 @@ public class FormWebUiAuthenticationFilter
         return Response.seeOther(redirectLocation);
     }
 
-    public Optional<NewCookie> checkLoginCredentials(String username, String password, boolean secure)
+    public Optional<NewCookie[]> checkLoginCredentials(String username, String password, boolean secure)
     {
         return formAuthenticator.isValidCredential(username, password, secure)
                 .map(user -> createAuthenticationCookie(user, secure));
@@ -233,13 +236,8 @@ public class FormWebUiAuthenticationFilter
 
     private Optional<String> getAuthenticatedUsername(ContainerRequestContext request)
     {
-        Cookie cookie = request.getCookies().get(TRINO_UI_COOKIE);
-        if (cookie == null) {
-            return Optional.empty();
-        }
-
         try {
-            return Optional.of(parseJwt(cookie.getValue()));
+            return MULTIPART_COOKIE.read(request.getCookies()).map(this::parseJwt);
         }
         catch (JwtException e) {
             return Optional.empty();
@@ -249,35 +247,14 @@ public class FormWebUiAuthenticationFilter
         }
     }
 
-    private NewCookie createAuthenticationCookie(String userName, boolean secure)
+    private NewCookie[] createAuthenticationCookie(String userName, boolean secure)
     {
-        String jwt = jwtGenerator.apply(userName);
-        return new NewCookie(
-                TRINO_UI_COOKIE,
-                jwt,
-                "/ui",
-                null,
-                Cookie.DEFAULT_VERSION,
-                null,
-                NewCookie.DEFAULT_MAX_AGE,
-                null,
-                secure,
-                true);
+        return MULTIPART_COOKIE.create(jwtGenerator.apply(userName), null, secure);
     }
 
-    public static NewCookie getDeleteCookie(boolean secure)
+    public static NewCookie[] getDeleteCookies(Map<String, Cookie> existingCookies, boolean isSecure)
     {
-        return new NewCookie(
-                TRINO_UI_COOKIE,
-                "delete",
-                "/ui",
-                null,
-                Cookie.DEFAULT_VERSION,
-                null,
-                0,
-                null,
-                secure,
-                true);
+        return MULTIPART_COOKIE.delete(existingCookies, isSecure);
     }
 
     public boolean isPasswordAllowed(boolean secure)

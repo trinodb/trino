@@ -23,9 +23,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.OptionalLong;
 
-import static com.google.common.primitives.Longs.constrainToRange;
 import static io.trino.filesystem.gcs.GcsUtils.getReadChannel;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
+import static java.lang.Math.clamp;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
@@ -39,7 +39,7 @@ public class GcsInputStream
     private final OptionalLong predeclaredLength;
     private ReadChannel readChannel;
     // Used for read(). Similar to sun.nio.ch.ChannelInputStream
-    private ByteBuffer readBuffer = ByteBuffer.allocate(1);
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(1);
     private long currentPosition;
     private long nextPosition;
     private boolean closed;
@@ -134,7 +134,7 @@ public class GcsInputStream
             throws IOException
     {
         ensureOpen();
-        long skipSize = constrainToRange(n, 0, fileSize - nextPosition);
+        long skipSize = clamp(n, 0, fileSize - nextPosition);
         nextPosition += skipSize;
         return skipSize;
     }

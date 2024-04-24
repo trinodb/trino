@@ -69,50 +69,6 @@ public class TestTypeCoercion
     private final Type re2jType = typeManager.getType(RE2J_REGEXP_SIGNATURE);
     private final TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType);
 
-    @Test
-    public void testIsTypeOnlyCoercion()
-    {
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(BIGINT, BIGINT)).isTrue();
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(createVarcharType(42), createVarcharType(44))).isTrue();
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(createVarcharType(44), createVarcharType(42))).isFalse();
-
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(createCharType(42), createVarcharType(42))).isFalse();
-
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createVarcharType(42)), new ArrayType(createVarcharType(44)))).isTrue();
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createVarcharType(44)), new ArrayType(createVarcharType(42)))).isFalse();
-
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(createDecimalType(22, 1), createDecimalType(23, 1))).isTrue();
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(createDecimalType(2, 1), createDecimalType(3, 1))).isTrue();
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(createDecimalType(23, 1), createDecimalType(22, 1))).isFalse();
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(createDecimalType(3, 1), createDecimalType(2, 1))).isFalse();
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(createDecimalType(3, 1), createDecimalType(22, 1))).isFalse();
-
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(22, 1)), new ArrayType(createDecimalType(23, 1)))).isTrue();
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(2, 1)), new ArrayType(createDecimalType(3, 1)))).isTrue();
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(23, 1)), new ArrayType(createDecimalType(22, 1)))).isFalse();
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(3, 1)), new ArrayType(createDecimalType(2, 1)))).isFalse();
-
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(
-                mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
-                mapType(createDecimalType(2, 1), createDecimalType(3, 1)))).isTrue();
-
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(
-                mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
-                mapType(createDecimalType(2, 1), createDecimalType(23, 1)))).isFalse();
-
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(
-                mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
-                mapType(createDecimalType(2, 1), createDecimalType(3, 2)))).isFalse();
-
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(
-                mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
-                mapType(createDecimalType(3, 1), createDecimalType(3, 1)))).isTrue();
-
-        Assertions.assertThat(typeCoercion.isTypeOnlyCoercion(
-                mapType(createDecimalType(3, 1), createDecimalType(3, 1)),
-                mapType(createDecimalType(2, 1), createDecimalType(2, 1)))).isFalse();
-    }
-
     private Type mapType(Type keyType, Type valueType)
     {
         return typeManager.getType(TypeSignature.mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));

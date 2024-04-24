@@ -15,18 +15,19 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.ExpressionMatcher;
-import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.planner.plan.ApplyNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.setExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestPruneApplySourceColumns
         extends BaseRuleTest
@@ -41,7 +42,7 @@ public class TestPruneApplySourceColumns
                     Symbol subquerySymbol2 = p.symbol("subquery_symbol_2");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol1.toSymbolReference())),
+                            ImmutableMap.of(inResult, new ApplyNode.In(a, subquerySymbol1)),
                             ImmutableList.of(),
                             p.values(a),
                             p.values(subquerySymbol1, subquerySymbol2));
@@ -49,10 +50,10 @@ public class TestPruneApplySourceColumns
                 .matches(
                         apply(
                                 ImmutableList.of(),
-                                ImmutableMap.of("in_result", ExpressionMatcher.inPredicate(new SymbolReference("a"), new SymbolReference("subquery_symbol_1"))),
+                                ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol(UNKNOWN, "a"), new Symbol(UNKNOWN, "subquery_symbol_1")))),
                                 values("a"),
                                 project(
-                                        ImmutableMap.of("subquery_symbol_1", PlanMatchPattern.expression("subquery_symbol_1")),
+                                        ImmutableMap.of("subquery_symbol_1", expression(new Reference(BIGINT, "subquery_symbol_1"))),
                                         values("subquery_symbol_1", "subquery_symbol_2"))));
     }
 
@@ -67,9 +68,9 @@ public class TestPruneApplySourceColumns
                     Symbol inResult1 = p.symbol("in_result_1");
                     Symbol inResult2 = p.symbol("in_result_2");
                     return p.apply(
-                            Assignments.of(
-                                    inResult1, new InPredicate(a.toSymbolReference(), subquerySymbol1.toSymbolReference()),
-                                    inResult2, new InPredicate(a.toSymbolReference(), subquerySymbol2.toSymbolReference())),
+                            ImmutableMap.of(
+                                    inResult1, new ApplyNode.In(a, subquerySymbol1),
+                                    inResult2, new ApplyNode.In(a, subquerySymbol2)),
                             ImmutableList.of(),
                             p.values(a),
                             p.values(subquerySymbol1, subquerySymbol2));
@@ -86,7 +87,7 @@ public class TestPruneApplySourceColumns
                     Symbol subquerySymbol = p.symbol("subquery_symbol");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), a.toSymbolReference())),
+                            ImmutableMap.of(inResult, new ApplyNode.In(a, a)),
                             ImmutableList.of(),
                             p.values(a),
                             p.values(subquerySymbol));
@@ -94,7 +95,7 @@ public class TestPruneApplySourceColumns
                 .matches(
                         apply(
                                 ImmutableList.of(),
-                                ImmutableMap.of("in_result", ExpressionMatcher.inPredicate(new SymbolReference("a"), new SymbolReference("a"))),
+                                ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol(UNKNOWN, "a"), new Symbol(UNKNOWN, "a")))),
                                 values("a"),
                                 project(
                                         ImmutableMap.of(),

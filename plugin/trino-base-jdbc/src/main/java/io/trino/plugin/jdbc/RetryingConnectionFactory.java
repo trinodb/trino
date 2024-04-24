@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorSession;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLTransientException;
+import java.util.Set;
 
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.time.temporal.ChronoUnit.SECONDS;
@@ -38,17 +39,23 @@ public class RetryingConnectionFactory
     private final ConnectionFactory delegate;
 
     @Inject
-    public RetryingConnectionFactory(StatisticsAwareConnectionFactory delegate, RetryStrategy retryStrategy)
+    public RetryingConnectionFactory(StatisticsAwareConnectionFactory delegate, Set<RetryStrategy> retryStrategies)
     {
-        requireNonNull(retryStrategy);
+        requireNonNull(retryStrategies);
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.retryPolicy = RetryPolicy.builder()
                 .withMaxDuration(java.time.Duration.of(30, SECONDS))
                 .withMaxAttempts(5)
                 .withBackoff(50, 5_000, MILLIS, 4)
-                .handleIf(retryStrategy::isExceptionRecoverable)
+                .handleIf(throwable -> isExceptionRecoverable(retryStrategies, throwable))
                 .abortOn(TrinoException.class)
                 .build();
+    }
+
+    private static boolean isExceptionRecoverable(Set<RetryStrategy> retryStrategies, Throwable throwable)
+    {
+        return retryStrategies.stream()
+                .anyMatch(retryStrategy -> retryStrategy.isExceptionRecoverable(throwable));
     }
 
     @Override

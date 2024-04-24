@@ -127,7 +127,7 @@ public class DropColumnTask
                         currentType = rowField.getType();
                         continue;
                     }
-                    if (statement.isColumnExists() && candidates.size() == 0) {
+                    if (statement.isColumnExists() && candidates.isEmpty()) {
                         // TODO should we allow only the leaf not to exist, or any path component?
                         return immediateVoidFuture();
                     }

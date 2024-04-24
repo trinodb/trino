@@ -215,56 +215,5 @@ public class MetadataEntry
                 id, name, description, format, schemaString, partitionColumns, configuration, createdTime);
     }
 
-    public static class Format
-    {
-        private final String provider;
-        private final Map<String, String> options;
-
-        @JsonCreator
-        public Format(
-                @JsonProperty("provider") String provider,
-                @JsonProperty("options") Map<String, String> options)
-        {
-            this.provider = provider;
-            this.options = options;
-        }
-
-        @JsonProperty
-        public String getProvider()
-        {
-            return provider;
-        }
-
-        @JsonProperty
-        public Map<String, String> getOptions()
-        {
-            return options;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            Format format = (Format) o;
-            return Objects.equals(provider, format.provider) &&
-                    Objects.equals(options, format.options);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(provider, options);
-        }
-
-        @Override
-        public String toString()
-        {
-            return format("MetadataEntry.Format{provider=%s, options=%s}", provider, options);
-        }
-    }
+    public record Format(String provider, Map<String, String> options) {}
 }

@@ -15,8 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -24,6 +23,11 @@ import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 public final class TestingHiveUtils
 {
     private TestingHiveUtils() {}
+
+    public static <T> T getConnectorService(PlanTester planTester, Class<T> clazz)
+    {
+        return ((HiveConnector) planTester.getConnector(HIVE_CATALOG)).getInjector().getInstance(clazz);
+    }
 
     public static <T> T getConnectorService(QueryRunner queryRunner, Class<T> clazz)
     {
@@ -37,9 +41,6 @@ public final class TestingHiveUtils
 
     private static Injector getConnectorInjector(QueryRunner queryRunner)
     {
-        if (queryRunner instanceof DistributedQueryRunner) {
-            return ((HiveConnector) ((DistributedQueryRunner) queryRunner).getCoordinator().getConnector(HIVE_CATALOG)).getInjector();
-        }
-        return ((HiveConnector) ((LocalQueryRunner) queryRunner).getConnector(HIVE_CATALOG)).getInjector();
+        return ((HiveConnector) queryRunner.getCoordinator().getConnector(HIVE_CATALOG)).getInjector();
     }
 }

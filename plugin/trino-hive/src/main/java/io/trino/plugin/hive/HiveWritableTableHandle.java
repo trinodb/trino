@@ -18,11 +18,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.plugin.hive.metastore.SortingColumn;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.hive.util.HiveBucketing.getBucketingVersion;
 import static java.util.Objects.requireNonNull;
 
 public class HiveWritableTableHandle
@@ -32,7 +36,7 @@ public class HiveWritableTableHandle
     private final List<HiveColumnHandle> inputColumns;
     private final HivePageSinkMetadata pageSinkMetadata;
     private final LocationHandle locationHandle;
-    private final Optional<HiveBucketProperty> bucketProperty;
+    private final Optional<BucketInfo> bucketInfo;
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
     private final AcidTransaction transaction;
@@ -44,7 +48,7 @@ public class HiveWritableTableHandle
             List<HiveColumnHandle> inputColumns,
             HivePageSinkMetadata pageSinkMetadata,
             LocationHandle locationHandle,
-            Optional<HiveBucketProperty> bucketProperty,
+            Optional<BucketInfo> bucketInfo,
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
             AcidTransaction transaction,
@@ -55,7 +59,7 @@ public class HiveWritableTableHandle
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.pageSinkMetadata = requireNonNull(pageSinkMetadata, "pageSinkMetadata is null");
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
-        this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
+        this.bucketInfo = requireNonNull(bucketInfo, "bucketInfo is null");
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
@@ -99,9 +103,9 @@ public class HiveWritableTableHandle
     }
 
     @JsonProperty
-    public Optional<HiveBucketProperty> getBucketProperty()
+    public Optional<BucketInfo> getBucketInfo()
     {
-        return bucketProperty;
+        return bucketInfo;
     }
 
     @JsonProperty
@@ -138,5 +142,29 @@ public class HiveWritableTableHandle
     public String toString()
     {
         return schemaName + "." + tableName;
+    }
+
+    public record BucketInfo(List<String> bucketedBy, BucketingVersion bucketingVersion, int bucketCount, List<SortingColumn> sortedBy)
+    {
+        public BucketInfo
+        {
+            bucketedBy = ImmutableList.copyOf(requireNonNull(bucketedBy, "bucketedBy is null"));
+            requireNonNull(bucketingVersion, "bucketingVersion is null");
+            sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
+        }
+
+        public static Optional<BucketInfo> createBucketInfo(Table table)
+        {
+            if (table.getStorage().getBucketProperty().isEmpty()) {
+                return Optional.empty();
+            }
+            HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty().get();
+            BucketingVersion bucketingVersion = getBucketingVersion(table.getParameters());
+            return Optional.of(new BucketInfo(
+                    bucketProperty.getBucketedBy(),
+                    bucketingVersion,
+                    bucketProperty.getBucketCount(),
+                    bucketProperty.getSortedBy()));
+        }
     }
 }

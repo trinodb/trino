@@ -251,7 +251,7 @@ public class TestingDruidServer
         Request.Builder requestBuilder = new Request.Builder();
         requestBuilder.addHeader("content-type", "application/json;charset=utf-8")
                 .url("http://localhost:" + getCoordinatorOverlordPort() + "/druid/indexer/v1/task")
-                .post(RequestBody.create(null, indexTask));
+                .post(RequestBody.create(indexTask, null));
         Request ingestionRequest = requestBuilder.build();
         try (Response ignored = httpClient.newCall(ingestionRequest).execute()) {
             assertThat(checkDatasourceAvailable(datasource)).as("Datasource %s not loaded", datasource).isTrue();

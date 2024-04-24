@@ -62,7 +62,7 @@ public final class BigQueryQueryRunner
 
     private BigQueryQueryRunner() {}
 
-    public static DistributedQueryRunner createQueryRunner(
+    public static QueryRunner createQueryRunner(
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
@@ -71,7 +71,7 @@ public final class BigQueryQueryRunner
         return createQueryRunner(extraProperties, ImmutableMap.of(), connectorProperties, tables, runner -> {});
     }
 
-    public static DistributedQueryRunner createQueryRunner(
+    public static QueryRunner createQueryRunner(
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
@@ -79,7 +79,7 @@ public final class BigQueryQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = null;
+        QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
@@ -211,7 +211,7 @@ public final class BigQueryQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createQueryRunner(
+        QueryRunner queryRunner = createQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 TpchTable.getTables());

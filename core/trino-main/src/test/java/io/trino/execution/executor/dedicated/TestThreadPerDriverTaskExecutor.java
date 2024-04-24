@@ -121,7 +121,7 @@ public class TestThreadPerDriverTaskExecutor
     {
         TestingTicker ticker = new TestingTicker();
         FairScheduler scheduler = new FairScheduler(1, "Runner-%d", ticker);
-        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, Integer.MAX_VALUE, Integer.MAX_VALUE);
         executor.start();
 
         try {

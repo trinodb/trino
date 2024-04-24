@@ -18,10 +18,10 @@ import io.trino.Session;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.NodeRef;
 
@@ -53,7 +53,7 @@ class PlanBuilder
         return newPlanBuilder(plan, analysis, lambdaArguments, ImmutableMap.of(), session, plannerContext);
     }
 
-    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Map<ScopeAware<Expression>, Symbol> mappings, Session session, PlannerContext plannerContext)
+    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Map<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings, Session session, PlannerContext plannerContext)
     {
         return new PlanBuilder(
                 new TranslationMap(plan.getOuterContext(), plan.getScope(), analysis, lambdaArguments, plan.getFieldMappings(), mappings, session, plannerContext),
@@ -75,17 +75,17 @@ class PlanBuilder
         return root;
     }
 
-    public boolean canTranslate(Expression expression)
+    public boolean canTranslate(io.trino.sql.tree.Expression expression)
     {
         return translations.canTranslate(expression);
     }
 
-    public Symbol translate(Expression expression)
+    public Symbol translate(io.trino.sql.tree.Expression expression)
     {
         return Symbol.from(translations.rewrite(expression));
     }
 
-    public Expression rewrite(Expression expression)
+    public Expression rewrite(io.trino.sql.tree.Expression expression)
     {
         return translations.rewrite(expression);
     }
@@ -100,12 +100,12 @@ class PlanBuilder
         return translations.getScope();
     }
 
-    public PlanBuilder appendProjections(Iterable<Expression> expressions, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanBuilder appendProjections(Iterable<io.trino.sql.tree.Expression> expressions, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         return appendProjections(expressions, symbolAllocator, idAllocator, TranslationMap::rewrite, TranslationMap::canTranslate);
     }
 
-    public <T extends Expression> PlanBuilder appendProjections(
+    public <T extends io.trino.sql.tree.Expression> PlanBuilder appendProjections(
             Iterable<T> expressions,
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
@@ -117,11 +117,11 @@ class PlanBuilder
         // add an identity projection for underlying plan
         projections.putIdentities(root.getOutputSymbols());
 
-        Map<ScopeAware<Expression>, Symbol> mappings = new HashMap<>();
+        Map<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings = new HashMap<>();
         for (T expression : expressions) {
             // Skip any expressions that have already been translated and recorded in the translation map, or that are duplicated in the list of exp
             if (!mappings.containsKey(scopeAwareKey(expression, translations.getAnalysis(), translations.getScope())) && !alreadyHasTranslation.test(translations, expression)) {
-                Symbol symbol = symbolAllocator.newSymbol(expression, translations.getAnalysis().getType(expression));
+                Symbol symbol = symbolAllocator.newSymbol("expr", translations.getAnalysis().getType(expression));
                 projections.put(symbol, rewriter.apply(translations, expression));
                 mappings.put(scopeAwareKey(expression, translations.getAnalysis(), translations.getScope()), symbol);
             }

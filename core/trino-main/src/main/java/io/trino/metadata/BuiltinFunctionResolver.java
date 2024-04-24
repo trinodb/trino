@@ -53,17 +53,15 @@ class BuiltinFunctionResolver
     private final TypeManager typeManager;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final FunctionBinder functionBinder;
-    private final ResolvedFunction.ResolvedFunctionDecoder functionDecoder;
 
     private final NonEvictableCache<OperatorCacheKey, ResolvedFunction> operatorCache;
     private final NonEvictableCache<CoercionCacheKey, ResolvedFunction> coercionCache;
 
-    public BuiltinFunctionResolver(Metadata metadata, TypeManager typeManager, GlobalFunctionCatalog globalFunctionCatalog, ResolvedFunction.ResolvedFunctionDecoder functionDecoder)
+    public BuiltinFunctionResolver(Metadata metadata, TypeManager typeManager, GlobalFunctionCatalog globalFunctionCatalog)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
-        this.functionDecoder = functionDecoder;
         this.functionBinder = new FunctionBinder(metadata, typeManager);
 
         operatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
@@ -137,10 +135,9 @@ class BuiltinFunctionResolver
                 metadata,
                 typeManager,
                 functionBinder,
-                functionDecoder,
                 GlobalSystemConnector.CATALOG_HANDLE,
                 functionBinding.functionBinding(),
-                functionBinding.functionMetadata(),
+                functionBinding.boundFunctionMetadata(),
                 dependencies,
                 catalogSchemaFunctionName -> {
                     // builtin functions can only depend on other builtin functions

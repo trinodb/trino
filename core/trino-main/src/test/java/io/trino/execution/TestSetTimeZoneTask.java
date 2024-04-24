@@ -26,7 +26,8 @@ import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.StringLiteral;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -43,8 +44,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField.HOUR;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField.MINUTE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
@@ -62,12 +61,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestSetTimeZoneTask
 {
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-    private LocalQueryRunner localQueryRunner;
+    private QueryRunner queryRunner;
 
     @BeforeAll
     public void setUp()
     {
-        localQueryRunner = LocalQueryRunner.create(TEST_SESSION);
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
     }
 
     @AfterAll
@@ -75,8 +74,8 @@ public class TestSetTimeZoneTask
     {
         executor.shutdownNow();
         executor = null;
-        localQueryRunner.close();
-        localQueryRunner = null;
+        queryRunner.close();
+        queryRunner = null;
     }
 
     @Test
@@ -114,7 +113,7 @@ public class TestSetTimeZoneTask
                 new NodeLocation(1, 1),
                 Optional.of(new FunctionCall(
                         new NodeLocation(1, 15),
-                        localQueryRunner.getMetadata().resolveBuiltinFunction("concat_ws", fromTypes(VARCHAR, VARCHAR, VARCHAR)).toQualifiedName(),
+                        QualifiedName.of("concat_ws"),
                         ImmutableList.of(
                                 new StringLiteral(
                                         new NodeLocation(1, 25),
@@ -181,7 +180,7 @@ public class TestSetTimeZoneTask
                 new NodeLocation(1, 1),
                 Optional.of(new FunctionCall(
                         new NodeLocation(1, 24),
-                        localQueryRunner.getMetadata().resolveBuiltinFunction("parse_duration", fromTypes(VARCHAR)).toQualifiedName(),
+                        QualifiedName.of("parse_duration"),
                         ImmutableList.of(
                                 new StringLiteral(
                                         new NodeLocation(1, 39),
@@ -201,7 +200,7 @@ public class TestSetTimeZoneTask
                 new NodeLocation(1, 1),
                 Optional.of(new FunctionCall(
                         new NodeLocation(1, 24),
-                        localQueryRunner.getMetadata().resolveBuiltinFunction("parse_duration", fromTypes(VARCHAR)).toQualifiedName(),
+                        QualifiedName.of("parse_duration"),
                         ImmutableList.of(
                                 new StringLiteral(
                                         new NodeLocation(1, 39),
@@ -259,10 +258,10 @@ public class TestSetTimeZoneTask
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
                 false,
-                localQueryRunner.getTransactionManager(),
-                localQueryRunner.getAccessControl(),
+                queryRunner.getTransactionManager(),
+                queryRunner.getAccessControl(),
                 executor,
-                localQueryRunner.getMetadata(),
+                queryRunner.getPlannerContext().getMetadata(),
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
@@ -272,7 +271,7 @@ public class TestSetTimeZoneTask
 
     private void executeSetTimeZone(SetTimeZone setTimeZone, QueryStateMachine stateMachine)
     {
-        SetTimeZoneTask task = new SetTimeZoneTask(localQueryRunner.getPlannerContext(), localQueryRunner.getAccessControl());
+        SetTimeZoneTask task = new SetTimeZoneTask(queryRunner.getPlannerContext(), queryRunner.getAccessControl());
         getFutureValue(task.execute(setTimeZone, stateMachine, emptyList(), WarningCollector.NOOP));
     }
 }

@@ -15,7 +15,6 @@ package io.trino.hive.formats;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.type.MapType;
 
 import java.util.Arrays;
@@ -45,7 +44,6 @@ public class DistinctMapKeys
      */
     // NOTE: this is a fork of the logic in MapHashTables
     public boolean[] selectDistinctKeys(Block keyBlock)
-            throws DuplicateMapKeyException
     {
         int keyCount = keyBlock.getPositionCount();
         int hashTableSize = keyCount * HASH_MULTIPLIER;

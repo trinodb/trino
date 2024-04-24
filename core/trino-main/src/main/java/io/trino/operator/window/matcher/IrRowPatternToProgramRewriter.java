@@ -118,7 +118,7 @@ public class IrRowPatternToProgramRewriter
                 instructions.set(splitPosition, new Split(splitTarget, instructions.size()));
             }
 
-            process(parts.get(parts.size() - 1));
+            process(parts.getLast());
 
             for (int position : jumpPositions) {
                 instructions.set(position, new Jump(instructions.size()));
@@ -173,7 +173,7 @@ public class IrRowPatternToProgramRewriter
                 instructions.set(splitPosition, new Split(splitTarget, instructions.size()));
             }
 
-            concatenation(parts.get(parts.size() - 1));
+            concatenation(parts.getLast());
 
             for (int position : jumpPositions) {
                 instructions.set(position, new Jump(instructions.size()));

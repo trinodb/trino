@@ -123,14 +123,7 @@ public class FileBackupStore
     {
         try (InputStream in = new FileInputStream(source);
                 FileOutputStream out = new FileOutputStream(target)) {
-            byte[] buffer = new byte[128 * 1024];
-            while (true) {
-                int n = in.read(buffer);
-                if (n == -1) {
-                    break;
-                }
-                out.write(buffer, 0, n);
-            }
+            in.transferTo(out);
             out.flush();
             out.getFD().sync();
         }

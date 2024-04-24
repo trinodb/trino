@@ -24,6 +24,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.CompressionCodec.ZSTD;
 
 public class TestNodeSpillConfig
 {
@@ -33,7 +35,7 @@ public class TestNodeSpillConfig
         assertRecordedDefaults(recordDefaults(NodeSpillConfig.class)
                 .setMaxSpillPerNode(DataSize.of(100, GIGABYTE))
                 .setQueryMaxSpillPerNode(DataSize.of(100, GIGABYTE))
-                .setSpillCompressionEnabled(false)
+                .setSpillCompressionCodec(NONE)
                 .setSpillEncryptionEnabled(false));
     }
 
@@ -43,14 +45,14 @@ public class TestNodeSpillConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("max-spill-per-node", "10MB")
                 .put("query-max-spill-per-node", "15 MB")
-                .put("spill-compression-enabled", "true")
+                .put("spill-compression-codec", "ZSTD")
                 .put("spill-encryption-enabled", "true")
                 .buildOrThrow();
 
         NodeSpillConfig expected = new NodeSpillConfig()
                 .setMaxSpillPerNode(DataSize.of(10, MEGABYTE))
                 .setQueryMaxSpillPerNode(DataSize.of(15, MEGABYTE))
-                .setSpillCompressionEnabled(true)
+                .setSpillCompressionCodec(ZSTD)
                 .setSpillEncryptionEnabled(true);
 
         assertFullMapping(properties, expected);

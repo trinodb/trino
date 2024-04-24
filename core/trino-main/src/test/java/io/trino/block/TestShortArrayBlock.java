@@ -13,7 +13,6 @@
  */
 package io.trino.block;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ShortArrayBlock;
@@ -21,8 +20,8 @@ import io.trino.spi.block.ShortArrayBlockBuilder;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.Random;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestShortArrayBlock
@@ -31,7 +30,7 @@ public class TestShortArrayBlock
     @Test
     public void test()
     {
-        Slice[] expectedValues = createTestValue(17);
+        Short[] expectedValues = createTestValue(17);
         assertFixedWithValues(expectedValues);
         assertFixedWithValues(alternatingNullValues(expectedValues));
     }
@@ -39,7 +38,7 @@ public class TestShortArrayBlock
     @Test
     public void testCopyPositions()
     {
-        Slice[] expectedValues = alternatingNullValues(createTestValue(17));
+        Short[] expectedValues = alternatingNullValues(createTestValue(17));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 2, 4, 6, 7, 9, 10, 16);
     }
@@ -47,7 +46,7 @@ public class TestShortArrayBlock
     @Test
     public void testLazyBlockBuilderInitialization()
     {
-        Slice[] expectedValues = createTestValue(100);
+        Short[] expectedValues = createTestValue(100);
         ShortArrayBlockBuilder emptyBlockBuilder = new ShortArrayBlockBuilder(null, 0);
 
         ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, expectedValues.length);
@@ -66,8 +65,13 @@ public class TestShortArrayBlock
     @Test
     public void testEstimatedDataSizeForStats()
     {
-        Slice[] expectedValues = createTestValue(100);
-        assertEstimatedDataSizeForStats(createBlockBuilderWithValues(expectedValues), expectedValues);
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(createTestValue(100));
+        Block block = blockBuilder.build();
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            assertThat(block.getEstimatedDataSizeForStats(i)).isEqualTo(Short.BYTES);
+        }
+
+        assertThat(new ShortArrayBlockBuilder(null, 22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
     }
 
     @Test
@@ -78,70 +82,53 @@ public class TestShortArrayBlock
 
         testCompactBlock(new ShortArrayBlock(0, Optional.empty(), new short[0]));
         testCompactBlock(new ShortArrayBlock(shortArray.length, Optional.of(valueIsNull), shortArray));
-        testIncompactBlock(new ShortArrayBlock(shortArray.length - 1, Optional.of(valueIsNull), shortArray));
+        testNotCompactBlock(new ShortArrayBlock(shortArray.length - 1, Optional.of(valueIsNull), shortArray));
     }
 
-    private void assertFixedWithValues(Slice[] expectedValues)
+    private void assertFixedWithValues(Short[] expectedValues)
     {
         Block block = createBlockBuilderWithValues(expectedValues).build();
         assertBlock(block, expectedValues);
     }
 
-    private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
+    private static BlockBuilder createBlockBuilderWithValues(Short[] expectedValues)
     {
         ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }
 
-    private static void writeValues(Slice[] expectedValues, ShortArrayBlockBuilder blockBuilder)
+    private static void writeValues(Short[] expectedValues, ShortArrayBlockBuilder blockBuilder)
     {
-        for (Slice expectedValue : expectedValues) {
+        for (Short expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeShort(expectedValue.getShort(0));
+                blockBuilder.writeShort(expectedValue);
             }
         }
     }
 
-    private static Slice[] createTestValue(int positionCount)
+    private static Short[] createTestValue(int positionCount)
     {
-        Slice[] expectedValues = new Slice[positionCount];
+        Short[] expectedValues = new Short[positionCount];
+        Random random = new Random(0);
         for (int position = 0; position < positionCount; position++) {
-            expectedValues[position] = createExpectedValue(SIZE_OF_SHORT);
+            expectedValues[position] = (short) random.nextInt();
         }
         return expectedValues;
     }
 
     @Override
-    protected boolean isByteAccessSupported()
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
-        return false;
-    }
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
 
-    @Override
-    protected boolean isShortAccessSupported()
-    {
-        return true;
-    }
-
-    @Override
-    protected boolean isIntAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isLongAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isSliceAccessSupported()
-    {
-        return false;
+        assertThat(block.isNull(position)).isFalse();
+        assertThat(((ShortArrayBlock) block).getShort(position)).isEqualTo(((Short) expectedValue).shortValue());
     }
 }

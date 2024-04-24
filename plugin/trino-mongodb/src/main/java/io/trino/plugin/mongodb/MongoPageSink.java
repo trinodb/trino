@@ -91,17 +91,17 @@ public class MongoPageSink
     private final ConnectorPageSinkId pageSinkId;
 
     public MongoPageSink(
-            MongoClientConfig config,
             MongoSession mongoSession,
             RemoteTableName remoteTableName,
             List<MongoColumnHandle> columns,
+            String implicitPrefix,
             Optional<String> pageSinkIdColumnName,
             ConnectorPageSinkId pageSinkId)
     {
         this.mongoSession = mongoSession;
         this.remoteTableName = remoteTableName;
         this.columns = columns;
-        this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
+        this.implicitPrefix = requireNonNull(implicitPrefix, "implicitPrefix is null");
         this.pageSinkIdColumnName = requireNonNull(pageSinkIdColumnName, "pageSinkIdColumnName is null");
         this.pageSinkId = requireNonNull(pageSinkId, "pageSinkId is null");
     }
@@ -137,7 +137,7 @@ public class MongoPageSink
         }
 
         if (type.equals(OBJECT_ID)) {
-            return new ObjectId(block.getSlice(position, 0, block.getSliceLength(position)).getBytes());
+            return new ObjectId(OBJECT_ID.getSlice(block, position).getBytes());
         }
         if (type.equals(BOOLEAN)) {
             return BOOLEAN.getBoolean(block, position);

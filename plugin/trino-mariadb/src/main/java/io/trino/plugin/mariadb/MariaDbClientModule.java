@@ -54,7 +54,10 @@ public class MariaDbClientModule
     @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
     {
-        return new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), getConnectionProperties(), credentialProvider, openTelemetry);
+        return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(getConnectionProperties())
+                .setOpenTelemetry(openTelemetry)
+                .build();
     }
 
     private static Properties getConnectionProperties()

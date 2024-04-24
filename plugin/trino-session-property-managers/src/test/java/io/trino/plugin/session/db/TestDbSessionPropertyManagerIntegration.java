@@ -37,6 +37,7 @@ import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.trino.sql.SqlPath;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
@@ -65,7 +66,7 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 @Execution(SAME_THREAD)
 public class TestDbSessionPropertyManagerIntegration
 {
-    private DistributedQueryRunner queryRunner;
+    private QueryRunner queryRunner;
 
     private static final String EXAMPLE_PROPERTY = SystemSessionProperties.QUERY_MAX_CPU_TIME;
     private static final Duration EXAMPLE_VALUE_DEFAULT = new QueryManagerConfig().getQueryMaxCpuTime();
@@ -74,7 +75,7 @@ public class TestDbSessionPropertyManagerIntegration
     private TestingMySqlContainer mysqlContainer;
     private SessionPropertiesDao dao;
 
-    private static DistributedQueryRunner createQueryRunner()
+    private static QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder().build();
@@ -85,7 +86,7 @@ public class TestDbSessionPropertyManagerIntegration
         assertThat(EXAMPLE_VALUE_DEFAULT)
                 .isNotEqualTo(EXAMPLE_VALUE_CONFIGURED);
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         queryRunner.installPlugin(new TestingSessionPropertyConfigurationManagerPlugin());
         return queryRunner;
     }

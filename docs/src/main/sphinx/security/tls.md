@@ -26,8 +26,8 @@ using TLS 1.2 and TLS 1.3 certificates. The server rejects TLS 1.1, TLS 1.0, and
 all SSL format certificates.
 
 The Trino server does not specify a set of supported ciphers, instead deferring
-to the defaults set by the JVM version in use. The documentation for Java 17
-lists its [supported cipher suites](https://docs.oracle.com/en/java/javase/17/security/oracle-providers.html#GUID-7093246A-31A3-4304-AC5F-5FB6400405E2__SUNJSSE_CIPHER_SUITES).
+to the defaults set by the JVM version in use. The documentation for Java 21
+lists its [supported cipher suites](https://docs.oracle.com/en/java/javase/21/security/oracle-providers.html#GUID-7093246A-31A3-4304-AC5F-5FB6400405E2__SUNJSSE_CIPHER_SUITES).
 
 Run the following two-line code on the same JVM from the same vendor as
 configured on the coordinator to determine that JVM's default cipher list.
@@ -56,7 +56,7 @@ considered in conjunction with your organization's security managers. Using a
 different suite may require downloading and installing a different SunJCE
 implementation package. Some locales may have export restrictions on cipher
 suites. See the discussion in Java documentation that begins with [Customizing
-the Encryption Algorithm Providers](https://docs.oracle.com/en/java/javase/17/security/java-secure-socket-extension-jsse-reference-guide.html#GUID-316FB978-7588-442E-B829-B4973DB3B584).
+the Encryption Algorithm Providers](https://docs.oracle.com/en/java/javase/21/security/java-secure-socket-extension-jsse-reference-guide.html#GUID-316FB978-7588-442E-B829-B4973DB3B584).
 
 :::{note}
 If you manage the coordinator's direct TLS implementatation, monitor the CPU

@@ -19,8 +19,8 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.orc.metadata.PostScript.HiveWriterVersion;
 import io.trino.orc.metadata.statistics.StringStatistics;
-import io.trino.orc.proto.OrcProto;
-import io.trino.orc.protobuf.ByteString;
+import org.apache.orc.OrcProto;
+import org.apache.orc.protobuf.ByteString;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;

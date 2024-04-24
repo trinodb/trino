@@ -264,7 +264,7 @@ public final class ScalarFunctionAdapter
         if (expectedReturnConvention == BLOCK_BUILDER) {
             // write the result to block builder
             // type.writeValue(BlockBuilder, value), f(a,b)::value => method(BlockBuilder, a, b)::void
-            methodHandle = collectArguments(writeBlockValue(returnType), 1, methodHandle);
+            methodHandle = collectArguments(writeBlockValue(returnType, actualReturnConvention.isNullable()), 1, methodHandle);
             // f(BlockBuilder, a, b)::void => f(a, b, BlockBuilder)
             MethodType newType = methodHandle.type()
                     .dropParameterTypes(0, 1)
@@ -668,7 +668,7 @@ public final class ScalarFunctionAdapter
         }
     }
 
-    private static MethodHandle writeBlockValue(Type type)
+    private static MethodHandle writeBlockValue(Type type, boolean nullable)
     {
         Class<?> methodArgumentType = type.getJavaType();
         String getterName;
@@ -689,14 +689,25 @@ public final class ScalarFunctionAdapter
             methodArgumentType = Object.class;
         }
 
+        MethodHandle methodHandle;
         try {
-            return lookup().findVirtual(Type.class, getterName, methodType(void.class, BlockBuilder.class, methodArgumentType))
+            methodHandle = lookup().findVirtual(Type.class, getterName, methodType(void.class, BlockBuilder.class, methodArgumentType))
                     .bindTo(type)
                     .asType(methodType(void.class, BlockBuilder.class, type.getJavaType()));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }
+
+        if (!nullable) {
+            return methodHandle;
+        }
+
+        methodHandle = methodHandle.asType(methodType(void.class, BlockBuilder.class, wrap(type.getJavaType())));
+        return guardWithTest(
+                isNullArgument(methodHandle.type(), 1),
+                permuteArguments(APPEND_NULL_METHOD, methodHandle.type(), 0),
+                methodHandle);
     }
 
     private static MethodHandle getFlatValueNeverNull(Type argumentType, Class<?> expectedType)

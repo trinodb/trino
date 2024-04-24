@@ -81,8 +81,8 @@ The materialized views table contains the following information about all
   - Freshness of data in the storage table. Queries on the materialized view
     access the storage table if not `STALE`, otherwise the `definition` is used
     to access the underlying data in the source tables.
-* - `owner`
-  - Username of the creator and owner of the materialized view.
+* - `last_fresh_time`
+  - Date and time of the last refresh of the materialized view.
 * - `comment`
   - User supplied text about the materialized view.
 * - `definition`

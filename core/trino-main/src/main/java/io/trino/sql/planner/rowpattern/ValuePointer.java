@@ -22,6 +22,10 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonSubTypes({
         @JsonSubTypes.Type(value = ScalarValuePointer.class, name = "scalar"),
         @JsonSubTypes.Type(value = AggregationValuePointer.class, name = "aggregation"),
+        @JsonSubTypes.Type(value = ClassifierValuePointer.class, name = "classifier"),
+        @JsonSubTypes.Type(value = MatchNumberValuePointer.class, name = "matchNumber"),
 })
-public abstract class ValuePointer
-{}
+public sealed interface ValuePointer
+        permits ScalarValuePointer, AggregationValuePointer, ClassifierValuePointer, MatchNumberValuePointer
+{
+}

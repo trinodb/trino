@@ -98,7 +98,7 @@ public class TransactionLogWriter
 
         String transactionLogLocation = getTransactionLogDir(tableLocation);
         CommitInfoEntry commitInfo = requireNonNull(commitInfoEntry.get().getCommitInfo(), "commitInfoEntry.get().getCommitInfo() is null");
-        Location logEntry = getTransactionLogJsonEntryPath(transactionLogLocation, commitInfo.getVersion());
+        Location logEntry = getTransactionLogJsonEntryPath(transactionLogLocation, commitInfo.version());
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         writeEntry(bos, commitInfoEntry.get());
@@ -106,7 +106,7 @@ public class TransactionLogWriter
             writeEntry(bos, entry);
         }
 
-        String clusterId = commitInfoEntry.get().getCommitInfo().getClusterId();
+        String clusterId = commitInfoEntry.get().getCommitInfo().clusterId();
         logSynchronizer.write(session, clusterId, logEntry, bos.toByteArray());
     }
 

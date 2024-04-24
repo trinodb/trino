@@ -140,10 +140,10 @@ public class DriverFactory
         if (noMoreDrivers) {
             return;
         }
-        noMoreDrivers = true;
         for (OperatorFactory operatorFactory : operatorFactories) {
             operatorFactory.noMoreOperators();
         }
+        noMoreDrivers = true;
     }
 
     // no need to synchronize when just checking the boolean flag

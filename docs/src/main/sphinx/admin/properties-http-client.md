@@ -17,6 +17,8 @@ The following prefixes are supported:
 
 - `oauth2-jwk` for {doc}`/security/oauth2`
 - `jwk` for {doc}`/security/jwt`
+- `exchange` to configure data transfer between Trino nodes in addition to
+  [](/admin/properties-exchange)
 
 ## General properties
 
@@ -28,12 +30,12 @@ The following prefixes are supported:
 
 Timeout value for establishing the connection to the external service.
 
-### `http-client.max-connections`
+### `max-content-length`
 
-- **Type:** {ref}`prop-type-integer`
-- **Default value:** `200`
+- **Type:** [](prop-type-duration)
+- **Default value:** `16MB`
 
-Maximum connections allowed to the service.
+Maximum content size for each HTTP request and response.
 
 ### `http-client.request-timeout`
 

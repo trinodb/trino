@@ -89,7 +89,7 @@ public final class RedisTestUtils
     public static RedisTableDescription loadSimpleTableDescription(QueryRunner queryRunner, String valueDataFormat)
             throws Exception
     {
-        JsonCodec<RedisTableDescription> tableDescriptionJsonCodec = new CodecSupplier<>(RedisTableDescription.class, queryRunner.getTypeManager()).get();
+        JsonCodec<RedisTableDescription> tableDescriptionJsonCodec = new CodecSupplier<>(RedisTableDescription.class, queryRunner.getPlannerContext().getTypeManager()).get();
         try (InputStream data = RedisTestUtils.class.getResourceAsStream(format("/simple/%s_value_table.json", valueDataFormat))) {
             return tableDescriptionJsonCodec.fromJson(ByteStreams.toByteArray(data));
         }

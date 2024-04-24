@@ -29,11 +29,9 @@ import java.util.EnumSet;
 import java.util.Optional;
 
 import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystemConfiguration.GCS_CONFIG_PREFIX;
-import static com.google.cloud.hadoop.fs.gcs.HadoopCredentialsConfiguration.SERVICE_ACCOUNT_JSON_KEYFILE_SUFFIX;
-import static com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HadoopCredentialsConfiguration.ACCESS_TOKEN_PROVIDER_SUFFIX;
-import static com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HadoopCredentialsConfiguration.AUTHENTICATION_TYPE_SUFFIX;
-import static com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HadoopCredentialsConfiguration.AuthenticationType.ACCESS_TOKEN_PROVIDER;
-import static com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HadoopCredentialsConfiguration.AuthenticationType.SERVICE_ACCOUNT_JSON_KEYFILE;
+import static com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HadoopCredentialConfiguration.ACCESS_TOKEN_PROVIDER_IMPL_SUFFIX;
+import static com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HadoopCredentialConfiguration.ENABLE_SERVICE_ACCOUNTS_SUFFIX;
+import static com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HadoopCredentialConfiguration.SERVICE_ACCOUNT_JSON_KEYFILE_SUFFIX;
 import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
 import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
 
@@ -74,12 +72,12 @@ public class GoogleGcsConfigurationInitializer
 
         if (useGcsAccessToken) {
             // use oauth token to authenticate with Google Cloud Storage
-            config.setEnum(GCS_CONFIG_PREFIX + AUTHENTICATION_TYPE_SUFFIX.getKey(), ACCESS_TOKEN_PROVIDER);
-            config.setClass(GCS_CONFIG_PREFIX + ACCESS_TOKEN_PROVIDER_SUFFIX.getKey(), GcsAccessTokenProvider.class, AccessTokenProvider.class);
+            config.setBoolean(GCS_CONFIG_PREFIX + ENABLE_SERVICE_ACCOUNTS_SUFFIX.getKey(), false);
+            config.setClass(GCS_CONFIG_PREFIX + ACCESS_TOKEN_PROVIDER_IMPL_SUFFIX.getKey(), GcsAccessTokenProvider.class, AccessTokenProvider.class);
         }
         else if (jsonKeyFilePath != null) {
             // use service account key file
-            config.setEnum(GCS_CONFIG_PREFIX + AUTHENTICATION_TYPE_SUFFIX.getKey(), SERVICE_ACCOUNT_JSON_KEYFILE);
+            config.setBoolean(GCS_CONFIG_PREFIX + ENABLE_SERVICE_ACCOUNTS_SUFFIX.getKey(), true);
             config.set(GCS_CONFIG_PREFIX + SERVICE_ACCOUNT_JSON_KEYFILE_SUFFIX.getKey(), jsonKeyFilePath);
         }
     }

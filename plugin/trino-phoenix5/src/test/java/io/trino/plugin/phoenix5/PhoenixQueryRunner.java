@@ -47,10 +47,10 @@ public final class PhoenixQueryRunner
     {
     }
 
-    public static DistributedQueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> extraProperties, List<TpchTable<?>> tables)
+    public static QueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> extraProperties, List<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .build();
 
@@ -133,7 +133,7 @@ public final class PhoenixQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createPhoenixQueryRunner(
+        QueryRunner queryRunner = createPhoenixQueryRunner(
                 TestingPhoenixServer.getInstance().get(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 TpchTable.getTables());

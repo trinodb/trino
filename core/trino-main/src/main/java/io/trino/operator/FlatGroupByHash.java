@@ -22,7 +22,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 
 import java.util.Arrays;
 import java.util.List;
@@ -66,10 +65,10 @@ public class FlatGroupByHash
             boolean hasPrecomputedHash,
             int expectedSize,
             boolean processDictionary,
-            JoinCompiler joinCompiler,
+            FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory checkMemoryReservation)
     {
-        this.flatHash = new FlatHash(joinCompiler.getFlatHashStrategy(hashTypes), hasPrecomputedHash, expectedSize, checkMemoryReservation);
+        this.flatHash = new FlatHash(hashStrategyCompiler.getFlatHashStrategy(hashTypes), hasPrecomputedHash, expectedSize, checkMemoryReservation);
         this.groupByChannelCount = hashTypes.size();
         this.hasPrecomputedHash = hasPrecomputedHash;
 

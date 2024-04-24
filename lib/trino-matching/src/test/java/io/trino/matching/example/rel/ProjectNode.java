@@ -16,7 +16,7 @@ package io.trino.matching.example.rel;
 public class ProjectNode
         implements SingleSourceRelNode
 {
-    private RelNode source;
+    private final RelNode source;
 
     public ProjectNode(RelNode source)
     {

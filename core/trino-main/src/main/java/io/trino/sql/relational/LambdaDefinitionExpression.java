@@ -15,44 +15,34 @@ package io.trino.sql.relational;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.Symbol;
 import io.trino.type.FunctionType;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class LambdaDefinitionExpression
         extends RowExpression
 {
-    private final List<Type> argumentTypes;
-    private final List<String> arguments;
+    private final List<Symbol> arguments;
     private final RowExpression body;
 
     @JsonCreator
     public LambdaDefinitionExpression(
-            @JsonProperty List<Type> argumentTypes,
-            @JsonProperty List<String> arguments,
+            @JsonProperty List<Symbol> arguments,
             @JsonProperty RowExpression body)
     {
-        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
-        checkArgument(argumentTypes.size() == arguments.size(), "Number of argument types does not match number of arguments");
         this.body = requireNonNull(body, "body is null");
     }
 
     @JsonProperty
-    public List<Type> getArgumentTypes()
-    {
-        return argumentTypes;
-    }
-
-    @JsonProperty
-    public List<String> getArguments()
+    public List<Symbol> getArguments()
     {
         return arguments;
     }
@@ -66,13 +56,21 @@ public final class LambdaDefinitionExpression
     @Override
     public Type getType()
     {
-        return new FunctionType(argumentTypes, body.getType());
+        return new FunctionType(
+                arguments.stream()
+                        .map(Symbol::getType)
+                        .toList(),
+                body.getType());
     }
 
     @Override
     public String toString()
     {
-        return "(" + Joiner.on(",").join(arguments) + ") -> " + body;
+        return "(" +
+                arguments.stream()
+                        .map(Symbol::getName)
+                        .collect(Collectors.joining(", ")) +
+                ") -> " + body;
     }
 
     @Override
@@ -85,15 +83,14 @@ public final class LambdaDefinitionExpression
             return false;
         }
         LambdaDefinitionExpression that = (LambdaDefinitionExpression) o;
-        return Objects.equals(argumentTypes, that.argumentTypes) &&
-                Objects.equals(arguments, that.arguments) &&
+        return Objects.equals(arguments, that.arguments) &&
                 Objects.equals(body, that.body);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(argumentTypes, arguments, body);
+        return Objects.hash(arguments, body);
     }
 
     @Override
