@@ -100,6 +100,7 @@ public abstract class BasePinotConnectorSmokeTest
     // If a broker query does not supply a limit, pinot defaults to 10 rows
     private static final int DEFAULT_PINOT_LIMIT_FOR_BROKER_QUERIES = 10;
     private static final String ALL_TYPES_TABLE = "alltypes";
+    private static final String STRING_TYPE_TABLE = "string_type_table";
     private static final String DATE_TIME_FIELDS_TABLE = "date_time_fields";
     private static final String MIXED_CASE_COLUMN_NAMES_TABLE = "mixed_case";
     private static final String MIXED_CASE_DISTINCT_TABLE = "mixed_case_distinct";
@@ -143,6 +144,7 @@ public abstract class BasePinotConnectorSmokeTest
         pinot.start();
 
         createAndPopulateAllTypesTopic(kafka, pinot);
+        createAndPopulateStringTypeTopic(kafka, pinot);
         createAndPopulateMixedCaseTableAndTopic(kafka, pinot);
         createAndPopulateMixedCaseDistinctTableAndTopic(kafka, pinot);
         createAndPopulateTooManyRowsTable(kafka, pinot);
@@ -191,6 +193,17 @@ public abstract class BasePinotConnectorSmokeTest
 
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("alltypes_schema.json"), ALL_TYPES_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("alltypes_realtimeSpec.json"), ALL_TYPES_TABLE);
+    }
+
+    private void createAndPopulateStringTypeTopic(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
+        kafka.createTopic(STRING_TYPE_TABLE);
+        List<ProducerRecord<String, GenericRecord>> records = ImmutableList.of(new ProducerRecord<>(STRING_TYPE_TABLE, null, createStringSingleQuoteRecord()));
+        kafka.sendMessages(records.stream(), schemaRegistryAwareProducer(kafka));
+
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("string_schema.json"), STRING_TYPE_TABLE);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("string_realtimeSpec.json"), STRING_TYPE_TABLE);
     }
 
     private void createAndPopulateMixedCaseTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
@@ -711,6 +724,20 @@ public abstract class BasePinotConnectorSmokeTest
         Schema schema = getAllTypesAvroSchema();
         // Pinot does not transform the time column value to default null value
         return new GenericRecordBuilder(schema)
+                .set("updated_at", initialUpdatedAt.toEpochMilli())
+                .build();
+    }
+
+    private static GenericRecord createStringSingleQuoteRecord()
+    {
+        Schema schema = SchemaBuilder.record("string_type_table")
+                .fields()
+                .name("string_col").type().optional().stringType()
+                .name("updated_at").type().optional().longType()
+                .endRecord();
+
+        return new GenericRecordBuilder(schema)
+                .set("string_col", "a'quote")
                 .set("updated_at", initialUpdatedAt.toEpochMilli())
                 .build();
     }
@@ -1262,6 +1289,14 @@ public abstract class BasePinotConnectorSmokeTest
         // If no limit is supplied to a broker query, 10 arbitrary rows will be returned. Verify this behavior:
         MaterializedResult result = computeActual("SELECT * FROM \"SELECT bool_col FROM " + ALL_TYPES_TABLE + "\"");
         assertThat(result.getRowCount()).isEqualTo(DEFAULT_PINOT_LIMIT_FOR_BROKER_QUERIES);
+    }
+
+    @Test
+    public void testStringPredicateWithSingleQuote()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/21681
+        assertQuery("SELECT true FROM " + STRING_TYPE_TABLE + " WHERE string_col = 'a''quote'", "VALUES true");
+        assertQueryReturnsEmptyResult("SELECT true FROM " + STRING_TYPE_TABLE + " WHERE string_col = 'a''empty'");
     }
 
     @Test
