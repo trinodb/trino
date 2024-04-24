@@ -385,7 +385,7 @@ public class PinotMetadata
                 return Optional.empty();
             }
             AggregateExpression aggregateExpression = rewriteResult.get();
-            PinotColumnHandle pinotColumnHandle = new PinotColumnHandle(aggregateExpression.toFieldName(), aggregate.getOutputType(), aggregateExpression.toExpression(), false, true, aggregateExpression.isReturnNullOnEmptyGroup(), Optional.of(aggregateExpression.getFunction()), Optional.of(aggregateExpression.getArgument()));
+            PinotColumnHandle pinotColumnHandle = new PinotColumnHandle(aggregateExpression.fieldName(), aggregate.getOutputType(), aggregateExpression.expression(), false, true, aggregateExpression.returnNullOnEmptyGroup(), Optional.of(aggregateExpression.function()), Optional.of(aggregateExpression.argument()));
             aggregateColumnsBuilder.add(pinotColumnHandle);
             projections.add(new Variable(pinotColumnHandle.getColumnName(), pinotColumnHandle.getDataType()));
             resultAssignments.add(new Assignment(pinotColumnHandle.getColumnName(), pinotColumnHandle, pinotColumnHandle.getDataType()));
@@ -495,14 +495,14 @@ public class PinotMetadata
                     aggregateColumn.isReturnNullOnEmptyGroup());
             AggregateExpression newPushedDownAggregateExpression = replaceIdentifier(pushedDownAggregateExpression, selection);
 
-            return new PinotColumnHandle(pushedDownAggregateExpression.toFieldName(),
+            return new PinotColumnHandle(pushedDownAggregateExpression.fieldName(),
                     aggregateColumn.getDataType(),
-                    newPushedDownAggregateExpression.toExpression(),
+                    newPushedDownAggregateExpression.expression(),
                     true,
                     aggregateColumn.isAggregate(),
                     aggregateColumn.isReturnNullOnEmptyGroup(),
                     aggregateColumn.getPushedDownAggregateFunctionName(),
-                    Optional.of(newPushedDownAggregateExpression.getArgument()));
+                    Optional.of(newPushedDownAggregateExpression.argument()));
         }
         return aggregateColumn;
     }
