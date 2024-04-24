@@ -6658,6 +6658,26 @@ public abstract class AbstractTestEngineOnlyQueries
                 """))
                 .matches("VALUES 256");
 
+        // invoke function on data from connector to prevent constant folding on the coordinator
+        assertThat(query("""
+                WITH
+                  FUNCTION my_pow(n int, p int)
+                  RETURNS int
+                  BEGIN
+                    DECLARE r int DEFAULT n;
+                    top: LOOP
+                      IF p <= 1 THEN
+                        LEAVE top;
+                      END IF;
+                      SET r = r * n;
+                      SET p = p - 1;
+                    END LOOP;
+                    RETURN r;
+                  END
+                SELECT my_pow(CAST(nationkey AS integer), CAST(regionkey AS integer)) FROM nation WHERE nationkey IN (1,2,3,5,8)
+                """))
+                .matches("VALUES 1, 2, 3, 5, 64");
+
         // function with dereference
         assertThat(query("""
                 WITH FUNCTION get(input row(varchar))
