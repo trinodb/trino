@@ -217,6 +217,9 @@ public final class PinotQueryBuilder
 
     private static String singleQuote(Object value)
     {
+        if (value instanceof String string) {
+            return format("'%s'", string.replace("'", "''"));
+        }
         return format("'%s'", value);
     }
 
