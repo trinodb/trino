@@ -2412,7 +2412,7 @@
                 <plugin>
                     <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                     <artifactId>provisio-maven-plugin</artifactId>
-                    <version>1.0.23</version>
+                    <version>1.0.24</version>
                 </plugin>
 
                 <plugin>
