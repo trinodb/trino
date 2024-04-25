@@ -19,8 +19,8 @@ import io.trino.Session;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.StandaloneQueryRunner;
 
 import java.util.Map;
 import java.util.TimeZone;
@@ -33,11 +33,13 @@ public final class AtopQueryRunner
     private AtopQueryRunner() {}
 
     public static QueryRunner createQueryRunner()
+            throws Exception
     {
         return createQueryRunner(ImmutableMap.of("atop.executable-path", "/dev/null"), TestingAtopFactory.class);
     }
 
     public static QueryRunner createQueryRunner(Map<String, String> catalogProperties, Class<? extends AtopFactory> factoryClass)
+            throws Exception
     {
         Session session = testSessionBuilder()
                 .setCatalog("atop")
@@ -45,7 +47,7 @@ public final class AtopQueryRunner
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID()))
                 .build();
 
-        QueryRunner queryRunner = new StandaloneQueryRunner(session);
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         try {
             queryRunner.installPlugin(new TestingAtopPlugin(factoryClass));
