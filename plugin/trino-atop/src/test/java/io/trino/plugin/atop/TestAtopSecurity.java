@@ -50,6 +50,7 @@ public class TestAtopSecurity
     @AfterAll
     public void tearDown()
     {
+        // no change
         queryRunner.close();
         queryRunner = null;
     }
