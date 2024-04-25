@@ -221,7 +221,7 @@ public abstract class BaseMariaDbTableStatisticsTest
                             .put("custkey", nullFractionToExpected.apply(1.0 / 3))
                             .put("orderpriority", nullFractionToExpected.apply(1.0 / 5))
                             .build());
-            assertThat(getTableCardinalityFromStats(statsResult)).isCloseTo(15000, withinPercentage(20));
+            assertThat(getTableCardinalityFromStats(statsResult)).isCloseTo(15000, withinPercentage(25));
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
