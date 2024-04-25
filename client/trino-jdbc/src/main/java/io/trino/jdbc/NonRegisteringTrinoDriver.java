@@ -68,8 +68,8 @@ public class NonRegisteringTrinoDriver
             OpenTelemetry openTelemetry = GlobalOpenTelemetry.get();
             return OkHttpTelemetry.builder(openTelemetry).build().newCallFactory(client);
         }
-        catch (NoClassDefFoundError ignored) {
-            // assume OTEL is not available and return the original client
+        catch (NoClassDefFoundError | NoSuchMethodError ignored) {
+            // assume OTEL is not (fully) available and return the original client
             return (Call.Factory) client;
         }
     }
