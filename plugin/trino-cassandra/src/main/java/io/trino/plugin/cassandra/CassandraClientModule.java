@@ -80,7 +80,6 @@ public class CassandraClientModule
         binder.bind(CassandraRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(CassandraPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(CassandraPartitionManager.class).in(Scopes.SINGLETON);
-        binder.bind(CassandraSessionProperties.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
         binder.bind(CassandraTypeManager.class).in(Scopes.SINGLETON);
 

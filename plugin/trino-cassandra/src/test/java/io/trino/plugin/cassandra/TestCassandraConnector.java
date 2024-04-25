@@ -98,9 +98,7 @@ public class TestCassandraConnector
 {
     protected static final String INVALID_DATABASE = "totally_invalid_database";
     private static final Date DATE = new Date();
-    private static final ConnectorSession SESSION = TestingConnectorSession.builder()
-            .setPropertyMetadata(new CassandraSessionProperties(new CassandraClientConfig()).getSessionProperties())
-            .build();
+    private static final ConnectorSession SESSION = TestingConnectorSession.builder().build();
     private CassandraServer server;
     protected String database;
     protected SchemaTableName table;

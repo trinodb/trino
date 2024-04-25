@@ -75,6 +75,7 @@ import java.util.stream.Stream;
 
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -529,6 +530,7 @@ public class CassandraSession
 
     public List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName)
     {
+        checkSizeEstimatesTableExist();
         SimpleStatement statement = selectFrom(SYSTEM, SIZE_ESTIMATES)
                 .column("partitions_count")
                 .where(Relation.column("keyspace_name").isEqualTo(literal(keyspaceName)),
@@ -543,6 +545,16 @@ public class CassandraSession
         }
 
         return estimates.build();
+    }
+
+    private void checkSizeEstimatesTableExist()
+    {
+        Optional<KeyspaceMetadata> keyspaceMetadata = executeWithSession(session -> session.getMetadata().getKeyspace(SYSTEM));
+        checkState(keyspaceMetadata.isPresent(), "system keyspace metadata must not be null");
+        Optional<TableMetadata> sizeEstimatesTableMetadata = keyspaceMetadata.flatMap(metadata -> metadata.getTable(SIZE_ESTIMATES));
+        if (sizeEstimatesTableMetadata.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported");
+        }
     }
 
     private <T> T executeWithSession(SessionCallable<T> sessionCallable)

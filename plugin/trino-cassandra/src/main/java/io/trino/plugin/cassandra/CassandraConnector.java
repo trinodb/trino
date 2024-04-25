@@ -24,10 +24,8 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.function.table.ConnectorTableFunction;
-import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
-import java.util.List;
 import java.util.Set;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
@@ -43,7 +41,6 @@ public class CassandraConnector
     private final ConnectorRecordSetProvider recordSetProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final Set<ConnectorTableFunction> connectorTableFunctions;
-    private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public CassandraConnector(
@@ -52,8 +49,7 @@ public class CassandraConnector
             CassandraSplitManager splitManager,
             CassandraRecordSetProvider recordSetProvider,
             CassandraPageSinkProvider pageSinkProvider,
-            Set<ConnectorTableFunction> connectorTableFunctions,
-            CassandraSessionProperties sessionProperties)
+            Set<ConnectorTableFunction> connectorTableFunctions)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -61,7 +57,6 @@ public class CassandraConnector
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.connectorTableFunctions = ImmutableSet.copyOf(requireNonNull(connectorTableFunctions, "connectorTableFunctions is null"));
-        this.sessionProperties = requireNonNull(sessionProperties.getSessionProperties(), "sessionProperties is null");
     }
 
     @Override
@@ -99,12 +94,6 @@ public class CassandraConnector
     public Set<ConnectorTableFunction> getTableFunctions()
     {
         return connectorTableFunctions;
-    }
-
-    @Override
-    public List<PropertyMetadata<?>> getSessionProperties()
-    {
-        return sessionProperties;
     }
 
     @Override

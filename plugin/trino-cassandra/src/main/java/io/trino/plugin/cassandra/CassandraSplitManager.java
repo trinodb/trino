@@ -43,7 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.plugin.cassandra.CassandraSessionProperties.getSplitsPerNode;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -55,6 +54,7 @@ public class CassandraSplitManager
 
     private final CassandraSession cassandraSession;
     private final int partitionSizeForBatchSelect;
+    private final Optional<Long> splitsPerNode;
     private final CassandraTokenSplitManager tokenSplitMgr;
     private final CassandraPartitionManager partitionManager;
     private final CassandraTypeManager cassandraTypeManager;
@@ -69,6 +69,7 @@ public class CassandraSplitManager
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.partitionSizeForBatchSelect = cassandraClientConfig.getPartitionSizeForBatchSelect();
+        this.splitsPerNode = cassandraClientConfig.getSplitsPerNode();
         this.tokenSplitMgr = tokenSplitMgr;
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
@@ -111,7 +112,7 @@ public class CassandraSplitManager
             CassandraPartition cassandraPartition = partitions.get(0);
             if (cassandraPartition.isUnpartitioned() || cassandraPartition.isIndexedColumnPredicatePushdown()) {
                 CassandraTable table = cassandraSession.getTable(cassandraTableHandle.getSchemaTableName());
-                List<ConnectorSplit> splits = getSplitsByTokenRange(table, cassandraPartition.getPartitionId(), getSplitsPerNode(session));
+                List<ConnectorSplit> splits = getSplitsByTokenRange(table, cassandraPartition.getPartitionId(), splitsPerNode);
                 log.debug("One partition matched predicates for table %s, creating %s splits by token ranges", connectorTableHandle, splits.size());
                 return new FixedSplitSource(splits);
             }
