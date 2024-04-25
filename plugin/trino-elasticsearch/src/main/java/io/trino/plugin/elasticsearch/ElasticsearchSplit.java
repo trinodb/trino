@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
@@ -43,7 +42,6 @@ public record ElasticsearchSplit(
         requireNonNull(address, "address is null");
     }
 
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public List<HostAddress> getAddresses()
     {
@@ -51,7 +49,6 @@ public record ElasticsearchSplit(
                 .orElseGet(ImmutableList::of);
     }
 
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public Map<String, String> getSplitInfo()
     {
@@ -61,7 +58,6 @@ public record ElasticsearchSplit(
                 .buildOrThrow();
     }
 
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public long getRetainedSizeInBytes()
     {

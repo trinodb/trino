@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.memory;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
@@ -62,14 +61,12 @@ public record MemorySplit(
     }
 
     @Override
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public Map<String, String> getSplitInfo()
     {
         return ImmutableMap.of("table", String.valueOf(table), "partNumber", String.valueOf(partNumber), "address", address.toString());
     }
 
     @Override
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
@@ -78,14 +75,12 @@ public record MemorySplit(
     }
 
     @Override
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public boolean isRemotelyAccessible()
     {
         return false;
     }
 
     @Override
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     public List<HostAddress> getAddresses()
     {
         return ImmutableList.of(address);
