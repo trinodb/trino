@@ -168,6 +168,38 @@ public abstract class BaseSharedMetastoreTest
         }
     }
 
+    @Test
+    public void testMigrateTable()
+    {
+        String tableName = "test_migrate_" + randomNameSuffix();
+        String hiveTableName = "hive.%s.%s".formatted(schema, tableName);
+        String icebergTableName = "iceberg.%s.%s".formatted(schema, tableName);
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " AS SELECT 1 id", 1);
+        assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
+
+        assertUpdate("CALL iceberg.system.migrate('" + schema + "', '" + tableName + "')");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMigratePartitionedTable()
+    {
+        String tableName = "test_migrate_" + randomNameSuffix();
+        String hiveTableName = "hive.%s.%s".formatted(schema, tableName);
+        String icebergTableName = "iceberg.%s.%s".formatted(schema, tableName);
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 id, 'test' part", 1);
+        assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
+
+        assertUpdate("CALL iceberg.system.migrate('" + schema + "', '" + tableName + "')");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'test')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private long getLatestSnapshotId(String schema)
     {
         return (long) computeScalar(format("SELECT snapshot_id FROM iceberg.%s.\"nation_test$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", schema));
