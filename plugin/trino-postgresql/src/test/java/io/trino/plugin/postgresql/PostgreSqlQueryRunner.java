@@ -104,6 +104,7 @@ public final class PostgreSqlQueryRunner
     {
         QueryRunner queryRunner = builder(new TestingPostgreSqlServer(true))
                 .setExtraProperties(Map.of("http-server.http.port", "8080"))
+                .setInitialTables(TpchTable.getTables())
                 .build();
 
         queryRunner.installPlugin(new JmxPlugin());
