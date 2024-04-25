@@ -34,7 +34,6 @@ public class TestAtopSmoke
 
     @BeforeAll
     public void setUp()
-            throws Exception
     {
         queryRunner = createQueryRunner();
     }
