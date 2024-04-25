@@ -32,12 +32,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
-import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
@@ -438,14 +436,11 @@ public class KuduMetadata
     {
         KuduTableHandle handle = (KuduTableHandle) table;
 
-        Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
-        List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
-
         return new ConnectorTableProperties(
                 handle.getConstraint(),
-                tablePartitioning,
                 Optional.empty(),
-                localProperties);
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     @Override
