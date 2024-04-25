@@ -40,6 +40,7 @@ import java.util.Set;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -53,11 +54,11 @@ public final class RedshiftQueryRunner
 
     private static final Logger log = Logger.get(RedshiftQueryRunner.class);
 
-    private static final String JDBC_ENDPOINT = requireSystemProperty("test.redshift.jdbc.endpoint");
-    static final String JDBC_USER = requireSystemProperty("test.redshift.jdbc.user");
-    static final String JDBC_PASSWORD = requireSystemProperty("test.redshift.jdbc.password");
-    private static final String S3_TPCH_TABLES_ROOT = requireSystemProperty("test.redshift.s3.tpch.tables.root");
-    private static final String IAM_ROLE = requireSystemProperty("test.redshift.iam.role");
+    private static final String JDBC_ENDPOINT = requiredNonEmptySystemProperty("test.redshift.jdbc.endpoint");
+    static final String JDBC_USER = requiredNonEmptySystemProperty("test.redshift.jdbc.user");
+    static final String JDBC_PASSWORD = requiredNonEmptySystemProperty("test.redshift.jdbc.password");
+    private static final String S3_TPCH_TABLES_ROOT = requiredNonEmptySystemProperty("test.redshift.s3.tpch.tables.root");
+    private static final String IAM_ROLE = requiredNonEmptySystemProperty("test.redshift.iam.role");
 
     private static final String TEST_DATABASE = "testdb";
     private static final String TEST_CATALOG = "redshift";
@@ -243,14 +244,6 @@ public final class RedshiftQueryRunner
         catch (Exception e) {
             throw new RuntimeException("Failed to assert columns for TPC-H table " + tpchTable.getTableName(), e);
         }
-    }
-
-    /**
-     * Get the named system property, throwing an exception if it is not set.
-     */
-    private static String requireSystemProperty(String property)
-    {
-        return requireNonNull(System.getProperty(property), property + " is not set");
     }
 
     public static void main(String[] args)

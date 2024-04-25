@@ -44,6 +44,7 @@ import java.util.function.Consumer;
 
 import static io.trino.server.rpm.ServerIT.PathInfoAssert.assertThatPaths;
 import static io.trino.testing.TestingProperties.getProjectVersion;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.containers.TestContainers.getDockerArchitectureInfo;
 import static java.lang.String.format;
@@ -66,7 +67,7 @@ public class ServerIT
 
     public ServerIT()
     {
-        rpmHostPath = requireNonNull(System.getProperty("rpm"), "rpm is null");
+        rpmHostPath = requiredNonEmptySystemProperty("rpm");
     }
 
     @Test
