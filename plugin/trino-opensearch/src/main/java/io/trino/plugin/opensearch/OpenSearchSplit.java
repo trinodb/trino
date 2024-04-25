@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.opensearch;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
@@ -43,7 +42,6 @@ public record OpenSearchSplit(
         requireNonNull(address, "address is null");
     }
 
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public List<HostAddress> getAddresses()
     {
@@ -51,14 +49,12 @@ public record OpenSearchSplit(
                 .orElseGet(ImmutableList::of);
     }
 
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public Map<String, String> getSplitInfo()
     {
         return ImmutableMap.of("index", index, "shard", String.valueOf(shard), "address", address.orElse(""));
     }
 
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public long getRetainedSizeInBytes()
     {

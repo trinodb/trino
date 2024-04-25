@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.google.sheets;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ConnectorSplit;
@@ -35,14 +34,12 @@ public record SheetsSplit(List<List<String>> values)
         requireNonNull(values, "values is null");
     }
 
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public Map<String, String> getSplitInfo()
     {
         return ImmutableMap.of();
     }
 
-    @JsonIgnore // TODO remove after https://github.com/airlift/airlift/pull/1141
     @Override
     public long getRetainedSizeInBytes()
     {
