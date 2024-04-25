@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>153</version>
+        <version>155</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -198,15 +198,11 @@
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.5</dep.jsonwebtoken.version>
         <dep.kafka-clients.version>3.7.0</dep.kafka-clients.version>
-        <!-- temporary until upgraded in airbase: https://github.com/airlift/airbase/pull/403 -->
-        <dep.logback.version>1.5.6</dep.logback.version>
         <dep.okio.version>3.9.0</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.3</dep.protobuf.version>
-        <!-- temporary until upgraded in airbase: https://github.com/airlift/airbase/pull/403 -->
-        <dep.slf4j.version>2.0.13</dep.slf4j.version>
         <dep.snowflake.version>3.15.1</dep.snowflake.version>
         <dep.swagger.version>2.2.21</dep.swagger.version>
         <dep.takari.version>2.1.4</dep.takari.version>
@@ -294,7 +290,7 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-bom</artifactId>
-                <version>9.7</version>
+                <version>${dep.asm.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -2415,16 +2411,6 @@
                     <version>1.0.24</version>
                 </plugin>
 
-                <plugin>
-                    <groupId>io.github.git-commit-id</groupId>
-                    <artifactId>git-commit-id-maven-plugin</artifactId>
-                    <configuration>
-                        <runOnlyOnce>true</runOnlyOnce>
-                        <injectAllReactorProjects>true</injectAllReactorProjects>
-                        <!-- A workaround to make build work in a Git worktree, see https://github.com/git-commit-id/git-commit-id-maven-plugin/issues/215 -->
-                        <useNativeGit>true</useNativeGit>
-                    </configuration>
-                </plugin>
                 <plugin>
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
