@@ -110,7 +110,9 @@ public class TableFunctionProcessorNode
                         .map(OrderingScheme::orderBy)
                         .map(List::size)
                         .orElse(0) >= preSorted,
-                "the number of pre-sorted symbols cannot be greater than the number of all ordering symbols");
+                "the number of pre-sorted symbols %s cannot be greater than the number of all ordering symbols from specification %s",
+                preSorted,
+                specification);
         checkArgument(preSorted == 0 || partitionBy.equals(prePartitioned), "to specify pre-sorted symbols, it is required that all partitioning symbols are pre-partitioned");
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
         this.handle = requireNonNull(handle, "handle is null");
