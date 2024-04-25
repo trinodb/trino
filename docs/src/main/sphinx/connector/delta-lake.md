@@ -389,7 +389,7 @@ security values in the following table:
   - Authorization checks are enforced using a catalog-level access control
     configuration file whose path is specified in the `security.config-file`
     catalog configuration property. See [](catalog-file-based-access-control)
-    for information on the authorization configuration file. :::
+    for information on the authorization configuration file.
 :::
 
 (delta-lake-sql-support)=
