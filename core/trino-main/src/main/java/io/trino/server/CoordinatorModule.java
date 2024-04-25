@@ -238,6 +238,7 @@ public class CoordinatorModule
 
         // node allocator
         binder.bind(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(BinPackingNodeAllocatorService.class).withGeneratedName();
         binder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class);
         binder.bind(PartitionMemoryEstimatorFactory.class).to(NoMemoryAwarePartitionMemoryEstimator.Factory.class).in(Scopes.SINGLETON);
         binder.bind(PartitionMemoryEstimatorFactory.class)
