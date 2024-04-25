@@ -74,7 +74,6 @@ import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toMap;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 
 public interface ConnectorMetadata
@@ -727,16 +726,12 @@ public interface ConnectorMetadata
     default Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ConnectorTableProperties properties = getTableProperties(session, tableHandle);
-        return properties.getTablePartitioning()
-                .map(partitioning -> {
-                    Map<ColumnHandle, String> columnNamesByHandle = getColumnHandles(session, tableHandle).entrySet().stream()
-                            .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
-                    List<String> partitionColumns = partitioning.getPartitioningColumns().stream()
-                            .map(columnNamesByHandle::get)
-                            .collect(toUnmodifiableList());
-
-                    return new ConnectorTableLayout(partitioning.getPartitioningHandle(), partitionColumns);
-                });
+        // For the duration of the transition period fail explicitly when previous implementation would return something.
+        // TODO remove the check after couple releases
+        if (properties.getTablePartitioning().isPresent()) {
+            throw new IllegalStateException("getInsertLayout() must be explicitly implemented in %s to benefit from insert partitioning".formatted(getClass()));
+        }
+        return Optional.empty();
     }
 
     /**
