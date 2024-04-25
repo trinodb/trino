@@ -6362,14 +6362,22 @@ public abstract class BaseConnectorTest
                 " USING (VALUES ('ALGERIA', 'AFRICA')) s(nation_name, region_name)\n" +
                 " ON (t.nation_name = s.nation_name)\n" +
                 " WHEN MATCHED THEN UPDATE SET region_name = NULL"))
-                .hasMessage("Assigning NULL to non-null MERGE target table column region_name");
+                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
 
         // Show that inserting using a null value fails
         assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t\n", targetTable) +
                 " USING (VALUES ('IMAGINARIA', 'AFRICA')) s(nation_name, region_name)\n" +
                 " ON (t.nation_name = s.nation_name)\n" +
                 " WHEN NOT MATCHED THEN INSERT (nation_name, region_name) VALUES ('IMAGINARIA', NULL)"))
-                .hasMessage("Assigning NULL to non-null MERGE target table column region_name");
+                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
+
+        // Show that inserting using an implicit null value fails
+        assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t\n", targetTable) +
+                " USING (VALUES ('IMAGINARIA', 'AFRICA')) s(nation_name, region_name)\n" +
+                " ON (t.nation_name = s.nation_name)\n" +
+                // The region_name is implicitly assigned null
+                " WHEN NOT MATCHED THEN INSERT (nation_name) VALUES ('IMAGINARIA')"))
+                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
 
         // Show that if the updated value is provided by a function unpredicatably computing null,
         // the merge fails
@@ -6377,7 +6385,7 @@ public abstract class BaseConnectorTest
                 " USING (VALUES ('ALGERIA', 'AFRICA')) s(nation_name, region_name)\n" +
                 " ON (t.nation_name = s.nation_name)\n" +
                 " WHEN MATCHED THEN UPDATE SET region_name = CAST(TRY(5/0) AS VARCHAR)"))
-                .hasMessage("Assigning NULL to non-null MERGE target table column region_name");
+                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
 
         assertUpdate("DROP TABLE " + targetTable);
     }
