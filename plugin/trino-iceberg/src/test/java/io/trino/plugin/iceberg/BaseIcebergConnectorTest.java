@@ -7460,6 +7460,24 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testTableChangesFunctionInvalidArguments()
+    {
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.table_changes(\"SCHEMA\" => CURRENT_SCHEMA, \"SCHEMA_NAME\" => CURRENT_SCHEMA, \"TABLE\" => 'region', START_SNAPSHOT_ID => 1, END_SNAPSHOT_ID => 2))",
+                "Cannot use both SCHEMA and SCHEMA_NAME arguments");
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.table_changes(\"SCHEMA\" => CURRENT_SCHEMA, \"TABLE\" => 'region', \"TABLE_NAME\" => 'region', START_SNAPSHOT_ID => 1, END_SNAPSHOT_ID => 2))",
+                "Cannot use both TABLE and TABLE_NAME arguments");
+
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.table_changes(start_snapshot_id => 1, end_snapshot_id => 2))",
+                "SCHEMA_NAME argument not found");
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.table_changes(schema_name => 'tpch', start_snapshot_id => 1, end_snapshot_id => 2))",
+                "TABLE_NAME argument not found");
+    }
+
+    @Test
     public void testIdentityPartitionFilterMissing()
     {
         String tableName = "test_partition_" + randomNameSuffix();
