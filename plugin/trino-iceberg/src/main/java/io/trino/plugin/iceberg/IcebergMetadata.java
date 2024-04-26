@@ -103,9 +103,12 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -924,19 +927,39 @@ public class IcebergMetadata
     @Override
     public Optional<io.trino.spi.type.Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, io.trino.spi.type.Type type)
     {
+        io.trino.spi.type.Type newType = coerceType(type);
+        if (type.getTypeSignature().equals(newType.getTypeSignature())) {
+            return Optional.empty();
+        }
+        return Optional.of(newType);
+    }
+
+    private io.trino.spi.type.Type coerceType(io.trino.spi.type.Type type)
+    {
         if (type instanceof TimestampWithTimeZoneType) {
-            return Optional.of(TIMESTAMP_TZ_MICROS);
+            return TIMESTAMP_TZ_MICROS;
         }
         if (type instanceof TimestampType) {
-            return Optional.of(TIMESTAMP_MICROS);
+            return TIMESTAMP_MICROS;
         }
         if (type instanceof TimeType) {
-            return Optional.of(TIME_MICROS);
+            return TIME_MICROS;
         }
         if (type instanceof CharType) {
-            return Optional.of(VARCHAR);
+            return VARCHAR;
         }
-        return Optional.empty();
+        if (type instanceof ArrayType arrayType) {
+            return new ArrayType(coerceType(arrayType.getElementType()));
+        }
+        if (type instanceof MapType mapType) {
+            return new MapType(coerceType(mapType.getKeyType()), coerceType(mapType.getValueType()), typeManager.getTypeOperators());
+        }
+        if (type instanceof RowType rowType) {
+            return RowType.from(rowType.getFields().stream()
+                    .map(field -> new RowType.Field(field.getName(), coerceType(field.getType())))
+                    .collect(toImmutableList()));
+        }
+        return type;
     }
 
     @Override
