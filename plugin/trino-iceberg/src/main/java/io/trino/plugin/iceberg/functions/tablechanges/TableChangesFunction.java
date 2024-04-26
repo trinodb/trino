@@ -33,7 +33,6 @@ import io.trino.spi.function.table.ScalarArgument;
 import io.trino.spi.function.table.ScalarArgumentSpecification;
 import io.trino.spi.function.table.TableFunctionAnalysis;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
@@ -60,6 +59,7 @@ import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.G
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class TableChangesFunction
@@ -89,12 +89,12 @@ public class TableChangesFunction
                 ImmutableList.of(
                         ScalarArgumentSpecification.builder()
                                 .name(SCHEMA_VAR_NAME)
-                                .type(VarcharType.createUnboundedVarcharType())
+                                .type(VARCHAR)
                                 .defaultValue(null)
                                 .build(),
                         ScalarArgumentSpecification.builder()
                                 .name(TABLE_VAR_NAME)
-                                .type(VarcharType.createUnboundedVarcharType())
+                                .type(VARCHAR)
                                 .defaultValue(null)
                                 .build(),
                         ScalarArgumentSpecification.builder()
@@ -107,12 +107,12 @@ public class TableChangesFunction
                                 .build(),
                         ScalarArgumentSpecification.builder()
                                 .name(SCHEMA_NAME_VAR_NAME)
-                                .type(VarcharType.createUnboundedVarcharType())
+                                .type(VARCHAR)
                                 .defaultValue(null)
                                 .build(),
                         ScalarArgumentSpecification.builder()
                                 .name(TABLE_NAME_VAR_NAME)
-                                .type(VarcharType.createUnboundedVarcharType())
+                                .type(VARCHAR)
                                 .defaultValue(null)
                                 .build()),
                 GENERIC_TABLE);
@@ -146,7 +146,7 @@ public class TableChangesFunction
                 .map(column -> new Descriptor.Field(column.name(), Optional.of(toTrinoType(column.type(), typeManager))))
                 .forEach(columns::add);
 
-        columns.add(new Descriptor.Field(DATA_CHANGE_TYPE_NAME, Optional.of(VarcharType.createUnboundedVarcharType())));
+        columns.add(new Descriptor.Field(DATA_CHANGE_TYPE_NAME, Optional.of(VARCHAR)));
         columns.add(new Descriptor.Field(DATA_CHANGE_VERSION_NAME, Optional.of(BIGINT)));
         columns.add(new Descriptor.Field(DATA_CHANGE_TIMESTAMP_NAME, Optional.of(TIMESTAMP_TZ_MILLIS)));
         columns.add(new Descriptor.Field(DATA_CHANGE_ORDINAL_NAME, Optional.of(INTEGER)));
@@ -155,9 +155,9 @@ public class TableChangesFunction
         IcebergUtil.getColumns(tableSchema, typeManager).forEach(columnHandlesBuilder::add);
         columnHandlesBuilder.add(new IcebergColumnHandle(
                 new ColumnIdentity(DATA_CHANGE_TYPE_ID, DATA_CHANGE_TYPE_NAME, PRIMITIVE, ImmutableList.of()),
-                VarcharType.createUnboundedVarcharType(),
+                VARCHAR,
                 ImmutableList.of(),
-                VarcharType.createUnboundedVarcharType(),
+                VARCHAR,
                 false,
                 Optional.empty()));
         columnHandlesBuilder.add(new IcebergColumnHandle(
