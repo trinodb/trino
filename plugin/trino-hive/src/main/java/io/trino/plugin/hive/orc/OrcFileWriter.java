@@ -190,9 +190,9 @@ public final class OrcFileWriter
             try {
                 rollbackAction.close();
             }
-            catch (Exception ignored) {
+            catch (Exception ex) {
                 // ignore
-                log.error(ignored, "Exception when committing file");
+                log.error(ex, "Exception when committing file");
             }
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }

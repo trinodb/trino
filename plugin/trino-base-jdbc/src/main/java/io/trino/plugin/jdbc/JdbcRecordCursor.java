@@ -285,7 +285,7 @@ public class JdbcRecordCursor
                     // Trying to cancel running statement as close() may not do it
                     statement.cancel();
                 }
-                catch (SQLException ignored) {
+                catch (SQLException _) {
                     // statement already closed or cancel is not supported
                 }
             }

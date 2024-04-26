@@ -446,7 +446,7 @@ public class DockerContainer
         try {
             return super.isHealthy();
         }
-        catch (RuntimeException ignored) {
+        catch (RuntimeException _) {
             // Container without health checks will throw
             return true;
         }

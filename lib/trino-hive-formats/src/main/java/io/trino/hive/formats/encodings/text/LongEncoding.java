@@ -112,7 +112,7 @@ public class LongEncoding
             }
             builder.appendNull();
         }
-        catch (NumberFormatException ignored) {
+        catch (NumberFormatException _) {
             builder.appendNull();
         }
     }

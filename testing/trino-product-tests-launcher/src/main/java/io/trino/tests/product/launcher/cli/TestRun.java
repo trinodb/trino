@@ -234,7 +234,7 @@ public final class TestRun
                 log.info("Tests execution completed with code %d", exitCode);
                 return exitCode;
             }
-            catch (TimeoutExceededException ignored) {
+            catch (TimeoutExceededException _) {
                 log.error("Test execution exceeded timeout of %s", timeout);
             }
             catch (Throwable e) {

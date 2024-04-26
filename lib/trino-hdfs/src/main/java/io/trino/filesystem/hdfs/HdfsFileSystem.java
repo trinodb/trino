@@ -114,7 +114,7 @@ class HdfsFileSystem
                 }
                 return null;
             }
-            catch (FileNotFoundException ignored) {
+            catch (FileNotFoundException _) {
                 return null;
             }
             catch (IOException e) {

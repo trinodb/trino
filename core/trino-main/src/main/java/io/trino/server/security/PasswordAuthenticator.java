@@ -96,7 +96,7 @@ public class PasswordAuthenticator
         try {
             userHeader = getUserHeader(headers);
         }
-        catch (ProtocolDetectionException ignored) {
+        catch (ProtocolDetectionException _) {
             // this shouldn't fail here, but ignore and it will be handled elsewhere
             return;
         }

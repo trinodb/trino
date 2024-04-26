@@ -214,7 +214,7 @@ final class S3InputStream
         try (var ignored = in) {
             in.abort();
         }
-        catch (AbortedException | IOException ignored) {
+        catch (AbortedException | IOException _) {
         }
         finally {
             in = null;

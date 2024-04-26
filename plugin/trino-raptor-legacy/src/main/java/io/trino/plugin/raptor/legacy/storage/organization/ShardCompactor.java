@@ -312,7 +312,7 @@ public final class ShardCompactor
             try {
                 close();
             }
-            catch (IOException ignored) {
+            catch (IOException _) {
             }
         }
 

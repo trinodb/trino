@@ -352,7 +352,7 @@ public class JsonDeserializer
             try {
                 bigDecimal = HiveFormatUtils.parseDecimal(value, decimalType);
             }
-            catch (NumberFormatException ignored) {
+            catch (NumberFormatException _) {
                 // parsing errors are simply ignored and the field is null
                 builder.appendNull();
                 return;

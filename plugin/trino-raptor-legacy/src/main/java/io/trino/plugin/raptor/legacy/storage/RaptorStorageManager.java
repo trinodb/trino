@@ -662,7 +662,7 @@ public class RaptorStorageManager
         try {
             closeable.close();
         }
-        catch (IOException ignored) {
+        catch (IOException _) {
         }
     }
 }

@@ -158,7 +158,7 @@ public class OrcReader
                     throw new OrcCorruptionException(orcDataSource.getId(), "Not an ORC file");
                 }
             }
-            catch (IOException ignored) {
+            catch (IOException _) {
                 // throw original exception
             }
 

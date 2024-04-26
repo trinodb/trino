@@ -117,7 +117,7 @@ public class TimestampEncoding
             DecodedTimestamp decodedTimestamp = timestampParser.apply(slice.toStringAscii(offset, length));
             trinoTimestampEncoder.write(decodedTimestamp, builder);
         }
-        catch (DateTimeParseException ignored) {
+        catch (DateTimeParseException _) {
             builder.appendNull();
         }
     }

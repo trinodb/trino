@@ -270,7 +270,7 @@ public final class OpenXJsonDeserializer
                 BIGINT.writeLong(builder, parseLong(jsonString.value()));
                 return;
             }
-            catch (NumberFormatException | ArithmeticException ignored) {
+            catch (NumberFormatException | ArithmeticException _) {
             }
             builder.appendNull();
         }
@@ -293,7 +293,7 @@ public final class OpenXJsonDeserializer
                     return;
                 }
             }
-            catch (NumberFormatException | ArithmeticException ignored) {
+            catch (NumberFormatException | ArithmeticException _) {
             }
             builder.appendNull();
         }
@@ -316,7 +316,7 @@ public final class OpenXJsonDeserializer
                     return;
                 }
             }
-            catch (NumberFormatException | ArithmeticException ignored) {
+            catch (NumberFormatException | ArithmeticException _) {
             }
             builder.appendNull();
         }
@@ -339,7 +339,7 @@ public final class OpenXJsonDeserializer
                     return;
                 }
             }
-            catch (NumberFormatException | ArithmeticException ignored) {
+            catch (NumberFormatException | ArithmeticException _) {
             }
             builder.appendNull();
         }
@@ -374,7 +374,7 @@ public final class OpenXJsonDeserializer
                     return;
                 }
             }
-            catch (NumberFormatException ignored) {
+            catch (NumberFormatException _) {
             }
             builder.appendNull();
         }
@@ -393,7 +393,7 @@ public final class OpenXJsonDeserializer
             try {
                 REAL.writeLong(builder, floatToRawIntBits(Float.parseFloat(jsonString.value())));
             }
-            catch (NumberFormatException ignored) {
+            catch (NumberFormatException _) {
                 builder.appendNull();
             }
         }
@@ -433,13 +433,13 @@ public final class OpenXJsonDeserializer
                 DATE.writeLong(builder, toIntExact(parseHiveDate(dateString).toEpochDay()));
                 return;
             }
-            catch (DateTimeParseException | ArithmeticException ignored) {
+            catch (DateTimeParseException | ArithmeticException _) {
             }
             try {
                 DATE.writeLong(builder, toIntExact(parseDecimalHexOctalLong(dateString)));
                 return;
             }
-            catch (NumberFormatException | ArithmeticException ignored) {
+            catch (NumberFormatException | ArithmeticException _) {
             }
             builder.appendNull();
         }
@@ -485,7 +485,7 @@ public final class OpenXJsonDeserializer
                     long epochSeconds = zonedDateTime.toEpochSecond();
                     return new DecodedTimestamp(epochSeconds, zonedDateTime.getNano());
                 }
-                catch (DateTimeParseException ignored) {
+                catch (DateTimeParseException _) {
                 }
             }
 
@@ -499,14 +499,14 @@ public final class OpenXJsonDeserializer
                         zonedDateTime = zonedDateTime.withZoneSameInstant(ZoneOffset.UTC);
                         return new DecodedTimestamp(zonedDateTime.toEpochSecond(), zonedDateTime.getNano());
                     }
-                    catch (DateTimeParseException ignored) {
+                    catch (DateTimeParseException _) {
                     }
                     try {
                         ZonedDateTime zonedDateTime = ZonedDateTime.parse(value, ZONED_DATE_TIME_PARSER_WITH_COLON);
                         zonedDateTime = zonedDateTime.withZoneSameInstant(ZoneOffset.UTC);
                         return new DecodedTimestamp(zonedDateTime.toEpochSecond(), zonedDateTime.getNano());
                     }
-                    catch (DateTimeParseException ignored) {
+                    catch (DateTimeParseException _) {
                     }
                 }
                 return parseHiveTimestamp(value);
@@ -849,7 +849,7 @@ public final class OpenXJsonDeserializer
         try {
             return parseDecimalHexOctalLong(stringValue);
         }
-        catch (NumberFormatException ignored) {
+        catch (NumberFormatException _) {
         }
 
         BigDecimal bigDecimal = new BigDecimal(stringValue).setScale(0, RoundingMode.DOWN);

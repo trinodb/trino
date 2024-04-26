@@ -173,7 +173,7 @@ public class FormWebUiAuthenticationFilter
         try {
             builder.uri(new URI(null, null, null, path, null));
         }
-        catch (URISyntaxException ignored) {
+        catch (URISyntaxException _) {
         }
 
         return builder.build();
@@ -221,7 +221,7 @@ public class FormWebUiAuthenticationFilter
             try {
                 redirectLocation = new URI(redirectPath);
             }
-            catch (URISyntaxException ignored) {
+            catch (URISyntaxException _) {
             }
         }
 

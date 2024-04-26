@@ -264,7 +264,7 @@ public abstract class AbstractTrinoCatalog
             table = (BaseTable) loadTable(session, new SchemaTableName(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
             metadata = Optional.of(table.operations().current());
         }
-        catch (TableNotFoundException ignored) {
+        catch (TableNotFoundException _) {
             // ignored
         }
         IcebergTableOperations operations = tableOperationsProvider.createTableOperations(
