@@ -52,6 +52,7 @@ public class MLPlugin
                 .add(LearnLibSvmVarcharClassifierAggregation.class)
                 .add(LearnLibSvmRegressorAggregation.class)
                 .add(EvaluateClassifierPredictionsAggregation.class)
+                .add(SmFunction.class)
                 .add(MLFunctions.class)
                 .addAll(ML_FEATURE_FUNCTIONS)
                 .build();
