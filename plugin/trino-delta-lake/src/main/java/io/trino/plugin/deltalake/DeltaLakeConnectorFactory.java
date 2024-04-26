@@ -89,7 +89,7 @@ public class DeltaLakeConnectorFactory
             Module module)
     {
         ClassLoader classLoader = DeltaLakeConnectorFactory.class.getClassLoader();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),

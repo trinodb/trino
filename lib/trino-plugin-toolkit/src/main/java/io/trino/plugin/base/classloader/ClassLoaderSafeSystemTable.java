@@ -43,7 +43,7 @@ public class ClassLoaderSafeSystemTable
     @Override
     public Distribution getDistribution()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getDistribution();
         }
     }
@@ -51,7 +51,7 @@ public class ClassLoaderSafeSystemTable
     @Override
     public ConnectorTableMetadata getTableMetadata()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableMetadata();
         }
     }
@@ -59,7 +59,7 @@ public class ClassLoaderSafeSystemTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.cursor(transactionHandle, session, constraint);
         }
     }
@@ -67,7 +67,7 @@ public class ClassLoaderSafeSystemTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint, Set<Integer> requiredColumns)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.cursor(transactionHandle, session, constraint, requiredColumns);
         }
     }
@@ -75,7 +75,7 @@ public class ClassLoaderSafeSystemTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.pageSource(transactionHandle, session, constraint);
         }
     }

@@ -70,7 +70,7 @@ public class HudiTransactionManager
         public synchronized HudiMetadata get(ConnectorIdentity identity)
         {
             if (metadata == null) {
-                try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+                try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
                     metadata = metadataFactory.create(identity);
                 }
             }

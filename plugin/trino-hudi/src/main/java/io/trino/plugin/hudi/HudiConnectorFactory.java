@@ -73,7 +73,7 @@ public class HudiConnectorFactory
             Optional<Module> module)
     {
         ClassLoader classLoader = HudiConnectorFactory.class.getClassLoader();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),

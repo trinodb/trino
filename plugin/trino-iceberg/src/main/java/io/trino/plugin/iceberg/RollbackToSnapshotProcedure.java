@@ -72,7 +72,7 @@ public class RollbackToSnapshotProcedure
         checkProcedureArgument(table != null, "table cannot be null");
         checkProcedureArgument(snapshotId != null, "snapshot_id cannot be null");
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             SchemaTableName schemaTableName = new SchemaTableName(schema, table);
             Table icebergTable = catalogFactory.create(clientSession.getIdentity()).loadTable(clientSession, schemaTableName);
             icebergTable.manageSnapshots().setCurrentSnapshot(snapshotId).commit();

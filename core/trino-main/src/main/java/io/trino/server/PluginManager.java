@@ -156,7 +156,7 @@ public class PluginManager
         }
 
         handleResolver.registerClassLoader(pluginClassLoader);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(pluginClassLoader)) {
             loadPlugin(pluginClassLoader);
         }
 
