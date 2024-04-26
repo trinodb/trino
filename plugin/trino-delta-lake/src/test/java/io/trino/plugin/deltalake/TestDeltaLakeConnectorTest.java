@@ -4063,38 +4063,36 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testTimestampCoercionOnCreateTableAsWithRowType()
     {
-        // TODO structure type coercion is not supported yet https://github.com/trinodb/trino/pull/21055
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00'", ".*Unsupported type: timestamp\\(0\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.9'", ".*Unsupported type: timestamp\\(1\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.56'", ".*Unsupported type: timestamp\\(2\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123'", ".*Unsupported type: timestamp\\(3\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.4896'", ".*Unsupported type: timestamp\\(4\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.89356'", ".*Unsupported type: timestamp\\(5\\).*");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.56'", "TIMESTAMP '1970-01-01 00:00:00.56'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.4896'", "TIMESTAMP '1970-01-01 00:00:00.4896'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.89356'", "TIMESTAMP '1970-01-01 00:00:00.89356'");
         testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123'");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.999'", ".*Unsupported type: timestamp\\(3\\).*");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999'");
         testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '2020-09-27 12:34:56.1'", ".*Unsupported type: timestamp\\(1\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '2020-09-27 12:34:56.9'", ".*Unsupported type: timestamp\\(1\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '2020-09-27 12:34:56.123'", ".*Unsupported type: timestamp\\(3\\).*");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123'");
         testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123'");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '2020-09-27 12:34:56.999'", ".*Unsupported type: timestamp\\(3\\).*");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999'");
         testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123456'");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.1234561'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123456499'", ".*Unsupported type: timestamp\\(9\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123456499999'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123456999999'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.1234565'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.111222333444'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 00:00:00.9999995'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1970-01-01 23:59:59.9999995'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1969-12-31 23:59:59.9999995'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1969-12-31 23:59:59.999999499999'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithRowTypeFailure("TIMESTAMP '1969-12-31 23:59:59.9999994'", ".*Unsupported type: timestamp\\(7\\).*");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.1234561'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123456499'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123456999999'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.1234565'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.9999995'", "TIMESTAMP '1970-01-01 00:00:01.000000'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 23:59:59.9999995'", "TIMESTAMP '1970-01-02 00:00:00.000000'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
+        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
     }
 
     private void testTimestampCoercionOnCreateTableAsWithRowType(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
     {
-        // TODO remove precision from timestamp once https://github.com/trinodb/trino/pull/21055 is merged
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
                 "test_timestamp_coercion_on_create_table_as_with_row_type",
@@ -4107,43 +4105,35 @@ public class TestDeltaLakeConnectorTest
         }
     }
 
-    private void testTimestampCoercionOnCreateTableAsWithRowTypeFailure(String actualValue, @Language("RegExp") String expectedMessage)
-    {
-        assertQueryFails(
-                "CREATE TABLE test_timestamp_coercion_on_create_table_as_with_row_type AS SELECT row(%s) ts".formatted( actualValue),
-                expectedMessage);
-    }
-
     @Test
     public void testTimestampCoercionOnCreateTableAsWithArrayType()
     {
-        // TODO structure type coercion is not supported yet https://github.com/trinodb/trino/pull/21055
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00'", ".*Unsupported type: timestamp\\(0\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.9'", ".*Unsupported type: timestamp\\(1\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.56'", ".*Unsupported type: timestamp\\(2\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123'", ".*Unsupported type: timestamp\\(3\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.4896'", ".*Unsupported type: timestamp\\(4\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.89356'", ".*Unsupported type: timestamp\\(5\\).*");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.56'", "TIMESTAMP '1970-01-01 00:00:00.56'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.4896'", "TIMESTAMP '1970-01-01 00:00:00.4896'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.89356'", "TIMESTAMP '1970-01-01 00:00:00.89356'");
         testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123'");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.999'", ".*Unsupported type: timestamp\\(3\\).*");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999'");
         testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '2020-09-27 12:34:56.1'", ".*Unsupported type: timestamp\\(1\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '2020-09-27 12:34:56.9'", ".*Unsupported type: timestamp\\(1\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '2020-09-27 12:34:56.123'", ".*Unsupported type: timestamp\\(3\\).*");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123'");
         testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123'");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '2020-09-27 12:34:56.999'", ".*Unsupported type: timestamp\\(3\\).*");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999'");
         testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123456'");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.1234561'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123456499'", ".*Unsupported type: timestamp\\(9\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123456499999'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123456999999'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.1234565'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.111222333444'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 00:00:00.9999995'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1970-01-01 23:59:59.9999995'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1969-12-31 23:59:59.9999995'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1969-12-31 23:59:59.999999499999'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithArrayTypeFailure("TIMESTAMP '1969-12-31 23:59:59.9999994'", ".*Unsupported type: timestamp\\(7\\).*");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.1234561'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123456499'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123456999999'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.1234565'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.9999995'", "TIMESTAMP '1970-01-01 00:00:01.000000'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 23:59:59.9999995'", "TIMESTAMP '1970-01-02 00:00:00.000000'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
+        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
     }
 
     private void testTimestampCoercionOnCreateTableAsWithArrayType(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
@@ -4160,43 +4150,35 @@ public class TestDeltaLakeConnectorTest
         }
     }
 
-    private void testTimestampCoercionOnCreateTableAsWithArrayTypeFailure(String actualValue, @Language("RegExp") String expectedMessage)
-    {
-        assertQueryFails(
-                "CREATE TABLE test_timestamp_coercion_on_create_table_as_with_array_type AS SELECT array[%s] ts".formatted(actualValue),
-                expectedMessage);
-    }
-
     @Test
     public void testTimestampCoercionOnCreateTableAsWithMapType()
     {
-        // TODO structure type coercion is not supported yet https://github.com/trinodb/trino/pull/21055
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00'", ".*Unsupported type: timestamp\\(0\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.9'", ".*Unsupported type: timestamp\\(1\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.56'", ".*Unsupported type: timestamp\\(2\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123'", ".*Unsupported type: timestamp\\(3\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.4896'", ".*Unsupported type: timestamp\\(4\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.89356'", ".*Unsupported type: timestamp\\(5\\).*");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.56'", "TIMESTAMP '1970-01-01 00:00:00.56'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.4896'", "TIMESTAMP '1970-01-01 00:00:00.4896'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.89356'", "TIMESTAMP '1970-01-01 00:00:00.89356'");
         testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123'");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.999'", ".*Unsupported type: timestamp\\(3\\).*");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999'");
         testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '2020-09-27 12:34:56.1'", ".*Unsupported type: timestamp\\(1\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '2020-09-27 12:34:56.9'", ".*Unsupported type: timestamp\\(1\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '2020-09-27 12:34:56.123'", ".*Unsupported type: timestamp\\(3\\).*");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123'");
         testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123'");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '2020-09-27 12:34:56.999'", ".*Unsupported type: timestamp\\(3\\).*");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999'");
         testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123456'");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.1234561'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123456499'", ".*Unsupported type: timestamp\\(9\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123456499999'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.123456999999'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.1234565'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.111222333444'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 00:00:00.9999995'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1970-01-01 23:59:59.9999995'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1969-12-31 23:59:59.9999995'", ".*Unsupported type: timestamp\\(7\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1969-12-31 23:59:59.999999499999'", ".*Unsupported type: timestamp\\(12\\).*");
-        testTimestampCoercionOnCreateTableAsWithMapTypeFailure("TIMESTAMP '1969-12-31 23:59:59.9999994'", ".*Unsupported type: timestamp\\(7\\).*");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.1234561'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123456499'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123456999999'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.1234565'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.9999995'", "TIMESTAMP '1970-01-01 00:00:01.000000'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 23:59:59.9999995'", "TIMESTAMP '1970-01-02 00:00:00.000000'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
+        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
     }
 
     private void testTimestampCoercionOnCreateTableAsWithMapType(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
@@ -4204,20 +4186,13 @@ public class TestDeltaLakeConnectorTest
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
                 "test_timestamp_coercion_on_create_table_as_with_map_type",
-                "AS SELECT map(array['key'], array[%s]) ts".formatted(actualValue))) {
-            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("map(varchar, timestamp(6))");
-            assertThat(query("SELECT ts['key'] FROM " + testTable.getName()))
+                "AS SELECT map(array[%1$s], array[%1$s]) ts".formatted(actualValue))) {
+            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("map(timestamp(6), timestamp(6))");
+            assertThat(query("SELECT * FROM " + testTable.getName()))
                     .skippingTypesCheck()
-                    .matches("VALUES " + expectedValue);
+                    .matches("SELECT map(array[%1$s], array[%1$s])".formatted(expectedValue));
             assertTimestampNtzFeature(testTable.getName());
         }
-    }
-
-    private void testTimestampCoercionOnCreateTableAsWithMapTypeFailure(String actualValue, @Language("RegExp") String expectedMessage)
-    {
-        assertQueryFails(
-                "CREATE TABLE test_timestamp_coercion_on_create_table_as_with_map_type AS SELECT map(array['key'], array[%s]) ts".formatted(actualValue),
-                expectedMessage);
     }
 
     private void assertTimestampNtzFeature(String tableName)
