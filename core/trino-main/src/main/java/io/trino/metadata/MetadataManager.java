@@ -614,13 +614,13 @@ public final class MetadataManager
             QualifiedObjectName objectName = new QualifiedObjectName(catalogName, schemaName.orElseThrow(), relationName.get());
             SchemaTableName schemaTableName = objectName.asSchemaTableName();
 
-            return Optional.<RelationColumnsMetadata>empty()
-                    .or(() -> getMaterializedViewInternal(session, objectName)
-                            .map(materializedView -> RelationColumnsMetadata.forMaterializedView(schemaTableName, materializedView.getColumns())))
-                    .or(() -> getViewInternal(session, objectName)
-                            .map(view -> RelationColumnsMetadata.forView(schemaTableName, view.getColumns())))
-                    .or(() -> {
-                        try {
+            try {
+                return Optional.<RelationColumnsMetadata>empty()
+                        .or(() -> getMaterializedViewInternal(session, objectName)
+                                .map(materializedView -> RelationColumnsMetadata.forMaterializedView(schemaTableName, materializedView.getColumns())))
+                        .or(() -> getViewInternal(session, objectName)
+                                .map(view -> RelationColumnsMetadata.forView(schemaTableName, view.getColumns())))
+                        .or(() -> {
                             // TODO: redirects are handled inefficiently: we currently throw-away redirect info and redo it later
                             RedirectionAwareTableHandle redirectionAware = getRedirectionAwareTableHandle(session, objectName);
                             if (redirectionAware.redirectedTableName().isPresent()) {
@@ -629,16 +629,18 @@ public final class MetadataManager
                             if (redirectionAware.tableHandle().isPresent()) {
                                 return Optional.of(RelationColumnsMetadata.forTable(schemaTableName, getTableMetadata(session, redirectionAware.tableHandle().get()).columns()));
                             }
-                        }
-                        catch (RuntimeException e) {
-                            handleListingError(e, prefix);
-                        }
-                        // Not found, or getting metadata failed.
-                        return Optional.empty();
-                    })
-                    .filter(relationColumnsMetadata -> relationFilter.apply(ImmutableSet.of(relationColumnsMetadata.name())).contains(relationColumnsMetadata.name()))
-                    .map(relationColumnsMetadata -> ImmutableList.of(tableColumnsMetadata(catalogName, relationColumnsMetadata)))
-                    .orElse(ImmutableList.of());
+                            // Not found
+                            return Optional.empty();
+                        })
+                        .filter(relationColumnsMetadata -> relationFilter.apply(ImmutableSet.of(relationColumnsMetadata.name())).contains(relationColumnsMetadata.name()))
+                        .map(relationColumnsMetadata -> ImmutableList.of(tableColumnsMetadata(catalogName, relationColumnsMetadata)))
+                        .orElse(ImmutableList.of());
+            }
+            catch (RuntimeException e) {
+                handleListingError(e, prefix);
+                // Empty in case of metadata error.
+                return ImmutableList.of();
+            }
         }
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, catalogName);
