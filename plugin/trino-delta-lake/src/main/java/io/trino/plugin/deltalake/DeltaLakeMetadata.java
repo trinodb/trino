@@ -1059,6 +1059,10 @@ public class DeltaLakeMetadata
                         protocolEntry);
 
                 transactionLogWriter.flush();
+
+                if (replaceExistingTable) {
+                    writeCheckpointIfNeeded(session, schemaTableName, location, tableHandle.getReadVersion(), checkpointInterval, commitVersion);
+                }
             }
         }
         catch (IOException e) {
@@ -1425,6 +1429,10 @@ public class DeltaLakeMetadata
             }
             transactionLogWriter.flush();
             writeCommitted = true;
+
+            if (handle.replace() && handle.readVersion().isPresent()) {
+                writeCheckpointIfNeeded(session, schemaTableName, handle.location(), handle.readVersion().getAsLong(), handle.checkpointInterval(), commitVersion);
+            }
 
             if (isCollectExtendedStatisticsColumnStatisticsOnWrite(session) && !computedStatistics.isEmpty()) {
                 Optional<Instant> maxFileModificationTime = dataFileInfos.stream()
