@@ -380,7 +380,7 @@ public class IcebergPageSink
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
 
         if (currentOpenWriters > maxOpenWriters) {
-            throw new TrinoException(ICEBERG_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions", maxOpenWriters));
+            throw new TrinoException(ICEBERG_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions: %s", maxOpenWriters, currentOpenWriters));
         }
 
         return writerIndexes;
