@@ -40,6 +40,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
@@ -60,7 +61,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
 
         private final Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier;
         private final boolean memoryRequirementIncreaseOnWorkerCrashEnabled;
-        private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor();
+        private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("exponential-growth-estimator-%s"));
         private final AtomicReference<Optional<DataSize>> maxNodePoolSize = new AtomicReference<>(Optional.empty());
 
         @Inject

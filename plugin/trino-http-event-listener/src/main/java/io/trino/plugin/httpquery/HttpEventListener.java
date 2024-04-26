@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
@@ -108,7 +109,7 @@ public class HttpEventListener
             throw new IllegalStateException(String.format("Ingest URI %s for HTTP event listener is not valid", config.getIngestUri()), e);
         }
 
-        this.executor = newSingleThreadScheduledExecutor();
+        this.executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("http-event-listener-%s"));
     }
 
     @PreDestroy
