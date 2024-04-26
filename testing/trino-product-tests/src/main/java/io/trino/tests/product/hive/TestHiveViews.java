@@ -79,9 +79,8 @@ public class TestHiveViews
         assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.views WHERE table_schema = 'test_list_failing_views' AND table_name = 'correct_view'"))
                 .containsOnly(row("correct_view"));
 
-        // Listing fails when metadata for the problematic view is queried specifically
-        assertThatThrownBy(() -> onTrino().executeQuery("SELECT table_name FROM information_schema.views WHERE table_schema = 'test_list_failing_views' AND table_name = 'failing_view'"))
-                .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
+        assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.views WHERE table_schema = 'test_list_failing_views' AND table_name = 'failing_view'"))
+                .hasNoRows();
 
         // Queries on information_schema.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
         // listed too since HiveMetadata#listTableColumns does not ignore Hive views.
@@ -151,6 +150,10 @@ public class TestHiveViews
         onTrino().executeQuery("CREATE TABLE test_list_failing_views.table_dropped (col0 BIGINT)");
         onHive().executeQuery("CREATE VIEW test_list_failing_views.failing_view AS SELECT * FROM test_list_failing_views.table_dropped");
         onTrino().executeQuery("DROP TABLE test_list_failing_views.table_dropped");
+
+        // Make sure that failing_view throws exception when queried explicitly.
+        assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM test_list_failing_views.failing_view"))
+                .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
     }
 
     @Test
