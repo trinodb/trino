@@ -19,7 +19,6 @@ import com.google.common.reflect.ClassPath;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.log.Logger;
 import io.minio.BucketExistsArgs;
 import io.minio.CloseableIterator;
@@ -41,7 +40,6 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
@@ -49,10 +47,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.minio.messages.EventType.OBJECT_ACCESSED_ANY;
 import static io.minio.messages.EventType.OBJECT_CREATED_ANY;
 import static io.minio.messages.EventType.OBJECT_REMOVED_ANY;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.regex.Matcher.quoteReplacement;
 
@@ -69,7 +70,7 @@ public class MinioClient
 
     private final OkHttpClient httpClient;
     private final io.minio.MinioClient client;
-    private final ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(32));
+    private final ListeningExecutorService executor = listeningDecorator(newFixedThreadPool(32, daemonThreadsNamed("minio-client-%s")));
 
     private static final String[] ALL_MINIO_EVENTS = new String[] {
             OBJECT_CREATED_ANY.toString(),

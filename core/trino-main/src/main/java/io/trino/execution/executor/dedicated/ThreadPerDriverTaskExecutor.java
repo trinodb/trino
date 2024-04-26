@@ -47,6 +47,7 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -61,7 +62,7 @@ public class ThreadPerDriverTaskExecutor
     private final int targetGlobalLeafDrivers;
     private final int minDriversPerTask;
     private final int maxDriversPerTask;
-    private final ScheduledThreadPoolExecutor backgroundTasks = new ScheduledThreadPoolExecutor(2);
+    private final ScheduledThreadPoolExecutor backgroundTasks = new ScheduledThreadPoolExecutor(2, daemonThreadsNamed("task-executor-scheduler-%s"));
 
     @GuardedBy("this")
     private final Map<TaskId, TaskEntry> tasks = new HashMap<>();
