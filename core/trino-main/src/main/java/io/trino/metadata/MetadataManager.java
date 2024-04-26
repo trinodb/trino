@@ -631,22 +631,7 @@ public final class MetadataManager
                             }
                         }
                         catch (RuntimeException e) {
-                            boolean silent = false;
-                            if (e instanceof TrinoException trinoException) {
-                                ErrorCode errorCode = trinoException.getErrorCode();
-                                silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
-                                        // e.g. table deleted concurrently
-                                        errorCode.equals(TABLE_NOT_FOUND.toErrorCode()) ||
-                                        errorCode.equals(NOT_FOUND.toErrorCode()) ||
-                                        // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
-                                        errorCode.getType() == EXTERNAL;
-                            }
-                            if (silent) {
-                                log.debug(e, "Failed to get metadata for table: %s", objectName);
-                            }
-                            else {
-                                log.warn(e, "Failed to get metadata for table: %s", objectName);
-                            }
+                            handleListingError(e, prefix);
                         }
                         // Not found, or getting metadata failed.
                         return Optional.empty();
@@ -676,6 +661,26 @@ public final class MetadataManager
             }
         }
         return ImmutableList.copyOf(tableColumns.values());
+    }
+
+    private static void handleListingError(RuntimeException e, QualifiedTablePrefix tablePrefix)
+    {
+        boolean silent = false;
+        if (e instanceof TrinoException trinoException) {
+            ErrorCode errorCode = trinoException.getErrorCode();
+            silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
+                    // e.g. table deleted concurrently
+                    errorCode.equals(TABLE_NOT_FOUND.toErrorCode()) ||
+                    errorCode.equals(NOT_FOUND.toErrorCode()) ||
+                    // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
+                    errorCode.getType() == EXTERNAL;
+        }
+        if (silent) {
+            log.debug(e, "Failed to get metadata for table: %s", tablePrefix);
+        }
+        else {
+            log.warn(e, "Failed to get metadata for table: %s", tablePrefix);
+        }
     }
 
     private TableColumnsMetadata tableColumnsMetadata(String catalogName, RelationColumnsMetadata relationColumnsMetadata)
