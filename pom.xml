@@ -2571,6 +2571,32 @@
             </plugin>
 
             <plugin>
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>modernizer-production-code</id>
+                        <goals>
+                            <goal>modernizer</goal>
+                        </goals>
+                        <configuration>
+                            <violationsFiles>
+                                <violationsFile>${air.main.basedir}/.mvn/modernizer/violations-production-code-only.xml</violationsFile>
+                            </violationsFiles>
+                            <includeTestClasses>false</includeTestClasses>
+                            <ignorePackages>
+                                <ignorePackage>io.trino.testing</ignorePackage>
+                                <ignorePackage>io.trino.tests.product</ignorePackage>
+                                <ignorePackage>io.trino.tests.product.hive</ignorePackage>
+                                <ignorePackage>io.trino.tests.product.iceberg</ignorePackage>
+                                <ignorePackage>io.trino.verifier</ignorePackage>
+                            </ignorePackages>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
                 <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
                 <extensions>true</extensions>

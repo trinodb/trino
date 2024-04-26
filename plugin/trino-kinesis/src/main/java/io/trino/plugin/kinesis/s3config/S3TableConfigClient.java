@@ -48,6 +48,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -99,7 +100,7 @@ public class S3TableConfigClient
     protected void startS3Updates()
     {
         if (this.bucketUrl.isPresent()) {
-            scheduler = newSingleThreadScheduledExecutor();
+            scheduler = newSingleThreadScheduledExecutor(daemonThreadsNamed("s3-table-config-client-%s"));
             this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5_000, tableDescriptionRefreshInterval.toMillis(), TimeUnit.MILLISECONDS);
         }
     }
