@@ -78,7 +78,7 @@ public class SqlTaskExecutionFactory
                 cpuTimerEnabled);
 
         LocalExecutionPlan localExecutionPlan;
-        try (SetThreadName ignored = new SetThreadName("Task-%s", taskStateMachine.getTaskId())) {
+        try (SetThreadName _ = new SetThreadName("Task-%s", taskStateMachine.getTaskId())) {
             try (var ignoredSpan = scopedSpan(tracer, "local-planner")) {
                 localExecutionPlan = planner.plan(
                         taskContext,

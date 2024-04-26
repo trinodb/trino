@@ -293,7 +293,7 @@ public class TimeSharingTaskExecutor
     public void removeTask(TaskHandle taskHandle)
     {
         TimeSharingTaskHandle handle = (TimeSharingTaskHandle) taskHandle;
-        try (SetThreadName ignored = new SetThreadName("Task-%s", handle.getTaskId())) {
+        try (SetThreadName _ = new SetThreadName("Task-%s", handle.getTaskId())) {
             // Skip additional scheduling if the task was already destroyed
             if (!doRemoveTask(handle)) {
                 return;

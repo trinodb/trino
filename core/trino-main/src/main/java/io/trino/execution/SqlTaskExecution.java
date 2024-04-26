@@ -140,7 +140,7 @@ public class SqlTaskExecution
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
         this.driverAndTaskTerminationTracker = new DriverAndTaskTerminationTracker(taskStateMachine);
 
-        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName _ = new SetThreadName("Task-%s", taskId)) {
             List<DriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
             // index driver factories
             Set<PlanNodeId> partitionedSources = ImmutableSet.copyOf(localExecutionPlan.getPartitionedSourceOrder());
@@ -195,7 +195,7 @@ public class SqlTaskExecution
     // this must be synchronized to prevent a concurrent call to checkTaskCompletion() from proceeding before all task lifecycle drivers are created
     public synchronized void start()
     {
-        try (SetThreadName ignored = new SetThreadName("Task-%s", getTaskId())) {
+        try (SetThreadName _ = new SetThreadName("Task-%s", getTaskId())) {
             // Signal immediate termination complete if task termination has started
             if (taskStateMachine.getState().isTerminating()) {
                 taskStateMachine.terminationComplete();
@@ -263,7 +263,7 @@ public class SqlTaskExecution
             return;
         }
 
-        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName _ = new SetThreadName("Task-%s", taskId)) {
             // update our record of split assignments and schedule drivers for new partitioned splits
             Set<PlanNodeId> updatedUnpartitionedSources = updateSplitAssignments(splitAssignments);
             for (PlanNodeId planNodeId : updatedUnpartitionedSources) {
@@ -415,7 +415,7 @@ public class SqlTaskExecution
                 @Override
                 public void onSuccess(Object result)
                 {
-                    try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+                    try (SetThreadName _ = new SetThreadName("Task-%s", taskId)) {
                         // record driver is finished
                         if (remainingSplitRunners.decrementAndGet() == 0) {
                             checkTaskCompletion();
@@ -428,7 +428,7 @@ public class SqlTaskExecution
                 @Override
                 public void onFailure(Throwable cause)
                 {
-                    try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+                    try (SetThreadName _ = new SetThreadName("Task-%s", taskId)) {
                         taskStateMachine.failed(cause);
 
                         // record driver is finished
