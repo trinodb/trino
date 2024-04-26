@@ -26,6 +26,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "experimental.cluster-memory-manager-enabled",
@@ -47,7 +48,7 @@ public class MemoryManagerConfig
     private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy = LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     // default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
-    private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
+    private Duration killOnOutOfMemoryDelay = new Duration(30, SECONDS);
 
     @NotNull
     public DataSize getMaxQueryMemory()
