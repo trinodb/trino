@@ -74,13 +74,8 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     @Override
     public Optional<DeltaMetastoreTable> getTable(String databaseName, String tableName)
     {
-        return getRawMetastoreTable(databaseName, tableName).map(table -> {
-            verifyDeltaLakeTable(table);
-            return new DeltaMetastoreTable(
-                    new SchemaTableName(databaseName, tableName),
-                    table.getTableType().equals(MANAGED_TABLE.name()),
-                    getTableLocation(table));
-        });
+        return getRawMetastoreTable(databaseName, tableName)
+                .map(HiveMetastoreBackedDeltaLakeMetastore::convertToDeltaMetastoreTable);
     }
 
     public static void verifyDeltaLakeTable(Table table)
@@ -128,6 +123,15 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     public void renameTable(SchemaTableName from, SchemaTableName to)
     {
         delegate.renameTable(from.getSchemaName(), from.getTableName(), to.getSchemaName(), to.getTableName());
+    }
+
+    public static DeltaMetastoreTable convertToDeltaMetastoreTable(Table table)
+    {
+        verifyDeltaLakeTable(table);
+        return new DeltaMetastoreTable(
+                new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                table.getTableType().equals(MANAGED_TABLE.name()),
+                getTableLocation(table));
     }
 
     public static String getTableLocation(Table table)
