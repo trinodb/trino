@@ -92,7 +92,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
@@ -570,17 +570,16 @@ public final class DomainTranslator
             boolean nullAllowed = false;
 
             switch (operator) {
-                case EQUAL:
+                case EQUAL, IDENTICAL:
                     valueSet = dateStringRanges(date, sourceType);
+                    nullAllowed = operator == IDENTICAL;
                     break;
                 case NOT_EQUAL:
-                case IS_DISTINCT_FROM:
                     if (date.getDayOfMonth() < 10) {
                         // TODO: possible to handle but cumbersome
                         return Optional.empty();
                     }
                     valueSet = ValueSet.all(sourceType).subtract(dateStringRanges(date, sourceType));
-                    nullAllowed = operator == IS_DISTINCT_FROM;
                     break;
                 case LESS_THAN:
                 case LESS_THAN_OR_EQUAL:
@@ -648,8 +647,8 @@ public final class DomainTranslator
             if (value == null) {
                 return switch (comparisonOperator) {
                     case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, NOT_EQUAL -> Optional.of(new ExtractionResult(TupleDomain.none(), TRUE));
-                    case IS_DISTINCT_FROM -> {
-                        Domain domain = complementIfNecessary(Domain.notNull(type), complement);
+                    case IDENTICAL -> {
+                        Domain domain = complementIfNecessary(Domain.onlyNull(type), complement);
                         yield Optional.of(new ExtractionResult(
                                 TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)),
                                 TRUE));
@@ -677,15 +676,12 @@ public final class DomainTranslator
             if (!(type instanceof DoubleType) && !(type instanceof RealType)) {
                 return switch (comparisonOperator) {
                     case EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), false));
+                    case IDENTICAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), complement));
                     case GREATER_THAN -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThan(type, value)), complement), false));
                     case GREATER_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), complement), false));
                     case LESS_THAN -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value)), complement), false));
                     case LESS_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), complement), false));
-                    case NOT_EQUAL ->
-                            Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), complement), false));
-                    case IS_DISTINCT_FROM ->
-                        // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
-                            Optional.of(complementIfNecessary(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), true), complement));
+                    case NOT_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), complement), false));
                 };
             }
 
@@ -695,9 +691,7 @@ public final class DomainTranslator
                     case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL ->
                             Optional.of(Domain.create(complementIfNecessary(ValueSet.none(type), complement), false));
                     case NOT_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.all(type), complement), false));
-                    case IS_DISTINCT_FROM ->
-                        // The Domain should be "all but NaN". It is currently not supported.
-                            Optional.empty();
+                    case IDENTICAL -> Optional.empty(); // The Domain should be "NaN". It is currently not supported.
                 };
             }
 
@@ -712,7 +706,7 @@ public final class DomainTranslator
                  the Domain should consist of ranges (which do not sum to the whole ValueSet), and NaN.
                  Currently, NaN is only included when ValueSet.isAll().
                   */
-                case EQUAL -> complement ?
+                case EQUAL, IDENTICAL -> complement ?
                         Optional.empty() :
                         Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false));
                 case GREATER_THAN -> complement ?
@@ -727,7 +721,7 @@ public final class DomainTranslator
                 case LESS_THAN_OR_EQUAL -> complement ?
                         Optional.empty() :
                         Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), false));
-                case NOT_EQUAL, IS_DISTINCT_FROM -> complement ?
+                case NOT_EQUAL -> complement ?
                         Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false)) :
                         Optional.empty();
             };
@@ -739,7 +733,7 @@ public final class DomainTranslator
             return switch (comparisonOperator) {
                 case EQUAL -> Domain.create(complementIfNecessary(ValueSet.of(type, value), complement), false);
                 case NOT_EQUAL -> Domain.create(complementIfNecessary(ValueSet.of(type, value).complement(), complement), false);
-                case IS_DISTINCT_FROM -> complementIfNecessary(Domain.create(ValueSet.of(type, value).complement(), true), complement); // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
+                case IDENTICAL -> Domain.create(complementIfNecessary(ValueSet.of(type, value), complement), complement);
                 default -> throw new IllegalArgumentException("Unhandled operator: " + comparisonOperator);
             };
         }
@@ -826,9 +820,9 @@ public final class DomainTranslator
                     yield or(new Comparison(EQUAL, symbolExpression, coercedLiteral),
                             new Comparison(NOT_EQUAL, symbolExpression, coercedLiteral));
                 }
-                case IS_DISTINCT_FROM -> coercedValueIsEqualToOriginal ?
-                        new Comparison(comparisonOperator, symbolExpression, coercedLiteral) :
-                        TRUE;
+                case IDENTICAL -> coercedValueIsEqualToOriginal ?
+                        TRUE :
+                        new Comparison(comparisonOperator, symbolExpression, coercedLiteral);
             };
         }
 

@@ -47,7 +47,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
@@ -157,12 +157,12 @@ public class TestCanonicalizeExpressionRewriter
                 new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")));
+                new Comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                new Comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")));
 
         assertRewritten(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")));
+                new Comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                new Comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")));
     }
 
     @Test

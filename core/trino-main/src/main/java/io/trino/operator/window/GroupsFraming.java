@@ -63,7 +63,7 @@ public class GroupsFraming
 
         seekGroupStart = position -> {
             requireNonNull(position, "position is null");
-            while (position > 0 && pagesIndex.positionNotDistinctFromPosition(peerGroupHashStrategy, partitionStart + position, partitionStart + position - 1)) {
+            while (position > 0 && pagesIndex.positionIdenticalToPosition(peerGroupHashStrategy, partitionStart + position, partitionStart + position - 1)) {
                 position--;
             }
             return position;
@@ -71,7 +71,7 @@ public class GroupsFraming
 
         seekGroupEnd = position -> {
             requireNonNull(position, "position is null");
-            while (position < partitionEnd - 1 - partitionStart && pagesIndex.positionNotDistinctFromPosition(peerGroupHashStrategy, partitionStart + position, partitionStart + position + 1)) {
+            while (position < partitionEnd - 1 - partitionStart && pagesIndex.positionIdenticalToPosition(peerGroupHashStrategy, partitionStart + position, partitionStart + position + 1)) {
                 position++;
             }
             return position;

@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestTypeOperators
 {
     @Test
-    void testDistinctGenerator()
+    void testIdenticalGenerator()
             throws Throwable
     {
         TypeOperators typeOperators = new TypeOperators();
@@ -50,7 +50,7 @@ class TestTypeOperators
         List<Long> testArguments = Arrays.asList(0L, 1L, 2L, null);
         for (InvocationArgumentConvention leftConvention : argumentConventions) {
             for (InvocationArgumentConvention rightConvention : argumentConventions) {
-                MethodHandle operator = typeOperators.getDistinctFromOperator(BIGINT, simpleConvention(FAIL_ON_NULL, leftConvention, rightConvention));
+                MethodHandle operator = typeOperators.getIdenticalOperator(BIGINT, simpleConvention(FAIL_ON_NULL, leftConvention, rightConvention));
                 operator = exactInvoker(operator.type()).bindTo(operator);
 
                 for (Long leftArgument : testArguments) {
@@ -58,12 +58,13 @@ class TestTypeOperators
                         if (!leftConvention.isNullable() && leftArgument == null || !rightConvention.isNullable() && rightArgument == null) {
                             continue;
                         }
-                        boolean expected = !Objects.equals(leftArgument, rightArgument);
+                        boolean expected = Objects.equals(leftArgument, rightArgument);
 
                         ArrayList<Object> arguments = new ArrayList<>();
                         addCallArgument(typeOperators, leftConvention, leftArgument, arguments);
                         addCallArgument(typeOperators, rightConvention, rightArgument, arguments);
-                        assertThat((boolean) operator.invokeWithArguments(arguments)).isEqualTo(expected);
+                        boolean actual = (boolean) operator.invokeWithArguments(arguments);
+                        assertThat(actual).isEqualTo(expected);
                     }
                 }
             }

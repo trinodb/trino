@@ -604,7 +604,7 @@ public class TestPostgreSqlConnectorTest
         String notDistinctOperator = "IS NOT DISTINCT FROM";
         List<String> nonEqualities = Stream.concat(
                         Stream.of(JoinCondition.Operator.values())
-                                .filter(operator -> operator != JoinCondition.Operator.EQUAL)
+                                .filter(operator -> operator != JoinCondition.Operator.EQUAL && operator != JoinCondition.Operator.IDENTICAL)
                                 .map(JoinCondition.Operator::getValue),
                         Stream.of(notDistinctOperator))
                 .collect(toImmutableList());

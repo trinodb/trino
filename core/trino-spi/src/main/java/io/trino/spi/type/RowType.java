@@ -72,7 +72,7 @@ public class RowType
     private static final InvocationConvention WRITE_FLAT_CONVENTION = simpleConvention(FLAT_RETURN, NEVER_NULL);
     private static final InvocationConvention EQUAL_CONVENTION = simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL);
     private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL);
-    private static final InvocationConvention DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
+    private static final InvocationConvention IDENTICAL_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
     private static final InvocationConvention INDETERMINATE_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE);
     private static final InvocationConvention COMPARISON_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
 
@@ -83,9 +83,9 @@ public class RowType
     private static final MethodHandle CHAIN_EQUAL;
     private static final MethodHandle HASH_CODE;
     private static final MethodHandle CHAIN_HASH_CODE;
-    private static final MethodHandle DISTINCT_FROM;
-    private static final MethodHandle CHAIN_DISTINCT_FROM_START;
-    private static final MethodHandle CHAIN_DISTINCT_FROM;
+    private static final MethodHandle IDENTICAL;
+    private static final MethodHandle CHAIN_IDENTICAL_START;
+    private static final MethodHandle CHAIN_IDENTICAL;
     private static final MethodHandle INDETERMINATE;
     private static final MethodHandle CHAIN_INDETERMINATE;
     private static final MethodHandle COMPARISON;
@@ -106,9 +106,9 @@ public class RowType
             CHAIN_EQUAL = lookup.findStatic(RowType.class, "chainEqual", methodType(Boolean.class, Boolean.class, int.class, MethodHandle.class, SqlRow.class, SqlRow.class));
             HASH_CODE = lookup.findStatic(RowType.class, "megamorphicHashCodeOperator", methodType(long.class, List.class, SqlRow.class));
             CHAIN_HASH_CODE = lookup.findStatic(RowType.class, "chainHashCode", methodType(long.class, long.class, int.class, MethodHandle.class, SqlRow.class));
-            DISTINCT_FROM = lookup.findStatic(RowType.class, "megamorphicDistinctFromOperator", methodType(boolean.class, List.class, SqlRow.class, SqlRow.class));
-            CHAIN_DISTINCT_FROM_START = lookup.findStatic(RowType.class, "chainDistinctFromStart", methodType(boolean.class, MethodHandle.class, SqlRow.class, SqlRow.class));
-            CHAIN_DISTINCT_FROM = lookup.findStatic(RowType.class, "chainDistinctFrom", methodType(boolean.class, boolean.class, int.class, MethodHandle.class, SqlRow.class, SqlRow.class));
+            IDENTICAL = lookup.findStatic(RowType.class, "megamorphicIdenticalOperator", methodType(boolean.class, List.class, SqlRow.class, SqlRow.class));
+            CHAIN_IDENTICAL_START = lookup.findStatic(RowType.class, "chainIdenticalStart", methodType(boolean.class, MethodHandle.class, SqlRow.class, SqlRow.class));
+            CHAIN_IDENTICAL = lookup.findStatic(RowType.class, "chainIdentical", methodType(boolean.class, boolean.class, int.class, MethodHandle.class, SqlRow.class, SqlRow.class));
             INDETERMINATE = lookup.findStatic(RowType.class, "megamorphicIndeterminateOperator", methodType(boolean.class, List.class, SqlRow.class));
             CHAIN_INDETERMINATE = lookup.findStatic(RowType.class, "chainIndeterminate", methodType(boolean.class, boolean.class, int.class, MethodHandle.class, SqlRow.class));
             COMPARISON = lookup.findStatic(RowType.class, "megamorphicComparisonOperator", methodType(long.class, List.class, SqlRow.class, SqlRow.class));
@@ -398,7 +398,7 @@ public class RowType
                 .addEqualOperators(getEqualOperatorMethodHandles(typeOperators, fields))
                 .addHashCodeOperators(getHashCodeOperatorMethodHandles(typeOperators, fields))
                 .addXxHash64Operators(getXxHash64OperatorMethodHandles(typeOperators, fields))
-                .addDistinctFromOperators(getDistinctFromOperatorInvokers(typeOperators, fields))
+                .addIdenticalOperators(getIdenticalOperatorInvokers(typeOperators, fields))
                 .addIndeterminateOperators(getIndeterminateOperatorInvokers(typeOperators, fields))
                 .addComparisonUnorderedLastOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedLastOperator, fields))
                 .addComparisonUnorderedFirstOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedFirstOperator, fields))
@@ -682,7 +682,7 @@ public class RowType
         return 31 * previousFieldHashCode + fieldHashCode;
     }
 
-    private static List<OperatorMethodHandle> getDistinctFromOperatorInvokers(TypeOperators typeOperators, List<Field> fields)
+    private static List<OperatorMethodHandle> getIdenticalOperatorInvokers(TypeOperators typeOperators, List<Field> fields)
     {
         boolean comparable = fields.stream().allMatch(field -> field.getType().isComparable());
         if (!comparable) {
@@ -691,80 +691,80 @@ public class RowType
 
         // for large rows, use a generic loop with a megamorphic call site
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
-            List<MethodHandle> distinctFromOperators = fields.stream()
-                    .map(field -> typeOperators.getDistinctFromOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)))
+            List<MethodHandle> identicalOperators = fields.stream()
+                    .map(field -> typeOperators.getIdenticalOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)))
                     .toList();
-            return singletonList(new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, DISTINCT_FROM.bindTo(distinctFromOperators)));
+            return singletonList(new OperatorMethodHandle(IDENTICAL_CONVENTION, IDENTICAL.bindTo(identicalOperators)));
         }
 
         // (SqlRow, SqlRow):boolean
-        MethodHandle distinctFrom = dropArguments(constant(boolean.class, false), 0, SqlRow.class, SqlRow.class);
+        MethodHandle identical = dropArguments(constant(boolean.class, true), 0, SqlRow.class, SqlRow.class);
         for (int fieldId = 0; fieldId < fields.size(); fieldId++) {
             Field field = fields.get(fieldId);
             // (SqlRow, SqlRow, int, MethodHandle, SqlRow, SqlRow):boolean
-            distinctFrom = collectArguments(
-                    CHAIN_DISTINCT_FROM,
+            identical = collectArguments(
+                    CHAIN_IDENTICAL,
                     0,
-                    distinctFrom);
+                    identical);
 
-            // field distinctFrom
-            MethodHandle fieldDistinctFromOperator = typeOperators.getDistinctFromOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+            // field identical
+            MethodHandle fieldIdenticalOperator = typeOperators.getIdenticalOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
             // (SqlRow, SqlRow, SqlRow, SqlRow):boolean
-            distinctFrom = insertArguments(distinctFrom, 2, fieldId, fieldDistinctFromOperator);
+            identical = insertArguments(identical, 2, fieldId, fieldIdenticalOperator);
 
             // (SqlRow, SqlRow):boolean
-            distinctFrom = permuteArguments(distinctFrom, methodType(boolean.class, SqlRow.class, SqlRow.class), 0, 1, 0, 1);
+            identical = permuteArguments(identical, methodType(boolean.class, SqlRow.class, SqlRow.class), 0, 1, 0, 1);
         }
-        distinctFrom = CHAIN_DISTINCT_FROM_START.bindTo(distinctFrom);
+        identical = CHAIN_IDENTICAL_START.bindTo(identical);
 
-        return singletonList(new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, distinctFrom));
+        return singletonList(new OperatorMethodHandle(IDENTICAL_CONVENTION, identical));
     }
 
-    private static boolean megamorphicDistinctFromOperator(List<MethodHandle> distinctFromOperators, SqlRow leftRow, SqlRow rightRow)
+    private static boolean megamorphicIdenticalOperator(List<MethodHandle> identicalOperators, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
         boolean leftIsNull = leftRow == null;
         boolean rightIsNull = rightRow == null;
         if (leftIsNull || rightIsNull) {
-            return leftIsNull != rightIsNull;
+            return leftIsNull == rightIsNull;
         }
 
         int leftRawIndex = leftRow.getRawIndex();
         int rightRawIndex = rightRow.getRawIndex();
 
-        for (int fieldIndex = 0; fieldIndex < distinctFromOperators.size(); fieldIndex++) {
+        for (int fieldIndex = 0; fieldIndex < identicalOperators.size(); fieldIndex++) {
             Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
             Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
 
-            MethodHandle equalOperator = distinctFromOperators.get(fieldIndex);
+            MethodHandle equalOperator = identicalOperators.get(fieldIndex);
             boolean result = (boolean) equalOperator.invoke(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
-            if (result) {
-                return true;
+            if (!result) {
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 
-    private static boolean chainDistinctFromStart(MethodHandle chain, SqlRow leftRow, SqlRow rightRow)
+    private static boolean chainIdenticalStart(MethodHandle chain, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
         boolean leftIsNull = leftRow == null;
         boolean rightIsNull = rightRow == null;
         if (leftIsNull || rightIsNull) {
-            return leftIsNull != rightIsNull;
+            return leftIsNull == rightIsNull;
         }
         return (boolean) chain.invokeExact(leftRow, rightRow);
     }
 
-    private static boolean chainDistinctFrom(boolean previousFieldsDistinctFrom, int currentFieldIndex, MethodHandle currentFieldDistinctFrom, SqlRow leftRow, SqlRow rightRow)
+    private static boolean chainIdentical(boolean previousFieldsIdentical, int currentFieldIndex, MethodHandle currentFieldIdentical, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
-        if (previousFieldsDistinctFrom) {
-            return true;
+        if (!previousFieldsIdentical) {
+            return false;
         }
-        return (boolean) currentFieldDistinctFrom.invokeExact(
+        return (boolean) currentFieldIdentical.invokeExact(
                 leftRow.getRawFieldBlock(currentFieldIndex), leftRow.getRawIndex(),
                 rightRow.getRawFieldBlock(currentFieldIndex), rightRow.getRawIndex());
     }

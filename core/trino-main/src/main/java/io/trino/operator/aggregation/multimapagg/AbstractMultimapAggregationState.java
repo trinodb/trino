@@ -77,7 +77,7 @@ public abstract class AbstractMultimapAggregationState
     private final MethodHandle keyReadFlat;
     private final MethodHandle keyWriteFlat;
     private final MethodHandle keyHashFlat;
-    private final MethodHandle keyDistinctFlatBlock;
+    private final MethodHandle keyIdenticalFlatBlock;
     private final MethodHandle keyHashBlock;
 
     private final int recordSize;
@@ -111,7 +111,7 @@ public abstract class AbstractMultimapAggregationState
             MethodHandle keyReadFlat,
             MethodHandle keyWriteFlat,
             MethodHandle hashFlat,
-            MethodHandle distinctFlatBlock,
+            MethodHandle identicalFlatBlock,
             MethodHandle keyHashBlock,
             Type valueType,
             MethodHandle valueReadFlat,
@@ -123,7 +123,7 @@ public abstract class AbstractMultimapAggregationState
         this.keyReadFlat = requireNonNull(keyReadFlat, "keyReadFlat is null");
         this.keyWriteFlat = requireNonNull(keyWriteFlat, "keyWriteFlat is null");
         this.keyHashFlat = requireNonNull(hashFlat, "hashFlat is null");
-        this.keyDistinctFlatBlock = requireNonNull(distinctFlatBlock, "distinctFlatBlock is null");
+        this.keyIdenticalFlatBlock = requireNonNull(identicalFlatBlock, "identicalFlatBlock is null");
         this.keyHashBlock = requireNonNull(keyHashBlock, "keyHashBlock is null");
 
         capacity = INITIAL_CAPACITY;
@@ -159,7 +159,7 @@ public abstract class AbstractMultimapAggregationState
         this.keyReadFlat = state.keyReadFlat;
         this.keyWriteFlat = state.keyWriteFlat;
         this.keyHashFlat = state.keyHashFlat;
-        this.keyDistinctFlatBlock = state.keyDistinctFlatBlock;
+        this.keyIdenticalFlatBlock = state.keyIdenticalFlatBlock;
         this.keyHashBlock = state.keyHashBlock;
 
         this.recordSize = state.recordSize;
@@ -364,7 +364,7 @@ public abstract class AbstractMultimapAggregationState
         long controlMatches = match(controlVector, repeated);
         while (controlMatches != 0) {
             int bucket = bucket(vectorStartBucket + (Long.numberOfTrailingZeros(controlMatches) >>> 3));
-            if (keyNotDistinctFrom(bucket, block, position, groupId)) {
+            if (keyIdentical(bucket, block, position, groupId)) {
                 return bucket;
             }
 
@@ -569,7 +569,7 @@ public abstract class AbstractMultimapAggregationState
         }
     }
 
-    private boolean keyNotDistinctFrom(int leftPosition, ValueBlock right, int rightPosition, int rightGroupId)
+    private boolean keyIdentical(int leftPosition, ValueBlock right, int rightPosition, int rightGroupId)
     {
         byte[] leftRecords = getRecords(leftPosition);
         int leftRecordOffset = getRecordOffset(leftPosition);
@@ -587,7 +587,7 @@ public abstract class AbstractMultimapAggregationState
         }
 
         try {
-            return !(boolean) keyDistinctFlatBlock.invokeExact(
+            return (boolean) keyIdenticalFlatBlock.invokeExact(
                     leftRecords,
                     leftRecordOffset + recordKeyOffset,
                     leftVariableWidthChunk,

@@ -311,7 +311,7 @@ public class PostgreSqlClient
                 .withTypeClass("numeric_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint", "decimal", "real", "double"))
                 .map("$equal(left, right)").to("left = right")
                 .map("$not_equal(left, right)").to("left <> right")
-                .map("$is_distinct_from(left, right)").to("left IS DISTINCT FROM right")
+                .map("$identical(left, right)").to("left IS NOT DISTINCT FROM right")
                 .map("$less_than(left: numeric_type, right: numeric_type)").to("left < right")
                 .map("$less_than_or_equal(left: numeric_type, right: numeric_type)").to("left <= right")
                 .map("$greater_than(left: numeric_type, right: numeric_type)").to("left > right")
@@ -1105,7 +1105,7 @@ public class PostgreSqlClient
             JoinCondition.Operator operator = joinCondition.getOperator();
             return switch (operator) {
                 case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> isEnableStringPushdownWithCollate(session);
-                case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM -> true;
+                case EQUAL, NOT_EQUAL, IDENTICAL -> true;
             };
         }
 

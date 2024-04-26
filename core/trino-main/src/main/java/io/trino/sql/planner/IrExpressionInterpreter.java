@@ -85,7 +85,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.NEGATION;
@@ -431,19 +431,19 @@ public class IrExpressionInterpreter
             Expression left = processWithExceptionHandling(node.left(), context);
             Expression right = processWithExceptionHandling(node.right(), context);
 
-            if (operator == Operator.IS_DISTINCT_FROM) {
+            if (operator == Operator.IDENTICAL) {
                 if (left instanceof Constant(Type leftType, Object leftValue) && right instanceof Constant(Type rightType, Object rightValue)) {
                     return new Constant(
                             BOOLEAN,
-                            invokeOperator(IS_DISTINCT_FROM, ImmutableList.of(leftType, rightType), Arrays.asList(leftValue, rightValue)));
+                            invokeOperator(IDENTICAL, ImmutableList.of(leftType, rightType), Arrays.asList(leftValue, rightValue)));
                 }
 
                 if (isConstantNull(left)) {
-                    return new Not(new IsNull(right));
+                    return new IsNull(right);
                 }
 
                 if (isConstantNull(right)) {
-                    return new Not(new IsNull(left));
+                    return new IsNull(left);
                 }
             }
 

@@ -29,7 +29,7 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -56,7 +56,7 @@ public final class MapConcatFunction
             MapConcatFunction.class,
             "mapConcat",
             MapType.class,
-            BlockPositionIsDistinctFrom.class,
+            BlockPositionIsIdentical.class,
             BlockPositionHashCode.class,
             Object.class,
             SqlMap[].class);
@@ -87,14 +87,14 @@ public final class MapConcatFunction
 
         MapType mapType = (MapType) boundSignature.getReturnType();
         Type keyType = mapType.getKeyType();
-        BlockPositionIsDistinctFrom keysDistinctOperator = blockTypeOperators.getDistinctFromOperator(keyType);
+        BlockPositionIsIdentical keysIdenticalOperator = blockTypeOperators.getIdenticalOperator(keyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
 
         MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                 SqlMap.class,
                 SqlMap.class,
                 boundSignature.getArity(),
-                MethodHandles.insertArguments(METHOD_HANDLE, 0, mapType, keysDistinctOperator, keyHashCode),
+                MethodHandles.insertArguments(METHOD_HANDLE, 0, mapType, keysIdenticalOperator, keyHashCode),
                 USER_STATE_FACTORY.bindTo(mapType));
 
         return new ChoicesSpecializedSqlScalarFunction(
@@ -112,7 +112,7 @@ public final class MapConcatFunction
     }
 
     @UsedByGeneratedCode
-    public static SqlMap mapConcat(MapType mapType, BlockPositionIsDistinctFrom keysDistinctOperator, BlockPositionHashCode keyHashCode, Object state, SqlMap[] maps)
+    public static SqlMap mapConcat(MapType mapType, BlockPositionIsIdentical keysIdenticalOperator, BlockPositionHashCode keyHashCode, Object state, SqlMap[] maps)
     {
         int maxEntries = 0;
         int lastMapIndex = maps.length - 1;
@@ -135,7 +135,7 @@ public final class MapConcatFunction
 
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
-        BlockSet set = new BlockSet(keyType, keysDistinctOperator, keyHashCode, maxEntries);
+        BlockSet set = new BlockSet(keyType, keysIdenticalOperator, keyHashCode, maxEntries);
         return mapValueBuilder.build(maxEntries, (keyBuilder, valueBuilder) -> {
             // the last map
             SqlMap map = maps[last];

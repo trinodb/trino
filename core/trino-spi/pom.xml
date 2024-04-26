@@ -229,6 +229,60 @@
                                     <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
                                     <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</new>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.field.removed</code>
+                                    <old>field io.trino.spi.connector.JoinCondition.Operator.IS_DISTINCT_FROM</old>
+                                    <justification>IS_DISTINCT_FROM replaced with IDENTICAL</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.field.removed</code>
+                                    <old>field io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME</old>
+                                    <justification>IS_DISTINCT_FROM replaced with IDENTICAL</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.invoke.MethodHandle io.trino.spi.type.TypeOperators::getDistinctFromOperator(io.trino.spi.type.Type, io.trino.spi.function.InvocationConvention)</old>
+                                    <justification>IS_DISTINCT_FROM replaced with IDENTICAL</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.field.removed</code>
+                                    <old>field io.trino.spi.function.OperatorType.IS_DISTINCT_FROM</old>
+                                    <justification>IS_DISTINCT_FROM replaced with IDENTICAL</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.invoke.MethodHandle io.trino.spi.type.MapType::getKeyBlockNativeNotDistinctFrom()</old>
+                                    <justification>IS_DISTINCT_FROM replaced with IDENTICAL</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.invoke.MethodHandle io.trino.spi.type.MapType::getKeyBlockNotDistinctFrom()</old>
+                                    <justification>IS_DISTINCT_FROM replaced with IDENTICAL</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeOperatorDeclaration.Builder io.trino.spi.type.TypeOperatorDeclaration.Builder::addDistinctFromOperator(io.trino.spi.function.OperatorMethodHandle)</old>
+                                    <justification>IS_DISTINCT_FROM replaced with IDENTICAL</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeOperatorDeclaration.Builder io.trino.spi.type.TypeOperatorDeclaration.Builder::addDistinctFromOperators(java.util.Collection&lt;io.trino.spi.function.OperatorMethodHandle&gt;)</old>
+                                    <justification>IS_DISTINCT_FROM replaced with IDENTICAL</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Collection&lt;io.trino.spi.function.OperatorMethodHandle&gt; io.trino.spi.type.TypeOperatorDeclaration::getDistinctFromOperators()</old>
+                                    <justification>IS_DISTINCT_FROM replaced with IDENTICAL</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

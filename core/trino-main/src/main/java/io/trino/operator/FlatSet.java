@@ -51,7 +51,7 @@ final class FlatSet
     private final Type type;
     private final MethodHandle writeFlat;
     private final MethodHandle hashFlat;
-    private final MethodHandle distinctFlatBlock;
+    private final MethodHandle identicalFlatBlock;
     private final MethodHandle hashBlock;
 
     private final int recordSize;
@@ -73,14 +73,14 @@ final class FlatSet
             Type type,
             MethodHandle writeFlat,
             MethodHandle hashFlat,
-            MethodHandle distinctFlatBlock,
+            MethodHandle identicalFlatBlock,
             MethodHandle hashBlock)
     {
         this.type = requireNonNull(type, "type is null");
 
         this.writeFlat = requireNonNull(writeFlat, "writeFlat is null");
         this.hashFlat = requireNonNull(hashFlat, "hashFlat is null");
-        this.distinctFlatBlock = requireNonNull(distinctFlatBlock, "distinctFlatBlock is null");
+        this.identicalFlatBlock = requireNonNull(identicalFlatBlock, "identicalFlatBlock is null");
         this.hashBlock = requireNonNull(hashBlock, "hashBlock is null");
 
         capacity = INITIAL_CAPACITY;
@@ -207,7 +207,7 @@ final class FlatSet
         long controlMatches = match(controlVector, repeated);
         while (controlMatches != 0) {
             int bucket = bucket(vectorStartBucket + (Long.numberOfTrailingZeros(controlMatches) >>> 3));
-            if (valueNotDistinctFrom(bucket, block, position)) {
+            if (valueIdentical(bucket, block, position)) {
                 return bucket;
             }
 
@@ -355,7 +355,7 @@ final class FlatSet
         }
     }
 
-    private boolean valueNotDistinctFrom(int leftPosition, Block right, int rightPosition)
+    private boolean valueIdentical(int leftPosition, Block right, int rightPosition)
     {
         byte[] leftRecords = getRecords(leftPosition);
         int leftRecordOffset = getRecordOffset(leftPosition);
@@ -366,7 +366,7 @@ final class FlatSet
         }
 
         try {
-            return !(boolean) distinctFlatBlock.invokeExact(
+            return (boolean) identicalFlatBlock.invokeExact(
                     leftRecords,
                     leftRecordOffset + recordValueOffset,
                     leftVariableWidthChunk,
