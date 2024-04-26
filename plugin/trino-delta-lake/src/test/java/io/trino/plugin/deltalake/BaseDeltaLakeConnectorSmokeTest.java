@@ -1449,6 +1449,49 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
+    public void testCreateOrReplaceCheckpointing()
+    {
+        String tableName = "test_create_or_replace_checkpointing_" + randomNameSuffix();
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
+                                " WITH (location = '%s', " +
+                                "       partitioned_by = ARRAY['a_number']) " +
+                                " AS VALUES (1, 'ala')",
+                        tableName,
+                        getLocationForTable(bucketName, tableName)),
+                1);
+        String transactionLogDirectory = format("%s/_delta_log", tableName);
+
+        assertUpdate(format("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')", tableName), 2);
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(0);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1,'ala'),  (2,'kota'), (3, 'psa')");
+
+        // replace table
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_number integer) " +
+                                " WITH (checkpoint_interval = 2)",
+                        tableName));
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
+        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+
+        assertUpdate(format("INSERT INTO " + tableName + " VALUES 1", tableName), 1);
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+
+        // replace table with selection
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_string) " +
+                                " WITH (checkpoint_interval = 2) " +
+                                " AS VALUES 'bobra', 'kreta'",
+                        tableName),
+                2);
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 'bobra', 'kreta'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testDeltaLakeTableLocationChanged()
             throws Exception
     {
