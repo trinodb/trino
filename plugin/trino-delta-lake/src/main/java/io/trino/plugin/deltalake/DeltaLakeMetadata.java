@@ -657,10 +657,30 @@ public class DeltaLakeMetadata
     @Override
     public Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
     {
-        if (type instanceof TimestampType) {
-            return Optional.of(TIMESTAMP_MICROS);
+        Type newType = coerceType(type);
+        if (type.getTypeSignature().equals(newType.getTypeSignature())) {
+            return Optional.empty();
         }
-        return Optional.empty();
+        return Optional.of(newType);
+    }
+
+    private Type coerceType(Type type)
+    {
+        if (type instanceof TimestampType) {
+            return TIMESTAMP_MICROS;
+        }
+        if (type instanceof ArrayType arrayType) {
+            return new ArrayType(coerceType(arrayType.getElementType()));
+        }
+        if (type instanceof MapType mapType) {
+            return new MapType(coerceType(mapType.getKeyType()), coerceType(mapType.getValueType()), typeManager.getTypeOperators());
+        }
+        if (type instanceof RowType rowType) {
+            return RowType.from(rowType.getFields().stream()
+                    .map(field -> new RowType.Field(field.getName(), coerceType(field.getType())))
+                    .collect(toImmutableList()));
+        }
+        return type;
     }
 
     @Override
