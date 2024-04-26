@@ -1401,9 +1401,16 @@ public final class MetadataManager
 
                 Map<SchemaTableName, ConnectorViewDefinition> viewMap;
                 if (tablePrefix.getTable().isPresent()) {
-                    viewMap = metadata.getView(connectorSession, tablePrefix.toSchemaTableName())
-                            .map(view -> ImmutableMap.of(tablePrefix.toSchemaTableName(), view))
-                            .orElse(ImmutableMap.of());
+                    try {
+                        viewMap = metadata.getView(connectorSession, tablePrefix.toSchemaTableName())
+                                .map(view -> ImmutableMap.of(tablePrefix.toSchemaTableName(), view))
+                                .orElse(ImmutableMap.of());
+                    }
+                    catch (RuntimeException e) {
+                        handleListingError(e, prefix);
+                        // Empty in case of metadata error.
+                        viewMap = ImmutableMap.of();
+                    }
                 }
                 else {
                     viewMap = metadata.getViews(connectorSession, tablePrefix.getSchema());
