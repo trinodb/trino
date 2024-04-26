@@ -7905,7 +7905,7 @@ public abstract class BaseIcebergConnectorTest
                 .build();
     }
 
-    public record TypeCoercionTestSetup(String sourceValueLiteral, String newColumnType, String newValueLiteral)
+    public record TypeCoercionTestSetup(@Language("SQL") String sourceValueLiteral, String newColumnType, @Language("SQL") String newValueLiteral)
     {
         public TypeCoercionTestSetup
         {
