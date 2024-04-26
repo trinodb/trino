@@ -76,7 +76,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
         try {
             database = glueClient.getDatabase(new GetDatabaseRequest().withName(schema)).getDatabase();
         }
-        catch (EntityNotFoundException ignored) {
+        catch (EntityNotFoundException _) {
             // this may happen when database is being deleted concurrently
             return;
         }

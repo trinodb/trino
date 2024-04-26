@@ -282,7 +282,7 @@ public class HudiMetadata
             List<ColumnMetadata> columns = getTableMetadata(table, getColumnsToHide(session)).getColumns();
             return Optional.of(TableColumnsMetadata.forTable(table, columns));
         }
-        catch (TableNotFoundException ignored) {
+        catch (TableNotFoundException _) {
             return Optional.empty();
         }
     }

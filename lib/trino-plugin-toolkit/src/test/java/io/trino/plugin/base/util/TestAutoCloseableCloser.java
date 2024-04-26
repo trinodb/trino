@@ -76,7 +76,7 @@ public class TestAutoCloseableCloser
         try {
             closer.close();
         }
-        catch (Throwable ignored) {
+        catch (Throwable _) {
         }
         for (TestAutoCloseable closeable : closeables) {
             assertThat(closeable.isClosed()).isTrue();

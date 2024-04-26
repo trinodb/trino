@@ -669,7 +669,7 @@ public class HiveMetadata
             HiveStorageFormat format = extractHiveStorageFormat(table);
             properties.put(STORAGE_FORMAT_PROPERTY, format);
         }
-        catch (TrinoException ignored) {
+        catch (TrinoException _) {
             // todo fail if format is not known
         }
 

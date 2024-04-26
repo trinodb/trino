@@ -361,7 +361,7 @@ public class LocalFileRecordCursor
                 try {
                     reader.close();
                 }
-                catch (IOException ignored) {
+                catch (IOException _) {
                 }
             }
         }

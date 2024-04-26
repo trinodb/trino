@@ -301,7 +301,7 @@ public class TimeSharingTaskExecutorSimulation
                         (int) splitQueue.getSelectedCountLevel3().getOneMinute().getRate(),
                         (int) splitQueue.getSelectedCountLevel4().getOneMinute().getRate());
             }
-            catch (Exception ignored) {
+            catch (Exception _) {
             }
         }, 1, 1, SECONDS);
     }

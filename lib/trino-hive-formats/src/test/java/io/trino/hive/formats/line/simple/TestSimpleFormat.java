@@ -1275,7 +1275,7 @@ public class TestSimpleFormat
         try {
             assertLineHive(columns, hiveLine, expectedValues, withoutTimestampFormats);
         }
-        catch (AssertionError ignored) {
+        catch (AssertionError _) {
             // This serde has many bugs in the render that result in data that can not be read
             // In this case we do not attempt to verify, byte-for-byte
             return;

@@ -1282,7 +1282,7 @@ public class TestOpenxJsonFormat
             hiveValues = readHiveLine(columns, hiveLine, DEFAULT_OPEN_X_JSON_OPTIONS);
             assertColumnValuesEquals(columns, hiveValues, expectedValues);
         }
-        catch (RuntimeException | AssertionError ignored) {
+        catch (RuntimeException | AssertionError _) {
             // If Hive does not round trip values correctly, then stop testing
             // this happens for types like Char, Date, and Decimal which are not rendered
             return;

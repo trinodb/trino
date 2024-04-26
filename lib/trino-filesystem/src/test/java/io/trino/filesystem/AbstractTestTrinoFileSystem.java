@@ -1434,7 +1434,7 @@ public abstract class AbstractTestTrinoFileSystem
             try {
                 fileSystem.deleteFile(location);
             }
-            catch (IOException ignored) {
+            catch (IOException _) {
             }
         }
     }

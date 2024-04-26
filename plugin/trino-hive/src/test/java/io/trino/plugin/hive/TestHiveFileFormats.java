@@ -1309,7 +1309,7 @@ public final class TestHiveFileFormats
                     try {
                         fileSystem.deleteFile(location);
                     }
-                    catch (IOException ignored) {
+                    catch (IOException _) {
                     }
                 }
             }

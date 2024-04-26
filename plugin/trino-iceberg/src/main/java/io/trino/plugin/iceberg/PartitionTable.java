@@ -299,7 +299,7 @@ public class PartitionTable
                         }
                     }));
                 }
-                catch (MissingColumnMetricsException ignored) {
+                catch (MissingColumnMetricsException _) {
                     row.add(null);
                 }
             });
