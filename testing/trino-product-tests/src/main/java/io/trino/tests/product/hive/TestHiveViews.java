@@ -92,8 +92,8 @@ public class TestHiveViews
                         row("correct_view", "n_comment"),
                         row("failing_view", "col0"));
 
-        assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM information_schema.columns WHERE table_schema = 'test_list_failing_views' AND table_name = 'failing_view'"))
-                .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
+        assertThat(onTrino().executeQuery("SELECT * FROM information_schema.columns WHERE table_schema = 'test_list_failing_views' AND table_name = 'failing_view'"))
+                .hasNoRows();
     }
 
     private void testFailingHiveViewsWithSystemJdbc()
@@ -136,8 +136,8 @@ public class TestHiveViews
                         row("correct_view", "n_comment"),
                         row("failing_view", "col0"));
 
-        assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views' AND table_name = 'failing_view'"))
-                .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
+        assertThat(onTrino().executeQuery("SELECT * FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views' AND table_name = 'failing_view'"))
+                .hasNoRows();
     }
 
     private static void setupBrokenView()
