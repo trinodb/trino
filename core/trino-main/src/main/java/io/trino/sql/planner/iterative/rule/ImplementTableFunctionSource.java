@@ -27,7 +27,6 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -61,7 +60,7 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
@@ -376,7 +375,7 @@ public class ImplementTableFunctionSource
         List<Expression> copartitionConjuncts = Streams.zip(
                         leftPartitionBy.stream(),
                         rightPartitionBy.stream(),
-                        (leftColumn, rightColumn) -> new Not(new Comparison(IS_DISTINCT_FROM, leftColumn, rightColumn)))
+                        (leftColumn, rightColumn) -> new Comparison(IDENTICAL, leftColumn, rightColumn))
                 .collect(toImmutableList());
 
         // Align matching partitions (co-partitions) from left and right source, according to row number.

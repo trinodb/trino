@@ -21,8 +21,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -290,22 +290,22 @@ public class TestVarcharOperators
     }
 
     @Test
-    public void testIsDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS VARCHAR)", "CAST(NULL AS VARCHAR)"))
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS VARCHAR)", "CAST(NULL AS VARCHAR)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "'foo'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "'foo'", "'fo0'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "'foo'", "'foo'"))
+        assertThat(assertions.operator(IDENTICAL, "NULL", "'foo'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "'foo'", "'fo0'"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "'foo'"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "'foo'", "NULL"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "'foo'", "NULL"))
+                .isEqualTo(false);
     }
 
     @Test

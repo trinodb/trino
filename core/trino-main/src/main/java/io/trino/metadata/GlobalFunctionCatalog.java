@@ -122,7 +122,7 @@ public class GlobalFunctionCatalog
 
         switch (operatorType) {
             case EQUAL:
-            case IS_DISTINCT_FROM:
+            case IDENTICAL:
             case INDETERMINATE:
                 expectedSignature.returnType(BOOLEAN);
                 expectedSignature.comparableTypeParameter("T");

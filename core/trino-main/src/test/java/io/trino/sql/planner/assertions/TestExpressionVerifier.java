@@ -31,7 +31,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
@@ -128,9 +128,9 @@ public class TestExpressionVerifier
         assertThat(verifier.process(new Comparison(NOT_EQUAL, new Reference(BIGINT, "y"), new Reference(BIGINT, "x")), new Comparison(NOT_EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))).isTrue();
         assertThat(verifier.process(new Comparison(NOT_EQUAL, new Reference(BIGINT, "y"), new Reference(BIGINT, "x")), new Comparison(NOT_EQUAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")))).isTrue();
 
-        assertThat(verifier.process(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "x"), new Reference(BIGINT, "y")), new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))).isTrue();
-        assertThat(verifier.process(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "x"), new Reference(BIGINT, "y")), new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")))).isTrue();
-        assertThat(verifier.process(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "y"), new Reference(BIGINT, "x")), new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))).isTrue();
-        assertThat(verifier.process(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "y"), new Reference(BIGINT, "x")), new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")))).isTrue();
+        assertThat(verifier.process(new Comparison(IDENTICAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y")), new Comparison(IDENTICAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))).isTrue();
+        assertThat(verifier.process(new Comparison(IDENTICAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y")), new Comparison(IDENTICAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")))).isTrue();
+        assertThat(verifier.process(new Comparison(IDENTICAL, new Reference(BIGINT, "y"), new Reference(BIGINT, "x")), new Comparison(IDENTICAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))).isTrue();
+        assertThat(verifier.process(new Comparison(IDENTICAL, new Reference(BIGINT, "y"), new Reference(BIGINT, "x")), new Comparison(IDENTICAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")))).isTrue();
     }
 }

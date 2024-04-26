@@ -60,7 +60,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
@@ -190,34 +190,34 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testIsDistinctFrom()
+    public void testIdentical()
     {
         assertOptimizedEquals(
-                new Comparison(IS_DISTINCT_FROM, new Constant(UNKNOWN, null), new Constant(UNKNOWN, null)),
-                FALSE);
-
-        assertOptimizedEquals(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
-                TRUE);
-        assertOptimizedEquals(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 3L), new Constant(INTEGER, 3L)),
-                FALSE);
-        assertOptimizedEquals(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
-                TRUE);
-        assertOptimizedEquals(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, null), new Constant(INTEGER, 3L)),
+                new Comparison(IDENTICAL, new Constant(UNKNOWN, null), new Constant(UNKNOWN, null)),
                 TRUE);
 
+        assertOptimizedEquals(
+                new Comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                FALSE);
+        assertOptimizedEquals(
+                new Comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 3L)),
+                TRUE);
+        assertOptimizedEquals(
+                new Comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
+                FALSE);
+        assertOptimizedEquals(
+                new Comparison(IDENTICAL, new Constant(INTEGER, null), new Constant(INTEGER, 3L)),
+                FALSE);
+
         assertOptimizedMatches(
-                new Comparison(IS_DISTINCT_FROM, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
-                new Comparison(IS_DISTINCT_FROM, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
+                new Comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
+                new Comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
         assertOptimizedMatches(
-                new Comparison(IS_DISTINCT_FROM, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, null)),
-                new Not(new IsNull(new Reference(INTEGER, "unbound_value"))));
+                new Comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, null)),
+                new IsNull(new Reference(INTEGER, "unbound_value")));
         assertOptimizedMatches(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, null), new Reference(INTEGER, "unbound_value")),
-                new Not(new IsNull(new Reference(INTEGER, "unbound_value"))));
+                new Comparison(IDENTICAL, new Constant(INTEGER, null), new Reference(INTEGER, "unbound_value")),
+                new IsNull(new Reference(INTEGER, "unbound_value")));
     }
 
     @Test

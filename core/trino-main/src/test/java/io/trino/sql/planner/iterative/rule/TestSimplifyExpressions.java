@@ -53,7 +53,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
@@ -109,17 +109,17 @@ public class TestSimplifyExpressions
                 new Logical(AND, ImmutableList.of(new Not(new Reference(BOOLEAN, "X")), new Not(new Reference(BOOLEAN, "Y")), new Logical(AND, ImmutableList.of(new Not(new Reference(BOOLEAN, "Z")), new Not(new Reference(BOOLEAN, "V")))))));
 
         assertSimplifies(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))));
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))));
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))));
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))));
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
     }
 
     @Test
@@ -552,8 +552,8 @@ public class TestSimplifyExpressions
                 new Not(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), new Not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))))),
                 new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Logical(OR, ImmutableList.of(new Not(new Reference(BOOLEAN, "B1")), new Not(new Reference(BOOLEAN, "B2")))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))));
+                new Comparison(IDENTICAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")),
+                new Comparison(IDENTICAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")));
 
         /*
          Restricted rewrite for types having NaN
@@ -571,11 +571,11 @@ public class TestSimplifyExpressions
                 new Not(new Comparison(NOT_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
                 new Comparison(EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                new Comparison(IDENTICAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")),
+                new Comparison(IDENTICAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                new Comparison(IDENTICAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")),
+                new Comparison(IDENTICAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
 
         // DOUBLE: no negation pushdown for inequalities
         assertSimplifiesNumericTypes(

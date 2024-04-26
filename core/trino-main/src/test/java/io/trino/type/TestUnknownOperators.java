@@ -25,8 +25,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -182,10 +182,10 @@ public class TestUnknownOperators
     }
 
     @Test
-    public void testIsDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "NULL"))
-                .isEqualTo(false);
+        assertThat(assertions.operator(IDENTICAL, "NULL", "NULL"))
+                .isEqualTo(true);
     }
 
     @Test

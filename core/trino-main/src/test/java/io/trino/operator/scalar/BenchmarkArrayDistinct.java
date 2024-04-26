@@ -33,7 +33,7 @@ import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -74,7 +74,7 @@ public class BenchmarkArrayDistinct
     private static final int NUM_TYPES = 1;
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
     private static final BlockTypeOperators BLOCK_TYPE_OPERATORS = new BlockTypeOperators(new TypeOperators());
-    private static final BlockPositionIsDistinctFrom DISTINCT_FROM_OPERATOR = BLOCK_TYPE_OPERATORS.getDistinctFromOperator(VARCHAR);
+    private static final BlockPositionIsIdentical DISTINCT_FROM_OPERATOR = BLOCK_TYPE_OPERATORS.getIdenticalOperator(VARCHAR);
     private static final BlockPositionHashCode HASH_CODE_OPERATOR = BLOCK_TYPE_OPERATORS.getHashCodeOperator(VARCHAR);
 
     static {

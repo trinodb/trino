@@ -1638,8 +1638,8 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails("SELECT ARRAY[42]['x']", "\\Qline 1:8: Cannot use varchar(1) for subscript of array(integer)\\E");
         assertQueryFails("SELECT 'a' BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
         assertQueryFails("SELECT 'a' NOT BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
-        assertQueryFails("SELECT 8 IS DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is distinct from varchar(1)\\E");
-        assertQueryFails("SELECT 8 IS NOT DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is distinct from varchar(1)\\E");
+        assertQueryFails("SELECT 8 IS DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is identical to varchar(1)\\E");
+        assertQueryFails("SELECT 8 IS NOT DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is identical to varchar(1)\\E");
     }
 
     @Test

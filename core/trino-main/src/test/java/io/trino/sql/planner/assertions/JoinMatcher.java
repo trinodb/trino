@@ -23,7 +23,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -46,7 +45,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
@@ -183,7 +182,7 @@ public final class JoinMatcher
             }
             Expression expression;
             if (descriptor.isNullAllowed()) {
-                expression = new Not(new Comparison(IS_DISTINCT_FROM, probe, build.toSymbolReference()));
+                expression = new Comparison(IDENTICAL, probe, build.toSymbolReference());
             }
             else {
                 expression = new Comparison(descriptor.getOperator(), probe, build.toSymbolReference());

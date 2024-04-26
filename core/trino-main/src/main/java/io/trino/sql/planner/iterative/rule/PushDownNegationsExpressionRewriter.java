@@ -29,7 +29,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.combinePredicates;
@@ -55,7 +55,7 @@ public final class PushDownNegationsExpressionRewriter
                 List<Expression> negatedPredicates = predicates.stream().map(predicate -> treeRewriter.rewrite((Expression) new Not(predicate), context)).collect(toImmutableList());
                 return combinePredicates(child.operator().flip(), negatedPredicates);
             }
-            if (node.value() instanceof Comparison child && child.operator() != IS_DISTINCT_FROM) {
+            if (node.value() instanceof Comparison child && child.operator() != IDENTICAL) {
                 Operator operator = child.operator();
                 Expression left = child.left();
                 Expression right = child.right();

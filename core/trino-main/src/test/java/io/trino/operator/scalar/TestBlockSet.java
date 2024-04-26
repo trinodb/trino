@@ -265,7 +265,7 @@ public class TestBlockSet
     {
         return new BlockSet(
                 type,
-                BLOCK_TYPE_OPERATORS.getDistinctFromOperator(type),
+                BLOCK_TYPE_OPERATORS.getIdenticalOperator(type),
                 BLOCK_TYPE_OPERATORS.getHashCodeOperator(type),
                 expectedSize);
     }

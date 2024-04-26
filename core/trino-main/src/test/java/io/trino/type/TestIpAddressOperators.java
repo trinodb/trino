@@ -13,7 +13,6 @@
  */
 package io.trino.type;
 
-import io.trino.spi.function.OperatorType;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -24,6 +23,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
@@ -253,22 +253,22 @@ public class TestIpAddressOperators
     }
 
     @Test
-    public void testDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(OperatorType.IS_DISTINCT_FROM, "IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329'", "IPADDRESS '2001:db8::ff00:42:8329'"))
+        assertThat(assertions.operator(IDENTICAL, "IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329'", "IPADDRESS '2001:db8::ff00:42:8329'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "cast(NULL as IPADDRESS)", "CAST(NULL AS IPADDRESS)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329'", "IPADDRESS '2001:db8::ff00:42:8328'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(OperatorType.IS_DISTINCT_FROM, "cast(NULL as IPADDRESS)", "CAST(NULL AS IPADDRESS)"))
+        assertThat(assertions.operator(IDENTICAL, "IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329'", "CAST(NULL AS IPADDRESS)"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(OperatorType.IS_DISTINCT_FROM, "IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329'", "IPADDRESS '2001:db8::ff00:42:8328'"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(OperatorType.IS_DISTINCT_FROM, "IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329'", "CAST(NULL AS IPADDRESS)"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(OperatorType.IS_DISTINCT_FROM, "CAST(NULL AS IPADDRESS)", "IPADDRESS '2001:db8::ff00:42:8328'"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS IPADDRESS)", "IPADDRESS '2001:db8::ff00:42:8328'"))
+                .isEqualTo(false);
     }
 
     @Test

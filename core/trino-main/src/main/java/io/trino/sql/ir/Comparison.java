@@ -35,7 +35,7 @@ public record Comparison(Operator operator, Expression left, Expression right)
         LESS_THAN_OR_EQUAL("<="),
         GREATER_THAN(">"),
         GREATER_THAN_OR_EQUAL(">="),
-        IS_DISTINCT_FROM("IS DISTINCT FROM");
+        IDENTICAL("≡");
 
         private final String value;
 
@@ -58,7 +58,7 @@ public record Comparison(Operator operator, Expression left, Expression right)
                 case LESS_THAN_OR_EQUAL -> GREATER_THAN_OR_EQUAL;
                 case GREATER_THAN -> LESS_THAN;
                 case GREATER_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL;
-                case IS_DISTINCT_FROM -> IS_DISTINCT_FROM;
+                case IDENTICAL -> IDENTICAL;
             };
         }
 
@@ -77,7 +77,7 @@ public record Comparison(Operator operator, Expression left, Expression right)
                     return LESS_THAN_OR_EQUAL;
                 case GREATER_THAN_OR_EQUAL:
                     return LESS_THAN;
-                case IS_DISTINCT_FROM:
+                case IDENTICAL:
                     // Cannot negate
                     break;
             }
@@ -120,7 +120,7 @@ public record Comparison(Operator operator, Expression left, Expression right)
                     case LESS_THAN_OR_EQUAL -> "$lte";
                     case GREATER_THAN -> "$gt";
                     case GREATER_THAN_OR_EQUAL -> "$gte";
-                    case IS_DISTINCT_FROM -> "$distinct";
+                    case IDENTICAL -> "$identical";
                 },
                 left,
                 right);

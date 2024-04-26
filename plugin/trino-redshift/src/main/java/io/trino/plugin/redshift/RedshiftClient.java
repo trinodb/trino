@@ -400,7 +400,7 @@ public class RedshiftClient
     @Override
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
-        return joinCondition.getOperator() != JoinCondition.Operator.IS_DISTINCT_FROM;
+        return joinCondition.getOperator() != JoinCondition.Operator.IDENTICAL;
     }
 
     @Override

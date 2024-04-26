@@ -130,9 +130,9 @@ import io.trino.operator.scalar.FailureFunction;
 import io.trino.operator.scalar.FormatNumberFunction;
 import io.trino.operator.scalar.GenericComparisonUnorderedFirstOperator;
 import io.trino.operator.scalar.GenericComparisonUnorderedLastOperator;
-import io.trino.operator.scalar.GenericDistinctFromOperator;
 import io.trino.operator.scalar.GenericEqualOperator;
 import io.trino.operator.scalar.GenericHashCodeOperator;
+import io.trino.operator.scalar.GenericIdenticalOperator;
 import io.trino.operator.scalar.GenericIndeterminateOperator;
 import io.trino.operator.scalar.GenericLessThanOperator;
 import io.trino.operator.scalar.GenericLessThanOrEqualOperator;
@@ -574,7 +574,7 @@ public final class SystemFunctionBundle
                 .function(new GenericEqualOperator(typeOperators))
                 .function(new GenericHashCodeOperator(typeOperators))
                 .function(new GenericXxHash64Operator(typeOperators))
-                .function(new GenericDistinctFromOperator(typeOperators))
+                .function(new GenericIdenticalOperator(typeOperators))
                 .function(new GenericIndeterminateOperator(typeOperators))
                 .function(new GenericComparisonUnorderedLastOperator(typeOperators))
                 .function(new GenericComparisonUnorderedFirstOperator(typeOperators))

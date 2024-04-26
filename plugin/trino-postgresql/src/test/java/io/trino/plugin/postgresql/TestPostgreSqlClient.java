@@ -289,9 +289,13 @@ public class TestPostgreSqlClient
                 case LESS_THAN_OR_EQUAL:
                 case GREATER_THAN:
                 case GREATER_THAN_OR_EQUAL:
-                case IS_DISTINCT_FROM:
                     assertThat(converted).isPresent();
                     assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
+                    assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
+                    break;
+                case IDENTICAL:
+                    assertThat(converted).isPresent();
+                    assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") IS NOT DISTINCT FROM (?)"));
                     assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
                     break;
             }

@@ -46,6 +46,7 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.ir.Logical.and;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.scaleFactor;
 import static java.lang.Math.multiplyExact;
@@ -154,7 +155,7 @@ public class UnwrapYearInComparison
             if (right instanceof Constant constant && constant.value() == null) {
                 return switch (expression.operator()) {
                     case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
-                    case IS_DISTINCT_FROM -> new Not(new IsNull(argument));
+                    case IDENTICAL -> new IsNull(argument);
                 };
             }
 
@@ -175,9 +176,9 @@ public class UnwrapYearInComparison
             return switch (expression.operator()) {
                 case EQUAL -> between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType));
                 case NOT_EQUAL -> new Not(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
-                case IS_DISTINCT_FROM -> or(
-                        new IsNull(argument),
-                        new Not(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType))));
+                case IDENTICAL -> and(
+                        new Not(new IsNull(argument)),
+                        between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
                 case LESS_THAN -> {
                     Object value = calculateRangeStartInclusive(year, argumentType);
                     yield new Comparison(LESS_THAN, argument, new Constant(argumentType, value));

@@ -89,8 +89,8 @@ class TestFlatHashStrategy
                 assertThat(variableChunk).startsWith(new byte[VARIABLE_CHUNK_OFFSET]);
 
                 assertThat(flatHashStrategy.hash(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk)).isEqualTo(manualHash(types, blocks, position));
-                assertThat(flatHashStrategy.valueNotDistinctFrom(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, position)).isTrue();
-                assertThat(flatHashStrategy.valueNotDistinctFrom(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, 3)).isFalse();
+                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, position)).isTrue();
+                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, 3)).isFalse();
 
                 BlockBuilder[] blockBuilders = types.stream().map(type -> type.createBlockBuilder(null, 1)).toArray(BlockBuilder[]::new);
                 flatHashStrategy.readFlat(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blockBuilders);
