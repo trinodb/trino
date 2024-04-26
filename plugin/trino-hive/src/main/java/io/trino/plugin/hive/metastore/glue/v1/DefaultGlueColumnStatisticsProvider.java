@@ -217,7 +217,7 @@ public class DefaultGlueColumnStatisticsProvider
                                             .withTableName(table.getTableName())
                                             .withColumnName(column));
                         }
-                        catch (EntityNotFoundException ignored) {
+                        catch (EntityNotFoundException _) {
                         }
                         return null;
                     }), this.writeExecutor))

@@ -268,7 +268,7 @@ public class TestHiveCompatibility
         try {
             JdbcDriverUtils.setRole(connection, "admin");
         }
-        catch (SQLException ignored) {
+        catch (SQLException _) {
             // The test environments do not properly setup or manage
             // roles, so try to set the role, but ignore any errors
         }

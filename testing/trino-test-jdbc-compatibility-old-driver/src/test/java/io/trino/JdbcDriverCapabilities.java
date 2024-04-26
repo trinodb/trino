@@ -46,7 +46,7 @@ public final class JdbcDriverCapabilities
         try {
             return Optional.of(DriverManager.getDriver(url));
         }
-        catch (SQLException ignored) {
+        catch (SQLException _) {
             return Optional.empty();
         }
     }

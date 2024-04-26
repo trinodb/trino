@@ -227,7 +227,7 @@ public final class HiveFormatUtils
                     return new DecodedTimestamp(epochSeconds, nanosOfSecond);
                 }
             }
-            catch (Exception ignored) {
+            catch (Exception _) {
             }
         }
 

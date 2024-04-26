@@ -124,7 +124,7 @@ final class ShardIterator
                 ResultSet resultSet = this.resultSet) {
             // do nothing
         }
-        catch (SQLException ignored) {
+        catch (SQLException _) {
         }
     }
 

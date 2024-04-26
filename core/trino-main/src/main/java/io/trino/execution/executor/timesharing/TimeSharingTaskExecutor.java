@@ -264,7 +264,7 @@ public class TimeSharingTaskExecutor
         try {
             executor.execute(versionEmbedder.embedVersion(new TaskRunner()));
         }
-        catch (RejectedExecutionException ignored) {
+        catch (RejectedExecutionException _) {
         }
     }
 

@@ -328,7 +328,7 @@ public final class AccumulatorCompiler
                 }
             };
         }
-        catch (ReflectiveOperationException ignored) {
+        catch (ReflectiveOperationException _) {
         }
 
         try {
@@ -342,7 +342,7 @@ public final class AccumulatorCompiler
                 }
             };
         }
-        catch (ReflectiveOperationException ignored) {
+        catch (ReflectiveOperationException _) {
         }
         throw new RuntimeException(format("Window accumulator class %s does not have a constructor with a single List argument or a no-argument constructor", windowAccumulator.getName()));
     }

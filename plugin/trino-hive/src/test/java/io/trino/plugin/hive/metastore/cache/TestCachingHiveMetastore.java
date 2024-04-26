@@ -927,7 +927,7 @@ public class TestCachingHiveMetastore
         try {
             metastore.getAllDatabases();
         }
-        catch (RuntimeException ignored) {
+        catch (RuntimeException _) {
         }
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
@@ -935,7 +935,7 @@ public class TestCachingHiveMetastore
         try {
             metastore.getAllDatabases();
         }
-        catch (RuntimeException ignored) {
+        catch (RuntimeException _) {
         }
         assertThat(mockClient.getAccessCount()).isEqualTo(2);
     }

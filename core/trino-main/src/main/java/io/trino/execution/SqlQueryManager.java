@@ -145,7 +145,7 @@ public class SqlQueryManager
                     try {
                         return queryExecution.getBasicQueryInfo();
                     }
-                    catch (RuntimeException ignored) {
+                    catch (RuntimeException _) {
                         return null;
                     }
                 })

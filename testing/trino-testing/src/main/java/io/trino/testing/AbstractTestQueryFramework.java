@@ -235,7 +235,7 @@ public abstract class AbstractTestQueryFramework
                                     String querySummary = createQueryDebuggingSummary(basicQueryInfo, queryInfo);
                                     fail("Task is expected to be in done state, found: %s - TaskId: %s, QueryId: %s".formatted(taskState, taskId, queryId) + "\n\n" + querySummary);
                                 }
-                                catch (NoSuchElementException ignored) {
+                                catch (NoSuchElementException _) {
                                 }
                                 fail("Task is expected to be in done state, found: %s - TaskId: %s, QueryId: %s, Query: unknown".formatted(taskState, taskId, queryId));
                             }

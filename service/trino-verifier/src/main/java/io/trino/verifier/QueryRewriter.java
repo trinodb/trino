@@ -162,7 +162,7 @@ public class QueryRewriter
             connection.setCatalog(catalogOverride.orElse(query.getCatalog()));
             connection.setSchema(schemaOverride.orElse(query.getSchema()));
         }
-        catch (SQLClientInfoException ignored) {
+        catch (SQLClientInfoException _) {
             // Do nothing
         }
     }

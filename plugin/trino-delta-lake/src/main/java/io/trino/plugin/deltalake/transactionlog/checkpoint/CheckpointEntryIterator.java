@@ -255,7 +255,7 @@ public class CheckpointEntryIterator
             try {
                 this.pageSource.close();
             }
-            catch (Exception ignored) {
+            catch (Exception _) {
             }
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initilizing the checkpoint entry iterator for the file %s".formatted(checkpoint.location()));
         }

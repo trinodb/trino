@@ -242,7 +242,7 @@ class TestHttpEventListener
         try {
             server.close();
         }
-        catch (IOException ignored) {
+        catch (IOException _) {
             // MockWebServer.close() method sometimes throws 'Gave up waiting for executor to shut down'
         }
         server = null;

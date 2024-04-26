@@ -2917,7 +2917,7 @@ public class SemiTransactionalHiveMetastore
                         }
                     }
                 }
-                catch (RuntimeException ignored) {
+                catch (RuntimeException _) {
                     // When table could not be fetched from metastore, it is not known whether the table was added.
                     // Deleting the table when aborting commit has the risk of deleting a table not added in this transaction.
                     // Not deleting the table may leave garbage behind. The former is much more dangerous than the latter.
@@ -3162,7 +3162,7 @@ public class SemiTransactionalHiveMetastore
                                 batchCompletelyAdded = false;
                             }
                         }
-                        catch (Throwable ignored) {
+                        catch (Throwable _) {
                             // When partition could not be fetched from metastore, it is not known whether the partition was added.
                             // Deleting the partition when aborting commit has the risk of deleting partition not added in this transaction.
                             // Not deleting the partition may leave garbage behind. The former is much more dangerous than the latter.
