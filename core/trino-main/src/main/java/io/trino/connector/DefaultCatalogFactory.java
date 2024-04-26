@@ -198,7 +198,7 @@ public class DefaultCatalogFactory
                 pageSorter,
                 pageIndexerFactory);
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             return connectorFactory.create(catalogName, properties, context);
         }
     }

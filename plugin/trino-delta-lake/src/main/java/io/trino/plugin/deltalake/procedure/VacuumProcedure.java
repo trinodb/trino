@@ -131,7 +131,7 @@ public class VacuumProcedure
             String table,
             String retention)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doVacuum(session, accessControl, schema, table, retention);
         }
         catch (TrinoException e) {

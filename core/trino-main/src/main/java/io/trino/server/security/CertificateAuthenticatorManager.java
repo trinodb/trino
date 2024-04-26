@@ -78,7 +78,7 @@ public class CertificateAuthenticatorManager
         checkState(factory != null, "Certificate authenticator '%s' is not registered", name);
 
         CertificateAuthenticator authenticator;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             authenticator = factory.create(ImmutableMap.copyOf(properties));
         }
 

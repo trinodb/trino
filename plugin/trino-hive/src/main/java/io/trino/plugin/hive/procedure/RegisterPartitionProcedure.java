@@ -99,7 +99,7 @@ public class RegisterPartitionProcedure
 
     public void registerPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumns, List<String> partitionValues, String location)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doRegisterPartition(session, accessControl, schemaName, tableName, partitionColumns, partitionValues, location);
         }
     }

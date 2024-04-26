@@ -102,7 +102,7 @@ public class LdapAuthenticator
     @Override
     public Principal createAuthenticatedPrincipal(String user, String password)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             return authenticationCache.getUnchecked(new Credential(user, password));
         }
         catch (UncheckedExecutionException e) {

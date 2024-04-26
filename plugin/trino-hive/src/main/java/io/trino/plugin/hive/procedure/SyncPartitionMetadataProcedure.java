@@ -106,7 +106,7 @@ public class SyncPartitionMetadataProcedure
 
     public void syncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doSyncPartitionMetadata(session, accessControl, schemaName, tableName, mode, caseSensitive);
         }
     }
