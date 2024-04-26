@@ -19,7 +19,7 @@
 # ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------
-# Apache Maven Wrapper startup batch script, version 3.3.0
+# Apache Maven Wrapper startup batch script, version 3.3.1
 #
 # Optional ENV vars
 # -----------------
@@ -199,7 +199,7 @@ elif set_java_home; then
 	  public static void main( String[] args ) throws Exception
 	  {
 	    setDefault( new Downloader() );
-	    java.nio.file.Files.copy( new java.net.URL( args[0] ).openStream(), java.nio.file.Paths.get( args[1] ).toAbsolutePath().normalize() );
+	    java.nio.file.Files.copy( java.net.URI.create( args[0] ).toURL().openStream(), java.nio.file.Paths.get( args[1] ).toAbsolutePath().normalize() );
 	  }
 	}
 	END
