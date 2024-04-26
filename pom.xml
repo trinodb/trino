@@ -1625,11 +1625,11 @@
                 <version>8.5.13</version>
             </dependency>
 
-            <!-- TODO: remove when updated in airbase -->
+            <!-- TODO: remove when added to airbase -->
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>1.14.13</version>
+                <version>1.14.14</version>
             </dependency>
 
             <dependency>
