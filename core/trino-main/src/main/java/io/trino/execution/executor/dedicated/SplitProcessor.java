@@ -71,7 +71,7 @@ class SplitProcessor
         CpuTimer timer = new CpuTimer(Ticker.systemTicker(), false);
         long previousCpuNanos = 0;
         long previousScheduledNanos = 0;
-        try (SetThreadName ignored = new SetThreadName("SplitRunner-%s-%s", taskId, splitId)) {
+        try (SetThreadName _ = new SetThreadName("SplitRunner-%s-%s", taskId, splitId)) {
             while (!split.isFinished()) {
                 try (var ignored2 = processSpan.makeCurrent()) {
                     ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);

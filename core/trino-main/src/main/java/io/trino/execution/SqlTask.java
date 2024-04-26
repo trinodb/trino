@@ -269,14 +269,14 @@ public class SqlTask
 
     public TaskInfo getTaskInfo()
     {
-        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName _ = new SetThreadName("Task-%s", taskId)) {
             return createTaskInfo(taskHolderReference.get());
         }
     }
 
     public TaskStatus getTaskStatus()
     {
-        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName _ = new SetThreadName("Task-%s", taskId)) {
             return createTaskStatus(taskHolderReference.get());
         }
     }

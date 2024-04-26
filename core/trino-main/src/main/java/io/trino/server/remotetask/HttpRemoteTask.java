@@ -254,7 +254,7 @@ public final class HttpRemoteTask
         requireNonNull(outboundDynamicFilterIds, "outboundDynamicFilterIds is null");
         requireNonNull(estimatedMemory, "estimatedMemory is null");
 
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName _ = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
             this.session = session;
             this.stageSpan = stageSpan;
@@ -418,7 +418,7 @@ public final class HttpRemoteTask
     @Override
     public void start()
     {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName _ = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // to start we just need to trigger an update
             started.set(true);
             triggerUpdate();
@@ -585,7 +585,7 @@ public final class HttpRemoteTask
     @Override
     public void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener)
     {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName _ = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskStatusFetcher.addStateChangeListener(stateChangeListener);
         }
     }
@@ -846,7 +846,7 @@ public final class HttpRemoteTask
         }
 
         synchronized (this) {
-            try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("HttpRemoteTask-%s", taskId)) {
                 if (!getTaskStatus().getState().isTerminatingOrDone()) {
                     scheduleAsyncCleanupRequest("abort", true);
                 }
@@ -863,7 +863,7 @@ public final class HttpRemoteTask
         }
 
         synchronized (this) {
-            try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("HttpRemoteTask-%s", taskId)) {
                 TaskStatus taskStatus = getTaskStatus();
                 if (!taskStatus.getState().isTerminatingOrDone()) {
                     scheduleAsyncCleanupRequest("cancel", false);
@@ -1023,7 +1023,7 @@ public final class HttpRemoteTask
             private void fatalAsyncCleanupFailure(TrinoTransportException cause)
             {
                 synchronized (HttpRemoteTask.this) {
-                    try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+                    try (SetThreadName _ = new SetThreadName("HttpRemoteTask-%s", taskId)) {
                         TaskStatus taskStatus = getTaskStatus();
                         if (taskStatus.getState().isDone()) {
                             log.warn("Task %s already in terminal state %s; cannot overwrite with FAILED due to %s",
@@ -1050,7 +1050,7 @@ public final class HttpRemoteTask
      */
     private synchronized void fatalUnacknowledgedFailure(Throwable cause)
     {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName _ = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             TaskStatus taskStatus = getTaskStatus();
             if (!taskStatus.getState().isDone()) {
                 // Update the taskInfo with the new taskStatus.
@@ -1100,7 +1100,7 @@ public final class HttpRemoteTask
         }
 
         synchronized (this) {
-            try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("HttpRemoteTask-%s", taskId)) {
                 TaskStatus taskStatus = getTaskStatus();
                 if (!taskStatus.getState().isTerminatingOrDone()) {
                     log.debug(cause, "Remote task %s failed with %s", taskStatus.getSelf(), cause);
@@ -1117,7 +1117,7 @@ public final class HttpRemoteTask
         // Prevent concurrent abort commands after this point
         terminating.set(true);
         synchronized (this) {
-            try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("HttpRemoteTask-%s", taskId)) {
                 TaskStatus taskStatus = getTaskStatus();
                 if (!taskStatus.getState().isDone()) {
                     // Record and force the task into a failed state immediately without waiting for the task to respond. A final cleanup
@@ -1177,7 +1177,7 @@ public final class HttpRemoteTask
         @Override
         public void success(TaskInfo value)
         {
-            try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 sentDynamicFiltersVersion.set(currentRequestDynamicFiltersVersion);
                 // Remove dynamic filters which were successfully sent to free up memory
                 outboundDynamicFiltersCollector.acknowledge(currentRequestDynamicFiltersVersion);
@@ -1196,7 +1196,7 @@ public final class HttpRemoteTask
         @Override
         public void failed(Throwable cause)
         {
-            try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
                     currentRequest.set(null);
                     updateStats();
@@ -1223,7 +1223,7 @@ public final class HttpRemoteTask
         @Override
         public void fatal(Throwable cause)
         {
-            try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 fatalUnacknowledgedFailure(cause);
             }
         }
