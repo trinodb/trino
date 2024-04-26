@@ -24,18 +24,18 @@ import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
-public class GenericDistinctFromOperator
+public class GenericIdenticalOperator
         extends SqlScalarFunction
 {
     private final TypeOperators typeOperators;
 
-    public GenericDistinctFromOperator(TypeOperators typeOperators)
+    public GenericIdenticalOperator(TypeOperators typeOperators)
     {
-        super(FunctionMetadata.operatorBuilder(IS_DISTINCT_FROM)
+        super(FunctionMetadata.operatorBuilder(IDENTICAL)
                 .signature(Signature.builder()
                         .comparableTypeParameter("T")
                         .returnType(BOOLEAN)
@@ -52,7 +52,7 @@ public class GenericDistinctFromOperator
     {
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
-            MethodHandle methodHandle = typeOperators.getDistinctFromOperator(type, invocationConvention);
+            MethodHandle methodHandle = typeOperators.getIdenticalOperator(type, invocationConvention);
             return ScalarFunctionImplementation.builder()
                     .methodHandle(methodHandle)
                     .build();

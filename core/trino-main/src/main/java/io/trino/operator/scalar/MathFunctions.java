@@ -35,7 +35,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 import io.trino.type.Constraint;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.special.Erf;
@@ -51,7 +51,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -1355,9 +1355,9 @@ public final class MathFunctions
     @SqlType(StandardTypes.DOUBLE)
     public static Double cosineSimilarity(
             @OperatorDependency(
-                    operator = IS_DISTINCT_FROM,
+                    operator = IDENTICAL,
                     argumentTypes = {"varchar", "varchar"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionIsDistinctFrom varcharDistinct,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionIsIdentical varcharIdentical,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "varchar",
@@ -1372,12 +1372,12 @@ public final class MathFunctions
             return null;
         }
 
-        double dotProduct = mapDotProduct(varcharDistinct, varcharHashCode, leftMap, rightMap);
+        double dotProduct = mapDotProduct(varcharIdentical, varcharHashCode, leftMap, rightMap);
 
         return dotProduct / (normLeftMap * normRightMap);
     }
 
-    private static double mapDotProduct(BlockPositionIsDistinctFrom varcharDistinct, BlockPositionHashCode varcharHashCode, SqlMap leftMap, SqlMap rightMap)
+    private static double mapDotProduct(BlockPositionIsIdentical varcharIdentical, BlockPositionHashCode varcharHashCode, SqlMap leftMap, SqlMap rightMap)
     {
         int leftRawOffset = leftMap.getRawOffset();
         Block leftRawKeyBlock = leftMap.getRawKeyBlock();
@@ -1386,7 +1386,7 @@ public final class MathFunctions
         Block rightRawKeyBlock = rightMap.getRawKeyBlock();
         Block rightRawValueBlock = rightMap.getRawValueBlock();
 
-        BlockSet rightMapKeys = new BlockSet(VARCHAR, varcharDistinct, varcharHashCode, rightMap.getSize());
+        BlockSet rightMapKeys = new BlockSet(VARCHAR, varcharIdentical, varcharHashCode, rightMap.getSize());
 
         for (int i = 0; i < rightMap.getSize(); i++) {
             rightMapKeys.add(rightRawKeyBlock, rightRawOffset + i);

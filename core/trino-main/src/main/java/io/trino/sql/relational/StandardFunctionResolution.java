@@ -21,7 +21,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Comparison;
 
 import static io.trino.spi.function.OperatorType.EQUAL;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static java.util.Objects.requireNonNull;
@@ -41,7 +41,7 @@ public final class StandardFunctionResolution
             case EQUAL -> EQUAL;
             case LESS_THAN -> LESS_THAN;
             case LESS_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL;
-            case IS_DISTINCT_FROM -> IS_DISTINCT_FROM;
+            case IDENTICAL -> IDENTICAL;
             default -> throw new IllegalStateException("Unsupported comparison operator type: " + operator);
         };
 

@@ -21,8 +21,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -280,28 +280,28 @@ public class TestBooleanOperators
     }
 
     @Test
-    public void testIsDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS BOOLEAN)", "CAST(NULL AS BOOLEAN)"))
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS BOOLEAN)", "CAST(NULL AS BOOLEAN)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "FALSE", "FALSE"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "TRUE", "TRUE"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "FALSE", "TRUE"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "FALSE", "FALSE"))
+        assertThat(assertions.operator(IDENTICAL, "TRUE", "FALSE"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "TRUE", "TRUE"))
+        assertThat(assertions.operator(IDENTICAL, "FALSE", "NULL"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "FALSE", "TRUE"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "TRUE", "FALSE"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "FALSE", "NULL"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "TRUE", "NULL"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "TRUE", "NULL"))
+                .isEqualTo(false);
     }
 
     @Test

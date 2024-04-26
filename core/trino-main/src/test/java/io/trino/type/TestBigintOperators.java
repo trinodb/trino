@@ -26,8 +26,8 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.MODULUS;
@@ -464,22 +464,22 @@ public class TestBigintOperators
     }
 
     @Test
-    public void testIsDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS BIGINT)", "CAST(NULL AS BIGINT)"))
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS BIGINT)", "CAST(NULL AS BIGINT)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "100000000037", "100000000037"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "100000000037", "100000000038"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "100000000037", "100000000037"))
+        assertThat(assertions.operator(IDENTICAL, "NULL", "100000000037"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "100000000037", "100000000038"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "100000000037"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "100000000037", "NULL"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "100000000037", "NULL"))
+                .isEqualTo(false);
     }
 
     @Test

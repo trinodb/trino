@@ -49,7 +49,7 @@ public class RewriteStringComparison
     private static final Pattern<Call> PATTERN = call()
             .with(type().equalTo(BOOLEAN))
             .with(functionName().matching(Stream.of(ComparisonOperator.values())
-                    .filter(comparison -> comparison != ComparisonOperator.IS_DISTINCT_FROM)
+                    .filter(comparison -> comparison != ComparisonOperator.IDENTICAL)
                     .map(ComparisonOperator::getFunctionName)
                     .collect(toImmutableSet())
                     ::contains))

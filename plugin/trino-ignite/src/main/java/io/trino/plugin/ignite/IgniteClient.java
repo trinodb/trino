@@ -168,7 +168,7 @@ public class IgniteClient
                 .addStandardRules(this::quoted)
                 .map("$equal(left, right)").to("left = right")
                 .map("$not_equal(left, right)").to("left <> right")
-                .map("$is_distinct_from(left, right)").to("left IS DISTINCT FROM right")
+                .map("$identical(left, right)").to("left IS NOT DISTINCT FROM right")
                 .map("$less_than(left, right)").to("left < right")
                 .map("$less_than_or_equal(left, right)").to("left <= right")
                 .map("$greater_than(left, right)").to("left > right")

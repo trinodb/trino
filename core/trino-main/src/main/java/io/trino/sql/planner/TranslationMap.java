@@ -142,6 +142,13 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
@@ -546,18 +553,18 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(ComparisonExpression expression)
     {
-        return new Comparison(
-                switch (expression.getOperator()) {
-                    case EQUAL -> Comparison.Operator.EQUAL;
-                    case NOT_EQUAL -> Comparison.Operator.NOT_EQUAL;
-                    case LESS_THAN -> Comparison.Operator.LESS_THAN;
-                    case LESS_THAN_OR_EQUAL -> Comparison.Operator.LESS_THAN_OR_EQUAL;
-                    case GREATER_THAN -> Comparison.Operator.GREATER_THAN;
-                    case GREATER_THAN_OR_EQUAL -> Comparison.Operator.GREATER_THAN_OR_EQUAL;
-                    case IS_DISTINCT_FROM -> Comparison.Operator.IS_DISTINCT_FROM;
-                },
-                translateExpression(expression.getLeft()),
-                translateExpression(expression.getRight()));
+        io.trino.sql.ir.Expression left = translateExpression(expression.getLeft());
+        io.trino.sql.ir.Expression right = translateExpression(expression.getRight());
+
+        return switch (expression.getOperator()) {
+            case EQUAL -> new Comparison(EQUAL, left, right);
+            case NOT_EQUAL -> new Comparison(NOT_EQUAL, left, right);
+            case LESS_THAN -> new Comparison(LESS_THAN, left, right);
+            case LESS_THAN_OR_EQUAL -> new Comparison(LESS_THAN_OR_EQUAL, left, right);
+            case GREATER_THAN -> new Comparison(GREATER_THAN, left, right);
+            case GREATER_THAN_OR_EQUAL -> new Comparison(GREATER_THAN_OR_EQUAL, left, right);
+            case IS_DISTINCT_FROM -> new Not(new Comparison(IDENTICAL, left, right));
+        };
     }
 
     private io.trino.sql.ir.Expression translate(Cast expression)

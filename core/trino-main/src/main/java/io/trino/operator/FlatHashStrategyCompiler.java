@@ -125,7 +125,7 @@ public final class FlatHashStrategyCompiler
                     fixedOffset + 1,
                     typeOperators.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, FLAT)),
                     typeOperators.getReadValueOperator(type, simpleConvention(FLAT_RETURN, BLOCK_POSITION_NOT_NULL)),
-                    typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL)),
+                    typeOperators.getIdenticalOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL)),
                     typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, FLAT)),
                     typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL))));
             fixedOffset += 1 + type.getFlatFixedSize();
@@ -168,7 +168,7 @@ public final class FlatHashStrategyCompiler
 
         generateReadFlat(definition, chunkClasses);
         generateWriteFlat(definition, chunkClasses);
-        generateNotDistinctFromMethod(definition, chunkClasses);
+        generateIdenticalMethod(definition, chunkClasses);
         generateHashBlock(definition, chunkClasses);
         generateHashFlat(definition, chunkClasses);
         generateHashBlocksBatched(definition, chunkClasses);
@@ -200,7 +200,7 @@ public final class FlatHashStrategyCompiler
         MethodDefinition getTotalVariableWidthChunk = generateGetTotalVariableWidthChunk(definition, keyFields, callSiteBinder);
         MethodDefinition readFlatChunk = generateReadFlatChunk(definition, keyFields, callSiteBinder);
         MethodDefinition writeFlatChunk = generateWriteFlatChunk(definition, keyFields, callSiteBinder);
-        MethodDefinition notDistinctFromMethodChunk = generateNotDistinctFromMethodChunk(definition, keyFields, callSiteBinder);
+        MethodDefinition identicalChunkMethod = generateIdenticalChunkMethod(definition, keyFields, callSiteBinder);
         MethodDefinition hashBlockChunk = generateHashBlockChunk(definition, keyFields, callSiteBinder);
         MethodDefinition hashFlatChunk = generateHashFlatChunk(definition, keyFields, callSiteBinder);
         MethodDefinition hashBlocksBatchedChunk = generateHashBlocksBatchedChunk(definition, keyFields, callSiteBinder);
@@ -210,7 +210,7 @@ public final class FlatHashStrategyCompiler
                 getTotalVariableWidthChunk,
                 readFlatChunk,
                 writeFlatChunk,
-                notDistinctFromMethodChunk,
+                identicalChunkMethod,
                 hashBlockChunk,
                 hashFlatChunk,
                 hashBlocksBatchedChunk);
@@ -395,7 +395,7 @@ public final class FlatHashStrategyCompiler
         return methodDefinition;
     }
 
-    private static void generateNotDistinctFromMethod(ClassDefinition definition, List<ChunkClass> chunkClasses)
+    private static void generateIdenticalMethod(ClassDefinition definition, List<ChunkClass> chunkClasses)
     {
         Parameter leftFixedChunk = arg("leftFixedChunk", type(byte[].class));
         Parameter leftFixedOffset = arg("leftFixedOffset", type(int.class));
@@ -404,7 +404,7 @@ public final class FlatHashStrategyCompiler
         Parameter rightPosition = arg("rightPosition", type(int.class));
         MethodDefinition methodDefinition = definition.declareMethod(
                 a(PUBLIC),
-                "valueNotDistinctFrom",
+                "valueIdentical",
                 type(boolean.class),
                 leftFixedChunk,
                 leftFixedOffset,
@@ -414,13 +414,13 @@ public final class FlatHashStrategyCompiler
         BytecodeBlock body = methodDefinition.getBody();
         for (ChunkClass chunkClass : chunkClasses) {
             body.append(new IfStatement()
-                    .condition(invokeStatic(chunkClass.notDistinctFromMethodChunk(), leftFixedChunk, leftFixedOffset, leftVariableChunk, rightBlocks, rightPosition))
+                    .condition(invokeStatic(chunkClass.identicalMethodChunk(), leftFixedChunk, leftFixedOffset, leftVariableChunk, rightBlocks, rightPosition))
                     .ifFalse(constantFalse().ret()));
         }
         body.append(constantTrue().ret());
     }
 
-    private static MethodDefinition generateNotDistinctFromMethodChunk(ClassDefinition definition, List<KeyField> keyFields, CallSiteBinder callSiteBinder)
+    private static MethodDefinition generateIdenticalChunkMethod(ClassDefinition definition, List<KeyField> keyFields, CallSiteBinder callSiteBinder)
     {
         Parameter leftFixedChunk = arg("leftFixedChunk", type(byte[].class));
         Parameter leftFixedOffset = arg("leftFixedOffset", type(int.class));
@@ -429,7 +429,7 @@ public final class FlatHashStrategyCompiler
         Parameter rightPosition = arg("rightPosition", type(int.class));
         MethodDefinition methodDefinition = definition.declareMethod(
                 a(PUBLIC, STATIC),
-                "valueNotDistinctFrom",
+                "valueIdentical",
                 type(boolean.class),
                 leftFixedChunk,
                 leftFixedOffset,
@@ -439,16 +439,16 @@ public final class FlatHashStrategyCompiler
         BytecodeBlock body = methodDefinition.getBody();
 
         for (KeyField keyField : keyFields) {
-            MethodDefinition distinctFromMethod = generateDistinctFromMethod(definition, keyField, callSiteBinder);
+            MethodDefinition identicalMethod = generateIdenticalMethod(definition, keyField, callSiteBinder);
             body.append(new IfStatement()
-                    .condition(invokeStatic(distinctFromMethod, leftFixedChunk, leftFixedOffset, leftVariableChunk, rightBlocks.getElement(keyField.index()), rightPosition))
-                    .ifTrue(constantFalse().ret()));
+                    .condition(invokeStatic(identicalMethod, leftFixedChunk, leftFixedOffset, leftVariableChunk, rightBlocks.getElement(keyField.index()), rightPosition))
+                    .ifFalse(constantFalse().ret()));
         }
         body.append(constantTrue().ret());
         return methodDefinition;
     }
 
-    private static MethodDefinition generateDistinctFromMethod(ClassDefinition definition, KeyField keyField, CallSiteBinder callSiteBinder)
+    private static MethodDefinition generateIdenticalMethod(ClassDefinition definition, KeyField keyField, CallSiteBinder callSiteBinder)
     {
         Parameter leftFixedChunk = arg("leftFixedChunk", type(byte[].class));
         Parameter leftFixedOffset = arg("leftFixedOffset", type(int.class));
@@ -457,7 +457,7 @@ public final class FlatHashStrategyCompiler
         Parameter rightPosition = arg("rightPosition", type(int.class));
         MethodDefinition methodDefinition = definition.declareMethod(
                 a(PUBLIC, STATIC),
-                "valueDistinctFrom" + keyField.index(),
+                "valueIdentical" + keyField.index(),
                 type(boolean.class),
                 leftFixedChunk,
                 leftFixedOffset,
@@ -471,23 +471,23 @@ public final class FlatHashStrategyCompiler
         Variable rightIsNull = scope.declareVariable("rightIsNull", body, rightBlock.invoke("isNull", boolean.class, rightPosition));
 
         // if (leftIsNull) {
-        //     return !rightIsNull;
+        //     return rightIsNull;
         // }
         body.append(new IfStatement()
                 .condition(leftIsNull)
-                .ifTrue(not(rightIsNull).ret()));
+                .ifTrue(rightIsNull.ret()));
 
         // if (rightIsNull) {
-        //     return true;
+        //     return false;
         // }
         body.append(new IfStatement()
                 .condition(rightIsNull)
-                .ifTrue(constantTrue().ret()));
+                .ifTrue(constantFalse().ret()));
 
         body.append(invokeDynamic(
                 BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(keyField.distinctFlatBlockMethod()).getBindingId()),
-                "distinctFrom",
+                ImmutableList.of(callSiteBinder.bind(keyField.identicalFlatBlockMethod()).getBindingId()),
+                "identical",
                 boolean.class,
                 leftFixedChunk,
                 add(leftFixedOffset, constantInt(keyField.fieldFixedOffset())),
@@ -781,7 +781,7 @@ public final class FlatHashStrategyCompiler
             int fieldFixedOffset,
             MethodHandle readFlatMethod,
             MethodHandle writeFlatMethod,
-            MethodHandle distinctFlatBlockMethod,
+            MethodHandle identicalFlatBlockMethod,
             MethodHandle hashFlatMethod,
             MethodHandle hashBlockMethod) {}
 
@@ -790,7 +790,7 @@ public final class FlatHashStrategyCompiler
             MethodDefinition getTotalVariableWidth,
             MethodDefinition readFlatChunk,
             MethodDefinition writeFlatChunk,
-            MethodDefinition notDistinctFromMethodChunk,
+            MethodDefinition identicalMethodChunk,
             MethodDefinition hashBlockChunk,
             MethodDefinition hashFlatChunk,
             MethodDefinition hashBlocksBatchedChunk) {}

@@ -28,7 +28,7 @@ public interface FlatHashStrategy
 
     void writeFlat(Block[] blocks, int position, byte[] fixedChunk, int fixedOffset, byte[] variableChunk, int variableOffset);
 
-    boolean valueNotDistinctFrom(
+    boolean valueIdentical(
             byte[] leftFixedChunk,
             int leftFixedOffset,
             byte[] leftVariableChunk,

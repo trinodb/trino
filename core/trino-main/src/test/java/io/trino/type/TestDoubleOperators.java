@@ -29,8 +29,8 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.MODULUS;
@@ -789,25 +789,25 @@ public class TestDoubleOperators
     }
 
     @Test
-    public void testIsDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "cast(NULL as DOUBLE)", "CAST(NULL AS DOUBLE)"))
-                .isEqualTo(false);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "37.7", "37.7"))
-                .isEqualTo(false);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "37", "37.8"))
+        assertThat(assertions.operator(IDENTICAL, "cast(NULL as DOUBLE)", "CAST(NULL AS DOUBLE)"))
                 .isEqualTo(true);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "37.7"))
+        assertThat(assertions.operator(IDENTICAL, "37.7", "37.7"))
                 .isEqualTo(true);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "37.7", "NULL"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "nan()", "nan()"))
+        assertThat(assertions.operator(IDENTICAL, "37", "37.8"))
                 .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "NULL", "37.7"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "37.7", "NULL"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "nan()", "nan()"))
+                .isEqualTo(true);
     }
 
     @Test
