@@ -78,7 +78,7 @@ public class TestingH2JdbcModule
 
     public static String createH2ConnectionUrl()
     {
-        return format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        return format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1;DEFAULT_LOCK_TIMEOUT=5000", System.nanoTime() + ThreadLocalRandom.current().nextLong());
     }
 
     public interface TestingH2JdbcClientFactory
