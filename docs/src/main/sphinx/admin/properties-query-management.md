@@ -112,7 +112,7 @@ Only applies for queries with task level retries enabled (`retry-policy=TASK`)
 ## `query.low-memory-killer.delay`
 
 - **Type:** {ref}`prop-type-duration`
-- **Default value:** `5m`
+- **Default value:** `30s`
 
 The amount of time a query is allowed to recover between running out of memory
 and being killed, if `query.low-memory-killer.policy` or
