@@ -105,7 +105,7 @@ public class HdfsEnvironment
     public FileSystem getFileSystem(ConnectorIdentity identity, Path path, Configuration configuration)
             throws IOException
     {
-        try (var ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (var _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             return hdfsAuthentication.doAs(identity, () -> {
                 FileSystem fileSystem = path.getFileSystem(configuration);
                 fileSystem.setVerifyChecksum(verifyChecksum);
@@ -130,7 +130,7 @@ public class HdfsEnvironment
     public <T> T doAs(ConnectorIdentity identity, ExceptionAction<T> action)
             throws IOException
     {
-        try (var ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (var _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             return hdfsAuthentication.doAs(identity, action);
         }
     }

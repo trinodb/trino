@@ -170,7 +170,7 @@ public class DispatchManager
                     .addLink(Span.current().getSpanContext())
                     .setParent(Context.current().with(querySpan))
                     .startSpan();
-            try (var ignored = scopedSpan(span)) {
+            try (var _ = scopedSpan(span)) {
                 createQueryInternal(queryId, querySpan, slug, sessionContext, query, resourceGroupManager);
             }
             finally {
