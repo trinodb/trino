@@ -64,6 +64,7 @@ public final class JdbcClientStats
     private final JdbcApiStats toWriteMapping = new JdbcApiStats();
     private final JdbcApiStats implementAggregation = new JdbcApiStats();
     private final JdbcApiStats convertPredicate = new JdbcApiStats();
+    private final JdbcApiStats convertProjection = new JdbcApiStats();
     private final JdbcApiStats getTableScanRedirection = new JdbcApiStats();
     private final JdbcApiStats delete = new JdbcApiStats();
     private final JdbcApiStats update = new JdbcApiStats();
@@ -389,6 +390,13 @@ public final class JdbcClientStats
     public JdbcApiStats getConvertPredicate()
     {
         return convertPredicate;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getConvertProjection()
+    {
+        return convertProjection;
     }
 
     @Managed
