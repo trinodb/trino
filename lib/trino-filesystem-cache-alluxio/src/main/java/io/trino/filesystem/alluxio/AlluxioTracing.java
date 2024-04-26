@@ -25,7 +25,7 @@ public class AlluxioTracing
     public static <T, E extends Exception> T withTracing(Span span, CheckedSupplier<T, E> supplier)
             throws E
     {
-        try (var ignored = span.makeCurrent()) {
+        try (var _ = span.makeCurrent()) {
             return supplier.get();
         }
         catch (Throwable t) {
@@ -41,7 +41,7 @@ public class AlluxioTracing
     public static <E extends Exception> void withTracing(Span span, CheckedRunnable<E> supplier)
             throws E
     {
-        try (var ignored = span.makeCurrent()) {
+        try (var _ = span.makeCurrent()) {
             supplier.run();
         }
         catch (Throwable t) {

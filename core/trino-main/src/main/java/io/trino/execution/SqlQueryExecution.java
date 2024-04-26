@@ -474,7 +474,7 @@ public class SqlQueryExecution
         Span span = tracer.spanBuilder("planner")
                 .setParent(Context.current().with(getSession().getQuerySpan()))
                 .startSpan();
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             return doPlanQuery(tableStatsProvider);
         }
         catch (StackOverflowError e) {
@@ -500,12 +500,12 @@ public class SqlQueryExecution
 
         // fragment the plan
         SubPlan fragmentedPlan;
-        try (var ignored = scopedSpan(tracer, "fragment-plan")) {
+        try (var _ = scopedSpan(tracer, "fragment-plan")) {
             fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, stateMachine.getWarningCollector());
         }
 
         // extract inputs
-        try (var ignored = scopedSpan(tracer, "extract-inputs")) {
+        try (var _ = scopedSpan(tracer, "extract-inputs")) {
             stateMachine.setInputs(new InputExtractor(plannerContext.getMetadata(), stateMachine.getSession()).extractInputs(fragmentedPlan));
         }
 

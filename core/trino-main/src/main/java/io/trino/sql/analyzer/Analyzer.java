@@ -82,7 +82,7 @@ public class Analyzer
         Span span = tracer.spanBuilder("analyzer")
                 .setParent(Context.current().with(session.getQuerySpan()))
                 .startSpan();
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             return analyze(statement, OTHERS);
         }
     }
@@ -93,11 +93,11 @@ public class Analyzer
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, queryType);
         StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
-        try (var ignored = scopedSpan(tracer, "analyze")) {
+        try (var _ = scopedSpan(tracer, "analyze")) {
             analyzer.analyze(rewrittenStatement);
         }
 
-        try (var ignored = scopedSpan(tracer, "access-control")) {
+        try (var _ = scopedSpan(tracer, "access-control")) {
             // check column access permissions for each table
             analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
                     tableColumnReferences.forEach((tableName, columns) ->

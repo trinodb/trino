@@ -83,7 +83,7 @@ public class TestingTelemetry
     public static <E extends Exception> void withTracing(Span span, CheckedRunnable<E> supplier)
             throws E
     {
-        try (var ignored = span.makeCurrent()) {
+        try (var _ = span.makeCurrent()) {
             supplier.run();
         }
         catch (Throwable t) {
