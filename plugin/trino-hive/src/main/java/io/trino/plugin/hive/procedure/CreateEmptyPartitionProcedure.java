@@ -97,7 +97,7 @@ public class CreateEmptyPartitionProcedure
 
     public void createEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<String> partitionColumnNames, List<String> partitionValues)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doCreateEmptyPartition(session, accessControl, schema, table, partitionColumnNames, partitionValues);
         }
     }

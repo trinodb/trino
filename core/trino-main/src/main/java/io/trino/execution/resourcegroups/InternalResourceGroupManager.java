@@ -158,7 +158,7 @@ public final class InternalResourceGroupManager<C>
         checkState(factory != null, "Resource group configuration manager '%s' is not registered", name);
 
         ResourceGroupConfigurationManager<C> configurationManager;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             configurationManager = cast(factory.create(ImmutableMap.copyOf(properties), configurationManagerContext));
         }
 

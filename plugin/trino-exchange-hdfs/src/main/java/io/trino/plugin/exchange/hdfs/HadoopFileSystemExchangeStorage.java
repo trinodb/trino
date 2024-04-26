@@ -145,7 +145,7 @@ public class HadoopFileSystemExchangeStorage
 
     private static Configuration newEmptyConfiguration()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(HadoopFileSystemExchangeStorage.class.getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(HadoopFileSystemExchangeStorage.class.getClassLoader())) {
             return new Configuration(false);
         }
     }

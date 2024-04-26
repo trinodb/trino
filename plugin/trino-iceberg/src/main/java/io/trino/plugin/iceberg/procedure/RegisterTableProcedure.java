@@ -104,7 +104,7 @@ public class RegisterTableProcedure
             String tableLocation,
             String metadataFileName)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doRegisterTable(
                     clientSession,
                     schemaName,

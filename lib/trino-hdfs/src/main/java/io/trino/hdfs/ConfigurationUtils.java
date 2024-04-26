@@ -83,7 +83,7 @@ public final class ConfigurationUtils
 
     private static Configuration newConfiguration(boolean loadDefaults)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(ConfigurationUtils.class.getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(ConfigurationUtils.class.getClassLoader())) {
             return new Configuration(loadDefaults);
         }
     }
