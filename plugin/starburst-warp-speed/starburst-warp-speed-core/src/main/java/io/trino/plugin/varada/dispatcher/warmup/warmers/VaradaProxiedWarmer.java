@@ -247,6 +247,8 @@ public class VaradaProxiedWarmer
             }
             storageWarmerService.fileClose(fileCookie, Optional.of(rowGroupData));
         }
+
+        storageWarmerService.verifyQueryOffsets(rowGroupKey, rowGroupData.getValidWarmUpElements());
         return rowGroupData;
     }
 
