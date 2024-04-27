@@ -51,7 +51,7 @@ configured using file format configuration properties per catalog:
 ## General configuration
 
 To configure the Hive connector, create a catalog properties file
-`etc/catalog/example.properties` that references the `hive`
+`/etc/trino/catalog/example.properties` that references the `hive`
 connector and defines a metastore. You must configure a metastore for table
 metadata. If you are using a {ref}`Hive metastore <hive-thrift-metastore>`,
 `hive.metastore.uri` must be configured:
@@ -75,7 +75,7 @@ Each metastore type has specific configuration properties along with
 ### Multiple Hive clusters
 
 You can have as many catalogs as you need, so if you have additional
-Hive clusters, simply add another properties file to `etc/catalog`
+Hive clusters, simply add another properties file to `/etc/trino/catalog`
 with a different name, making sure it ends in `.properties`. For
 example, if you name the property file `sales.properties`, Trino
 creates a catalog named `sales` using the configured connector.
