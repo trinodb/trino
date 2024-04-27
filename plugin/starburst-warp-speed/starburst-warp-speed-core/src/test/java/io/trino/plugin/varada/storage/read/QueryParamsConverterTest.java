@@ -90,6 +90,7 @@ public class QueryParamsConverterTest
                 luceneQueryMatchData.isTightnessRequired(),
                 -1,
                 MatchCollectOp.MATCH_COLLECT_OP_INVALID,
+                0,
                 Optional.of(new WarmupElementLuceneParams(luceneQueryMatchData, luceneIx)));
     }
 

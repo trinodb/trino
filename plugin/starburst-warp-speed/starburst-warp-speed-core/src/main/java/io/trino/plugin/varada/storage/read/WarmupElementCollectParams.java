@@ -31,6 +31,7 @@ import static io.trino.plugin.warp.gen.constants.WECollectJparams.WE_COLLECT_JPA
 import static io.trino.plugin.warp.gen.constants.WECollectJparams.WE_COLLECT_JPARAMS_MATCH_COLLECT_INDEX;
 import static io.trino.plugin.warp.gen.constants.WECollectJparams.WE_COLLECT_JPARAMS_REC_TYPE_CODE;
 import static io.trino.plugin.warp.gen.constants.WECollectJparams.WE_COLLECT_JPARAMS_REC_TYPE_LENGTH;
+import static io.trino.plugin.warp.gen.constants.WECollectJparams.WE_COLLECT_JPARAMS_WARM_ID;
 import static io.trino.plugin.warp.gen.constants.WECollectJparams.WE_COLLECT_JPARAMS_WARM_UP_TYPE;
 
 class WarmupElementCollectParams
@@ -51,6 +52,7 @@ class WarmupElementCollectParams
     private final int matchCollectIndex;
     private final int matchCollectId;
     private final boolean isCollectNulls;
+    private final int warmId;
     private final Optional<Block> valuesDictBlock;
     private Optional<ReadDictionary> dictionary;
 
@@ -68,6 +70,7 @@ class WarmupElementCollectParams
             int matchCollectIndex,
             int matchCollectId,
             boolean isCollectNulls,
+            int warmId,
             Optional<Block> valuesDictBlock)
     {
         this.fileOffset = fileOffset;
@@ -85,6 +88,7 @@ class WarmupElementCollectParams
         this.matchCollectIndex = matchCollectIndex;
         this.matchCollectId = matchCollectId;
         this.isCollectNulls = isCollectNulls;
+        this.warmId = warmId;
         this.valuesDictBlock = valuesDictBlock;
     }
 
@@ -188,12 +192,13 @@ class WarmupElementCollectParams
         output[offset + WE_COLLECT_JPARAMS_MATCH_COLLECT_INDEX.ordinal()] = matchCollectIndex;
         output[offset + WE_COLLECT_JPARAMS_MATCH_COLLECT_ID.ordinal()] = matchCollectId;
         output[offset + WE_COLLECT_JPARAMS_IS_COLLECT_NULLS.ordinal()] = isCollectNulls ? 1 : 0;
+        output[offset + WE_COLLECT_JPARAMS_WARM_ID.ordinal()] = warmId;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(fileOffset, fileReadSize, warmUpType, recTypeCode, recTypeLength, isCollectNulls);
+        return Objects.hash(fileOffset, fileReadSize, warmUpType, recTypeCode, recTypeLength, isCollectNulls, warmId);
     }
 
     @Override
@@ -211,6 +216,7 @@ class WarmupElementCollectParams
                 warmUpType == o.warmUpType &&
                 recTypeCode == o.recTypeCode &&
                 recTypeLength == o.recTypeLength &&
+                warmId == o.warmId &&
                 isCollectNulls == o.isCollectNulls;
     }
 
@@ -232,6 +238,7 @@ class WarmupElementCollectParams
                 ", matchCollectIndex=" + matchCollectIndex +
                 ", matchCollectId=" + matchCollectId +
                 ", isCollectNulls=" + isCollectNulls +
+                ", warmId=" + warmId +
                 '}';
     }
 

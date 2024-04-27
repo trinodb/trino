@@ -143,6 +143,7 @@ public class QueryParamsConverter
                                 queryMatchData.isTightnessRequired(),
                                 matchCollectIndex,
                                 matchCollectOp,
+                                matchDataWarmUpElement.getWarmId(),
                                 luceneParams));
                 predicateCacheDataBuilder.add(queryMatchData.getPredicateCacheData());
             }
@@ -222,6 +223,7 @@ public class QueryParamsConverter
                                 matchCollectIndex,
                                 matchCollectId,
                                 isCollectNulls,
+                                collectDataWarmUpElement.getWarmId(),
                                 valuesDictBlock));
             }
             else {
@@ -243,6 +245,7 @@ public class QueryParamsConverter
                                 matchCollectIndex,
                                 matchCollectId,
                                 isCollectNulls,
+                                collectDataWarmUpElement.getWarmId(),
                                 valuesDictBlock));
             }
         }

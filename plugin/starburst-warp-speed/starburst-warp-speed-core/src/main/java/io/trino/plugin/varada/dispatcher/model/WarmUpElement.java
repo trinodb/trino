@@ -45,6 +45,7 @@ public class WarmUpElement
     public static final String QUERY_READ_SIZE = "queryReadSize";
     public static final String WARM_EVENTS = "warmEvents";
     public static final String END_OFFSET = "endOffset";
+    public static final String WARM_ID = "warmId";
     public static final String STATE = "state";
     public static final String EXPORT_STATE = "exportState";
     public static final String IS_IMPORTED = "isImported";
@@ -67,6 +68,7 @@ public class WarmUpElement
     private final int queryReadSize;
     private final int warmEvents;
     private final int endOffset;
+    private final int warmId;
     private final WarmUpElementState state;
     private transient long lastUsedTimestamp;
     private long firstUsedTimestamp;
@@ -95,6 +97,7 @@ public class WarmUpElement
             int queryReadSize,
             int warmEvents,
             int endOffset,
+            int warmId,
             WarmUpElementState state,
             ExportState exportState,
             boolean isImported,
@@ -117,6 +120,7 @@ public class WarmUpElement
         this.queryReadSize = queryReadSize;
         this.warmEvents = warmEvents;
         this.endOffset = endOffset;
+        this.warmId = warmId;
         this.state = state;
         this.exportState = exportState;
         this.isImported = isImported;
@@ -144,6 +148,7 @@ public class WarmUpElement
                 .queryReadSize(warmUpElement.getQueryReadSize())
                 .warmEvents(warmUpElement.getWarmEvents())
                 .endOffset(warmUpElement.getEndOffset())
+                .warmId(warmUpElement.getWarmId())
                 .state(warmUpElement.getState())
                 .storeId(warmUpElement.getStoreId())
                 .exportState(warmUpElement.getExportState())
@@ -301,6 +306,12 @@ public class WarmUpElement
         return endOffset;
     }
 
+    @JsonProperty(WARM_ID)
+    public int getWarmId()
+    {
+        return warmId;
+    }
+
     @JsonProperty(WARM_STATE)
     public WarmState getWarmState()
     {
@@ -347,6 +358,7 @@ public class WarmUpElement
                 ", queryReadSize=" + queryReadSize +
                 ", warmEvents=" + warmEvents +
                 ", endOffset=" + endOffset +
+                ", warmId=" + warmId +
                 ", warmState=" + warmState +
                 ", totalRecords=" + totalRecords +
                 ", isImported=" + isImported +
@@ -376,6 +388,7 @@ public class WarmUpElement
                 (queryOffset == warmUpElement.queryOffset) &&
                 (queryReadSize == warmUpElement.queryReadSize) &&
                 (warmEvents == warmUpElement.warmEvents) &&
+                (warmId == warmUpElement.warmId) &&
                 Objects.equals(storeId, warmUpElement.storeId) &&
                 (totalRecords == warmUpElement.totalRecords) &&
                 (endOffset == warmUpElement.endOffset) &&
@@ -410,6 +423,7 @@ public class WarmUpElement
         private int queryReadSize;
         private int warmEvents;
         private int endOffset;
+        private int warmId;
         private long creationTime;
         private long firstUsedTimestamp;
 
@@ -536,6 +550,13 @@ public class WarmUpElement
             return this;
         }
 
+        @JsonProperty(WARM_ID)
+        public Builder warmId(int warmId)
+        {
+            this.warmId = warmId;
+            return this;
+        }
+
         @JsonProperty(STORE_ID)
         public Builder storeId(UUID storeId)
         {
@@ -593,6 +614,7 @@ public class WarmUpElement
                     queryReadSize,
                     warmEvents,
                     endOffset,
+                    warmId,
                     state,
                     exportState,
                     isImported,

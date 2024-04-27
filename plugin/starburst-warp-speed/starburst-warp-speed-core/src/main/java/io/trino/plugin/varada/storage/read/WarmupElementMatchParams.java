@@ -38,6 +38,7 @@ import static io.trino.plugin.warp.gen.constants.WEMatchJparams.WE_MATCH_JPARAMS
 import static io.trino.plugin.warp.gen.constants.WEMatchJparams.WE_MATCH_JPARAMS_PRED_BUF_ADDRESS_LOW;
 import static io.trino.plugin.warp.gen.constants.WEMatchJparams.WE_MATCH_JPARAMS_REC_TYPE_CODE;
 import static io.trino.plugin.warp.gen.constants.WEMatchJparams.WE_MATCH_JPARAMS_REC_TYPE_LENGTH;
+import static io.trino.plugin.warp.gen.constants.WEMatchJparams.WE_MATCH_JPARAMS_WARM_ID;
 import static io.trino.plugin.warp.gen.constants.WEMatchJparams.WE_MATCH_JPARAMS_WARM_UP_TYPE;
 
 class WarmupElementMatchParams
@@ -58,6 +59,7 @@ class WarmupElementMatchParams
     private final boolean isTightnessRequired;
     private final int matchCollectIndex;
     private final MatchCollectOp matchCollectOp;
+    private final int warmId;
     private final Optional<WarmupElementLuceneParams> luceneParams;
 
     public WarmupElementMatchParams(int fileOffset,
@@ -72,6 +74,7 @@ class WarmupElementMatchParams
             boolean isTightnessRequired,
             int matchCollectIndex,
             MatchCollectOp matchCollectOp,
+            int warmId,
             Optional<WarmupElementLuceneParams> luceneParams)
     {
         this.fileOffset = fileOffset;
@@ -86,6 +89,7 @@ class WarmupElementMatchParams
         this.isTightnessRequired = isTightnessRequired;
         this.matchCollectIndex = matchCollectIndex;
         this.matchCollectOp = matchCollectOp;
+        this.warmId = warmId;
         this.luceneParams = luceneParams;
     }
 
@@ -154,13 +158,14 @@ class WarmupElementMatchParams
         output[offset + WE_MATCH_JPARAMS_IS_TIGHTNESS_REQUIRED.ordinal()] = isTightnessRequired ? 1 : 0;
         output[offset + WE_MATCH_JPARAMS_MATCH_COLLECT_INDEX.ordinal()] = matchCollectIndex;
         output[offset + WE_MATCH_JPARAMS_MATCH_COLLECT_OP.ordinal()] = matchCollectOp.ordinal();
+        output[offset + WE_MATCH_JPARAMS_WARM_ID.ordinal()] = warmId;
         return offset + WE_MATCH_JPARAMS_NUM_OF.ordinal();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(fileOffset, fileReadSize, warmUpType, recTypeCode, recTypeLength, isCollectNulls, matchCollectOp, matchCollectIndex);
+        return Objects.hash(fileOffset, fileReadSize, warmUpType, recTypeCode, recTypeLength, isCollectNulls, matchCollectOp, warmId, matchCollectIndex);
     }
 
     @Override
@@ -180,6 +185,7 @@ class WarmupElementMatchParams
                 recTypeLength == o.recTypeLength &&
                 matchCollectOp == o.matchCollectOp &&
                 matchCollectIndex == o.matchCollectIndex &&
+                warmId == o.warmId &&
                 isCollectNulls == o.isCollectNulls;
     }
 
@@ -199,6 +205,7 @@ class WarmupElementMatchParams
                 ", isTightnessRequired=" + isTightnessRequired +
                 ", matchCollectOp=" + matchCollectOp +
                 ", matchCollectIndex=" + matchCollectIndex +
+                ", warmId=" + warmId +
                 ", luceneParams=" + luceneParams +
                 '}';
     }

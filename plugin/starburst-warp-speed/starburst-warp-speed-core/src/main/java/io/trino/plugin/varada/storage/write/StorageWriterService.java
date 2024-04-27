@@ -81,7 +81,8 @@ public class StorageWriterService
         WE_PROPERTIES_QUERY_OFFSET,
         WE_PROPERTIES_QUERY_READ_SIZE,
         WE_PROPERTIES_WARM_EVENTS,
-        WE_PROPERTIES_END_OFFSET
+        WE_PROPERTIES_WARM_ID,
+        WE_PROPERTIES_END_OFFSET // MUST BE LAST
     }
 
     @Inject
@@ -272,6 +273,7 @@ public class StorageWriterService
                 .queryOffset(outFileParams[WeProperties.WE_PROPERTIES_QUERY_OFFSET.ordinal()])
                 .queryReadSize(outFileParams[WeProperties.WE_PROPERTIES_QUERY_READ_SIZE.ordinal()])
                 .warmEvents(outFileParams[WeProperties.WE_PROPERTIES_WARM_EVENTS.ordinal()])
+                .warmId(outFileParams[WeProperties.WE_PROPERTIES_WARM_ID.ordinal()])
                 .totalRecords(totalRecords)
                 .warmupElementStats(closedStats);
 
