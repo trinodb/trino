@@ -24,7 +24,7 @@
         <!-- enable-preview is needed since warp-speed is using memory segments https://openjdk.org/jeps/442 -->
         <air.compiler.enable-preview>true</air.compiler.enable-preview>
         <dep.lucene.version>9.10.0</dep.lucene.version>
-        <dep.warp-speed-native.version>10</dep.warp-speed-native.version>
+        <dep.warp-speed-native.version>15</dep.warp-speed-native.version>
         <jvm.enable-preview>--enable-preview</jvm.enable-preview>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
     </properties>
