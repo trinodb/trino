@@ -28,7 +28,7 @@ import java.nio.ShortBuffer;
 import java.util.function.Function;
 
 /**
- * Called for CHARs and for VARCHAR(n) with n&lt;=8
+ * Called for CHARs and for VARCHAR(n) where n is less than or equal to 8
  */
 public class FixedLengthStringBlockAppender
         extends DataBlockAppender
