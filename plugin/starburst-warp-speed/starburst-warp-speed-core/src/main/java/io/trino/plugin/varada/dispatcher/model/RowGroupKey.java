@@ -40,15 +40,10 @@ public record RowGroupKey(
     @Override
     public String toString()
     {
-        String filePathWithoutPrefix = filePath;
-        if (filePathWithoutPrefix.contains("//")) {
-            filePathWithoutPrefix = filePathWithoutPrefix.substring(filePathWithoutPrefix.indexOf("//") + "//".length());
-        }
-
         StringJoiner stringJoiner = new StringJoiner(":");
         stringJoiner.add(schema)
                 .add(table)
-                .add(filePathWithoutPrefix)
+                .add(getFilePathWithoutPrefix())
                 .add(Long.toString(offset))
                 .add(Long.toString(length))
                 .add(Long.toString(fileModifiedTime));
@@ -60,15 +55,10 @@ public record RowGroupKey(
 
     public String stringFileNameRepresentation(String storePath)
     {
-        String filePathWithoutPrefix = filePath;
-        if (filePathWithoutPrefix.contains("//")) {
-            filePathWithoutPrefix = filePathWithoutPrefix.substring(filePathWithoutPrefix.indexOf("//") + "//".length());
-        }
-
         Path path = Path.of(
                 schema,
                 table,
-                filePathWithoutPrefix,
+                getFilePathWithoutPrefix(),
                 Long.toString(offset),
                 Long.toString(length),
                 Long.toString(fileModifiedTime));
@@ -89,12 +79,21 @@ public record RowGroupKey(
             return false;
         }
         RowGroupKey that = (RowGroupKey) o;
-        return offset == that.offset && length == that.length && fileModifiedTime == that.fileModifiedTime && Objects.equals(schema, that.schema) && Objects.equals(table, that.table) && Objects.equals(filePath, that.filePath) && Objects.equals(deletedFilesHash, that.deletedFilesHash) && Objects.equals(catalogName, that.catalogName);
+        return offset == that.offset && length == that.length && fileModifiedTime == that.fileModifiedTime && Objects.equals(schema, that.schema) && Objects.equals(table, that.table) && Objects.equals(getFilePathWithoutPrefix(), that.getFilePathWithoutPrefix()) && Objects.equals(deletedFilesHash, that.deletedFilesHash) && Objects.equals(catalogName, that.catalogName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schema, table, filePath, offset, length, fileModifiedTime, deletedFilesHash, catalogName);
+        return Objects.hash(schema, table, getFilePathWithoutPrefix(), offset, length, fileModifiedTime, deletedFilesHash, catalogName);
+    }
+
+    private String getFilePathWithoutPrefix()
+    {
+        String filePathWithoutPrefix = filePath;
+        if (filePathWithoutPrefix.contains("//")) {
+            filePathWithoutPrefix = filePathWithoutPrefix.substring(filePathWithoutPrefix.indexOf("//") + "//".length());
+        }
+        return filePathWithoutPrefix;
     }
 }
