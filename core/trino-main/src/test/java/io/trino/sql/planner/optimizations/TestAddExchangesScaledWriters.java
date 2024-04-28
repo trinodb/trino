@@ -271,6 +271,5 @@ public class TestAddExchangesScaledWriters
                                 exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
                                         exchange(REMOTE, REPARTITION, SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
                                                 tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
-
     }
 }
