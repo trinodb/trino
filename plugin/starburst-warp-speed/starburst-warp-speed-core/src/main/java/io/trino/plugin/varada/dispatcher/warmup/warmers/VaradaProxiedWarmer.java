@@ -69,6 +69,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import static io.trino.plugin.varada.dispatcher.warmup.warmers.StorageWarmerService.INVALID_FILE_COOKIE;
@@ -82,11 +83,11 @@ public class VaradaProxiedWarmer
 
     private final DispatcherProxiedConnectorTransformer dispatcherProxiedConnectorTransformer;
     private final String nodeIdentifier;
+    private final ConcurrentHashMap<Integer, RowGroupData> warmIdToRowGroup;
     private final VaradaPageSinkFactory varadaPageSinkFactory;
     private final ConnectorSync connectorSync;
     private final GlobalConfiguration globalConfiguration;
     private final NativeConfiguration nativeConfiguration;
-
     private final RowGroupDataService rowGroupDataService;
     private final StorageWarmerService storageWarmerService;
     private final StorageWriterService storageWriterService;
@@ -111,6 +112,8 @@ public class VaradaProxiedWarmer
         this.rowGroupDataService = requireNonNull(rowGroupDataService);
         this.storageWarmerService = requireNonNull(storageWarmerService);
         this.storageWriterService = requireNonNull(storageWriterService);
+
+        this.warmIdToRowGroup = new ConcurrentHashMap<>();
     }
 
     RowGroupData warm(ConnectorPageSourceProvider connectorPageSourceProvider,
@@ -203,6 +206,7 @@ public class VaradaProxiedWarmer
                             fileOffset = warmSinkResult.offset() + 1; // @TODO should be removed. adding 1 more page as a safety zone
                         }
                         rowGroupData = rowGroupDataService.updateRowGroupData(rowGroupData, warmSinkResult.warmUpElement(), fileOffset, rowCount);
+                        warmIdToRowGroup.put(txId, rowGroupData); // saving row group data after the update (failed or succeeded)
 
                         if (nativeConfiguration.getEnableWarmDelay() && (rowCount < 100000)) {
                             try {
@@ -248,7 +252,7 @@ public class VaradaProxiedWarmer
             storageWarmerService.fileClose(fileCookie, Optional.of(rowGroupData));
         }
 
-        storageWarmerService.verifyQueryOffsets(rowGroupKey, rowGroupData.getValidWarmUpElements());
+        storageWarmerService.verifyQueryOffsets(rowGroupKey, rowGroupData.getValidWarmUpElements(), warmIdToRowGroup);
         return rowGroupData;
     }
 

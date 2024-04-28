@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
 import static io.trino.plugin.varada.dispatcher.warmup.WorkerWarmingService.WARMING_SERVICE_STAT_GROUP;
@@ -184,7 +185,7 @@ public class StorageWarmerService
         }
     }
 
-    public void verifyQueryOffsets(RowGroupKey rowGroupKey, List<WarmUpElement> validWarmUpElements)
+    public void verifyQueryOffsets(RowGroupKey rowGroupKey, List<WarmUpElement> validWarmUpElements, ConcurrentHashMap<Integer, RowGroupData> warmIdToRowGroup)
     {
         long fileCookie = INVALID_FILE_COOKIE;
         try {
@@ -200,7 +201,8 @@ public class StorageWarmerService
             }
         }
         catch (Exception e) {
-            logger.error(e, "failed to verify query offsets for %s", validWarmUpElements);
+            logger.error(e, "failed to verify query offsets for %s warmIdToRowGroup %s",
+                     validWarmUpElements, warmIdToRowGroup);
             throw new RuntimeException(e);
         }
         finally {
