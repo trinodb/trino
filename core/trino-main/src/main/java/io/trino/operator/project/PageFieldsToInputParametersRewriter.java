@@ -103,25 +103,25 @@ public final class PageFieldsToInputParametersRewriter
         @Override
         public RowExpression visitSpecialForm(SpecialForm specialForm, Boolean unconditionallyEvaluated)
         {
-            return switch (specialForm.getForm()) {
+            return switch (specialForm.form()) {
                 case IF, SWITCH, BETWEEN, AND, OR, COALESCE -> {
-                    List<RowExpression> arguments = specialForm.getArguments();
+                    List<RowExpression> arguments = specialForm.arguments();
                     yield new SpecialForm(
-                            specialForm.getForm(),
+                            specialForm.form(),
                             specialForm.type(),
                             IntStream.range(0, arguments.size()).boxed()
                                     // All the arguments after the first one are assumed to be conditionally evaluated
                                     .map(index -> arguments.get(index).accept(this, index == 0 && unconditionallyEvaluated))
                                     .collect(toImmutableList()),
-                            specialForm.getFunctionDependencies());
+                            specialForm.functionDependencies());
                 }
                 case BIND, IN, WHEN, IS_NULL, NULL_IF, DEREFERENCE, ROW_CONSTRUCTOR, ARRAY_CONSTRUCTOR -> new SpecialForm(
-                        specialForm.getForm(),
+                        specialForm.form(),
                         specialForm.type(),
-                        specialForm.getArguments().stream()
+                        specialForm.arguments().stream()
                                 .map(expression -> expression.accept(this, unconditionallyEvaluated))
                                 .collect(toImmutableList()),
-                        specialForm.getFunctionDependencies());
+                        specialForm.functionDependencies());
             };
         }
 

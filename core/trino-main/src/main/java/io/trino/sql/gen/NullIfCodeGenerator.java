@@ -46,12 +46,12 @@ public class NullIfCodeGenerator
     public NullIfCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        checkArgument(specialForm.getArguments().size() == 2);
+        checkArgument(specialForm.arguments().size() == 2);
 
-        first = specialForm.getArguments().get(0);
-        second = specialForm.getArguments().get(1);
+        first = specialForm.arguments().get(0);
+        second = specialForm.arguments().get(1);
 
-        List<ResolvedFunction> functionDependencies = specialForm.getFunctionDependencies();
+        List<ResolvedFunction> functionDependencies = specialForm.functionDependencies();
         checkArgument(functionDependencies.size() <= 3);
         equalsFunction = specialForm.getOperatorDependency(EQUAL);
         firstCast = specialForm.getCastDependency(first.type(), equalsFunction.signature().getArgumentTypes().get(0));

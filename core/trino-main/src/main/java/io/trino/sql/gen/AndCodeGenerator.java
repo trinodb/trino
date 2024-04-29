@@ -36,9 +36,9 @@ public class AndCodeGenerator
     {
         requireNonNull(specialForm, "specialForm is null");
 
-        checkArgument(specialForm.getArguments().size() >= 2);
+        checkArgument(specialForm.arguments().size() >= 2);
 
-        terms = specialForm.getArguments();
+        terms = specialForm.arguments();
     }
 
     @Override
