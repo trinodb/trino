@@ -51,7 +51,7 @@ public final class LambdaExpressionExtractor
         @Override
         public Void visitCall(CallExpression call, Context context)
         {
-            for (RowExpression rowExpression : call.getArguments()) {
+            for (RowExpression rowExpression : call.arguments()) {
                 rowExpression.accept(this, context);
             }
 

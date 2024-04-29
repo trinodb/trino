@@ -252,7 +252,7 @@ public final class SqlToRowExpressionTranslator
             @Override
             public RowExpression visitCall(CallExpression call, Void context)
             {
-                return new CallExpression(call.getResolvedFunction(), call.getArguments());
+                return new CallExpression(call.resolvedFunction(), call.arguments());
             }
 
             @Override

@@ -88,7 +88,7 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     functionManager);
 
-            return generatorContext.generateFullCall(call.getResolvedFunction(), call.getArguments());
+            return generatorContext.generateFullCall(call.resolvedFunction(), call.arguments());
         }
 
         @Override

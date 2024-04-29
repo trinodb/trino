@@ -42,12 +42,12 @@ public final class DeterminismEvaluator
         @Override
         public Boolean visitCall(CallExpression call, Void context)
         {
-            ResolvedFunction resolvedFunction = call.getResolvedFunction();
+            ResolvedFunction resolvedFunction = call.resolvedFunction();
             if (!resolvedFunction.deterministic()) {
                 return false;
             }
 
-            return call.getArguments().stream()
+            return call.arguments().stream()
                     .allMatch(expression -> expression.accept(this, context));
         }
 

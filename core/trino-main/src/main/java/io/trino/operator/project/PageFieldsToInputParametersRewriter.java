@@ -89,10 +89,10 @@ public final class PageFieldsToInputParametersRewriter
         @Override
         public RowExpression visitCall(CallExpression call, Boolean unconditionallyEvaluated)
         {
-            boolean containsLambdaExpression = call.getArguments().stream().anyMatch(LambdaDefinitionExpression.class::isInstance);
+            boolean containsLambdaExpression = call.arguments().stream().anyMatch(LambdaDefinitionExpression.class::isInstance);
             return new CallExpression(
-                    call.getResolvedFunction(),
-                    call.getArguments().stream()
+                    call.resolvedFunction(),
+                    call.arguments().stream()
                             // Lambda expressions may use only some of their input references, e.g. transform(elements, x -> 1)
                             // TODO: Currently we fallback to assuming that all the arguments are conditionally evaluated when
                             //   a lambda expression is encountered for the sake of simplicity.
