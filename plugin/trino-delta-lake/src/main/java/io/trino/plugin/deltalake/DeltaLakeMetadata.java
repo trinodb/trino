@@ -132,6 +132,7 @@ import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.HyperLogLogType;
@@ -662,6 +663,9 @@ public class DeltaLakeMetadata
     {
         if (type instanceof TimestampType) {
             return TIMESTAMP_MICROS;
+        }
+        if (type instanceof CharType) {
+            return VARCHAR;
         }
         if (type instanceof ArrayType arrayType) {
             return new ArrayType(coerceType(arrayType.getElementType()));
