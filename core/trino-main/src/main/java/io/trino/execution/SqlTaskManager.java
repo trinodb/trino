@@ -647,9 +647,9 @@ public class SqlTaskManager
                 .map(SqlTask::getTaskInfo)
                 .filter(Objects::nonNull)
                 .forEach(taskInfo -> {
-                    TaskId taskId = taskInfo.getTaskStatus().getTaskId();
+                    TaskId taskId = taskInfo.taskStatus().getTaskId();
                     try {
-                        DateTime endTime = taskInfo.getStats().getEndTime();
+                        DateTime endTime = taskInfo.stats().getEndTime();
                         if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
                             // The removal here is concurrency safe with respect to any concurrent loads: the cache has no expiration,
                             // the taskId is in the cache, so there mustn't be an ongoing load.
@@ -669,11 +669,11 @@ public class SqlTaskManager
         for (SqlTask sqlTask : tasks.asMap().values()) {
             try {
                 TaskInfo taskInfo = sqlTask.getTaskInfo();
-                TaskStatus taskStatus = taskInfo.getTaskStatus();
+                TaskStatus taskStatus = taskInfo.taskStatus();
                 if (taskStatus.getState().isDone()) {
                     continue;
                 }
-                DateTime lastHeartbeat = taskInfo.getLastHeartbeat();
+                DateTime lastHeartbeat = taskInfo.lastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
                     log.info("Failing abandoned task %s", taskStatus.getTaskId());
                     sqlTask.failed(new TrinoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskStatus.getTaskId(), lastHeartbeat, now)));

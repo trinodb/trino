@@ -13,10 +13,7 @@
  */
 package io.trino.execution;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.Immutable;
 import io.airlift.units.DataSize;
 import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.PipelinedBufferInfo;
@@ -34,77 +31,24 @@ import static io.trino.execution.TaskStatus.initialTaskStatus;
 import static io.trino.execution.buffer.BufferState.OPEN;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
-public class TaskInfo
+public record TaskInfo(
+        TaskStatus taskStatus,
+        DateTime lastHeartbeat,
+        OutputBufferInfo outputBuffers,
+        Set<PlanNodeId> noMoreSplits,
+        TaskStats stats,
+        // filled in on coordinator
+        Optional<DataSize> estimatedMemory,
+        boolean needsPlan)
 {
-    private final TaskStatus taskStatus;
-    private final DateTime lastHeartbeat;
-    private final OutputBufferInfo outputBuffers;
-    private final Set<PlanNodeId> noMoreSplits;
-    private final TaskStats stats;
-    private final Optional<DataSize> estimatedMemory; // filled in on coordinator
-
-    private final boolean needsPlan;
-
-    @JsonCreator
-    public TaskInfo(@JsonProperty("taskStatus") TaskStatus taskStatus,
-            @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
-            @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
-            @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
-            @JsonProperty("stats") TaskStats stats,
-            @JsonProperty("estimatedMemory") Optional<DataSize> estimatedMemory,
-            @JsonProperty("needsPlan") boolean needsPlan)
+    public TaskInfo
     {
-        this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
-        this.lastHeartbeat = requireNonNull(lastHeartbeat, "lastHeartbeat is null");
-        this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
-        this.noMoreSplits = requireNonNull(noMoreSplits, "noMoreSplits is null");
-        this.stats = requireNonNull(stats, "stats is null");
-        this.estimatedMemory = requireNonNull(estimatedMemory, "estimatedMemory is null");
-
-        this.needsPlan = needsPlan;
-    }
-
-    @JsonProperty
-    public TaskStatus getTaskStatus()
-    {
-        return taskStatus;
-    }
-
-    @JsonProperty
-    public DateTime getLastHeartbeat()
-    {
-        return lastHeartbeat;
-    }
-
-    @JsonProperty
-    public OutputBufferInfo getOutputBuffers()
-    {
-        return outputBuffers;
-    }
-
-    @JsonProperty
-    public Set<PlanNodeId> getNoMoreSplits()
-    {
-        return noMoreSplits;
-    }
-
-    @JsonProperty
-    public TaskStats getStats()
-    {
-        return stats;
-    }
-
-    @JsonProperty
-    public Optional<DataSize> getEstimatedMemory()
-    {
-        return estimatedMemory;
-    }
-
-    @JsonProperty
-    public boolean isNeedsPlan()
-    {
-        return needsPlan;
+        requireNonNull(taskStatus, "taskStatus is null");
+        requireNonNull(lastHeartbeat, "lastHeartbeat is null");
+        requireNonNull(outputBuffers, "outputBuffers is null");
+        requireNonNull(noMoreSplits, "noMoreSplits is null");
+        requireNonNull(stats, "stats is null");
+        requireNonNull(estimatedMemory, "estimatedMemory is null");
     }
 
     public TaskInfo summarize()

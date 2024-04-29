@@ -223,7 +223,7 @@ public class TestStageStateMachine
                 false,
                 Optional.empty(),
                 taskStats(ImmutableList.of(pipeline0Context, pipeline1Context), baseValue));
-        TaskInfo task1 = task0.withTaskStatus(TaskStatus.failWith(task0.getTaskStatus(), TaskState.FAILED, ImmutableList.of()));
+        TaskInfo task1 = task0.withTaskStatus(TaskStatus.failWith(task0.taskStatus(), TaskState.FAILED, ImmutableList.of()));
         List<TaskInfo> taskInfos = ImmutableList.of(task0, task1);
         int expectedStatsValue = baseValue * taskInfos.size();
 

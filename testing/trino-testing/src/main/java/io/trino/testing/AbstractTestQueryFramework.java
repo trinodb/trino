@@ -225,9 +225,9 @@ public abstract class AbstractTestQueryFramework
                         SqlTaskManager taskManager = server.getTaskManager();
                         List<TaskInfo> taskInfos = taskManager.getAllTaskInfo();
                         for (TaskInfo taskInfo : taskInfos) {
-                            TaskId taskId = taskInfo.getTaskStatus().getTaskId();
+                            TaskId taskId = taskInfo.taskStatus().getTaskId();
                             QueryId queryId = taskId.getQueryId();
-                            TaskState taskState = taskInfo.getTaskStatus().getState();
+                            TaskState taskState = taskInfo.taskStatus().getState();
                             if (!taskState.isDone()) {
                                 try {
                                     BasicQueryInfo basicQueryInfo = queryManager.getQueryInfo(queryId);
@@ -258,7 +258,7 @@ public abstract class AbstractTestQueryFramework
                             return stageDetail;
                         }
                         return stageDetail + stageInfo.getTasks().stream()
-                                .map(TaskInfo::getTaskStatus)
+                                .map(TaskInfo::taskStatus)
                                 .map(task -> {
                                     String taskDetail = format("Task %s [%s]", task.getTaskId(), task.getState());
                                     if (task.getFailures().isEmpty()) {

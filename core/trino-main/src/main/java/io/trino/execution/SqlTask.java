@@ -342,7 +342,7 @@ public class SqlTask
         long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
-            TaskStats taskStats = taskInfo.getStats();
+            TaskStats taskStats = taskInfo.stats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
             queuedPartitionedSplitsWeight = taskStats.getQueuedPartitionedSplitsWeight();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
@@ -419,7 +419,7 @@ public class SqlTask
     {
         TaskInfo finalTaskInfo = taskHolder.getFinalTaskInfo();
         if (finalTaskInfo != null) {
-            return finalTaskInfo.getStats();
+            return finalTaskInfo.stats();
         }
         SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
         if (taskExecution != null) {
@@ -434,7 +434,7 @@ public class SqlTask
     {
         TaskInfo finalTaskInfo = taskHolder.getFinalTaskInfo();
         if (finalTaskInfo != null) {
-            return finalTaskInfo.getNoMoreSplits();
+            return finalTaskInfo.noMoreSplits();
         }
         SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
         if (taskExecution != null) {
