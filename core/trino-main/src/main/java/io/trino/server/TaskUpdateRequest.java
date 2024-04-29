@@ -16,6 +16,7 @@ package io.trino.server;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.trino.SessionRepresentation;
@@ -72,7 +73,7 @@ public class TaskUpdateRequest
         this.fragment = fragment;
         this.splitAssignments = ImmutableList.copyOf(splitAssignments);
         this.outputIds = outputIds;
-        this.dynamicFilterDomains = dynamicFilterDomains;
+        this.dynamicFilterDomains = ImmutableMap.copyOf(dynamicFilterDomains);
         this.exchangeEncryptionKey = exchangeEncryptionKey;
         this.speculative = speculative;
     }
