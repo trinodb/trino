@@ -35,15 +35,15 @@ public final class SpecialForm
         extends RowExpression
 {
     private final Form form;
-    private final Type returnType;
+    private final Type type;
     private final List<RowExpression> arguments;
     private final List<ResolvedFunction> functionDependencies;
 
     @JsonCreator
-    public SpecialForm(Form form, Type returnType, List<RowExpression> arguments, List<ResolvedFunction> functionDependencies)
+    public SpecialForm(Form form, Type type, List<RowExpression> arguments, List<ResolvedFunction> functionDependencies)
     {
         this.form = requireNonNull(form, "form is null");
-        this.returnType = requireNonNull(returnType, "returnType is null");
+        this.type = requireNonNull(type, "type is null");
         this.arguments = requireNonNull(arguments, "arguments is null");
         this.functionDependencies = ImmutableList.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
     }
@@ -86,10 +86,10 @@ public final class SpecialForm
     }
 
     @Override
-    @JsonProperty("returnType")
+    @JsonProperty
     public Type getType()
     {
-        return returnType;
+        return type;
     }
 
     @JsonProperty
@@ -115,7 +115,7 @@ public final class SpecialForm
         }
         SpecialForm that = (SpecialForm) o;
         return form == that.form &&
-                Objects.equals(returnType, that.returnType) &&
+                Objects.equals(type, that.type) &&
                 Objects.equals(arguments, that.arguments) &&
                 Objects.equals(functionDependencies, that.functionDependencies);
     }
@@ -123,7 +123,7 @@ public final class SpecialForm
     @Override
     public int hashCode()
     {
-        return Objects.hash(form, returnType, arguments, functionDependencies);
+        return Objects.hash(form, type, arguments, functionDependencies);
     }
 
     @Override
