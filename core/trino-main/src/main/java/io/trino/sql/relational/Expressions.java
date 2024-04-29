@@ -60,7 +60,7 @@ public final class Expressions
                 public Void visitCall(CallExpression call, Void context)
                 {
                     builder.add(call);
-                    for (RowExpression argument : call.getArguments()) {
+                    for (RowExpression argument : call.arguments()) {
                         argument.accept(this, context);
                     }
                     return null;

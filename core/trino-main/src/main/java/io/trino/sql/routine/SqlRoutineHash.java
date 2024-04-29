@@ -196,9 +196,9 @@ public final class SqlRoutineHash
         public Void visitCall(CallExpression call, Void context)
         {
             hashClassName(call.getClass());
-            hashResolvedFunction(call.getResolvedFunction());
-            hasher.putInt(call.getArguments().size());
-            call.getArguments().forEach(this::visitRowExpression);
+            hashResolvedFunction(call.resolvedFunction());
+            hasher.putInt(call.arguments().size());
+            call.arguments().forEach(this::visitRowExpression);
             return null;
         }
 
