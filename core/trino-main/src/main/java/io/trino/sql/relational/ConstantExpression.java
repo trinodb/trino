@@ -32,7 +32,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ConstantExpression
-        extends RowExpression
+        implements RowExpression
 {
     @JsonCreator
     @DoNotCall // For JSON deserialization only

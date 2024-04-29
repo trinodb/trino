@@ -22,7 +22,7 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 public final class VariableReferenceExpression
-        extends RowExpression
+        implements RowExpression
 {
     private final String name;
     private final Type type;
