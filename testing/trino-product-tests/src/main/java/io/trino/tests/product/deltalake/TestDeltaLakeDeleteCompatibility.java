@@ -277,6 +277,31 @@ public class TestDeltaLakeDeleteCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testDeletionVectorsWithPartitionedTable()
+    {
+        String tableName = "test_deletion_vectors_partitioned_table_" + randomNameSuffix();
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "(id INT, part STRING)" +
+                "USING delta " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                "PARTITIONED BY (part)" +
+                "TBLPROPERTIES ('delta.enableDeletionVectors' = true)");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'part'), (2, 'part')");
+            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE id = 1");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(2, "part"));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(2, "part"));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeletionVectorsWithRandomPrefix()
     {
         String tableName = "test_deletion_vectors_random_prefix_" + randomNameSuffix();
