@@ -46,7 +46,7 @@ public final class InputReferenceExpression
 
     @Override
     @JsonProperty
-    public Type getType()
+    public Type type()
     {
         return type;
     }

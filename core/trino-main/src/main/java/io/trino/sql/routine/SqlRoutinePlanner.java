@@ -193,7 +193,7 @@ public final class SqlRoutinePlanner
         {
             if (node.getExpression().isPresent()) {
                 RowExpression valueExpression = toRowExpression(context, node.getExpression().get());
-                IrVariable valueVariable = new IrVariable(allVariables.size(), valueExpression.getType(), valueExpression);
+                IrVariable valueVariable = new IrVariable(allVariables.size(), valueExpression.type(), valueExpression);
 
                 IrStatement statement = node.getElseClause()
                         .map(elseClause -> block(statements(elseClause.getStatements(), context)))
@@ -203,12 +203,12 @@ public final class SqlRoutinePlanner
                     RowExpression conditionValue = toRowExpression(context, whenClause.getExpression());
 
                     RowExpression testValue = field(valueVariable.field(), valueVariable.type());
-                    if (!testValue.getType().equals(conditionValue.getType())) {
-                        ResolvedFunction castFunction = plannerContext.getMetadata().getCoercion(testValue.getType(), conditionValue.getType());
+                    if (!testValue.type().equals(conditionValue.type())) {
+                        ResolvedFunction castFunction = plannerContext.getMetadata().getCoercion(testValue.type(), conditionValue.type());
                         testValue = call(castFunction, testValue);
                     }
 
-                    ResolvedFunction equals = resolution.comparisonFunction(EQUAL, testValue.getType(), conditionValue.getType());
+                    ResolvedFunction equals = resolution.comparisonFunction(EQUAL, testValue.type(), conditionValue.type());
                     RowExpression condition = call(equals, testValue, conditionValue);
 
                     IrStatement ifTrue = block(statements(whenClause.getStatements(), context));

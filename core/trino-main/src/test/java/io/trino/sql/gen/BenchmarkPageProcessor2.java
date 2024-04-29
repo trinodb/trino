@@ -123,7 +123,7 @@ public class BenchmarkPageProcessor2
         }
 
         List<RowExpression> projections = getProjections(type);
-        types = projections.stream().map(RowExpression::getType).collect(toList());
+        types = projections.stream().map(RowExpression::type).collect(toList());
 
         FunctionManager functionManager = createTestingFunctionManager();
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);

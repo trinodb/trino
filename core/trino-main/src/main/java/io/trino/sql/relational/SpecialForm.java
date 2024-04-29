@@ -87,7 +87,7 @@ public final class SpecialForm
 
     @Override
     @JsonProperty
-    public Type getType()
+    public Type type()
     {
         return type;
     }

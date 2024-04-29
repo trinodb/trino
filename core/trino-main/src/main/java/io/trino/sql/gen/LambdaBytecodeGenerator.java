@@ -152,7 +152,7 @@ public final class LambdaBytecodeGenerator
             LambdaDefinitionExpression lambda)
     {
         checkCondition(inputParameters.size() <= 254, NOT_SUPPORTED, "Too many arguments for lambda expression");
-        Class<?> returnType = Primitives.wrap(lambda.getBody().getType().getJavaType());
+        Class<?> returnType = Primitives.wrap(lambda.getBody().type().getJavaType());
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(returnType), inputParameters);
 
         Scope scope = method.getScope();
@@ -196,7 +196,7 @@ public final class LambdaBytecodeGenerator
         // generate values to be captured
         ImmutableList.Builder<BytecodeExpression> captureVariableBuilder = ImmutableList.builder();
         for (RowExpression captureExpression : captureExpressions) {
-            Class<?> valueType = Primitives.wrap(captureExpression.getType().getJavaType());
+            Class<?> valueType = Primitives.wrap(captureExpression.type().getJavaType());
             Variable valueVariable = scope.createTempVariable(valueType);
             block.append(context.generate(captureExpression));
             block.append(boxPrimitiveIfNecessary(scope, valueType));
