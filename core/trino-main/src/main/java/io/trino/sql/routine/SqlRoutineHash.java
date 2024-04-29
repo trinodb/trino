@@ -262,7 +262,7 @@ public final class SqlRoutineHash
         public Void visitVariableReference(VariableReferenceExpression reference, Void context)
         {
             hashClassName(reference.getClass());
-            hashString(reference.getName());
+            hashString(reference.name());
             hashType(reference.type());
             return null;
         }
