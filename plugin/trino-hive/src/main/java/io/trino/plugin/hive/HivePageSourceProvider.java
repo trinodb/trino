@@ -387,7 +387,7 @@ public class HivePageSourceProvider
                 long estimatedFileSize,
                 long fileModifiedTime)
         {
-            Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
+            Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::name);
 
             // Maintain state about hive columns added to the mapping as we iterate (for validation)
             Set<Integer> baseColumnHiveIndices = new HashSet<>();

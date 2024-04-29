@@ -270,7 +270,7 @@ public class HiveSplit
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
                 + estimatedSizeOf(schema, key -> estimatedSizeOf((String) key), value -> estimatedSizeOf((String) value))
-                + estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes)
+                + estimatedSizeOf(partitionKeys, HivePartitionKey::estimatedSizeInBytes)
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
                 + estimatedSizeOf(partitionName)
                 + sizeOf(readBucketNumber)

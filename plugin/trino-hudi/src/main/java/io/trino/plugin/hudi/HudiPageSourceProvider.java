@@ -296,12 +296,12 @@ public class HudiPageSourceProvider
             List<HivePartitionKey> partitionKeys,
             TypeSignature partitionDataType)
     {
-        HivePartitionKey partitionKey = partitionKeys.stream().filter(key -> key.getName().equalsIgnoreCase(partitionColumnName)).findFirst().orElse(null);
+        HivePartitionKey partitionKey = partitionKeys.stream().filter(key -> key.name().equalsIgnoreCase(partitionColumnName)).findFirst().orElse(null);
         if (isNull(partitionKey)) {
             return Optional.empty();
         }
 
-        String partitionValue = partitionKey.getValue();
+        String partitionValue = partitionKey.value();
         String baseType = partitionDataType.getBase();
         try {
             return switch (baseType) {
@@ -334,8 +334,8 @@ public class HudiPageSourceProvider
         ImmutableList.Builder<String> partitionNames = ImmutableList.builderWithExpectedSize(partitions.size());
         ImmutableList.Builder<String> partitionValues = ImmutableList.builderWithExpectedSize(partitions.size());
         for (HivePartitionKey partition : partitions) {
-            partitionNames.add(partition.getName());
-            partitionValues.add(partition.getValue());
+            partitionNames.add(partition.name());
+            partitionValues.add(partition.value());
         }
         return makePartName(partitionNames.build(), partitionValues.build());
     }
