@@ -336,7 +336,7 @@ public final class HttpRemoteTask
 
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::fatalUnacknowledgedFailure,
-                    initialTask.getTaskStatus(),
+                    initialTask.taskStatus(),
                     taskStatusRefreshMaxWait,
                     taskStatusCodec,
                     dynamicFiltersFetcher,
@@ -663,7 +663,7 @@ public final class HttpRemoteTask
 
     private void updateTaskInfo(TaskInfo taskInfo)
     {
-        taskStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus());
+        taskStatusFetcher.updateTaskStatus(taskInfo.taskStatus());
         taskInfoFetcher.updateTaskInfo(taskInfo);
     }
 
@@ -974,7 +974,7 @@ public final class HttpRemoteTask
                 }
                 finally {
                     // if cleanup operation has not at least started task termination, mark the task failed
-                    TaskState taskState = getTaskInfo().getTaskStatus().getState();
+                    TaskState taskState = getTaskInfo().taskStatus().getState();
                     if (!taskState.isTerminatingOrDone()) {
                         fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), format("Unable to %s task at %s, last known state was: %s", action, request.getUri(), taskState)));
                     }
@@ -986,7 +986,7 @@ public final class HttpRemoteTask
             public void onFailure(Throwable t)
             {
                 // final task info has been received, no need to resend the request
-                if (getTaskInfo().getTaskStatus().getState().isDone()) {
+                if (getTaskInfo().taskStatus().getState().isDone()) {
                     return;
                 }
 
@@ -1176,7 +1176,7 @@ public final class HttpRemoteTask
                 sentDynamicFiltersVersion.set(currentRequestDynamicFiltersVersion);
                 // Remove dynamic filters which were successfully sent to free up memory
                 outboundDynamicFiltersCollector.acknowledge(currentRequestDynamicFiltersVersion);
-                sendPlan.set(value.isNeedsPlan());
+                sendPlan.set(value.needsPlan());
                 currentRequest.set(null);
                 updateStats();
                 updateErrorTracker.requestSucceeded();

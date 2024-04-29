@@ -424,7 +424,7 @@ public class ClusterMemoryManager
     private void getTaskInfos(StageInfo stageInfo, ImmutableMap.Builder<TaskId, TaskInfo> taskInfosBuilder)
     {
         for (TaskInfo taskInfo : stageInfo.getTasks()) {
-            taskInfosBuilder.put(taskInfo.getTaskStatus().getTaskId(), taskInfo);
+            taskInfosBuilder.put(taskInfo.taskStatus().getTaskId(), taskInfo);
         }
         for (StageInfo subStage : stageInfo.getSubStages()) {
             getTaskInfos(subStage, taskInfosBuilder);

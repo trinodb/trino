@@ -215,7 +215,7 @@ public class TestHttpRemoteTask
 
         remoteTask.cancel();
         poll(() -> remoteTask.getTaskStatus().getState().isDone());
-        poll(() -> remoteTask.getTaskInfo().getTaskStatus().getState().isDone());
+        poll(() -> remoteTask.getTaskInfo().taskStatus().getState().isDone());
 
         httpRemoteTaskFactory.stop();
     }
@@ -425,7 +425,7 @@ public class TestHttpRemoteTask
 
         remoteTask.cancel();
         poll(() -> remoteTask.getTaskStatus().getState().isDone());
-        poll(() -> remoteTask.getTaskInfo().getTaskStatus().getState().isDone());
+        poll(() -> remoteTask.getTaskInfo().taskStatus().getState().isDone());
 
         httpRemoteTaskFactory.stop();
     }
@@ -487,7 +487,7 @@ public class TestHttpRemoteTask
         switch (failureScenario) {
             case TASK_MISMATCH:
             case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
-                assertThat(remoteTask.getTaskInfo().getTaskStatus().getState().isDone())
+                assertThat(remoteTask.getTaskInfo().taskStatus().getState().isDone())
                         .describedAs(format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()))
                         .isTrue();
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
@@ -784,7 +784,7 @@ public class TestHttpRemoteTask
         public void setInitialTaskInfo(TaskInfo initialTaskInfo)
         {
             this.initialTaskInfo = initialTaskInfo;
-            this.initialTaskStatus = initialTaskInfo.getTaskStatus();
+            this.initialTaskStatus = initialTaskInfo.taskStatus();
             this.taskState = initialTaskStatus.getState();
             this.version = initialTaskStatus.getVersion();
             switch (failureScenario) {
@@ -841,12 +841,12 @@ public class TestHttpRemoteTask
         {
             return new TaskInfo(
                     buildTaskStatus(),
-                    initialTaskInfo.getLastHeartbeat(),
-                    initialTaskInfo.getOutputBuffers(),
-                    initialTaskInfo.getNoMoreSplits(),
-                    initialTaskInfo.getStats(),
-                    initialTaskInfo.getEstimatedMemory(),
-                    initialTaskInfo.isNeedsPlan());
+                    initialTaskInfo.lastHeartbeat(),
+                    initialTaskInfo.outputBuffers(),
+                    initialTaskInfo.noMoreSplits(),
+                    initialTaskInfo.stats(),
+                    initialTaskInfo.estimatedMemory(),
+                    initialTaskInfo.needsPlan());
         }
 
         private TaskStatus buildTaskStatus()
