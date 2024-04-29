@@ -264,7 +264,7 @@ public final class SqlToRowExpressionTranslator
             @Override
             public RowExpression visitInputReference(InputReferenceExpression reference, Void context)
             {
-                return field(reference.getField(), targetType);
+                return field(reference.field(), targetType);
             }
 
             @Override

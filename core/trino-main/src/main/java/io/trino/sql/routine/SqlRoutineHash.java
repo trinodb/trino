@@ -206,7 +206,7 @@ public final class SqlRoutineHash
         public Void visitInputReference(InputReferenceExpression reference, Void context)
         {
             hashClassName(reference.getClass());
-            hasher.putInt(reference.getField());
+            hasher.putInt(reference.field());
             hashType(reference.type());
             return null;
         }

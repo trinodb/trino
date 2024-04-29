@@ -72,7 +72,7 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitInputReference(InputReferenceExpression reference, Boolean unconditionallyEvaluated)
         {
             if (unconditionallyEvaluated) {
-                eagerlyLoadedChannels.add(reference.getField());
+                eagerlyLoadedChannels.add(reference.field());
             }
             int parameter = getParameterForField(reference);
             return field(parameter, reference.type());
@@ -80,7 +80,7 @@ public final class PageFieldsToInputParametersRewriter
 
         private Integer getParameterForField(InputReferenceExpression reference)
         {
-            return fieldToParameter.computeIfAbsent(reference.getField(), field -> {
+            return fieldToParameter.computeIfAbsent(reference.field(), field -> {
                 inputChannels.add(field);
                 return nextParameter++;
             });
