@@ -710,12 +710,12 @@ public class TestHttpRemoteTask
                 TaskUpdateRequest taskUpdateRequest,
                 @Context UriInfo uriInfo)
         {
-            for (SplitAssignment splitAssignment : taskUpdateRequest.getSplitAssignments()) {
+            for (SplitAssignment splitAssignment : taskUpdateRequest.splitAssignments()) {
                 taskSplitAssignmentMap.compute(splitAssignment.getPlanNodeId(), (planNodeId, taskSplitAssignment) -> taskSplitAssignment == null ? splitAssignment : taskSplitAssignment.update(splitAssignment));
             }
-            if (!taskUpdateRequest.getDynamicFilterDomains().isEmpty()) {
+            if (!taskUpdateRequest.dynamicFilterDomains().isEmpty()) {
                 dynamicFiltersSentCounter++;
-                latestDynamicFilterFromCoordinator = taskUpdateRequest.getDynamicFilterDomains();
+                latestDynamicFilterFromCoordinator = taskUpdateRequest.dynamicFilterDomains();
             }
             createOrUpdateCounter++;
             lastActivityNanos.set(System.nanoTime());
