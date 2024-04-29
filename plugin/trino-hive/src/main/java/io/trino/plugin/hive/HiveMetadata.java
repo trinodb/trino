@@ -1867,7 +1867,7 @@ public class HiveMetadata
                     .map(PartitionUpdate::getStatistics)
                     .map(hiveBasicStatistics -> new PartitionStatistics(hiveBasicStatistics, ImmutableMap.of()))
                     .reduce(MERGE_INCREMENTAL::updatePartitionStatistics)
-                    .map(PartitionStatistics::getBasicStatistics)
+                    .map(PartitionStatistics::basicStatistics)
                     .orElse(createZeroStatistics());
             tableStatistics = createPartitionStatistics(basicStatistics, columnTypes, getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
         }

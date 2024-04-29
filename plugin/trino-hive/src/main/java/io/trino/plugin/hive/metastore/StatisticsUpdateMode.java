@@ -45,10 +45,10 @@ public enum StatisticsUpdateMode
         @Override
         public PartitionStatistics updatePartitionStatistics(PartitionStatistics oldPartitionStats, PartitionStatistics newPartitionStats)
         {
-            Map<String, HiveColumnStatistics> allColumnStatists = new HashMap<>(oldPartitionStats.getColumnStatistics());
-            allColumnStatists.putAll(newPartitionStats.getColumnStatistics());
+            Map<String, HiveColumnStatistics> allColumnStatists = new HashMap<>(oldPartitionStats.columnStatistics());
+            allColumnStatists.putAll(newPartitionStats.columnStatistics());
 
-            return new PartitionStatistics(newPartitionStats.getBasicStatistics(), allColumnStatists);
+            return new PartitionStatistics(newPartitionStats.basicStatistics(), allColumnStatists);
         }
     },
     /**
@@ -68,7 +68,7 @@ public enum StatisticsUpdateMode
         @Override
         public PartitionStatistics updatePartitionStatistics(PartitionStatistics oldPartitionStats, PartitionStatistics newPartitionStats)
         {
-            HiveBasicStatistics newTableStatistics = reduce(oldPartitionStats.getBasicStatistics(), newPartitionStats.getBasicStatistics(), Operator.SUBTRACT);
+            HiveBasicStatistics newTableStatistics = reduce(oldPartitionStats.basicStatistics(), newPartitionStats.basicStatistics(), Operator.SUBTRACT);
             return new PartitionStatistics(newTableStatistics, ImmutableMap.of());
         }
     },
@@ -87,18 +87,18 @@ public enum StatisticsUpdateMode
 
     private static PartitionStatistics addIncrementalStatistics(PartitionStatistics existingStatistics, PartitionStatistics incrementalStatistics)
     {
-        if (existingStatistics.getBasicStatistics().getRowCount().isPresent() && existingStatistics.getBasicStatistics().getRowCount().getAsLong() == 0) {
+        if (existingStatistics.basicStatistics().getRowCount().isPresent() && existingStatistics.basicStatistics().getRowCount().getAsLong() == 0) {
             return incrementalStatistics;
         }
 
-        if (incrementalStatistics.getBasicStatistics().getRowCount().isPresent() && incrementalStatistics.getBasicStatistics().getRowCount().getAsLong() == 0) {
+        if (incrementalStatistics.basicStatistics().getRowCount().isPresent() && incrementalStatistics.basicStatistics().getRowCount().getAsLong() == 0) {
             return existingStatistics;
         }
 
-        var mergedTableStatistics = reduce(existingStatistics.getBasicStatistics(), incrementalStatistics.getBasicStatistics(), Operator.ADD);
+        var mergedTableStatistics = reduce(existingStatistics.basicStatistics(), incrementalStatistics.basicStatistics(), Operator.ADD);
 
         // only keep columns that have statistics in old and new
-        var mergedColumnStatistics = intersection(existingStatistics.getColumnStatistics().keySet(), incrementalStatistics.getColumnStatistics().keySet()).stream()
+        var mergedColumnStatistics = intersection(existingStatistics.columnStatistics().keySet(), incrementalStatistics.columnStatistics().keySet()).stream()
                 .collect(toImmutableMap(
                         column -> column,
                         column -> merge(column, existingStatistics, incrementalStatistics)));
@@ -117,8 +117,8 @@ public enum StatisticsUpdateMode
 
     private static HiveColumnStatistics merge(String column, PartitionStatistics firstStats, PartitionStatistics secondStats)
     {
-        HiveColumnStatistics first = firstStats.getColumnStatistics().get(column);
-        HiveColumnStatistics second = secondStats.getColumnStatistics().get(column);
+        HiveColumnStatistics first = firstStats.columnStatistics().get(column);
+        HiveColumnStatistics second = secondStats.columnStatistics().get(column);
 
         return new HiveColumnStatistics(
                 mergeIntegerStatistics(first.getIntegerStatistics(), second.getIntegerStatistics()),
@@ -134,8 +134,8 @@ public enum StatisticsUpdateMode
 
     private static OptionalLong mergeDistinctValueCount(String column, PartitionStatistics first, PartitionStatistics second)
     {
-        HiveColumnStatistics firstColumn = first.getColumnStatistics().get(column);
-        HiveColumnStatistics secondColumn = second.getColumnStatistics().get(column);
+        HiveColumnStatistics firstColumn = first.columnStatistics().get(column);
+        HiveColumnStatistics secondColumn = second.columnStatistics().get(column);
 
         OptionalLong firstDistinct = firstColumn.getDistinctValuesWithNullCount();
         OptionalLong secondDistinct = secondColumn.getDistinctValuesWithNullCount();
@@ -164,23 +164,23 @@ public enum StatisticsUpdateMode
 
     private static boolean isAllNull(PartitionStatistics stats, HiveColumnStatistics columnStats)
     {
-        if (stats.getBasicStatistics().getRowCount().isEmpty() || columnStats.getNullsCount().isEmpty()) {
+        if (stats.basicStatistics().getRowCount().isEmpty() || columnStats.getNullsCount().isEmpty()) {
             return false;
         }
-        return stats.getBasicStatistics().getRowCount().getAsLong() == columnStats.getNullsCount().getAsLong();
+        return stats.basicStatistics().getRowCount().getAsLong() == columnStats.getNullsCount().getAsLong();
     }
 
     private static OptionalDouble mergeAverageColumnLength(String column, PartitionStatistics first, PartitionStatistics second)
     {
         // row count is required to merge average column length
-        if (first.getBasicStatistics().getRowCount().isEmpty() || second.getBasicStatistics().getRowCount().isEmpty()) {
+        if (first.basicStatistics().getRowCount().isEmpty() || second.basicStatistics().getRowCount().isEmpty()) {
             return OptionalDouble.empty();
         }
-        long firstRowCount = first.getBasicStatistics().getRowCount().getAsLong();
-        long secondRowCount = second.getBasicStatistics().getRowCount().getAsLong();
+        long firstRowCount = first.basicStatistics().getRowCount().getAsLong();
+        long secondRowCount = second.basicStatistics().getRowCount().getAsLong();
 
-        HiveColumnStatistics firstColumn = first.getColumnStatistics().get(column);
-        HiveColumnStatistics secondColumn = second.getColumnStatistics().get(column);
+        HiveColumnStatistics firstColumn = first.columnStatistics().get(column);
+        HiveColumnStatistics secondColumn = second.columnStatistics().get(column);
 
         // if one column is entirely null, return the average column length of the other column
         if (firstRowCount == firstColumn.getNullsCount().orElse(0)) {
