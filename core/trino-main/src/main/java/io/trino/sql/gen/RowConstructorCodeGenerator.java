@@ -55,7 +55,7 @@ public class RowConstructorCodeGenerator
     {
         requireNonNull(specialForm, "specialForm is null");
         rowType = specialForm.type();
-        arguments = specialForm.getArguments();
+        arguments = specialForm.arguments();
     }
 
     @Override

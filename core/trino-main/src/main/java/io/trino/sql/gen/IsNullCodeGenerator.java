@@ -33,8 +33,8 @@ public class IsNullCodeGenerator
     public IsNullCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        checkArgument(specialForm.getArguments().size() == 1);
-        argument = specialForm.getArguments().get(0);
+        checkArgument(specialForm.arguments().size() == 1);
+        argument = specialForm.arguments().get(0);
     }
 
     @Override

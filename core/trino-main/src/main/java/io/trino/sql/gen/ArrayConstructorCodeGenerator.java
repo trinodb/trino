@@ -42,7 +42,7 @@ public class ArrayConstructorCodeGenerator
     public ArrayConstructorCodeGenerator(SpecialForm specialForm)
     {
         elementType = ((ArrayType) specialForm.type()).getElementType();
-        elements = specialForm.getArguments();
+        elements = specialForm.arguments();
     }
 
     @Override

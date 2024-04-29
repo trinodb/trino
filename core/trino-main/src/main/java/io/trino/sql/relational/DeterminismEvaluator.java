@@ -54,7 +54,7 @@ public final class DeterminismEvaluator
         @Override
         public Boolean visitSpecialForm(SpecialForm specialForm, Void context)
         {
-            return specialForm.getArguments().stream()
+            return specialForm.arguments().stream()
                     .allMatch(expression -> expression.accept(this, context));
         }
 

@@ -70,7 +70,7 @@ public final class Expressions
                 public Void visitSpecialForm(SpecialForm specialForm, Void context)
                 {
                     builder.add(specialForm);
-                    for (RowExpression argument : specialForm.getArguments()) {
+                    for (RowExpression argument : specialForm.arguments()) {
                         argument.accept(this, context);
                     }
                     return null;

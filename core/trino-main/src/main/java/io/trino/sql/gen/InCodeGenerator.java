@@ -68,11 +68,11 @@ public class InCodeGenerator
 
     public InCodeGenerator(SpecialForm specialForm)
     {
-        checkArgument(specialForm.getArguments().size() >= 2, "At least two arguments are required");
-        valueExpression = specialForm.getArguments().get(0);
-        testExpressions = specialForm.getArguments().subList(1, specialForm.getArguments().size());
+        checkArgument(specialForm.arguments().size() >= 2, "At least two arguments are required");
+        valueExpression = specialForm.arguments().get(0);
+        testExpressions = specialForm.arguments().subList(1, specialForm.arguments().size());
 
-        checkArgument(specialForm.getFunctionDependencies().size() == 3);
+        checkArgument(specialForm.functionDependencies().size() == 3);
         resolvedEqualsFunction = specialForm.getOperatorDependency(EQUAL);
         resolvedHashCodeFunction = specialForm.getOperatorDependency(HASH_CODE);
         resolvedIsIndeterminate = specialForm.getOperatorDependency(INDETERMINATE);

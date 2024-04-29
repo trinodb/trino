@@ -273,13 +273,13 @@ public final class SqlRoutineHash
             hashClassName(specialForm.getClass());
 
             hashType(specialForm.type());
-            hasher.putInt(specialForm.getForm().ordinal());
+            hasher.putInt(specialForm.form().ordinal());
 
-            hasher.putInt(specialForm.getArguments().size());
-            specialForm.getArguments().forEach(this::visitRowExpression);
+            hasher.putInt(specialForm.arguments().size());
+            specialForm.arguments().forEach(this::visitRowExpression);
 
-            hasher.putInt(specialForm.getFunctionDependencies().size());
-            specialForm.getFunctionDependencies().forEach(this::hashResolvedFunction);
+            hasher.putInt(specialForm.functionDependencies().size());
+            specialForm.functionDependencies().forEach(this::hashResolvedFunction);
 
             return null;
         }

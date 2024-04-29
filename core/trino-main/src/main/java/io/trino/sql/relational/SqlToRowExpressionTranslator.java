@@ -258,7 +258,7 @@ public final class SqlToRowExpressionTranslator
             @Override
             public RowExpression visitSpecialForm(SpecialForm specialForm, Void context)
             {
-                return new SpecialForm(specialForm.getForm(), targetType, specialForm.getArguments(), specialForm.getFunctionDependencies());
+                return new SpecialForm(specialForm.form(), targetType, specialForm.arguments(), specialForm.functionDependencies());
             }
 
             @Override
