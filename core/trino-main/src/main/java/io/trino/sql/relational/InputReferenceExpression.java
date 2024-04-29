@@ -22,7 +22,7 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 public final class InputReferenceExpression
-        extends RowExpression
+        implements RowExpression
 {
     private final int field;
     private final Type type;

@@ -32,7 +32,7 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static java.util.Objects.requireNonNull;
 
 public final class SpecialForm
-        extends RowExpression
+        implements RowExpression
 {
     private final Form form;
     private final Type type;

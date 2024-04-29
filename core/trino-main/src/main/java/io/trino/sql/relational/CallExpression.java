@@ -26,7 +26,7 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 public final class CallExpression
-        extends RowExpression
+        implements RowExpression
 {
     private final ResolvedFunction resolvedFunction;
     private final List<RowExpression> arguments;
