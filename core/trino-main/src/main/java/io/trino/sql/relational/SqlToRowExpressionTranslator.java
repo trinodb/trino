@@ -192,7 +192,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression function = process(node.function(), context);
             argumentsBuilder.add(function);
 
-            return new SpecialForm(BIND, ((Expression) node).type(), argumentsBuilder.build());
+            return new SpecialForm(BIND, ((Expression) node).type(), argumentsBuilder.build(), ImmutableList.of());
         }
 
         @Override
@@ -208,7 +208,8 @@ public final class SqlToRowExpressionTranslator
                     BOOLEAN,
                     node.terms().stream()
                             .map(term -> process(term, context))
-                            .collect(toImmutableList()));
+                            .collect(toImmutableList()),
+                    ImmutableList.of());
         }
 
         @Override
@@ -292,7 +293,7 @@ public final class SqlToRowExpressionTranslator
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
 
-            return new SpecialForm(COALESCE, ((Expression) node).type(), arguments);
+            return new SpecialForm(COALESCE, ((Expression) node).type(), arguments, ImmutableList.of());
         }
 
         @Override
@@ -313,8 +314,8 @@ public final class SqlToRowExpressionTranslator
                 arguments.add(new SpecialForm(
                         WHEN,
                         clause.getResult().type(),
-                        operand,
-                        result));
+                        ImmutableList.of(operand, result),
+                        ImmutableList.of()));
             }
 
             Type returnType = ((Expression) node).type();
@@ -353,9 +354,11 @@ public final class SqlToRowExpressionTranslator
                 expression = new SpecialForm(
                         IF,
                         ((Expression) node).type(),
-                        process(clause.getOperand(), context),
-                        process(clause.getResult(), context),
-                        expression);
+                        ImmutableList.of(
+                                process(clause.getOperand(), context),
+                                process(clause.getResult(), context),
+                                expression),
+                        ImmutableList.of());
             }
 
             return expression;
@@ -385,7 +388,7 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression expression = process(node.value(), context);
 
-            return new SpecialForm(IS_NULL, BOOLEAN, expression);
+            return new SpecialForm(IS_NULL, BOOLEAN, ImmutableList.of(expression), ImmutableList.of());
         }
 
         @Override
@@ -442,7 +445,7 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitFieldReference(FieldReference node, Void context)
         {
             RowExpression base = process(node.base(), context);
-            return new SpecialForm(DEREFERENCE, node.type(), base, constant((long) node.field(), INTEGER));
+            return new SpecialForm(DEREFERENCE, node.type(), ImmutableList.of(base, constant((long) node.field(), INTEGER)), ImmutableList.of());
         }
 
         @Override
@@ -452,7 +455,7 @@ public final class SqlToRowExpressionTranslator
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
             Type returnType = ((Expression) node).type();
-            return new SpecialForm(ROW_CONSTRUCTOR, returnType, arguments);
+            return new SpecialForm(ROW_CONSTRUCTOR, returnType, arguments, ImmutableList.of());
         }
 
         @Override
@@ -463,7 +466,8 @@ public final class SqlToRowExpressionTranslator
                     node.type(),
                     node.elements().stream()
                             .map(value -> process(value, context))
-                            .collect(toImmutableList()));
+                            .collect(toImmutableList()),
+                    ImmutableList.of());
         }
     }
 }
