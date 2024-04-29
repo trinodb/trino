@@ -331,7 +331,7 @@ public final class ThriftMetastoreUtil
     public static io.trino.hive.thrift.metastore.Partition toMetastoreApiPartition(PartitionWithStatistics partitionWithStatistics)
     {
         io.trino.hive.thrift.metastore.Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
-        partition.setParameters(updateStatisticsParameters(partition.getParameters(), partitionWithStatistics.getStatistics().getBasicStatistics()));
+        partition.setParameters(updateStatisticsParameters(partition.getParameters(), partitionWithStatistics.getStatistics().basicStatistics()));
         return partition;
     }
 

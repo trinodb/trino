@@ -14,79 +14,28 @@
 
 package io.trino.plugin.hive;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
-import com.google.errorprone.annotations.Immutable;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 
 import java.util.Map;
-import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
-public class PartitionStatistics
+public record PartitionStatistics(
+        HiveBasicStatistics basicStatistics,
+        Map<String, HiveColumnStatistics> columnStatistics)
 {
     private static final PartitionStatistics EMPTY = new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of());
-
-    private final HiveBasicStatistics basicStatistics;
-    private final Map<String, HiveColumnStatistics> columnStatistics;
 
     public static PartitionStatistics empty()
     {
         return EMPTY;
     }
 
-    @JsonCreator
-    public PartitionStatistics(
-            @JsonProperty("basicStatistics") HiveBasicStatistics basicStatistics,
-            @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
+    public PartitionStatistics
     {
-        this.basicStatistics = requireNonNull(basicStatistics, "basicStatistics is null");
-        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics cannot be null"));
-    }
-
-    @JsonProperty
-    public HiveBasicStatistics getBasicStatistics()
-    {
-        return basicStatistics;
-    }
-
-    @JsonProperty
-    public Map<String, HiveColumnStatistics> getColumnStatistics()
-    {
-        return columnStatistics;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        PartitionStatistics that = (PartitionStatistics) o;
-        return Objects.equals(basicStatistics, that.basicStatistics) &&
-                Objects.equals(columnStatistics, that.columnStatistics);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(basicStatistics, columnStatistics);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("basicStatistics", basicStatistics)
-                .add("columnStatistics", columnStatistics)
-                .toString();
+        requireNonNull(basicStatistics, "basicStatistics is null");
+        columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics cannot be null"));
     }
 
     public static Builder builder()

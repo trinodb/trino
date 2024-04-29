@@ -495,8 +495,8 @@ public class FileHiveMetastore
         PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, statisticsUpdate);
 
         TableMetadata updatedMetadata = tableMetadata
-                .withParameters(currentVersion, updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
-                .withColumnStatistics(currentVersion, fromHiveColumnStats(updatedStatistics.getColumnStatistics()));
+                .withParameters(currentVersion, updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.basicStatistics()))
+                .withColumnStatistics(currentVersion, fromHiveColumnStats(updatedStatistics.columnStatistics()));
 
         writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, updatedMetadata, true);
     }
@@ -513,8 +513,8 @@ public class FileHiveMetastore
             PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, partitionUpdate);
 
             PartitionMetadata updatedMetadata = partitionMetadata
-                    .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
-                    .withColumnStatistics(fromHiveColumnStats(updatedStatistics.getColumnStatistics()));
+                    .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.basicStatistics()))
+                    .withColumnStatistics(fromHiveColumnStats(updatedStatistics.columnStatistics()));
 
             writeSchemaFile(PARTITION, partitionDirectory, partitionCodec, updatedMetadata, true);
         });

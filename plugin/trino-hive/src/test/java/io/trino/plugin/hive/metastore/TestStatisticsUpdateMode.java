@@ -272,7 +272,7 @@ class TestStatisticsUpdateMode
         PartitionStatistics secondStats = new PartitionStatistics(
                 new HiveBasicStatistics(1, 1, 0, 0),
                 Map.of("column_name", HiveColumnStatistics.builder().setAverageColumnLength(OptionalDouble.of(13)).build()));
-        assertThat(MERGE_INCREMENTAL.updatePartitionStatistics(firstStats, secondStats).getColumnStatistics().get("column_name").getAverageColumnLength()).hasValue(3.0);
+        assertThat(MERGE_INCREMENTAL.updatePartitionStatistics(firstStats, secondStats).columnStatistics().get("column_name").getAverageColumnLength()).hasValue(3.0);
     }
 
     @Test
@@ -362,7 +362,7 @@ class TestStatisticsUpdateMode
     private static HiveBasicStatistics merge(StatisticsUpdateMode mode, HiveBasicStatistics first, HiveBasicStatistics second)
     {
         return mode.updatePartitionStatistics(new PartitionStatistics(first, ImmutableMap.of()), new PartitionStatistics(second, ImmutableMap.of()))
-                .getBasicStatistics();
+                .basicStatistics();
     }
 
     private static HiveColumnStatistics merge(StatisticsUpdateMode mode, HiveColumnStatistics first, HiveColumnStatistics second)
@@ -374,6 +374,6 @@ class TestStatisticsUpdateMode
     private static Map<String, HiveColumnStatistics> merge(StatisticsUpdateMode mode, Map<String, HiveColumnStatistics> first, Map<String, HiveColumnStatistics> second)
     {
         return mode.updatePartitionStatistics(new PartitionStatistics(ONE_ROW, first), new PartitionStatistics(ONE_ROW, second))
-                .getColumnStatistics();
+                .columnStatistics();
     }
 }
