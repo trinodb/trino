@@ -94,7 +94,7 @@ public final class Expressions
                 public Void visitLambda(LambdaDefinitionExpression lambda, Void context)
                 {
                     builder.add(lambda);
-                    lambda.getBody().accept(this, context);
+                    lambda.body().accept(this, context);
                     return null;
                 }
 
