@@ -292,14 +292,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected abstract String bucketUrl();
 
     @Test
-    public void testCharTypeIsNotSupported()
-    {
-        String tableName = "test_char_type_not_supported" + randomNameSuffix();
-        assertQueryFails("CREATE TABLE " + tableName + " (a int, b CHAR(5)) WITH (location = '" + getLocationForTable(bucketName, tableName) + "')",
-                "Unsupported type: char\\(5\\)");
-    }
-
-    @Test
     public void testCreateTableInNonexistentSchemaFails()
     {
         String tableName = "test_create_table_in_nonexistent_schema_" + randomNameSuffix();
