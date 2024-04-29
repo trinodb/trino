@@ -270,7 +270,7 @@ public final class SqlToRowExpressionTranslator
             @Override
             public RowExpression visitConstant(ConstantExpression literal, Void context)
             {
-                return constant(literal.getValue(), targetType);
+                return constant(literal.value(), targetType);
             }
 
             @Override

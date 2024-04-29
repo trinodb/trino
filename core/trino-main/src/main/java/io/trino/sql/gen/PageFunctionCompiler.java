@@ -188,7 +188,7 @@ public class PageFunctionCompiler
         }
 
         if (projection instanceof ConstantExpression constant) {
-            ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.getValue(), constant.type());
+            ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.value(), constant.type());
             return () -> projectionFunction;
         }
 

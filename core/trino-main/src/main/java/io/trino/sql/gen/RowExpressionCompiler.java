@@ -124,7 +124,7 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitConstant(ConstantExpression constant, Context context)
         {
-            Object value = constant.getValue();
+            Object value = constant.value();
             Class<?> javaType = constant.type().getJavaType();
 
             BytecodeBlock block = new BytecodeBlock();

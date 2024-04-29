@@ -104,7 +104,7 @@ public class InCodeGenerator
             if (!(expression instanceof ConstantExpression constantExpression)) {
                 continue;
             }
-            Object constant = constantExpression.getValue();
+            Object constant = constantExpression.value();
             if (constant == null) {
                 continue;
             }
@@ -137,7 +137,7 @@ public class InCodeGenerator
 
             if (isDeterminateConstant(testValue, indeterminateMethodHandle)) {
                 ConstantExpression constant = (ConstantExpression) testValue;
-                Object object = constant.getValue();
+                Object object = constant.value();
                 switch (switchGenerationCase) {
                     case DIRECT_SWITCH:
                     case SET_CONTAINS:
@@ -368,7 +368,7 @@ public class InCodeGenerator
         if (!(expression instanceof ConstantExpression constantExpression)) {
             return false;
         }
-        Object value = constantExpression.getValue();
+        Object value = constantExpression.value();
         if (value == null) {
             return false;
         }

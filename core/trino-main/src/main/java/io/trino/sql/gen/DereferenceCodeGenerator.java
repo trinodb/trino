@@ -45,7 +45,7 @@ public class DereferenceCodeGenerator
         returnType = specialForm.type();
         checkArgument(specialForm.arguments().size() == 2);
         base = specialForm.arguments().get(0);
-        index = toIntExact((long) ((ConstantExpression) specialForm.arguments().get(1)).getValue());
+        index = toIntExact((long) ((ConstantExpression) specialForm.arguments().get(1)).value());
     }
 
     @Override
