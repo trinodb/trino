@@ -64,12 +64,7 @@ public class SnowflakeClientModule
         snowflakeConfig.getRole().ifPresent(role -> properties.setProperty("role", role));
         snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.setProperty("warehouse", warehouse));
 
-        // Set the expected date/time formatting we expect for our plugin to parse
-        properties.setProperty("TIMESTAMP_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
-        properties.setProperty("TIMESTAMP_NTZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
-        properties.setProperty("TIMESTAMP_TZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
-        properties.setProperty("TIMESTAMP_LTZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
-        properties.setProperty("TIME_OUTPUT_FORMAT", "HH24:MI:SS.FF9");
+        setOutputProperties(properties);
 
         // Support for Corporate proxies
         if (snowflakeConfig.getHttpProxy().isPresent()) {
@@ -99,5 +94,17 @@ public class SnowflakeClientModule
                 .setConnectionProperties(properties)
                 .setOpenTelemetry(openTelemetry)
                 .build();
+    }
+
+    protected static void setOutputProperties(Properties properties)
+    {
+        // Set the expected date/time formatting we expect for our plugin to parse
+        properties.setProperty("TIMESTAMP_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIMESTAMP_NTZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIMESTAMP_TZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIMESTAMP_LTZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIME_OUTPUT_FORMAT", "HH24:MI:SS.FF9");
+        // Don't treat decimals as bigints as they may overflow
+        properties.setProperty("JDBC_TREAT_DECIMAL_AS_INT", "FALSE");
     }
 }

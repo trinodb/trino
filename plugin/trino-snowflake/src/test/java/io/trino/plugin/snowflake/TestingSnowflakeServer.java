@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
+import static io.trino.plugin.snowflake.SnowflakeClientModule.setOutputProperties;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
 public final class TestingSnowflakeServer
@@ -60,6 +61,7 @@ public final class TestingSnowflakeServer
         properties.setProperty("schema", TEST_SCHEMA);
         properties.setProperty("warehouse", TEST_WAREHOUSE);
         properties.setProperty("role", TEST_ROLE);
+        setOutputProperties(properties);
         return properties;
     }
 }
