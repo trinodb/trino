@@ -2056,14 +2056,14 @@ public class HiveMetadata
                 .collect(toImmutableList());
 
         List<PartitionUpdate> partitionUpdates = partitionMergeResults.stream()
-                .map(PartitionUpdateAndMergeResults::getPartitionUpdate)
+                .map(PartitionUpdateAndMergeResults::partitionUpdate)
                 .collect(toImmutableList());
 
         Table table = finishChangingTable(AcidOperation.MERGE, "merge", session, insertHandle, partitionUpdates, computedStatistics);
 
         for (PartitionUpdateAndMergeResults results : partitionMergeResults) {
-            results.getDeltaDirectory().ifPresent(directory -> createOrcAcidVersionFile(session.getIdentity(), directory));
-            results.getDeleteDeltaDirectory().ifPresent(directory -> createOrcAcidVersionFile(session.getIdentity(), directory));
+            results.deltaDirectory().ifPresent(directory -> createOrcAcidVersionFile(session.getIdentity(), directory));
+            results.deleteDeltaDirectory().ifPresent(directory -> createOrcAcidVersionFile(session.getIdentity(), directory));
         }
 
         List<Partition> partitions = partitionUpdates.stream()
