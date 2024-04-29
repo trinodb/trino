@@ -69,6 +69,7 @@ public class HttpLocationFactory
         return uriBuilderFrom(node.getInternalUri())
                 .appendPath("/v1/task")
                 .appendPath(taskId.toString())
+                .addParameter("instanceId", node.getInstanceId())
                 .build();
     }
 

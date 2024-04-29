@@ -59,6 +59,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>http-server</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 

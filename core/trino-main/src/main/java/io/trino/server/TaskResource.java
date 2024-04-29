@@ -34,6 +34,7 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.connector.CatalogHandle;
@@ -96,6 +97,7 @@ public class TaskResource
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
+    private final String nodeInstanceId;
     private final SqlTaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final Executor responseExecutor;
@@ -106,12 +108,14 @@ public class TaskResource
 
     @Inject
     public TaskResource(
+            InternalNodeManager nodeManager,
             SqlTaskManager taskManager,
             SessionPropertyManager sessionPropertyManager,
             @ForAsyncHttp BoundedExecutor responseExecutor,
             @ForAsyncHttp ScheduledExecutorService timeoutExecutor,
             FailureInjector failureInjector)
     {
+        this.nodeInstanceId = nodeManager.getCurrentNode().getInstanceId();
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
@@ -138,11 +142,15 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public void createOrUpdateTask(
             @PathParam("taskId") TaskId taskId,
+            @QueryParam("instanceId") String expectedInstanceId,
             TaskUpdateRequest taskUpdateRequest,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
+        if (failRequestIfInvalid(expectedInstanceId, asyncResponse)) {
+            return;
+        }
 
         Session session = taskUpdateRequest.session().toSession(sessionPropertyManager, taskUpdateRequest.extraCredentials(), taskUpdateRequest.exchangeEncryptionKey());
 
@@ -173,12 +181,16 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public void getTaskInfo(
             @PathParam("taskId") TaskId taskId,
+            @QueryParam("instanceId") String expectedInstanceId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
+        if (failRequestIfInvalid(expectedInstanceId, asyncResponse)) {
+            return;
+        }
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_TASK_INFO, asyncResponse)) {
             return;
@@ -219,11 +231,15 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public void getTaskStatus(
             @PathParam("taskId") TaskId taskId,
+            @QueryParam("instanceId") String expectedInstanceId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
+        if (failRequestIfInvalid(expectedInstanceId, asyncResponse)) {
+            return;
+        }
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_TASK_STATUS, asyncResponse)) {
             return;
@@ -260,11 +276,15 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public void acknowledgeAndGetNewDynamicFilterDomains(
             @PathParam("taskId") TaskId taskId,
+            @QueryParam("instanceId") String expectedInstanceId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
+        if (failRequestIfInvalid(expectedInstanceId, asyncResponse)) {
+            return;
+        }
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS, asyncResponse)) {
             return;
@@ -395,6 +415,18 @@ public class TaskResource
     public void pruneCatalogs(Set<CatalogHandle> catalogHandles)
     {
         taskManager.pruneCatalogs(catalogHandles);
+    }
+
+    private boolean failRequestIfInvalid(String expectedInstanceId, AsyncResponse asyncResponse)
+    {
+        if (!nodeInstanceId.equals(expectedInstanceId)) {
+            asyncResponse.resume(Response.status(Status.BAD_REQUEST)
+                    .type(MediaType.TEXT_PLAIN_TYPE)
+                    .entity("Node instance ID in the request [%s] does not match this node instance ID [%s]. This may indicate a late request targeted for a previously running node with same IP address.".formatted(expectedInstanceId, nodeInstanceId))
+                    .build());
+            return true;
+        }
+        return false;
     }
 
     private boolean injectFailure(
