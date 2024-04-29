@@ -266,8 +266,8 @@ public class DeltaLakePageSourceProvider
                 return Optional.empty();
             }
 
-            List<DeltaLakeColumnHandle> requiredColumns = ImmutableList.<DeltaLakeColumnHandle>builderWithExpectedSize(deltaLakeColumns.size() + 1)
-                    .addAll(deltaLakeColumns)
+            List<DeltaLakeColumnHandle> requiredColumns = ImmutableList.<DeltaLakeColumnHandle>builderWithExpectedSize(regularColumns.size() + 1)
+                    .addAll(regularColumns)
                     .add(rowPositionColumnHandle())
                     .build();
             PositionDeleteFilter deleteFilter = readDeletes(fileSystem, Location.of(table.location()), split.getDeletionVector().get());
