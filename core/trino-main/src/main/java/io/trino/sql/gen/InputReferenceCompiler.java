@@ -65,7 +65,7 @@ class InputReferenceCompiler
     @Override
     public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
     {
-        int field = node.getField();
+        int field = node.field();
         Type type = node.type();
 
         BytecodeExpression block = blockResolver.apply(scope, field);

@@ -183,7 +183,7 @@ public class PageFunctionCompiler
         requireNonNull(projection, "projection is null");
 
         if (projection instanceof InputReferenceExpression input) {
-            InputPageProjection projectionFunction = new InputPageProjection(input.getField(), input.type());
+            InputPageProjection projectionFunction = new InputPageProjection(input.field(), input.type());
             return () -> projectionFunction;
         }
 
@@ -614,7 +614,7 @@ public class PageFunctionCompiler
         TreeSet<Integer> channels = new TreeSet<>();
         for (RowExpression expression : Expressions.subExpressions(expressions)) {
             if (expression instanceof InputReferenceExpression) {
-                channels.add(((InputReferenceExpression) expression).getField());
+                channels.add(((InputReferenceExpression) expression).field());
             }
         }
         return ImmutableList.copyOf(channels);
