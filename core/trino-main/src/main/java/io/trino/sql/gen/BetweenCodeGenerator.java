@@ -46,13 +46,13 @@ public class BetweenCodeGenerator
     public BetweenCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        List<RowExpression> arguments = specialForm.getArguments();
+        List<RowExpression> arguments = specialForm.arguments();
         checkArgument(arguments.size() == 3);
         value = arguments.get(0);
         min = arguments.get(1);
         max = arguments.get(2);
 
-        checkArgument(specialForm.getFunctionDependencies().size() == 1);
+        checkArgument(specialForm.functionDependencies().size() == 1);
         lessThanOrEqual = specialForm.getOperatorDependency(LESS_THAN_OR_EQUAL);
     }
 

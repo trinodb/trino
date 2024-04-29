@@ -61,7 +61,7 @@ public final class LambdaExpressionExtractor
         @Override
         public Void visitSpecialForm(SpecialForm specialForm, Context context)
         {
-            for (RowExpression rowExpression : specialForm.getArguments()) {
+            for (RowExpression rowExpression : specialForm.arguments()) {
                 rowExpression.accept(this, context);
             }
 

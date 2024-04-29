@@ -94,7 +94,7 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitSpecialForm(SpecialForm specialForm, Context context)
         {
-            BytecodeGenerator generator = switch (specialForm.getForm()) {
+            BytecodeGenerator generator = switch (specialForm.form()) {
                 case IF -> new IfCodeGenerator(specialForm);
                 case NULL_IF -> new NullIfCodeGenerator(specialForm);
                 case SWITCH -> new SwitchCodeGenerator(specialForm);
@@ -108,7 +108,7 @@ public class RowExpressionCompiler
                 case ROW_CONSTRUCTOR -> new RowConstructorCodeGenerator(specialForm);
                 case ARRAY_CONSTRUCTOR -> new ArrayConstructorCodeGenerator(specialForm);
                 case BIND -> new BindCodeGenerator(specialForm, compiledLambdaMap, context.getLambdaInterface().get());
-                default -> throw new IllegalStateException("Cannot compile special form: " + specialForm.getForm());
+                default -> throw new IllegalStateException("Cannot compile special form: " + specialForm.form());
             };
 
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(

@@ -13,8 +13,6 @@
  */
 package io.trino.sql.relational;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
@@ -23,7 +21,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
@@ -31,33 +28,19 @@ import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.function.OperatorType.CAST;
 import static java.util.Objects.requireNonNull;
 
-public final class SpecialForm
+public record SpecialForm(
+        io.trino.sql.relational.SpecialForm.Form form,
+        Type type,
+        List<RowExpression> arguments,
+        List<ResolvedFunction> functionDependencies)
         implements RowExpression
 {
-    private final Form form;
-    private final Type type;
-    private final List<RowExpression> arguments;
-    private final List<ResolvedFunction> functionDependencies;
-
-    @JsonCreator
-    public SpecialForm(Form form, Type type, List<RowExpression> arguments, List<ResolvedFunction> functionDependencies)
+    public SpecialForm
     {
-        this.form = requireNonNull(form, "form is null");
-        this.type = requireNonNull(type, "type is null");
-        this.arguments = requireNonNull(arguments, "arguments is null");
-        this.functionDependencies = ImmutableList.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
-    }
-
-    @JsonProperty
-    public Form getForm()
-    {
-        return form;
-    }
-
-    @JsonProperty
-    public List<ResolvedFunction> getFunctionDependencies()
-    {
-        return functionDependencies;
+        requireNonNull(form, "form is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(arguments, "arguments is null");
+        functionDependencies = ImmutableList.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
     }
 
     public ResolvedFunction getOperatorDependency(OperatorType operator)
@@ -86,44 +69,9 @@ public final class SpecialForm
     }
 
     @Override
-    @JsonProperty
-    public Type type()
-    {
-        return type;
-    }
-
-    @JsonProperty
-    public List<RowExpression> getArguments()
-    {
-        return arguments;
-    }
-
-    @Override
     public String toString()
     {
         return form.name() + "(" + Joiner.on(", ").join(arguments) + ")";
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SpecialForm that = (SpecialForm) o;
-        return form == that.form &&
-                Objects.equals(type, that.type) &&
-                Objects.equals(arguments, that.arguments) &&
-                Objects.equals(functionDependencies, that.functionDependencies);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(form, type, arguments, functionDependencies);
     }
 
     @Override
