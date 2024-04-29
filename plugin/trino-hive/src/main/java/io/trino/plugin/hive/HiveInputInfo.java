@@ -13,68 +13,21 @@
  */
 package io.trino.plugin.hive;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class HiveInputInfo
+public record HiveInputInfo(
+        List<String> partitionIds,
+        boolean partitioned,
+        Optional<String> tableDefaultFileFormat)
 {
-    private final List<String> partitionIds;
-    private final boolean partitioned;
-    private final Optional<String> tableDefaultFileFormat;
-
-    @JsonCreator
-    public HiveInputInfo(
-            @JsonProperty("partitionIds") List<String> partitionIds,
-            @JsonProperty("partitioned") boolean partitioned,
-            @JsonProperty("tableDefaultFileFormat") Optional<String> tableDefaultFileFormat)
+    public HiveInputInfo
     {
-        this.partitionIds = requireNonNull(partitionIds, "partitionIds is null");
-        this.partitioned = partitioned;
-        this.tableDefaultFileFormat = requireNonNull(tableDefaultFileFormat, "tableDefaultFileFormat is null");
-    }
-
-    @JsonProperty
-    public List<String> getPartitionIds()
-    {
-        return partitionIds;
-    }
-
-    @JsonProperty
-    public boolean isPartitioned()
-    {
-        return partitioned;
-    }
-
-    @JsonProperty
-    public Optional<String> getTableDefaultFileFormat()
-    {
-        return tableDefaultFileFormat;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof HiveInputInfo)) {
-            return false;
-        }
-        HiveInputInfo that = (HiveInputInfo) o;
-        return partitionIds.equals(that.partitionIds)
-                && partitioned == that.partitioned
-                && tableDefaultFileFormat.equals(that.tableDefaultFileFormat);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(partitionIds, partitioned, tableDefaultFileFormat);
+        partitionIds = ImmutableList.copyOf(requireNonNull(partitionIds, "partitionIds is null"));
+        requireNonNull(tableDefaultFileFormat, "tableDefaultFileFormat is null");
     }
 }
