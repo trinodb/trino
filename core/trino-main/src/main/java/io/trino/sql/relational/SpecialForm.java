@@ -44,15 +44,12 @@ public final class SpecialForm
         this(form, returnType, ImmutableList.copyOf(arguments));
     }
 
-    @JsonCreator
-    public SpecialForm(
-            @JsonProperty Form form,
-            @JsonProperty Type returnType,
-            @JsonProperty List<RowExpression> arguments)
+    public SpecialForm(Form form, Type returnType, List<RowExpression> arguments)
     {
         this(form, returnType, arguments, ImmutableList.of());
     }
 
+    @JsonCreator
     public SpecialForm(Form form, Type returnType, List<RowExpression> arguments, List<ResolvedFunction> functionDependencies)
     {
         this.form = requireNonNull(form, "form is null");
@@ -67,6 +64,7 @@ public final class SpecialForm
         return form;
     }
 
+    @JsonProperty
     public List<ResolvedFunction> getFunctionDependencies()
     {
         return functionDependencies;
