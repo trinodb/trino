@@ -456,7 +456,7 @@ public final class SqlRoutineCompiler
         private BytecodeNode compile(RowExpression expression, Scope scope)
         {
             if (expression instanceof InputReferenceExpression input) {
-                return scope.getVariable(name(input.getField()));
+                return scope.getVariable(name(input.field()));
             }
 
             RowExpressionCompiler rowExpressionCompiler = new RowExpressionCompiler(
@@ -534,7 +534,7 @@ public final class SqlRoutineCompiler
         {
             Class<?> boxedType = wrap(node.type().getJavaType());
             return new BytecodeBlock()
-                    .append(scope.getVariable(name(node.getField())))
+                    .append(scope.getVariable(name(node.field())))
                     .append(unboxPrimitiveIfNecessary(scope, boxedType));
         }
 

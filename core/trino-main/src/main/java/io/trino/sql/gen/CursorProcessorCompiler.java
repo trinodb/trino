@@ -299,7 +299,7 @@ public class CursorProcessorCompiler
             @Override
             public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
             {
-                int field = node.getField();
+                int field = node.field();
                 Type type = node.type();
                 Variable wasNullVariable = scope.getVariable("wasNull");
 
