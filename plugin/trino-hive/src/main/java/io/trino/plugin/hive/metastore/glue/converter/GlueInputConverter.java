@@ -93,7 +93,7 @@ public final class GlueInputConverter
     {
         PartitionInput input = convertPartition(partitionWithStatistics.getPartition());
         PartitionStatistics statistics = partitionWithStatistics.getStatistics();
-        input.setParameters(updateStatisticsParameters(input.getParameters(), statistics.getBasicStatistics()));
+        input.setParameters(updateStatisticsParameters(input.getParameters(), statistics.basicStatistics()));
         return input;
     }
 

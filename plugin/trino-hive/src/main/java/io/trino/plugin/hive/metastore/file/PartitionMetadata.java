@@ -79,7 +79,7 @@ public class PartitionMetadata
         PartitionStatistics statistics = partitionWithStatistics.getStatistics();
 
         this.columns = partition.getColumns();
-        this.parameters = updateStatisticsParameters(partition.getParameters(), statistics.getBasicStatistics());
+        this.parameters = updateStatisticsParameters(partition.getParameters(), statistics.basicStatistics());
 
         StorageFormat tableFormat = partition.getStorage().getStorageFormat();
         storageFormat = Arrays.stream(HiveStorageFormat.values())
@@ -95,7 +95,7 @@ public class PartitionMetadata
 
         bucketProperty = partition.getStorage().getBucketProperty();
         serdeParameters = partition.getStorage().getSerdeParameters();
-        columnStatistics = statistics.getColumnStatistics().entrySet().stream()
+        columnStatistics = statistics.columnStatistics().entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> fromHiveColumnStatistics(entry.getValue())));
     }
 

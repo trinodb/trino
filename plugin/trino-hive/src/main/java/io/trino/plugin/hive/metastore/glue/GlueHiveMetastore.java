@@ -335,13 +335,13 @@ public class GlueHiveMetastore
 
         try {
             TableInput tableInput = GlueInputConverter.convertTable(table);
-            final Map<String, String> statisticsParameters = updateStatisticsParameters(table.getParameters(), updatedStatistics.getBasicStatistics());
+            final Map<String, String> statisticsParameters = updateStatisticsParameters(table.getParameters(), updatedStatistics.basicStatistics());
             tableInput.setParameters(statisticsParameters);
             table = Table.builder(table).setParameters(statisticsParameters).build();
             stats.getUpdateTable().call(() -> glueClient.updateTable(new UpdateTableRequest()
                     .withDatabaseName(databaseName)
                     .withTableInput(tableInput)));
-            columnStatisticsProvider.updateTableColumnStatistics(table, updatedStatistics.getColumnStatistics());
+            columnStatisticsProvider.updateTableColumnStatistics(table, updatedStatistics.columnStatistics());
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), e);
@@ -378,10 +378,10 @@ public class GlueHiveMetastore
             PartitionStatistics currentStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), currentColumnStats.get(partitionName));
             PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, update);
 
-            Map<String, String> updatedStatisticsParameters = updateStatisticsParameters(partition.getParameters(), updatedStatistics.getBasicStatistics());
+            Map<String, String> updatedStatisticsParameters = updateStatisticsParameters(partition.getParameters(), updatedStatistics.basicStatistics());
 
             partition = Partition.builder(partition).setParameters(updatedStatisticsParameters).build();
-            Map<String, HiveColumnStatistics> updatedColumnStatistics = updatedStatistics.getColumnStatistics();
+            Map<String, HiveColumnStatistics> updatedColumnStatistics = updatedStatistics.columnStatistics();
 
             PartitionInput partitionInput = convertPartition(partition);
             partitionInput.setParameters(partition.getParameters());
@@ -1046,7 +1046,7 @@ public class GlueHiveMetastore
                 Set<GlueColumnStatisticsProvider.PartitionStatisticsUpdate> updates = partitions.stream()
                         .map(partitionWithStatistics -> new GlueColumnStatisticsProvider.PartitionStatisticsUpdate(
                                 partitionWithStatistics.getPartition(),
-                                partitionWithStatistics.getStatistics().getColumnStatistics()))
+                                partitionWithStatistics.getStatistics().columnStatistics()))
                         .collect(toImmutableSet());
                 columnStatisticsProvider.updatePartitionStatistics(updates);
 
@@ -1112,7 +1112,7 @@ public class GlueHiveMetastore
                             .withPartitionValueList(partition.getPartition().getValues())));
             columnStatisticsProvider.updatePartitionStatistics(
                     partition.getPartition(),
-                    partition.getStatistics().getColumnStatistics());
+                    partition.getStatistics().columnStatistics());
         }
         catch (EntityNotFoundException e) {
             throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partition.getPartition().getValues(), e);

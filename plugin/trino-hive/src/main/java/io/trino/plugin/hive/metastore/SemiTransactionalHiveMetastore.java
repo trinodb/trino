@@ -380,7 +380,7 @@ public class SemiTransactionalHiveMetastore
         // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
         // used to ingest data into partitioned hive tables.
         long tableRowCount = partitionStatistics.values().stream()
-                .mapToLong(statistics -> statistics.getBasicStatistics().getRowCount().orElse(0))
+                .mapToLong(statistics -> statistics.basicStatistics().getRowCount().orElse(0))
                 .sum();
         if (tableRowCount != 0) {
             return partitionStatistics;
@@ -388,7 +388,7 @@ public class SemiTransactionalHiveMetastore
         return partitionStatistics.entrySet().stream()
                 .map(entry -> new AbstractMap.SimpleEntry<>(
                         entry.getKey(),
-                        entry.getValue().withBasicStatistics(entry.getValue().getBasicStatistics().withEmptyRowCount())))
+                        entry.getValue().withBasicStatistics(entry.getValue().basicStatistics().withEmptyRowCount())))
                 .collect(toImmutableMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
     }
 

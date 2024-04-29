@@ -409,14 +409,14 @@ public final class ThriftHiveMetastore
         PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, statisticsUpdate);
 
         Table modifiedTable = originalTable.deepCopy();
-        modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), updatedStatistics.getBasicStatistics()));
+        modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), updatedStatistics.basicStatistics()));
         if (transaction.isAcidTransactionRunning()) {
             modifiedTable.setWriteId(transaction.getWriteId());
         }
         alterTable(databaseName, tableName, modifiedTable);
 
         io.trino.plugin.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable);
-        List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet().stream()
+        List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.columnStatistics().entrySet().stream()
                 .flatMap(entry -> {
                     Optional<Column> column = table.getColumn(entry.getKey());
                     if (column.isEmpty() && isAvroTableWithSchemaSet(modifiedTable)) {
@@ -432,7 +432,7 @@ public final class ThriftHiveMetastore
         if (!metastoreColumnStatistics.isEmpty()) {
             setTableColumnStatistics(databaseName, tableName, metastoreColumnStatistics);
         }
-        Set<String> removedColumnStatistics = difference(currentStatistics.getColumnStatistics().keySet(), updatedStatistics.getColumnStatistics().keySet());
+        Set<String> removedColumnStatistics = difference(currentStatistics.columnStatistics().keySet(), updatedStatistics.columnStatistics().keySet());
         removedColumnStatistics.forEach(column -> deleteTableColumnStatistics(databaseName, tableName, column));
     }
 
@@ -525,15 +525,15 @@ public final class ThriftHiveMetastore
         PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(new PartitionStatistics(currentBasicStats, currentColumnStats), statisticsUpdate);
 
         Partition modifiedPartition = originalPartition.deepCopy();
-        HiveBasicStatistics basicStatistics = updatedStatistics.getBasicStatistics();
+        HiveBasicStatistics basicStatistics = updatedStatistics.basicStatistics();
         modifiedPartition.setParameters(updateStatisticsParameters(modifiedPartition.getParameters(), basicStatistics));
         alterPartitionWithoutStatistics(table.getDbName(), table.getTableName(), modifiedPartition);
 
         Map<String, HiveType> columns = modifiedPartition.getSd().getCols().stream()
                 .collect(toImmutableMap(FieldSchema::getName, schema -> HiveType.valueOf(schema.getType())));
-        setPartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, columns, updatedStatistics.getColumnStatistics());
+        setPartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, columns, updatedStatistics.columnStatistics());
 
-        Set<String> removedStatistics = difference(currentColumnStats.keySet(), updatedStatistics.getColumnStatistics().keySet());
+        Set<String> removedStatistics = difference(currentColumnStats.keySet(), updatedStatistics.columnStatistics().keySet());
         removedStatistics.forEach(column -> deletePartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, column));
     }
 
@@ -1175,7 +1175,7 @@ public final class ThriftHiveMetastore
     private void storePartitionColumnStatistics(String databaseName, String tableName, String partitionName, PartitionWithStatistics partitionWithStatistics)
     {
         PartitionStatistics statistics = partitionWithStatistics.getStatistics();
-        Map<String, HiveColumnStatistics> columnStatistics = statistics.getColumnStatistics();
+        Map<String, HiveColumnStatistics> columnStatistics = statistics.columnStatistics();
         if (columnStatistics.isEmpty()) {
             return;
         }
@@ -1202,7 +1202,7 @@ public final class ThriftHiveMetastore
                 .collect(toImmutableList());
 
         Set<String> columnsWithMissingStatistics = new HashSet<>(dataColumns);
-        columnsWithMissingStatistics.removeAll(partitionWithStatistics.getStatistics().getColumnStatistics().keySet());
+        columnsWithMissingStatistics.removeAll(partitionWithStatistics.getStatistics().columnStatistics().keySet());
 
         // In case new partition had the statistics computed for all the columns, the storePartitionColumnStatistics
         // call in the alterPartition will just overwrite the old statistics. There is no need to explicitly remove anything.
