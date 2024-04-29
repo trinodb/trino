@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 public final class LambdaDefinitionExpression
-        extends RowExpression
+        implements RowExpression
 {
     private final List<Symbol> arguments;
     private final RowExpression body;
