@@ -28,6 +28,9 @@ import org.neo4j.cypherdsl.core.Cypher;
 import org.neo4j.cypherdsl.core.Node;
 import org.neo4j.cypherdsl.core.Relationship;
 import org.neo4j.cypherdsl.core.Statement;
+import org.neo4j.cypherdsl.core.renderer.Configuration;
+import org.neo4j.cypherdsl.core.renderer.Dialect;
+import org.neo4j.cypherdsl.core.renderer.Renderer;
 import org.neo4j.driver.AuthToken;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
@@ -37,7 +40,6 @@ import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.Value;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,7 +50,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.neo4j.Neo4jNamedRelationHandle.TableType.NODE;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 
 public class Neo4jClient
@@ -64,6 +65,9 @@ public class Neo4jClient
 
     private final Cache<SchemaTableName, Neo4jRemoteTableName> tableNameCache;
     private final Cache<SchemaTableName, Neo4jTable> tableCache;
+
+    private Configuration rendererConfig = Configuration.newConfig().withDialect(Dialect.NEO4J_5).build();
+    private Renderer renderer = Renderer.getRenderer(rendererConfig);
 
     @Inject
     public Neo4jClient(
@@ -170,25 +174,26 @@ public class Neo4jClient
     {
         Neo4jRemoteTableName remoteTableName = this.getRemoteTableName(schemaTableName);
 
-        final Neo4jRemoteTableName.Type type = remoteTableName.getType();
+        final Neo4jRemoteTableName.Type tableType = remoteTableName.getType();
 
-        // SymbolicName nodeLabels = Cypher.name("nodeLabels");
-        // Cypher.use(remoteTableName.getDatabaseName(),
-        //         Cypher.call("db.schema.nodeTypeProperties")
-        //                 .yield(nodeLabels, "propertyName", "propertyTypes", "mandatory");
-
-        String query = switch (type) {
+        String query = switch (tableType) {
             case NODE -> """
+                      return "elementId" AS columnName, ["String"] AS columnTypes, true AS mandatory
+                      union
                       call db.schema.nodeTypeProperties()
                       yield nodeLabels, propertyName, propertyTypes, mandatory
                       where any(label IN nodeLabels WHERE label = $name)
-                      return propertyName, propertyTypes, mandatory
+                      return propertyName AS columnName, propertyTypes AS columnTypes, mandatory
                     """;
             case RELATIONSHIP -> """
+                      return "startNodeElementId" AS columnName, ["String"] AS columnTypes, true AS mandatory
+                      union
+                      return "endNodeElementId" AS columnName, ["String"] AS columnTypes, true AS mandatory
+                      union
                       call db.schema.relTypeProperties()
                       yield relType, propertyName, propertyTypes, mandatory
                       where relType = ':`' + $name + '`' and propertyName is not null
-                      return propertyName, propertyTypes, mandatory
+                      return propertyName AS columnName, propertyTypes AS columnTypes, mandatory
                     """;
         };
 
@@ -201,39 +206,15 @@ public class Neo4jClient
         try (Session session = this.driver.session(SessionConfig.forDatabase(databaseName))) {
             return session.executeRead(tx -> {
                 logQuery(databaseName, query, parameters);
-                List<Neo4jColumnHandle> propertyHandles = tx.run(query, parameters)
+                List<Neo4jColumnHandle> columnHandles = tx.run(query, parameters)
                         .stream()
-                        .filter(r -> !r.get("propertyName").isNull())
-                        .filter(r -> !r.get("propertyTypes").isNull())
+                        .filter(r -> !r.get("columnName").isNull())
+                        .filter(r -> !r.get("columnTypes").isNull())
                         .map(r -> new Neo4jColumnHandle(
-                                r.get("propertyName").asString(),
-                                typeManager.propertyTypesToTrinoType(r.get("propertyTypes").asList(Value::asString)),
+                                r.get("columnName").asString(),
+                                typeManager.propertyTypesToTrinoType(r.get("columnTypes").asList(Value::asString)),
                                 r.get("mandatory").asBoolean()))
                         .collect(toImmutableList());
-
-                //columnHandles.add(Neo4jMetadata.ELEMENT_ID_COLUMN);
-
-                /*ImmutableList<Neo4jColumnHandle> allColumnHandles = ImmutableList.<Neo4jColumnHandle>builder()
-                        .add(Neo4jMetadata.ELEMENT_ID_COLUMN)
-                        .addAll(columnHandles)
-                       .build();*/
-
-                List<Neo4jColumnHandle> columnHandles = new ArrayList<Neo4jColumnHandle>();
-
-                List<Neo4jColumnHandle> idHandles = switch (type) {
-                        case NODE -> {
-                                 yield List.of(new Neo4jColumnHandle("elementId", VARCHAR, false));
-                        }
-                        case RELATIONSHIP -> {
-                                 yield List.of(
-                                         new Neo4jColumnHandle("startNodeElementId", VARCHAR, false),
-                                         new Neo4jColumnHandle("endNodeElementId", VARCHAR, false)
-                                 );
-                        }
-                };
-
-                columnHandles.addAll(idHandles);
-                columnHandles.addAll(propertyHandles);
 
                 Neo4jTableHandle tableHandle = new Neo4jTableHandle(new Neo4jNamedRelationHandle(schemaTableName, remoteTableName, NODE, OptionalLong.empty()));
 
@@ -246,12 +227,12 @@ public class Neo4jClient
     {
         String tableName = schemaTableName.getTableName();
 
-        final Neo4jRemoteTableName.Type type = getTableType(tableName);
+        final Neo4jRemoteTableName.Type tableType = getTableType(tableName);
 
         //Cypher.call("db.labels").yield(Cypher.name("label"))
         //        .where(Cypher.call(Cypher.toLower()))
 
-        String query = switch (type) {
+        String query = switch (tableType) {
             case NODE -> """
                     CALL db.labels() YIELD label
                     WHERE toLower(label) = $tableName
@@ -278,7 +259,7 @@ public class Neo4jClient
                         .map(r -> new Neo4jRemoteTableName(
                                 schemaTableName.getSchemaName(),
                                 r.get("name").asString(),
-                                type))
+                                tableType))
                         .findFirst()
                         .orElseThrow(() -> new TrinoException(TABLE_NOT_FOUND, schemaTableName.toString()));
             });
@@ -308,45 +289,45 @@ public class Neo4jClient
 
         Neo4jRemoteTableName remoteTableName = namedRelation.getRemoteTableName();
 
-        var builder = switch (remoteTableName.getType()) {
+        final Neo4jRemoteTableName.Type tableType = remoteTableName.getType();
+
+        var builder = switch (tableType) {
             case NODE -> {
-                Node node = Cypher.node(remoteTableName.getName()).named("t");
+                Node node = Cypher.node(remoteTableName.getName()).named("n");
                 List<AliasedExpression> columns = columnHandles.stream()
-                    .map(c -> switch (c.getColumnName()) {
-                        case "elementId" -> {
-                            yield node.elementId().as("elementId");
-                        }
-                        default -> {
-                            yield node.property(c.getColumnName()).as(c.getColumnName());
-                        }
-                    }).toList();
+                        .map(c -> switch (c.getColumnName()) {
+                            case "elementId" -> {
+                                yield node.elementId().as("elementId");
+                            }
+                            default -> {
+                                yield node.property(c.getColumnName()).as(c.getColumnName());
+                            }
+                        }).toList();
                 yield Cypher.match(node).returning(columns);
             }
             case RELATIONSHIP -> {
                 Relationship rel = Cypher.anyNode()
-                    .relationshipBetween(Cypher.anyNode(), remoteTableName.getName())
-                    .named("r");
+                        .relationshipTo(Cypher.anyNode(), remoteTableName.getName())
+                        .named("r");
                 List<AliasedExpression> columns = columnHandles.stream()
-                    .map(c -> switch (c.getColumnName()) {
-                        case "startNodeElementId" -> {
-                            yield rel.getLeft().elementId().as("startNodeElementId");
-                        }
-                        case "endNodeElementId" -> {
-                            yield rel.getRight().elementId().as("endNodeElementId");
-                        }
-                        default -> {
-                            yield rel.property(c.getColumnName()).as(c.getColumnName());
-                        }
-                    }).toList();
+                        .map(c -> switch (c.getColumnName()) {
+                            case "startNodeElementId" -> {
+                                yield rel.getLeft().elementId().as("startNodeElementId");
+                            }
+                            case "endNodeElementId" -> {
+                                yield rel.getRight().elementId().as("endNodeElementId");
+                            }
+                            default -> {
+                                yield rel.property(c.getColumnName()).as(c.getColumnName());
+                            }
+                        }).toList();
                 yield Cypher.match(rel).returning(columns);
             }
         };
 
-        if (namedRelation.getLimit().isPresent()) {
-            return builder.limit(namedRelation.getLimit().getAsLong()).build().getCypher();
-        }
-
-        return builder.build().getCypher();
+        return namedRelation.getLimit().isPresent() ?
+                renderer.render(builder.limit(namedRelation.getLimit().getAsLong()).build()) :
+                renderer.render(builder.build());
     }
 
     @Override
