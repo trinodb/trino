@@ -217,7 +217,7 @@ public final class SqlRoutineHash
             hashClassName(literal.getClass());
             hashType(literal.type());
 
-            Object value = literal.getValue();
+            Object value = literal.value();
             hasher.putBoolean(value == null);
 
             switch (value) {
