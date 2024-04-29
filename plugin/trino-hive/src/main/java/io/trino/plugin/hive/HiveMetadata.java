@@ -684,9 +684,9 @@ public class HiveMetadata
         // Bucket properties
         table.getStorage().getBucketProperty().ifPresent(property -> {
             properties.put(BUCKETING_VERSION, getBucketingVersion(table.getParameters()).getVersion());
-            properties.put(BUCKET_COUNT_PROPERTY, property.getBucketCount());
-            properties.put(BUCKETED_BY_PROPERTY, property.getBucketedBy());
-            properties.put(SORTED_BY_PROPERTY, property.getSortedBy());
+            properties.put(BUCKET_COUNT_PROPERTY, property.bucketCount());
+            properties.put(BUCKETED_BY_PROPERTY, property.bucketedBy());
+            properties.put(SORTED_BY_PROPERTY, property.sortedBy());
         });
 
         // Transactional properties
@@ -3424,7 +3424,7 @@ public class HiveMetadata
         }
         HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty()
                 .orElseThrow(() -> new NoSuchElementException("Bucket property should be set"));
-        if (!bucketProperty.getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
+        if (!bucketProperty.sortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
         }
 
