@@ -221,10 +221,10 @@ public class HiveSplitManager
         Optional<HiveBucketHandle> bucketHandle = hiveTable.getBucketHandle();
 
         bucketHandle.ifPresent(bucketing ->
-                verify(bucketing.getReadBucketCount() <= bucketing.getTableBucketCount(),
+                verify(bucketing.readBucketCount() <= bucketing.tableBucketCount(),
                         "readBucketCount (%s) is greater than the tableBucketCount (%s) which generally points to an issue in plan generation",
-                        bucketing.getReadBucketCount(),
-                        bucketing.getTableBucketCount()));
+                        bucketing.readBucketCount(),
+                        bucketing.tableBucketCount()));
 
         // get partitions
         Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, hiveTable);
