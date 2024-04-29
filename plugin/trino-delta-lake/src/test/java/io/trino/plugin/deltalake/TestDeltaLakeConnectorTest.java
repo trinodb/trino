@@ -3932,7 +3932,7 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    public void testTimestampCoercionOnCreateTable()
+    public void testTypeCoercionOnCreateTable()
     {
         testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
         testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.900000'");
@@ -3976,7 +3976,7 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    public void testTimestampCoercionOnCreateTableAsSelect()
+    public void testTypeCoercionOnCreateTableAsSelect()
     {
         testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
         testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.900000'");
@@ -4019,7 +4019,7 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    public void testTimestampCoercionOnCreateTableAsSelectWithNoData()
+    public void testTypeCoercionOnCreateTableAsSelectWithNoData()
     {
         testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00'");
         testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.9'");
@@ -4061,7 +4061,7 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    public void testTimestampCoercionOnCreateTableAsWithRowType()
+    public void testTypeCoercionOnCreateTableAsWithRowType()
     {
         testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
         testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'");
@@ -4106,7 +4106,7 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    public void testTimestampCoercionOnCreateTableAsWithArrayType()
+    public void testTypeCoercionOnCreateTableAsWithArrayType()
     {
         testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
         testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'");
@@ -4151,7 +4151,7 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    public void testTimestampCoercionOnCreateTableAsWithMapType()
+    public void testTypeCoercionOnCreateTableAsWithMapType()
     {
         testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
         testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'");
