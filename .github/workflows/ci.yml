@@ -359,6 +359,7 @@ jobs:
             !:trino-jdbc,
             !:trino-kafka,
             !:trino-kudu,
+            !:trino-lancedb,
             !:trino-main,
             !:trino-mariadb,
             !:trino-memory,
@@ -470,6 +471,7 @@ jobs:
             - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
             - { modules: plugin/trino-kudu }
+            - { modules: plugin/trino-lancedb }
             - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-mongodb }
             - { modules: plugin/trino-mysql }
@@ -532,6 +534,7 @@ jobs:
           && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-lancedb'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
           && ! (contains(matrix.modules, 'trino-snowflake') && contains(matrix.profile, 'cloud-tests'))
@@ -758,6 +761,19 @@ jobs:
             -Dtest.redshift.aws.region="${AWS_REGION}" \
             -Dtest.redshift.aws.access-key="${AWS_ACCESS_KEY_ID}" \
             -Dtest.redshift.aws.secret-key="${AWS_SECRET_ACCESS_KEY}"
+      - name: Lance-DB Tests
+        id: tests-lancedb
+        if: matrix.modules == 'plugin/trino-lancedb'
+        env:
+          CARGO_TERM_COLOR: always
+          RUSTFLAGS: "-C debuginfo=1"
+          RUST_BACKTRACE: "1"
+          CARGO_INCREMENTAL: "0"
+          CARGO_BUILD_JOBS: "1"
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler libssl-dev libc6
+          $MAVEN test ${MAVEN_TEST} -pl :trino-lancedb
       - name: Cleanup ephemeral Redshift Cluster
         env:
           AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
@@ -795,6 +811,7 @@ jobs:
               || steps.tests-iceberg.outcome == 'failure'
               || steps.tests-redshift.outcome == 'failure'
               || steps.tests-snowflake.outcome == 'failure'
+              || steps.tests-lancedb.outcome == 'failure'
             }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
       - name: Update PR check
