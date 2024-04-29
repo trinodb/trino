@@ -227,8 +227,8 @@ public class BenchmarkArrayFilter
                                                 new SpecialForm(
                                                         DEREFERENCE,
                                                         BIGINT,
-                                                        new VariableReferenceExpression("x", elementType),
-                                                        constant(0, INTEGER))))))));
+                                                        ImmutableList.of(new VariableReferenceExpression("x", elementType), constant(0, INTEGER)),
+                                                        ImmutableList.of())))))));
                 blocks[i] = createChannel(POSITIONS, arrayType);
             }
 

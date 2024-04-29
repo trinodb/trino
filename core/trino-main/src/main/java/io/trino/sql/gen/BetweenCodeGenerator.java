@@ -13,6 +13,7 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
@@ -64,8 +65,8 @@ public class BetweenCodeGenerator
         SpecialForm newExpression = new SpecialForm(
                 AND,
                 BOOLEAN,
-                call(lessThanOrEqual, min, valueReference),
-                call(lessThanOrEqual, valueReference, max));
+                ImmutableList.of(call(lessThanOrEqual, min, valueReference), call(lessThanOrEqual, valueReference, max)),
+                ImmutableList.of());
 
         LabelNode done = new LabelNode("done");
 
