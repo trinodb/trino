@@ -408,6 +408,20 @@ class TestSqlFunctions
     }
 
     @Test
+    void testSpecialForm()
+    {
+        @Language("SQL") String sql = """
+                FUNCTION test(a varchar)
+                RETURNS varchar
+                BEGIN
+                  RETURN NULLIF(a, 'test');
+                END
+                """;
+        assertFunction(sql, handle -> assertThat(handle.invoke(utf8Slice("test"))).isEqualTo(null));
+        assertFunction(sql, handle -> assertThat(handle.invoke(utf8Slice("test2"))).isEqualTo(utf8Slice("test2")));
+    }
+
+    @Test
     void testReuseVariables()
     {
         @Language("SQL") String sql = """
