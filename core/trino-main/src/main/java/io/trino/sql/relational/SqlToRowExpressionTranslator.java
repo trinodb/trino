@@ -282,7 +282,7 @@ public final class SqlToRowExpressionTranslator
             @Override
             public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
             {
-                return new VariableReferenceExpression(reference.getName(), targetType);
+                return new VariableReferenceExpression(reference.name(), targetType);
             }
         }
 
