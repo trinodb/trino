@@ -217,7 +217,7 @@ public final class HiveBucketing
         if (bindings.isEmpty()) {
             return Optional.empty();
         }
-        BucketingVersion bucketingVersion = hiveTable.getBucketHandle().get().getBucketingVersion();
+        BucketingVersion bucketingVersion = hiveTable.getBucketHandle().get().bucketingVersion();
         Optional<Set<Integer>> buckets = getHiveBuckets(bucketingVersion, hiveBucketProperty, dataColumns, bindings.get());
         if (buckets.isPresent()) {
             return Optional.of(new HiveBucketFilter(buckets.get()));

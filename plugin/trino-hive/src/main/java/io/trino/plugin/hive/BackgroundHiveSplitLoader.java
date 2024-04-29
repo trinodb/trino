@@ -906,11 +906,11 @@ public class BackgroundHiveSplitLoader
                 return Optional.empty();
             }
 
-            BucketingVersion bucketingVersion = bucketHandle.get().getBucketingVersion();
-            int tableBucketCount = bucketHandle.get().getTableBucketCount();
-            int readBucketCount = bucketHandle.get().getReadBucketCount();
+            BucketingVersion bucketingVersion = bucketHandle.get().bucketingVersion();
+            int tableBucketCount = bucketHandle.get().tableBucketCount();
+            int readBucketCount = bucketHandle.get().readBucketCount();
 
-            List<HiveColumnHandle> bucketColumns = bucketHandle.get().getColumns();
+            List<HiveColumnHandle> bucketColumns = bucketHandle.get().columns();
             IntPredicate predicate = bucketFilter
                     .<IntPredicate>map(filter -> filter.getBucketsToKeep()::contains)
                     .orElse(bucket -> true);
