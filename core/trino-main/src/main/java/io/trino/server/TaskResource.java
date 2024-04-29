@@ -144,7 +144,7 @@ public class TaskResource
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
 
-        Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials(), taskUpdateRequest.getExchangeEncryptionKey());
+        Session session = taskUpdateRequest.session().toSession(sessionPropertyManager, taskUpdateRequest.extraCredentials(), taskUpdateRequest.exchangeEncryptionKey());
 
         if (injectFailure(session.getTraceToken(), taskId, RequestType.CREATE_OR_UPDATE_TASK, asyncResponse)) {
             return;
@@ -153,12 +153,12 @@ public class TaskResource
         TaskInfo taskInfo = taskManager.updateTask(
                 session,
                 taskId,
-                taskUpdateRequest.getStageSpan(),
-                taskUpdateRequest.getFragment(),
-                taskUpdateRequest.getSplitAssignments(),
-                taskUpdateRequest.getOutputIds(),
-                taskUpdateRequest.getDynamicFilterDomains(),
-                taskUpdateRequest.isSpeculative());
+                taskUpdateRequest.stageSpan(),
+                taskUpdateRequest.fragment(),
+                taskUpdateRequest.splitAssignments(),
+                taskUpdateRequest.outputIds(),
+                taskUpdateRequest.dynamicFilterDomains(),
+                taskUpdateRequest.speculative());
 
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
