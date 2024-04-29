@@ -1686,7 +1686,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     }
                 });
                 task.addFinalTaskInfoListener(taskExecutionStats::update);
-                task.addFinalTaskInfoListener(taskInfo -> eventQueue.add(new RemoteTaskCompletedEvent(taskInfo.getTaskStatus())));
+                task.addFinalTaskInfoListener(taskInfo -> eventQueue.add(new RemoteTaskCompletedEvent(taskInfo.taskStatus())));
                 nodeLease.attachTaskId(task.getTaskId());
                 task.start();
                 if (queryStateMachine.getQueryState() == QueryState.STARTING) {
