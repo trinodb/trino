@@ -120,8 +120,8 @@ public final class LambdaBytecodeGenerator
         ImmutableMap.Builder<String, ParameterAndType> parameterMapBuilder = ImmutableMap.builder();
 
         parameters.add(arg("session", ConnectorSession.class));
-        for (int i = 0; i < lambdaExpression.getArguments().size(); i++) {
-            Symbol argument = lambdaExpression.getArguments().get(i);
+        for (int i = 0; i < lambdaExpression.arguments().size(); i++) {
+            Symbol argument = lambdaExpression.arguments().get(i);
             Class<?> type = Primitives.wrap(argument.type().getJavaType());
             String argumentName = argument.name();
             Parameter arg = arg("lambda_" + i + "_" + BytecodeUtils.sanitizeName(argumentName), type);
@@ -152,12 +152,12 @@ public final class LambdaBytecodeGenerator
             LambdaDefinitionExpression lambda)
     {
         checkCondition(inputParameters.size() <= 254, NOT_SUPPORTED, "Too many arguments for lambda expression");
-        Class<?> returnType = Primitives.wrap(lambda.getBody().type().getJavaType());
+        Class<?> returnType = Primitives.wrap(lambda.body().type().getJavaType());
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(returnType), inputParameters);
 
         Scope scope = method.getScope();
         Variable wasNull = scope.declareVariable(boolean.class, "wasNull");
-        BytecodeNode compiledBody = innerExpressionCompiler.compile(lambda.getBody(), scope);
+        BytecodeNode compiledBody = innerExpressionCompiler.compile(lambda.body(), scope);
         method.getBody()
                 .putVariable(wasNull, false)
                 .append(compiledBody)

@@ -77,7 +77,7 @@ public final class LambdaExpressionExtractor
         @Override
         public Void visitLambda(LambdaDefinitionExpression lambda, Context context)
         {
-            lambda.getBody().accept(this, new Context(true));
+            lambda.body().accept(this, new Context(true));
             lambdaExpressions.add(lambda);
             return null;
         }
