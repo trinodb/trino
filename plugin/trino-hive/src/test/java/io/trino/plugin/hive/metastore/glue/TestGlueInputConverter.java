@@ -137,8 +137,8 @@ public class TestGlueInputConverter
 
         if (expected.getBucketProperty().isPresent()) {
             HiveBucketProperty bucketProperty = expected.getBucketProperty().get();
-            assertThat(actual.getBucketColumns()).isEqualTo(bucketProperty.getBucketedBy());
-            assertThat(actual.getNumberOfBuckets().intValue()).isEqualTo(bucketProperty.getBucketCount());
+            assertThat(actual.getBucketColumns()).isEqualTo(bucketProperty.bucketedBy());
+            assertThat(actual.getNumberOfBuckets().intValue()).isEqualTo(bucketProperty.bucketCount());
         }
     }
 }

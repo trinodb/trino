@@ -676,10 +676,10 @@ public final class ThriftMetastoreUtil
 
         Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
         if (bucketProperty.isPresent()) {
-            sd.setNumBuckets(bucketProperty.get().getBucketCount());
-            sd.setBucketCols(bucketProperty.get().getBucketedBy());
-            if (!bucketProperty.get().getSortedBy().isEmpty()) {
-                sd.setSortCols(bucketProperty.get().getSortedBy().stream()
+            sd.setNumBuckets(bucketProperty.get().bucketCount());
+            sd.setBucketCols(bucketProperty.get().bucketedBy());
+            if (!bucketProperty.get().sortedBy().isEmpty()) {
+                sd.setSortCols(bucketProperty.get().sortedBy().stream()
                         .map(column -> new Order(column.getColumnName(), column.getOrder().getHiveOrder()))
                         .collect(toImmutableList()));
             }

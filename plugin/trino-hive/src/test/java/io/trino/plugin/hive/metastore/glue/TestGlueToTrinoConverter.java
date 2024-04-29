@@ -300,8 +300,8 @@ public class TestGlueToTrinoConverter
         assertThat(actual.getStorageFormat().getOutputFormat()).isEqualTo(expected.getOutputFormat());
         if (!isNullOrEmpty(expected.getBucketColumns())) {
             HiveBucketProperty bucketProperty = actual.getBucketProperty().get();
-            assertThat(bucketProperty.getBucketedBy()).isEqualTo(expected.getBucketColumns());
-            assertThat(bucketProperty.getBucketCount()).isEqualTo(expected.getNumberOfBuckets().intValue());
+            assertThat(bucketProperty.bucketedBy()).isEqualTo(expected.getBucketColumns());
+            assertThat(bucketProperty.bucketCount()).isEqualTo(expected.getNumberOfBuckets().intValue());
         }
     }
 }
