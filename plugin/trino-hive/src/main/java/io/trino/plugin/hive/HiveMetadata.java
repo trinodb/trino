@@ -3018,13 +3018,13 @@ public class HiveMetadata
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
         List<LocalProperty<ColumnHandle>> sortingProperties = ImmutableList.of();
         if (hiveTable.getBucketHandle().isPresent()) {
-            if (isPropagateTableScanSortingProperties(session) && !hiveTable.getBucketHandle().get().getSortedBy().isEmpty()) {
+            if (isPropagateTableScanSortingProperties(session) && !hiveTable.getBucketHandle().get().sortedBy().isEmpty()) {
                 // Populating SortingProperty guarantees to the engine that it is reading pre-sorted input.
                 // We detect compatibility between table and partition level sorted_by properties
                 // and fail the query if there is a mismatch in HiveSplitManager#getPartitionMetadata.
                 // This can lead to incorrect results if a sorted_by property is defined over unsorted files.
                 Map<String, ColumnHandle> columnHandles = getColumnHandles(session, table);
-                sortingProperties = hiveTable.getBucketHandle().get().getSortedBy().stream()
+                sortingProperties = hiveTable.getBucketHandle().get().sortedBy().stream()
                         .map(sortingColumn -> new SortingProperty<>(
                                 columnHandles.get(sortingColumn.getColumnName()),
                                 sortingColumn.getOrder().getSortOrder()))
@@ -3033,14 +3033,14 @@ public class HiveMetadata
             if (isBucketExecutionEnabled(session)) {
                 tablePartitioning = hiveTable.getBucketHandle().map(bucketing -> new ConnectorTablePartitioning(
                         new HivePartitioningHandle(
-                                bucketing.getBucketingVersion(),
-                                bucketing.getReadBucketCount(),
-                                bucketing.getColumns().stream()
+                                bucketing.bucketingVersion(),
+                                bucketing.readBucketCount(),
+                                bucketing.columns().stream()
                                         .map(HiveColumnHandle::getHiveType)
                                         .collect(toImmutableList()),
                                 OptionalInt.empty(),
                                 false),
-                        bucketing.getColumns().stream()
+                        bucketing.columns().stream()
                                 .map(ColumnHandle.class::cast)
                                 .collect(toImmutableList())));
             }
@@ -3294,14 +3294,14 @@ public class HiveMetadata
 
         checkArgument(hiveTable.getBucketHandle().isPresent(), "Hive connector only provides alternative layout for bucketed table");
         HiveBucketHandle bucketHandle = hiveTable.getBucketHandle().get();
-        ImmutableList<HiveType> bucketTypes = bucketHandle.getColumns().stream().map(HiveColumnHandle::getHiveType).collect(toImmutableList());
+        ImmutableList<HiveType> bucketTypes = bucketHandle.columns().stream().map(HiveColumnHandle::getHiveType).collect(toImmutableList());
         checkArgument(
                 hivePartitioningHandle.getHiveTypes().equals(bucketTypes),
                 "Types from the new PartitioningHandle (%s) does not match the TableHandle (%s)",
                 hivePartitioningHandle.getHiveTypes(),
                 bucketTypes);
-        int largerBucketCount = Math.max(bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());
-        int smallerBucketCount = Math.min(bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());
+        int largerBucketCount = Math.max(bucketHandle.tableBucketCount(), hivePartitioningHandle.getBucketCount());
+        int smallerBucketCount = Math.min(bucketHandle.tableBucketCount(), hivePartitioningHandle.getBucketCount());
         checkArgument(
                 largerBucketCount % smallerBucketCount == 0 && Integer.bitCount(largerBucketCount / smallerBucketCount) == 1,
                 "The requested partitioning is not a valid alternative for the table layout");
@@ -3317,11 +3317,11 @@ public class HiveMetadata
                 hiveTable.getCompactEffectivePredicate(),
                 hiveTable.getEnforcedConstraint(),
                 Optional.of(new HiveBucketHandle(
-                        bucketHandle.getColumns(),
-                        bucketHandle.getBucketingVersion(),
-                        bucketHandle.getTableBucketCount(),
+                        bucketHandle.columns(),
+                        bucketHandle.bucketingVersion(),
+                        bucketHandle.tableBucketCount(),
                         hivePartitioningHandle.getBucketCount(),
-                        bucketHandle.getSortedBy())),
+                        bucketHandle.sortedBy())),
                 hiveTable.getBucketFilter(),
                 hiveTable.getAnalyzePartitionValues(),
                 ImmutableSet.of(),
@@ -3429,7 +3429,7 @@ public class HiveMetadata
         }
 
         ImmutableList.Builder<String> partitioningColumns = ImmutableList.builder();
-        hiveBucketHandle.get().getColumns().stream()
+        hiveBucketHandle.get().columns().stream()
                 .map(HiveColumnHandle::getName)
                 .forEach(partitioningColumns::add);
         partitionColumns.stream()
@@ -3441,12 +3441,12 @@ public class HiveMetadata
         boolean multipleWritersPerPartitionSupported = !isTransactionalTable(table.getParameters());
 
         HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
-                hiveBucketHandle.get().getBucketingVersion(),
-                hiveBucketHandle.get().getTableBucketCount(),
-                hiveBucketHandle.get().getColumns().stream()
+                hiveBucketHandle.get().bucketingVersion(),
+                hiveBucketHandle.get().tableBucketCount(),
+                hiveBucketHandle.get().columns().stream()
                         .map(HiveColumnHandle::getHiveType)
                         .collect(toImmutableList()),
-                OptionalInt.of(hiveBucketHandle.get().getTableBucketCount()),
+                OptionalInt.of(hiveBucketHandle.get().tableBucketCount()),
                 !partitionColumns.isEmpty() && isParallelPartitionedBucketedWrites(session));
         return Optional.of(new ConnectorTableLayout(partitioningHandle, partitioningColumns.build(), multipleWritersPerPartitionSupported));
     }

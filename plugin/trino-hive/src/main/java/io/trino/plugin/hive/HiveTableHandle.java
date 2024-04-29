@@ -496,10 +496,10 @@ public class HiveTableHandle
                     .collect(joining(", ", "[", "]")));
         }
         bucketHandle.ifPresent(bucket -> {
-            builder.append(" buckets=").append(bucket.getReadBucketCount());
-            if (!bucket.getSortedBy().isEmpty()) {
+            builder.append(" buckets=").append(bucket.readBucketCount());
+            if (!bucket.sortedBy().isEmpty()) {
                 builder.append(" sorted_by=")
-                        .append(bucket.getSortedBy().stream()
+                        .append(bucket.sortedBy().stream()
                                 .map(HiveUtil::sortingColumnToString)
                                 .collect(joining(", ", "[", "]")));
             }
