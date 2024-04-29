@@ -61,7 +61,7 @@ public class OrCodeGenerator
 
             ifWasNull.ifTrue()
                     .comment("clear the null flag, pop residual value off stack, and push was null flag on the stack (true)")
-                    .pop(term.getType().getJavaType()) // discard residual value
+                    .pop(term.type().getJavaType()) // discard residual value
                     .pop(boolean.class) // discard the previous "we've seen a null flag"
                     .push(true);
 

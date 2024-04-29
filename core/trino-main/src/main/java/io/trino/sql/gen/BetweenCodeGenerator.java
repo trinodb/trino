@@ -59,8 +59,8 @@ public class BetweenCodeGenerator
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext context)
     {
-        Variable firstValue = context.getScope().createTempVariable(value.getType().getJavaType());
-        VariableReferenceExpression valueReference = createTempVariableReferenceExpression(firstValue, value.getType());
+        Variable firstValue = context.getScope().createTempVariable(value.type().getJavaType());
+        VariableReferenceExpression valueReference = createTempVariableReferenceExpression(firstValue, value.type());
 
         SpecialForm newExpression = new SpecialForm(
                 AND,
@@ -74,7 +74,7 @@ public class BetweenCodeGenerator
         BytecodeBlock block = new BytecodeBlock()
                 .comment("check if value is null")
                 .append(context.generate(value))
-                .append(ifWasNullPopAndGoto(context.getScope(), done, boolean.class, value.getType().getJavaType()))
+                .append(ifWasNullPopAndGoto(context.getScope(), done, boolean.class, value.type().getJavaType()))
                 .putVariable(firstValue)
                 .append(context.generate(newExpression))
                 .visitLabel(done);

@@ -54,8 +54,8 @@ public class NullIfCodeGenerator
         List<ResolvedFunction> functionDependencies = specialForm.getFunctionDependencies();
         checkArgument(functionDependencies.size() <= 3);
         equalsFunction = specialForm.getOperatorDependency(EQUAL);
-        firstCast = specialForm.getCastDependency(first.getType(), equalsFunction.signature().getArgumentTypes().get(0));
-        secondCast = specialForm.getCastDependency(second.getType(), equalsFunction.signature().getArgumentTypes().get(0));
+        firstCast = specialForm.getCastDependency(first.type(), equalsFunction.signature().getArgumentTypes().get(0));
+        secondCast = specialForm.getCastDependency(second.type(), equalsFunction.signature().getArgumentTypes().get(0));
     }
 
     @Override
@@ -66,12 +66,12 @@ public class NullIfCodeGenerator
         LabelNode notMatch = new LabelNode("notMatch");
 
         // push first arg on the stack
-        Variable firstValue = scope.createTempVariable(first.getType().getJavaType());
+        Variable firstValue = scope.createTempVariable(first.type().getJavaType());
         BytecodeBlock block = new BytecodeBlock()
                 .comment("check if first arg is null")
                 .append(generatorContext.generate(first))
                 .append(ifWasNullPopAndGoto(scope, notMatch, void.class))
-                .dup(first.getType().getJavaType())
+                .dup(first.type().getJavaType())
                 .putVariable(firstValue);
 
         BytecodeNode secondValue = generatorContext.generate(second);
@@ -90,8 +90,8 @@ public class NullIfCodeGenerator
         // if first and second are equal, return null
         BytecodeBlock trueBlock = new BytecodeBlock()
                 .append(generatorContext.wasNull().set(constantTrue()))
-                .pop(first.getType().getJavaType())
-                .pushJavaDefault(first.getType().getJavaType());
+                .pop(first.type().getJavaType())
+                .pushJavaDefault(first.type().getJavaType());
 
         // else return first (which is still on the stack
         block.append(new IfStatement()

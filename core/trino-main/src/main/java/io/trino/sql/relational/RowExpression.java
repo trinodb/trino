@@ -29,7 +29,7 @@ import io.trino.spi.type.Type;
 public sealed interface RowExpression
         permits CallExpression, ConstantExpression, InputReferenceExpression, LambdaDefinitionExpression, SpecialForm, VariableReferenceExpression
 {
-    Type getType();
+    Type type();
 
     @Override
     boolean equals(Object other);

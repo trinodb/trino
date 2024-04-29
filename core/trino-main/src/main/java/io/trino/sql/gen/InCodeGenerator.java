@@ -119,7 +119,7 @@ public class InCodeGenerator
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
-        Type type = valueExpression.getType();
+        Type type = valueExpression.type();
         Class<?> javaType = type.getJavaType();
 
         SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, testExpressions);
