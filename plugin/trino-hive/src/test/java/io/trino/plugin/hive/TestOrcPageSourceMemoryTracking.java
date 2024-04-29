@@ -516,7 +516,7 @@ public class TestOrcPageSourceMemoryTracking
                     .collect(toList());
 
             partitionName = String.join("/", partitionKeys.stream()
-                    .map(partitionKey -> format("%s=%s", partitionKey.getName(), partitionKey.getValue()))
+                    .map(partitionKey -> format("%s=%s", partitionKey.name(), partitionKey.value()))
                     .collect(toImmutableList()));
 
             ImmutableList.Builder<HiveColumnHandle> columnsBuilder = ImmutableList.builder();

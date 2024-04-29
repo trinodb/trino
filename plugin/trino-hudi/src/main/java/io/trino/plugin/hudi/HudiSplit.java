@@ -140,7 +140,7 @@ public class HudiSplit
                 + estimatedSizeOf(location)
                 + splitWeight.getRetainedSizeInBytes()
                 + predicate.getRetainedSizeInBytes(HiveColumnHandle::getRetainedSizeInBytes)
-                + estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes);
+                + estimatedSizeOf(partitionKeys, HivePartitionKey::estimatedSizeInBytes);
     }
 
     @Override
