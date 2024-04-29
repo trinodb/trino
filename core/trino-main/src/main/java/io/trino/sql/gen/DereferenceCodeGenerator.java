@@ -42,7 +42,7 @@ public class DereferenceCodeGenerator
     public DereferenceCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        returnType = specialForm.getType();
+        returnType = specialForm.type();
         checkArgument(specialForm.getArguments().size() == 2);
         base = specialForm.getArguments().get(0);
         index = toIntExact((long) ((ConstantExpression) specialForm.getArguments().get(1)).getValue());

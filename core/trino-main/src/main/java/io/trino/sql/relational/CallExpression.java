@@ -50,7 +50,7 @@ public final class CallExpression
     }
 
     @Override
-    public Type getType()
+    public Type type()
     {
         return resolvedFunction.signature().getReturnType();
     }

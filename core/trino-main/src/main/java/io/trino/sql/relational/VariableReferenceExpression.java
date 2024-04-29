@@ -44,7 +44,7 @@ public final class VariableReferenceExpression
 
     @JsonProperty
     @Override
-    public Type getType()
+    public Type type()
     {
         return type;
     }

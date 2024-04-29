@@ -75,7 +75,7 @@ public final class PageFieldsToInputParametersRewriter
                 eagerlyLoadedChannels.add(reference.getField());
             }
             int parameter = getParameterForField(reference);
-            return field(parameter, reference.getType());
+            return field(parameter, reference.type());
         }
 
         private Integer getParameterForField(InputReferenceExpression reference)
@@ -108,7 +108,7 @@ public final class PageFieldsToInputParametersRewriter
                     List<RowExpression> arguments = specialForm.getArguments();
                     yield new SpecialForm(
                             specialForm.getForm(),
-                            specialForm.getType(),
+                            specialForm.type(),
                             IntStream.range(0, arguments.size()).boxed()
                                     // All the arguments after the first one are assumed to be conditionally evaluated
                                     .map(index -> arguments.get(index).accept(this, index == 0 && unconditionallyEvaluated))
@@ -117,7 +117,7 @@ public final class PageFieldsToInputParametersRewriter
                 }
                 case BIND, IN, WHEN, IS_NULL, NULL_IF, DEREFERENCE, ROW_CONSTRUCTOR, ARRAY_CONSTRUCTOR -> new SpecialForm(
                         specialForm.getForm(),
-                        specialForm.getType(),
+                        specialForm.type(),
                         specialForm.getArguments().stream()
                                 .map(expression -> expression.accept(this, unconditionallyEvaluated))
                                 .collect(toImmutableList()),

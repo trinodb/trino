@@ -207,7 +207,7 @@ public final class SqlRoutineHash
         {
             hashClassName(reference.getClass());
             hasher.putInt(reference.getField());
-            hashType(reference.getType());
+            hashType(reference.type());
             return null;
         }
 
@@ -215,7 +215,7 @@ public final class SqlRoutineHash
         public Void visitConstant(ConstantExpression literal, Void context)
         {
             hashClassName(literal.getClass());
-            hashType(literal.getType());
+            hashType(literal.type());
 
             Object value = literal.getValue();
             hasher.putBoolean(value == null);
@@ -263,7 +263,7 @@ public final class SqlRoutineHash
         {
             hashClassName(reference.getClass());
             hashString(reference.getName());
-            hashType(reference.getType());
+            hashType(reference.type());
             return null;
         }
 
@@ -272,7 +272,7 @@ public final class SqlRoutineHash
         {
             hashClassName(specialForm.getClass());
 
-            hashType(specialForm.getType());
+            hashType(specialForm.type());
             hasher.putInt(specialForm.getForm().ordinal());
 
             hasher.putInt(specialForm.getArguments().size());

@@ -76,7 +76,7 @@ public final class ConstantExpression
 
     @JsonProperty
     @Override
-    public Type getType()
+    public Type type()
     {
         return type;
     }

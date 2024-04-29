@@ -48,7 +48,7 @@ public class SwitchCodeGenerator
     public SwitchCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        returnType = specialForm.getType();
+        returnType = specialForm.type();
         List<RowExpression> arguments = specialForm.getArguments();
         value = arguments.getFirst();
 
@@ -122,7 +122,7 @@ public class SwitchCodeGenerator
         }
 
         // determine the type of the value and result
-        Class<?> valueType = value.getType().getJavaType();
+        Class<?> valueType = value.type().getJavaType();
 
         // evaluate the value and store it in a variable
         LabelNode nullValue = new LabelNode("nullCondition");

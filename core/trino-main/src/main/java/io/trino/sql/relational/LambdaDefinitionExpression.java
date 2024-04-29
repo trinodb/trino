@@ -54,13 +54,13 @@ public final class LambdaDefinitionExpression
     }
 
     @Override
-    public Type getType()
+    public Type type()
     {
         return new FunctionType(
                 arguments.stream()
                         .map(Symbol::type)
                         .toList(),
-                body.getType());
+                body.type());
     }
 
     @Override
