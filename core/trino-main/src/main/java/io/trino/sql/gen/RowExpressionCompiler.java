@@ -190,8 +190,8 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Context context)
         {
-            if (reference.getName().startsWith(TEMP_PREFIX)) {
-                return context.getScope().getTempVariable(reference.getName().substring(TEMP_PREFIX.length()));
+            if (reference.name().startsWith(TEMP_PREFIX)) {
+                return context.getScope().getTempVariable(reference.name().substring(TEMP_PREFIX.length()));
             }
             return fieldReferenceCompiler.visitVariableReference(reference, context.getScope());
         }

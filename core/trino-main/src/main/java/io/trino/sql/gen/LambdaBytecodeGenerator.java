@@ -351,7 +351,7 @@ public final class LambdaBytecodeGenerator
             @Override
             public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
             {
-                ParameterAndType parameterAndType = parameterMap.get(reference.getName());
+                ParameterAndType parameterAndType = parameterMap.get(reference.name());
                 Parameter parameter = parameterAndType.getParameter();
                 Class<?> type = parameterAndType.getType();
                 return new BytecodeBlock()
