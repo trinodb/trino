@@ -68,6 +68,7 @@ public record TaskUpdateRequest(
                 .add("outputIds", outputIds)
                 .add("dynamicFilterDomains", dynamicFilterDomains)
                 .add("exchangeEncryptionKey", exchangeEncryptionKey.map(key -> "[REDACTED]"))
+                .add("speculative", speculative)
                 .toString();
     }
 }
