@@ -135,8 +135,8 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitLambda(LambdaDefinitionExpression lambda, Boolean unconditionallyEvaluated)
         {
             return new LambdaDefinitionExpression(
-                    lambda.getArguments(),
-                    lambda.getBody().accept(this, unconditionallyEvaluated));
+                    lambda.arguments(),
+                    lambda.body().accept(this, unconditionallyEvaluated));
         }
 
         @Override

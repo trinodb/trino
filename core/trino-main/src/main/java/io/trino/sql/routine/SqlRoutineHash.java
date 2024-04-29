@@ -248,13 +248,13 @@ public final class SqlRoutineHash
         {
             hashClassName(lambda.getClass());
 
-            hasher.putInt(lambda.getArguments().size());
-            lambda.getArguments().forEach(symbol -> {
+            hasher.putInt(lambda.arguments().size());
+            lambda.arguments().forEach(symbol -> {
                 hashString(symbol.name());
                 hashType(symbol.type());
             });
 
-            visitRowExpression(lambda.getBody());
+            visitRowExpression(lambda.body());
             return null;
         }
 

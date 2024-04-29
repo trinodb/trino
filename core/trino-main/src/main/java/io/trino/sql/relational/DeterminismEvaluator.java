@@ -61,7 +61,7 @@ public final class DeterminismEvaluator
         @Override
         public Boolean visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
-            return lambda.getBody().accept(this, context);
+            return lambda.body().accept(this, context);
         }
 
         @Override
