@@ -447,7 +447,7 @@ public class BackgroundHiveSplitLoader
                 int tableBucketCount = tableBucketInfo.get().getTableBucketCount();
                 // Partition bucketing_version cannot be different from table
                 BucketingVersion bucketingVersion = getBucketingVersion(table.getParameters());
-                int partitionBucketCount = partitionBucketProperty.get().getBucketCount();
+                int partitionBucketCount = partitionBucketProperty.get().bucketCount();
                 // Validation was done in HiveSplitManager#getPartitionMetadata.
                 // Here, it's just trying to see if its needs the BucketConversion.
                 if (tableBucketCount != partitionBucketCount) {

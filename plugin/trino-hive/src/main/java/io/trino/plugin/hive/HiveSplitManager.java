@@ -399,10 +399,10 @@ public class HiveSplitManager
                             "Hive table (%s) is bucketed but partition (%s) is not bucketed",
                             tableName,
                             partName)));
-            int tableBucketCount = bucketProperty.get().getBucketCount();
-            int partitionBucketCount = partitionBucketProperty.getBucketCount();
-            List<String> tableBucketColumns = bucketProperty.get().getBucketedBy();
-            List<String> partitionBucketColumns = partitionBucketProperty.getBucketedBy();
+            int tableBucketCount = bucketProperty.get().bucketCount();
+            int partitionBucketCount = partitionBucketProperty.bucketCount();
+            List<String> tableBucketColumns = bucketProperty.get().bucketedBy();
+            List<String> partitionBucketColumns = partitionBucketProperty.bucketedBy();
             if (!tableBucketColumns.equals(partitionBucketColumns) || !isBucketCountCompatible(tableBucketCount, partitionBucketCount)) {
                 throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
                         "Hive table (%s) bucketing (columns=%s, buckets=%s) is not compatible with partition (%s) bucketing (columns=%s, buckets=%s)",
@@ -414,8 +414,8 @@ public class HiveSplitManager
                         partitionBucketCount));
             }
             if (propagateTableScanSortingProperties) {
-                List<SortingColumn> tableSortedColumns = bucketProperty.get().getSortedBy();
-                List<SortingColumn> partitionSortedColumns = partitionBucketProperty.getSortedBy();
+                List<SortingColumn> tableSortedColumns = bucketProperty.get().sortedBy();
+                List<SortingColumn> partitionSortedColumns = partitionBucketProperty.sortedBy();
                 if (!isSortingCompatible(tableSortedColumns, partitionSortedColumns)) {
                     throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
                             "Hive table (%s) sorting by %s is not compatible with partition (%s) sorting by %s. This restriction can be avoided by disabling propagate_table_scan_sorting_properties.",

@@ -13,38 +13,28 @@
  */
 package io.trino.plugin.hive;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.hive.thrift.metastore.StorageDescriptor;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.spi.TrinoException;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class HiveBucketProperty
+public record HiveBucketProperty(
+        List<String> bucketedBy,
+        int bucketCount,
+        List<SortingColumn> sortedBy)
 {
-    private final List<String> bucketedBy;
-    private final int bucketCount;
-    private final List<SortingColumn> sortedBy;
-
-    @JsonCreator
-    public HiveBucketProperty(
-            @JsonProperty("bucketedBy") List<String> bucketedBy,
-            @JsonProperty("bucketCount") int bucketCount,
-            @JsonProperty("sortedBy") List<SortingColumn> sortedBy)
+    public HiveBucketProperty
     {
-        this.bucketedBy = ImmutableList.copyOf(requireNonNull(bucketedBy, "bucketedBy is null"));
-        this.bucketCount = bucketCount;
-        this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
+        bucketedBy = ImmutableList.copyOf(requireNonNull(bucketedBy, "bucketedBy is null"));
+        sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
     }
 
     public static Optional<HiveBucketProperty> fromStorageDescriptor(StorageDescriptor storageDescriptor, String tablePartitionName)
@@ -69,54 +59,5 @@ public class HiveBucketProperty
                 .map(name -> name.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
         return Optional.of(new HiveBucketProperty(bucketColumnNames, storageDescriptor.getNumBuckets(), sortedBy));
-    }
-
-    @JsonProperty
-    public List<String> getBucketedBy()
-    {
-        return bucketedBy;
-    }
-
-    @JsonProperty
-    public int getBucketCount()
-    {
-        return bucketCount;
-    }
-
-    @JsonProperty
-    public List<SortingColumn> getSortedBy()
-    {
-        return sortedBy;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        HiveBucketProperty that = (HiveBucketProperty) o;
-        return bucketCount == that.bucketCount &&
-                Objects.equals(bucketedBy, that.bucketedBy) &&
-                Objects.equals(sortedBy, that.sortedBy);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(bucketedBy, bucketCount, sortedBy);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("bucketedBy", bucketedBy)
-                .add("bucketCount", bucketCount)
-                .add("sortedBy", sortedBy)
-                .toString();
     }
 }
