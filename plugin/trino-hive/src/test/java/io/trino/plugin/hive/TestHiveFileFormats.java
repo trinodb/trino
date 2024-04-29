@@ -965,7 +965,7 @@ public final class TestHiveFileFormats
                 .collect(toList());
 
         String partitionName = String.join("/", partitionKeys.stream()
-                .map(partitionKey -> format("%s=%s", partitionKey.getName(), partitionKey.getValue()))
+                .map(partitionKey -> format("%s=%s", partitionKey.name(), partitionKey.value()))
                 .collect(toImmutableList()));
 
         List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(

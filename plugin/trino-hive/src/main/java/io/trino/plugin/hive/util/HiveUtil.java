@@ -629,7 +629,7 @@ public final class HiveUtil
     {
         String columnValue;
         if (partitionKey != null) {
-            columnValue = partitionKey.getValue();
+            columnValue = partitionKey.value();
         }
         else if (isPathColumnHandle(columnHandle)) {
             columnValue = path;
