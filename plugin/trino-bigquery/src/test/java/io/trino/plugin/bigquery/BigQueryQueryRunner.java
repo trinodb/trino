@@ -27,7 +27,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -59,6 +61,11 @@ public final class BigQueryQueryRunner
     private static final String BIGQUERY_CREDENTIALS_KEY = requiredNonEmptySystemProperty("bigquery.credentials-key");
     public static final String TPCH_SCHEMA = "tpch";
     public static final String TEST_SCHEMA = "test";
+
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("com.google.cloud.bigquery.storage", Level.OFF);
+    }
 
     private BigQueryQueryRunner() {}
 
