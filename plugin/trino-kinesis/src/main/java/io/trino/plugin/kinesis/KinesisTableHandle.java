@@ -13,125 +13,38 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Class maintains all the properties of Trino Table
+ *
+ * @param schemaName The schema name for this table. Is set through configuration and read
+ * using {@link KinesisConfig#getDefaultSchema()}. Usually 'default'.
+ * @param tableName The table name used by Trino.
+ * @param streamName The stream name that is read from Kinesis
  */
-public class KinesisTableHandle
+public record KinesisTableHandle(
+        String schemaName,
+        String tableName,
+        String streamName,
+        String messageDataFormat,
+        KinesisCompressionCodec compressionCodec)
         implements ConnectorTableHandle
 {
-    /**
-     * The schema name for this table. Is set through configuration and read
-     * using {@link KinesisConfig#getDefaultSchema()}. Usually 'default'.
-     */
-    private final String schemaName;
-
-    /**
-     * The table name used by Trino.
-     */
-    private final String tableName;
-
-    /**
-     * The stream name that is read from Kinesis
-     */
-    private final String streamName;
-
-    private final String messageDataFormat;
-
-    private final KinesisCompressionCodec compressionCodec;
-
-    @JsonCreator
-    public KinesisTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("streamName") String streamName,
-            @JsonProperty("messageDataFormat") String messageDataFormat,
-            @JsonProperty("compressionCodec") KinesisCompressionCodec compressionCodec)
+    public KinesisTableHandle
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.streamName = requireNonNull(streamName, "streamName is null");
-        this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
-        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(streamName, "streamName is null");
+        requireNonNull(messageDataFormat, "messageDataFormat is null");
+        requireNonNull(compressionCodec, "compressionCodec is null");
     }
 
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public String getStreamName()
-    {
-        return streamName;
-    }
-
-    @JsonProperty
-    public String getMessageDataFormat()
-    {
-        return messageDataFormat;
-    }
-
-    @JsonProperty
-    public KinesisCompressionCodec getCompressionCodec()
-    {
-        return compressionCodec;
-    }
-
-    public SchemaTableName toSchemaTableName()
+    public SchemaTableName schemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(schemaName, tableName, streamName, messageDataFormat, compressionCodec);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-
-        KinesisTableHandle other = (KinesisTableHandle) obj;
-        return Objects.equals(this.schemaName, other.schemaName)
-                && Objects.equals(this.tableName, other.tableName)
-                && Objects.equals(this.streamName, other.streamName)
-                && Objects.equals(this.messageDataFormat, other.messageDataFormat)
-                && Objects.equals(this.compressionCodec, other.compressionCodec);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("schemaName", schemaName)
-                .add("tableName", tableName)
-                .add("streamName", streamName)
-                .add("messageDataFormat", messageDataFormat)
-                .add("compressionCodec", compressionCodec)
-                .toString();
     }
 }
