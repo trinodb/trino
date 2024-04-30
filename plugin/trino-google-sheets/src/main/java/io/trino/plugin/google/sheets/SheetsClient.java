@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
-import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.cache.NonEvictableLoadingCache;
@@ -85,10 +84,8 @@ public class SheetsClient
     private final Sheets sheetsService;
 
     @Inject
-    public SheetsClient(SheetsConfig config, JsonCodec<Map<String, List<SheetsTable>>> catalogCodec)
+    public SheetsClient(SheetsConfig config)
     {
-        requireNonNull(catalogCodec, "catalogCodec is null");
-
         this.metadataSheetId = config.getMetadataSheetId();
 
         try {
