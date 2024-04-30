@@ -64,9 +64,9 @@ public class TestHashDistributionSplitAssigner
     private static final PlanNodeId REPLICATED_1 = new PlanNodeId("replicated-1");
     private static final PlanNodeId REPLICATED_2 = new PlanNodeId("replicated-2");
 
-    private static final InternalNode NODE_1 = new InternalNode("node1", URI.create("http://localhost:8081"), NodeVersion.UNKNOWN, false);
-    private static final InternalNode NODE_2 = new InternalNode("node2", URI.create("http://localhost:8082"), NodeVersion.UNKNOWN, false);
-    private static final InternalNode NODE_3 = new InternalNode("node3", URI.create("http://localhost:8083"), NodeVersion.UNKNOWN, false);
+    private static final InternalNode NODE_1 = new InternalNode("node1", "node1", URI.create("http://localhost:8081"), NodeVersion.UNKNOWN, false);
+    private static final InternalNode NODE_2 = new InternalNode("node2", "node2", URI.create("http://localhost:8082"), NodeVersion.UNKNOWN, false);
+    private static final InternalNode NODE_3 = new InternalNode("node3", "node3", URI.create("http://localhost:8083"), NodeVersion.UNKNOWN, false);
 
     @Test
     public void testEmpty()

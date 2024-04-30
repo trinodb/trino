@@ -64,8 +64,8 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 public class TestUniformNodeSelector
 {
-    private static final InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false);
-    private static final InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
+    private static final InternalNode node1 = new InternalNode("node1", "node1", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false);
+    private static final InternalNode node2 = new InternalNode("node2", "node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
     private final Set<Split> splits = new LinkedHashSet<>();
     private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;

@@ -145,6 +145,7 @@ public class TestSqlStage
                     }
                     InternalNode node = new InternalNode(
                             "source" + i,
+                            "source" + i,
                             URI.create("http://10.0.0." + (i / 10_000) + ":" + (i % 10_000)),
                             NodeVersion.UNKNOWN,
                             false);

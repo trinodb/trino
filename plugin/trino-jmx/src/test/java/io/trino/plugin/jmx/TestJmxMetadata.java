@@ -178,6 +178,6 @@ public class TestJmxMetadata
 
     private static Node createTestingNode(String hostname)
     {
-        return new InternalNode(hostname, URI.create(format("http://%s:8080", hostname)), NodeVersion.UNKNOWN, false);
+        return new InternalNode(hostname, hostname, URI.create(format("http://%s:8080", hostname)), NodeVersion.UNKNOWN, false);
     }
 }

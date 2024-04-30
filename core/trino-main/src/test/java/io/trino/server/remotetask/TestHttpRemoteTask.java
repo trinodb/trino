@@ -521,7 +521,7 @@ public class TestHttpRemoteTask
                 session,
                 Span.getInvalid(),
                 new TaskId(new StageId("test", 1), 2, 0),
-                new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
+                new InternalNode("node-id", "instance-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 false,
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),

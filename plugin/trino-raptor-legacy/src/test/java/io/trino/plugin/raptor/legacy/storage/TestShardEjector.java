@@ -206,7 +206,7 @@ public class TestShardEjector
 
     private static Node createTestingNode(String identifier)
     {
-        return new InternalNode(identifier, URI.create("http://test"), NodeVersion.UNKNOWN, false);
+        return new InternalNode(identifier, identifier, URI.create("http://test"), NodeVersion.UNKNOWN, false);
     }
 
     private static class TestingBackupStore

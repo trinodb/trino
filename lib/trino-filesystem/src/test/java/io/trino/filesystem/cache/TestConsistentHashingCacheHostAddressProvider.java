@@ -114,6 +114,6 @@ public class TestConsistentHashingCacheHostAddressProvider
 
     private static Node node(String nodeName)
     {
-        return new InternalNode(nodeName, URI.create("http://" + nodeName + "/"), NodeVersion.UNKNOWN, false);
+        return new InternalNode(nodeName, nodeName, URI.create("http://" + nodeName + "/"), NodeVersion.UNKNOWN, false);
     }
 }

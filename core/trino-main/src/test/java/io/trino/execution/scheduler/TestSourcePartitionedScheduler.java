@@ -135,9 +135,9 @@ public class TestSourcePartitionedScheduler
     public TestSourcePartitionedScheduler()
     {
         nodeManager.addNodes(
-                new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("other1", "other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", "other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", "other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
     }
 
     @BeforeAll
@@ -386,9 +386,9 @@ public class TestSourcePartitionedScheduler
     {
         // use private node manager so we can add a node later
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(
-                new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("other1", "other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", "other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", "other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
 
         // Schedule 15 splits - there are 3 nodes, each node should get 5 splits
@@ -407,7 +407,7 @@ public class TestSourcePartitionedScheduler
         }
 
         // Add new node
-        InternalNode additionalNode = new InternalNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
+        InternalNode additionalNode = new InternalNode("other4", "other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(additionalNode);
 
         // Schedule 5 splits in another query. Since the new node does not have any splits, all 5 splits are assigned to the new node
@@ -432,9 +432,9 @@ public class TestSourcePartitionedScheduler
     {
         // use private node manager so we can add a node later
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(
-                new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("other1", "other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", "other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", "other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
 
         // Schedule 15 splits - there are 3 nodes, each node should get 5 splits
@@ -454,7 +454,7 @@ public class TestSourcePartitionedScheduler
         }
 
         // Add new node
-        InternalNode additionalNode = new InternalNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
+        InternalNode additionalNode = new InternalNode("other4", "other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(additionalNode);
 
         // Schedule 5 splits in first query. Since the new node does not have any splits, all 5 splits are assigned to the new node
@@ -471,7 +471,7 @@ public class TestSourcePartitionedScheduler
         }
 
         // Add new node
-        InternalNode anotherAdditionalNode = new InternalNode("other5", URI.create("http://127.0.0.1:15"), NodeVersion.UNKNOWN, false);
+        InternalNode anotherAdditionalNode = new InternalNode("other5", "other5", URI.create("http://127.0.0.1:15"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(anotherAdditionalNode);
 
         // Schedule 5 splits in another query. New query should be balanced across all nodes
@@ -497,9 +497,9 @@ public class TestSourcePartitionedScheduler
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         // use private node manager so we can add a node later
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(
-                new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("other1", "other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", "other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", "other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new Duration(0, SECONDS)));
 
         PlanFragment plan = createFragment();
@@ -527,7 +527,7 @@ public class TestSourcePartitionedScheduler
         }
 
         // new node added - the pending splits should go to it since the child tasks are not blocked
-        nodeManager.addNodes(new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
+        nodeManager.addNodes(new InternalNode("other4", "other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
         scheduleResult = scheduler.schedule();
         assertThat(scheduleResult.getNewTasks().size()).isEqualTo(1);
         assertThat(scheduleResult.getBlockedReason().get()).isEqualTo(SPLIT_QUEUES_FULL); // split queue is full but still the source task creation isn't blocked
@@ -540,9 +540,9 @@ public class TestSourcePartitionedScheduler
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         // use private node manager so we can add a node later
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(
-                new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("other1", "other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", "other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", "other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new Duration(0, SECONDS)));
 
         PlanFragment plan = createFragment();
@@ -570,7 +570,7 @@ public class TestSourcePartitionedScheduler
         }
 
         // new node added but 1 child's output buffer is overutilized - so lockdown the tasks
-        nodeManager.addNodes(new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
+        nodeManager.addNodes(new InternalNode("other4", "other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
         scheduleResult = scheduler.schedule();
         assertThat(scheduleResult.getBlockedReason().get()).isEqualTo(SPLIT_QUEUES_FULL);
         assertThat(scheduleResult.getNewTasks().size()).isEqualTo(0);

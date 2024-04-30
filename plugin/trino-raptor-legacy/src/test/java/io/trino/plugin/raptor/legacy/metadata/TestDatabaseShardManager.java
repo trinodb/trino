@@ -803,7 +803,7 @@ public class TestDatabaseShardManager
 
     private static Node createTestingNode()
     {
-        return new InternalNode(UUID.randomUUID().toString(), URI.create("http://test"), NodeVersion.UNKNOWN, false);
+        return new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("http://test"), NodeVersion.UNKNOWN, false);
     }
 
     private int columnCount(long tableId)

@@ -74,17 +74,17 @@ public class TestDiscoveryNodeManager
         testHttpClient = new TestingHttpClient(input -> new TestingResponse(OK, ArrayListMultimap.create(), ACTIVE.name().getBytes(UTF_8)));
 
         expectedVersion = new NodeVersion("1");
-        coordinator = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true);
-        currentNode = new InternalNode(nodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion, false);
+        coordinator = new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true);
+        currentNode = new InternalNode(nodeInfo.getNodeId(), nodeInfo.getInstanceId(), URI.create("http://192.0.1.1"), expectedVersion, false);
 
         activeNodes = ImmutableSet.of(
                 currentNode,
-                new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion, false),
-                new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion, false),
+                new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion, false),
+                new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion, false),
                 coordinator);
         inactiveNodes = ImmutableSet.of(
-                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN, false),
-                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), false));
+                new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN, false),
+                new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), false));
 
         selector.announceNodes(activeNodes, inactiveNodes);
     }
@@ -250,6 +250,7 @@ public class TestDiscoveryNodeManager
                         .setNodeId(node.getNodeIdentifier())
                         .addProperty("http", node.getInternalUri().toString())
                         .addProperty("node_version", node.getNodeVersion().toString())
+                        .addProperty("node_instance_id", node.getInstanceId())
                         .addProperty("coordinator", String.valueOf(node.isCoordinator()))
                         .build());
             }

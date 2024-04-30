@@ -60,7 +60,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
     {
         ExponentialGrowthPartitionMemoryEstimator.Factory factory = new ExponentialGrowthPartitionMemoryEstimator.Factory(
                 () -> ImmutableMap.of(
-                        new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(),
+                        new InternalNode("a-node", "a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(),
                         Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
                 true);
         factory.refreshNodePoolMemoryInfos();

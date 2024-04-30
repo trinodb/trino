@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class InMemoryNodeManager
         implements InternalNodeManager
 {
-    private static final InternalNode CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true);
+    private static final InternalNode CURRENT_NODE = new InternalNode("local", "localId", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true);
     private final Set<InternalNode> allNodes = ConcurrentHashMap.newKeySet();
 
     public InMemoryNodeManager(InternalNode... remoteNodes)

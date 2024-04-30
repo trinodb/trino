@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
@@ -20,9 +21,11 @@ import io.trino.spi.Node;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.node.AddressToHostname.tryDecodeHostnameToAddress;
@@ -35,23 +38,43 @@ public class InternalNode
         implements Node
 {
     private final String nodeIdentifier;
+    private final String instanceId;
     private final URI internalUri;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
 
-    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
+    public InternalNode(String nodeIdentifier, String instanceId, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
+        instanceId = instanceId.trim();
+        checkArgument(!instanceId.isEmpty(), "instanceId is empty");
+        this.instanceId = instanceId;
         this.internalUri = requireNonNull(internalUri, "internalUri is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @see NodeInfo#getNodeId()
+     */
     @Override
     public String getNodeIdentifier()
     {
         return nodeIdentifier;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @see NodeInfo#getInstanceId()
+     */
+    @Override
+    public String getInstanceId()
+    {
+        return instanceId;
     }
 
     @Override
@@ -108,13 +131,14 @@ public class InternalNode
             return false;
         }
         InternalNode o = (InternalNode) obj;
-        return nodeIdentifier.equals(o.nodeIdentifier);
+        return nodeIdentifier.equals(o.nodeIdentifier) &&
+                instanceId.equals(o.instanceId);
     }
 
     @Override
     public int hashCode()
     {
-        return nodeIdentifier.hashCode();
+        return Objects.hash(nodeIdentifier, instanceId);
     }
 
     @Override
@@ -122,6 +146,7 @@ public class InternalNode
     {
         return toStringHelper(this)
                 .add("nodeIdentifier", nodeIdentifier)
+                .add("instanceId", instanceId)
                 .add("internalUri", internalUri)
                 .add("nodeVersion", nodeVersion)
                 .toString();

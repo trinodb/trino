@@ -310,6 +310,6 @@ public class TestBucketBalancer
 
     private static Node createTestingNode(String nodeIdentifier)
     {
-        return new InternalNode(nodeIdentifier, URI.create("http://test"), NodeVersion.UNKNOWN, false);
+        return new InternalNode(nodeIdentifier, nodeIdentifier, URI.create("http://test"), NodeVersion.UNKNOWN, false);
     }
 }

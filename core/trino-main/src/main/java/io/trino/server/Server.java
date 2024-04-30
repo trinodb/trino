@@ -267,7 +267,7 @@ public class Server
         announcer.addServiceAnnouncement(builder.build());
     }
 
-    private static ServiceAnnouncement getTrinoAnnouncement(Set<ServiceAnnouncement> announcements)
+    public static ServiceAnnouncement getTrinoAnnouncement(Set<ServiceAnnouncement> announcements)
     {
         return announcements.stream()
                 .filter(announcement -> announcement.getType().equals("trino"))

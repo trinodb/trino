@@ -101,7 +101,7 @@ public class TestFixedCountScheduler
     private static List<InternalNode> generateRandomNodes(int count)
     {
         return IntStream.range(0, count)
-                .mapToObj(i -> new InternalNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false))
+                .mapToObj(i -> new InternalNode("other " + i, "other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false))
                 .collect(toImmutableList());
     }
 }

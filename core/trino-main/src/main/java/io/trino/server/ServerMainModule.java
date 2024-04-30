@@ -442,6 +442,7 @@ public class ServerMainModule
         binder.bind(NodeVersion.class).toInstance(new NodeVersion(nodeVersion));
         discoveryBinder(binder).bindHttpAnnouncement("trino")
                 .addProperty("node_version", nodeVersion)
+                .bindPropertyProvider("node_instance_id", NodeInstanceId.class)
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()));
 
         // server info resource

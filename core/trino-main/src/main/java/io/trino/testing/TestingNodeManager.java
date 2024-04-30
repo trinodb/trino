@@ -55,7 +55,7 @@ public class TestingNodeManager
 
     public TestingNodeManager(String environment, boolean scheduleOnCoordinator)
     {
-        this(environment, new InternalNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true), ImmutableSet.of(), scheduleOnCoordinator);
+        this(environment, new InternalNode("local", "localId", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true), ImmutableSet.of(), scheduleOnCoordinator);
     }
 
     public TestingNodeManager(Node localNode)

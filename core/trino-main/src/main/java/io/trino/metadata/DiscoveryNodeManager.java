@@ -35,6 +35,7 @@ import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.spi.connector.CatalogHandle;
+import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
@@ -127,8 +128,9 @@ public final class DiscoveryNodeManager
         for (ServiceDescriptor service : allServices) {
             URI uri = getHttpUri(service, httpsRequired);
             NodeVersion nodeVersion = getNodeVersion(service);
+            String nodeInstanceId = getNodeInstanceId(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, nodeVersion, isCoordinator(service));
+                InternalNode node = new InternalNode(service.getNodeId(), nodeInstanceId, uri, nodeVersion, isCoordinator(service));
 
                 if (node.getNodeIdentifier().equals(currentNodeId)) {
                     checkState(
@@ -223,9 +225,10 @@ public final class DiscoveryNodeManager
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
             NodeVersion nodeVersion = getNodeVersion(service);
+            String nodeInstanceId = getNodeInstanceId(service);
             boolean coordinator = isCoordinator(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, nodeVersion, coordinator);
+                InternalNode node = new InternalNode(service.getNodeId(), nodeInstanceId, uri, nodeVersion, coordinator);
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
@@ -391,10 +394,17 @@ public final class DiscoveryNodeManager
         return null;
     }
 
+    @Nullable
     private static NodeVersion getNodeVersion(ServiceDescriptor descriptor)
     {
         String nodeVersion = descriptor.getProperties().get("node_version");
         return nodeVersion == null ? null : new NodeVersion(nodeVersion);
+    }
+
+    @Nullable
+    private static String getNodeInstanceId(ServiceDescriptor descriptor)
+    {
+        return descriptor.getProperties().get("node_instance_id");
     }
 
     private static boolean isCoordinator(ServiceDescriptor service)

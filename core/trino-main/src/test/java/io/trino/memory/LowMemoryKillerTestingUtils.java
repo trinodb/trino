@@ -52,7 +52,7 @@ public final class LowMemoryKillerTestingUtils
             Map<String, Long> reservationByNode = entry.getValue();
 
             for (Map.Entry<String, Long> nodeEntry : reservationByNode.entrySet()) {
-                InternalNode node = new InternalNode(nodeEntry.getKey(), URI.create("http://localhost"), new NodeVersion("version"), false);
+                InternalNode node = new InternalNode(nodeEntry.getKey(), "id", URI.create("http://localhost"), new NodeVersion("version"), false);
                 long bytes = nodeEntry.getValue();
                 if (bytes == 0) {
                     continue;

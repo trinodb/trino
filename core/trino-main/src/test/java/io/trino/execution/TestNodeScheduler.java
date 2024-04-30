@@ -135,9 +135,9 @@ public class TestNodeScheduler
     private void setUpNodes()
     {
         nodeManager.addNodes(
-                new InternalNode("other1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("other1", "other1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", "other2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", "other3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false));
     }
 
     @AfterEach
@@ -184,9 +184,9 @@ public class TestNodeScheduler
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         InternalNodeManager nodeManager = new InMemoryNodeManager(
-                new InternalNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("node1", "node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("node2", "node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("node3", "node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
 
         // contents of taskMap indicate the node-task map for the current stage
         Map<InternalNode, RemoteTask> taskMap = new HashMap<>();
@@ -321,7 +321,7 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNode()
     {
         setUpNodes();
-        InternalNode newNode = new InternalNode("other4", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
+        InternalNode newNode = new InternalNode("other4", "other4", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
@@ -380,7 +380,7 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNodePerTask()
     {
         setUpNodes();
-        InternalNode newNode = new InternalNode("other4", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
+        InternalNode newNode = new InternalNode("other4", "other4", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
@@ -480,7 +480,7 @@ public class TestNodeScheduler
     @Test
     public void testPrioritizedAssignmentOfLocalSplit()
     {
-        InternalNode node = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        InternalNode node = new InternalNode("node1", "node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node);
 
         // Check for Split assignments till maxSplitsPerNode (20)
@@ -519,7 +519,7 @@ public class TestNodeScheduler
     @Test
     public void testAssignmentWhenMixedSplits()
     {
-        InternalNode node = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        InternalNode node = new InternalNode("node1", "node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node);
 
         // Check for Split assignments till maxSplitsPerNode (20)
@@ -562,9 +562,9 @@ public class TestNodeScheduler
     @Test
     public void testOptimizedLocalScheduling()
     {
-        InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        InternalNode node1 = new InternalNode("node1", "node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node1);
-        InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
+        InternalNode node2 = new InternalNode("node2", "node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node2);
 
         Set<Split> splits = new LinkedHashSet<>();
@@ -634,13 +634,13 @@ public class TestNodeScheduler
     @Test
     public void testEquateDistribution()
     {
-        InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        InternalNode node1 = new InternalNode("node1", "node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node1);
-        InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
+        InternalNode node2 = new InternalNode("node2", "node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node2);
-        InternalNode node3 = new InternalNode("node3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false);
+        InternalNode node3 = new InternalNode("node3", "node3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node3);
-        InternalNode node4 = new InternalNode("node4", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
+        InternalNode node4 = new InternalNode("node4", "node4", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node4);
 
         Set<Split> splits = new LinkedHashSet<>();
@@ -681,7 +681,7 @@ public class TestNodeScheduler
 
         ImmutableList.Builder<InternalNode> nodesBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfNodes; ++i) {
-            InternalNode node = new InternalNode("node" + i, URI.create("http://10.0.0.1:" + (i + 10)), NodeVersion.UNKNOWN, false);
+            InternalNode node = new InternalNode("node" + i, "node" + i, URI.create("http://10.0.0.1:" + (i + 10)), NodeVersion.UNKNOWN, false);
             nodesBuilder.add(node);
             nodeManager.addNodes(node);
         }
@@ -715,9 +715,9 @@ public class TestNodeScheduler
     @Test
     public void testRedistributeSplit()
     {
-        InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        InternalNode node1 = new InternalNode("node1", "node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node1);
-        InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
+        InternalNode node2 = new InternalNode("node2", "node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node2);
 
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
@@ -769,9 +769,9 @@ public class TestNodeScheduler
     @Test
     public void testEmptyAssignmentWithFullNodes()
     {
-        InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        InternalNode node1 = new InternalNode("node1", "node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node1);
-        InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
+        InternalNode node2 = new InternalNode("node2", "node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(node2);
 
         Set<Split> splits = new LinkedHashSet<>();

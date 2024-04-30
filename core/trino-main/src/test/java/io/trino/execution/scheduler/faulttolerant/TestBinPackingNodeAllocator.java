@@ -67,10 +67,10 @@ public class TestBinPackingNodeAllocator
     private static final HostAddress NODE_3_ADDRESS = HostAddress.fromParts("127.0.0.1", 8082);
     private static final HostAddress NODE_4_ADDRESS = HostAddress.fromParts("127.0.0.1", 8083);
 
-    private static final InternalNode NODE_1 = new InternalNode("node-1", URI.create("local://" + NODE_1_ADDRESS), NodeVersion.UNKNOWN, false);
-    private static final InternalNode NODE_2 = new InternalNode("node-2", URI.create("local://" + NODE_2_ADDRESS), NodeVersion.UNKNOWN, false);
-    private static final InternalNode NODE_3 = new InternalNode("node-3", URI.create("local://" + NODE_3_ADDRESS), NodeVersion.UNKNOWN, false);
-    private static final InternalNode NODE_4 = new InternalNode("node-4", URI.create("local://" + NODE_4_ADDRESS), NodeVersion.UNKNOWN, false);
+    private static final InternalNode NODE_1 = new InternalNode("node-1", "node-1", URI.create("local://" + NODE_1_ADDRESS), NodeVersion.UNKNOWN, false);
+    private static final InternalNode NODE_2 = new InternalNode("node-2", "node-2", URI.create("local://" + NODE_2_ADDRESS), NodeVersion.UNKNOWN, false);
+    private static final InternalNode NODE_3 = new InternalNode("node-3", "node-3", URI.create("local://" + NODE_3_ADDRESS), NodeVersion.UNKNOWN, false);
+    private static final InternalNode NODE_4 = new InternalNode("node-4", "node-4", URI.create("local://" + NODE_4_ADDRESS), NodeVersion.UNKNOWN, false);
 
     private static final CatalogHandle CATALOG_1 = createTestCatalogHandle("catalog1");
 

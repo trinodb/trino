@@ -105,7 +105,7 @@ public class TestRaptorSplitManager
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
 
         String nodeName = UUID.randomUUID().toString();
-        nodeManager.addNode(new InternalNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false));
+        nodeManager.addNode(new InternalNode(nodeName, nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false));
 
         CatalogName connectorId = new CatalogName("raptor");
         metadata = new RaptorMetadata(dbi, shardManager);
@@ -172,7 +172,7 @@ public class TestRaptorSplitManager
         TestingNodeManager nodeManager = new TestingNodeManager();
         CatalogName connectorId = new CatalogName("raptor");
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
-        InternalNode node = new InternalNode(UUID.randomUUID().toString(), URI.create("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
+        InternalNode node = new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
         nodeManager.addNode(node);
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, true);
 

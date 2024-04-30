@@ -11,26 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi;
+package io.trino.server;
 
-public interface Node
+import com.google.inject.Inject;
+import com.google.inject.Provider;
+import io.airlift.node.NodeInfo;
+
+import static java.util.Objects.requireNonNull;
+
+public class NodeInstanceId
+        implements Provider<String>
 {
-    String getHost();
+    private final NodeInfo nodeInfo;
 
-    HostAddress getHostAndPort();
+    @Inject
+    public NodeInstanceId(NodeInfo nodeInfo)
+    {
+        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
+    }
 
-    /**
-     * The unique id of the deployment slot in which this binary is running.  This id should
-     * represent the physical deployment location and should not change.
-     */
-    String getNodeIdentifier();
-
-    /**
-     * The unique id of this Java VM instance.  This id will change every time the VM is restarted.
-     */
-    String getInstanceId();
-
-    String getVersion();
-
-    boolean isCoordinator();
+    @Override
+    public String get()
+    {
+        return nodeInfo.getInstanceId();
+    }
 }
