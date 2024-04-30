@@ -2,38 +2,47 @@
 ### Fork of the trinodb/trino repository that includes Vecna-specific assets.
 
 ## Vecna-Specific Assets
-Vecna-specific assets include:
-- A Neo4j connector, based on trinodb/trino(ragnard:neo4j-bolt-connector), with enhancements.
-- Configuration properties files.
-- Connector properties files for the connectors we use.
-- MongoDB scripts to create views that "flatten" MongoDB collections.
-- MongoDB scripts that insert schema information into the "trino_schema" for Trino to use.
+Vecna-specific assets (and their folders) include:
+- A Neo4j connector, based on based on <a href="https://github.com/trinodb/trino/pull/19154">ragnard:neo4j-bolt-connector</a>, with our enhancements. (plugin/trino-neo4j)
+- Configuration properties files. (core/trino-server/config/etc)
+- Connection properties files for the connections we use. (core/trino-server/config/etc/catalog)
+- MongoDB scripts to create views that "flatten" MongoDB collections. (core/trino-server/config/mongodb/$database_name/views)
+- MongoDB scripts to insert Trino schema information. (core/trino-server/config/mongodb/$database_name/schemas)
 
-Asset locations:
-- The Neo4j connector code is in $project_folder/plugin/trino-neo4j. There are also a number of other files in other folders that needed to be revised or added.
-- The configuration and connector properties files are in $project_folder/core/trino-server/config/etc and .../etc/catalog, respectively.
-- The MongoDB view and schema scripts are in $project_folder/core/trino-server/config/mongodb/$database_name/views and .../$database_name/schemas, respectively.
-
+There are also a number of other files in other folders that needed to be added or revised. You can get a list of all relevant files with the command: "git diff --name-only $tag bsuite", with $tag being the last Trino tag merged into our bsuite branch.
+  
 ## Updating Code
-### Master branch
-<b>Do not push code to the master branch!</b> We use the master branch to mirror the upstream repository, trinodb/trino.
-You can sync the master branch with trinogdb/trino by using the "Sync Fork" button and the "Update Branch" button in the popup.
-You should sync the master branch when you want to update the Trino code we use so our repository has the latest trinodb/trino tags.
+When you want to update our Trino code:
+- Sync our master branch with trinodb/trino:master by using the "Sync Fork" button and the "Update Branch" button in the popup.
+- Merge the latest Trino tag into our bsuite branch.
+- Build our bsuite branch locally and confirm that it works properly.
+  - If the updated bsuite branch does not work properly, make any changes needed for our current code to work with the latest Trino tag. Follow the two steps below to make these changes.
+- Create a branch from our bsuite branch and make your changes there.
+- Push your new branch to the remote and create a pull request.
+  - <b>Make sure your changes will be merged to our bsuite branch (not to trinodb/trino:master)</b>.
+  - In the merge path (at the top of the Comparing Changes page):
+    - Change the "base repository" to "Vecna-Healthcare/bsuite-trino".
+    - Change the "base" to "bsuite".
 
-### Neo4j branch
-<b>Do not merge the master branch into the neo4j branch!</b> We use the neo4j branch for our builds of Trino. The master branch is usually a "snapshot" version that often does not work properly.
-So when you want to update the neo4j branch, merge the latest tag into it.
+## Building Code
+To build our Trino code:
+- Use git pull to get the latest code from our repository.
+- Check out our bsuite branch.
+- To do a full clean install, run from the $project_folder: "./mvnw clean install -DskipTests"
+  - The first time you do a full clean install, maven downloads all the dependencies.
+  - After you've merged a new Trino tag into our bsuite branch, maven downloads any new dependencies.
+- If you haven't merged a new Trino tag and have only made changes affecting one subproject (say, the Neo4j connector), you can build just the subproject and the trino-server project:
+  - mvn clean install -DskipTests -amd -pl :trino-neo4j
+  - mvn clean install -DskipTests -amd -pl :trino-server
 
-If you want to revise our code (in the neo4j branch), create a new branch off the Neo4j branch and make your changes there. When ready, push the new branch to the remote and create a pull request.
+### Things to Remember
+- <b>Do not push code to the master branch!</b> We use the master branch to mirror the upstream repository, trinodb/trino.
+- <b>Do not merge our master branch into our bsuite branch!</b> Instead, merge the latest trinodb/trino tag into it. 
+- <b>Make sure pull requests will merge changes to our bsuite branch</b> (not to trinodb/trino:master).
 
-<b>!!! IMPORTANT !!!</b>
-
-When you create a pull request, make sure that the changes will be merged to the neo4j branch of our repository (not to trinodb/trino(master)).
-Instructions for setting the merge path are in $project_folder/.github/pull_request_template.md and appear in the "Add a description" section of the "Comparing changes" page after you click the "Compare & pull request" button.
 ___
 (The remainder of this README file is from trinodb/trino.)
 ___
-
 <p align="center">
     <a href="https://trino.io/"><img alt="Trino Logo" src=".github/homepage.png" /></a>
 </p>
