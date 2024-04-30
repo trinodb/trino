@@ -85,7 +85,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LocalProperty;
-import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationType;
