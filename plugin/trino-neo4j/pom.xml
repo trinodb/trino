@@ -15,8 +15,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <neo4j.driver.version>5.15.0</neo4j.driver.version>
-        <neo4j.cypher-dsl.version>2023.9.0</neo4j.cypher-dsl.version>
+        <neo4j.driver.version>5.19.0</neo4j.driver.version>
+        <neo4j.cypher-dsl.version>2023.9.7</neo4j.cypher-dsl.version>
     </properties>
 
     <dependencies>
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>io.projectreactor</groupId>
             <artifactId>reactor-core</artifactId>
-            <version>3.6.0</version>
+            <version>3.6.5</version>
         </dependency>
 
         <dependency>
