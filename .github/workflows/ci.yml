@@ -68,6 +68,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           cache: ${{ matrix.cache }}
           java-version: ${{ matrix.java-version }}
@@ -98,6 +99,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           cache: 'restore'
           cleanup-node: true
@@ -186,6 +188,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           cache: restore
       - name: Maven Install
@@ -226,6 +229,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           cache: restore
       - name: Maven Install
@@ -270,6 +274,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           cache: restore
       - name: Install Hive Module
@@ -329,6 +334,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           cache: restore
           cleanup-node: true
@@ -408,6 +414,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           cache: restore
       - name: Update PR check
@@ -516,6 +523,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           cache: restore
           cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore') }}
@@ -819,6 +827,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           cache: restore
           cleanup-node: true
@@ -1024,6 +1033,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           # The job doesn't build anything, so the ~/.m2/repository cache isn't useful
           cache: 'false'
