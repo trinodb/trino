@@ -164,7 +164,7 @@ public class SheetsMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return ((SheetsColumnHandle) columnHandle).getColumnMetadata();
+        return ((SheetsColumnHandle) columnHandle).columnMetadata();
     }
 
     @Override
