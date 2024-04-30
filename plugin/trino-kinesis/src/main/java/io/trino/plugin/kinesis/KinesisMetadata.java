@@ -81,7 +81,7 @@ public class KinesisMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession connectorSession, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(((KinesisTableHandle) tableHandle).toSchemaTableName());
+        return getTableMetadata(((KinesisTableHandle) tableHandle).schemaTableName());
     }
 
     @Override
@@ -102,9 +102,9 @@ public class KinesisMetadata
     {
         KinesisTableHandle kinesisTableHandle = (KinesisTableHandle) tableHandle;
 
-        KinesisStreamDescription kinesisStreamDescription = tableDescriptionSupplier.get().get(kinesisTableHandle.toSchemaTableName());
+        KinesisStreamDescription kinesisStreamDescription = tableDescriptionSupplier.get().get(kinesisTableHandle.schemaTableName());
         if (kinesisStreamDescription == null) {
-            throw new TableNotFoundException(kinesisTableHandle.toSchemaTableName());
+            throw new TableNotFoundException(kinesisTableHandle.schemaTableName());
         }
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();

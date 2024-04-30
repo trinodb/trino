@@ -121,11 +121,11 @@ public class TestS3TableConfigClient
         SchemaTableName tblName = new SchemaTableName("default", "test123");
         KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
         assertThat(metadata).isNotNull();
-        SchemaTableName tableSchemaName = tableHandle.toSchemaTableName();
+        SchemaTableName tableSchemaName = tableHandle.schemaTableName();
         assertThat(tableSchemaName.getSchemaName()).isEqualTo("default");
         assertThat(tableSchemaName.getTableName()).isEqualTo("test123");
-        assertThat(tableHandle.getStreamName()).isEqualTo("test123");
-        assertThat(tableHandle.getMessageDataFormat()).isEqualTo("json");
+        assertThat(tableHandle.streamName()).isEqualTo("test123");
+        assertThat(tableHandle.messageDataFormat()).isEqualTo("json");
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(SESSION, tableHandle);
         assertThat(columnHandles.size()).isEqualTo(12);
     }
