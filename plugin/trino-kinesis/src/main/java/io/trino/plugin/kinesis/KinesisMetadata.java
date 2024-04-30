@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.kinesis.KinesisCompressionCodec.UNCOMPRESSED;
 import static java.util.Objects.requireNonNull;
 
 public class KinesisMetadata
@@ -75,7 +76,7 @@ public class KinesisMetadata
                 schemaTableName.getTableName(),
                 table.getStreamName(),
                 getDataFormat(table.getMessage()),
-                table.getMessage().getCompressionCodec());
+                table.getMessage().compressionCodec().orElse(UNCOMPRESSED));
     }
 
     @Override
@@ -113,7 +114,7 @@ public class KinesisMetadata
         // Note: partition key and related fields are handled by internalFieldDescriptions below
         KinesisStreamFieldGroup message = kinesisStreamDescription.getMessage();
         if (message != null) {
-            List<KinesisStreamFieldDescription> fields = message.getFields();
+            List<KinesisStreamFieldDescription> fields = message.fields();
             if (fields != null) {
                 for (KinesisStreamFieldDescription kinesisStreamFieldDescription : fields) {
                     columnHandles.put(kinesisStreamFieldDescription.getName(), kinesisStreamFieldDescription.getColumnHandle(index++));
@@ -161,7 +162,7 @@ public class KinesisMetadata
 
     private static String getDataFormat(KinesisStreamFieldGroup fieldGroup)
     {
-        return (fieldGroup == null) ? DummyRowDecoder.NAME : fieldGroup.getDataFormat();
+        return (fieldGroup == null) ? DummyRowDecoder.NAME : fieldGroup.dataFormat();
     }
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName)
@@ -175,7 +176,7 @@ public class KinesisMetadata
 
         KinesisStreamFieldGroup message = kinesisStreamDescription.getMessage();
         if (message != null) {
-            List<KinesisStreamFieldDescription> fields = message.getFields();
+            List<KinesisStreamFieldDescription> fields = message.fields();
             if (fields != null) {
                 for (KinesisStreamFieldDescription fieldDescription : fields) {
                     builder.add(fieldDescription.getColumnMetadata());
