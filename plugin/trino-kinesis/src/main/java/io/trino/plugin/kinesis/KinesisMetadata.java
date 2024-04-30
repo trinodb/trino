@@ -74,9 +74,9 @@ public class KinesisMetadata
         return new KinesisTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
-                table.getStreamName(),
-                getDataFormat(table.getMessage()),
-                table.getMessage().compressionCodec().orElse(UNCOMPRESSED));
+                table.streamName(),
+                getDataFormat(table.message()),
+                table.message().compressionCodec().orElse(UNCOMPRESSED));
     }
 
     @Override
@@ -112,7 +112,7 @@ public class KinesisMetadata
 
         int index = 0;
         // Note: partition key and related fields are handled by internalFieldDescriptions below
-        KinesisStreamFieldGroup message = kinesisStreamDescription.getMessage();
+        KinesisStreamFieldGroup message = kinesisStreamDescription.message();
         if (message != null) {
             List<KinesisStreamFieldDescription> fields = message.fields();
             if (fields != null) {
@@ -174,7 +174,7 @@ public class KinesisMetadata
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
 
-        KinesisStreamFieldGroup message = kinesisStreamDescription.getMessage();
+        KinesisStreamFieldGroup message = kinesisStreamDescription.message();
         if (message != null) {
             List<KinesisStreamFieldDescription> fields = message.fields();
             if (fields != null) {

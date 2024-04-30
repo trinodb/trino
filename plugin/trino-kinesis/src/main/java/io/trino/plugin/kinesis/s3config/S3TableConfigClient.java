@@ -133,7 +133,7 @@ public class S3TableConfigClient
         Collection<KinesisStreamDescription> streamValues = this.descriptors.values();
         ImmutableMap.Builder<SchemaTableName, KinesisStreamDescription> builder = ImmutableMap.builder();
         for (KinesisStreamDescription stream : streamValues) {
-            builder.put(new SchemaTableName(stream.getSchemaName(), stream.getTableName()), stream);
+            builder.put(new SchemaTableName(stream.schemaName(), stream.tableName()), stream);
         }
         return builder.buildOrThrow();
     }
