@@ -16,7 +16,7 @@ package io.trino.filesystem.alluxio;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.semconv.SemanticAttributes;
+import io.opentelemetry.semconv.ExceptionAttributes;
 
 public class AlluxioTracing
 {
@@ -30,7 +30,7 @@ public class AlluxioTracing
         }
         catch (Throwable t) {
             span.setStatus(StatusCode.ERROR, t.getMessage());
-            span.recordException(t, Attributes.of(SemanticAttributes.EXCEPTION_ESCAPED, true));
+            span.recordException(t, Attributes.of(ExceptionAttributes.EXCEPTION_ESCAPED, true));
             throw t;
         }
         finally {
@@ -46,7 +46,7 @@ public class AlluxioTracing
         }
         catch (Throwable t) {
             span.setStatus(StatusCode.ERROR, t.getMessage());
-            span.recordException(t, Attributes.of(SemanticAttributes.EXCEPTION_ESCAPED, true));
+            span.recordException(t, Attributes.of(ExceptionAttributes.EXCEPTION_ESCAPED, true));
             throw t;
         }
         finally {
