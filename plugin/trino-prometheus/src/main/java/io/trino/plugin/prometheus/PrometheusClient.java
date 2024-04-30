@@ -20,6 +20,7 @@ import com.google.inject.Inject;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -125,9 +126,9 @@ public class PrometheusClient
         return new PrometheusTable(
                 remoteTableName,
                 ImmutableList.of(
-                        new PrometheusColumn("labels", varcharMapType),
-                        new PrometheusColumn("timestamp", TIMESTAMP_COLUMN_TYPE),
-                        new PrometheusColumn("value", DoubleType.DOUBLE)));
+                        new ColumnMetadata("labels", varcharMapType),
+                        new ColumnMetadata("timestamp", TIMESTAMP_COLUMN_TYPE),
+                        new ColumnMetadata("value", DoubleType.DOUBLE)));
     }
 
     @Nullable
