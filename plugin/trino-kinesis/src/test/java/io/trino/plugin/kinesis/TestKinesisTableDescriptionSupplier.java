@@ -14,6 +14,7 @@
 package io.trino.plugin.kinesis;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.trino.plugin.kinesis.util.KinesisTestClientManager;
 import io.trino.plugin.kinesis.util.MockKinesisClient;
 import io.trino.plugin.kinesis.util.TestUtils;
@@ -46,7 +47,7 @@ public class TestKinesisTableDescriptionSupplier
     {
         // Create dependent objects, including the minimal config needed for this test
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("kinesis.table-description-location", "etc/kinesis")
+                .put("kinesis.table-description-location", Resources.getResource("etc/kinesis").getPath())
                 .put("kinesis.default-schema", "kinesis")
                 .put("kinesis.hide-internal-columns", "true")
                 .put("bootstrap.quiet", "true")
