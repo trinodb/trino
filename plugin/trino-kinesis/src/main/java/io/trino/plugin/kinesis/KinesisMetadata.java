@@ -117,7 +117,7 @@ public class KinesisMetadata
             List<KinesisStreamFieldDescription> fields = message.fields();
             if (fields != null) {
                 for (KinesisStreamFieldDescription kinesisStreamFieldDescription : fields) {
-                    columnHandles.put(kinesisStreamFieldDescription.getName(), kinesisStreamFieldDescription.getColumnHandle(index++));
+                    columnHandles.put(kinesisStreamFieldDescription.name(), kinesisStreamFieldDescription.columnHandle(index++));
                 }
             }
         }
@@ -179,7 +179,7 @@ public class KinesisMetadata
             List<KinesisStreamFieldDescription> fields = message.fields();
             if (fields != null) {
                 for (KinesisStreamFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata());
+                    builder.add(fieldDescription.columnMetadata());
                 }
             }
         }
