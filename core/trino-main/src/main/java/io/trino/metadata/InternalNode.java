@@ -20,6 +20,7 @@ import io.trino.spi.Node;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -108,13 +109,16 @@ public class InternalNode
             return false;
         }
         InternalNode o = (InternalNode) obj;
-        return nodeIdentifier.equals(o.nodeIdentifier);
+        return coordinator == o.coordinator &&
+                Objects.equals(nodeIdentifier, o.nodeIdentifier) &&
+                Objects.equals(internalUri, o.internalUri) &&
+                Objects.equals(nodeVersion, o.nodeVersion);
     }
 
     @Override
     public int hashCode()
     {
-        return nodeIdentifier.hashCode();
+        return Objects.hash(nodeIdentifier, internalUri, nodeVersion, coordinator);
     }
 
     @Override
@@ -124,6 +128,7 @@ public class InternalNode
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("internalUri", internalUri)
                 .add("nodeVersion", nodeVersion)
+                .add("coordinator", coordinator)
                 .toString();
     }
 }
