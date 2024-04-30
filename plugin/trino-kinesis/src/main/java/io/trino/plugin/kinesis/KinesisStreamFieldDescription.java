@@ -13,149 +13,50 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
-public class KinesisStreamFieldDescription
+public record KinesisStreamFieldDescription(
+        String name,
+        Type type,
+        String mapping,
+        String comment,
+        String dataFormat,
+        String formatHint,
+        boolean hidden)
 {
-    private final String name;
-    private final Type type;
-    private final String mapping;
-    private final String comment;
-    private final String dataFormat;
-    private final String formatHint;
-    private final boolean hidden;
-
-    @JsonCreator
-    public KinesisStreamFieldDescription(
-            @JsonProperty("name") String name,
-            @JsonProperty("type") Type type,
-            @JsonProperty("mapping") String mapping,
-            @JsonProperty("comment") String comment,
-            @JsonProperty("dataFormat") String dataFormat,
-            @JsonProperty("formatHint") String formatHint,
-            @JsonProperty("hidden") boolean hidden)
+    public KinesisStreamFieldDescription
     {
         checkArgument(!isNullOrEmpty(name), "name is null or is empty");
-        this.name = name;
-        this.type = requireNonNull(type, "type is null");
-        this.mapping = mapping;
-        this.comment = comment;
-        this.dataFormat = dataFormat;
-        this.formatHint = formatHint;
-        this.hidden = hidden;
+        requireNonNull(type, "type is null");
     }
 
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public Type getType()
-    {
-        return type;
-    }
-
-    @JsonProperty
-    public String getMapping()
-    {
-        return mapping;
-    }
-
-    @JsonProperty
-    public String getComment()
-    {
-        return comment;
-    }
-
-    @JsonProperty
-    public String getDataFormat()
-    {
-        return dataFormat;
-    }
-
-    @JsonProperty
-    public String getFormatHint()
-    {
-        return formatHint;
-    }
-
-    @JsonProperty
-    public boolean isHidden()
-    {
-        return hidden;
-    }
-
-    KinesisColumnHandle getColumnHandle(int index)
+    KinesisColumnHandle columnHandle(int index)
     {
         return new KinesisColumnHandle(
                 index,
-                getName(),
-                getType(),
-                getMapping(),
-                getDataFormat(),
-                getFormatHint(),
-                isHidden(),
+                name(),
+                type(),
+                mapping(),
+                dataFormat(),
+                formatHint(),
+                hidden(),
                 false);
     }
 
-    ColumnMetadata getColumnMetadata()
+    ColumnMetadata columnMetadata()
     {
         return ColumnMetadata.builder()
-                .setName(getName())
-                .setType(getType())
-                .setComment(Optional.ofNullable(getComment()))
-                .setHidden(isHidden())
+                .setName(name())
+                .setType(type())
+                .setComment(Optional.ofNullable(comment()))
+                .setHidden(hidden())
                 .build();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name, type, mapping, dataFormat, formatHint, hidden);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-
-        KinesisStreamFieldDescription other = (KinesisStreamFieldDescription) obj;
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.type, other.type) &&
-                Objects.equals(this.mapping, other.mapping) &&
-                Objects.equals(this.dataFormat, other.dataFormat) &&
-                Objects.equals(this.formatHint, other.formatHint) &&
-                Objects.equals(this.hidden, other.hidden);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("name", name)
-                .add("type", type)
-                .add("mapping", mapping)
-                .add("dataFormat", dataFormat)
-                .add("formatHint", formatHint)
-                .add("hidden", hidden)
-                .toString();
     }
 }
