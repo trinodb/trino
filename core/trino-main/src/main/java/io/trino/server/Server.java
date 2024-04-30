@@ -77,6 +77,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
@@ -268,12 +269,10 @@ public class Server
 
     private static ServiceAnnouncement getTrinoAnnouncement(Set<ServiceAnnouncement> announcements)
     {
-        for (ServiceAnnouncement announcement : announcements) {
-            if (announcement.getType().equals("trino")) {
-                return announcement;
-            }
-        }
-        throw new IllegalArgumentException("Trino announcement not found: " + announcements);
+        return announcements.stream()
+                .filter(announcement -> announcement.getType().equals("trino"))
+                .collect(toOptional())
+                .orElseThrow(() -> new IllegalArgumentException("Trino announcement not found: " + announcements));
     }
 
     private static void logLocation(Logger log, String name, Path path)
