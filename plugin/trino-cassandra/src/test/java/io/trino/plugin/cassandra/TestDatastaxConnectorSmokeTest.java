@@ -29,7 +29,7 @@ public class TestDatastaxConnectorSmokeTest
             throws Exception
     {
         CassandraServer server = closeAfterClass(new CassandraServer(
-                DockerImageName.parse("datastax/dse-server:6.8.25").asCompatibleSubstituteFor("cassandra"),
+                DockerImageName.parse("datastax/dse-server:6.8.47").asCompatibleSubstituteFor("cassandra"),
                 Map.of(
                         "DS_LICENSE", "accept",
                         "DC", "datacenter1"),
