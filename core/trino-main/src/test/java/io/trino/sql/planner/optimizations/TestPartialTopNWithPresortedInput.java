@@ -45,6 +45,7 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -147,11 +148,15 @@ public class TestPartialTopNWithPresortedInput
 
         orderBy = ImmutableList.of(sort("t_col_a", ASCENDING, LAST));
         assertDistributedPlan("SELECT col_a FROM table_a ORDER BY 1 ASC NULLS LAST LIMIT 10", output(
-                        topN(10, orderBy, FINAL,
-                                exchange(LOCAL, GATHER, ImmutableList.of(),
-                                        exchange(REMOTE, GATHER, ImmutableList.of(),
-                                                topN(10, orderBy, PARTIAL,
-                                                        tableScan("table_a", ImmutableMap.of("t_col_a", "col_a"))))))));
+                topN(10, orderBy, FINAL,
+                        exchange(LOCAL, GATHER, ImmutableList.of(),
+                                exchange(REMOTE, GATHER, ImmutableList.of(),
+                                        topN(10, orderBy, PARTIAL,
+                                                exchange(LOCAL, GATHER,
+                                                        topN(10, orderBy, PARTIAL,
+                                                                exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                                        topN(10, orderBy, PARTIAL,
+                                                                                tableScan("table_a", ImmutableMap.of("t_col_a", "col_a"))))))))))));
     }
 
     @Test
