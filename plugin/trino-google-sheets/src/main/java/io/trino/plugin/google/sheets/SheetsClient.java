@@ -141,19 +141,19 @@ public class SheetsClient
     {
         List<List<String>> stringValues = convertToStringValues(values);
         if (stringValues.size() > 0) {
-            ImmutableList.Builder<SheetsColumn> columns = ImmutableList.builder();
+            ImmutableList.Builder<SheetsColumnHandle> columns = ImmutableList.builder();
             Set<String> columnNames = new HashSet<>();
             // Assuming 1st line is always header
             List<String> header = stringValues.get(0);
             int count = 0;
-            for (String column : header) {
-                String columnValue = column.toLowerCase(ENGLISH);
+            for (int i = 0; i < header.size(); i++) {
+                String columnValue = header.get(i).toLowerCase(ENGLISH);
                 // when empty or repeated column header, adding a placeholder column name
                 if (columnValue.isEmpty() || columnNames.contains(columnValue)) {
                     columnValue = "column_" + ++count;
                 }
                 columnNames.add(columnValue);
-                columns.add(new SheetsColumn(columnValue, VarcharType.VARCHAR));
+                columns.add(new SheetsColumnHandle(columnValue, VarcharType.VARCHAR, i));
             }
             List<List<String>> dataValues = stringValues.subList(1, values.size()); // removing header info
             return Optional.of(new SheetsTable(columns.build(), dataValues));
