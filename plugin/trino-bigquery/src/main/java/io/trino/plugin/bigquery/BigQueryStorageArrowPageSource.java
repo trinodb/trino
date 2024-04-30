@@ -17,6 +17,7 @@ import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.protobuf.ByteString;
 import io.airlift.log.Logger;
+import io.trino.plugin.bigquery.arrow.ArenaAllocationManager;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -47,6 +48,7 @@ public class BigQueryStorageArrowPageSource
             .configBuilder()
             .from(RootAllocator.defaultConfig())
             .maxAllocation(Integer.MAX_VALUE)
+            .allocationManagerFactory(ArenaAllocationManager.FACTORY)
             .build());
 
     private final AtomicLong readBytes = new AtomicLong();
