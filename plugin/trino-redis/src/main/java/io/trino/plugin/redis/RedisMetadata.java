@@ -162,7 +162,7 @@ public class RedisMetadata
             List<RedisTableFieldDescription> fields = key.fields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(true, index));
+                    columnHandles.put(field.name(), field.columnHandle(true, index));
                     index++;
                 }
             }
@@ -173,7 +173,7 @@ public class RedisMetadata
             List<RedisTableFieldDescription> fields = value.fields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(false, index));
+                    columnHandles.put(field.name(), field.columnHandle(false, index));
                     index++;
                 }
             }
@@ -306,7 +306,7 @@ public class RedisMetadata
             List<RedisTableFieldDescription> fields = group.fields();
             if (fields != null) {
                 for (RedisTableFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata());
+                    builder.add(fieldDescription.columnMetadata());
                 }
             }
         }
