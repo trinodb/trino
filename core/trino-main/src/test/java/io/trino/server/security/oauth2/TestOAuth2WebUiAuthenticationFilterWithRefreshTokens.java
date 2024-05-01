@@ -211,7 +211,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithRefreshTokens
                             URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
                             httpClient)))
                     .build()
-                    .parseClaimsJws(claimsJws));
+                    .parseSignedClaims(claimsJws));
         }
     }
 

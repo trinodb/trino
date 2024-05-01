@@ -43,6 +43,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJwkDecoder
 {
+    private static final String KEY_ID = "kid";
+
     @Test
     public void testReadRsaKeys()
     {
@@ -190,9 +192,9 @@ public class TestJwkDecoder
         PrivateKey privateKey = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").toURI()), Optional.empty());
         String jwt = newJwtBuilder()
                 .signWith(privateKey)
-                .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
-                .setSubject("test-user")
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .header().add(KEY_ID, "test-rsa").and()
+                .subject("test-user")
+                .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
 
         Jws<Claims> claimsJws = newJwtParserBuilder()
@@ -218,9 +220,9 @@ public class TestJwkDecoder
                     }
                 })
                 .build()
-                .parseClaimsJws(jwt);
+                .parseSignedClaims(jwt);
 
-        assertThat(claimsJws.getBody().getSubject()).isEqualTo("test-user");
+        assertThat(claimsJws.getPayload().getSubject()).isEqualTo("test-user");
     }
 
     @Test
@@ -326,9 +328,9 @@ public class TestJwkDecoder
         PrivateKey privateKey = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/" + keyName + "-private.pem").toURI()), Optional.empty());
         String jwt = newJwtBuilder()
                 .signWith(privateKey)
-                .setHeaderParam(JwsHeader.KEY_ID, keyName)
-                .setSubject("test-user")
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .header().add(KEY_ID, keyName).and()
+                .subject("test-user")
+                .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
 
         Jws<Claims> claimsJws = newJwtParserBuilder()
@@ -354,8 +356,8 @@ public class TestJwkDecoder
                     }
                 })
                 .build()
-                .parseClaimsJws(jwt);
+                .parseSignedClaims(jwt);
 
-        assertThat(claimsJws.getBody().getSubject()).isEqualTo("test-user");
+        assertThat(claimsJws.getPayload().getSubject()).isEqualTo("test-user");
     }
 }

@@ -27,7 +27,6 @@ import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.security.AccessControl;
@@ -96,6 +95,7 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.jsonwebtoken.Claims.SUBJECT;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
@@ -131,6 +131,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestWebUi
 {
+    private static final String KEY_ID = "kid";
     private static final String LOCALHOST_KEYSTORE = Resources.getResource("cert/localhost.pem").getPath();
     private static final String ALLOWED_USER_MAPPING_PATTERN = "(.*)@allowed";
     private static final ImmutableMap<String, String> SECURE_PROPERTIES = ImmutableMap.<String, String>builder()
@@ -601,8 +602,8 @@ public class TestWebUi
             SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
             String token = newJwtBuilder()
                     .signWith(hmac)
-                    .setSubject("test-user")
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .subject("test-user")
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
@@ -636,9 +637,9 @@ public class TestWebUi
 
             String token = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
-                    .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
-                    .setSubject("test-user")
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .header().add(KEY_ID, "test-rsa").and()
+                    .subject("test-user")
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
@@ -955,8 +956,8 @@ public class TestWebUi
     {
         String state = newJwtBuilder()
                 .signWith(hmacShaKeyFor(Hashing.sha256().hashString(STATE_KEY, UTF_8).asBytes()))
-                .setAudience("trino_oauth_ui")
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(10).toInstant()))
+                .claim(AUDIENCE, "trino_oauth_ui")
+                .expiration(Date.from(ZonedDateTime.now().plusMinutes(10).toInstant()))
                 .compact();
         assertRedirect(
                 client,
@@ -1366,8 +1367,8 @@ public class TestWebUi
         {
             return newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
-                    .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
-                    .setClaims(claims)
+                    .header().add(KEY_ID, "test-rsa").and()
+                    .claims(claims)
                     .compact();
         }
 
