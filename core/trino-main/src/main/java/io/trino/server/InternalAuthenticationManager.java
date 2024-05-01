@@ -125,16 +125,16 @@ public class InternalAuthenticationManager
     {
         return newJwtBuilder()
                 .signWith(hmac)
-                .setSubject(nodeId)
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .subject(nodeId)
+                .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
     }
 
     private String parseJwt(String jwt)
     {
         return jwtParser
-                .parseClaimsJws(jwt)
-                .getBody()
+                .parseSignedClaims(jwt)
+                .getPayload()
                 .getSubject();
     }
 }

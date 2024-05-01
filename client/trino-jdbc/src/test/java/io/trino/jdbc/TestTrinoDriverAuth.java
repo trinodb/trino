@@ -178,7 +178,7 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
+                .subject("test")
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));

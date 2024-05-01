@@ -62,7 +62,7 @@ public class JwtAuthenticator
     protected Optional<Identity> createIdentity(String token)
             throws UserMappingException
     {
-        Claims claims = jwtParser.parseClaimsJws(token).getBody();
+        Claims claims = jwtParser.parseSignedClaims(token).getPayload();
         validateAudience(claims);
 
         Optional<String> principal = Optional.ofNullable(claims.get(principalField, String.class));

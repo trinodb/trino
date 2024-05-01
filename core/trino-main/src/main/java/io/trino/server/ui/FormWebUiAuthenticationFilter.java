@@ -271,17 +271,17 @@ public class FormWebUiAuthenticationFilter
     {
         return newJwtBuilder()
                 .signWith(hmac)
-                .setSubject(username)
-                .setExpiration(Date.from(ZonedDateTime.now().plusNanos(sessionTimeoutNanos).toInstant()))
-                .setAudience(TRINO_UI_AUDIENCE)
+                .subject(username)
+                .expiration(Date.from(ZonedDateTime.now().plusNanos(sessionTimeoutNanos).toInstant()))
+                .audience().add(TRINO_UI_AUDIENCE).and()
                 .compact();
     }
 
     private String parseJwt(String jwt)
     {
         return jwtParser
-                .parseClaimsJws(jwt)
-                .getBody()
+                .parseSignedClaims(jwt)
+                .getPayload()
                 .getSubject();
     }
 
