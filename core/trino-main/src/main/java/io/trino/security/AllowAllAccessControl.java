@@ -83,9 +83,6 @@ public class AllowAllAccessControl
     public void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName) {}
 
     @Override
-    public void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, TrinoPrincipal principal) {}
-
-    @Override
     public void checkCanShowSchemas(SecurityContext context, String catalogName) {}
 
     @Override
@@ -149,9 +146,6 @@ public class AllowAllAccessControl
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, TrinoPrincipal principal) {}
-
-    @Override
     public void checkCanRenameColumn(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
@@ -171,9 +165,6 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName) {}
-
-    @Override
-    public void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, TrinoPrincipal principal) {}
 
     @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName) {}
@@ -291,4 +282,7 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName) {}
+
+    @Override
+    public void checkCanSetEntityAuthorization(SecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal) {}
 }

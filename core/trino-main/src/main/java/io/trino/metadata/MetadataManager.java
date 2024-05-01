@@ -180,6 +180,7 @@ import static java.util.Objects.requireNonNull;
 public final class MetadataManager
         implements Metadata
 {
+    private static final Set<String> ENTITY_KINDS_WITH_CATALOG = ImmutableSet.of("SCHEMA", "TABLE", "VIEW");
     private static final Logger log = Logger.get(MetadataManager.class);
 
     @VisibleForTesting
@@ -852,20 +853,6 @@ public final class MetadataManager
     }
 
     @Override
-    public void setSchemaAuthorization(Session session, CatalogSchemaName source, TrinoPrincipal principal)
-    {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName());
-        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
-            systemSecurityMetadata.setSchemaOwner(session, source, principal);
-        }
-        else {
-            metadata.setSchemaAuthorization(session.toConnectorSession(catalogHandle), source.getSchemaName(), principal);
-        }
-    }
-
-    @Override
     public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
@@ -1037,19 +1024,6 @@ public final class MetadataManager
                     session,
                     getTableName(session, tableHandle),
                     columnMetadata.getName());
-        }
-    }
-
-    @Override
-    public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
-    {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, table.getCatalogName());
-        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
-            systemSecurityMetadata.setTableOwner(session, table, principal);
-        }
-        else {
-            metadata.setTableAuthorization(session.toConnectorSession(catalogMetadata.getCatalogHandle()), table.getSchemaTableName(), principal);
         }
     }
 
@@ -1631,21 +1605,6 @@ public final class MetadataManager
         metadata.renameView(session.toConnectorSession(catalogHandle), source.asSchemaTableName(), target.asSchemaTableName());
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
             systemSecurityMetadata.tableRenamed(session, source.asCatalogSchemaTableName(), target.asCatalogSchemaTableName());
-        }
-    }
-
-    @Override
-    public void setViewAuthorization(Session session, CatalogSchemaTableName view, TrinoPrincipal principal)
-    {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, view.getCatalogName());
-        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-
-        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
-            systemSecurityMetadata.setViewOwner(session, view, principal);
-        }
-        else {
-            metadata.setViewAuthorization(session.toConnectorSession(catalogHandle), view.getSchemaTableName(), principal);
         }
     }
 
@@ -2885,6 +2844,29 @@ public final class MetadataManager
     {
         ConnectorMetadata metadata = getMetadataForWrite(session, tableHandle.catalogHandle());
         return metadata.getInsertWriterScalingOptions(session.toConnectorSession(tableHandle.catalogHandle()), tableHandle.connectorHandle());
+    }
+
+    @Override
+    public void setEntityAuthorization(Session session, EntityKindAndName entityKindAndName, TrinoPrincipal principal)
+    {
+        String ownedKind = entityKindAndName.entityKind();
+        List<String> name = entityKindAndName.name();
+        if (ENTITY_KINDS_WITH_CATALOG.contains(ownedKind)) {
+            CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, name.get(0));
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+            ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+            if (catalogMetadata.getSecurityManagement() != SYSTEM) {
+                switch (ownedKind) {
+                    case "TABLE" -> metadata.setTableAuthorization(session.toConnectorSession(catalogHandle), new SchemaTableName(name.get(1), name.get(2)), principal);
+                    case "VIEW" -> metadata.setViewAuthorization(session.toConnectorSession(catalogHandle), new SchemaTableName(name.get(1), name.get(2)), principal);
+                    case "SCHEMA" -> metadata.setSchemaAuthorization(session.toConnectorSession(catalogHandle), name.get(1), principal);
+                    default -> throw new IllegalArgumentException("Unsupported owned kind: " + ownedKind);
+                }
+                return;
+            }
+        }
+        systemSecurityMetadata.setEntityOwner(session, new EntityKindAndName(ownedKind, name), principal);
     }
 
     private Optional<ConnectorTableVersion> toConnectorVersion(Optional<TableVersion> version)
