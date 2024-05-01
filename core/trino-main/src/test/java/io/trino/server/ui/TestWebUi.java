@@ -27,7 +27,6 @@ import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.security.AccessControl;
@@ -601,8 +600,8 @@ public class TestWebUi
             SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
             String token = newJwtBuilder()
                     .signWith(hmac)
-                    .setSubject("test-user")
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .subject("test-user")
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
@@ -636,9 +635,9 @@ public class TestWebUi
 
             String token = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
-                    .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
-                    .setSubject("test-user")
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .header().keyId("test-rsa").and()
+                    .subject("test-user")
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
@@ -955,8 +954,8 @@ public class TestWebUi
     {
         String state = newJwtBuilder()
                 .signWith(hmacShaKeyFor(Hashing.sha256().hashString(STATE_KEY, UTF_8).asBytes()))
-                .setAudience("trino_oauth_ui")
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(10).toInstant()))
+                .audience().add("trino_oauth_ui").and()
+                .expiration(Date.from(ZonedDateTime.now().plusMinutes(10).toInstant()))
                 .compact();
         assertRedirect(
                 client,
@@ -1366,8 +1365,8 @@ public class TestWebUi
         {
             return newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
-                    .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
-                    .setClaims(claims)
+                    .header().keyId("test-rsa").and()
+                    .claims(claims)
                     .compact();
         }
 

@@ -200,10 +200,13 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         keyGenerator.initialize(4096);
         long now = Instant.now().getEpochSecond();
         String token = newJwtBuilder()
-                .setHeaderParam("alg", "RS256")
-                .setHeaderParam("kid", "public:f467aa08-1c1b-4cde-ba45-84b0ef5d2ba8")
-                .setHeaderParam("typ", "JWT")
-                .setClaims(
+                .header().add(ImmutableMap.<String, Object>builder()
+                        .put("alg", "RS256")
+                        .put("kid", "public:f467aa08-1c1b-4cde-ba45-84b0ef5d2ba8")
+                        .put("typ", "JWT")
+                        .buildOrThrow())
+                .and()
+                .claims(
                         new DefaultClaims(
                                 ImmutableMap.<String, Object>builder()
                                         .put("aud", ImmutableList.of())
@@ -348,7 +351,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         assertThat(idToken).isNotBlank();
 
         Jws<Claims> jwt = parseJwsClaims(idToken);
-        Claims claims = jwt.getBody();
+        Claims claims = jwt.getPayload();
         assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
         assertThat(claims.getAudience()).isEqualTo(ImmutableSet.of(TRINO_CLIENT_ID));
         assertThat(claims.getIssuer()).isEqualTo("https://localhost:4444/");
@@ -375,7 +378,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                             URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
                             httpClient)))
                     .build()
-                    .parseClaimsJws(claimsJws);
+                    .parseSignedClaims(claimsJws);
         }
     }
 
