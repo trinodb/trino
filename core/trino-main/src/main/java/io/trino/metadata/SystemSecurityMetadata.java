@@ -25,6 +25,7 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -160,24 +161,9 @@ public interface SystemSecurityMetadata
     Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schema);
 
     /**
-     * Set the owner of the specified schema
-     */
-    void setSchemaOwner(Session session, CatalogSchemaName schema, TrinoPrincipal principal);
-
-    /**
-     * Set the owner of the specified table
-     */
-    void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal);
-
-    /**
      * Get the identity to run the view as
      */
     Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName);
-
-    /**
-     * Set the owner of the specified view
-     */
-    void setViewOwner(Session session, CatalogSchemaTableName view, TrinoPrincipal principal);
 
     /**
      * Get the identity to run the function as
@@ -238,4 +224,11 @@ public interface SystemSecurityMetadata
      * Column's NOT NULL constraint was dropped
      */
     void columnNotNullConstraintDropped(Session session, CatalogSchemaTableName table, String column);
+
+    /**
+     * Set the owner of the entity of entity kind ownedKind, with dotted name from the components of the name list,
+     * to the supplied principal.  The ownedKind string is guaranteed to be uppercase, and the name is guaranteed
+     * to be fully qualified, i.e., if the entity is a table, the name is of size three.
+     */
+    void setEntityOwner(Session session, String ownedKind, List<String> name, TrinoPrincipal principal);
 }
