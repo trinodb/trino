@@ -33,6 +33,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -107,7 +108,7 @@ public class TestAccessControlTableRedirection
                                 }
 
                                 @Override
-                                public void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal) {}
+                                public void setEntityOwner(Session session, String ownedKind, List<String> name, TrinoPrincipal principal) {}
 
                                 @Override
                                 public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee) {}

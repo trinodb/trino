@@ -140,16 +140,14 @@ import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SessionProperty;
+import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
-import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetSessionAuthorization;
-import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.sql.tree.SetTimeZone;
-import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
@@ -1210,9 +1208,11 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSetViewAuthorization(SetViewAuthorization node, Integer indent)
+        protected Void visitSetAuthorization(SetAuthorizationStatement node, Integer indent)
         {
-            builder.append("ALTER VIEW ")
+            builder.append("ALTER ")
+                    .append(node.getOwnedEntityKind())
+                    .append(" ")
                     .append(formatName(node.getSource()))
                     .append(" SET AUTHORIZATION ")
                     .append(formatPrincipal(node.getPrincipal()));
@@ -1547,17 +1547,6 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSetSchemaAuthorization(SetSchemaAuthorization node, Integer indent)
-        {
-            builder.append("ALTER SCHEMA ")
-                    .append(formatName(node.getSource()))
-                    .append(" SET AUTHORIZATION ")
-                    .append(formatPrincipal(node.getPrincipal()));
-
-            return null;
-        }
-
-        @Override
         protected Void visitCreateTableAsSelect(CreateTableAsSelect node, Integer indent)
         {
             builder.append("CREATE ");
@@ -1877,17 +1866,6 @@ public final class SqlFormatter
                     .append(" ALTER COLUMN ")
                     .append(formatName(node.getColumn()))
                     .append(" DROP NOT NULL");
-
-            return null;
-        }
-
-        @Override
-        protected Void visitSetTableAuthorization(SetTableAuthorization node, Integer indent)
-        {
-            builder.append("ALTER TABLE ")
-                    .append(formatName(node.getSource()))
-                    .append(" SET AUTHORIZATION ")
-                    .append(formatPrincipal(node.getPrincipal()));
 
             return null;
         }
