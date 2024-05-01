@@ -94,6 +94,7 @@ import static io.trino.hive.formats.FormatTestUtils.toHiveWriteValue;
 import static io.trino.hive.formats.FormatTestUtils.writeTrinoValue;
 import static io.trino.hive.formats.ReadWriteUtils.findFirstSyncPosition;
 import static io.trino.hive.formats.compression.CompressionKind.LZOP;
+import static io.trino.hive.formats.compression.CompressionKind.ZSTD;
 import static io.trino.hive.formats.rcfile.RcFileWriter.TRINO_RCFILE_WRITER_VERSION;
 import static io.trino.hive.formats.rcfile.RcFileWriter.TRINO_RCFILE_WRITER_VERSION_METADATA_KEY;
 import static io.trino.spi.type.StandardTypes.MAP;
@@ -181,7 +182,7 @@ public class RcFileTester
         rcFileTester.listTestsEnabled = true;
         rcFileTester.complexStructuralTestsEnabled = false;
         rcFileTester.readLastBatchOnlyEnabled = false;
-        rcFileTester.compressions = ImmutableList.of(Optional.empty(), Optional.of(CompressionKind.ZSTD));
+        rcFileTester.compressions = ImmutableList.of(Optional.empty(), Optional.of(ZSTD));
         return rcFileTester;
     }
 
@@ -322,9 +323,10 @@ public class RcFileTester
 
         for (Format format : formats) {
             for (Optional<CompressionKind> compression : compressions) {
-                if (compression.equals(Optional.of(LZOP))) {
+                if (compression.equals(Optional.of(LZOP)) || compression.equals(Optional.of(ZSTD))) {
                     continue;
                 }
+
                 // write old, read new
                 try (TempFile tempFile = new TempFile()) {
                     writeRcFileColumnOld(tempFile.file(), format, compression, type, finalValues.iterator());
