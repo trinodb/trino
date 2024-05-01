@@ -58,7 +58,6 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
-import io.trino.plugin.deltalake.transactionlog.MetadataEntry.Format;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
@@ -1049,14 +1048,14 @@ public class DeltaLakeMetadata
                 appendTableEntries(
                         commitVersion,
                         transactionLogWriter,
-                        randomUUID().toString(),
-                        serializeSchemaAsJson(deltaTable.build()),
-                        getPartitionedBy(tableMetadata.getProperties()),
-                        configurationForNewTable(checkpointInterval, changeDataFeedEnabled, columnMappingMode, maxFieldId),
                         saveMode == SaveMode.REPLACE ? CREATE_OR_REPLACE_TABLE_OPERATION : CREATE_TABLE_OPERATION,
                         session,
-                        tableMetadata.getComment(),
-                        protocolEntry);
+                        protocolEntry,
+                        MetadataEntry.builder()
+                                .setDescription(tableMetadata.getComment())
+                                .setSchemaString(serializeSchemaAsJson(deltaTable.build()))
+                                .setPartitionColumns(getPartitionedBy(tableMetadata.getProperties()))
+                                .setConfiguration(configurationForNewTable(checkpointInterval, changeDataFeedEnabled, columnMappingMode, maxFieldId)));
 
                 transactionLogWriter.flush();
             }
@@ -1397,14 +1396,14 @@ public class DeltaLakeMetadata
             appendTableEntries(
                     commitVersion,
                     transactionLogWriter,
-                    randomUUID().toString(),
-                    schemaString,
-                    handle.partitionedBy(),
-                    configurationForNewTable(handle.checkpointInterval(), handle.changeDataFeedEnabled(), columnMappingMode, handle.maxColumnId()),
                     handle.replace() ? CREATE_OR_REPLACE_TABLE_AS_OPERATION : CREATE_TABLE_AS_OPERATION,
                     session,
-                    handle.comment(),
-                    handle.protocolEntry());
+                    handle.protocolEntry(),
+                    MetadataEntry.builder()
+                            .setDescription(handle.comment())
+                            .setSchemaString(schemaString)
+                            .setPartitionColumns(handle.partitionedBy())
+                            .setConfiguration(configurationForNewTable(handle.checkpointInterval(), handle.changeDataFeedEnabled(), columnMappingMode, handle.maxColumnId())));
             appendAddFileEntries(transactionLogWriter, dataFileInfos, physicalPartitionNames, columnNames, true);
             if (handle.readVersion().isPresent()) {
                 long writeTimestamp = Instant.now().toEpochMilli();
@@ -1500,14 +1499,11 @@ public class DeltaLakeMetadata
             appendTableEntries(
                     commitVersion,
                     transactionLogWriter,
-                    handle.getMetadataEntry().getId(),
-                    handle.getMetadataEntry().getSchemaString(),
-                    handle.getMetadataEntry().getOriginalPartitionColumns(),
-                    handle.getMetadataEntry().getConfiguration(),
                     SET_TBLPROPERTIES_OPERATION,
                     session,
-                    comment,
-                    protocolEntry);
+                    protocolEntry,
+                    MetadataEntry.builder(handle.getMetadataEntry())
+                            .setDescription(comment));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
@@ -1540,14 +1536,11 @@ public class DeltaLakeMetadata
             appendTableEntries(
                     commitVersion,
                     transactionLogWriter,
-                    deltaLakeTableHandle.getMetadataEntry().getId(),
-                    serializeSchemaAsJson(deltaTable),
-                    deltaLakeTableHandle.getMetadataEntry().getOriginalPartitionColumns(),
-                    deltaLakeTableHandle.getMetadataEntry().getConfiguration(),
                     CHANGE_COLUMN_OPERATION,
                     session,
-                    Optional.ofNullable(deltaLakeTableHandle.getMetadataEntry().getDescription()),
-                    protocolEntry);
+                    protocolEntry,
+                    MetadataEntry.builder(deltaLakeTableHandle.getMetadataEntry())
+                            .setSchemaString(serializeSchemaAsJson(deltaTable)));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
@@ -1629,14 +1622,12 @@ public class DeltaLakeMetadata
             appendTableEntries(
                     commitVersion,
                     transactionLogWriter,
-                    handle.getMetadataEntry().getId(),
-                    serializeSchemaAsJson(deltaTable),
-                    handle.getMetadataEntry().getOriginalPartitionColumns(),
-                    configuration,
                     ADD_COLUMN_OPERATION,
                     session,
-                    Optional.ofNullable(handle.getMetadataEntry().getDescription()),
-                    buildProtocolEntryForNewColumn(protocolEntry, newColumnMetadata.getType()));
+                    buildProtocolEntryForNewColumn(protocolEntry, newColumnMetadata.getType()),
+                    MetadataEntry.builder(handle.getMetadataEntry())
+                            .setSchemaString(serializeSchemaAsJson(deltaTable))
+                            .setConfiguration(configuration));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
@@ -1715,14 +1706,11 @@ public class DeltaLakeMetadata
             appendTableEntries(
                     commitVersion,
                     transactionLogWriter,
-                    metadataEntry.getId(),
-                    serializeSchemaAsJson(deltaTable),
-                    metadataEntry.getOriginalPartitionColumns(),
-                    metadataEntry.getConfiguration(),
                     DROP_COLUMN_OPERATION,
                     session,
-                    Optional.ofNullable(metadataEntry.getDescription()),
-                    protocolEntry);
+                    protocolEntry,
+                    MetadataEntry.builder(metadataEntry)
+                            .setSchemaString(serializeSchemaAsJson(deltaTable)));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
@@ -1783,14 +1771,12 @@ public class DeltaLakeMetadata
             appendTableEntries(
                     commitVersion,
                     transactionLogWriter,
-                    metadataEntry.getId(),
-                    serializeSchemaAsJson(deltaTable),
-                    partitionColumns,
-                    metadataEntry.getConfiguration(),
                     RENAME_COLUMN_OPERATION,
                     session,
-                    Optional.ofNullable(metadataEntry.getDescription()),
-                    protocolEntry);
+                    protocolEntry,
+                    MetadataEntry.builder(metadataEntry)
+                            .setSchemaString(serializeSchemaAsJson(deltaTable))
+                            .setPartitionColumns(partitionColumns));
             transactionLogWriter.flush();
             // Don't update extended statistics because it uses physical column names internally
         }
@@ -1820,14 +1806,11 @@ public class DeltaLakeMetadata
             appendTableEntries(
                     table.getReadVersion() + 1,
                     transactionLogWriter,
-                    metadataEntry.getId(),
-                    serializeSchemaAsJson(deltaTable),
-                    metadataEntry.getOriginalPartitionColumns(),
-                    metadataEntry.getConfiguration(),
                     CHANGE_COLUMN_OPERATION,
                     session,
-                    Optional.ofNullable(metadataEntry.getDescription()),
-                    protocolEntry);
+                    protocolEntry,
+                    MetadataEntry.builder(metadataEntry)
+                            .setSchemaString(serializeSchemaAsJson(deltaTable)));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
@@ -1838,30 +1821,16 @@ public class DeltaLakeMetadata
     private void appendTableEntries(
             long commitVersion,
             TransactionLogWriter transactionLogWriter,
-            String tableId,
-            String schemaString,
-            List<String> partitionColumnNames,
-            Map<String, String> configuration,
             String operation,
             ConnectorSession session,
-            Optional<String> comment,
-            ProtocolEntry protocolEntry)
+            ProtocolEntry protocolEntry,
+            MetadataEntry.Builder metadataEntry)
     {
         long createdTime = System.currentTimeMillis();
         transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, IsolationLevel.WRITESERIALIZABLE, commitVersion, createdTime, operation, 0, true));
 
         transactionLogWriter.appendProtocolEntry(protocolEntry);
-
-        transactionLogWriter.appendMetadataEntry(
-                new MetadataEntry(
-                        tableId,
-                        null,
-                        comment.orElse(null),
-                        new Format("parquet", ImmutableMap.of()),
-                        schemaString,
-                        partitionColumnNames,
-                        ImmutableMap.copyOf(configuration),
-                        createdTime));
+        transactionLogWriter.appendMetadataEntry(metadataEntry.setCreatedTime(createdTime).build());
     }
 
     private static void appendAddFileEntries(TransactionLogWriter transactionLogWriter, List<DataFileInfo> dataFileInfos, List<String> partitionColumnNames, List<String> originalColumnNames, boolean dataChange)
