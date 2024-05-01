@@ -60,7 +60,6 @@ statement
         (WITH properties)?                                             #createSchema
     | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE | RESTRICT)?     #dropSchema
     | ALTER SCHEMA qualifiedName RENAME TO identifier                  #renameSchema
-    | ALTER SCHEMA qualifiedName SET AUTHORIZATION principal           #setSchemaAuthorization
     | CREATE (OR REPLACE)? TABLE (IF NOT EXISTS)? qualifiedName
         columnAliases?
         (COMMENT string)?
@@ -90,13 +89,13 @@ statement
         ALTER COLUMN columnName=qualifiedName SET DATA TYPE type       #setColumnType
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER COLUMN columnName=identifier DROP NOT NULL               #dropNotNullConstraint
-    | ALTER TABLE tableName=qualifiedName SET AUTHORIZATION principal  #setTableAuthorization
     | ALTER TABLE tableName=qualifiedName
         SET PROPERTIES propertyAssignments                             #setTableProperties
     | ALTER TABLE tableName=qualifiedName
         EXECUTE procedureName=identifier
         ('(' (callArgument (',' callArgument)*)? ')')?
         (WHERE where=booleanExpression)?                               #tableExecute
+    | ALTER ownedEntityKind qualifiedName SET AUTHORIZATION principal  #setAuthorization
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE (OR REPLACE)? MATERIALIZED VIEW
         (IF NOT EXISTS)? qualifiedName
@@ -115,7 +114,6 @@ statement
         SET PROPERTIES propertyAssignments                             #setMaterializedViewProperties
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
-    | ALTER VIEW from=qualifiedName SET AUTHORIZATION principal        #setViewAuthorization
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE (OR REPLACE)? functionSpecification                       #createFunction
     | DROP FUNCTION (IF EXISTS)? functionDeclaration                   #dropFunction
@@ -943,6 +941,10 @@ entityKind
 
 grantObject
     : entityKind? qualifiedName
+    ;
+
+ownedEntityKind
+    : TABLE | SCHEMA | VIEW | identifier
     ;
 
 qualifiedName
