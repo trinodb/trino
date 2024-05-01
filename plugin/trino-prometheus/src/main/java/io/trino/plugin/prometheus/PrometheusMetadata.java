@@ -150,7 +150,7 @@ public class PrometheusMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return ((PrometheusColumnHandle) columnHandle).getColumnMetadata();
+        return ((PrometheusColumnHandle) columnHandle).columnMetadata();
     }
 
     @Override

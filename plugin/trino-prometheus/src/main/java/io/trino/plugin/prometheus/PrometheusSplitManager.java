@@ -171,8 +171,8 @@ public class PrometheusSplitManager
                 .collect(Collectors.toSet()));
         Optional<Set<PrometheusColumnHandle>> maybeOnlyTimeStampColumnHandles = maybeOnlyPromColHandles.map(handles -> handles.stream()
                 .map(PrometheusColumnHandle.class::cast)
-                .filter(handle -> handle.getColumnType().equals(TIMESTAMP_COLUMN_TYPE))
-                .filter(handle -> handle.getColumnName().equals("timestamp"))
+                .filter(handle -> handle.columnType().equals(TIMESTAMP_COLUMN_TYPE))
+                .filter(handle -> handle.columnName().equals("timestamp"))
                 .collect(Collectors.toSet()));
 
         // below we have a set of ColumnHandle that are all PrometheusColumnHandle AND of TimestampType wrapped in Optional: maybeOnlyTimeStampColumnHandles
