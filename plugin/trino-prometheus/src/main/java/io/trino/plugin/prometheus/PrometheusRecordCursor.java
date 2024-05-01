@@ -74,7 +74,7 @@ public class PrometheusRecordCursor
         fieldToColumnIndex = new int[columnHandles.size()];
         for (int i = 0; i < columnHandles.size(); i++) {
             PrometheusColumnHandle columnHandle = columnHandles.get(i);
-            fieldToColumnIndex[i] = columnHandle.getOrdinalPosition();
+            fieldToColumnIndex[i] = columnHandle.ordinalPosition();
         }
 
         try (CountingInputStream input = new CountingInputStream(byteSource.openStream())) {
@@ -102,7 +102,7 @@ public class PrometheusRecordCursor
     public Type getType(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");
-        return columnHandles.get(field).getColumnType();
+        return columnHandles.get(field).columnType();
     }
 
     @Override
@@ -121,7 +121,7 @@ public class PrometheusRecordCursor
 
         int columnIndex = fieldToColumnIndex[field];
         return switch (columnIndex) {
-            case 0 -> getSqlMapFromMap(columnHandles.get(columnIndex).getColumnType(), fields.labels());
+            case 0 -> getSqlMapFromMap(columnHandles.get(columnIndex).columnType(), fields.labels());
             case 1 -> fields.timestamp();
             case 2 -> fields.value();
             default -> null;
