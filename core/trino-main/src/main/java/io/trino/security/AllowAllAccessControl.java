@@ -27,6 +27,7 @@ import io.trino.spi.security.TrinoPrincipal;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -291,4 +292,7 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName) {}
+
+    @Override
+    public void checkCanSetEntityAuthorization(SecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal) {}
 }
