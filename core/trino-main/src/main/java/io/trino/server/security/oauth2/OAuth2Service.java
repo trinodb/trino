@@ -37,6 +37,7 @@ import java.util.Random;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.hash.Hashing.sha256;
+import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
@@ -112,9 +113,9 @@ public class OAuth2Service
         Instant challengeExpiration = now().plus(challengeTimeout);
         String state = newJwtBuilder()
                 .signWith(stateHmac)
-                .setAudience(STATE_AUDIENCE_UI)
+                .claim(AUDIENCE, STATE_AUDIENCE_UI)
                 .claim(HANDLER_STATE_CLAIM, handlerState.orElse(null))
-                .setExpiration(Date.from(challengeExpiration))
+                .expiration(Date.from(challengeExpiration))
                 .compact();
 
         OAuth2Client.Request request = client.createAuthorizationRequest(state, callbackUri);
@@ -211,8 +212,8 @@ public class OAuth2Service
     {
         try {
             return jwtParser
-                    .parseClaimsJws(state)
-                    .getBody();
+                    .parseSignedClaims(state)
+                    .getPayload();
         }
         catch (RuntimeException e) {
             throw new ChallengeFailedException("State validation failed", e);

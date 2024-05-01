@@ -42,6 +42,7 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
@@ -271,17 +272,17 @@ public class FormWebUiAuthenticationFilter
     {
         return newJwtBuilder()
                 .signWith(hmac)
-                .setSubject(username)
-                .setExpiration(Date.from(ZonedDateTime.now().plusNanos(sessionTimeoutNanos).toInstant()))
-                .setAudience(TRINO_UI_AUDIENCE)
+                .subject(username)
+                .expiration(Date.from(ZonedDateTime.now().plusNanos(sessionTimeoutNanos).toInstant()))
+                .claim(AUDIENCE, TRINO_UI_AUDIENCE)
                 .compact();
     }
 
     private String parseJwt(String jwt)
     {
         return jwtParser
-                .parseClaimsJws(jwt)
-                .getBody()
+                .parseSignedClaims(jwt)
+                .getPayload()
                 .getSubject();
     }
 

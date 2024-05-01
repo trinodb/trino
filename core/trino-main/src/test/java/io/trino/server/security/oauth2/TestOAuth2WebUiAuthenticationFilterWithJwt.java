@@ -64,7 +64,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
     {
         assertThat(cookieValue).isNotBlank();
         Jws<Claims> jwt = parseJwsClaims(cookieValue);
-        Claims claims = jwt.getBody();
+        Claims claims = jwt.getPayload();
         assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
         assertThat(claims.get("client_id")).isEqualTo(TRINO_CLIENT_ID);
         assertThat(claims.getIssuer()).isEqualTo("https://localhost:4444/");

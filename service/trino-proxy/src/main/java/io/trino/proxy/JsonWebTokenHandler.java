@@ -33,6 +33,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.jsonwebtoken.JwsHeader.KEY_ID;
 import static java.nio.file.Files.readAllBytes;
 
@@ -63,13 +64,13 @@ public class JsonWebTokenHandler
 
         JwtBuilder jwt = new DefaultJwtBuilder()
                 .serializeToJsonWith(new JacksonSerializer<>())
-                .setSubject(subject)
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
+                .subject(subject)
+                .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
 
         jwtSigner.get().accept(jwt);
-        jwtKeyId.ifPresent(keyId -> jwt.setHeaderParam(KEY_ID, keyId));
-        jwtIssuer.ifPresent(jwt::setIssuer);
-        jwtAudience.ifPresent(jwt::setAudience);
+        jwtKeyId.ifPresent(keyId -> jwt.header().add(KEY_ID, keyId));
+        jwtIssuer.ifPresent(jwt::issuer);
+        jwtAudience.ifPresent(audience -> jwt.claim(AUDIENCE, audience));
 
         return jwt.compact();
     }
