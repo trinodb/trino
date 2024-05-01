@@ -620,4 +620,6 @@ public interface AccessControl
     {
         return ImmutableMap.of();
     }
+
+    void checkCanSetEntityAuthorization(SecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal);
 }
