@@ -96,7 +96,6 @@ public class TestDeltaLakeBasic
     private static final List<ResourceTable> OTHER_TABLES = ImmutableList.of(
             new ResourceTable("stats_with_minmax_nulls", "deltalake/stats_with_minmax_nulls"),
             new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
-            new ResourceTable("deletion_vectors", "databricks122/deletion_vectors"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"));
 
@@ -936,8 +935,30 @@ public class TestDeltaLakeBasic
      */
     @Test
     public void testDeletionVectors()
+            throws Exception
     {
-        assertQuery("SELECT * FROM deletion_vectors", "VALUES (1, 11)");
+        String tableName = "deletion_vectors" + randomNameSuffix();
+
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, 31), (3, 32)", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (3, 31), (3, 32)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE a = 3 AND b = 31", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (3, 32)");
+
+        assertUpdate("UPDATE " + tableName + " SET a = -3 WHERE b = 32", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (-3, 32)");
+
+        assertUpdate("MERGE INTO " + tableName + " t USING " + tableName + " s " +
+                "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = -1", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, -1), (-3, -1)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

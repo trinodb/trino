@@ -119,6 +119,7 @@ public final class DeltaLakeSchemaSupport
             .add(CHANGE_DATA_FEED_FEATURE_NAME)
             .add(COLUMN_MAPPING_FEATURE_NAME)
             .add(TIMESTAMP_NTZ_FEATURE_NAME)
+            .add(DELETION_VECTORS_FEATURE_NAME)
             .build();
 
     public enum ColumnMappingMode
