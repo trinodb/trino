@@ -488,19 +488,19 @@ public class TestResourceSecurity
             SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
             if (principalField.isPresent()) {
                 tokenBuilder.claim(principalField.get(), TEST_USER);
             }
             else {
-                tokenBuilder.setSubject(TEST_USER);
+                tokenBuilder.subject(TEST_USER);
             }
 
             if (audience.isPresent()) {
                 tokenBuilder.claim(AUDIENCE, audience.get());
             }
             else {
-                tokenBuilder.setAudience(TRINO_AUDIENCE);
+                tokenBuilder.claim(AUDIENCE, TRINO_AUDIENCE);
             }
             String token = tokenBuilder.compact();
 
@@ -568,7 +568,7 @@ public class TestResourceSecurity
             SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                     .claim(AUDIENCE, ImmutableList.of(ADDITIONAL_AUDIENCE, UNTRUSTED_CLIENT_AUDIENCE));
             String token = tokenBuilder.compact();
 
@@ -604,8 +604,8 @@ public class TestResourceSecurity
             SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
-                    .setSubject(TEST_USER);
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .subject(TEST_USER);
 
             if (audience.isPresent()) {
                 tokenBuilder.claim(AUDIENCE, audience.get());
@@ -1088,7 +1088,7 @@ public class TestResourceSecurity
                 @Override
                 public Optional<Map<String, Object>> getClaims(String accessToken)
                 {
-                    return Optional.of(jwtParser.parseClaimsJws(accessToken).getBody());
+                    return Optional.of(jwtParser.parseSignedClaims(accessToken).getPayload());
                 }
 
                 @Override

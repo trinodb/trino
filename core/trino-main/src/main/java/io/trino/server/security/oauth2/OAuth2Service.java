@@ -112,9 +112,9 @@ public class OAuth2Service
         Instant challengeExpiration = now().plus(challengeTimeout);
         String state = newJwtBuilder()
                 .signWith(stateHmac)
-                .setAudience(STATE_AUDIENCE_UI)
+                .audience().add(STATE_AUDIENCE_UI).and()
                 .claim(HANDLER_STATE_CLAIM, handlerState.orElse(null))
-                .setExpiration(Date.from(challengeExpiration))
+                .expiration(Date.from(challengeExpiration))
                 .compact();
 
         OAuth2Client.Request request = client.createAuthorizationRequest(state, callbackUri);
@@ -211,8 +211,8 @@ public class OAuth2Service
     {
         try {
             return jwtParser
-                    .parseClaimsJws(state)
-                    .getBody();
+                    .parseSignedClaims(state)
+                    .getPayload();
         }
         catch (RuntimeException e) {
             throw new ChallengeFailedException("State validation failed", e);
