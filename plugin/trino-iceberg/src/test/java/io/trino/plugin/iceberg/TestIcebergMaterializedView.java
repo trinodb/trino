@@ -87,6 +87,157 @@ public class TestIcebergMaterializedView
     }
 
     @Test
+    public void testIncrementalRefresh()
+    {
+        Session defaultSession = getSession();
+        Session incrementalRefreshDisabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "incremental_refresh_enabled", "false")
+                .build();
+
+        String matViewDef = "SELECT a, b FROM source_table WHERE a < 3 OR a > 5";
+
+        // create source table and two identical MVs
+        assertUpdate("CREATE TABLE source_table (a int, b varchar)");
+        assertUpdate("INSERT INTO source_table VALUES (1, 'abc'), (2, 'def')", 2);
+        assertUpdate("CREATE MATERIALIZED VIEW mat_view_test_1 AS %s".formatted(matViewDef));
+        assertUpdate("CREATE MATERIALIZED VIEW mat_view_test_2 AS %s".formatted(matViewDef));
+
+        // execute first refresh: afterwards both MVs will contain: (1, 'abc'), (2, 'def')
+        assertUpdate("REFRESH MATERIALIZED VIEW mat_view_test_1", 2);
+        assertUpdate("REFRESH MATERIALIZED VIEW mat_view_test_2", 2);
+
+        // add some new rows to source
+        assertUpdate("INSERT INTO source_table VALUES (3, 'ghi'), (4, 'jkl'), (5, 'mno'), (6, 'pqr')", 4);
+
+        // will do incremental refresh, and only add: (6, 'pqr')
+        assertUpdate(defaultSession, "REFRESH MATERIALIZED VIEW mat_view_test_1", 1);
+        // will do full refresh, and (re)add: (1, 'abc'), (2, 'def'), (6, 'pqr')
+        assertUpdate(incrementalRefreshDisabled, "REFRESH MATERIALIZED VIEW mat_view_test_2", 3);
+
+        // verify that view contents are the same
+        assertThat(query("TABLE mat_view_test_1")).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
+        assertThat(query("TABLE mat_view_test_2")).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
+
+        // cleanup
+        assertUpdate("DROP MATERIALIZED VIEW mat_view_test_1");
+        assertUpdate("DROP MATERIALIZED VIEW mat_view_test_2");
+        assertUpdate("DROP TABLE source_table");
+    }
+
+    @Test
+    public void testFullRefreshForUnion()
+    {
+        Session defaultSession = getSession();
+
+        String matViewDef = "SELECT a, b FROM source_table a WHERE a.a < 3 UNION ALL " +
+                "SELECT * FROM source_table b WHERE b.a > 5";
+
+        // create source table and two identical MVs
+        assertUpdate("CREATE TABLE source_table (a int, b varchar)");
+        assertUpdate("INSERT INTO source_table VALUES (1, 'abc'), (2, 'def')", 2);
+        assertUpdate("CREATE MATERIALIZED VIEW mat_view_test_1 AS %s".formatted(matViewDef));
+
+        // execute first refresh: afterwards both MVs will contain: (1, 'abc'), (2, 'def')
+        assertUpdate("REFRESH MATERIALIZED VIEW mat_view_test_1", 2);
+
+        // add some new rows to source
+        assertUpdate("INSERT INTO source_table VALUES (3, 'ghi'), (4, 'jkl'), (5, 'mno'), (6, 'pqr')", 4);
+
+        // will do a full refresh
+        assertUpdate(defaultSession, "REFRESH MATERIALIZED VIEW mat_view_test_1", 3);
+
+        // verify that view contents are the same
+        assertThat(query("TABLE mat_view_test_1")).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
+
+        // cleanup
+        assertUpdate("DROP MATERIALIZED VIEW mat_view_test_1");
+        assertUpdate("DROP TABLE source_table");
+    }
+
+    @Test
+    public void testFullRefreshForUpdates()
+    {
+        Session defaultSession = getSession();
+
+        String matViewDef = "SELECT a, b FROM source_table WHERE a < 3 OR a > 5";
+
+        // create source table and an MV
+        assertUpdate("CREATE TABLE source_table (a int, b varchar)");
+        assertUpdate("INSERT INTO source_table VALUES (1, 'abc'), (2, 'def')", 2);
+        assertUpdate("CREATE MATERIALIZED VIEW mat_view_test_1 AS %s".formatted(matViewDef));
+
+        // execute first refresh: afterwards both MVs will contain: (1, 'abc'), (2, 'def')
+        assertUpdate("REFRESH MATERIALIZED VIEW mat_view_test_1", 2);
+
+        // add some new rows to source
+        assertUpdate("INSERT INTO source_table VALUES (3, 'ghi'), (4, 'jkl'), (5, 'mno'), (6, 'pqr')", 4);
+
+        // will do incremental refresh, and only add: (6, 'pqr')
+        assertUpdate(defaultSession, "REFRESH MATERIALIZED VIEW mat_view_test_1", 1);
+
+        // update one row and append one
+        assertUpdate("UPDATE source_table SET b = 'updated' WHERE a = 1", 1);
+        assertUpdate("INSERT INTO source_table VALUES (7, 'stv')", 1);
+
+        // will do full refresh due to the above update command
+        assertUpdate(defaultSession, "REFRESH MATERIALIZED VIEW mat_view_test_1", 4);
+        // verify view contents
+        assertThat(query("TABLE mat_view_test_1")).matches("VALUES (1, VARCHAR 'updated'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr'), (7, VARCHAR 'stv')");
+
+        // add some new row to source
+        assertUpdate("INSERT INTO source_table VALUES (8, 'wxy')", 1);
+        // will do incremental refresh now since refresh window now does not contain the delete anymore, and only add: (8, 'wxy')
+        assertUpdate(defaultSession, "REFRESH MATERIALIZED VIEW mat_view_test_1", 1);
+        // verify view contents
+        assertThat(query("TABLE mat_view_test_1")).matches("VALUES (1, VARCHAR 'updated'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr'), (7, VARCHAR 'stv'), (8, VARCHAR 'wxy')");
+
+        // cleanup
+        assertUpdate("DROP MATERIALIZED VIEW mat_view_test_1");
+        assertUpdate("DROP TABLE source_table");
+    }
+
+    @Test
+    public void testRefreshWithCompaction()
+    {
+        Session defaultSession = getSession();
+
+        String matViewDef = "SELECT a, b FROM source_table WHERE a < 3 OR a > 5";
+
+        // create source table and an MV
+        assertUpdate("CREATE TABLE source_table (a int, b varchar)");
+        assertUpdate("INSERT INTO source_table VALUES (1, 'abc'), (2, 'def')", 2);
+        assertUpdate("CREATE MATERIALIZED VIEW mat_view_test_1 AS %s".formatted(matViewDef));
+
+        // execute first refresh: afterwards both MVs will contain: (1, 'abc'), (2, 'def')
+        assertUpdate("REFRESH MATERIALIZED VIEW mat_view_test_1", 2);
+
+        // add some new rows to source
+        assertUpdate("INSERT INTO source_table VALUES (3, 'ghi'), (4, 'jkl'), (5, 'mno'), (6, 'pqr')", 4);
+
+        // will do incremental refresh, and only add: (6, 'pqr')
+        assertUpdate(defaultSession, "REFRESH MATERIALIZED VIEW mat_view_test_1", 1);
+        // verify view contents
+        assertThat(query("TABLE mat_view_test_1")).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
+
+        // run compaction - after that, refresh will update 0 rows
+        assertUpdate(defaultSession, "ALTER TABLE source_table EXECUTE OPTIMIZE");
+        assertUpdate(defaultSession, "REFRESH MATERIALIZED VIEW mat_view_test_1", 0);
+        // verify view contents
+        assertThat(query("TABLE mat_view_test_1")).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
+
+        // add some new rows to source
+        assertUpdate("INSERT INTO source_table VALUES (7, 'stv'), (8, 'wxy')", 2);
+        // will do incremental refresh, and only add: (7, 'stv'), (8, 'wxy')
+        assertUpdate(defaultSession, "REFRESH MATERIALIZED VIEW mat_view_test_1", 2);
+        // verify view contents
+        assertThat(query("TABLE mat_view_test_1")).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr'), (7, VARCHAR 'stv'), (8, VARCHAR 'wxy')");
+
+        // cleanup
+        assertUpdate("DROP MATERIALIZED VIEW mat_view_test_1");
+        assertUpdate("DROP TABLE source_table");
+    }
+
+    @Test
     public void testTwoIcebergCatalogs()
     {
         Session defaultIceberg = getSession();
