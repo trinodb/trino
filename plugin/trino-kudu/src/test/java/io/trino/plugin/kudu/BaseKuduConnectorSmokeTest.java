@@ -77,9 +77,9 @@ public abstract class BaseKuduConnectorSmokeTest
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
                 .isEqualTo("CREATE TABLE kudu." + getSession().getSchema().orElseThrow() + ".region (\n" +
-                        "   regionkey bigint COMMENT '' WITH ( nullable = true ),\n" +
-                        "   name varchar COMMENT '' WITH ( nullable = true ),\n" +
-                        "   comment varchar COMMENT '' WITH ( nullable = true )\n" +
+                        "   regionkey bigint COMMENT '' WITH (nullable = true),\n" +
+                        "   name varchar COMMENT '' WITH (nullable = true),\n" +
+                        "   comment varchar COMMENT '' WITH (nullable = true)\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   number_of_replicas = 1,\n" +
