@@ -19,7 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.CharMatcher.whitespace;
+import static com.google.common.base.CharMatcher.ascii;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class TrinoCliProcess
@@ -36,7 +36,7 @@ public final class TrinoCliProcess
     {
         List<String> lines = new ArrayList<>();
         while (!hasNextOutput(TRINO_PROMPT_PATTERN)) {
-            lines.add(whitespace().trimFrom(nextOutputLine()));
+            lines.add(ascii().retainFrom(nextOutputLine()).trim());
         }
         waitForPrompt();
         return lines;
