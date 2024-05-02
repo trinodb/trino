@@ -266,9 +266,6 @@ public class ApplyTableScanRedirection
                     sourceType));
         }
 
-        return new Cast(
-                destinationSymbol.toSymbolReference(),
-                sourceType,
-                false);
+        return new Cast(destinationSymbol.toSymbolReference(), sourceType);
     }
 }

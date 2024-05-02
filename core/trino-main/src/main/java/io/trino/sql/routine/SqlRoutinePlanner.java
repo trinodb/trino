@@ -341,7 +341,7 @@ public final class SqlRoutinePlanner
             if (coercion == null) {
                 return rewritten;
             }
-            return new io.trino.sql.ir.Cast(rewritten, coercion, false);
+            return new io.trino.sql.ir.Cast(rewritten, coercion);
         }
 
         private List<IrStatement> statements(List<ControlStatement> statements, Context context)

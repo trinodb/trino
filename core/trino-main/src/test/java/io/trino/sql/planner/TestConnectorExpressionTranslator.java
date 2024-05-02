@@ -309,15 +309,6 @@ public class TestConnectorExpressionTranslator
                         VARCHAR_TYPE,
                         CAST_FUNCTION_NAME,
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
-
-        // TRY_CAST is not translated
-        assertTranslationToConnectorExpression(
-                TEST_SESSION,
-                new Cast(
-                        new Reference(VARCHAR, "varchar_symbol_1"),
-                        BIGINT,
-                        true),
-                Optional.empty());
     }
 
     @Test

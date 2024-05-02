@@ -436,16 +436,16 @@ public class TestExpressionInterpreter
     public void testTryCast()
     {
         assertOptimizedEquals(
-                new Cast(new Constant(UNKNOWN, null), BIGINT, true),
+                new Cast(new Constant(UNKNOWN, null), BIGINT),
                 new Constant(BIGINT, null));
         assertOptimizedEquals(
-                new Cast(new Constant(INTEGER, 123L), BIGINT, true),
+                new Cast(new Constant(INTEGER, 123L), BIGINT),
                 new Constant(BIGINT, 123L));
         assertOptimizedEquals(
-                new Cast(new Constant(UNKNOWN, null), INTEGER, true),
+                new Cast(new Constant(UNKNOWN, null), INTEGER),
                 new Constant(INTEGER, null));
         assertOptimizedEquals(
-                new Cast(new Constant(INTEGER, 123L), INTEGER, true),
+                new Cast(new Constant(INTEGER, 123L), INTEGER),
                 new Constant(INTEGER, 123L));
     }
 

@@ -1129,19 +1129,13 @@ class RelationPlanner
             // compute the coercion for the field on the left to the common supertype of left & right
             Symbol leftOutput = symbolAllocator.newSymbol(identifier.getValue(), type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
-            leftCoercions.put(leftOutput, new Cast(
-                    left.getSymbol(leftField).toSymbolReference(),
-                    type,
-                    false));
+            leftCoercions.put(leftOutput, new Cast(left.getSymbol(leftField).toSymbolReference(), type));
             leftJoinColumns.put(identifier, leftOutput);
 
             // compute the coercion for the field on the right to the common supertype of left & right
             Symbol rightOutput = symbolAllocator.newSymbol(identifier.getValue(), type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
-            rightCoercions.put(rightOutput, new Cast(
-                    right.getSymbol(rightField).toSymbolReference(),
-                    type,
-                    false));
+            rightCoercions.put(rightOutput, new Cast(right.getSymbol(rightField).toSymbolReference(), type));
             rightJoinColumns.put(identifier, rightOutput);
 
             clauses.add(new JoinNode.EquiJoinClause(leftOutput, rightOutput));
