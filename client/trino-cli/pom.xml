@@ -117,7 +117,14 @@
 
         <dependency>
             <groupId>org.jline</groupId>
-            <artifactId>jline-terminal-jna</artifactId>
+            <artifactId>jline-terminal-ffm</artifactId>
+            <version>${dep.jline.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline-terminal-jni</artifactId>
             <version>${dep.jline.version}</version>
             <scope>runtime</scope>
         </dependency>
@@ -189,7 +196,7 @@
                 <groupId>org.skife.maven</groupId>
                 <artifactId>really-executable-jar-maven-plugin</artifactId>
                 <configuration>
-                    <flags>-Xmx1G</flags>
+                    <flags>-Xmx1G --enable-native-access=ALL-UNNAMED -XX:+IgnoreUnrecognizedVMOptions</flags>
                     <classifier>executable</classifier>
                 </configuration>
                 <executions>
@@ -198,6 +205,29 @@
                             <goal>really-executable-jar</goal>
                         </goals>
                         <phase>package</phase>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules combine.children="merge">
+                        <enforceBytecodeVersion>
+                            <excludes>
+                                <!-- jline-terminal-ffm works only on JDK 22+, but will fall back to JNI on lower JDKs -->
+                                <exclude>org.jline:jline-terminal-ffm</exclude>
+                            </excludes>
+                        </enforceBytecodeVersion>
+                    </rules>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <phase>verify</phase>
                     </execution>
                 </executions>
             </plugin>
