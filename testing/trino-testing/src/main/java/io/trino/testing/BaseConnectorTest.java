@@ -6468,6 +6468,8 @@ public abstract class BaseConnectorTest
         String name2 = "test_" + randomNameSuffix();
         String name3 = "test_" + randomNameSuffix();
 
+        assertQueryFails("SHOW CREATE FUNCTION " + name, "line 1:1: Function not found");
+
         assertUpdate("CREATE FUNCTION " + name + "(x integer) RETURNS bigint COMMENT 't42' RETURN x * 42");
 
         assertQuery("SELECT " + name + "(99)", "SELECT 4158");
@@ -6482,6 +6484,21 @@ public abstract class BaseConnectorTest
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "double", "double", "scalar", true, "t88")
                         .build());
+
+        String integerFunctionSql = """
+                CREATE FUNCTION %s(x integer)
+                RETURNS bigint
+                COMMENT 't42'
+                RETURN (x * 42)
+                """.strip().formatted(name);
+        String doubleFunctionSql = """
+                CREATE FUNCTION %s(x double)
+                RETURNS double
+                COMMENT 't88'
+                RETURN (x * DECIMAL '8.8')
+                """.strip().formatted(name);
+        assertThat(computeActual("SHOW CREATE FUNCTION " + name).getOnlyColumnAsSet())
+                .containsExactlyInAnyOrder(integerFunctionSql, doubleFunctionSql);
 
         assertQuery("SELECT " + name + "(99)", "SELECT 4158");
         assertQuery("SELECT " + name + "(2.9)", "SELECT 25.52");
@@ -6503,6 +6520,14 @@ public abstract class BaseConnectorTest
                         .row(name, "double", "double", "scalar", true, "t88")
                         .row(name2, "varchar", "varchar", "scalar", true, "")
                         .build());
+
+        String bigintFunctionSql = """
+                CREATE FUNCTION %s(x bigint)
+                RETURNS bigint
+                RETURN (x * 23)
+                """.strip().formatted(name);
+        assertThat(computeActual("SHOW CREATE FUNCTION " + name).getOnlyColumnAsSet())
+                .containsExactlyInAnyOrder(integerFunctionSql, doubleFunctionSql, bigintFunctionSql);
 
         assertQuery("SELECT " + name + "(99)", "SELECT 4158");
         assertQuery("SELECT " + name + "(cast(99 as bigint))", "SELECT 2277");
@@ -6530,6 +6555,14 @@ public abstract class BaseConnectorTest
                         .row(name2, "varchar", "varchar", "scalar", true, "")
                         .row(name3, "double", "", "scalar", false, "")
                         .build());
+
+        assertThat(computeActual("SHOW CREATE FUNCTION " + name3).getOnlyValue())
+                .isEqualTo("""
+                        CREATE FUNCTION %s()
+                        RETURNS double
+                        NOT DETERMINISTIC
+                        RETURN random()
+                        """.strip().formatted(name3));
 
         assertQueryFails("DROP FUNCTION " + name + "(varchar)", "line 1:1: Function not found");
         assertUpdate("DROP FUNCTION " + name + "(z bigint)");

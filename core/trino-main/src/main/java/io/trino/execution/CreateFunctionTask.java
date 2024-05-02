@@ -135,12 +135,12 @@ public class CreateFunctionTask
         }
     }
 
-    static Optional<CatalogSchemaName> defaultFunctionSchema(SqlEnvironmentConfig config)
+    public static Optional<CatalogSchemaName> defaultFunctionSchema(SqlEnvironmentConfig config)
     {
         return combine(config.getDefaultFunctionCatalog(), config.getDefaultFunctionSchema(), CatalogSchemaName::new);
     }
 
-    static QualifiedObjectName qualifiedFunctionName(Optional<CatalogSchemaName> functionSchema, Node node, QualifiedName name)
+    public static QualifiedObjectName qualifiedFunctionName(Optional<CatalogSchemaName> functionSchema, Node node, QualifiedName name)
     {
         List<String> parts = name.getParts();
         return switch (parts.size()) {

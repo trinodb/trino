@@ -318,6 +318,7 @@ public class TestStatementBuilder
         printStatement("show create table abc");
         printStatement("show create view abc");
         printStatement("show create materialized view abc");
+        printStatement("show create function abc");
 
         printStatement("prepare p from select * from (select * from T) \"A B\"");
 

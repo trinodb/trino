@@ -98,6 +98,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorizat
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
+import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
@@ -626,6 +627,14 @@ public class SqlStandardAccessControl
     {
         if (!isDatabaseOwner(context, function.getSchemaName())) {
             denyDropFunction(function.toString());
+        }
+    }
+
+    @Override
+    public void checkCanShowCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function)
+    {
+        if (!isDatabaseOwner(context, function.getSchemaName())) {
+            denyShowCreateFunction(function.toString());
         }
     }
 

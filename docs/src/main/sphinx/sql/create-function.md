@@ -47,6 +47,7 @@ routines examples documentation](/routines/examples).
 ## See also
 
 * [](/sql/drop-function)
+* [](/sql/show-create-function)
 * [](/sql/show-functions)
 * [](/routines/introduction)
 * [](/admin/properties-sql-environment)

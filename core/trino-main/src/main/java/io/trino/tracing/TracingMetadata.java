@@ -1336,6 +1336,15 @@ public class TracingMetadata
     }
 
     @Override
+    public Collection<LanguageFunction> getLanguageFunctions(Session session, QualifiedObjectName name)
+    {
+        Span span = startSpan("getLanguageFunctions", name);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getLanguageFunctions(session, name);
+        }
+    }
+
+    @Override
     public boolean languageFunctionExists(Session session, QualifiedObjectName name, String signatureToken)
     {
         Span span = startSpan("languageFunctionExists", name);

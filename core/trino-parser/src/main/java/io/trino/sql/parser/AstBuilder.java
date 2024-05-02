@@ -1493,6 +1493,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitShowCreateFunction(SqlBaseParser.ShowCreateFunctionContext context)
+    {
+        return new ShowCreate(getLocation(context), ShowCreate.Type.FUNCTION, getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
     public Node visitShowFunctions(SqlBaseParser.ShowFunctionsContext context)
     {
         return new ShowFunctions(

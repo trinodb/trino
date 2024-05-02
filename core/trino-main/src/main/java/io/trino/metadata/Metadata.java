@@ -747,6 +747,8 @@ public interface Metadata
 
     FunctionDependencyDeclaration getFunctionDependencies(Session session, CatalogHandle catalogHandle, FunctionId functionId, BoundSignature boundSignature);
 
+    Collection<LanguageFunction> getLanguageFunctions(Session session, QualifiedObjectName name);
+
     boolean languageFunctionExists(Session session, QualifiedObjectName name, String signatureToken);
 
     void createLanguageFunction(Session session, QualifiedObjectName name, LanguageFunction function, boolean replace);

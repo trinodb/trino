@@ -519,6 +519,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName)
+    {
+        delegate().checkCanShowCreateFunction(context, functionName);
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         return delegate().getRowFilters(context, tableName);

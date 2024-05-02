@@ -112,6 +112,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetTableProperties
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
+import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowFunctions;
@@ -1027,6 +1028,14 @@ public class FileBasedSystemAccessControl
     {
         if (!checkFunctionPermission(systemSecurityContext, functionName, CatalogFunctionAccessControlRule::hasOwnership)) {
             denyDropFunction(functionName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanShowCreateFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+        if (!checkFunctionPermission(systemSecurityContext, functionName, CatalogFunctionAccessControlRule::hasOwnership)) {
+            denyShowCreateFunction(functionName.toString());
         }
     }
 

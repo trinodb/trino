@@ -64,6 +64,7 @@ sql/set-session-authorization
 sql/set-time-zone
 sql/show-catalogs
 sql/show-columns
+sql/show-create-function
 sql/show-create-materialized-view
 sql/show-create-schema
 sql/show-create-table

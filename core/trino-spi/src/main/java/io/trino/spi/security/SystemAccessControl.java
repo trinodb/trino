@@ -87,6 +87,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetTableProperties
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
+import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowCurrentRoles;
@@ -915,6 +916,16 @@ public interface SystemAccessControl
     default void checkCanDropFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
         denyDropFunction(functionName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to execute SHOW CREATE FUNCTION.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowCreateFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+        denyShowCreateFunction(functionName.toString());
     }
 
     /**
