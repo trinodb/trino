@@ -272,6 +272,26 @@ public class TestSqlFormatter
                 .isEqualTo("CREATE TABLE test (\n" +
                         "   col VARCHAR COMMENT '攻殻機動隊'\n" +
                         ")");
+
+        // Create a table with column properties
+        assertThat(formatSql(
+                new CreateTable(
+                        QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(Optional.empty(), new Identifier("VARCHAR"), ImmutableList.of()),
+                                false,
+                                ImmutableList.of(
+                                        new Property(new Identifier("abc"), new StringLiteral("test")),
+                                        new Property(new Identifier("xyz"))),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo("""
+                        CREATE TABLE test (
+                           col VARCHAR NOT NULL WITH (abc = 'test', xyz = DEFAULT)
+                        )""");
     }
 
     @Test
