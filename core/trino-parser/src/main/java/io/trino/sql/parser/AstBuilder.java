@@ -869,7 +869,7 @@ class AstBuilder
     {
         List<CallArgument> arguments = ImmutableList.of();
         if (context.callArgument() != null) {
-            arguments = this.visit(context.callArgument(), CallArgument.class);
+            arguments = visit(context.callArgument(), CallArgument.class);
         }
 
         return new TableExecute(
@@ -1200,14 +1200,13 @@ class AstBuilder
             limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), rowCount));
         }
 
-        if (term instanceof QuerySpecification) {
+        if (term instanceof QuerySpecification query) {
             // When we have a simple query specification
             // followed by order by, offset, limit or fetch,
             // fold the order by, limit, offset or fetch clauses
             // into the query specification (analyzer/planner
             // expects this structure to resolve references with respect
             // to columns defined in the query specification)
-            QuerySpecification query = (QuerySpecification) term;
 
             return new Query(
                     getLocation(context),
@@ -1542,9 +1541,7 @@ class AstBuilder
         if (context.authorizationUser() instanceof SqlBaseParser.IdentifierUserContext || context.authorizationUser() instanceof SqlBaseParser.StringUserContext) {
             return new SetSessionAuthorization(getLocation(context), (Expression) visit(context.authorizationUser()));
         }
-        else {
-            throw new IllegalArgumentException("Unsupported Session Authorization User: " + context.authorizationUser());
-        }
+        throw new IllegalArgumentException("Unsupported Session Authorization User: " + context.authorizationUser());
     }
 
     @Override
@@ -1632,7 +1629,7 @@ class AstBuilder
                 visitIfPresent(context.catalog, Identifier.class));
     }
 
-    private List<String> extractPrivileges(List<SqlBaseParser.PrivilegeOrRoleContext> privilegesOrRoles)
+    private static List<String> extractPrivileges(List<SqlBaseParser.PrivilegeOrRoleContext> privilegesOrRoles)
     {
         return privilegesOrRoles.stream().map(SqlBaseParser.PrivilegeOrRoleContext::getText).collect(toImmutableList());
     }
@@ -1647,7 +1644,7 @@ class AstBuilder
         return privilegesOrRoles.stream().map(context -> (Identifier) visit(context.identifier())).collect(toImmutableSet());
     }
 
-    private boolean isPrivilegeKeywordContext(SqlBaseParser.PrivilegeOrRoleContext context)
+    private static boolean isPrivilegeKeywordContext(SqlBaseParser.PrivilegeOrRoleContext context)
     {
         return context.CREATE() != null || context.SELECT() != null || context.INSERT() != null || context.UPDATE() != null || context.DELETE() != null;
     }
@@ -1784,7 +1781,7 @@ class AstBuilder
             ParserRuleContext next = pending.pop();
 
             Optional<List<? extends ParserRuleContext>> children = extractChildren.apply(next);
-            if (!children.isPresent()) {
+            if (children.isEmpty()) {
                 result.add(next);
             }
             else {
@@ -1914,7 +1911,7 @@ class AstBuilder
         return new MeasureDefinition(getLocation(context), (Expression) visit(context.expression()), (Identifier) visit(context.identifier()));
     }
 
-    private Optional<RowsPerMatch> getRowsPerMatch(SqlBaseParser.RowsPerMatchContext context)
+    private static Optional<RowsPerMatch> getRowsPerMatch(SqlBaseParser.RowsPerMatchContext context)
     {
         if (context == null) {
             return Optional.empty();
@@ -2700,7 +2697,7 @@ class AstBuilder
         return new JsonPathInvocation(Optional.of(getLocation(context)), jsonInput, inputFormat, jsonPath, pathName, pathParameters);
     }
 
-    private JsonFormat getJsonFormat(SqlBaseParser.JsonRepresentationContext context)
+    private static JsonFormat getJsonFormat(SqlBaseParser.JsonRepresentationContext context)
     {
         if (context.UTF8() != null) {
             return UTF8;
@@ -2722,7 +2719,7 @@ class AstBuilder
                 (Identifier) visit(context.identifier()),
                 (Expression) visit(context.jsonValueExpression().expression()),
                 Optional.ofNullable(context.jsonValueExpression().jsonRepresentation())
-                        .map(this::getJsonFormat));
+                        .map(AstBuilder::getJsonFormat));
     }
 
     @Override
@@ -2730,15 +2727,8 @@ class AstBuilder
     {
         List<JsonObjectMember> members = visit(context.jsonObjectMember(), JsonObjectMember.class);
 
-        boolean nullOnNull = true;
-        if (context.ABSENT() != null) {
-            nullOnNull = false;
-        }
-
-        boolean uniqueKeys = false;
-        if (context.WITH() != null) {
-            uniqueKeys = true;
-        }
+        boolean nullOnNull = context.ABSENT() == null;
+        boolean uniqueKeys = context.WITH() != null;
 
         Optional<DataType> returnedType = visitIfPresent(context.type(), DataType.class);
 
@@ -2758,7 +2748,7 @@ class AstBuilder
                 (Expression) visit(context.expression()),
                 (Expression) visit(context.jsonValueExpression().expression()),
                 Optional.ofNullable(context.jsonValueExpression().jsonRepresentation())
-                        .map(this::getJsonFormat));
+                        .map(AstBuilder::getJsonFormat));
     }
 
     @Override
@@ -2766,10 +2756,7 @@ class AstBuilder
     {
         List<JsonArrayElement> elements = visit(context.jsonValueExpression(), JsonArrayElement.class);
 
-        boolean nullOnNull = false;
-        if (context.NULL(0) != null && context.NULL(1) != null) { // "NULL ON NULL"
-            nullOnNull = true;
-        }
+        boolean nullOnNull = context.NULL(0) != null && context.NULL(1) != null; // "NULL ON NULL"
 
         Optional<DataType> returnedType = visitIfPresent(context.type(), DataType.class);
 
@@ -2788,7 +2775,7 @@ class AstBuilder
                 getLocation(context),
                 (Expression) visit(context.expression()),
                 Optional.ofNullable(context.jsonRepresentation())
-                        .map(this::getJsonFormat));
+                        .map(AstBuilder::getJsonFormat));
     }
 
     @Override
@@ -2888,11 +2875,11 @@ class AstBuilder
 
         if (name.toString().equalsIgnoreCase("if")) {
             check(context.expression().size() == 2 || context.expression().size() == 3, "Invalid number of arguments for 'if' function", context);
-            check(!window.isPresent(), "OVER clause not valid for 'if' function", context);
+            check(window.isEmpty(), "OVER clause not valid for 'if' function", context);
             check(!distinct, "DISTINCT not valid for 'if' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'if' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'if' function", context);
-            check(!filter.isPresent(), "FILTER not valid for 'if' function", context);
+            check(filter.isEmpty(), "FILTER not valid for 'if' function", context);
 
             Expression elseExpression = null;
             if (context.expression().size() == 3) {
@@ -2908,11 +2895,11 @@ class AstBuilder
 
         if (name.toString().equalsIgnoreCase("nullif")) {
             check(context.expression().size() == 2, "Invalid number of arguments for 'nullif' function", context);
-            check(!window.isPresent(), "OVER clause not valid for 'nullif' function", context);
+            check(window.isEmpty(), "OVER clause not valid for 'nullif' function", context);
             check(!distinct, "DISTINCT not valid for 'nullif' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'nullif' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'nullif' function", context);
-            check(!filter.isPresent(), "FILTER not valid for 'nullif' function", context);
+            check(filter.isEmpty(), "FILTER not valid for 'nullif' function", context);
 
             return new NullIfExpression(
                     getLocation(context),
@@ -2922,33 +2909,33 @@ class AstBuilder
 
         if (name.toString().equalsIgnoreCase("coalesce")) {
             check(context.expression().size() >= 2, "The 'coalesce' function must have at least two arguments", context);
-            check(!window.isPresent(), "OVER clause not valid for 'coalesce' function", context);
+            check(window.isEmpty(), "OVER clause not valid for 'coalesce' function", context);
             check(!distinct, "DISTINCT not valid for 'coalesce' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'coalesce' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'coalesce' function", context);
-            check(!filter.isPresent(), "FILTER not valid for 'coalesce' function", context);
+            check(filter.isEmpty(), "FILTER not valid for 'coalesce' function", context);
 
             return new CoalesceExpression(getLocation(context), visit(context.expression(), Expression.class));
         }
 
         if (name.toString().equalsIgnoreCase("try")) {
             check(context.expression().size() == 1, "The 'try' function must have exactly one argument", context);
-            check(!window.isPresent(), "OVER clause not valid for 'try' function", context);
+            check(window.isEmpty(), "OVER clause not valid for 'try' function", context);
             check(!distinct, "DISTINCT not valid for 'try' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'try' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'try' function", context);
-            check(!filter.isPresent(), "FILTER not valid for 'try' function", context);
+            check(filter.isEmpty(), "FILTER not valid for 'try' function", context);
 
             return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
         }
 
         if (name.toString().equalsIgnoreCase("format")) {
             check(context.expression().size() >= 2, "The 'format' function must have at least two arguments", context);
-            check(!window.isPresent(), "OVER clause not valid for 'format' function", context);
+            check(window.isEmpty(), "OVER clause not valid for 'format' function", context);
             check(!distinct, "DISTINCT not valid for 'format' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'format' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'format' function", context);
-            check(!filter.isPresent(), "FILTER not valid for 'format' function", context);
+            check(filter.isEmpty(), "FILTER not valid for 'format' function", context);
 
             return new Format(getLocation(context), visit(context.expression(), Expression.class));
         }
@@ -3336,7 +3323,7 @@ class AstBuilder
     @Override
     public Node visitParameter(SqlBaseParser.ParameterContext context)
     {
-        io.trino.sql.tree.Parameter parameter = new io.trino.sql.tree.Parameter(getLocation(context), parameterPosition);
+        Parameter parameter = new Parameter(getLocation(context), parameterPosition);
         parameterPosition++;
         return parameter;
     }
@@ -3505,7 +3492,7 @@ class AstBuilder
         JsonPathInvocation jsonPathInvocation = (JsonPathInvocation) visit(context.jsonPathInvocation());
         List<JsonTableColumnDefinition> columns = visit(context.jsonTableColumn(), JsonTableColumnDefinition.class);
         Optional<JsonTablePlan> plan = visitIfPresent(context.jsonTableSpecificPlan(), JsonTablePlan.class);
-        if (!plan.isPresent()) {
+        if (plan.isEmpty()) {
             plan = visitIfPresent(context.jsonTableDefaultPlan(), JsonTablePlan.class);
         }
         Optional<JsonTable.ErrorBehavior> errorBehavior = Optional.empty();
@@ -3538,7 +3525,7 @@ class AstBuilder
             emptyBehavior = JsonValue.EmptyOrErrorBehavior.ERROR;
         }
         else if (emptyBehaviorContext.DEFAULT() != null) {
-            emptyBehavior = JsonValue.EmptyOrErrorBehavior.DEFAULT;
+            emptyBehavior = DEFAULT;
             emptyDefault = visitIfPresent(emptyBehaviorContext.expression(), Expression.class);
         }
         else {
@@ -3556,7 +3543,7 @@ class AstBuilder
                 errorBehavior = Optional.of(JsonValue.EmptyOrErrorBehavior.ERROR);
             }
             else if (errorBehaviorContext.DEFAULT() != null) {
-                errorBehavior = Optional.of(JsonValue.EmptyOrErrorBehavior.DEFAULT);
+                errorBehavior = Optional.of(DEFAULT);
                 errorDefault = visitIfPresent(errorBehaviorContext.expression(), Expression.class);
             }
             else {
@@ -4008,7 +3995,7 @@ class AstBuilder
                     }
                 }
                 case UNICODE_SEQUENCE -> {
-                    check(isHexDigit(ch), "Incomplete escape sequence: " + escapedCharacterBuilder.toString(), context);
+                    check(isHexDigit(ch), "Incomplete escape sequence: " + escapedCharacterBuilder, context);
                     escapedCharacterBuilder.append(ch);
                     if (charactersNeeded == escapedCharacterBuilder.length()) {
                         String currentEscapedCode = escapedCharacterBuilder.toString();
@@ -4036,7 +4023,7 @@ class AstBuilder
             }
         }
 
-        check(state == UnicodeDecodeState.EMPTY, "Incomplete escape sequence: " + escapedCharacterBuilder.toString(), context);
+        check(state == UnicodeDecodeState.EMPTY, "Incomplete escape sequence: " + escapedCharacterBuilder, context);
         return unicodeStringBuilder.toString();
     }
 
@@ -4213,11 +4200,6 @@ class AstBuilder
             case SqlBaseLexer.SOME -> QuantifiedComparisonExpression.Quantifier.SOME;
             default -> throw new IllegalArgumentException("Unsupported quantifier: " + symbol.getText());
         };
-    }
-
-    private List<Identifier> getIdentifiers(SqlBaseParser.PrivilegeOrRoleContext identifiers)
-    {
-        return identifiers.children.stream().map(context -> (Identifier) visit(context)).collect(toList());
     }
 
     private List<PrincipalSpecification> getPrincipalSpecifications(List<SqlBaseParser.PrincipalContext> principals)
