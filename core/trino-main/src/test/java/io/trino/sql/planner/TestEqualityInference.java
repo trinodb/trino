@@ -307,7 +307,7 @@ public class TestEqualityInference
     public void testExpressionsThatMayReturnNullOnNonNullInput()
     {
         List<Expression> candidates = ImmutableList.of(
-                new Cast(new Reference(BIGINT, "b"), BIGINT, true), // try_cast
+                new Cast(new Reference(BIGINT, "b"), BIGINT),
                 functionResolution
                         .functionCallBuilder(TryFunction.NAME)
                         .addArgument(new FunctionType(ImmutableList.of(), BIGINT), new Lambda(ImmutableList.of(), new Reference(BIGINT, "b")))

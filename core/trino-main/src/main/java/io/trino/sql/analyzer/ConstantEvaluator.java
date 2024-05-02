@@ -66,7 +66,7 @@ public class ConstantEvaluator
         }
 
         if (!actualType.equals(expectedType)) {
-            rewritten = new Cast(rewritten, expectedType, false);
+            rewritten = new Cast(rewritten, expectedType);
         }
 
         return new IrExpressionInterpreter(rewritten, plannerContext, session).evaluate();

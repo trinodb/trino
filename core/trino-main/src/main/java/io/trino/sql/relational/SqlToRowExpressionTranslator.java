@@ -49,7 +49,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
@@ -220,12 +219,6 @@ public final class SqlToRowExpressionTranslator
             Type returnType = ((Expression) node).type();
             if (typeCoercion.isTypeOnlyCoercion(value.type(), returnType)) {
                 return changeType(value, returnType);
-            }
-
-            if (node.safe()) {
-                return call(
-                        metadata.getCoercion(builtinFunctionName("TRY_CAST"), value.type(), returnType),
-                        value);
             }
 
             return call(

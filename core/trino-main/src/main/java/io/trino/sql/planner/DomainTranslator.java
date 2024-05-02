@@ -464,7 +464,7 @@ public final class DomainTranslator
                 // type of expression which is then cast to type of value
                 Type castSourceType = castExpression.expression().type();
                 Type castTargetType = castExpression.type();
-                if (castSourceType instanceof VarcharType && castTargetType == DATE && !castExpression.safe()) {
+                if (castSourceType instanceof VarcharType && castTargetType == DATE) {
                     Optional<ExtractionResult> result = createVarcharCastToDateComparisonExtractionResult(
                             normalized,
                             (VarcharType) castSourceType,
