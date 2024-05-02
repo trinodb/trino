@@ -81,6 +81,13 @@
                 <configuration>
                     <proc>none</proc>
                     <skip>${takari.skip}</skip>
+                    <archive>
+                        <!-- make server jar reproducible -->
+                        <ManifestEntries>
+                            <Built-By>root</Built-By>
+                            <Build-Jdk>${air.java.version}</Build-Jdk>
+                        </ManifestEntries>
+                    </archive>
                 </configuration>
             </plugin>
         </plugins>
