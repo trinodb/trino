@@ -437,7 +437,7 @@ public class LanguageFunctionManager
                 analyzing = true;
 
                 SqlRoutineAnalysis analysis = analyze(functionContext(accessControl));
-                routine = planner.planSqlFunction(session, functionSpecification, analysis);
+                routine = planner.planSqlFunction(session, analysis);
 
                 Hasher hasher = Hashing.sha256().newHasher();
                 SqlRoutineHash.hash(routine, hasher, blockEncodingSerde);
