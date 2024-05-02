@@ -1371,18 +1371,15 @@ public final class SqlFormatter
         @Override
         protected Void visitShowCreate(ShowCreate node, Integer indent)
         {
-            if (node.getType() == ShowCreate.Type.TABLE) {
-                builder.append("SHOW CREATE TABLE ")
-                        .append(formatName(node.getName()));
-            }
-            else if (node.getType() == ShowCreate.Type.VIEW) {
-                builder.append("SHOW CREATE VIEW ")
-                        .append(formatName(node.getName()));
-            }
-            else if (node.getType() == ShowCreate.Type.MATERIALIZED_VIEW) {
-                builder.append("SHOW CREATE MATERIALIZED VIEW ")
-                        .append(formatName(node.getName()));
-            }
+            builder.append("SHOW CREATE ")
+                    .append(switch (node.getType()) {
+                        case SCHEMA -> "SCHEMA";
+                        case TABLE -> "TABLE";
+                        case VIEW -> "VIEW";
+                        case MATERIALIZED_VIEW -> "MATERIALIZED VIEW";
+                    })
+                    .append(" ")
+                    .append(formatName(node.getName()));
             return null;
         }
 
