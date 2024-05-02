@@ -67,7 +67,7 @@ public class LdapAuthenticator
         this.userBindSearchPatterns = ldapAuthenticatorConfig.getUserBindSearchPatterns();
         this.groupAuthorizationSearchPattern = Optional.ofNullable(ldapAuthenticatorConfig.getGroupAuthorizationSearchPattern());
         this.userBaseDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getUserBaseDistinguishedName());
-        this.bindDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getBindDistingushedName());
+        this.bindDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getBindDistinguishedName());
         this.bindPassword = Optional.ofNullable(ldapAuthenticatorConfig.getBindPassword());
 
         checkArgument(
