@@ -55,6 +55,8 @@ import io.trino.sql.tree.LoopStatement;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NullInputCharacteristic;
 import io.trino.sql.tree.ParameterDeclaration;
+import io.trino.sql.tree.PropertiesCharacteristic;
+import io.trino.sql.tree.Property;
 import io.trino.sql.tree.RepeatStatement;
 import io.trino.sql.tree.ReturnStatement;
 import io.trino.sql.tree.ReturnsClause;
@@ -71,11 +73,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_PROPERTY;
 import static io.trino.spi.StandardErrorCode.MISSING_RETURN;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -103,7 +105,6 @@ public class SqlRoutineAnalyzer
     public static FunctionMetadata extractFunctionMetadata(FunctionId functionId, FunctionSpecification function)
     {
         validateLanguage(function);
-        validateReturn(function);
 
         String functionName = getFunctionName(function);
         Signature.Builder signatureBuilder = Signature.builder()
@@ -139,7 +140,7 @@ public class SqlRoutineAnalyzer
     {
         String functionName = getFunctionName(function);
 
-        validateLanguage(function);
+        ControlStatement statement = validateLanguage(function);
 
         boolean calledOnNull = isCalledOnNull(function);
         Optional<String> comment = getComment(function);
@@ -150,10 +151,10 @@ public class SqlRoutineAnalyzer
 
         Map<String, Type> arguments = getArguments(function);
 
-        validateReturn(function);
+        validateReturn(statement);
 
         StatementVisitor visitor = new StatementVisitor(session, accessControl, returnType);
-        visitor.process(function.getStatement(), new Context(arguments, Set.of()));
+        visitor.process(statement, new Context(arguments, Set.of()));
 
         Analysis analysis = visitor.getAnalysis();
 
@@ -174,6 +175,7 @@ public class SqlRoutineAnalyzer
                 calledOnNull,
                 actuallyDeterministic,
                 comment,
+                statement,
                 visitor.getAnalysis());
     }
 
@@ -239,13 +241,24 @@ public class SqlRoutineAnalyzer
                 .findAny();
     }
 
-    private static void validateLanguage(FunctionSpecification function)
+    private static ControlStatement validateLanguage(FunctionSpecification function)
     {
         getLanguage(function).ifPresent(language -> {
             if (!language.getValue().equalsIgnoreCase("sql")) {
+                function.getStatement().ifPresent(statement -> {
+                    throw semanticException(NOT_SUPPORTED, statement, "Only functions using language 'SQL' may be defined using SQL");
+                });
                 throw semanticException(NOT_SUPPORTED, language, "Unsupported function language: %s", language.getCanonicalValue());
             }
         });
+
+        List<Property> properties = getProperties(function);
+        if (!properties.isEmpty()) {
+            throw semanticException(INVALID_FUNCTION_PROPERTY, properties.getFirst(), "Function language 'SQL' does not support properties");
+        }
+
+        return function.getStatement().orElseThrow(() ->
+                semanticException(SYNTAX_ERROR, function.getDefinition().orElseThrow(), "Functions using language 'SQL' must be defined using SQL"));
     }
 
     private static boolean isDeterministic(FunctionSpecification function)
@@ -321,17 +334,33 @@ public class SqlRoutineAnalyzer
                 .findAny();
     }
 
-    private static void validateReturn(FunctionSpecification function)
+    private static List<Property> getProperties(FunctionSpecification function)
     {
-        ControlStatement statement = function.getStatement();
-        if (statement instanceof ReturnStatement) {
-            return;
+        List<PropertiesCharacteristic> properties = function.getRoutineCharacteristics().stream()
+                .filter(PropertiesCharacteristic.class::isInstance)
+                .map(PropertiesCharacteristic.class::cast)
+                .toList();
+
+        if (properties.size() > 1) {
+            throw semanticException(SYNTAX_ERROR, properties.get(1), "Multiple properties clauses specified");
         }
 
-        checkArgument(statement instanceof CompoundStatement, "invalid function statement: %s", statement);
-        CompoundStatement body = (CompoundStatement) statement;
-        if (!(getLast(body.getStatements(), null) instanceof ReturnStatement)) {
-            throw semanticException(MISSING_RETURN, body, "Function must end in a RETURN statement");
+        return properties.stream()
+                .map(PropertiesCharacteristic::getProperties)
+                .flatMap(List::stream)
+                .collect(toImmutableList());
+    }
+
+    private static void validateReturn(ControlStatement statement)
+    {
+        switch (statement) {
+            case ReturnStatement _ -> {}
+            case CompoundStatement body -> {
+                if (!(getLast(body.getStatements(), null) instanceof ReturnStatement)) {
+                    throw semanticException(MISSING_RETURN, body, "Function must end in a RETURN statement");
+                }
+            }
+            default -> throw new IllegalArgumentException("Invalid function statement: " + statement);
         }
     }
 

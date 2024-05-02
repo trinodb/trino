@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_PROPERTY;
 import static io.trino.spi.StandardErrorCode.MISSING_RETURN;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -76,6 +77,10 @@ class TestSqlRoutineAnalyzer
         assertFails("FUNCTION test() RETURNS int NOT DETERMINISTIC DETERMINISTIC RETURN 123")
                 .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:47: Multiple deterministic clauses specified");
+
+        assertFails("FUNCTION test() RETURNS int WITH (x = 1) WITH (y = 2) RETURN 123")
+                .hasErrorCode(SYNTAX_ERROR)
+                .hasMessage("line 1:42: Multiple properties clauses specified");
     }
 
     @Test
@@ -121,7 +126,19 @@ class TestSqlRoutineAnalyzer
 
         assertFails("FUNCTION test() RETURNS bigint LANGUAGE JAVASCRIPT RETURN abs(-42)")
                 .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:52: Only functions using language 'SQL' may be defined using SQL");
+
+        assertFails("FUNCTION test() RETURNS bigint LANGUAGE JAVASCRIPT AS 'xxx'")
+                .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:41: Unsupported function language: JAVASCRIPT");
+
+        assertFails("FUNCTION test() RETURNS bigint AS 'xxx'")
+                .hasErrorCode(SYNTAX_ERROR)
+                .hasMessage("line 1:35: Functions using language 'SQL' must be defined using SQL");
+
+        assertFails("FUNCTION test() RETURNS bigint WITH (abc = 'test') RETURN abs(-42)")
+                .hasErrorCode(INVALID_FUNCTION_PROPERTY)
+                .hasMessage("line 1:38: Function language 'SQL' does not support properties");
     }
 
     @Test

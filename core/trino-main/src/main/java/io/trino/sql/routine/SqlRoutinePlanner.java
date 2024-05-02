@@ -56,7 +56,6 @@ import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
 import io.trino.sql.tree.ElseIfClause;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfStatement;
 import io.trino.sql.tree.IterateStatement;
@@ -99,24 +98,23 @@ public final class SqlRoutinePlanner
         this.optimizer = newOptimizer(plannerContext);
     }
 
-    public IrRoutine planSqlFunction(Session session, FunctionSpecification function, SqlRoutineAnalysis routineAnalysis)
+    public IrRoutine planSqlFunction(Session session, SqlRoutineAnalysis analysis)
     {
         List<IrVariable> allVariables = new ArrayList<>();
         Map<String, IrVariable> scopeVariables = new LinkedHashMap<>();
 
         ImmutableList.Builder<IrVariable> parameters = ImmutableList.builder();
-        routineAnalysis.arguments().forEach((name, type) -> {
+        analysis.arguments().forEach((name, type) -> {
             IrVariable variable = new IrVariable(allVariables.size(), type, constantNull(type));
             allVariables.add(variable);
             scopeVariables.put(name, variable);
             parameters.add(variable);
         });
 
-        Analysis analysis = routineAnalysis.analysis();
-        StatementVisitor visitor = new StatementVisitor(session, allVariables, analysis);
-        IrStatement body = visitor.process(function.getStatement(), new Context(scopeVariables, Map.of()));
+        StatementVisitor visitor = new StatementVisitor(session, allVariables, analysis.analysis());
+        IrStatement body = visitor.process(analysis.statement(), new Context(scopeVariables, Map.of()));
 
-        return new IrRoutine(routineAnalysis.returnType(), parameters.build(), body);
+        return new IrRoutine(analysis.returnType(), parameters.build(), body);
     }
 
     private class StatementVisitor

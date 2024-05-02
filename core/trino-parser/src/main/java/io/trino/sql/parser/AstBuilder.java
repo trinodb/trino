@@ -203,6 +203,7 @@ import io.trino.sql.tree.PlanSiblings;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.ProcessingMode;
+import io.trino.sql.tree.PropertiesCharacteristic;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
@@ -3710,17 +3711,39 @@ class AstBuilder
     @Override
     public Node visitFunctionSpecification(SqlBaseParser.FunctionSpecificationContext context)
     {
-        ControlStatement statement = (ControlStatement) visit(context.controlStatement());
-        if (!(statement instanceof ReturnStatement || statement instanceof CompoundStatement)) {
-            throw parseError("Function body must start with RETURN or BEGIN", context.controlStatement());
-        }
+        Optional<ControlStatement> statement = visitIfPresent(context.controlStatement(), ControlStatement.class);
+        statement.ifPresent(body -> {
+            if (!(body instanceof ReturnStatement || body instanceof CompoundStatement)) {
+                throw parseError("Function body must start with RETURN or BEGIN", context.controlStatement());
+            }
+        });
+
         return new FunctionSpecification(
                 getLocation(context),
                 getQualifiedName(context.functionDeclaration().qualifiedName()),
                 visit(context.functionDeclaration().parameterDeclaration(), ParameterDeclaration.class),
                 (ReturnsClause) visit(context.returnsClause()),
                 visit(context.routineCharacteristic(), RoutineCharacteristic.class),
-                statement);
+                statement,
+                visitIfPresent(context.functionDefinition(), StringLiteral.class));
+    }
+
+    @Override
+    public Node visitFunctionDefinition(SqlBaseParser.FunctionDefinitionContext context)
+    {
+        String value = context.getText();
+        value = value.substring(2, value.length() - 2);
+        if (value.isEmpty() || ((value.charAt(0) != '\r') && (value.charAt(0) != '\n'))) {
+            throw parseError("Function definition must start with a newline after opening quotes", context);
+        }
+        // strip leading \r or \n or \r\n
+        if (value.charAt(0) == '\r') {
+            value = value.substring(1);
+        }
+        if (!value.isEmpty() && value.charAt(0) == '\n') {
+            value = value.substring(1);
+        }
+        return new StringLiteral(getLocation(context), value);
     }
 
     @Override
@@ -3774,6 +3797,14 @@ class AstBuilder
     public Node visitCommentCharacteristic(SqlBaseParser.CommentCharacteristicContext context)
     {
         return new CommentCharacteristic(getLocation(context), visitString(context.string()).getValue());
+    }
+
+    @Override
+    public Node visitPropertiesCharacteristic(SqlBaseParser.PropertiesCharacteristicContext context)
+    {
+        return new PropertiesCharacteristic(
+                getLocation(context),
+                 visit(context.properties().propertyAssignments().property(), Property.class));
     }
 
     @Override

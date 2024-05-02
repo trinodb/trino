@@ -861,7 +861,12 @@ pathSpecification
     ;
 
 functionSpecification
-    : FUNCTION functionDeclaration returnsClause routineCharacteristic* controlStatement
+    : FUNCTION functionDeclaration returnsClause routineCharacteristic*
+        (controlStatement | AS functionDefinition)
+    ;
+
+functionDefinition
+    : DOLLAR_STRING
     ;
 
 functionDeclaration
@@ -883,6 +888,7 @@ routineCharacteristic
     | CALLED ON NULL INPUT              #calledOnNullInputCharacteristic
     | SECURITY (DEFINER | INVOKER)      #securityCharacteristic
     | COMMENT string                    #commentCharacteristic
+    | (WITH properties)                 #propertiesCharacteristic
     ;
 
 controlStatement
@@ -1330,6 +1336,10 @@ STRING
 
 UNICODE_STRING
     : 'U&\'' ( ~'\'' | '\'\'' )* '\''
+    ;
+
+DOLLAR_STRING
+    : '$$' .*? '$$'
     ;
 
 // Note: we allow any character inside the binary literal and validate
