@@ -565,7 +565,7 @@ public class TranslationMap
         if (expression.isSafe()) {
             return new Call(
                     plannerContext.getMetadata().getCoercion(
-                            builtinFunctionName("try_cast"),
+                            builtinFunctionName("$try_cast"),
                             analysis.getType(expression.getExpression()),
                     analysis.getType(expression)),
                     ImmutableList.of(translateExpression(expression.getExpression())));

@@ -92,7 +92,7 @@ public class TestUnwrapRowSubscript
     private Call tryCast(Expression expression, Type type)
     {
         return new Call(
-                PLANNER_CONTEXT.getMetadata().getCoercion(builtinFunctionName("try_cast"),
+                PLANNER_CONTEXT.getMetadata().getCoercion(builtinFunctionName("$try_cast"),
                         expression.type(),
                         type),
                 ImmutableList.of(expression));

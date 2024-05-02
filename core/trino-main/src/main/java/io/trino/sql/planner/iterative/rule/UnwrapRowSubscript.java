@@ -72,7 +72,7 @@ public class UnwrapRowSubscript
                     safe = false;
                     expression = cast.expression();
                 }
-                else if (base instanceof Call call && call.function().name().equals(builtinFunctionName("try_cast"))) {
+                else if (base instanceof Call call && call.function().name().equals(builtinFunctionName("$try_cast"))) {
                     safe = true;
                     expression = call.arguments().getFirst();
                 }
@@ -95,7 +95,7 @@ public class UnwrapRowSubscript
                     Coercion coercion = coercions.pop();
                     result = coercion.isSafe() ?
                             new Call(
-                                    metadata.getCoercion(builtinFunctionName("try_cast"), result.type(), coercion.getType()),
+                                    metadata.getCoercion(builtinFunctionName("$try_cast"), result.type(), coercion.getType()),
                                     ImmutableList.of(result)) :
                             new Cast(result, coercion.getType());
                 }
