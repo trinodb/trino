@@ -213,56 +213,18 @@ public final class ShowQueriesRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        Visitor visitor = new Visitor(
-                metadata,
-                parser,
-                session,
-                accessControl,
-                sessionPropertyManager,
-                schemaPropertyManager,
-                columnPropertyManager,
-                tablePropertyManager,
-                viewPropertyManager,
-                materializedViewPropertyManager);
+        Visitor visitor = new Visitor(session);
         return (Statement) visitor.process(node, null);
     }
 
-    private static class Visitor
+    private class Visitor
             extends AstVisitor<Node, Void>
     {
-        private final Metadata metadata;
         private final Session session;
-        private final SqlParser sqlParser;
-        private final AccessControl accessControl;
-        private final SessionPropertyManager sessionPropertyManager;
-        private final SchemaPropertyManager schemaPropertyManager;
-        private final ColumnPropertyManager columnPropertyManager;
-        private final TablePropertyManager tablePropertyManager;
-        private final ViewPropertyManager viewPropertyManager;
-        private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
-        public Visitor(
-                Metadata metadata,
-                SqlParser sqlParser,
-                Session session,
-                AccessControl accessControl,
-                SessionPropertyManager sessionPropertyManager,
-                SchemaPropertyManager schemaPropertyManager,
-                ColumnPropertyManager columnPropertyManager,
-                TablePropertyManager tablePropertyManager,
-                ViewPropertyManager viewPropertyManager,
-                MaterializedViewPropertyManager materializedViewPropertyManager)
+        public Visitor(Session session)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
-            this.accessControl = requireNonNull(accessControl, "accessControl is null");
-            this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-            this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
-            this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
-            this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
-            this.viewPropertyManager = requireNonNull(viewPropertyManager, "viewPropertyManager is null");
-            this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
         }
 
         @Override
@@ -952,7 +914,7 @@ public final class ShowQueriesRewrite
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
-                Statement statement = sqlParser.createStatement(view);
+                Statement statement = parser.createStatement(view);
                 return (Query) statement;
             }
             catch (ParsingException e) {
