@@ -66,3 +66,4 @@ Example output:
 * [](/develop/functions)
 * [](/sql/create-function)
 * [](/sql/drop-function)
+* [](/sql/show-create-function)

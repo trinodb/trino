@@ -49,12 +49,14 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
@@ -118,6 +120,8 @@ import static io.trino.connector.informationschema.InformationSchemaTable.COLUMN
 import static io.trino.connector.informationschema.InformationSchemaTable.SCHEMATA;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLES;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
+import static io.trino.execution.CreateFunctionTask.defaultFunctionSchema;
+import static io.trino.execution.CreateFunctionTask.qualifiedFunctionName;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataListing.listSchemas;
@@ -133,6 +137,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW_PROPERTY;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -180,9 +185,11 @@ public final class ShowQueriesRewrite
     private final TablePropertyManager tablePropertyManager;
     private final ViewPropertyManager viewPropertyManager;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
+    private final Optional<CatalogSchemaName> functionSchema;
 
     @Inject
     public ShowQueriesRewrite(
+            SqlEnvironmentConfig sqlEnvironmentConfig,
             Metadata metadata,
             SqlParser parser,
             AccessControl accessControl,
@@ -202,6 +209,7 @@ public final class ShowQueriesRewrite
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.viewPropertyManager = requireNonNull(viewPropertyManager, "viewPropertyManager is null");
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
+        this.functionSchema = defaultFunctionSchema(sqlEnvironmentConfig);
     }
 
     @Override
@@ -553,6 +561,7 @@ public final class ShowQueriesRewrite
                 case VIEW -> showCreateView(node);
                 case TABLE -> showCreateTable(node);
                 case SCHEMA -> showCreateSchema(node);
+                case FUNCTION -> showCreateFunction(node);
             };
         }
 
@@ -711,6 +720,26 @@ public final class ShowQueriesRewrite
                     propertyNodes,
                     owner);
             return singleValueQuery("Create Schema", formatSql(createSchema).trim());
+        }
+
+        private Node showCreateFunction(ShowCreate node)
+        {
+            QualifiedObjectName functionName = qualifiedFunctionName(functionSchema, node, node.getName());
+
+            accessControl.checkCanShowCreateFunction(session.toSecurityContext(), functionName);
+
+            Collection<LanguageFunction> functions = metadata.getLanguageFunctions(session, functionName);
+            if (functions.isEmpty()) {
+                throw semanticException(NOT_FOUND, node, "Function not found");
+            }
+
+            List<Expression> rows = functions.stream()
+                    .map(function -> row(new StringLiteral("CREATE " + function.sql())))
+                    .collect(toImmutableList());
+
+            return simpleQuery(
+                    selectList(new AllColumns()),
+                    aliased(new Values(rows), "t", ImmutableList.of("Create Function")));
         }
 
         private static List<Property> buildProperties(

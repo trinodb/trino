@@ -736,6 +736,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot drop function %s%s", functionName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyShowCreateFunction(String functionName)
+    {
+        denyShowCreateFunction(functionName, null);
+    }
+
+    public static void denyShowCreateFunction(String functionName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show create function for %s%s", functionName, formatExtraInfo(extraInfo)));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {

@@ -237,6 +237,9 @@ public class AllowAllAccessControl
     public void checkCanDropFunction(ConnectorSecurityContext context, SchemaRoutineName function) {}
 
     @Override
+    public void checkCanShowCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function) {}
+
+    @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return ImmutableList.of();

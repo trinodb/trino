@@ -1376,6 +1376,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName)
+    {
+        requireNonNull(context, "context is null");
+        requireNonNull(functionName, "functionName is null");
+
+        checkCanAccessCatalog(context, functionName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanShowCreateFunction(context.toSystemSecurityContext(), functionName.asCatalogSchemaRoutineName()));
+
+        catalogAuthorizationCheck(functionName.catalogName(), context, (control, connectorContext) -> control.checkCanShowCreateFunction(connectorContext, functionName.asSchemaRoutineName()));
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         requireNonNull(context, "context is null");
