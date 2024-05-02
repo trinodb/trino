@@ -613,11 +613,6 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            if (node.safe()) {
-                // try_cast would need to be modeled separately
-                return Optional.empty();
-            }
-
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
             }

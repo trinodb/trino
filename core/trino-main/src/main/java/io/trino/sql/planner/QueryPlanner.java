@@ -1553,10 +1553,7 @@ class QueryPlanner
                 sortKeyCoercedForFrameBoundCalculation = alreadyCoerced;
             }
             else {
-                Expression cast = new Cast(
-                        coercions.get(sortKey).toSymbolReference(),
-                        expectedType,
-                        false);
+                Expression cast = new Cast(coercions.get(sortKey).toSymbolReference(), expectedType);
                 sortKeyCoercedForFrameBoundCalculation = symbolAllocator.newSymbol(cast);
                 sortKeyCoercions.put(expectedType, sortKeyCoercedForFrameBoundCalculation);
                 subPlan = subPlan.withNewRoot(new ProjectNode(
@@ -1596,10 +1593,7 @@ class QueryPlanner
                 sortKeyCoercedForFrameBoundComparison = Optional.of(alreadyCoerced);
             }
             else {
-                Expression cast = new Cast(
-                        coercions.get(sortKey).toSymbolReference(),
-                        expectedType,
-                        false);
+                Expression cast = new Cast(coercions.get(sortKey).toSymbolReference(), expectedType);
                 Symbol castSymbol = symbolAllocator.newSymbol(cast);
                 sortKeyCoercions.put(expectedType, castSymbol);
                 subPlan = subPlan.withNewRoot(new ProjectNode(
@@ -1664,10 +1658,7 @@ class QueryPlanner
             }
         }
         else {
-            offsetToBigint = new Cast(
-                    offsetSymbol.toSymbolReference(),
-                    BIGINT,
-                    false);
+            offsetToBigint = new Cast(offsetSymbol.toSymbolReference(), BIGINT);
         }
 
         Symbol coercedOffsetSymbol = symbolAllocator.newSymbol(offsetToBigint);
@@ -2050,10 +2041,7 @@ class QueryPlanner
                 if (coercion != null) {
                     Symbol symbol = symbolAllocator.newSymbol("expr", coercion);
 
-                    assignments.put(symbol, new Cast(
-                            subPlan.rewrite(expression),
-                            coercion,
-                            false));
+                    assignments.put(symbol, new Cast(subPlan.rewrite(expression), coercion));
 
                     mappings.put(NodeRef.of(expression), symbol);
                 }
@@ -2079,7 +2067,7 @@ class QueryPlanner
             return rewritten;
         }
 
-        return new Cast(rewritten, coercion, false);
+        return new Cast(rewritten, coercion);
     }
 
     public static NodeAndMappings coerce(RelationPlan plan, List<Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)

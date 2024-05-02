@@ -65,13 +65,9 @@ public class IrExpressions
         };
     }
 
-    // TODO: record "safety" (can the cast fail at runtime) in Cast node (separate from "may return null" that's currently implied by try_cast)
+    // TODO: record "safety" (can the cast fail at runtime) in Cast node
     private static boolean mayFail(PlannerContext plannerContext, Cast cast)
     {
-        if (cast.safe()) {
-            return false;
-        }
-
         TypeCoercion coercions = new TypeCoercion(plannerContext.getTypeManager()::getType);
         if (coercions.canCoerce(cast.expression().type(), cast.type())) {
             return false;
@@ -89,6 +85,7 @@ public class IrExpressions
         // TODO: these should be attributes of the function
         CatalogSchemaFunctionName name = function.name();
         return !name.equals(builtinFunctionName("length")) &&
+                !name.equals(builtinFunctionName("try_cast")) &&
                 !name.equals(builtinFunctionName("substring")) &&
                 !name.equals(builtinFunctionName(LIKE_FUNCTION_NAME)) &&
                 !isDynamicFilterFunction(function.name());

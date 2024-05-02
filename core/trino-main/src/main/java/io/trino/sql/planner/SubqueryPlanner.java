@@ -495,10 +495,7 @@ class SubqueryPlanner
 
             Assignments assignments = Assignments.builder()
                     .putIdentities(subPlan.getRoot().getOutputSymbols())
-                    .put(coerced, new Cast(
-                            symbol.toSymbolReference(),
-                            coercion.get(),
-                            false))
+                    .put(coerced, new Cast(symbol.toSymbolReference(), coercion.get()))
                     .build();
 
             subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments));

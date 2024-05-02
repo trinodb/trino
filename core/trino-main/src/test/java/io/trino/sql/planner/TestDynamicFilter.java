@@ -288,7 +288,7 @@ public class TestDynamicFilter
 
     private Expression typeOnlyCast(String symbol, Type asDataType)
     {
-        return new Cast(new Symbol(UNKNOWN, symbol).toSymbolReference(), asDataType, false);
+        return new Cast(new Symbol(UNKNOWN, symbol).toSymbolReference(), asDataType);
     }
 
     @Test

@@ -754,10 +754,6 @@ public class IrExpressionInterpreter
                         yield new Constant(node.type(), functionInvoker.invoke(metadata.getCoercion(constant.type(), node.type()), connectorSession, ImmutableList.of(constant.value())));
                     }
                     catch (TrinoException e) {
-                        if (node.safe()) {
-                            yield new Constant(node.type(), null);
-                        }
-
                         if (evaluate) {
                             throw e;
                         }
@@ -765,7 +761,7 @@ public class IrExpressionInterpreter
                         yield new Cast(constant, node.type());
                     }
                 }
-                default -> new Cast(value, node.type(), node.safe());
+                default -> new Cast(value, node.type());
             };
         }
 

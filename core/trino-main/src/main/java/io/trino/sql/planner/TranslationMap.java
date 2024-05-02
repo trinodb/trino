@@ -132,6 +132,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
@@ -561,10 +562,18 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(Cast expression)
     {
+        if (expression.isSafe()) {
+            return new Call(
+                    plannerContext.getMetadata().getCoercion(
+                            builtinFunctionName("try_cast"),
+                            analysis.getType(expression.getExpression()),
+                    analysis.getType(expression)),
+                    ImmutableList.of(translateExpression(expression.getExpression())));
+        }
+
         return new io.trino.sql.ir.Cast(
                 translateExpression(expression.getExpression()),
-                analysis.getType(expression),
-                expression.isSafe());
+                analysis.getType(expression));
     }
 
     private io.trino.sql.ir.Expression translate(DoubleLiteral expression)
