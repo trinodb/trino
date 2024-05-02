@@ -196,15 +196,15 @@ public class TestKuduConnectorTest
     {
         assertThat(computeScalar("SHOW CREATE TABLE orders"))
                 .isEqualTo("CREATE TABLE kudu.default.orders (\n" +
-                        "   orderkey bigint COMMENT '' WITH ( nullable = true ),\n" +
-                        "   custkey bigint COMMENT '' WITH ( nullable = true ),\n" +
-                        "   orderstatus varchar COMMENT '' WITH ( nullable = true ),\n" +
-                        "   totalprice double COMMENT '' WITH ( nullable = true ),\n" +
-                        "   orderdate varchar COMMENT '' WITH ( nullable = true ),\n" +
-                        "   orderpriority varchar COMMENT '' WITH ( nullable = true ),\n" +
-                        "   clerk varchar COMMENT '' WITH ( nullable = true ),\n" +
-                        "   shippriority integer COMMENT '' WITH ( nullable = true ),\n" +
-                        "   comment varchar COMMENT '' WITH ( nullable = true )\n" +
+                        "   orderkey bigint COMMENT '' WITH (nullable = true),\n" +
+                        "   custkey bigint COMMENT '' WITH (nullable = true),\n" +
+                        "   orderstatus varchar COMMENT '' WITH (nullable = true),\n" +
+                        "   totalprice double COMMENT '' WITH (nullable = true),\n" +
+                        "   orderdate varchar COMMENT '' WITH (nullable = true),\n" +
+                        "   orderpriority varchar COMMENT '' WITH (nullable = true),\n" +
+                        "   clerk varchar COMMENT '' WITH (nullable = true),\n" +
+                        "   shippriority integer COMMENT '' WITH (nullable = true),\n" +
+                        "   comment varchar COMMENT '' WITH (nullable = true)\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   number_of_replicas = 1,\n" +

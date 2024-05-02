@@ -4373,7 +4373,7 @@ public abstract class BaseHiveConnectorTest
             String result = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
             assertThat(result).isEqualTo("CREATE TABLE hive.tpch." + table.getName() + " (\n" +
                     "   a integer,\n" +
-                    "   b integer WITH ( partition_projection_range = ARRAY['0','10'], partition_projection_type = 'INTEGER' )\n" +
+                    "   b integer WITH (partition_projection_range = ARRAY['0','10'], partition_projection_type = 'INTEGER')\n" +
                     ")\n" +
                     "WITH (\n" +
                     "   format = 'ORC',\n" +
