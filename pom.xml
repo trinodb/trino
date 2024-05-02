@@ -198,7 +198,7 @@
         <dep.kafka-clients.version>3.7.0</dep.kafka-clients.version>
         <dep.okio.version>3.9.0</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.parquet.version>1.13.1</dep.parquet.version>
+        <dep.parquet.version>1.14.0</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.3</dep.protobuf.version>
         <dep.snowflake.version>3.15.1</dep.snowflake.version>
@@ -1954,6 +1954,12 @@
                 <groupId>org.apache.parquet</groupId>
                 <artifactId>parquet-format-structures</artifactId>
                 <version>${dep.parquet.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>javax.annotation</groupId>
+                        <artifactId>javax.annotation-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -2258,6 +2264,14 @@
         </dependencies>
     </dependencyManagement>
 
+    <repositories>
+        <repository>
+            <id>parquet-release-candidate</id>
+            <name>Parquet Release Candidate</name>
+            <url>https://repository.apache.org/content/repositories/orgapacheparquet-1054/</url>
+        </repository>
+    </repositories>
+
     <build>
         <pluginManagement>
             <plugins>
@@ -2386,8 +2400,6 @@
                                     <exclude>org.yaml:snakeyaml</exclude>
                                     <!-- use Guice version -->
                                     <exclude>javax.inject:javax.inject</exclude>
-                                    <!-- use Jakarta version -->
-                                    <exclude>javax.annotation:javax.annotation-api</exclude>
                                 </excludes>
                                 <includes combine.children="append">
                                     <!-- 2.x versions are not affected by CVE-2022-1471 -->
