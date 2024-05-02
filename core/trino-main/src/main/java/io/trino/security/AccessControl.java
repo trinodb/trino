@@ -603,6 +603,13 @@ public interface AccessControl
      */
     void checkCanDropFunction(SecurityContext context, QualifiedObjectName functionName);
 
+    /**
+     * Check if identity is allowed to execute SHOW CREATE FUNCTION.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName);
+
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         return ImmutableList.of();

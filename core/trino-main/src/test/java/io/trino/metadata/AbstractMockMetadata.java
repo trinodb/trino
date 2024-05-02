@@ -881,6 +881,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Collection<LanguageFunction> getLanguageFunctions(Session session, QualifiedObjectName name)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean languageFunctionExists(Session session, QualifiedObjectName name, String signatureToken)
     {
         throw new UnsupportedOperationException();

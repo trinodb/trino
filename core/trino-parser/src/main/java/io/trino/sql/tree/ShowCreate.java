@@ -31,6 +31,7 @@ public class ShowCreate
         VIEW,
         SCHEMA,
         MATERIALIZED_VIEW,
+        FUNCTION,
         /**/;
     }
 

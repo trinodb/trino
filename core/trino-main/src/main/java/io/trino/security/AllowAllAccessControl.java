@@ -288,4 +288,7 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanDropFunction(SecurityContext context, QualifiedObjectName functionName) {}
+
+    @Override
+    public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName) {}
 }

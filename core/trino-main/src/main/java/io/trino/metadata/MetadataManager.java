@@ -2605,6 +2605,16 @@ public final class MetadataManager
     }
 
     @Override
+    public Collection<LanguageFunction> getLanguageFunctions(Session session, QualifiedObjectName name)
+    {
+        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, name.catalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        return metadata.getLanguageFunctions(session.toConnectorSession(catalogHandle), name.asSchemaFunctionName());
+    }
+
+    @Override
     public boolean languageFunctionExists(Session session, QualifiedObjectName name, String signatureToken)
     {
         return getOptionalCatalogMetadata(session, name.catalogName())
