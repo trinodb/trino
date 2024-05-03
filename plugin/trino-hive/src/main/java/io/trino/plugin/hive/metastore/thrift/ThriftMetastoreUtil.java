@@ -435,6 +435,11 @@ public final class ThriftMetastoreUtil
         return CSV.getSerde().equals(getSerdeInfo(table).getSerializationLib());
     }
 
+    public static boolean isCsvPartition(io.trino.hive.thrift.metastore.Partition partition)
+    {
+        return CSV.getSerde().equals(getSerdeInfo(partition).getSerializationLib());
+    }
+
     public static List<FieldSchema> csvSchemaFields(List<FieldSchema> schemas)
     {
         return schemas.stream()
@@ -451,6 +456,20 @@ public final class ThriftMetastoreUtil
         SerDeInfo serdeInfo = storageDescriptor.getSerdeInfo();
         if (serdeInfo == null) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
+        }
+
+        return serdeInfo;
+    }
+
+    private static SerDeInfo getSerdeInfo(io.trino.hive.thrift.metastore.Partition partition)
+    {
+        StorageDescriptor storageDescriptor = partition.getSd();
+        if (storageDescriptor == null) {
+            throw new TrinoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + partition);
+        }
+        SerDeInfo serdeInfo = storageDescriptor.getSerdeInfo();
+        if (serdeInfo == null) {
+            throw new TrinoException(HIVE_INVALID_METADATA, "Partition storage descriptor is missing SerDe info");
         }
 
         return serdeInfo;
