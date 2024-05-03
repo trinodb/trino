@@ -14,80 +14,52 @@
 package io.trino.plugin.lance;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
-
-public class LanceConfig
-{
+public class LanceConfig {
     private static final Splitter LIST_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings();
 
     /** URL used to access a lancedb via REST client */
-    private List<URI> lanceDbUri = ImmutableList.of();
+    private URI lanceDbUri = URI.create("dummy://db.connect");
 
     private Duration connectionTimeout = new Duration(1, TimeUnit.MINUTES);
 
-    private boolean isJni = false;
     private int fetchRetryCount;
 
     @NotEmpty(message = "lanceDb URI cannot be empty")
-    public List<URI> getLanceDbUri()
-    {
+    public URI getLanceDbUri() {
         return lanceDbUri;
     }
 
-    @Config("lance.connector_uri")
-    public LanceConfig setLanceDbUri(String lanceDbUri)
-    {
-        this.lanceDbUri = LIST_SPLITTER.splitToList(lanceDbUri).stream()
-                .map(LanceConfig::stringToUri)
-                .collect(toImmutableList());
+    @Config("lance.uri")
+    public LanceConfig setLanceDbUri(String lanceDbUri) {
+        this.lanceDbUri = URI.create(lanceDbUri);
         return this;
     }
 
     @MinDuration("15s")
     @NotNull
-    public Duration getConnectionTimeout()
-    {
+    public Duration getConnectionTimeout() {
         return connectionTimeout;
     }
 
     @Config("lance.connection-timeout")
-    public LanceConfig setConnectionTimeout(Duration connectionTimeout)
-    {
+    public LanceConfig setConnectionTimeout(Duration connectionTimeout) {
         this.connectionTimeout = connectionTimeout;
         return this;
-    }
-
-    private static URI stringToUri(String server)
-    {
-        if (server.startsWith("http://") || server.startsWith("https://")) {
-            return URI.create(server);
-        }
-        return URI.create("http://" + server);
-    }
-
-    public boolean isJni() {
-        return isJni;
-    }
-
-    @Config("lance.enable-kni")
-    public void setJni(boolean jni) {
-        isJni = jni;
     }
 
     public Integer getFetchRetryCount() {
         return this.fetchRetryCount;
     }
+
     @Config("lance.connection-retry-count")
     public void setFetchRetryCount(int fetchRetryCount) {
         this.fetchRetryCount = fetchRetryCount;

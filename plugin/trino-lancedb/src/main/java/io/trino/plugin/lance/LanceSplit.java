@@ -20,108 +20,43 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ConnectorSplit;
-
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
-public class LanceSplit
-        implements ConnectorSplit
-{
+
+public class LanceSplit implements ConnectorSplit {
     private static final Joiner JOINER = Joiner.on(",");
     private static final int INSTANCE_SIZE = instanceSize(LanceSplit.class);
 
-    private final SplitType splitType;
-    private final Optional<String> suffix;
-    private final List<String> segments;
+    private final List<String> fragments;
 
     @JsonCreator
-    public LanceSplit(
-            @JsonProperty("splitType") SplitType splitType,
-            @JsonProperty("suffix") Optional<String> suffix,
-            @JsonProperty("fragments") List<String> fragments)
-    {
-        this.splitType = requireNonNull(splitType, "splitType id is null");
-        this.suffix = requireNonNull(suffix, "suffix is null");
-        this.segments = ImmutableList.copyOf(requireNonNull(fragments, "fragments is null"));
-
-        // make sure the segment properties are present when the split type is segment
-        if (splitType == SplitType.FRAGMENT) {
-            checkArgument(suffix.isPresent(), "Suffix is missing from this split");
-            checkArgument(!fragments.isEmpty(), "Segments are missing from the split");
-        }
-    }
-
-    public static LanceSplit createHTTPSplit()
-    {
-        return new LanceSplit(
-                SplitType.HTTP,
-                Optional.empty(),
-                ImmutableList.of());
-    }
-
-    public static LanceSplit createFragmentSplit(String suffix, List<String> fragments)
-    {
-        return new LanceSplit(
-                SplitType.FRAGMENT,
-                Optional.of(requireNonNull(suffix, "suffix is null")),
-                requireNonNull(fragments, "fragments are null"));
+    public LanceSplit(@JsonProperty("fragments") List<String> fragments) {
+        this.fragments = ImmutableList.copyOf(requireNonNull(fragments, "fragments is null"));
     }
 
     @JsonProperty
-    public SplitType getSplitType()
-    {
-        return splitType;
-    }
-
-    @JsonProperty
-    public Optional<String> getSuffix()
-    {
-        return suffix;
-    }
-
-    @JsonProperty
-    public List<String> getSegments()
-    {
-        return segments;
+    public List<String> getFragments() {
+        return fragments;
     }
 
     @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("splitType", splitType)
-                .add("segments", segments)
-                .toString();
+    public String toString() {
+        return toStringHelper(this).add("fragments", fragments).toString();
     }
 
     @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.of(
-                "splitType", splitType.name(),
-                "suffix", suffix.orElse(""),
-                "segments", JOINER.join(segments));
+    public Map<String, String> getSplitInfo() {
+        return ImmutableMap.of("fragments", JOINER.join(fragments));
     }
 
     @Override
-    public long getRetainedSizeInBytes()
-    {
-        return INSTANCE_SIZE
-                + sizeOf(suffix, SizeOf::estimatedSizeOf)
-                + estimatedSizeOf(segments, SizeOf::estimatedSizeOf);
-    }
-
-    public enum SplitType
-    {
-        FRAGMENT,
-        HTTP,
+    public long getRetainedSizeInBytes() {
+        return INSTANCE_SIZE + estimatedSizeOf(fragments, SizeOf::estimatedSizeOf);
     }
 }

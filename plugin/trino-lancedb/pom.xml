@@ -43,6 +43,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.lancedb</groupId>
+            <artifactId>lance-core</artifactId>
+            <version>0.1-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
         </dependency>

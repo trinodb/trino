@@ -13,89 +13,57 @@
  */
 package io.trino.plugin.lance;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
-
-import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class LanceConnector
-        implements Connector
-{
+
+public class LanceConnector implements Connector {
     private final LifeCycleManager lifeCycleManager;
     private final LanceMetadata metadata;
     private final LanceSplitManager splitManager;
     private final LancePageSourceProvider pageSourceProvider;
-    private final LanceNodePartitioningProvider partitioningProvider;
-    private final LanceSessionProperties sessionProperties;
 
     @Inject
-    public LanceConnector(
-            LifeCycleManager lifeCycleManager,
-            LanceMetadata metadata,
-            LanceSplitManager splitManager,
-            LancePageSourceProvider pageSourceProvider,
-            LanceNodePartitioningProvider partitioningProvider,
-            LanceSessionProperties lanceSessionProperties)
-    {
+    public LanceConnector(LifeCycleManager lifeCycleManager, LanceMetadata metadata, LanceSplitManager splitManager,
+            LancePageSourceProvider pageSourceProvider) {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
-        this.sessionProperties = requireNonNull(lanceSessionProperties, "LanceSessionProperties is null");
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
-    {
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly,
+            boolean autoCommit) {
         return LanceTransactionHandle.INSTANCE;
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
-    {
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle) {
         return metadata;
     }
 
     @Override
-    public ConnectorSplitManager getSplitManager()
-    {
+    public ConnectorSplitManager getSplitManager() {
         return splitManager;
     }
 
     @Override
-    public ConnectorPageSourceProvider getPageSourceProvider()
-    {
+    public ConnectorPageSourceProvider getPageSourceProvider() {
         return pageSourceProvider;
     }
 
     @Override
-    public ConnectorNodePartitioningProvider getNodePartitioningProvider()
-    {
-        return partitioningProvider;
-    }
-
-    @Override
-    public List<PropertyMetadata<?>> getSessionProperties()
-    {
-        return ImmutableList.copyOf(sessionProperties.getSessionProperties());
-    }
-
-    @Override
-    public final void shutdown()
-    {
+    public final void shutdown() {
         lifeCycleManager.stop();
     }
 }

@@ -15,48 +15,33 @@ package io.trino.plugin.lance;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.plugin.lance.internal.LanceDynamicTable;
 import io.trino.spi.connector.ConnectorTableHandle;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 
-public class LanceTableHandle
-        implements ConnectorTableHandle
-{
+public class LanceTableHandle implements ConnectorTableHandle {
     private final String tableName;
-    private final Optional<LanceDynamicTable> dynamicTable;
-
-    public LanceTableHandle(String tableName)
-    {
-        this(tableName, Optional.empty());
-    }
+    private final String tablePath;
 
     @JsonCreator
-    public LanceTableHandle(
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("query") Optional<LanceDynamicTable> dynamicTable)
-    {
+    public LanceTableHandle(@JsonProperty("tableName") String tableName, @JsonProperty("tablePath") String tablePath) {
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.dynamicTable = requireNonNull(dynamicTable, "dynamic table query is null");
+        this.tablePath = requireNonNull(tablePath, "tablePath is null");
     }
 
     @JsonProperty
-    public String getSchemaName()
-    {
+    public String getSchemaName() {
         return LanceMetadata.SCHEMA_NAME;
     }
 
     @JsonProperty
-    public String getTableName()
-    {
+    public String getTableName() {
         return tableName;
     }
 
     @JsonProperty
-    public Optional<LanceDynamicTable> getDynamicTable()
-    {
-        return dynamicTable;
+    public String getTablePath() {
+        return tablePath;
     }
 }

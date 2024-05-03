@@ -13,21 +13,28 @@
  */
 package io.trino.plugin.lance;
 
-import com.google.inject.Binder;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
-import io.trino.plugin.lance.internal.LanceReader;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
+import java.util.Optional;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 
-public class LanceModule implements Module {
+public class LancePlugin implements Plugin {
+    private final Optional<Module> extension;
+
+    public LancePlugin() {
+        this(Optional.empty());
+    }
+
+    public LancePlugin(Optional<Module> extension) {
+        this.extension = requireNonNull(extension, "extension is null");
+    }
+
     @Override
-    public void configure(Binder binder) {
-        configBinder(binder).bindConfig(LanceConfig.class);
-        binder.bind(LanceReader.class).in(Scopes.SINGLETON);
-        binder.bind(LanceMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(LanceSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(LancePageSourceProvider.class).in(Scopes.SINGLETON);
+    public Iterable<ConnectorFactory> getConnectorFactories() {
+        return ImmutableList.of(new LanceConnectorFactory(extension));
     }
 }

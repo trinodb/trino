@@ -14,8 +14,7 @@
 package io.trino.plugin.lance;
 
 import com.google.inject.Inject;
-import io.trino.plugin.lance.internal.LanceClient;
-import io.trino.plugin.lance.internal.LanceDynamicTable;
+import io.trino.plugin.lance.internal.LanceReader;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -25,50 +24,33 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 
-public class LancePageSourceProvider
-        implements ConnectorPageSourceProvider
-{
+public class LancePageSourceProvider implements ConnectorPageSourceProvider {
 
-    private LanceConfig lanceConfig;
-    private LanceClient lanceClient;
+    private final LanceReader lanceReader;
+    private final LanceConfig lanceConfig;
 
     @Inject
-    public LancePageSourceProvider(
-            LanceConfig lanceConfig,
-            LanceClient lanceClient)
-    {
+    public LancePageSourceProvider(LanceReader lanceReader, LanceConfig lanceConfig) {
+        this.lanceReader = requireNonNull(lanceReader, "lanceClient is null");
         this.lanceConfig = lanceConfig;
-        this.lanceClient = lanceClient;
     }
 
     @Override
-    public ConnectorPageSource createPageSource(
-            ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session,
-            ConnectorSplit split,
-            ConnectorTableHandle tableHandle,
-            List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
-    {
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session,
+            ConnectorSplit split, ConnectorTableHandle tableHandle, List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter) {
         requireNonNull(split, "split is null");
-
         LanceSplit lanceSplit = (LanceSplit) split;
         LanceTableHandle lanceTableHandle = (LanceTableHandle) tableHandle;
-        if (lanceConfig.isJni()) {
-             return new LanceFragmentPageSource(split, columns, lanceConfig);
+        if (lanceSplit.getFragments().isEmpty()) {
+            return new LanceDatasetPageSource(lanceReader, lanceTableHandle, lanceConfig.getFetchRetryCount());
+        } else {
+            // TODO: support LanceFragmentPageSource()
+            throw new UnsupportedOperationException("Split based on Fragment is not supported!");
         }
-        else {
-            Optional<LanceDynamicTable> dynamicTable = ((LanceTableHandle) tableHandle).getDynamicTable();
-            if (dynamicTable.isPresent()) {
-                LanceDynamicTable lanceDynamicTable = dynamicTable.get();
-                return new LanceHttpPageSource(session, lanceDynamicTable, columns, lanceClient);
-            }
-        }
-        throw new UnsupportedOperationException("Unknown split type: " + lanceSplit.getSplitType());
     }
 }

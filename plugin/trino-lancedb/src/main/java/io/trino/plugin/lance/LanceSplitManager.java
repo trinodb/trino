@@ -15,7 +15,7 @@ package io.trino.plugin.lance;
 
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.trino.plugin.lance.internal.LanceClient;
+import io.trino.plugin.lance.internal.LanceReader;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -24,46 +24,26 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
+import java.util.Collections;
+import java.util.List;
 
-import static io.trino.plugin.lance.LanceSplit.createHTTPSplit;
 import static java.util.Objects.requireNonNull;
 
 
-public class LanceSplitManager
-        implements ConnectorSplitManager
-{
-    private static final Logger LOG = Logger.get(LanceSplitManager.class);
-
-    private final LanceClient lanceClient;
+public class LanceSplitManager implements ConnectorSplitManager {
+    private static final Logger log = Logger.get(LanceSplitManager.class);
+    private final LanceReader lanceReader;
 
     @Inject
-    public LanceSplitManager(LanceClient pinotClient)
-    {
-        this.lanceClient = requireNonNull(pinotClient, "client is null");
-    }
-
-    protected ConnectorSplitSource generateSplitForHTTPBasedScan()
-    {
-        return new FixedSplitSource(createHTTPSplit());
-    }
-
-    protected ConnectorSplitSource generateSplitsForFragmentBasedScan(
-            LanceTableHandle tableHandle,
-            ConnectorSession session)
-    {
-        // TODO support fragment split
-        return null;
+    public LanceSplitManager(LanceReader lanceReader) {
+        this.lanceReader = requireNonNull(lanceReader, "client is null");
     }
 
     @Override
-    public ConnectorSplitSource getSplits(
-            ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session,
-            ConnectorTableHandle tableHandle,
-            DynamicFilter dynamicFilter,
-            Constraint constraint)
-    {
-        // TODO support fragment split
-        return generateSplitForHTTPBasedScan();
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session,
+            ConnectorTableHandle tableHandle, DynamicFilter dynamicFilter, Constraint constraint) {
+        List<String> fragments = Collections.emptyList();
+        // TODO: add support for splits based on fragments, now entire table is only 1 fragment, thus one split
+        return new FixedSplitSource(new LanceSplit(fragments));
     }
 }
