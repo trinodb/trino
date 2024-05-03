@@ -15,12 +15,14 @@ package io.trino.hdfs.authentication;
 
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.io.IOException;
+
 public class NoHdfsAuthentication
         implements HdfsAuthentication
 {
     @Override
-    public <R, E extends Exception> R doAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
-            throws E
+    public <T> T doAs(ConnectorIdentity identity, ExceptionAction<T> action)
+            throws IOException
     {
         return action.run();
     }
