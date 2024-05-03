@@ -15,7 +15,9 @@ package io.trino.hdfs.authentication;
 
 import org.apache.hadoop.security.UserGroupInformation;
 
-import java.security.PrivilegedAction;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.concurrent.Callable;
 
 public final class UserGroupInformationUtils
 {
@@ -24,14 +26,22 @@ public final class UserGroupInformationUtils
     public static <R, E extends Exception> R executeActionInDoAs(UserGroupInformation userGroupInformation, GenericExceptionAction<R, E> action)
             throws E
     {
-        return userGroupInformation.doAs((PrivilegedAction<ResultOrException<R, E>>) () -> {
-            try {
-                return new ResultOrException<>(action.run(), null);
-            }
-            catch (Throwable e) {
-                return new ResultOrException<>(null, e);
-            }
-        }).get();
+        try {
+            return userGroupInformation.callAs((Callable<ResultOrException<R, E>>) () -> {
+                try {
+                    return new ResultOrException<>(action.run(), null);
+                }
+                catch (Throwable e) {
+                    return new ResultOrException<>(null, e);
+                }
+            }).get();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
     }
 
     private static class ResultOrException<T, E extends Exception>
