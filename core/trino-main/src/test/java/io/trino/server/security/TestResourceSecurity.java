@@ -27,7 +27,6 @@ import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
 import io.airlift.security.pem.PemReader;
-import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.JwtParser;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -534,9 +533,9 @@ public class TestResourceSecurity
 
             String token = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
-                    .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
-                    .setSubject("test-user")
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .header().keyId(JWK_KEY_ID).and()
+                    .subject("test-user")
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
@@ -910,9 +909,9 @@ public class TestResourceSecurity
 
             String token = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
-                    .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
-                    .setSubject("test-user")
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .header().keyId(JWK_KEY_ID).and()
+                    .subject("test-user")
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
@@ -952,9 +951,9 @@ public class TestResourceSecurity
 
             String token = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
-                    .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
-                    .setSubject("test-user")
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .header().keyId(JWK_KEY_ID).and()
+                    .subject("test-user")
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
@@ -1141,15 +1140,15 @@ public class TestResourceSecurity
         {
             JwtBuilder accessToken = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
-                    .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
-                    .setIssuer(issuer)
-                    .setAudience(clientId)
-                    .setExpiration(tokenExpiration);
+                    .header().keyId(JWK_KEY_ID).and()
+                    .issuer(issuer)
+                    .audience().add(clientId).and()
+                    .expiration(tokenExpiration);
             if (principalField.isPresent()) {
                 accessToken.claim(principalField.get(), TEST_USER);
             }
             else {
-                accessToken.setSubject(TEST_USER);
+                accessToken.subject(TEST_USER);
             }
             groups.ifPresent(groupsClaim -> accessToken.claim(GROUPS_CLAIM, groupsClaim));
             return accessToken.compact();
@@ -1159,15 +1158,15 @@ public class TestResourceSecurity
         {
             JwtBuilder idToken = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
-                    .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
-                    .setIssuer(issuer)
-                    .setAudience(clientId)
-                    .setExpiration(tokenExpiration);
+                    .header().keyId(JWK_KEY_ID).and()
+                    .issuer(issuer)
+                    .audience().add(clientId).and()
+                    .expiration(tokenExpiration);
             if (principalField.isPresent()) {
                 idToken.claim(principalField.get(), TEST_USER);
             }
             else {
-                idToken.setSubject(TEST_USER);
+                idToken.subject(TEST_USER);
             }
             nonceHash.ifPresent(nonce -> idToken.claim(NONCE, nonce));
             return idToken.compact();
