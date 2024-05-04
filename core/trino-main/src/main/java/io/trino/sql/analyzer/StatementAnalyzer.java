@@ -379,7 +379,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
-import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -1558,7 +1557,7 @@ class StatementAnalyzer
                         .ifPresent(security -> {
                             throw semanticException(NOT_SUPPORTED, security, "Security mode not supported for inline functions");
                         });
-                plannerContext.getLanguageFunctionManager().addInlineFunction(session, formatSql(function), accessControl);
+                plannerContext.getLanguageFunctionManager().addInlineFunction(session, function, accessControl);
             }
 
             Scope withScope = analyzeWith(node, scope);
