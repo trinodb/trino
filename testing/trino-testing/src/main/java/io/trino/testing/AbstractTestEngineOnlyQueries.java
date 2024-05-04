@@ -6697,6 +6697,10 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails("WITH FUNCTION x() RETURNS bigint SECURITY DEFINER RETURN 42 SELECT x()",
                 "line 1:34: Security mode not supported for inline functions");
 
+        // error location reporting
+        assertQueryFails("WITH function x() RETURNS bigint DETERMINISTIC DETERMINISTIC RETURN 42 SELECT x()",
+                "line 1:48: Multiple deterministic clauses specified");
+
         // Verify the current restrictions on inline functions are enforced
 
         // inline function can mask a global function
@@ -6728,7 +6732,7 @@ public abstract class AbstractTestEngineOnlyQueries
                   FUNCTION b(x integer) RETURNS integer RETURN x * 2
                 SELECT a(10)
                 """))
-                .failure().hasMessage("line 3:8: Function 'b' not registered");
+                .failure().hasMessage("line 2:48: Function 'b' not registered");
 
         // inline function cannot be recursive
         // note: mutual recursion is not supported either, but it is not tested due to the forward declaration limitation above
@@ -6736,7 +6740,17 @@ public abstract class AbstractTestEngineOnlyQueries
                 WITH FUNCTION a(x integer) RETURNS integer RETURN a(x)
                 SELECT a(10)
                 """))
-                .failure().hasMessage("line 3:8: Recursive language functions are not supported: a(integer):integer");
+                .failure().hasMessage("line 1:6: Recursive language functions are not supported: a(integer):integer");
+    }
+
+    @Test
+    public void testCreateFunctionErrorReporting()
+    {
+        assertQueryFails("CREATE FUNCTION a.b.c() RETURNS integer DETERMINISTIC DETERMINISTIC RETURN 8",
+                "line 1:55: Multiple deterministic clauses specified");
+
+        assertQueryFails("CREATE FUNCTION a.b.c() RETURNS varchar RETURN 8",
+                "line 1:48: Value of RETURN must evaluate to varchar \\(actual: integer\\)");
     }
 
     private static ZonedDateTime zonedDateTime(String value)

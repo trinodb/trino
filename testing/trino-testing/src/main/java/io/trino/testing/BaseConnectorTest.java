@@ -6599,7 +6599,8 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE FUNCTION " + recursive1 + "(x integer) RETURNS integer RETURN x");
         assertUpdate("CREATE FUNCTION " + recursive2 + "(x integer) RETURNS integer RETURN " + recursive1 + "(x)");
         assertUpdate("CREATE OR REPLACE FUNCTION " + recursive1 + "(x integer) RETURNS integer RETURN " + recursive2 + "(x)");
-        assertQueryFails("SELECT " + recursive1 + "(42)", "line 3:8: Recursive language functions are not supported: " + recursive1 + "\\(integer\\):integer");
+        assertQueryFails("SELECT " + recursive1 + "(42)", "Recursive language functions are not supported: " + recursive1 + "\\(integer\\):integer");
+        assertQueryFails("SELECT " + recursive2 + "(42)", "Recursive language functions are not supported: " + recursive2 + "\\(integer\\):integer");
         assertUpdate("DROP FUNCTION " + recursive1 + "(integer)");
         assertUpdate("DROP FUNCTION " + recursive2 + "(integer)");
     }

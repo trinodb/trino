@@ -92,12 +92,11 @@ public class CreateFunctionTask
 
         accessControl.checkCanCreateFunction(session.toSecurityContext(), name);
 
-        String formatted = formatSql(function);
-        verifyFormattedFunction(formatted, function);
-
-        languageFunctionManager.verifyForCreate(session, formatted, functionManager, accessControl);
+        languageFunctionManager.verifyForCreate(session, function, functionManager, accessControl);
 
         String signatureToken = languageFunctionManager.getSignatureToken(function.getParameters());
+
+        String sql = functionToSql(function);
 
         // system path elements currently are not stored
         List<CatalogSchemaName> path = session.getPath().getPath().stream()
@@ -106,7 +105,7 @@ public class CreateFunctionTask
 
         Optional<String> owner = isRunAsInvoker(function) ? Optional.empty() : Optional.of(session.getUser());
 
-        LanguageFunction languageFunction = new LanguageFunction(signatureToken, formatted, path, owner);
+        LanguageFunction languageFunction = new LanguageFunction(signatureToken, sql, path, owner);
 
         boolean replace = false;
         if (metadata.languageFunctionExists(session, name, signatureToken)) {
@@ -122,8 +121,9 @@ public class CreateFunctionTask
         return immediateVoidFuture();
     }
 
-    private void verifyFormattedFunction(String sql, FunctionSpecification function)
+    private String functionToSql(FunctionSpecification function)
     {
+        String sql = formatSql(function);
         try {
             FunctionSpecification parsed = sqlParser.createFunctionSpecification(sql);
             if (!function.equals(parsed)) {
@@ -133,6 +133,7 @@ public class CreateFunctionTask
         catch (ParsingException e) {
             throw formattingFailure(e, "Formatted function does not parse", function, sql);
         }
+        return sql;
     }
 
     public static Optional<CatalogSchemaName> defaultFunctionSchema(SqlEnvironmentConfig config)
