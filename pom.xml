@@ -188,7 +188,7 @@
         <dep.confluent.version>7.5.1</dep.confluent.version>
         <dep.docker.images.version>93</dep.docker.images.version>
         <dep.drift.version>1.21</dep.drift.version>
-        <dep.errorprone.version>2.27.0</dep.errorprone.version>
+        <dep.errorprone.version>2.27.1</dep.errorprone.version>
         <dep.flyway.version>10.12.0</dep.flyway.version>
         <dep.google.http.client.version>1.44.1</dep.google.http.client.version>
         <dep.iceberg.version>1.5.1</dep.iceberg.version>
