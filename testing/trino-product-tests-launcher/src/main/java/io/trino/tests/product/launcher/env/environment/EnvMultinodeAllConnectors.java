@@ -52,7 +52,6 @@ public final class EnvMultinodeAllConnectors
                         "bigquery",
                         "cassandra",
                         "clickhouse",
-                        "doris",
                         "druid",
                         "delta_lake",
                         "elasticsearch",

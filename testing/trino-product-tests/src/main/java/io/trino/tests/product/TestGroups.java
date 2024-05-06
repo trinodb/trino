@@ -95,7 +95,6 @@ public final class TestGroups
     public static final String HUDI = "hudi";
     public static final String PARQUET = "parquet";
     public static final String IGNITE = "ignite";
-    public static final String DORIS = "doris";
 
     private TestGroups() {}
 }

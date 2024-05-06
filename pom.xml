@@ -69,7 +69,6 @@
         <module>plugin/trino-clickhouse</module>
         <module>plugin/trino-dameng</module>
         <module>plugin/trino-delta-lake</module>
-        <module>plugin/trino-doris</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>

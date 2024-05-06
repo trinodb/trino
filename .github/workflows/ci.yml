@@ -453,7 +453,6 @@ jobs:
             !:trino-clickhouse,
             !:trino-delta-lake,
             !:trino-docs,
-            !:trino-doris,
             !:trino-druid,
             !:trino-elasticsearch,
             !:trino-faulttolerant-tests,

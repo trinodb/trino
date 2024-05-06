@@ -74,12 +74,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/doris">
-        <artifact id="${project.groupId}:trino-doris:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/druid">
         <artifact id="${project.groupId}:trino-druid:zip:${project.version}">
             <unpack />
