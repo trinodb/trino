@@ -68,7 +68,7 @@ public class DistinctAggregationStrategyChooser
         if (isOptimizeDistinctAggregationEnabled(session) &&
                 numberOfDistinctValues <= OPTIMIZED_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * maxNumberOfConcurrentThreadsForAggregation &&
                 hasSingleDistinctAndNonDistincts(aggregationNode)) {
-            // with medium number of numberOfDistinctValues, OptimizeMixedDistinctAggregations
+            // with medium number of numberOfDistinctValues
             // will be beneficial for query latency (duration) over distinct aggregation at a cost of increased CPU,
             // but it relies on the existence of MarkDistinct nodes.
             return true;

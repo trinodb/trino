@@ -295,6 +295,19 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern aggregation(
             GroupingSetDescriptor groupingSets,
+            Map<String, ExpectedValueProvider<AggregationFunction>> aggregations,
+            PlanMatchPattern source)
+    {
+        return aggregation(
+                groupingSets,
+                aggregations.entrySet().stream().collect(toImmutableMap(entry -> Optional.of(entry.getKey()), Map.Entry::getValue)),
+                Optional.empty(),
+                Step.SINGLE,
+                source);
+    }
+
+    public static PlanMatchPattern aggregation(
+            GroupingSetDescriptor groupingSets,
             Map<Optional<String>, ExpectedValueProvider<AggregationFunction>> aggregations,
             Optional<Symbol> groupId,
             Step step,
@@ -1063,6 +1076,16 @@ public final class PlanMatchPattern
                 args,
                 ImmutableList.of(),
                 Optional.empty());
+    }
+
+    public static ExpectedValueProvider<AggregationFunction> aggregationFunction(String name, boolean distinct, List<PlanTestSymbol> args, String filter)
+    {
+        return new AggregationFunctionProvider(
+                name,
+                distinct,
+                args,
+                ImmutableList.of(),
+                Optional.of(symbol(filter)));
     }
 
     public static ExpectedValueProvider<WindowFunction> windowFunction(String name, List<String> args, WindowNode.Frame frame)
