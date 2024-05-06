@@ -30,7 +30,12 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-@DefunctConfig({"adaptive-partial-aggregation.min-rows", "preferred-write-partitioning-min-number-of-partitions", "optimizer.use-mark-distinct"})
+@DefunctConfig({
+        "adaptive-partial-aggregation.min-rows",
+        "preferred-write-partitioning-min-number-of-partitions",
+        "optimizer.use-mark-distinct",
+        "optimizer.optimize-mixed-distinct-aggregations",
+})
 public class OptimizerConfig
 {
     private double cpuCostWeight = 75;
@@ -65,13 +70,13 @@ public class OptimizerConfig
     private boolean optimizeHashGeneration;
     private boolean pushTableWriteThroughUnion = true;
     private boolean dictionaryAggregation;
-    private MarkDistinctStrategy markDistinctStrategy = MarkDistinctStrategy.AUTOMATIC;
+    private MarkDistinctStrategy markDistinctStrategy;
+    private DistinctAggregationsStrategy distinctAggregationsStrategy;
     private boolean preferPartialAggregation = true;
     private boolean pushAggregationThroughOuterJoin = true;
     private boolean enableIntermediateAggregations;
     private boolean pushPartialAggregationThroughJoin;
     private boolean preAggregateCaseAggregationsEnabled = true;
-    private boolean optimizeMixedDistinctAggregations;
     private boolean enableForcedExchangeBelowGroupId = true;
     private boolean optimizeTopNRanking = true;
     private boolean skipRedundantSort = true;
@@ -123,6 +128,14 @@ public class OptimizerConfig
     {
         NONE,
         ALWAYS,
+        AUTOMATIC,
+    }
+
+    public enum DistinctAggregationsStrategy
+    {
+        SINGLE_STEP,
+        MARK_DISTINCT,
+        PRE_AGGREGATE,
         AUTOMATIC,
     }
 
@@ -399,18 +412,6 @@ public class OptimizerConfig
         return this;
     }
 
-    public boolean isOptimizeMixedDistinctAggregations()
-    {
-        return optimizeMixedDistinctAggregations;
-    }
-
-    @Config("optimizer.optimize-mixed-distinct-aggregations")
-    public OptimizerConfig setOptimizeMixedDistinctAggregations(boolean value)
-    {
-        this.optimizeMixedDistinctAggregations = value;
-        return this;
-    }
-
     public boolean isEnableIntermediateAggregations()
     {
         return enableIntermediateAggregations;
@@ -473,17 +474,33 @@ public class OptimizerConfig
         return this;
     }
 
+    @Deprecated
     @Nullable
     public MarkDistinctStrategy getMarkDistinctStrategy()
     {
         return markDistinctStrategy;
     }
 
-    @Config("optimizer.mark-distinct-strategy")
+    @Deprecated
+    @LegacyConfig(value = "optimizer.mark-distinct-strategy", replacedBy = "optimizer.distinct-aggregations-strategy")
     @ConfigDescription("Strategy to use for distinct aggregations")
     public OptimizerConfig setMarkDistinctStrategy(MarkDistinctStrategy markDistinctStrategy)
     {
         this.markDistinctStrategy = markDistinctStrategy;
+        return this;
+    }
+
+    @Nullable
+    public DistinctAggregationsStrategy getDistinctAggregationsStrategy()
+    {
+        return distinctAggregationsStrategy;
+    }
+
+    @Config("optimizer.distinct-aggregations-strategy")
+    @ConfigDescription("Strategy to use for distinct aggregations")
+    public OptimizerConfig setDistinctAggregationsStrategy(DistinctAggregationsStrategy distinctAggregationsStrategy)
+    {
+        this.distinctAggregationsStrategy = distinctAggregationsStrategy;
         return this;
     }
 

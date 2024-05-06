@@ -28,6 +28,7 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.planner.OptimizerConfig;
+import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
@@ -105,7 +106,6 @@ public final class SystemSessionProperties
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
-    public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
     public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
@@ -121,6 +121,7 @@ public final class SystemSessionProperties
     public static final String USE_PARTIAL_DISTINCT_LIMIT = "use_partial_distinct_limit";
     public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
     public static final String MARK_DISTINCT_STRATEGY = "mark_distinct_strategy";
+    public static final String DISTINCT_AGGREGATIONS_STRATEGY = "distinct_aggregations_strategy";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_RANKING = "optimize_top_n_ranking";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
@@ -492,11 +493,6 @@ public final class SystemSessionProperties
                         "How much memory should be allocated per aggregation operator in unspilling process",
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
                         false),
-                booleanProperty(
-                        OPTIMIZE_DISTINCT_AGGREGATIONS,
-                        "Optimize mixed non-distinct and distinct aggregations",
-                        optimizerConfig.isOptimizeMixedDistinctAggregations(),
-                        false),
                 durationProperty(
                         ITERATIVE_OPTIMIZER_TIMEOUT,
                         "Timeout for plan optimization in iterative optimizer",
@@ -576,9 +572,15 @@ public final class SystemSessionProperties
                         object -> object),
                 enumProperty(
                         MARK_DISTINCT_STRATEGY,
-                        "",
+                        "Deprecated. Strategy to use for distinct aggregations.",
                         MarkDistinctStrategy.class,
                         optimizerConfig.getMarkDistinctStrategy(),
+                        false),
+                enumProperty(
+                        DISTINCT_AGGREGATIONS_STRATEGY,
+                        "Strategy to use for distinct aggregations.",
+                        DistinctAggregationsStrategy.class,
+                        optimizerConfig.getDistinctAggregationsStrategy(),
                         false),
                 booleanProperty(
                         PREFER_PARTIAL_AGGREGATION,
@@ -1321,11 +1323,6 @@ public final class SystemSessionProperties
         return memoryLimitForMerge;
     }
 
-    public static boolean isOptimizeDistinctAggregationEnabled(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, Boolean.class);
-    }
-
     public static Duration getOptimizerTimeout(Session session)
     {
         return session.getSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, Duration.class);
@@ -1376,9 +1373,26 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
     }
 
-    public static MarkDistinctStrategy markDistinctStrategy(Session session)
+    public static DistinctAggregationsStrategy distinctAggregationsStrategy(Session session)
     {
-        return session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
+        DistinctAggregationsStrategy distinctAggregationsStrategy = session.getSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, DistinctAggregationsStrategy.class);
+
+        if (distinctAggregationsStrategy != null) {
+            // distinct_aggregations_strategy is set, so it takes precedence over mark_distinct_strategy
+            return distinctAggregationsStrategy;
+        }
+
+        MarkDistinctStrategy markDistinctStrategy = session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
+        if (markDistinctStrategy == null) {
+            // both distinct_aggregations_strategy and mark_distinct_strategy have default null values, use AUTOMATIC
+            return DistinctAggregationsStrategy.AUTOMATIC;
+        }
+        // mark_distinct_strategy is set but distinct_aggregations_strategy is not, map mark_distinct_strategy to distinct_aggregations_strategy
+        return switch (markDistinctStrategy) {
+            case AUTOMATIC -> DistinctAggregationsStrategy.AUTOMATIC;
+            case ALWAYS -> DistinctAggregationsStrategy.MARK_DISTINCT;
+            case NONE -> DistinctAggregationsStrategy.SINGLE_STEP;
+        };
     }
 
     public static boolean preferPartialAggregation(Session session)
