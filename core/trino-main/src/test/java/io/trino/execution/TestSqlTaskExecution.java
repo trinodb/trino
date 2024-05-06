@@ -42,8 +42,8 @@ import io.trino.memory.QueryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.operator.DriverContext;
-import io.trino.operator.DriverFactory;
 import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorDriverFactory;
 import io.trino.operator.SourceOperator;
 import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.TaskContext;
@@ -129,7 +129,7 @@ public class TestSqlTaskExecution
                     Function.identity(),
                     new PagesSerdeFactory(new TestingBlockEncodingSerde(), NONE));
             LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
-                    ImmutableList.of(new DriverFactory(
+                    ImmutableList.of(new OperatorDriverFactory(
                             0,
                             true,
                             true,

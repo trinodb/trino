@@ -28,7 +28,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class DriverFactory
+public class OperatorDriverFactory
 {
     private final int pipelineId;
     private final boolean inputDriver;
@@ -41,7 +41,7 @@ public class DriverFactory
     private volatile boolean noMoreDrivers;
     private volatile List<OperatorFactory> operatorFactories;
 
-    public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
+    public OperatorDriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
     {
         this.pipelineId = pipelineId;
         this.inputDriver = inputDriver;

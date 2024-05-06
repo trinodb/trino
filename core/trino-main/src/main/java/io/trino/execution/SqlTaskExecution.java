@@ -36,8 +36,8 @@ import io.trino.execution.executor.TaskHandle;
 import io.trino.metadata.Split;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
-import io.trino.operator.DriverFactory;
 import io.trino.operator.DriverStats;
+import io.trino.operator.OperatorDriverFactory;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
 import io.trino.spi.SplitWeight;
@@ -141,13 +141,13 @@ public class SqlTaskExecution
         this.driverAndTaskTerminationTracker = new DriverAndTaskTerminationTracker(taskStateMachine);
 
         try (SetThreadName _ = new SetThreadName("Task-" + taskId)) {
-            List<DriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
+            List<OperatorDriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
             // index driver factories
             Set<PlanNodeId> partitionedSources = ImmutableSet.copyOf(localExecutionPlan.getPartitionedSourceOrder());
             ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle = ImmutableMap.builder();
             ImmutableList.Builder<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle = ImmutableList.builder();
             ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithRemoteSource = ImmutableMap.builder();
-            for (DriverFactory driverFactory : driverFactories) {
+            for (OperatorDriverFactory driverFactory : driverFactories) {
                 Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
                 if (sourceId.isPresent() && partitionedSources.contains(sourceId.get())) {
                     driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, tracer, true));
@@ -176,7 +176,7 @@ public class SqlTaskExecution
             // don't register the task if it is already completed (most likely failed during planning above)
             if (taskStateMachine.getState().isTerminatingOrDone()) {
                 taskHandle = null;
-                driverFactories.forEach(DriverFactory::noMoreDrivers);
+                driverFactories.forEach(OperatorDriverFactory::noMoreDrivers);
             }
             else {
                 taskHandle = createTaskHandle(taskStateMachine, taskContext, outputBuffer, driverFactories, taskExecutor, driverAndTaskTerminationTracker);
@@ -216,7 +216,7 @@ public class SqlTaskExecution
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
             OutputBuffer outputBuffer,
-            List<DriverFactory> driverFactories,
+            List<OperatorDriverFactory> driverFactories,
             TaskExecutor taskExecutor,
             DriverAndTaskTerminationTracker driverAndTaskTerminationTracker)
     {
@@ -230,7 +230,7 @@ public class SqlTaskExecution
             if (state.isTerminatingOrDone()) {
                 if (!taskHandle.isDestroyed()) {
                     taskExecutor.removeTask(taskHandle);
-                    for (DriverFactory factory : driverFactories) {
+                    for (OperatorDriverFactory factory : driverFactories) {
                         factory.noMoreDrivers();
                     }
                 }
@@ -605,7 +605,7 @@ public class SqlTaskExecution
 
     private class DriverSplitRunnerFactory
     {
-        private final DriverFactory driverFactory;
+        private final OperatorDriverFactory driverFactory;
         private final PipelineContext pipelineContext;
         private final Span pipelineSpan;
 
@@ -619,7 +619,7 @@ public class SqlTaskExecution
         private final AtomicLong inFlightSplits = new AtomicLong();
         private final AtomicBoolean noMoreSplits = new AtomicBoolean();
 
-        private DriverSplitRunnerFactory(DriverFactory driverFactory, Tracer tracer, boolean partitioned)
+        private DriverSplitRunnerFactory(OperatorDriverFactory driverFactory, Tracer tracer, boolean partitioned)
         {
             this.driverFactory = driverFactory;
             this.pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned);

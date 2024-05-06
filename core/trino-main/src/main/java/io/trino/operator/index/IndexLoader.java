@@ -24,8 +24,8 @@ import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.operator.Driver;
-import io.trino.operator.DriverFactory;
 import io.trino.operator.FlatHashStrategyCompiler;
+import io.trino.operator.OperatorDriverFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
@@ -234,7 +234,7 @@ public class IndexLoader
         Page indexKeyTuple = updateRequest.getPage().getRegion(0, 1);
 
         PageBuffer pageBuffer = new PageBuffer(100);
-        DriverFactory driverFactory = indexBuildDriverFactoryProvider.createStreaming(pageBuffer, indexKeyTuple);
+        OperatorDriverFactory driverFactory = indexBuildDriverFactoryProvider.createStreaming(pageBuffer, indexKeyTuple);
         Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
 
         PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
@@ -271,7 +271,7 @@ public class IndexLoader
     @NotThreadSafe
     private static class IndexSnapshotLoader
     {
-        private final DriverFactory driverFactory;
+        private final OperatorDriverFactory driverFactory;
         private final PipelineContext pipelineContext;
         private final Set<Integer> lookupSourceInputChannels;
         private final Set<Integer> allInputChannels;

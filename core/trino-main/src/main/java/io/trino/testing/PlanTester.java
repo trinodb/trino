@@ -109,9 +109,9 @@ import io.trino.metadata.TypeRegistry;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
-import io.trino.operator.DriverFactory;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
+import io.trino.operator.OperatorDriverFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.TaskContext;
@@ -795,8 +795,8 @@ public class PlanTester
 
         // create drivers
         List<Driver> drivers = new ArrayList<>();
-        Map<PlanNodeId, DriverFactory> driverFactoriesBySource = new HashMap<>();
-        for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
+        Map<PlanNodeId, OperatorDriverFactory> driverFactoriesBySource = new HashMap<>();
+        for (OperatorDriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
             for (int i = 0; i < driverFactory.getDriverInstances().orElse(1); i++) {
                 if (driverFactory.getSourceId().isPresent()) {
                     checkState(driverFactoriesBySource.put(driverFactory.getSourceId().get(), driverFactory) == null);
@@ -812,7 +812,7 @@ public class PlanTester
         // add split assignments to the drivers
         ImmutableSet<PlanNodeId> partitionedSources = ImmutableSet.copyOf(subplan.getFragment().getPartitionedSources());
         for (SplitAssignment splitAssignment : splitAssignments) {
-            DriverFactory driverFactory = driverFactoriesBySource.get(splitAssignment.getPlanNodeId());
+            OperatorDriverFactory driverFactory = driverFactoriesBySource.get(splitAssignment.getPlanNodeId());
             checkState(driverFactory != null);
             boolean partitioned = partitionedSources.contains(driverFactory.getSourceId().orElseThrow());
             for (ScheduledSplit split : splitAssignment.getSplits()) {
@@ -823,7 +823,7 @@ public class PlanTester
             }
         }
 
-        for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
+        for (OperatorDriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
             driverFactory.noMoreDrivers();
         }
 
