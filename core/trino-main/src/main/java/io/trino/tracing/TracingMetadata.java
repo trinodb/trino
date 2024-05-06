@@ -1522,6 +1522,15 @@ public class TracingMetadata
     }
 
     @Override
+    public boolean isColumnarTableScan(Session session, TableHandle tableHandle)
+    {
+        Span span = startSpan("isColumnarTableScan", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.isColumnarTableScan(session, tableHandle);
+        }
+    }
+
+    @Override
     public WriterScalingOptions getNewTableWriterScalingOptions(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
     {
         Span span = startSpan("getNewTableWriterScalingOptions", tableName);
