@@ -226,8 +226,8 @@ public class PredicatePushDown
         {
             List<Symbol> partitionSymbols = node.getPartitionBy();
 
-            // TODO: This could be broader. We can push down conjucts if they are constant for all rows in a window partition.
-            // The simplest way to guarantee this is if the conjucts are deterministic functions of the partitioning symbols.
+            // TODO: This could be broader. We can push down conjuncts if they are constant for all rows in a window partition.
+            // The simplest way to guarantee this is if the conjuncts are deterministic functions of the partitioning symbols.
             // This can leave out cases where they're both functions of some set of common expressions and the partitioning
             // function is injective, but that's a rare case. The majority of window nodes are expected to be partitioned by
             // pre-projected symbols.
