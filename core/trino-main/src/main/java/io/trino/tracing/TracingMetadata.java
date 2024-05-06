@@ -1523,6 +1523,15 @@ public class TracingMetadata
     }
 
     @Override
+    public boolean allowSplittingReadIntoMultipleSubQueries(Session session, TableHandle tableHandle)
+    {
+        Span span = startSpan("allowSplittingReadIntoMultipleSubQueries", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.allowSplittingReadIntoMultipleSubQueries(session, tableHandle);
+        }
+    }
+
+    @Override
     public WriterScalingOptions getNewTableWriterScalingOptions(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
     {
         Span span = startSpan("getNewTableWriterScalingOptions", tableName);

@@ -1286,6 +1286,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.allowSplittingReadIntoMultipleSubQueries(session, tableHandle);
+        }
+    }
+
+    @Override
     public WriterScalingOptions getNewTableWriterScalingOptions(ConnectorSession session, SchemaTableName tableName, Map<String, Object> tableProperties)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
