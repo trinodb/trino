@@ -27,6 +27,7 @@ import java.util.Set;
 import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -41,6 +42,7 @@ public abstract class AbstractTestAggregations
             .add(NATION)
             .add(ORDERS)
             .add(REGION)
+            .add(CUSTOMER)
             .build();
 
     @Test
@@ -354,6 +356,85 @@ public abstract class AbstractTestAggregations
                         "SUM(custkey + 1.0), " +
                         "AVG(custkey), " +
                         "VARIANCE(custkey) FROM (SELECT DISTINCT custkey FROM orders) t");
+    }
+
+    @Test
+    public void testMultiColumnsCountDistinct()
+    {
+        assertQuery("SELECT COUNT(DISTINCT orderkey), COUNT(DISTINCT custkey) from orders");
+        assertQuery("SELECT COUNT(DISTINCT orderkey), COUNT(DISTINCT custkey) from orders group by orderstatus");
+        assertQuery("SELECT orderstatus, COUNT(DISTINCT orderkey), COUNT(DISTINCT custkey) from orders group by orderstatus");
+        assertQuery("SELECT orderstatus, COUNT(DISTINCT orderkey), SUM(totalprice) from orders group by orderstatus");
+        assertQuery("SELECT orderstatus, COUNT(DISTINCT orderkey), COUNT(DISTINCT custkey), SUM(totalprice) from orders group by orderstatus");
+        assertQuery("SELECT orderstatus, COUNT(DISTINCT orderkey), COUNT(DISTINCT custkey), COUNT(DISTINCT totalprice), COUNT(custkey), SUM(totalprice) from orders group by orderstatus");
+        assertQuery("SELECT orderstatus, COUNT(DISTINCT orderkey), COUNT(DISTINCT totalprice), SUM(totalprice) from orders group by orderstatus");
+        assertQuery("SELECT orderstatus, orderpriority, COUNT(orderstatus), COUNT(DISTINCT orderpriority)," +
+                    " COUNT(DISTINCT orderkey), COUNT(DISTINCT totalprice), SUM(totalprice), MAX(custkey) from orders group by orderstatus, orderpriority");
+    }
+
+    // Make sure redundant NULL values are not passed to the aggregations which potentially could happen in GroupId based mixed distinct and non-distinct aggregation implementation
+    @Test
+    public void testDistinctAggregationSensitiveToNull()
+    {
+        assertQuery("select a, array_agg(b), array_agg(distinct c) from (values (1,1,1)) t(a,b,c) group by a");
+    }
+
+    @Test
+    public void testDistinctAndNonDistinctAggregationOnTheSameColumn()
+    {
+        assertQuery("SELECT COUNT(custkey), COUNT(DISTINCT custkey) FROM orders");
+        assertQuery("SELECT COUNT(custkey), SUM(custkey), COUNT(DISTINCT custkey), SUM(DISTINCT custkey) FROM orders");
+        assertQuery("SELECT custkey, COUNT(custkey), SUM(custkey), COUNT(DISTINCT custkey), SUM(DISTINCT custkey) FROM orders GROUP BY custkey");
+    }
+
+    @Test
+    public void testDistinctAndNonDistinctWithoutArgument()
+    {
+        assertQuery("SELECT COUNT(*), COUNT(DISTINCT nationkey) FROM customer");
+    }
+
+    @Test
+    public void testMultiInputsDistinct()
+    {
+        assertQuery(
+                "SELECT corr(DISTINCT x, y) FROM " +
+                "(VALUES " +
+                "   (1, 1)," +
+                "   (2, 2)," +
+                "   (2, 2)," +
+                "   (3, 3)" +
+                ") t(x, y)",
+                "VALUES (1.0)");
+
+        assertQuery(
+                "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x) FROM " +
+                "(VALUES " +
+                "   (1, 1)," +
+                "   (2, 2)," +
+                "   (2, 2)," +
+                "   (3, 3)" +
+                ") t(x, y)",
+                "VALUES (1.0, 1.0)");
+
+        assertQuery(
+                "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x), count(*) FROM " +
+                "(VALUES " +
+                "   (1, 1)," +
+                "   (2, 2)," +
+                "   (2, 2)," +
+                "   (3, 3)" +
+                ") t(x, y)",
+                "VALUES (1.0, 1.0, 4)");
+
+        assertQuery(
+                "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x), count(DISTINCT x) FROM " +
+                "(VALUES " +
+                "   (1, 1)," +
+                "   (2, 2)," +
+                "   (2, 2)," +
+                "   (3, 3)" +
+                ") t(x, y)",
+                "VALUES (1.0, 1.0, 3)");
     }
 
     @Test
