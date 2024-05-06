@@ -52,7 +52,6 @@ import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.AssignUniqueIdOperator;
 import io.trino.operator.DevNullOperator.DevNullOperatorFactory;
 import io.trino.operator.DirectExchangeClientSupplier;
-import io.trino.operator.DriverFactory;
 import io.trino.operator.DynamicFilterSourceOperator;
 import io.trino.operator.DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory;
 import io.trino.operator.EnforceSingleRowOperator;
@@ -71,6 +70,7 @@ import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.trino.operator.MergeOperator.MergeOperatorFactory;
 import io.trino.operator.MergeProcessorOperator;
 import io.trino.operator.MergeWriterOperator.MergeWriterOperatorFactory;
+import io.trino.operator.OperatorDriverFactory;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.OrderByOperator.OrderByOperatorFactory;
 import io.trino.operator.OutputFactory;
@@ -658,7 +658,7 @@ public class LocalExecutionPlanner
 
         // notify operator factories that planning has completed
         context.getDriverFactories().stream()
-                .map(DriverFactory::getOperatorFactories)
+                .map(OperatorDriverFactory::getOperatorFactories)
                 .flatMap(List::stream)
                 .filter(LocalPlannerAware.class::isInstance)
                 .map(LocalPlannerAware.class::cast)
@@ -670,7 +670,7 @@ public class LocalExecutionPlanner
     private static class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
-        private final List<DriverFactory> driverFactories;
+        private final List<OperatorDriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
         // this is shared with all subContexts
@@ -691,7 +691,7 @@ public class LocalExecutionPlanner
 
         private LocalExecutionPlanContext(
                 TaskContext taskContext,
-                List<DriverFactory> driverFactories,
+                List<OperatorDriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
                 AtomicInteger nextPipelineId)
         {
@@ -738,10 +738,10 @@ public class LocalExecutionPlanner
 
         private void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
         {
-            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances));
+            driverFactories.add(new OperatorDriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances));
         }
 
-        private List<DriverFactory> getDriverFactories()
+        private List<OperatorDriverFactory> getDriverFactories()
         {
             return ImmutableList.copyOf(driverFactories);
         }
@@ -848,16 +848,16 @@ public class LocalExecutionPlanner
 
     public static class LocalExecutionPlan
     {
-        private final List<DriverFactory> driverFactories;
+        private final List<OperatorDriverFactory> driverFactories;
         private final List<PlanNodeId> partitionedSourceOrder;
 
-        public LocalExecutionPlan(List<DriverFactory> driverFactories, List<PlanNodeId> partitionedSourceOrder)
+        public LocalExecutionPlan(List<OperatorDriverFactory> driverFactories, List<PlanNodeId> partitionedSourceOrder)
         {
             this.driverFactories = ImmutableList.copyOf(requireNonNull(driverFactories, "driverFactories is null"));
             this.partitionedSourceOrder = ImmutableList.copyOf(requireNonNull(partitionedSourceOrder, "partitionedSourceOrder is null"));
         }
 
-        public List<DriverFactory> getDriverFactories()
+        public List<OperatorDriverFactory> getDriverFactories()
         {
             return driverFactories;
         }
