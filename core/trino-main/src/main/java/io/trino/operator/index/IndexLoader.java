@@ -42,6 +42,7 @@ import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -235,7 +236,7 @@ public class IndexLoader
 
         PageBuffer pageBuffer = new PageBuffer(100);
         OperatorDriverFactory driverFactory = indexBuildDriverFactoryProvider.createStreaming(pageBuffer, indexKeyTuple);
-        Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
+        Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext(), Optional.empty());
 
         PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
         PlanNodeId planNodeId = driverFactory.getSourceId().get();
@@ -329,7 +330,7 @@ public class IndexLoader
             UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests, hashStrategyCompiler);
 
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
-            try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
+            try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext(), Optional.empty())) {
                 PlanNodeId sourcePlanNodeId = driverFactory.getSourceId().get();
                 ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CATALOG_HANDLE, new IndexSplit(recordSetForLookupSource)));
                 driver.updateSplitAssignment(new SplitAssignment(sourcePlanNodeId, ImmutableSet.of(split), true));

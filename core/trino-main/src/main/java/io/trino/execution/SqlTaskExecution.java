@@ -664,7 +664,7 @@ public class SqlTaskExecution
             }
             Driver driver;
             try {
-                driver = driverFactory.createDriver(driverContext);
+                driver = driverFactory.createDriver(driverContext, Optional.ofNullable(partitionedSplit));
                 Span.fromContext(Context.current()).addEvent("driver-created");
             }
             catch (Throwable t) {
