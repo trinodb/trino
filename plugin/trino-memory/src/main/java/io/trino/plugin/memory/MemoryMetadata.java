@@ -588,6 +588,12 @@ public class MemoryMetadata
     }
 
     @Override
+    public boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return true;
+    }
+
+    @Override
     public synchronized void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
         MemoryTableHandle table = (MemoryTableHandle) tableHandle;

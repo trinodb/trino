@@ -841,6 +841,15 @@ public interface Metadata
     OptionalInt getMaxWriterTasks(Session session, String catalogName);
 
     /**
+     * Workaround to lack of statistics about IO and CPU operations performed by the connector.
+     * In the long term, this should be replaced by improvements in the cost model.
+     *
+     * @return true if the cumulative cost of splitting a read of the specified tableHandle into multiple reads,
+     * each of which projects a subset of the required columns, is not significantly more than the cost of reading the specified tableHandle
+     */
+    boolean allowSplittingReadIntoMultipleSubQueries(Session session, TableHandle tableHandle);
+
+    /**
      * Returns writer scaling options for the specified table. This method is called when table handle is not available during CTAS.
      */
     WriterScalingOptions getNewTableWriterScalingOptions(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties);
