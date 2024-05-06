@@ -27,33 +27,41 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
-
-public record LanceColumnHandle(String name, Type trinoType, FieldType arrowType) implements ColumnHandle {
-    public LanceColumnHandle {
+public record LanceColumnHandle(String name, Type trinoType, FieldType arrowType)
+        implements ColumnHandle
+{
+    public LanceColumnHandle
+    {
         requireNonNull(name, "name is null");
         requireNonNull(trinoType, "trinoType is null");
         requireNonNull(arrowType, "arrowType is null");
     }
 
-    public static Type toTrinoType(ArrowType type) {
+    public static Type toTrinoType(ArrowType type)
+    {
         if (type instanceof ArrowType.Bool) {
             return BOOLEAN;
-        } else if (type instanceof ArrowType.Int intType) {
+        }
+        else if (type instanceof ArrowType.Int intType) {
             if (intType.getBitWidth() == 4) {
                 return INTEGER;
-            } else if (intType.getBitWidth() == 8) {
+            }
+            else if (intType.getBitWidth() == 8) {
                 return BIGINT;
             }
-        } else if (type instanceof ArrowType.FloatingPoint) {
+        }
+        else if (type instanceof ArrowType.FloatingPoint) {
             return DOUBLE;
-        } else if (type instanceof ArrowType.Utf8) {
+        }
+        else if (type instanceof ArrowType.Utf8) {
             return VARCHAR;
         }
         throw new UnsupportedOperationException("Unsupported arrow type: " + type);
     }
 
     @JsonIgnore
-    public ColumnMetadata getColumnMetadata() {
+    public ColumnMetadata getColumnMetadata()
+    {
         return ColumnMetadata.builder().setName(name).setType(trinoType).setNullable(arrowType.isNullable()).build();
     }
 }

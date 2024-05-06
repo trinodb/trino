@@ -20,10 +20,12 @@ import io.trino.plugin.lance.internal.LanceReader;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
-
-public class LanceModule implements Module {
+public class LanceModule
+        implements Module
+{
     @Override
-    public void configure(Binder binder) {
+    public void configure(Binder binder)
+    {
         configBinder(binder).bindConfig(LanceConfig.class);
         binder.bind(LanceReader.class).in(Scopes.SINGLETON);
         binder.bind(LanceMetadata.class).in(Scopes.SINGLETON);

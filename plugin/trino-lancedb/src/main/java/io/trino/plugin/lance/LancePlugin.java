@@ -17,24 +17,29 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
+
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-
-public class LancePlugin implements Plugin {
+public class LancePlugin
+        implements Plugin
+{
     private final Optional<Module> extension;
 
-    public LancePlugin() {
+    public LancePlugin()
+    {
         this(Optional.empty());
     }
 
-    public LancePlugin(Optional<Module> extension) {
+    public LancePlugin(Optional<Module> extension)
+    {
         this.extension = requireNonNull(extension, "extension is null");
     }
 
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories() {
+    public Iterable<ConnectorFactory> getConnectorFactories()
+    {
         return ImmutableList.of(new LanceConnectorFactory(extension));
     }
 }

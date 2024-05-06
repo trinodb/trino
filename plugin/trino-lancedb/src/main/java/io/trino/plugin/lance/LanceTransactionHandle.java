@@ -15,7 +15,8 @@ package io.trino.plugin.lance;
 
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
-
-public enum LanceTransactionHandle implements ConnectorTransactionHandle {
+public enum LanceTransactionHandle
+        implements ConnectorTransactionHandle
+{
     INSTANCE
 }

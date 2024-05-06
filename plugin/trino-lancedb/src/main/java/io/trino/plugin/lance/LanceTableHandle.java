@@ -19,29 +19,34 @@ import io.trino.spi.connector.ConnectorTableHandle;
 
 import static java.util.Objects.requireNonNull;
 
-
-public class LanceTableHandle implements ConnectorTableHandle {
+public class LanceTableHandle
+        implements ConnectorTableHandle
+{
     private final String tableName;
     private final String tablePath;
 
     @JsonCreator
-    public LanceTableHandle(@JsonProperty("tableName") String tableName, @JsonProperty("tablePath") String tablePath) {
+    public LanceTableHandle(@JsonProperty("tableName") String tableName, @JsonProperty("tablePath") String tablePath)
+    {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
     }
 
     @JsonProperty
-    public String getSchemaName() {
+    public String getSchemaName()
+    {
         return LanceMetadata.SCHEMA_NAME;
     }
 
     @JsonProperty
-    public String getTableName() {
+    public String getTableName()
+    {
         return tableName;
     }
 
     @JsonProperty
-    public String getTablePath() {
+    public String getTablePath()
+    {
         return tablePath;
     }
 }

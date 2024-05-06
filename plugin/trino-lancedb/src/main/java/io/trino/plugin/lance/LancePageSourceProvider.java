@@ -23,18 +23,20 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-
-public class LancePageSourceProvider implements ConnectorPageSourceProvider {
-
+public class LancePageSourceProvider
+        implements ConnectorPageSourceProvider
+{
     private final LanceReader lanceReader;
     private final LanceConfig lanceConfig;
 
     @Inject
-    public LancePageSourceProvider(LanceReader lanceReader, LanceConfig lanceConfig) {
+    public LancePageSourceProvider(LanceReader lanceReader, LanceConfig lanceConfig)
+    {
         this.lanceReader = requireNonNull(lanceReader, "lanceClient is null");
         this.lanceConfig = lanceConfig;
     }
@@ -42,13 +44,15 @@ public class LancePageSourceProvider implements ConnectorPageSourceProvider {
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session,
             ConnectorSplit split, ConnectorTableHandle tableHandle, List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter) {
+            DynamicFilter dynamicFilter)
+    {
         requireNonNull(split, "split is null");
         LanceSplit lanceSplit = (LanceSplit) split;
         LanceTableHandle lanceTableHandle = (LanceTableHandle) tableHandle;
         if (lanceSplit.getFragments().isEmpty()) {
             return new LanceDatasetPageSource(lanceReader, lanceTableHandle, lanceConfig.getFetchRetryCount());
-        } else {
+        }
+        else {
             // TODO: support LanceFragmentPageSource()
             throw new UnsupportedOperationException("Split based on Fragment is not supported!");
         }

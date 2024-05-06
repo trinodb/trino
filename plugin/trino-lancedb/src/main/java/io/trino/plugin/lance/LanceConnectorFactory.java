@@ -23,28 +23,33 @@ import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+import org.weakref.jmx.guice.MBeanModule;
+
 import java.util.Map;
 import java.util.Optional;
-import org.weakref.jmx.guice.MBeanModule;
 
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
-
-public class LanceConnectorFactory implements ConnectorFactory {
+public class LanceConnectorFactory
+        implements ConnectorFactory
+{
     private final Optional<Module> extension;
 
-    public LanceConnectorFactory(Optional<Module> extension) {
+    public LanceConnectorFactory(Optional<Module> extension)
+    {
         this.extension = requireNonNull(extension, "extension is null");
     }
 
     @Override
-    public String getName() {
+    public String getName()
+    {
         return "lance";
     }
 
     @Override
-    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context) {
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
+    {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
         checkStrictSpiVersionMatch(context, this);

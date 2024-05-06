@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,38 +39,44 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
-
-public class LanceMetadata implements ConnectorMetadata {
+public class LanceMetadata
+        implements ConnectorMetadata
+{
     public static final String SCHEMA_NAME = "default";
     private final LanceReader lanceReader;
     private final LanceConfig lanceConfig;
 
     @Inject
-    public LanceMetadata(LanceReader lanceReader, LanceConfig lanceConfig) {
+    public LanceMetadata(LanceReader lanceReader, LanceConfig lanceConfig)
+    {
         this.lanceReader = requireNonNull(lanceReader, "lanceClient is null");
         Function<String, String> identifierQuote = identity();
         this.lanceConfig = lanceConfig;
     }
 
-    public static List<ColumnMetadata> getColumnsMetadata(LanceReader lanceReader, String tableName) {
+    public static List<ColumnMetadata> getColumnsMetadata(LanceReader lanceReader, String tableName)
+    {
         Map<String, ColumnHandle> columnHandlers = lanceReader.getColumnHandle(tableName);
         return columnHandlers.values().stream().map(c -> ((LanceColumnHandle) c).getColumnMetadata())
                 .collect(toImmutableList());
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session) {
+    public List<String> listSchemaNames(ConnectorSession session)
+    {
         return ImmutableList.of(SCHEMA_NAME);
     }
 
     @Override
     public LanceTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName,
-            Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion) {
+            Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
         return new LanceTableHandle(tableName.getSchemaName(), lanceReader.getTablePath(tableName));
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table) {
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+    {
         LanceTableHandle lanceTableHandle = (LanceTableHandle) table;
         ImmutableList.Builder<ColumnMetadata> columnMetadataBuilder = ImmutableList.builder();
         SchemaTableName schemaTableName =
@@ -78,19 +85,22 @@ public class LanceMetadata implements ConnectorMetadata {
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaNameOrNull) {
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaNameOrNull)
+    {
         return lanceReader.listTables(session, schemaNameOrNull.isPresent() ? schemaNameOrNull.get() : SCHEMA_NAME);
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle) {
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
         LanceTableHandle lanceTableHandle = (LanceTableHandle) tableHandle;
         return lanceReader.getColumnHandle(lanceTableHandle.getTableName());
     }
 
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session,
-            SchemaTablePrefix prefix) {
+            SchemaTablePrefix prefix)
+    {
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : lanceReader.listTables(session, prefix.toString())) {
@@ -106,20 +116,23 @@ public class LanceMetadata implements ConnectorMetadata {
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle,
-            ColumnHandle columnHandle) {
+            ColumnHandle columnHandle)
+    {
         return ((LanceColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session,
-            ConnectorTableHandle table, long limit) {
+            ConnectorTableHandle table, long limit)
+    {
         // TODO: support limit
         throw new UnsupportedOperationException("unsupported");
     }
 
     @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session,
-            ConnectorTableHandle table, Constraint constraint) {
+            ConnectorTableHandle table, Constraint constraint)
+    {
         // TODO: support limit
         throw new UnsupportedOperationException("unsupported");
     }

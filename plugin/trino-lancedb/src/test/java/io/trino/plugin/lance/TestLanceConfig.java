@@ -16,7 +16,6 @@ package io.trino.plugin.lance;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;

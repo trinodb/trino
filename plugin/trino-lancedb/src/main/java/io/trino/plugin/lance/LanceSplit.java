@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ConnectorSplit;
+
 import java.util.List;
 import java.util.Map;
 
@@ -28,35 +29,41 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
-
-public class LanceSplit implements ConnectorSplit {
+public class LanceSplit
+        implements ConnectorSplit
+{
     private static final Joiner JOINER = Joiner.on(",");
     private static final int INSTANCE_SIZE = instanceSize(LanceSplit.class);
 
     private final List<String> fragments;
 
     @JsonCreator
-    public LanceSplit(@JsonProperty("fragments") List<String> fragments) {
+    public LanceSplit(@JsonProperty("fragments") List<String> fragments)
+    {
         this.fragments = ImmutableList.copyOf(requireNonNull(fragments, "fragments is null"));
     }
 
     @JsonProperty
-    public List<String> getFragments() {
+    public List<String> getFragments()
+    {
         return fragments;
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return toStringHelper(this).add("fragments", fragments).toString();
     }
 
     @Override
-    public Map<String, String> getSplitInfo() {
+    public Map<String, String> getSplitInfo()
+    {
         return ImmutableMap.of("fragments", JOINER.join(fragments));
     }
 
     @Override
-    public long getRetainedSizeInBytes() {
+    public long getRetainedSizeInBytes()
+    {
         return INSTANCE_SIZE + estimatedSizeOf(fragments, SizeOf::estimatedSizeOf);
     }
 }

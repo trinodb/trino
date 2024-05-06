@@ -27,9 +27,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import java.io.IOException;
-import java.util.List;
-import java.util.function.Consumer;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -47,6 +44,10 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.util.TransferPair;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.function.Consumer;
+
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -59,8 +60,9 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 
-
-public class LanceArrowToPageScanner implements AutoCloseable {
+public class LanceArrowToPageScanner
+        implements AutoCloseable
+{
     private final BufferAllocator allocator;
     private final List<Type> columnTypes;
     private final List<String> columnNames;
@@ -69,7 +71,8 @@ public class LanceArrowToPageScanner implements AutoCloseable {
     private final ArrowReader arrowReader;
     private final VectorSchemaRoot vectorSchemaRoot;
 
-    public LanceArrowToPageScanner(BufferAllocator allocator, String path, List<LanceColumnHandle> columns) {
+    public LanceArrowToPageScanner(BufferAllocator allocator, String path, List<LanceColumnHandle> columns)
+    {
         this.allocator = requireNonNull(allocator, "allocator is null");
         this.columnTypes = requireNonNull(columns, "columns is null").stream().map(LanceColumnHandle::trinoType)
                 .collect(toImmutableList());
@@ -80,20 +83,24 @@ public class LanceArrowToPageScanner implements AutoCloseable {
             this.lanceScanner = lanceDataset.newScan();
             this.arrowReader = lanceScanner.scanBatches();
             this.vectorSchemaRoot = arrowReader.getVectorSchemaRoot();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new RuntimeException("Unalbe to initialize lance DB connection", e);
         }
     }
 
-    public boolean read() {
+    public boolean read()
+    {
         try {
             return arrowReader.loadNextBatch();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new RuntimeException("Error loading next batch!", e);
         }
     }
 
-    public void convert(PageBuilder pageBuilder) {
+    public void convert(PageBuilder pageBuilder)
+    {
         pageBuilder.declarePositions(vectorSchemaRoot.getRowCount());
         List<FieldVector> fieldVectors = vectorSchemaRoot.getFieldVectors();
 
@@ -104,74 +111,92 @@ public class LanceArrowToPageScanner implements AutoCloseable {
         vectorSchemaRoot.clear();
     }
 
-    private void convertType(BlockBuilder output, Type type, FieldVector vector, int offset, int length) {
+    private void convertType(BlockBuilder output, Type type, FieldVector vector, int offset, int length)
+    {
         Class<?> javaType = type.getJavaType();
         try {
             if (javaType == boolean.class) {
                 writeVectorValues(output, vector,
                         index -> type.writeBoolean(output, ((BitVector) vector).get(index) == 1), offset, length);
-            } else if (javaType == long.class) {
+            }
+            else if (javaType == long.class) {
                 if (type.equals(BIGINT)) {
                     writeVectorValues(output, vector,
                             index -> type.writeLong(output, ((BigIntVector) vector).get(index)), offset, length);
-                } else if (type.equals(INTEGER)) {
+                }
+                else if (type.equals(INTEGER)) {
                     writeVectorValues(output, vector, index -> type.writeLong(output, ((IntVector) vector).get(index)),
                             offset, length);
-                } else if (type.equals(DATE)) {
+                }
+                else if (type.equals(DATE)) {
                     writeVectorValues(output, vector,
                             index -> type.writeLong(output, ((DateDayVector) vector).get(index)), offset, length);
-                } else if (type.equals(TIME_MICROS)) {
+                }
+                else if (type.equals(TIME_MICROS)) {
                     writeVectorValues(output, vector, index -> type.writeLong(output,
                             ((TimeMicroVector) vector).get(index) * PICOSECONDS_PER_MICROSECOND), offset, length);
-                } else {
+                }
+                else {
                     throw new TrinoException(GENERIC_INTERNAL_ERROR,
                             format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
                 }
-            } else if (javaType == double.class) {
+            }
+            else if (javaType == double.class) {
                 writeVectorValues(output, vector, index -> type.writeDouble(output, ((Float8Vector) vector).get(index)),
                         offset, length);
-            } else if (javaType == Slice.class) {
+            }
+            else if (javaType == Slice.class) {
                 writeVectorValues(output, vector, index -> writeSlice(output, type, vector, index), offset, length);
-            } else if (type instanceof ArrayType arrayType) {
+            }
+            else if (type instanceof ArrayType arrayType) {
                 writeVectorValues(output, vector, index -> writeArrayBlock(output, arrayType, vector, index), offset,
                         length);
-            } else if (type instanceof RowType rowType) {
+            }
+            else if (type instanceof RowType rowType) {
                 writeVectorValues(output, vector, index -> writeRowBlock(output, rowType, vector, index), offset,
                         length);
-            } else {
+            }
+            else {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR,
                         format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
             }
-        } catch (ClassCastException ex) {
+        }
+        catch (ClassCastException ex) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR,
                     format("Unhandled type for %s: %s", javaType.getSimpleName(), type), ex);
         }
     }
 
     private void writeVectorValues(BlockBuilder output, FieldVector vector, Consumer<Integer> consumer, int offset,
-            int length) {
+            int length)
+    {
         for (int i = offset; i < offset + length; i++) {
             if (vector.isNull(i)) {
                 output.appendNull();
-            } else {
+            }
+            else {
                 consumer.accept(i);
             }
         }
     }
 
-    private void writeSlice(BlockBuilder output, Type type, FieldVector vector, int index) {
+    private void writeSlice(BlockBuilder output, Type type, FieldVector vector, int index)
+    {
         if (type instanceof VarcharType) {
             byte[] slice = ((VarCharVector) vector).get(index);
             type.writeSlice(output, wrappedBuffer(slice));
-        } else if (type instanceof VarbinaryType) {
+        }
+        else if (type instanceof VarbinaryType) {
             byte[] slice = ((VarBinaryVector) vector).get(index);
             type.writeSlice(output, wrappedBuffer(slice));
-        } else {
+        }
+        else {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
         }
     }
 
-    private void writeArrayBlock(BlockBuilder output, ArrayType arrayType, FieldVector vector, int index) {
+    private void writeArrayBlock(BlockBuilder output, ArrayType arrayType, FieldVector vector, int index)
+    {
         Type elementType = arrayType.getElementType();
         ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
             ArrowBuf offsetBuffer = vector.getOffsetBuffer();
@@ -189,7 +214,8 @@ public class LanceArrowToPageScanner implements AutoCloseable {
         });
     }
 
-    private void writeRowBlock(BlockBuilder output, RowType rowType, FieldVector vector, int index) {
+    private void writeRowBlock(BlockBuilder output, RowType rowType, FieldVector vector, int index)
+    {
         List<RowType.Field> fields = rowType.getFields();
         ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
             for (int i = 0; i < fields.size(); i++) {
@@ -201,11 +227,13 @@ public class LanceArrowToPageScanner implements AutoCloseable {
     }
 
     @Override
-    public void close() {
+    public void close()
+    {
         vectorSchemaRoot.close();
         try {
             arrowReader.close();
-        } catch (IOException ioe) {
+        }
+        catch (IOException ioe) {
             // ignore for now.
         }
         lanceDataset.close();

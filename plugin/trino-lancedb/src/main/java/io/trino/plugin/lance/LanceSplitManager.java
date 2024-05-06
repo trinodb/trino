@@ -24,24 +24,28 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
+
 import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-
-public class LanceSplitManager implements ConnectorSplitManager {
+public class LanceSplitManager
+        implements ConnectorSplitManager
+{
     private static final Logger log = Logger.get(LanceSplitManager.class);
     private final LanceReader lanceReader;
 
     @Inject
-    public LanceSplitManager(LanceReader lanceReader) {
+    public LanceSplitManager(LanceReader lanceReader)
+    {
         this.lanceReader = requireNonNull(lanceReader, "client is null");
     }
 
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session,
-            ConnectorTableHandle tableHandle, DynamicFilter dynamicFilter, Constraint constraint) {
+            ConnectorTableHandle tableHandle, DynamicFilter dynamicFilter, Constraint constraint)
+    {
         List<String> fragments = Collections.emptyList();
         // TODO: add support for splits based on fragments, now entire table is only 1 fragment, thus one split
         return new FixedSplitSource(new LanceSplit(fragments));

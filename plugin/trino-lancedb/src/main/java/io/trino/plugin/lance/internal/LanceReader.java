@@ -19,6 +19,12 @@ import io.trino.plugin.lance.LanceConfig;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import org.apache.arrow.dataset.scanner.Scanner;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
+
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -28,15 +34,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.arrow.dataset.scanner.Scanner;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.Schema;
 
-
-public class LanceReader {
-
+public class LanceReader
+{
     private static final BufferAllocator allocator = new RootAllocator(
             RootAllocator.configBuilder().from(RootAllocator.defaultConfig()).maxAllocation(Integer.MAX_VALUE).build());
 
@@ -44,39 +44,45 @@ public class LanceReader {
     private final String dbScheme;
     private final String dbPath;
 
-    public LanceReader(LanceConfig lanceConfig) {
+    public LanceReader(LanceConfig lanceConfig)
+    {
         lanceDbURI = lanceConfig.getLanceDbUri();
         // TODO: use https://lancedb.github.io/lancedb/python/python/#lancedb.db.DBConnection
         dbScheme = lanceDbURI.getScheme();
         dbPath = lanceDbURI.getPath();
     }
 
-    private static Schema getSchema(String tablePath) {
+    private static Schema getSchema(String tablePath)
+    {
         try (Dataset dataset = Dataset.open(tablePath, allocator)) {
             Scanner scanner = dataset.newScan();
             return scanner.schema();
         }
     }
 
-    private static String getTablePath(String dbPath, String tableName) {
+    private static String getTablePath(String dbPath, String tableName)
+    {
         // TODO: local fs impl here to be replaced by
         // https://lancedb.github.io/lancedb/python/python/#lancedb.db.DBConnection.open_table
         Path tablePath = Paths.get(dbPath, tableName);
         return tablePath.toString();
     }
 
-    public List<SchemaTableName> listTables(ConnectorSession session, String schema) {
+    public List<SchemaTableName> listTables(ConnectorSession session, String schema)
+    {
         // TODO: local fs impl here to be replaced by
         // https://lancedb.github.io/lancedb/python/python/#lancedb.db.DBConnection.table_names
         try (Stream<Path> stream = Files.list(Paths.get(dbPath))) {
             return stream.filter(file -> !Files.isDirectory(file))
                     .map(f -> new SchemaTableName(schema, f.getFileName().toString())).collect(Collectors.toList());
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             return null;
         }
     }
 
-    public Map<String, ColumnHandle> getColumnHandle(String tableName) {
+    public Map<String, ColumnHandle> getColumnHandle(String tableName)
+    {
         String tablePath = getTablePath(dbPath, tableName);
         Schema arrowSchema = getSchema(tablePath);
         return arrowSchema.getFields().stream().collect(Collectors.toMap(Field::getName,
@@ -84,7 +90,8 @@ public class LanceReader {
                         f.getFieldType())));
     }
 
-    public String getTablePath(SchemaTableName schemaTableName) {
+    public String getTablePath(SchemaTableName schemaTableName)
+    {
         return getTablePath(dbPath, schemaTableName.getTableName());
     }
 }

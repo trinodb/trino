@@ -25,8 +25,9 @@ import io.trino.spi.transaction.IsolationLevel;
 
 import static java.util.Objects.requireNonNull;
 
-
-public class LanceConnector implements Connector {
+public class LanceConnector
+        implements Connector
+{
     private final LifeCycleManager lifeCycleManager;
     private final LanceMetadata metadata;
     private final LanceSplitManager splitManager;
@@ -34,7 +35,8 @@ public class LanceConnector implements Connector {
 
     @Inject
     public LanceConnector(LifeCycleManager lifeCycleManager, LanceMetadata metadata, LanceSplitManager splitManager,
-            LancePageSourceProvider pageSourceProvider) {
+            LancePageSourceProvider pageSourceProvider)
+    {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -43,27 +45,32 @@ public class LanceConnector implements Connector {
 
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly,
-            boolean autoCommit) {
+            boolean autoCommit)
+    {
         return LanceTransactionHandle.INSTANCE;
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle) {
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
+    {
         return metadata;
     }
 
     @Override
-    public ConnectorSplitManager getSplitManager() {
+    public ConnectorSplitManager getSplitManager()
+    {
         return splitManager;
     }
 
     @Override
-    public ConnectorPageSourceProvider getPageSourceProvider() {
+    public ConnectorPageSourceProvider getPageSourceProvider()
+    {
         return pageSourceProvider;
     }
 
     @Override
-    public final void shutdown() {
+    public final void shutdown()
+    {
         lifeCycleManager.stop();
     }
 }
