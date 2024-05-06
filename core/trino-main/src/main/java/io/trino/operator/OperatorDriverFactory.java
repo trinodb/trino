@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.sql.planner.plan.PlanNodeId;
-import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +27,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * {@link DriverFactory} that has predefined list of {@link OperatorFactory}ies that does not depend on a particular split.
+ */
 public class OperatorDriverFactory
+        implements DriverFactory
 {
     private final int pipelineId;
     private final boolean inputDriver;
@@ -59,16 +62,19 @@ public class OperatorDriverFactory
         this.sourceId = sourceIds.isEmpty() ? Optional.empty() : Optional.of(sourceIds.get(0));
     }
 
+    @Override
     public int getPipelineId()
     {
         return pipelineId;
     }
 
+    @Override
     public boolean isInputDriver()
     {
         return inputDriver;
     }
 
+    @Override
     public boolean isOutputDriver()
     {
         return outputDriver;
@@ -79,22 +85,19 @@ public class OperatorDriverFactory
      * A DriverFactory doesn't always have source node.
      * For example, ValuesNode is not a source node.
      */
+    @Override
     public Optional<PlanNodeId> getSourceId()
     {
         return sourceId;
     }
 
+    @Override
     public OptionalInt getDriverInstances()
     {
         return driverInstances;
     }
 
-    @Nullable
-    public List<OperatorFactory> getOperatorFactories()
-    {
-        return operatorFactories;
-    }
-
+    @Override
     public Driver createDriver(DriverContext driverContext)
     {
         requireNonNull(driverContext, "driverContext is null");
@@ -137,6 +140,7 @@ public class OperatorDriverFactory
         }
     }
 
+    @Override
     public synchronized void noMoreDrivers()
     {
         if (noMoreDrivers) {
@@ -149,10 +153,21 @@ public class OperatorDriverFactory
         noMoreDrivers = true;
     }
 
+    @Override
     // no need to synchronize when just checking the boolean flag
     @SuppressWarnings("GuardedBy")
     public boolean isNoMoreDrivers()
     {
         return noMoreDrivers;
+    }
+
+    @Override
+    public void localPlannerComplete()
+    {
+        operatorFactories
+                .stream()
+                .filter(LocalPlannerAware.class::isInstance)
+                .map(LocalPlannerAware.class::cast)
+                .forEach(LocalPlannerAware::localPlannerComplete);
     }
 }

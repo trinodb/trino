@@ -53,6 +53,7 @@ import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.AssignUniqueIdOperator;
 import io.trino.operator.DevNullOperator.DevNullOperatorFactory;
 import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.operator.DriverFactory;
 import io.trino.operator.DynamicFilterSourceOperator;
 import io.trino.operator.DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory;
 import io.trino.operator.EnforceSingleRowOperator;
@@ -66,7 +67,6 @@ import io.trino.operator.HashSemiJoinOperator;
 import io.trino.operator.JoinOperatorType;
 import io.trino.operator.LeafTableFunctionOperator.LeafTableFunctionOperatorFactory;
 import io.trino.operator.LimitOperator.LimitOperatorFactory;
-import io.trino.operator.LocalPlannerAware;
 import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.trino.operator.MergeOperator.MergeOperatorFactory;
 import io.trino.operator.MergeProcessorOperator;
@@ -684,12 +684,7 @@ public class LocalExecutionPlanner
                 context);
 
         // notify operator factories that planning has completed
-        context.getDriverFactories().stream()
-                .map(OperatorDriverFactory::getOperatorFactories)
-                .flatMap(List::stream)
-                .filter(LocalPlannerAware.class::isInstance)
-                .map(LocalPlannerAware.class::cast)
-                .forEach(LocalPlannerAware::localPlannerComplete);
+        context.getDriverFactories().forEach(DriverFactory::localPlannerComplete);
 
         return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder);
     }
@@ -697,7 +692,7 @@ public class LocalExecutionPlanner
     private static class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
-        private final List<OperatorDriverFactory> driverFactories;
+        private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
         // this is shared with all subContexts
@@ -718,7 +713,7 @@ public class LocalExecutionPlanner
 
         private LocalExecutionPlanContext(
                 TaskContext taskContext,
-                List<OperatorDriverFactory> driverFactories,
+                List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
                 AtomicInteger nextPipelineId)
         {
@@ -768,7 +763,7 @@ public class LocalExecutionPlanner
             driverFactories.add(new OperatorDriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances));
         }
 
-        private List<OperatorDriverFactory> getDriverFactories()
+        private List<DriverFactory> getDriverFactories()
         {
             return ImmutableList.copyOf(driverFactories);
         }
@@ -872,16 +867,16 @@ public class LocalExecutionPlanner
 
     public static class LocalExecutionPlan
     {
-        private final List<OperatorDriverFactory> driverFactories;
+        private final List<DriverFactory> driverFactories;
         private final List<PlanNodeId> partitionedSourceOrder;
 
-        public LocalExecutionPlan(List<OperatorDriverFactory> driverFactories, List<PlanNodeId> partitionedSourceOrder)
+        public LocalExecutionPlan(List<DriverFactory> driverFactories, List<PlanNodeId> partitionedSourceOrder)
         {
             this.driverFactories = ImmutableList.copyOf(requireNonNull(driverFactories, "driverFactories is null"));
             this.partitionedSourceOrder = ImmutableList.copyOf(requireNonNull(partitionedSourceOrder, "partitionedSourceOrder is null"));
         }
 
-        public List<OperatorDriverFactory> getDriverFactories()
+        public List<DriverFactory> getDriverFactories()
         {
             return driverFactories;
         }
