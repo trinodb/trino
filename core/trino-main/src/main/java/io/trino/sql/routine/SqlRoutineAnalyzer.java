@@ -126,7 +126,7 @@ public class SqlRoutineAnalyzer
                 .filter(not(String::isBlank))
                 .ifPresentOrElse(builder::description, builder::noDescription);
 
-        if (!getDeterministic(function).orElse(true)) {
+        if (!isDeterministic(function)) {
             builder.nondeterministic();
         }
 
@@ -159,7 +159,7 @@ public class SqlRoutineAnalyzer
 
         boolean actuallyDeterministic = analysis.getResolvedFunctions().stream().allMatch(ResolvedFunction::deterministic);
 
-        boolean declaredDeterministic = getDeterministic(function).orElse(true);
+        boolean declaredDeterministic = isDeterministic(function);
         if (!declaredDeterministic && actuallyDeterministic) {
             throw semanticException(INVALID_ARGUMENTS, function, "Deterministic function declared NOT DETERMINISTIC");
         }
@@ -248,7 +248,7 @@ public class SqlRoutineAnalyzer
         });
     }
 
-    private static Optional<Boolean> getDeterministic(FunctionSpecification function)
+    private static boolean isDeterministic(FunctionSpecification function)
     {
         List<DeterministicCharacteristic> deterministic = function.getRoutineCharacteristics().stream()
                 .filter(DeterministicCharacteristic.class::isInstance)
@@ -261,7 +261,8 @@ public class SqlRoutineAnalyzer
 
         return deterministic.stream()
                 .map(DeterministicCharacteristic::isDeterministic)
-                .findAny();
+                .findAny()
+                .orElse(true);
     }
 
     private static boolean isCalledOnNull(FunctionSpecification function)
