@@ -13,548 +13,379 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import io.trino.metadata.Metadata;
+import io.trino.Session;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.FunctionResolver;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.optimizations.PlanOptimizer;
+import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.GroupIdNode;
-import io.trino.sql.planner.plan.MarkDistinctNode;
-import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.tree.QualifiedName;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static java.util.Objects.requireNonNull;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
+import static java.util.Map.Entry.comparingByValue;
 
 /*
- * This optimizer convert query of form:
+ * This optimizer rule convert query of form:
  *
- *  SELECT a1, a2,..., an, F1(b1), F2(b2), F3(b3), ...., Fm(bm), F(distinct c) FROM Table GROUP BY a1, a2, ..., an
+ *  SELECT a1, a2,..., an, F1(b1), F2(b2), F3(b3), ...., Fm(bm), F1(distinct c1), ...., Fm(distinct ck) FROM Table GROUP BY a1, a2, ..., an
  *
  *  INTO
  *
- *  SELECT a1, a2,..., an, arbitrary(if(group = 0, f1)),...., arbitrary(if(group = 0, fm)), F(if(group = 1, c)) FROM
- *      SELECT a1, a2,..., an, F1(b1) as f1, F2(b2) as f2,...., Fm(bm) as fm, c, group FROM
- *        GroupIdNode ((a1, a2,..., an, b1, b2, ... ,bn), (a1, a2,..., an, c))
- *          SELECT a1, a2,..., an, b1, b2, ... ,bn, c FROM Table
- *      GROUP BY a1, a2,..., an, c, group
+ *  SELECT a1, a2,..., an, arbitrary(f1) FILTER (WHERE group=0),...., arbitrary(fm) FILTER (WHERE group=0), F(c1) FILTER (WHERE group=1), ...., F(cm) FILTER (WHERE group=m) FROM
+ *      SELECT a1, a2,..., an, F1(b1) as f1, F2(b2) as f2,...., Fm(bm) as fm, c1,..., ck, group FROM
+ *        SELECT a1, a2,..., an, b1, b2, ... ,bn, c1,..., ck, group FROM Table
+ *        GROUP-ID GROUPING SETS ((a1, a2,..., an, b1, b2, ... ,bn), (a1, a2,..., an, c1), ..., ((a1, a2,..., an, ck)))
+ *      GROUP BY a1, a2,..., an, c1,..., ck, group
  *  GROUP BY a1, a2,..., an
  */
 public class OptimizeMixedDistinctAggregations
-        implements PlanOptimizer
+        implements Rule<AggregationNode>
 {
     private static final CatalogSchemaFunctionName COUNT_NAME = builtinFunctionName("count");
     private static final CatalogSchemaFunctionName COUNT_IF_NAME = builtinFunctionName("count_if");
     private static final CatalogSchemaFunctionName APPROX_DISTINCT_NAME = builtinFunctionName("approx_distinct");
 
-    private final Metadata metadata;
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .matching(Predicates.and(
+                    Predicates.or(
+                            // single distinct can be supported in this rule, but it is already supported by SingleDistinctAggregationToGroupBy, which produces simpler plans (without group-id)
+                            OptimizeMixedDistinctAggregations::hasMultipleDistincts,
+                            OptimizeMixedDistinctAggregations::hasMixedDistinctAndNonDistincts),
+                    OptimizeMixedDistinctAggregations::allDistinctAggregationsHaveSingleArgument,
+                    OptimizeMixedDistinctAggregations::noFilters,
+                    OptimizeMixedDistinctAggregations::noMasks,
+                    aggregation -> !aggregation.hasOrderings(),
+                    aggregation -> aggregation.getStep().equals(SINGLE)));
 
-    public OptimizeMixedDistinctAggregations(Metadata metadata)
+    private static boolean hasMultipleDistincts(AggregationNode aggregationNode)
     {
-        this.metadata = metadata;
+        return aggregationNode.getAggregations()
+                       .values().stream()
+                       .filter(Aggregation::isDistinct)
+                       .map(Aggregation::getArguments)
+                       .map(HashSet::new)
+                       .distinct()
+                       .count() > 1;
+    }
+
+    private static boolean hasMixedDistinctAndNonDistincts(AggregationNode aggregationNode)
+    {
+        long distincts = aggregationNode.getAggregations()
+                .values().stream()
+                .filter(Aggregation::isDistinct)
+                .count();
+
+        return distincts > 0 && distincts < aggregationNode.getAggregations().size();
+    }
+
+    private static boolean allDistinctAggregationsHaveSingleArgument(AggregationNode aggregation)
+    {
+        return aggregation.getAggregations()
+                .values().stream()
+                .filter(Aggregation::isDistinct)
+                .allMatch(node -> node.getArguments().size() == 1);
+    }
+
+    private static boolean noFilters(AggregationNode aggregationNode)
+    {
+        return aggregationNode.getAggregations()
+                .values().stream()
+                .noneMatch(aggregation -> aggregation.getFilter().isPresent());
+    }
+
+    private static boolean noMasks(AggregationNode aggregationNode)
+    {
+        return aggregationNode.getAggregations()
+                .values().stream()
+                .noneMatch(aggregation -> aggregation.getMask().isPresent());
+    }
+
+    private final FunctionResolver functionResolver;
+
+    public OptimizeMixedDistinctAggregations(PlannerContext plannerContext)
+    {
+        this.functionResolver = plannerContext.getFunctionResolver();
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Context context)
+    public Pattern<AggregationNode> getPattern()
     {
-        if (isOptimizeDistinctAggregationEnabled(context.session())) {
-            return SimplePlanRewriter.rewriteWith(new Optimizer(context.idAllocator(), context.symbolAllocator(), metadata), plan, Optional.empty());
-        }
-
-        return plan;
+        return PATTERN;
     }
 
-    private static class Optimizer
-            extends SimplePlanRewriter<Optional<AggregateInfo>>
+    @Override
+    public boolean isEnabled(Session session)
     {
-        private final PlanNodeIdAllocator idAllocator;
-        private final SymbolAllocator symbolAllocator;
-        private final Metadata metadata;
+        return isOptimizeDistinctAggregationEnabled(session);
+    }
 
-        private Optimizer(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Metadata metadata)
-        {
-            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
+    @Override
+    public Result apply(AggregationNode node, Captures captures, Context context)
+    {
+        SymbolAllocator symbolAllocator = context.getSymbolAllocator();
+
+        Set<Symbol> originalDistinctAggregationArguments = node.getAggregations().values()
+                .stream()
+                .filter(Aggregation::isDistinct)
+                .flatMap(aggregation -> aggregation.getArguments().stream())
+                .map(Symbol::from)
+                .collect(toImmutableSet());
+        boolean hasNonDistinctAggregation = node.getAggregations().values().stream().anyMatch(aggregation -> !aggregation.isDistinct());
+
+        // each distinct aggregation argument will be part of the GroupId output so first
+        // create a mapping between distinct aggregation argument and a id of a group that this symbol is going to be part of
+        ImmutableMap.Builder<Symbol, Integer> distinctAggregationArgumentToGroupIdMapBuilder = ImmutableMap.builder();
+        // if there are no non-distinct aggregations, we don't add the non-distinct grouping set
+        int distinctGroupId = hasNonDistinctAggregation ? 1 : 0;
+        for (Symbol distinctAggregationInput : originalDistinctAggregationArguments) {
+            distinctAggregationArgumentToGroupIdMapBuilder.put(distinctAggregationInput, distinctGroupId++);
+        }
+        Map<Symbol, Integer> distinctAggregationArgumentToGroupIdMap = distinctAggregationArgumentToGroupIdMapBuilder.buildOrThrow();
+
+        ImmutableMap.Builder<Symbol, Symbol> groupIdOutputToInputColumnMapping = ImmutableMap.builder();
+        for (Symbol distinctArgumentSymbol : originalDistinctAggregationArguments) {
+            groupIdOutputToInputColumnMapping.put(distinctArgumentSymbol, distinctArgumentSymbol);
+        }
+        for (Symbol groupingKey : node.getGroupingKeys()) {
+            groupIdOutputToInputColumnMapping.put(groupingKey, groupingKey);
         }
 
-        @Override
-        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Optional<AggregateInfo>> context)
-        {
-            // optimize if and only if
-            // some aggregation functions have a distinct mask symbol
-            // and if not all aggregation functions on same distinct mask symbol (this case handled by SingleDistinctOptimizer)
-            List<Symbol> masks = node.getAggregations().values().stream()
-                    .map(Aggregation::getMask).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
-            Set<Symbol> uniqueMasks = ImmutableSet.copyOf(masks);
-            if (uniqueMasks.size() != 1 || masks.size() == node.getAggregations().size()) {
-                return context.defaultRewrite(node, Optional.empty());
+        Symbol groupSymbol = symbolAllocator.newSymbol("group", BIGINT);
+        // groupIdFilters are expressions like group == X, that are going to be used in the outer aggregation to aggregate only the specific group
+        Assignments.Builder groupIdFilters = Assignments.builder();
+        Symbol nonDistinctGroupFilterSymbol = symbolAllocator.newSymbol("non-distinct-gid-filter", BOOLEAN);
+        if (hasNonDistinctAggregation) {
+            groupIdFilters.put(nonDistinctGroupFilterSymbol, new Comparison(
+                    EQUAL,
+                    groupSymbol.toSymbolReference(),
+                    new Constant(BIGINT, 0L)));
+        }
+
+        ImmutableMap.Builder<Symbol, Aggregation> outerAggregations = ImmutableMap.builder();
+        // for de-duplication of group id filters
+        Map<Integer, Symbol> groupIdFilterSymbolByGroupId = new HashMap<>();
+        // prepare outer aggregations and filter expression, symbol for distinct aggregations
+        for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+            Aggregation originalAggregation = entry.getValue();
+            if (originalAggregation.isDistinct()) {
+                // for the outer aggregation node, replace distinct aggregation with non-distinct aggregation with FILTER (WHERE group_id=X)
+                Symbol aggregationInput = Symbol.from(originalAggregation.getArguments().get(0));
+                Integer groupId = distinctAggregationArgumentToGroupIdMap.get(aggregationInput);
+                Symbol groupIdFilterSymbol = groupIdFilterSymbolByGroupId.computeIfAbsent(groupId, id -> {
+                    Symbol filterSymbol = symbolAllocator.newSymbol("gid-filter-" + groupId, BOOLEAN);
+                    groupIdFilters.put(filterSymbol, new Comparison(
+                            EQUAL,
+                            groupSymbol.toSymbolReference(),
+                            new Constant(BIGINT, (long) groupId)));
+                    return filterSymbol;
+                });
+
+                outerAggregations.put(entry.getKey(), new Aggregation(
+                        originalAggregation.getResolvedFunction(),
+                        originalAggregation.getArguments(), // GroupIdNode uses distinct aggregation arguments symbols as outputs
+                        false,
+                        Optional.of(groupIdFilterSymbol),
+                        Optional.empty(),
+                        Optional.empty()));
             }
+        }
 
-            if (node.getAggregations().values().stream().map(Aggregation::getFilter).anyMatch(Optional::isPresent)) {
-                // Skip if any aggregation contains a filter
-                return context.defaultRewrite(node, Optional.empty());
-            }
-
-            if (node.hasOrderings()) {
-                // Skip if any aggregation contains a order by
-                return context.defaultRewrite(node, Optional.empty());
-            }
-
-            AggregateInfo aggregateInfo = new AggregateInfo(
-                    node.getGroupingKeys(),
-                    Iterables.getOnlyElement(uniqueMasks),
-                    node.getAggregations());
-
-            if (!checkAllEquatableTypes(aggregateInfo)) {
-                // This optimization relies on being able to GROUP BY arguments
-                // of the original aggregation functions. If they their types are
-                // not comparable, we have to skip it.
-                return context.defaultRewrite(node, Optional.empty());
-            }
-
-            PlanNode source = context.rewrite(node.getSource(), Optional.of(aggregateInfo));
-
-            // make sure there's a markdistinct associated with this aggregation
-            if (!aggregateInfo.isFoundMarkDistinct()) {
-                return context.defaultRewrite(node, Optional.empty());
-            }
-
-            // Change aggregate node to do second aggregation, handles this part of optimized plan mentioned above:
-            //          SELECT a1, a2,..., an, arbitrary(if(group = 0, f1)),...., arbitrary(if(group = 0, fm)), F(if(group = 1, c))
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            // Add coalesce projection node to handle count(), count_if(), approx_distinct() functions return a
-            // non-null result without any input
-            ImmutableMap.Builder<Symbol, Symbol> coalesceSymbolsBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Aggregation> innerAggregations = ImmutableMap.builder();
+        // Add coalesce projection node to handle count(), count_if(), approx_distinct() functions return a non-null result without any input
+        ImmutableMap.Builder<Symbol, Symbol> coalesceSymbolsBuilder = ImmutableMap.builder();
+        ImmutableSet.Builder<Symbol> nonDistinctAggregationArguments = ImmutableSet.builder();
+        // this is just to avoid duplicating columns in group 0 in case multiple non-distinct and at least one distinct aggregation use the same symbol
+        Map<Symbol, Symbol> duplicatedGroupIdInputToOutput = new HashMap<>();
+        if (hasNonDistinctAggregation) {
+            // prepare inner and outer aggregations for the non-distinct aggregation
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                Aggregation aggregation = entry.getValue();
-                if (aggregation.getMask().isPresent()) {
-                    aggregations.put(entry.getKey(), new Aggregation(
-                            aggregation.getResolvedFunction(),
-                            ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference()),
-                            false,
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty()));
-                }
-                else {
-                    // Aggregations on non-distinct are already done by new node, just extract the non-null value
-                    Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
-                    Aggregation newAggregation = new Aggregation(
-                            metadata.resolveBuiltinFunction("arbitrary", fromTypes(argument.type())),
-                            ImmutableList.of(argument.toSymbolReference()),
+                Aggregation originalAggregation = entry.getValue();
+                if (!originalAggregation.isDistinct()) {
+                    // non-distinct aggregation, we need both inner aggregation that does the actual aggregation,
+                    // and outer aggregation that get the result from inner using arbitrary function
+                    Symbol origalAggregationOutputSymbol = entry.getKey();
+                    // first, let's create inner aggregation
+                    ImmutableList.Builder<Expression> mappedArguments = ImmutableList.builder();
+                    for (Expression argument : originalAggregation.getArguments()) {
+                        Symbol argumentSymbol = Symbol.from(argument);
+
+                        Symbol finalArgumentSymbol = argumentSymbol;
+                        if (originalDistinctAggregationArguments.contains(argumentSymbol)) {
+                            // argument symbol is used both in distinct and non-distinct aggregations
+                            // we need to duplicate the column in groupId node so that it is used as argument for non-distinct aggregation but not grouped by
+                            finalArgumentSymbol = duplicatedGroupIdInputToOutput.computeIfAbsent(
+                                    argumentSymbol,
+                                    symbol -> symbolAllocator.newSymbol("gid-non-distinct", symbol.type()));
+                        }
+                        groupIdOutputToInputColumnMapping.put(finalArgumentSymbol, argumentSymbol);
+
+                        mappedArguments.add(finalArgumentSymbol.toSymbolReference());
+                        nonDistinctAggregationArguments.add(finalArgumentSymbol);
+                    }
+
+                    Symbol innerAggregationOutputSymbol = symbolAllocator.newSymbol("inner", origalAggregationOutputSymbol.type());
+
+                    Aggregation innerAggregation = new Aggregation(
+                            originalAggregation.getResolvedFunction(),
+                            mappedArguments.build(),
                             false,
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty());
-                    CatalogSchemaFunctionName signatureName = aggregation.getResolvedFunction().signature().getName();
-                    if (signatureName.equals(COUNT_NAME) || signatureName.equals(COUNT_IF_NAME) || signatureName.equals(APPROX_DISTINCT_NAME)) {
-                        Symbol newSymbol = symbolAllocator.newSymbol("expr", entry.getKey().type());
-                        aggregations.put(newSymbol, newAggregation);
-                        coalesceSymbolsBuilder.put(newSymbol, entry.getKey());
+                    innerAggregations.put(innerAggregationOutputSymbol, innerAggregation);
+
+                    // second, let's create outer aggregation
+                    // The inner aggregation node already does non-distinct aggregations, just extract the single value per group
+                    Aggregation outerAggregation = new Aggregation(
+                            functionResolver.resolveFunction(
+                                    context.getSession(),
+                                    QualifiedName.of("arbitrary"),
+                                    fromTypes(originalAggregation.getResolvedFunction().signature().getReturnType()),
+                                    new AllowAllAccessControl()),
+                            ImmutableList.of(innerAggregationOutputSymbol.toSymbolReference()),
+                            false,
+                            Optional.of(nonDistinctGroupFilterSymbol),
+                            Optional.empty(),
+                            Optional.empty());
+                    Symbol outerAggregationOutputSymbol = origalAggregationOutputSymbol;
+                    // handle 0 on empty input aggregations
+                    CatalogSchemaFunctionName name = originalAggregation.getResolvedFunction().signature().getName();
+                    if (name.equals(COUNT_NAME) || name.equals(COUNT_IF_NAME) || name.equals(APPROX_DISTINCT_NAME)) {
+                        Symbol coalesceSymbol = symbolAllocator.newSymbol("coalesce_expr", origalAggregationOutputSymbol.type());
+                        outerAggregationOutputSymbol = coalesceSymbol;
+                        coalesceSymbolsBuilder.put(coalesceSymbol, origalAggregationOutputSymbol);
                     }
-                    else {
-                        aggregations.put(entry.getKey(), newAggregation);
-                    }
+
+                    outerAggregations.put(outerAggregationOutputSymbol, outerAggregation);
                 }
             }
-            Map<Symbol, Symbol> coalesceSymbols = coalesceSymbolsBuilder.buildOrThrow();
-
-            AggregationNode aggregationNode = new AggregationNode(
-                    idAllocator.getNextId(),
-                    source,
-                    aggregations.buildOrThrow(),
-                    node.getGroupingSets(),
-                    ImmutableList.of(),
-                    node.getStep(),
-                    Optional.empty(),
-                    node.getGroupIdSymbol());
-
-            if (coalesceSymbols.isEmpty()) {
-                return aggregationNode;
-            }
-
-            Assignments.Builder outputSymbols = Assignments.builder();
-            for (Symbol symbol : aggregationNode.getOutputSymbols()) {
-                if (coalesceSymbols.containsKey(symbol)) {
-                    Expression expression = new Coalesce(symbol.toSymbolReference(), new Constant(BIGINT, 0L));
-                    outputSymbols.put(coalesceSymbols.get(symbol), expression);
-                }
-                else {
-                    outputSymbols.putIdentity(symbol);
-                }
-            }
-
-            return new ProjectNode(idAllocator.getNextId(), aggregationNode, outputSymbols.build());
         }
 
-        @Override
-        public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Optional<AggregateInfo>> context)
-        {
-            Optional<AggregateInfo> aggregateInfo = context.get();
+        // we now have all the preparation done, let's create a new plan
 
-            // presence of aggregateInfo => mask also present
-            if (aggregateInfo.isEmpty() || !aggregateInfo.get().getMask().equals(node.getMarkerSymbol())) {
-                return context.defaultRewrite(node, Optional.empty());
+        // 1. Add GroupIdNode that will duplicate the input for every distinct aggregation input + for special group 0 for non-distinct aggregations
+        GroupIdNode groupIdNode = new GroupIdNode(
+                context.getIdAllocator().getNextId(),
+                node.getSource(),
+                createGroups(node.getGroupingKeys(), nonDistinctAggregationArguments.build(), hasNonDistinctAggregation, distinctAggregationArgumentToGroupIdMap),
+                groupIdOutputToInputColumnMapping.buildKeepingLast(), // we use buildKeepingLast not, buildOrThrow because aggregation inputs can use symbols from grouping keys
+                ImmutableList.of(),
+                groupSymbol);
+
+        // 2. Add inner Aggregation node which has aggregations on non-distinct symbols from the original plan. Generates
+        //      SELECT a1, a2,..., an, F1(b1) as f1, F2(b2) as f2,...., Fm(bm) as fm, c1,...., (ck), group
+        // part in the optimized plan mentioned above.
+        //
+        // The inner AggregateNode aggregates on the symbols that the original AggregationNode aggregated on.
+        // Outer aggregation node will aggregate on the output symbols of this new node
+        //
+        Set<Symbol> innerAggregationGropingKeys = ImmutableSet.<Symbol>builder()
+                .addAll(node.getGroupingKeys())
+                .addAll(originalDistinctAggregationArguments)
+                .add(groupSymbol).build();
+        AggregationNode innerAggregationNode = new AggregationNode(
+                context.getIdAllocator().getNextId(),
+                groupIdNode,
+                innerAggregations.buildOrThrow(),
+                singleGroupingSet(ImmutableList.copyOf(innerAggregationGropingKeys)),
+                ImmutableList.of(),
+                SINGLE,
+                node.getHashSymbol(),
+                Optional.empty());
+
+        // 3. Add a new project node with FILTER expressions
+        groupIdFilters.putIdentities(innerAggregationNode.getOutputSymbols());
+        ProjectNode groupIdFiltersProjectNode = new ProjectNode(context.getIdAllocator().getNextId(), innerAggregationNode, groupIdFilters.build());
+
+        // 4. Add outer aggregate node to do second aggregation, handles this part of optimized plan mentioned above:
+        //          SELECT a1, a2,..., an, arbitrary(if(group = 0, f1)),...., arbitrary(if(group = 0, fm)), F1(if(group = 1, c)),...., Fm(if(group = 1, c))
+        AggregationNode outerAggregationNode = new AggregationNode(
+                context.getIdAllocator().getNextId(),
+                groupIdFiltersProjectNode,
+                outerAggregations.buildOrThrow(),
+                node.getGroupingSets(),
+                ImmutableList.of(),
+                node.getStep(),
+                Optional.empty(),
+                node.getGroupIdSymbol());
+
+        Map<Symbol, Symbol> coalesceSymbols = coalesceSymbolsBuilder.buildOrThrow();
+        if (coalesceSymbols.isEmpty()) {
+            return Result.ofPlanNode(outerAggregationNode);
+        }
+
+        Assignments.Builder outputSymbols = Assignments.builder();
+        for (Symbol symbol : outerAggregationNode.getOutputSymbols()) {
+            if (coalesceSymbols.containsKey(symbol)) {
+                Expression expression = new Coalesce(symbol.toSymbolReference(), new Constant(BIGINT, 0L));
+                outputSymbols.put(coalesceSymbols.get(symbol), expression);
             }
-
-            aggregateInfo.get().foundMarkDistinct();
-
-            PlanNode source = context.rewrite(node.getSource(), Optional.empty());
-
-            Set<Symbol> allSymbols = new HashSet<>();
-            List<Symbol> groupBySymbols = aggregateInfo.get().getGroupBySymbols(); // a
-            List<Symbol> nonDistinctAggregateSymbols = aggregateInfo.get().getOriginalNonDistinctAggregateArgs(); //b
-            Symbol distinctSymbol = Iterables.getOnlyElement(aggregateInfo.get().getOriginalDistinctAggregateArgs()); // c
-
-            // If same symbol present in aggregations on distinct and non-distinct values, e.g. select sum(a), count(distinct a),
-            // then we need to create a duplicate stream for this symbol
-            Symbol duplicatedDistinctSymbol = distinctSymbol;
-
-            if (nonDistinctAggregateSymbols.contains(distinctSymbol)) {
-                Symbol newSymbol = symbolAllocator.newSymbol(distinctSymbol.name(), distinctSymbol.type());
-                nonDistinctAggregateSymbols.set(nonDistinctAggregateSymbols.indexOf(distinctSymbol), newSymbol);
-                duplicatedDistinctSymbol = newSymbol;
+            else {
+                outputSymbols.putIdentity(symbol);
             }
-
-            allSymbols.addAll(groupBySymbols);
-            allSymbols.addAll(nonDistinctAggregateSymbols);
-            allSymbols.add(distinctSymbol);
-
-            // 1. Add GroupIdNode
-            Symbol groupSymbol = symbolAllocator.newSymbol("group", BIGINT); // g
-            GroupIdNode groupIdNode = createGroupIdNode(
-                    groupBySymbols,
-                    nonDistinctAggregateSymbols,
-                    distinctSymbol,
-                    duplicatedDistinctSymbol,
-                    groupSymbol,
-                    allSymbols,
-                    source);
-
-            // 2. Add aggregation node
-            Set<Symbol> groupByKeys = new HashSet<>(groupBySymbols);
-            groupByKeys.add(distinctSymbol);
-            groupByKeys.add(groupSymbol);
-
-            ImmutableMap.Builder<Symbol, Symbol> aggregationOutputSymbolsMapBuilder = ImmutableMap.builder();
-            AggregationNode aggregationNode = createNonDistinctAggregation(
-                    aggregateInfo.get(),
-                    distinctSymbol,
-                    duplicatedDistinctSymbol,
-                    groupByKeys,
-                    groupIdNode,
-                    node,
-                    aggregationOutputSymbolsMapBuilder);
-            // This map has mapping only for aggregation on non-distinct symbols which the new AggregationNode handles
-            Map<Symbol, Symbol> aggregationOutputSymbolsMap = aggregationOutputSymbolsMapBuilder.buildOrThrow();
-
-            // 3. Add new project node that adds if expressions
-            ProjectNode projectNode = createProjectNode(
-                    aggregationNode,
-                    aggregateInfo.get(),
-                    distinctSymbol,
-                    groupSymbol,
-                    groupBySymbols,
-                    aggregationOutputSymbolsMap);
-
-            return projectNode;
         }
 
-        // Returns false if either mask symbol or any of the symbols in aggregations is not comparable
-        private boolean checkAllEquatableTypes(AggregateInfo aggregateInfo)
-        {
-            for (Symbol symbol : aggregateInfo.getOriginalNonDistinctAggregateArgs()) {
-                Type type = symbol.type();
-                if (!type.isComparable()) {
-                    return false;
-                }
-            }
-
-            return aggregateInfo.getMask().type().isComparable();
-        }
-
-        /*
-         * This Project is useful for cases when we aggregate on distinct and non-distinct values of same symbol, eg:
-         *  select a, sum(b), count(c), sum(distinct c) group by a
-         * Without this Project, we would count additional values for count(c)
-         *
-         * This method also populates maps of old to new symbols. For each key of outputNonDistinctAggregateSymbols,
-         * Higher level aggregation node's aggregation <key, AggregateExpression> will now have to run AggregateExpression on value of outputNonDistinctAggregateSymbols
-         * Same for outputDistinctAggregateSymbols map
-         */
-        private ProjectNode createProjectNode(
-                AggregationNode source,
-                AggregateInfo aggregateInfo,
-                Symbol distinctSymbol,
-                Symbol groupSymbol,
-                List<Symbol> groupBySymbols,
-                Map<Symbol, Symbol> aggregationOutputSymbolsMap)
-        {
-            Assignments.Builder outputSymbols = Assignments.builder();
-            ImmutableMap.Builder<Symbol, Symbol> outputNonDistinctAggregateSymbols = ImmutableMap.builder();
-            for (Symbol symbol : source.getOutputSymbols()) {
-                if (distinctSymbol.equals(symbol)) {
-                    Symbol newSymbol = symbolAllocator.newSymbol("expr", symbol.type());
-                    aggregateInfo.setNewDistinctAggregateSymbol(newSymbol);
-
-                    Expression expression = createIfExpression(
-                            groupSymbol.toSymbolReference(),
-                            new Constant(BIGINT, 1L), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
-                            Comparison.Operator.EQUAL,
-                            symbol.toSymbolReference(),
-                            symbol.type());
-                    outputSymbols.put(newSymbol, expression);
-                }
-                else if (aggregationOutputSymbolsMap.containsKey(symbol)) {
-                    Symbol newSymbol = symbolAllocator.newSymbol("expr", symbol.type());
-                    // key of outputNonDistinctAggregateSymbols is key of an aggregation in AggrNode above, it will now aggregate on this Map's value
-                    outputNonDistinctAggregateSymbols.put(aggregationOutputSymbolsMap.get(symbol), newSymbol);
-                    Expression expression = createIfExpression(
-                            groupSymbol.toSymbolReference(),
-                            new Constant(BIGINT, 0L), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
-                            Comparison.Operator.EQUAL,
-                            symbol.toSymbolReference(),
-                            symbol.type());
-                    outputSymbols.put(newSymbol, expression);
-                }
-
-                // A symbol can appear both in groupBy and distinct/non-distinct aggregation
-                if (groupBySymbols.contains(symbol)) {
-                    Expression expression = symbol.toSymbolReference();
-                    outputSymbols.put(symbol, expression);
-                }
-            }
-
-            // add null assignment for mask
-            // unused mask will be removed by PruneUnreferencedOutputs
-            outputSymbols.put(aggregateInfo.getMask(), new Constant(BOOLEAN, null));
-
-            aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateSymbols.buildOrThrow());
-
-            return new ProjectNode(idAllocator.getNextId(), source, outputSymbols.build());
-        }
-
-        private GroupIdNode createGroupIdNode(
-                List<Symbol> groupBySymbols,
-                List<Symbol> nonDistinctAggregateSymbols,
-                Symbol distinctSymbol,
-                Symbol duplicatedDistinctSymbol,
-                Symbol groupSymbol,
-                Set<Symbol> allSymbols,
-                PlanNode source)
-        {
-            List<List<Symbol>> groups = new ArrayList<>();
-            // g0 = {group-by symbols + allNonDistinctAggregateSymbols}
-            // g1 = {group-by symbols + Distinct Symbol}
-            // symbols present in Group_i will be set, rest will be Null
-
-            //g0
-            Set<Symbol> group0 = new HashSet<>();
-            group0.addAll(groupBySymbols);
-            group0.addAll(nonDistinctAggregateSymbols);
-            groups.add(ImmutableList.copyOf(group0));
-
-            // g1
-            Set<Symbol> group1 = new HashSet<>(groupBySymbols);
-            group1.add(distinctSymbol);
-            groups.add(ImmutableList.copyOf(group1));
-
-            return new GroupIdNode(
-                    idAllocator.getNextId(),
-                    source,
-                    groups,
-                    allSymbols.stream().collect(Collectors.toMap(
-                            symbol -> symbol,
-                            symbol -> symbol.equals(duplicatedDistinctSymbol) ? distinctSymbol : symbol)),
-                    ImmutableList.of(),
-                    groupSymbol);
-        }
-
-        /*
-         * This method returns a new Aggregation node which has aggregations on non-distinct symbols from original plan. Generates
-         *      SELECT a1, a2,..., an, F1(b1) as f1, F2(b2) as f2,...., Fm(bm) as fm, c, group
-         * part in the optimized plan mentioned above
-         *
-         * It also populates the mappings of new function's output symbol to corresponding old function's output symbol, e.g.
-         *     { f1 -> F1, f2 -> F2, ... }
-         * The new AggregateNode aggregates on the symbols that original AggregationNode aggregated on
-         * Original one will now aggregate on the output symbols of this new node
-         */
-        private AggregationNode createNonDistinctAggregation(
-                AggregateInfo aggregateInfo,
-                Symbol distinctSymbol,
-                Symbol duplicatedDistinctSymbol,
-                Set<Symbol> groupByKeys,
-                GroupIdNode groupIdNode,
-                MarkDistinctNode originalNode,
-                ImmutableMap.Builder<Symbol, Symbol> aggregationOutputSymbolsMapBuilder)
-        {
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
-                Aggregation aggregation = entry.getValue();
-                if (aggregation.getMask().isEmpty()) {
-                    Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference());
-                    aggregationOutputSymbolsMapBuilder.put(newSymbol, entry.getKey());
-                    if (!duplicatedDistinctSymbol.equals(distinctSymbol)) {
-                        // Handling for cases when mask symbol appears in non distinct aggregations too
-                        // Now the aggregation should happen over the duplicate symbol added before
-                        if (aggregation.getArguments().contains(distinctSymbol.toSymbolReference())) {
-                            ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
-                            for (Expression argument : aggregation.getArguments()) {
-                                if (distinctSymbol.toSymbolReference().equals(argument)) {
-                                    arguments.add(duplicatedDistinctSymbol.toSymbolReference());
-                                }
-                                else {
-                                    arguments.add(argument);
-                                }
-                            }
-                            aggregation = new Aggregation(
-                                    aggregation.getResolvedFunction(),
-                                    arguments.build(),
-                                    false,
-                                    Optional.empty(),
-                                    Optional.empty(),
-                                    Optional.empty());
-                        }
-                    }
-                    aggregations.put(newSymbol, aggregation);
-                }
-            }
-            return new AggregationNode(
-                    idAllocator.getNextId(),
-                    groupIdNode,
-                    aggregations.buildOrThrow(),
-                    singleGroupingSet(ImmutableList.copyOf(groupByKeys)),
-                    ImmutableList.of(),
-                    SINGLE,
-                    originalNode.getHashSymbol(),
-                    Optional.empty());
-        }
-
-        // creates if clause specific to use case here, default value always null
-        private static Expression createIfExpression(Expression left, Expression right, Comparison.Operator operator, Expression result, Type trueValueType)
-        {
-            return ifExpression(
-                    new Comparison(operator, left, right),
-                    result,
-                    new Constant(trueValueType, null));
-        }
+        return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), outerAggregationNode, outputSymbols.build()));
     }
 
-    private static class AggregateInfo
+    // non-distinct group = {grouping keys + nonDistinctAggregationArguments}
+    // distinct groups = {grouping keys + distinct aggregation argument}
+    // symbols present in Group_i will be set, rest will be Null
+    private static List<List<Symbol>> createGroups(
+            List<Symbol> groupingKeys,
+            Set<Symbol> nonDistinctAggregationArguments,
+            boolean hasNonDistinctAggregation,
+            Map<Symbol, Integer> distinctAggregationArgumentToGroupIdMap)
     {
-        private final List<Symbol> groupBySymbols;
-        private final Symbol mask;
-        private final Map<Symbol, Aggregation> aggregations;
+        ImmutableList.Builder<List<Symbol>> groups = ImmutableList.builder();
 
-        // Filled on the way back, these are the symbols corresponding to their distinct or non-distinct original symbols
-        private Map<Symbol, Symbol> newNonDistinctAggregateSymbols;
-        private Symbol newDistinctAggregateSymbol;
-        private boolean foundMarkDistinct;
-
-        public AggregateInfo(List<Symbol> groupBySymbols, Symbol mask, Map<Symbol, Aggregation> aggregations)
-        {
-            this.groupBySymbols = ImmutableList.copyOf(groupBySymbols);
-
-            this.mask = mask;
-
-            this.aggregations = ImmutableMap.copyOf(aggregations);
+        if (hasNonDistinctAggregation) {
+            // non-distinct group
+            groups.add(ImmutableList.copyOf(ImmutableSet.<Symbol>builder()
+                    .addAll(groupingKeys)
+                    .addAll(nonDistinctAggregationArguments)
+                    .build()));
         }
-
-        public List<Symbol> getOriginalNonDistinctAggregateArgs()
-        {
-            return aggregations.values().stream()
-                    .filter(aggregation -> aggregation.getMask().isEmpty())
-                    .flatMap(aggregation -> aggregation.getArguments().stream())
-                    .distinct()
-                    .map(Symbol::from)
-                    .collect(Collectors.toList());
-        }
-
-        public List<Symbol> getOriginalDistinctAggregateArgs()
-        {
-            return aggregations.values().stream()
-                    .filter(aggregation -> aggregation.getMask().isPresent())
-                    .flatMap(aggregation -> aggregation.getArguments().stream())
-                    .distinct()
-                    .map(Symbol::from)
-                    .collect(Collectors.toList());
-        }
-
-        public Symbol getNewDistinctAggregateSymbol()
-        {
-            return newDistinctAggregateSymbol;
-        }
-
-        public void setNewDistinctAggregateSymbol(Symbol newDistinctAggregateSymbol)
-        {
-            this.newDistinctAggregateSymbol = newDistinctAggregateSymbol;
-        }
-
-        public Map<Symbol, Symbol> getNewNonDistinctAggregateSymbols()
-        {
-            return newNonDistinctAggregateSymbols;
-        }
-
-        public void setNewNonDistinctAggregateSymbols(Map<Symbol, Symbol> newNonDistinctAggregateSymbols)
-        {
-            this.newNonDistinctAggregateSymbols = newNonDistinctAggregateSymbols;
-        }
-
-        public Symbol getMask()
-        {
-            return mask;
-        }
-
-        public List<Symbol> getGroupBySymbols()
-        {
-            return groupBySymbols;
-        }
-
-        public Map<Symbol, Aggregation> getAggregations()
-        {
-            return aggregations;
-        }
-
-        public void foundMarkDistinct()
-        {
-            foundMarkDistinct = true;
-        }
-
-        public boolean isFoundMarkDistinct()
-        {
-            return foundMarkDistinct;
-        }
+        // distinct groups
+        distinctAggregationArgumentToGroupIdMap.entrySet().stream()
+                .sorted(comparingByValue()) // sorting is necessary because group id is based on the order of grouping sets and must match the id in distinctAggregationArgumentToGroupIdMap
+                .forEach(entry -> {
+                    Symbol distinctAggregationInput = entry.getKey();
+                    groups.add(ImmutableList.copyOf(ImmutableSet.<Symbol>builder().addAll(groupingKeys).add(distinctAggregationInput).build()));
+                });
+        return groups.build();
     }
 }
