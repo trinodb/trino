@@ -194,6 +194,7 @@
         <dep.guava.version>33.2.0-jre</dep.guava.version>
         <dep.iceberg.version>1.5.1</dep.iceberg.version>
         <dep.jackson.version>2.17.1</dep.jackson.version>
+        <dep.jetty.version>12.0.9</dep.jetty.version>
         <dep.jna.version>5.14.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.5</dep.jsonwebtoken.version>
@@ -214,6 +215,25 @@
 
     <dependencyManagement>
         <dependencies>
+            <?SORTPOM IGNORE?>
+            <!-- jetty -->
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-bom</artifactId>
+                <version>${dep.jetty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.eclipse.jetty.ee10</groupId>
+                <artifactId>jetty-ee10-bom</artifactId>
+                <version>${dep.jetty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <?SORTPOM RESUME?>
+
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
@@ -2259,6 +2279,13 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>jetty-snapshots</id>
+            <url>https://oss.sonatype.org/content/repositories/jetty-1887</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>
