@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.execution.ScheduledSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayList;
@@ -98,7 +99,7 @@ public class OperatorDriverFactory
     }
 
     @Override
-    public Driver createDriver(DriverContext driverContext)
+    public Driver createDriver(DriverContext driverContext, Optional<ScheduledSplit> split)
     {
         requireNonNull(driverContext, "driverContext is null");
         List<Operator> operators = new ArrayList<>(operatorFactories.size());
