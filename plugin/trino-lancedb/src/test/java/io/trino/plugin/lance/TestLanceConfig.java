@@ -14,6 +14,7 @@
 package io.trino.plugin.lance;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -27,16 +28,22 @@ public class TestLanceConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(LanceConfig.class));
+        assertRecordedDefaults(recordDefaults(LanceConfig.class)
+                .setFetchRetryCount(5)
+                .setConnectionTimeout(Duration.valueOf("1m"))
+                .setLanceDbUri("dummy://db.connect"));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         String testPath = "file://path/to/db";
-        Map<String, String> properties = ImmutableMap.of("lance.uri", testPath);
+        Map<String, String> properties = ImmutableMap.of("lance.uri", testPath, "lance.connection-retry-count", "1", "lance.connection-timeout", "30s");
 
-        LanceConfig expected = new LanceConfig().setLanceDbUri(testPath);
+        LanceConfig expected = new LanceConfig()
+                .setLanceDbUri(testPath)
+                .setFetchRetryCount(1)
+                .setConnectionTimeout(Duration.valueOf("30s"));
 
         assertFullMapping(properties, expected);
     }

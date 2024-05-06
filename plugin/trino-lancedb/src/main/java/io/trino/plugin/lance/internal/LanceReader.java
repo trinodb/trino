@@ -49,7 +49,7 @@ public class LanceReader
         lanceDbURI = lanceConfig.getLanceDbUri();
         // TODO: use https://lancedb.github.io/lancedb/python/python/#lancedb.db.DBConnection
         dbScheme = lanceDbURI.getScheme();
-        dbPath = lanceDbURI.getPath();
+        dbPath = lanceDbURI.toString();
     }
 
     private static Schema getSchema(String tablePath)

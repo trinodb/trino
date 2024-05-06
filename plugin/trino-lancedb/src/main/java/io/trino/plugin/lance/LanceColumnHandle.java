@@ -43,10 +43,10 @@ public record LanceColumnHandle(String name, Type trinoType, FieldType arrowType
             return BOOLEAN;
         }
         else if (type instanceof ArrowType.Int intType) {
-            if (intType.getBitWidth() == 4) {
+            if (intType.getBitWidth() == 32) {
                 return INTEGER;
             }
-            else if (intType.getBitWidth() == 8) {
+            else if (intType.getBitWidth() == 64) {
                 return BIGINT;
             }
         }

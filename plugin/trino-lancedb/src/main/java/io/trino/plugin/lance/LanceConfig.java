@@ -17,7 +17,6 @@ import com.google.common.base.Splitter;
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
@@ -34,9 +33,8 @@ public class LanceConfig
 
     private Duration connectionTimeout = new Duration(1, TimeUnit.MINUTES);
 
-    private int fetchRetryCount;
+    private int fetchRetryCount = 5;
 
-    @NotEmpty(message = "lanceDb URI cannot be empty")
     public URI getLanceDbUri()
     {
         return lanceDbUri;
@@ -69,8 +67,9 @@ public class LanceConfig
     }
 
     @Config("lance.connection-retry-count")
-    public void setFetchRetryCount(int fetchRetryCount)
+    public LanceConfig setFetchRetryCount(int fetchRetryCount)
     {
         this.fetchRetryCount = fetchRetryCount;
+        return this;
     }
 }

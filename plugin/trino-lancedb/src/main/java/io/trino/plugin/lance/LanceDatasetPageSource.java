@@ -18,11 +18,14 @@ import io.trino.plugin.lance.internal.LanceArrowToPageScanner;
 import io.trino.plugin.lance.internal.LanceReader;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.VisibleForTesting;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -49,14 +52,20 @@ public class LanceDatasetPageSource
     public LanceDatasetPageSource(LanceReader lanceReader, LanceTableHandle tableHandle, int maxReadRowsRetries)
     {
         this.maxReadRowsRetries = maxReadRowsRetries;
-        List<LanceColumnHandle> columns = lanceReader.getColumnHandle(tableHandle.getTableName()).values().stream()
-                .map(c -> (LanceColumnHandle) c).collect(Collectors.toList());
+        List<LanceColumnHandle> columns = toColumnHandles(lanceReader, tableHandle);
         this.bufferAllocator = allocator.newChildAllocator(tableHandle.getTableName(), 1024, Long.MAX_VALUE);
         this.lanceArrowToPageScanner =
                 new LanceArrowToPageScanner(bufferAllocator, tableHandle.getTablePath(), columns);
         this.pageBuilder =
                 new PageBuilder(columns.stream().map(LanceColumnHandle::trinoType).collect(toImmutableList()));
         this.isFinished.set(false);
+    }
+
+    @VisibleForTesting
+    public static List<LanceColumnHandle> toColumnHandles(LanceReader lanceReader, LanceTableHandle tableHandle)
+    {
+        return lanceReader.getColumnHandle(tableHandle.getTableName()).values().stream()
+                .map(c -> (LanceColumnHandle) c).collect(Collectors.toList());
     }
 
     @Override
@@ -100,7 +109,7 @@ public class LanceDatasetPageSource
     @Override
     public void close()
     {
-        bufferAllocator.close();
         lanceArrowToPageScanner.close();
+        bufferAllocator.close();
     }
 }

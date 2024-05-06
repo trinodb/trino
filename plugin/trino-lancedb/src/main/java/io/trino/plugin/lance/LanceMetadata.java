@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.lance;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
@@ -135,5 +136,17 @@ public class LanceMetadata
     {
         // TODO: support limit
         throw new UnsupportedOperationException("unsupported");
+    }
+
+    @VisibleForTesting
+    public LanceConfig getLanceConfig()
+    {
+        return lanceConfig;
+    }
+
+    @VisibleForTesting
+    public LanceReader getLanceReader()
+    {
+        return lanceReader;
     }
 }

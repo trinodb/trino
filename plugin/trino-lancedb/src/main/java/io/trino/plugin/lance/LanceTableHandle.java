@@ -17,6 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTableHandle;
 
+import java.util.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class LanceTableHandle
@@ -48,5 +51,34 @@ public class LanceTableHandle
     public String getTablePath()
     {
         return tablePath;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        LanceTableHandle that = (LanceTableHandle) o;
+        return Objects.equals(tableName, that.tableName) &&
+                Objects.equals(tablePath, that.tablePath);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(tableName, tablePath);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("tableName", tableName)
+                .add("tablePath", tablePath)
+                .toString();
     }
 }
