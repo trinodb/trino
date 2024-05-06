@@ -21,9 +21,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.SqlDecimal.decimal;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -125,5 +127,99 @@ public class TestDataSizeFunctions
         assertTrinoExceptionThrownBy(assertions.function("parse_data_size", "'99999999999999YB'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("Value out of range: '99999999999999YB' ('120892581961461708544797985370825293824B')");
+    }
+
+    @Test
+    public void testFormatBytes()
+    {
+        assertTrinoExceptionThrownBy(assertions.function("format_data_bytes", "-1")::evaluate)
+                .hasMessage("Invalid data bytes number: -1");
+
+        assertThat(assertions.function("format_data_bytes", "0"))
+                .hasType(VARCHAR)
+                .isEqualTo("0B");
+
+        assertThat(assertions.function("format_data_bytes", "1"))
+                .hasType(VARCHAR)
+                .isEqualTo("1B");
+
+        assertThat(assertions.function("format_data_bytes", "1000"))
+                .hasType(VARCHAR)
+                .isEqualTo("1000B");
+
+        assertThat(assertions.function("format_data_bytes", "1024"))
+                .hasType(VARCHAR)
+                .isEqualTo("1kB");
+
+        assertThat(assertions.function("format_data_bytes", "1280"))
+                .hasType(VARCHAR)
+                .isEqualTo("1.25kB");
+
+        assertThat(assertions.function("format_data_bytes", "1535"))
+                .hasType(VARCHAR)
+                .isEqualTo("1.5kB");
+
+        assertThat(assertions.function("format_data_bytes", "1537"))
+                .hasType(VARCHAR)
+                .isEqualTo("1.5kB");
+
+        assertThat(assertions.function("format_data_bytes", "1550"))
+                .hasType(VARCHAR)
+                .isEqualTo("1.51kB");
+
+        assertThat(assertions.function("format_data_bytes", "1551"))
+                .hasType(VARCHAR)
+                .isEqualTo("1.51kB");
+
+        assertThat(assertions.function("format_data_bytes", "2047"))
+                .hasType(VARCHAR)
+                .isEqualTo("2kB");
+
+        assertThat(assertions.function("format_data_bytes", "2252"))
+                .hasType(VARCHAR)
+                .isEqualTo("2.2kB");
+
+        assertThat(assertions.function("format_data_bytes", "2283"))
+                .hasType(VARCHAR)
+                .isEqualTo("2.23kB");
+
+        assertThat(assertions.function("format_data_bytes", "2287"))
+                .hasType(VARCHAR)
+                .isEqualTo("2.23kB");
+
+        assertThat(assertions.function("format_data_bytes", "3145728"))
+                .hasType(VARCHAR)
+                .isEqualTo("3MB");
+
+        assertThat(assertions.function("format_data_bytes", "4294967296"))
+                .hasType(VARCHAR)
+                .isEqualTo("4GB");
+
+        assertThat(assertions.function("format_data_bytes", "4398046511104"))
+                .hasType(VARCHAR)
+                .isEqualTo("4TB");
+
+        assertThat(assertions.function("format_data_bytes", "5629499534213120"))
+                .hasType(VARCHAR)
+                .isEqualTo("5PB");
+
+        assertThat(assertions.function("format_data_bytes", "6917529027641081856"))
+                .hasType(VARCHAR)
+                .isEqualTo("6EB");
+
+        assertThat(assertions.function("format_data_bytes", "9_223_372_036_854_775_807"))
+                .hasType(VARCHAR)
+                .isEqualTo("8EB");
+
+        assertThat(assertions.function("format_data_bytes", "decimal'8264141345021879123968'"))
+                .hasType(VARCHAR)
+                .isEqualTo("7ZB");
+
+        assertThat(assertions.function("format_data_bytes", "decimal'9671406556917033397649408'"))
+                .hasType(VARCHAR)
+                .isEqualTo("8YB");
+
+        assertTrinoExceptionThrownBy(assertions.function("format_data_bytes", "decimal'120892581961461708544797985370825293824'")::evaluate)
+                .hasErrorCode(INVALID_LITERAL);
     }
 }

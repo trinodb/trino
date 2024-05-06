@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
@@ -21,10 +22,15 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.StandardTypes;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.util.List;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.Character.isDigit;
@@ -32,13 +38,22 @@ import static java.lang.String.format;
 
 public final class DataSizeFunctions
 {
-    private DataSizeFunctions() {}
+    private final static List<String> dataUnits = ImmutableList.of("B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB");
+    private final static DecimalFormat format3Number = new DecimalFormat("#.##");
+    private final static DecimalFormat format2Number = new DecimalFormat("#.#");
+    private final static DecimalFormat format1Number = new DecimalFormat("#");
+
+    private DataSizeFunctions() {
+        format3Number.setRoundingMode(RoundingMode.HALF_UP);
+        format2Number.setRoundingMode(RoundingMode.HALF_UP);
+        format1Number.setRoundingMode(RoundingMode.HALF_UP);
+    }
 
     @Description("Converts data size string to bytes")
     @ScalarFunction(value = "parse_data_size", alias = "parse_presto_data_size")
     @LiteralParameters("x")
     @SqlType("decimal(38,0)")
-    public static Int128 parsePrestoDataSize(@SqlType("varchar(x)") Slice input)
+    public static Int128 parseDataSize(@SqlType("varchar(x)") Slice input)
     {
         String dataSize = input.toStringUtf8();
 
@@ -122,5 +137,37 @@ public final class DataSizeFunctions
                 default -> throw invalidDataSize(dataSize);
             };
         }
+    }
+
+    @Description("Formats bytes to data size string")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice formatDataBytes(@SqlType("decimal(38,0)") Int128 bytes)
+    {
+        if (bytes.isNegative()) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid data bytes number: %s", bytes));
+        }
+        double fractional = bytes.toBigInteger().doubleValue();
+        for (String unit : dataUnits) {
+           if (fractional < 1024) {
+               return utf8Slice(getFormat(fractional).format(fractional) + unit);
+           }
+           fractional /= 1024;
+        }
+        return utf8Slice(getFormat(fractional).format(fractional) + dataUnits.getLast());
+    }
+
+    private static DecimalFormat getFormat(double value)
+    {
+        if (value < 10) {
+            // show up to two decimals to get 3 significant digits
+            return format3Number;
+        }
+        if (value < 100) {
+            // show up to one decimal to get 3 significant digits
+            return format2Number;
+        }
+        // show no decimals -- we have enough digits in the integer part
+        return format1Number;
     }
 }
