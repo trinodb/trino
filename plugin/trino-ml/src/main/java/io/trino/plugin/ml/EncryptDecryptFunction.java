@@ -31,7 +31,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import org.bouncycastle.util.Strings;
 
-public final class EncrypDecrypFunction {
+public final class EncryptDecryptFunction {
     @ScalarFunction("sm4")
     @Description("SM4 encryption requires filling in encrypted data, encryption key, and encryption character encoding")
     @SqlType(StandardTypes.VARCHAR)
