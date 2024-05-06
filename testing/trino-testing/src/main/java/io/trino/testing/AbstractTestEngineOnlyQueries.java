@@ -893,7 +893,7 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testComplexCast()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .build();
         // This is optimized using CAST(null AS interval day to second) which may be problematic to deserialize on worker
         assertQuery(session, "WITH t(a, b) AS (VALUES (1, INTERVAL '1' SECOND)) " +

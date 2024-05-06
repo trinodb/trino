@@ -20,7 +20,6 @@ import io.trino.cost.TaskCountEstimator;
 import io.trino.sql.planner.plan.AggregationNode;
 
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
-import static io.trino.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
 import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +29,6 @@ import static java.util.Objects.requireNonNull;
 public class DistinctAggregationStrategyChooser
 {
     private static final int MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER = 8;
-    private static final int OPTIMIZED_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER = MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * 8;
 
     private final TaskCountEstimator taskCountEstimator;
 
@@ -65,15 +63,6 @@ public class DistinctAggregationStrategyChooser
             return true;
         }
 
-        if (isOptimizeDistinctAggregationEnabled(session) &&
-                numberOfDistinctValues <= OPTIMIZED_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * maxNumberOfConcurrentThreadsForAggregation &&
-                hasSingleDistinctAndNonDistincts(aggregationNode)) {
-            // with medium number of numberOfDistinctValues
-            // will be beneficial for query latency (duration) over distinct aggregation at a cost of increased CPU,
-            // but it relies on the existence of MarkDistinct nodes.
-            return true;
-        }
-
         // can parallelize single-step, and single-step distinct is more efficient than MarkDistinct
         return false;
     }
@@ -94,15 +83,5 @@ public class DistinctAggregationStrategyChooser
                 .filter(symbol -> !isNaN(sourceStats.getSymbolStatistics(symbol).getDistinctValuesCount()))
                 .map(symbol -> sourceStats.getSymbolStatistics(symbol).getDistinctValuesCount())
                 .max(Double::compareTo).orElse(Double.NaN);
-    }
-
-    private static boolean hasSingleDistinctAndNonDistincts(AggregationNode aggregationNode)
-    {
-        long distincts = aggregationNode.getAggregations()
-                .values().stream()
-                .filter(AggregationNode.Aggregation::isDistinct)
-                .count();
-
-        return distincts == 1 && distincts < aggregationNode.getAggregations().size();
     }
 }

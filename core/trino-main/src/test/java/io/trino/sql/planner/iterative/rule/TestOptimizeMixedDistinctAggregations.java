@@ -24,7 +24,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS;
+import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -46,7 +46,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         // 0 distinct aggregations
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -55,7 +55,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 1 distinct aggregation
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -81,7 +81,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 2 distinct aggregations
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -111,7 +111,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 3 distinct aggregations, 2 on the same input
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -143,7 +143,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 2 distinct aggregations, 2 non-distinct
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("non-distinct1", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -177,7 +177,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 2 distinct aggregations, 2 non-distinct on the same input
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("non-distinct1", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -215,7 +215,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         //  distinct aggregations and non-distinct aggregations on the same input
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("non-distinct1", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -254,7 +254,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         // global
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("count", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -282,7 +282,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // group by
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey", BIGINT))
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("count", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -314,7 +314,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         // 1 distinct aggregation
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("distinct", BIGINT), aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "b"))), ImmutableList.of(BIGINT))
@@ -323,7 +323,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 2 distinct aggregations
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("distinct1", BIGINT), aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "b"))), ImmutableList.of(BIGINT))
@@ -349,7 +349,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 3 distinct aggregations, 2 on the same input
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("distinct1", BIGINT), aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "b"))), ImmutableList.of(BIGINT))
@@ -380,7 +380,7 @@ public class TestOptimizeMixedDistinctAggregations
     public void testDistinctOnNestedType()
     {
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> {
                     Symbol a = p.symbol("a", BIGINT);
                     Symbol nested = p.symbol("nested", RowType.anonymousRow(BIGINT, BIGINT));
@@ -414,7 +414,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         // only count(*) + distinct
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("count", ImmutableList.of()), ImmutableList.of())
@@ -441,7 +441,7 @@ public class TestOptimizeMixedDistinctAggregations
                                                         values("b")))))));
         //  count(*) + other non-distinct + distinct
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("count", BIGINT), aggregation("count", ImmutableList.of()), ImmutableList.of())
@@ -479,7 +479,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         // 0 distinct aggregations
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey", BIGINT))
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -488,7 +488,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 1 distinct aggregation
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey", BIGINT))
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -514,7 +514,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 2 distinct aggregations
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey", BIGINT))
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -544,7 +544,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 3 distinct aggregations, 2 on the same input
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey", BIGINT))
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -576,7 +576,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 2 distinct aggregations, 2 non-distinct
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey", BIGINT))
                         .addAggregation(p.symbol("non-distinct1", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -610,7 +610,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 2 distinct aggregations, 2 non-distinct on the same input
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey", BIGINT))
                         .addAggregation(p.symbol("non-distinct1", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -648,7 +648,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         // 1 distinct aggregation
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey", BIGINT))
                         .addAggregation(p.symbol("distinct", BIGINT), aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "b"))), ImmutableList.of(BIGINT))
@@ -657,7 +657,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 2 distinct aggregations
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey", BIGINT))
                         .addAggregation(p.symbol("distinct1", BIGINT), aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "b"))), ImmutableList.of(BIGINT))
@@ -683,7 +683,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 3 distinct aggregations, 2 on the same input
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey", BIGINT))
                         .addAggregation(p.symbol("distinct1", BIGINT), aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "b"))), ImmutableList.of(BIGINT))
@@ -715,7 +715,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         // 0 distinct aggregations
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1", BIGINT), p.symbol("groupingKey2", BIGINT))
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -724,7 +724,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 1 distinct aggregation
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1", BIGINT), p.symbol("groupingKey2", BIGINT))
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -750,7 +750,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 2 distinct aggregations
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1", BIGINT), p.symbol("groupingKey2", BIGINT))
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -780,7 +780,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 3 distinct aggregations, 2 on the same input
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1", BIGINT), p.symbol("groupingKey2", BIGINT))
                         .addAggregation(p.symbol("non-distinct", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -812,7 +812,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 2 distinct aggregations, 2 non-distinct
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1", BIGINT), p.symbol("groupingKey2"))
                         .addAggregation(p.symbol("non-distinct1", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -846,7 +846,7 @@ public class TestOptimizeMixedDistinctAggregations
 
         // 2 distinct aggregations, 2 non-distinct on the same input
         tester().assertThat(new OptimizeMixedDistinctAggregations(tester().getPlannerContext()))
-                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1", BIGINT), p.symbol("groupingKey2", BIGINT))
                         .addAggregation(p.symbol("non-distinct1", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))

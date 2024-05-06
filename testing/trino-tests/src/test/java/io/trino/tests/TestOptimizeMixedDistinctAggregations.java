@@ -26,7 +26,7 @@ public class TestOptimizeMixedDistinctAggregations
             throws Exception
     {
         return TpchQueryRunner.builder()
-                .setCoordinatorProperties(ImmutableMap.of("optimizer.optimize-mixed-distinct-aggregations", "true"))
+                .setCoordinatorProperties(ImmutableMap.of("optimizer.distinct-aggregations-strategy", "pre_aggregate"))
                 .build();
     }
 

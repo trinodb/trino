@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Set;
 
-import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
+import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.CUSTOMER;
@@ -266,7 +266,7 @@ public abstract class AbstractTestAggregations
         assertQuery(query);
         assertQuery(
                 Session.builder(getSession())
-                        .setSystemProperty(MARK_DISTINCT_STRATEGY, "none")
+                        .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
                         .build(),
                 query);
     }
