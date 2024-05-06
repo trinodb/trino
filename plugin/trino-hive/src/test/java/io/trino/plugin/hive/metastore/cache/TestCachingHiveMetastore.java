@@ -1116,7 +1116,7 @@ public class TestCachingHiveMetastore
                 executor,
                 1000,
                 CachingHiveMetastore.StatsRecording.ENABLED,
-                cacheMissing,
-                partitionCacheEnabled);
+                partitionCacheEnabled,
+                cacheMissing ? ImmutableSet.copyOf(CachingHiveMetastore.ObjectType.values()) : ImmutableSet.of());
     }
 }
