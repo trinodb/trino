@@ -3982,6 +3982,24 @@ public class HiveMetadata
     }
 
     @Override
+    public boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
+
+        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        try {
+            HiveStorageFormat hiveStorageFormat = extractHiveStorageFormat(table);
+            return hiveStorageFormat == HiveStorageFormat.ORC || hiveStorageFormat == HiveStorageFormat.PARQUET;
+        }
+        catch (TrinoException ignored) {
+            // unknown storage format
+            return false;
+        }
+    }
+
+    @Override
     public WriterScalingOptions getNewTableWriterScalingOptions(ConnectorSession session, SchemaTableName tableName, Map<String, Object> tableProperties)
     {
         return WriterScalingOptions.ENABLED;
