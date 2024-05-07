@@ -21,8 +21,6 @@ import java.util.Date;
 import java.util.Optional;
 
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
-import static jakarta.ws.rs.core.Cookie.DEFAULT_VERSION;
-import static jakarta.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
 import static java.util.function.Predicate.not;
 
 public final class NonceCookie
@@ -34,17 +32,13 @@ public final class NonceCookie
 
     public static NewCookie create(String nonce, Instant tokenExpiration)
     {
-        return new NewCookie(
-                NONCE_COOKIE,
-                nonce,
-                CALLBACK_ENDPOINT,
-                null,
-                DEFAULT_VERSION,
-                null,
-                DEFAULT_MAX_AGE,
-                Date.from(tokenExpiration),
-                true,
-                true);
+        return new NewCookie.Builder(NONCE_COOKIE)
+                .value(nonce)
+                .path(CALLBACK_ENDPOINT)
+                .expiry(Date.from(tokenExpiration))
+                .secure(true)
+                .httpOnly(true)
+                .build();
     }
 
     public static Optional<String> read(Cookie cookie)
@@ -56,16 +50,12 @@ public final class NonceCookie
 
     public static NewCookie delete()
     {
-        return new NewCookie(
-                NONCE_COOKIE,
-                "delete",
-                CALLBACK_ENDPOINT,
-                null,
-                DEFAULT_VERSION,
-                null,
-                0,
-                null,
-                true,
-                true);
+        return new NewCookie.Builder(NONCE_COOKIE)
+                .value("delete")
+                .path(CALLBACK_ENDPOINT)
+                .maxAge(0)
+                .secure(true)
+                .httpOnly(true)
+                .build();
     }
 }
