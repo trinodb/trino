@@ -640,7 +640,7 @@ public class IcebergMetadata
                                             partitionColumnValueStrings.get(columnId).orElse(null),
                                             column.getName());
 
-                                    return NullableValue.of(column.getType(), prestoValue);
+                                    return new NullableValue(column.getType(), prestoValue);
                                 }));
 
                 return TupleDomain.fromFixedValues(partitionValues);
