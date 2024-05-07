@@ -851,6 +851,10 @@ public class DefaultJdbcMetadata
         }
 
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        if (!tableHandle.getConstraintExpressions().isEmpty()) {
+            // constraintExpressions is not currently supported by the TableScanRedirectApplicationResult
+            return Optional.empty();
+        }
         return jdbcClient.getTableScanRedirection(session, tableHandle);
     }
 
