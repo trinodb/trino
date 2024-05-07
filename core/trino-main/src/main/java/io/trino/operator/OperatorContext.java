@@ -172,6 +172,9 @@ public class OperatorContext
      */
     public void recordPhysicalInputWithTiming(long sizeInBytes, long positions, long readNanos)
     {
+        checkArgument(sizeInBytes >= 0, "sizeInBytes is negative (%s)", sizeInBytes);
+        checkArgument(positions >= 0, "positions is negative (%s)", positions);
+        checkArgument(readNanos >= 0, "readNanos is negative (%s)", readNanos);
         physicalInputDataSize.update(sizeInBytes);
         physicalInputPositions.update(positions);
         physicalInputReadTimeNanos.getAndAdd(readNanos);
@@ -183,6 +186,8 @@ public class OperatorContext
      */
     public void recordNetworkInput(long sizeInBytes, long positions)
     {
+        checkArgument(sizeInBytes >= 0, "sizeInBytes is negative (%s)", sizeInBytes);
+        checkArgument(positions >= 0, "positions is negative (%s)", positions);
         internalNetworkInputDataSize.update(sizeInBytes);
         internalNetworkPositions.update(positions);
     }
@@ -193,6 +198,8 @@ public class OperatorContext
      */
     public void recordProcessedInput(long sizeInBytes, long positions)
     {
+        checkArgument(sizeInBytes >= 0, "sizeInBytes is negative (%s)", sizeInBytes);
+        checkArgument(positions >= 0, "positions is negative (%s)", positions);
         inputDataSize.update(sizeInBytes);
         inputPositions.update(positions);
     }
