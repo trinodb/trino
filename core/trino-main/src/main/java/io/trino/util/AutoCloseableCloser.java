@@ -16,7 +16,8 @@ package io.trino.util;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
-import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -62,7 +63,8 @@ public final class AutoCloseableCloser
             }
         }
         if (rootCause != null) {
-            propagateIfPossible(rootCause, Exception.class);
+            throwIfInstanceOf(rootCause, Exception.class);
+            throwIfUnchecked(rootCause);
             // not possible
             throw new AssertionError(rootCause);
         }
