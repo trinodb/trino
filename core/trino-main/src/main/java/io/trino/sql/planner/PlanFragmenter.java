@@ -36,6 +36,8 @@ import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.function.FunctionId;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
+import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -436,6 +438,22 @@ public class PlanFragmenter
         }
 
         @Override
+        public PlanNode visitChooseAlternativeNode(ChooseAlternativeNode node, RewriteContext<FragmentProperties> context)
+        {
+            // All alternatives and original table scan should have the same partitioning
+            TableScanNode scan = node.getOriginalTableScan().tableScanNode();
+            PartitioningHandle partitioning = metadata.getTableProperties(session, scan.getTable())
+                    .getTablePartitioning()
+                    .filter(value -> scan.isUseConnectorNodePartitioning())
+                    .map(TablePartitioning::partitioningHandle)
+                    .orElse(SOURCE_DISTRIBUTION);
+            context.get().addSourceDistribution(node.getId(), partitioning, metadata, session);
+
+            // stop the process in order not to add the underlying TableScanNodes as well
+            return node;
+        }
+
+        @Override
         public PlanNode visitAdaptivePlanNode(AdaptivePlanNode node, RewriteContext<FragmentProperties> context)
         {
             // This is needed to make the initial plan more concise by replacing the exchange nodes with
@@ -818,6 +836,17 @@ public class PlanFragmenter
                     // plan was already fragmented with scan node's partitioning
                     // and new partitioning is compatible with previous one
                     node.getUseConnectorNodePartitioning());
+        }
+
+        @Override
+        public PlanNode visitChooseAlternativeNode(ChooseAlternativeNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> newAlternatives = node.getSources().stream()
+                    .map(alternative -> context.defaultRewrite(alternative, context.get()))
+                    .toList();
+            TableScanNode newTableScan = (TableScanNode) context.rewrite(node.getOriginalTableScan().tableScanNode());
+            FilteredTableScan newFilteredTableScan = new FilteredTableScan(newTableScan, node.getOriginalTableScan().filterPredicate());
+            return new ChooseAlternativeNode(node.getId(), newAlternatives, newFilteredTableScan);
         }
     }
 

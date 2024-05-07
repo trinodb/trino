@@ -18,6 +18,7 @@ import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -214,6 +215,13 @@ public final class PlanCopier
                     node.isInitial(),
                     node.getPattern(),
                     node.getVariableDefinitions());
+        }
+
+        @Override
+        public PlanNode visitChooseAlternativeNode(ChooseAlternativeNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> alternatives = node.getSources().stream().map(context::rewrite).collect(toImmutableList());
+            return new ChooseAlternativeNode(idAllocator.getNextId(), alternatives, node.getOriginalTableScan());
         }
 
         @Override

@@ -73,6 +73,7 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -177,6 +178,7 @@ import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
 import static java.lang.Math.abs;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -197,6 +199,7 @@ public class PlanPrinter
     private final Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats;
     private final ValuePrinter valuePrinter;
     private final Anonymizer anonymizer;
+    private final boolean verbose;
 
     // NOTE: do NOT add Metadata or Session to this class.  The plan printer must be usable outside of a transaction.
     @VisibleForTesting
@@ -207,7 +210,8 @@ public class PlanPrinter
             ValuePrinter valuePrinter,
             StatsAndCosts estimatedStatsAndCosts,
             Optional<Map<PlanNodeId, PlanNodeStats>> stats,
-            Anonymizer anonymizer)
+            Anonymizer anonymizer,
+            boolean verbose)
     {
         requireNonNull(planRoot, "planRoot is null");
         requireNonNull(tableInfoSupplier, "tableInfoSupplier is null");
@@ -221,6 +225,7 @@ public class PlanPrinter
         this.dynamicFilterDomainStats = ImmutableMap.copyOf(dynamicFilterDomainStats);
         this.valuePrinter = valuePrinter;
         this.anonymizer = anonymizer;
+        this.verbose = verbose;
 
         Optional<Duration> totalScheduledTime = stats.map(s -> new Duration(s.values().stream()
                 .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
@@ -267,7 +272,8 @@ public class PlanPrinter
                 valuePrinter,
                 StatsAndCosts.empty(),
                 Optional.empty(),
-                new NoOpAnonymizer())
+                new NoOpAnonymizer(),
+                false)
                 .toJson();
     }
 
@@ -287,7 +293,8 @@ public class PlanPrinter
                 valuePrinter,
                 estimatedStatsAndCosts,
                 Optional.empty(),
-                new NoOpAnonymizer())
+                new NoOpAnonymizer(),
+                false)
                 .toJson();
     }
 
@@ -345,7 +352,8 @@ public class PlanPrinter
                                 valuePrinter,
                                 planFragment.getStatsAndCosts(),
                                 Optional.empty(),
-                                anonymizer)
+                                anonymizer,
+                                false)
                                 .toJsonRenderedNode()));
         return DISTRIBUTED_PLAN_CODEC.toJson(anonymizedPlan);
     }
@@ -383,7 +391,8 @@ public class PlanPrinter
                 valuePrinter,
                 estimatedStatsAndCosts,
                 Optional.empty(),
-                new NoOpAnonymizer())
+                new NoOpAnonymizer(),
+                verbose)
                 .toText(verbose, level));
         return builder.toString();
     }
@@ -589,7 +598,8 @@ public class PlanPrinter
                                 valuePrinter,
                                 fragment.getStatsAndCosts(),
                                 planNodeStats,
-                                anonymizer).toText(verbose, 1))
+                                anonymizer,
+                                verbose).toText(verbose, 1))
                 .append("\n");
 
         return builder.toString();
@@ -1938,6 +1948,31 @@ public class PlanPrinter
             addNode(node, "TableFunctionProcessor", descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(), context);
 
             return processChildren(node, new Context(context.isInitialPlan()));
+        }
+
+        @Override
+        public Void visitChooseAlternativeNode(ChooseAlternativeNode node, Context context)
+        {
+            List<PlanNode> alternatives = node.getSources();
+            addNode(node, "ChooseAlternativeNode", ImmutableMap.of("alternativesCount", String.valueOf(alternatives.size())), context);
+            Context childContext = new Context(context.isInitialPlan());
+            if (stats.isEmpty()) {
+                // print no more than 10 alternatives for EXPLAIN ANALYZE
+                for (int i = 0; i < min(alternatives.size(), 10); i++) {
+                    PlanNode child = alternatives.get(i);
+                    child.accept(this, childContext);
+                }
+            }
+            else {
+                for (PlanNode child : alternatives) {
+                    Optional<PlanNodeStats> childStats = stats.map(s -> s.get(child.getId()));
+                    // print alternative if it was used or verbose
+                    if (verbose || childStats.isPresent()) {
+                        child.accept(this, childContext);
+                    }
+                }
+            }
+            return null;
         }
 
         @Override
