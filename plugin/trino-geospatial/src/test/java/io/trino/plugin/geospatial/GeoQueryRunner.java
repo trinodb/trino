@@ -27,7 +27,7 @@ public final class GeoQueryRunner
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
-                .addExtraProperty("http-server.http.port", "8080")
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .build();
         queryRunner.installPlugin(new GeoPlugin());
         Logger log = Logger.get(GeoQueryRunner.class);

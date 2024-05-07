@@ -105,7 +105,7 @@ public final class OracleQueryRunner
     {
         TestingOracleServer server = new TestingOracleServer();
         QueryRunner queryRunner = builder(server)
-                .addExtraProperty("http-server.http.port", "8080")
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .addConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("oracle.connection-pool.enabled", "false")
                         .put("oracle.remarks-reporting.enabled", "false")

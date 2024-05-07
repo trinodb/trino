@@ -60,11 +60,11 @@ public final class AccumuloQueryRunner
     }
 
     // TODO convert to builder
-    private static synchronized QueryRunner createAccumuloQueryRunner(Map<String, String> extraProperties)
+    private static synchronized QueryRunner createAccumuloQueryRunner(Map<String, String> coordinatorProperties)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
 
         queryRunner.installPlugin(new TpchPlugin());

@@ -46,13 +46,13 @@ public final class SnowflakeQueryRunner
 
     // TODO convert to builder
     private static DistributedQueryRunner createSnowflakeQueryRunner(
-            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());

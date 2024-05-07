@@ -188,7 +188,7 @@ public final class IcebergQueryRunner
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
                     .setIcebergProperties(ImmutableMap.of(
                             "iceberg.catalog.type", "rest",
@@ -213,7 +213,7 @@ public final class IcebergQueryRunner
             // See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .setIcebergProperties(ImmutableMap.of("iceberg.catalog.type", "glue"))
                     .build();
 
@@ -237,8 +237,7 @@ public final class IcebergQueryRunner
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setCoordinatorProperties(Map.of(
-                            "http-server.http.port", "8080"))
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
                             "hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString(),
@@ -281,8 +280,7 @@ public final class IcebergQueryRunner
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setCoordinatorProperties(Map.of(
-                            "http-server.http.port", "8080"))
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                             "hive.metastore.catalog.dir", "s3://%s/".formatted(bucketName),
@@ -336,8 +334,7 @@ public final class IcebergQueryRunner
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setCoordinatorProperties(Map.of(
-                            "http-server.http.port", "8080"))
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
                             "hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString(),
@@ -373,7 +370,7 @@ public final class IcebergQueryRunner
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .setIcebergProperties(ImmutableMap.<String, String>builder()
                             .put("iceberg.catalog.type", "jdbc")
                             .put("iceberg.jdbc-catalog.driver-class", "org.postgresql.Driver")
@@ -401,7 +398,7 @@ public final class IcebergQueryRunner
         {
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .setIcebergProperties(ImmutableMap.<String, String>builder()
                             .put("iceberg.catalog.type", "snowflake")
                             .put("fs.native-s3.enabled", "true")
@@ -436,7 +433,7 @@ public final class IcebergQueryRunner
             Logger log = Logger.get(DefaultIcebergQueryRunnerMain.class);
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .setInitialTables(TpchTable.getTables())
                     .build();
             log.info("======== SERVER STARTED ========");

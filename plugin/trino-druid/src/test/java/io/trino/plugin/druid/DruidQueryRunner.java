@@ -74,7 +74,7 @@ public final class DruidQueryRunner
     // TODO convert to builder
     private static QueryRunner createDruidQueryRunnerTpch(
             TestingDruidServer testingDruidServer,
-            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
@@ -82,7 +82,7 @@ public final class DruidQueryRunner
         QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
                     .build();
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
