@@ -70,6 +70,9 @@ public final class Page
 
     private Page(boolean blocksCopyRequired, int positionCount, Block[] blocks)
     {
+        if (positionCount < 0) {
+            throw new IllegalArgumentException(format("positionCount (%s) is negative", positionCount));
+        }
         requireNonNull(blocks, "blocks is null");
         this.positionCount = positionCount;
         if (blocks.length == 0) {
