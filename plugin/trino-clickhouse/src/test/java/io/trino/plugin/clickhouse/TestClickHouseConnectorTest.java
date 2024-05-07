@@ -65,12 +65,12 @@ public class TestClickHouseConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                 SUPPORTS_TRUNCATE -> true;
-            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
                  SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
-                 SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
-                 SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                 SUPPORTS_TRUNCATE -> true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
                  SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
                  SUPPORTS_ARRAY,
