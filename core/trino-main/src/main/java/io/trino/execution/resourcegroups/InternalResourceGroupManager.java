@@ -118,7 +118,7 @@ public final class InternalResourceGroupManager<C>
     public SelectionContext<C> selectGroup(SelectionCriteria criteria)
     {
         return configurationManager.get().match(criteria)
-                .orElseThrow(() -> new TrinoException(QUERY_REJECTED, "Query did not match any selection rule"));
+                .orElseThrow(() -> new TrinoException(QUERY_REJECTED, "No matching resource group found with the configured selection rules"));
     }
 
     @Override
