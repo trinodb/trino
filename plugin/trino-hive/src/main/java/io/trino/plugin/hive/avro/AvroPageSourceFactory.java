@@ -23,6 +23,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.avro.AvroTypeException;
+import io.trino.hive.formats.avro.HiveAvroTypeBlockHandler;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePageSourceFactory;
@@ -62,6 +63,7 @@ import static io.trino.plugin.hive.avro.AvroHiveFileUtils.getCanonicalToGivenFie
 import static io.trino.plugin.hive.avro.AvroHiveFileUtils.wrapInUnionWithNull;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -162,7 +164,7 @@ public class AvroPageSourceFactory
                 nullSchema = nullSchema.name(notAColumnName).type(Schema.create(Schema.Type.NULL)).withDefault(null);
             }
             try {
-                return Optional.of(noProjectionAdaptation(new AvroPageSource(inputFile, nullSchema.endRecord(), new HiveAvroTypeManager(hiveTimestampPrecision), start, length)));
+                return Optional.of(noProjectionAdaptation(new AvroPageSource(inputFile, nullSchema.endRecord(), new HiveAvroTypeBlockHandler(createTimestampType(hiveTimestampPrecision.getPrecision())), start, length)));
             }
             catch (IOException e) {
                 throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
@@ -173,7 +175,7 @@ public class AvroPageSourceFactory
         }
 
         try {
-            return Optional.of(new ReaderPageSource(new AvroPageSource(inputFile, maskedSchema, new HiveAvroTypeManager(hiveTimestampPrecision), start, length), readerProjections));
+            return Optional.of(new ReaderPageSource(new AvroPageSource(inputFile, maskedSchema, new HiveAvroTypeBlockHandler(createTimestampType(hiveTimestampPrecision.getPrecision())), start, length), readerProjections));
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);

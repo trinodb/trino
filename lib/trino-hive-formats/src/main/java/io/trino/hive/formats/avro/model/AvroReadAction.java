@@ -19,13 +19,20 @@ import io.airlift.slice.Slices;
 import io.trino.hive.formats.avro.AvroTypeException;
 import org.apache.avro.Resolver;
 import org.apache.avro.Schema;
+import org.apache.avro.io.Decoder;
+import org.apache.avro.io.Encoder;
+import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.io.parsing.ResolvingGrammarGenerator;
+import org.apache.avro.util.internal.Accessor;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.hive.formats.avro.AvroPageDataReader.RowBlockBuildingDecoder.SkipSchemaBuildingAction.createSkipActionForSchema;
-import static io.trino.hive.formats.avro.AvroPageDataReader.getDefaultByes;
+import static io.trino.hive.formats.avro.model.AvroReadAction.getDefaultByes;
+import static io.trino.hive.formats.avro.model.SkipFieldRecordFieldReadAction.createSkipActionForSchema;
 import static java.util.Objects.requireNonNull;
 
 public sealed interface AvroReadAction
@@ -47,6 +54,51 @@ public sealed interface AvroReadAction
         WrittenUnionReadAction,
         ReadErrorReadAction
 {
+    static byte[] getDefaultByes(Schema.Field field)
+            throws AvroTypeException
+    {
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            Encoder e = EncoderFactory.get().binaryEncoder(out, null);
+            ResolvingGrammarGenerator.encode(e, field.schema(), Accessor.defaultValue(field));
+            e.flush();
+            return out.toByteArray();
+        }
+        catch (IOException exception) {
+            throw new AvroTypeException("Unable to encode to bytes for default value in field " + field, exception);
+        }
+    }
+
+    static LongIoFunction<Decoder> getLongDecoderFunction(Schema writerSchema)
+    {
+        return switch (writerSchema.getType()) {
+            case INT -> Decoder::readInt;
+            case LONG -> Decoder::readLong;
+            default -> throw new IllegalArgumentException("Cannot promote type %s to long".formatted(writerSchema.getType()));
+        };
+    }
+
+    static FloatIoFunction<Decoder> getFloatDecoderFunction(Schema writerSchema)
+    {
+        return switch (writerSchema.getType()) {
+            case INT -> Decoder::readInt;
+            case LONG -> Decoder::readLong;
+            case FLOAT -> Decoder::readFloat;
+            default -> throw new IllegalArgumentException("Cannot promote type %s to float".formatted(writerSchema.getType()));
+        };
+    }
+
+    static DoubleIoFunction<Decoder> getDoubleDecoderFunction(Schema writerSchema)
+    {
+        return switch (writerSchema.getType()) {
+            case INT -> Decoder::readInt;
+            case LONG -> Decoder::readLong;
+            case FLOAT -> Decoder::readFloat;
+            case DOUBLE -> Decoder::readDouble;
+            default -> throw new IllegalArgumentException("Cannot promote type %s to double".formatted(writerSchema.getType()));
+        };
+    }
+
     Schema readSchema();
 
     Schema writeSchema();
@@ -179,5 +231,33 @@ public sealed interface AvroReadAction
             throws AvroTypeException
     {
         return new ReadingUnionReadAction(readerUnion.reader, readerUnion.writer, readerUnion.firstMatch, fromAction(readerUnion.actualAction));
+    }
+
+    @FunctionalInterface
+    interface LongIoFunction<A>
+    {
+        long apply(A a)
+                throws IOException;
+    }
+
+    @FunctionalInterface
+    interface FloatIoFunction<A>
+    {
+        float apply(A a)
+                throws IOException;
+    }
+
+    @FunctionalInterface
+    interface DoubleIoFunction<A>
+    {
+        double apply(A a)
+                throws IOException;
+    }
+
+    @FunctionalInterface
+    interface IoConsumer<A>
+    {
+        void accept(A a)
+                throws IOException;
     }
 }

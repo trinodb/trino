@@ -20,37 +20,32 @@ import org.apache.avro.Schema;
 // Avro logical types supported in Trino natively cross product with supported Avro schema encoding
 public sealed interface AvroLogicalType
         permits
-        AvroLogicalType.TimestampMillisLogicalType,
-        AvroLogicalType.TimestampMicrosLogicalType,
+        AvroLogicalType.DateLogicalType,
         AvroLogicalType.BytesDecimalLogicalType,
         AvroLogicalType.FixedDecimalLogicalType,
-        AvroLogicalType.DateLogicalType,
         AvroLogicalType.TimeMillisLogicalType,
         AvroLogicalType.TimeMicrosLogicalType,
+        AvroLogicalType.TimestampMillisLogicalType,
+        AvroLogicalType.TimestampMicrosLogicalType,
         AvroLogicalType.StringUUIDLogicalType
 {
     // Copied from org.apache.avro.LogicalTypes
-    String DECIMAL = "decimal";
-    String UUID = "uuid";
     String DATE = "date";
+    String DECIMAL = "decimal";
     String TIME_MILLIS = "time-millis";
     String TIME_MICROS = "time-micros";
     String TIMESTAMP_MILLIS = "timestamp-millis";
     String TIMESTAMP_MICROS = "timestamp-micros";
     String LOCAL_TIMESTAMP_MILLIS = "local-timestamp-millis";
     String LOCAL_TIMESTAMP_MICROS = "local-timestamp-micros";
+    String UUID = "uuid";
 
     static AvroLogicalType fromAvroLogicalType(LogicalType logicalType, Schema schema)
     {
         switch (logicalType.getName()) {
-            case TIMESTAMP_MILLIS -> {
-                if (schema.getType() == Schema.Type.LONG) {
-                    return new TimestampMillisLogicalType();
-                }
-            }
-            case TIMESTAMP_MICROS -> {
-                if (schema.getType() == Schema.Type.LONG) {
-                    return new TimestampMicrosLogicalType();
+            case DATE -> {
+                if (schema.getType() == Schema.Type.INT) {
+                    return new DateLogicalType();
                 }
             }
             case DECIMAL -> {
@@ -65,11 +60,6 @@ public sealed interface AvroLogicalType
                     default -> throw new IllegalArgumentException("Unsupported Logical Type %s and schema pairing %s".formatted(logicalType.getName(), schema));
                 }
             }
-            case DATE -> {
-                if (schema.getType() == Schema.Type.INT) {
-                    return new DateLogicalType();
-                }
-            }
             case TIME_MILLIS -> {
                 if (schema.getType() == Schema.Type.INT) {
                     return new TimeMillisLogicalType();
@@ -78,6 +68,16 @@ public sealed interface AvroLogicalType
             case TIME_MICROS -> {
                 if (schema.getType() == Schema.Type.LONG) {
                     return new TimeMicrosLogicalType();
+                }
+            }
+            case TIMESTAMP_MILLIS -> {
+                if (schema.getType() == Schema.Type.LONG) {
+                    return new TimestampMillisLogicalType();
+                }
+            }
+            case TIMESTAMP_MICROS -> {
+                if (schema.getType() == Schema.Type.LONG) {
+                    return new TimestampMicrosLogicalType();
                 }
             }
             case UUID -> {
@@ -89,10 +89,7 @@ public sealed interface AvroLogicalType
         throw new IllegalArgumentException("Unsupported Logical Type %s and schema pairing %s".formatted(logicalType.getName(), schema));
     }
 
-    record TimestampMillisLogicalType()
-            implements AvroLogicalType {}
-
-    record TimestampMicrosLogicalType()
+    record DateLogicalType()
             implements AvroLogicalType {}
 
     record BytesDecimalLogicalType(int precision, int scale)
@@ -101,13 +98,16 @@ public sealed interface AvroLogicalType
     record FixedDecimalLogicalType(int precision, int scale, int fixedSize)
             implements AvroLogicalType {}
 
-    record DateLogicalType()
-            implements AvroLogicalType {}
-
     record TimeMillisLogicalType()
             implements AvroLogicalType {}
 
     record TimeMicrosLogicalType()
+            implements AvroLogicalType {}
+
+    record TimestampMillisLogicalType()
+            implements AvroLogicalType {}
+
+    record TimestampMicrosLogicalType()
             implements AvroLogicalType {}
 
     record StringUUIDLogicalType()
