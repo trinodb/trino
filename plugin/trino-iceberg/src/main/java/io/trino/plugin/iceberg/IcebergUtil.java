@@ -733,6 +733,15 @@ public final class IcebergUtil
         return getPartitionKeys(scanTask.file().partition(), scanTask.spec());
     }
 
+    public static Map<Integer, Optional<String>> getPartitionKeys(Schema tableSchema, PartitionSpec partitionSpec, String partitionDataJson)
+    {
+        org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(tableSchema.findType(field.sourceId())))
+                .toArray(org.apache.iceberg.types.Type[]::new);
+        PartitionData partitionData = PartitionData.fromJson(partitionDataJson, partitionColumnTypes);
+        return getPartitionKeys(partitionData, partitionSpec);
+    }
+
     public static Map<Integer, Optional<String>> getPartitionKeys(StructLike partition, PartitionSpec spec)
     {
         Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
