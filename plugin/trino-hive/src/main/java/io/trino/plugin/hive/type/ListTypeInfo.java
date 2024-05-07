@@ -21,7 +21,7 @@ import static java.util.Objects.requireNonNull;
 public final class ListTypeInfo
         extends TypeInfo
 {
-    private static final int INSTANCE_SIZE = instanceSize(UnionTypeInfo.class);
+    private static final int INSTANCE_SIZE = instanceSize(ListTypeInfo.class);
 
     private final TypeInfo elementTypeInfo;
 
