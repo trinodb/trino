@@ -45,7 +45,7 @@ public class TestPrometheusIntegration
     {
         this.server = closeAfterClass(new PrometheusServer());
         this.client = createPrometheusClient(server);
-        return createPrometheusQueryRunner(server, ImmutableMap.of(), ImmutableMap.of());
+        return createPrometheusQueryRunner(server, ImmutableMap.of());
     }
 
     @Test

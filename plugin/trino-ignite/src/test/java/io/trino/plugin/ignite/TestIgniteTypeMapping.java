@@ -72,7 +72,6 @@ public class TestIgniteTypeMapping
         return createIgniteQueryRunner(
                 igniteServer,
                 ImmutableMap.of(),
-                ImmutableMap.of(),
                 ImmutableList.of());
     }
 

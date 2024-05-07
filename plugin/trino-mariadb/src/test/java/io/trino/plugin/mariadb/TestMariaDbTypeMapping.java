@@ -100,7 +100,7 @@ public class TestMariaDbTypeMapping
             throws Exception
     {
         server = closeAfterClass(new TestingMariaDbServer());
-        return createMariaDbQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        return createMariaDbQueryRunner(server, ImmutableMap.of(), ImmutableList.of());
     }
 
     @Test

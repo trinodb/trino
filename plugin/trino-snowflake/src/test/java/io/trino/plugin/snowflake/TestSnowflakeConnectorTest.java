@@ -53,7 +53,7 @@ public class TestSnowflakeConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createSnowflakeQueryRunner(ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createSnowflakeQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override

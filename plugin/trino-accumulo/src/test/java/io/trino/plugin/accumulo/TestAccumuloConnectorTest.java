@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.accumulo;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -51,7 +50,7 @@ public class TestAccumuloConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createAccumuloQueryRunner(ImmutableMap.of());
+        return createAccumuloQueryRunner();
     }
 
     @Override

@@ -42,7 +42,18 @@ public final class MariaDbQueryRunner
 
     private MariaDbQueryRunner() {}
 
+    // TODO convert to builder
     public static QueryRunner createMariaDbQueryRunner(
+            TestingMariaDbServer server,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createMariaDbQueryRunner(server, ImmutableMap.of(), connectorProperties, tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createMariaDbQueryRunner(
             TestingMariaDbServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.thrift.integration;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -56,7 +55,7 @@ public class TestThriftConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createThriftQueryRunner(3, false, ImmutableMap.of());
+        return createThriftQueryRunner(3, false);
     }
 
     @Override

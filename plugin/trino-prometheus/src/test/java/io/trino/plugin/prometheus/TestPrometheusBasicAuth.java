@@ -40,7 +40,7 @@ public class TestPrometheusBasicAuth
             throws Exception
     {
         server = closeAfterClass(new PrometheusServer(LATEST_VERSION, true));
-        return createPrometheusQueryRunner(server, ImmutableMap.of(), ImmutableMap.of("prometheus.auth.user", USER, "prometheus.auth.password", PASSWORD));
+        return createPrometheusQueryRunner(server, ImmutableMap.of("prometheus.auth.user", USER, "prometheus.auth.password", PASSWORD));
     }
 
     @Test

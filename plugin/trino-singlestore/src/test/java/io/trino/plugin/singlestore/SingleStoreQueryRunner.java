@@ -29,13 +29,24 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class SingleStoreQueryRunner
+public final class SingleStoreQueryRunner
 {
     private SingleStoreQueryRunner() {}
 
     private static final String TPCH_SCHEMA = "tpch";
 
+    // TODO convert to builder
     public static QueryRunner createSingleStoreQueryRunner(
+            TestingSingleStoreServer server,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createSingleStoreQueryRunner(server, ImmutableMap.of(), connectorProperties, tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createSingleStoreQueryRunner(
             TestingSingleStoreServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,

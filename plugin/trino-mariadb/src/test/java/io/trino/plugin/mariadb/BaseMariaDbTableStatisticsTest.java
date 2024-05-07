@@ -69,7 +69,6 @@ public abstract class BaseMariaDbTableStatisticsTest
 
         return createMariaDbQueryRunner(
                 mariaDbServer,
-                Map.of(),
                 Map.of("case-insensitive-name-matching", "true"),
                 List.of(ORDERS));
     }

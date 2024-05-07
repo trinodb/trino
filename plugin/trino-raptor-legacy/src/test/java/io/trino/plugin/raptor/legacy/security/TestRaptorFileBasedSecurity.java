@@ -43,7 +43,6 @@ public class TestRaptorFileBasedSecurity
     {
         String path = new File(Resources.getResource(getClass(), "security.json").toURI()).getPath();
         queryRunner = createRaptorQueryRunner(
-                ImmutableMap.of(),
                 TpchTable.getTables(),
                 false,
                 ImmutableMap.of("security.config-file", path, "raptor.security", "file"));

@@ -27,13 +27,15 @@ public final class TpcdsQueryRunner
 {
     private TpcdsQueryRunner() {}
 
+    // TODO convert to builder
     public static QueryRunner createQueryRunner()
             throws Exception
     {
         return createQueryRunner(ImmutableMap.of());
     }
 
-    public static QueryRunner createQueryRunner(Map<String, String> extraProperties)
+    // TODO convert to builder
+    private static QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         Session session = testSessionBuilder()

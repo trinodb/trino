@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
 import java.sql.Timestamp;
@@ -31,6 +30,6 @@ public class TestScyllaConnectorSmokeTest
         TestingScyllaServer server = closeAfterClass(new TestingScyllaServer());
         CassandraSession session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
-        return createScyllaQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createScyllaQueryRunner(server, REQUIRED_TPCH_TABLES);
     }
 }

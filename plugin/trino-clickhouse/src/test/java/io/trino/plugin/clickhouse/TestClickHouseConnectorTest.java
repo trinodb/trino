@@ -89,7 +89,6 @@ public class TestClickHouseConnectorTest
         this.clickhouseServer = closeAfterClass(new TestingClickHouseServer(CLICKHOUSE_LATEST_IMAGE));
         return createClickHouseQueryRunner(
                 clickhouseServer,
-                ImmutableMap.of(),
                 ImmutableMap.of("clickhouse.map-string-as-varchar", "true"),
                 REQUIRED_TPCH_TABLES);
     }

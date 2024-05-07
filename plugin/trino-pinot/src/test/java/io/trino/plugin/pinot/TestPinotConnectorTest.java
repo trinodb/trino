@@ -43,7 +43,6 @@ public class TestPinotConnectorTest
         return createPinotQueryRunner(
                 kafka,
                 pinot,
-                ImmutableMap.of(),
                 ImmutableMap.of("pinot.grpc.enabled", "true"),
                 REQUIRED_TPCH_TABLES);
     }
