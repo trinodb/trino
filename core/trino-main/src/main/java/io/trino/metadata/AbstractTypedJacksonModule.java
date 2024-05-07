@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -77,7 +78,9 @@ public abstract class AbstractTypedJacksonModule<T>
                     typeIdResolver,
                     TYPE_PROPERTY,
                     false,
-                    null);
+                    null,
+                    As.PROPERTY,
+                    true);
         }
 
         @SuppressWarnings("unchecked")
