@@ -61,7 +61,7 @@ public final class RedisQueryRunner
     // TODO convert to builder
     private static QueryRunner createRedisQueryRunner(
             RedisServer redisServer,
-            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             String dataFormat,
             Iterable<TpchTable<?>> tables)
@@ -70,7 +70,7 @@ public final class RedisQueryRunner
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());

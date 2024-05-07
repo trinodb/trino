@@ -252,7 +252,7 @@ public final class RedshiftQueryRunner
         Logging.initialize();
 
         QueryRunner queryRunner = builder()
-                .addExtraProperty("http-server.http.port", "8080")
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .build();
 
         log.info("======== SERVER STARTED ========");

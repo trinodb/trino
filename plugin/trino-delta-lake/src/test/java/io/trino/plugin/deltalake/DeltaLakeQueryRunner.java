@@ -187,7 +187,7 @@ public final class DeltaLakeQueryRunner
                 throws Exception
         {
             QueryRunner queryRunner = builder()
-                    .addExtraProperty("http-server.http.port", "8080")
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
                     .setInitialTables(TpchTable.getTables())
                     .build();
@@ -207,7 +207,7 @@ public final class DeltaLakeQueryRunner
         {
             // Please set Delta Lake connector properties via VM options. e.g. -Dhive.metastore=glue -D..
             QueryRunner queryRunner = builder()
-                    .addExtraProperty("http-server.http.port", "8080")
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .build();
 
             Logger log = Logger.get(DeltaLakeExternalQueryRunnerMain.class);
@@ -229,7 +229,7 @@ public final class DeltaLakeQueryRunner
             hiveMinioDataLake.start();
 
             QueryRunner queryRunner = builder()
-                    .addExtraProperty("http-server.http.port", "8080")
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
                     .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
                     .addDeltaProperty("delta.enable-non-concurrent-writes", "true")

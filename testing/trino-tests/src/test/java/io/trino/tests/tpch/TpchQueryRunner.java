@@ -76,8 +76,8 @@ public final class TpchQueryRunner
     {
         Logging.initialize();
         QueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .setExtraProperties(ImmutableMap.<String, String>builder()
-                        .put("http-server.http.port", "8080")
                         .put("sql.default-catalog", "tpch")
                         .put("sql.default-schema", "tiny")
                         .buildOrThrow())

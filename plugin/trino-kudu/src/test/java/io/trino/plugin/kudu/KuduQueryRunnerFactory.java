@@ -96,11 +96,25 @@ public final class KuduQueryRunnerFactory
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createKuduQueryRunnerTpch(kuduServer, kuduSchemaEmulationPrefix, kuduSessionProperties, extraProperties, ImmutableMap.of(), tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createKuduQueryRunnerTpch(
+            TestingKuduServer kuduServer,
+            Optional<String> kuduSchemaEmulationPrefix,
+            Map<String, String> kuduSessionProperties,
+            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
         QueryRunner runner = null;
         try {
             String kuduSchema = kuduSchemaEmulationPrefix.isPresent() ? "tpch" : "default";
             runner = DistributedQueryRunner.builder(createSession(kuduSchema, kuduSessionProperties))
                     .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
                     .build();
 
             runner.installPlugin(new TpchPlugin());
@@ -166,6 +180,7 @@ public final class KuduQueryRunnerFactory
         QueryRunner queryRunner = createKuduQueryRunnerTpch(
                 new TestingKuduServer(),
                 Optional.empty(),
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 TpchTable.getTables());

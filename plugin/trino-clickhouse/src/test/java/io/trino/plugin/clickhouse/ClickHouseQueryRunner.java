@@ -66,7 +66,7 @@ public final class ClickHouseQueryRunner
     // TODO convert to builder
     private static QueryRunner createClickHouseQueryRunner(
             TestingClickHouseServer server,
-            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
@@ -74,7 +74,7 @@ public final class ClickHouseQueryRunner
         QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());

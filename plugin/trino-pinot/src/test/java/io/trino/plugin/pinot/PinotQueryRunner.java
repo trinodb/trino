@@ -58,13 +58,13 @@ public final class PinotQueryRunner
     private static QueryRunner createPinotQueryRunner(
             TestingKafka kafka,
             TestingPinotCluster pinot,
-            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Map<String, String> extraPinotProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
 
         queryRunner.installPlugin(new PinotPlugin(Optional.of(binder -> newOptionalBinder(binder, PinotHostMapper.class).setBinding()

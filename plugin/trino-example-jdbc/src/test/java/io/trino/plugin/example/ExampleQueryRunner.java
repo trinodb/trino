@@ -40,11 +40,11 @@ public final class ExampleQueryRunner
                 .build();
 
         // TODO static port binding should be in main() only
-        Map<String, String> extraProperties = ImmutableMap.<String, String>builder()
+        Map<String, String> coordinatorProperties = ImmutableMap.<String, String>builder()
                 .put("http-server.http.port", "8080")
                 .buildOrThrow();
         QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
         queryRunner.installPlugin(new ExamplePlugin());
 

@@ -46,12 +46,12 @@ public final class ScyllaQueryRunner
     // TODO convert to builder
     private static QueryRunner createScyllaQueryRunner(
             TestingScyllaServer server,
-            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch"))
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
 
         try {

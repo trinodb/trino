@@ -55,13 +55,13 @@ public final class MariaDbQueryRunner
     // TODO convert to builder
     private static QueryRunner createMariaDbQueryRunner(
             TestingMariaDbServer server,
-            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());

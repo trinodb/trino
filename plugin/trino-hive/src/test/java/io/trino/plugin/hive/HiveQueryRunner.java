@@ -380,7 +380,7 @@ public final class HiveQueryRunner
         }
 
         QueryRunner queryRunner = builder()
-                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
                 .setSkipTimezoneSetup(true)
                 .setInitialTables(TpchTable.getTables())

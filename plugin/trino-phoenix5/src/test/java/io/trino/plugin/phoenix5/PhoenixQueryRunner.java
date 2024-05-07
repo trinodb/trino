@@ -55,11 +55,11 @@ public final class PhoenixQueryRunner
     }
 
     // TODO convert to builder
-    private static QueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> extraProperties, List<TpchTable<?>> tables)
+    private static QueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> coordinatorProperties, List<TpchTable<?>> tables)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
 
         queryRunner.installPlugin(new TpchPlugin());
