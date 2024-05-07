@@ -27,7 +27,9 @@ import java.util.Optional;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.constant;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 
@@ -35,7 +37,8 @@ public class RewriteExactNumericConstant
         implements ConnectorExpressionRule<Constant, ParameterizedExpression>
 {
     private static final Pattern<Constant> PATTERN = constant().with(type().matching(type ->
-            type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type instanceof DecimalType));
+            type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT
+                    || type == REAL || type == DOUBLE || type instanceof DecimalType));
 
     @Override
     public Pattern<Constant> getPattern()
@@ -52,7 +55,7 @@ public class RewriteExactNumericConstant
             // TODO we could handle NULL values too
             return Optional.empty();
         }
-        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type instanceof DecimalType) {
+        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type == REAL || type == DOUBLE || type instanceof DecimalType) {
             return Optional.of(new ParameterizedExpression("?", ImmutableList.of(new QueryParameter(type, Optional.of(value)))));
         }
 
