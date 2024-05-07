@@ -21,6 +21,8 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hive.formats.avro.AvroCompressionKind;
+import io.trino.hive.formats.avro.HiveAvroTypeBlockHandler;
+import io.trino.hive.formats.avro.HiveAvroTypeManager;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveCompressionCodec;
@@ -52,6 +54,7 @@ import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static java.util.Objects.requireNonNull;
 
 public class AvroFileWriterFactory
@@ -120,7 +123,8 @@ public class AvroFileWriterFactory
                     outputFile.create(outputStreamMemoryContext),
                     outputStreamMemoryContext,
                     fileSchema,
-                    new HiveAvroTypeManager(hiveTimestampPrecision),
+                    new HiveAvroTypeManager(),
+                    new HiveAvroTypeBlockHandler(createTimestampType(hiveTimestampPrecision.getPrecision())),
                     rollbackAction,
                     inputColumnNames,
                     inputColumnTypes,

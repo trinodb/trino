@@ -13,24 +13,32 @@
  */
 package io.trino.hive.formats.avro;
 
-import io.trino.spi.block.Block;
+import io.trino.hive.formats.avro.model.AvroReadAction;
 import io.trino.spi.type.Type;
 import org.apache.avro.Schema;
 
-import java.util.Optional;
-import java.util.function.BiFunction;
+import java.util.Map;
 
-public class NoOpAvroTypeManager
-        implements AvroTypeManager
+import static io.trino.hive.formats.avro.BaseAvroTypeBlockHandlerImpls.baseBlockBuildingDecoderFor;
+import static io.trino.hive.formats.avro.BaseAvroTypeBlockHandlerImpls.baseTypeFor;
+
+public class BaseAvroTypeBlockHandler
+        implements AvroTypeBlockHandler
 {
-    public static final NoOpAvroTypeManager INSTANCE = new NoOpAvroTypeManager();
-
-    private NoOpAvroTypeManager() {}
+    @Override
+    public void configure(Map<String, byte[]> fileMetadata) {}
 
     @Override
-    public Optional<BiFunction<Block, Integer, Object>> overrideBlockToAvroObject(Schema schema, Type type)
+    public Type typeFor(Schema schema)
             throws AvroTypeException
     {
-        return Optional.empty();
+        return baseTypeFor(schema, this);
+    }
+
+    @Override
+    public BlockBuildingDecoder blockBuildingDecoderFor(AvroReadAction readAction)
+            throws AvroTypeException
+    {
+        return baseBlockBuildingDecoderFor(readAction, this);
     }
 }

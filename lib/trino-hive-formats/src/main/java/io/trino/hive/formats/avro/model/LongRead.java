@@ -13,12 +13,11 @@
  */
 package io.trino.hive.formats.avro.model;
 
-import io.trino.hive.formats.avro.AvroPageDataReader;
 import org.apache.avro.Schema;
 import org.apache.avro.io.Decoder;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.hive.formats.avro.AvroPageDataReader.getLongDecoderFunction;
+import static io.trino.hive.formats.avro.model.AvroReadAction.getLongDecoderFunction;
 import static java.util.Objects.requireNonNull;
 
 public final class LongRead
@@ -26,7 +25,7 @@ public final class LongRead
 {
     private final Schema readSchema;
     private final Schema writeSchema;
-    private final AvroPageDataReader.LongIoFunction<Decoder> longDecoder;
+    private final LongIoFunction<Decoder> longDecoder;
 
     LongRead(Schema readSchema, Schema writeSchema)
     {
@@ -48,7 +47,7 @@ public final class LongRead
         return writeSchema;
     }
 
-    public AvroPageDataReader.LongIoFunction<Decoder> getLongDecoder()
+    public LongIoFunction<Decoder> getLongDecoder()
     {
         return longDecoder;
     }

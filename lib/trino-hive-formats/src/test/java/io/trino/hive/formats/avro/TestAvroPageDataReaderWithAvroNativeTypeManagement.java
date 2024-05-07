@@ -181,7 +181,7 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
             throws IOException, AvroTypeException
     {
         TrinoInputFile input = createWrittenFileWithData(ALL_SUPPORTED_TYPES_SCHEMA, ImmutableList.of(ALL_SUPPORTED_TYPES_GENERIC_RECORD));
-        try (AvroFileReader pageIterator = new AvroFileReader(input, ALL_SUPPORTED_TYPES_SCHEMA, new NativeLogicalTypesAvroTypeManager())) {
+        try (AvroFileReader pageIterator = new AvroFileReader(input, ALL_SUPPORTED_TYPES_SCHEMA, new NativeLogicalTypesAvroTypeBlockHandler())) {
             while (pageIterator.hasNext()) {
                 Page p = pageIterator.next();
                 assertIsAllSupportedTypePage(p);
@@ -213,7 +213,7 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
                 .endRecord();
 
         TrinoInputFile input = createWrittenFileWithSchema(10, writeSchema);
-        try (AvroFileReader avroFileReader = new AvroFileReader(input, schema, new NativeLogicalTypesAvroTypeManager())) {
+        try (AvroFileReader avroFileReader = new AvroFileReader(input, schema, new NativeLogicalTypesAvroTypeBlockHandler())) {
             int totalRecords = 0;
             while (avroFileReader.hasNext()) {
                 Page p = avroFileReader.next();
@@ -251,14 +251,14 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 ALL_SUPPORTED_TYPES_SCHEMA.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                AvroTypeUtils.typeFromAvro(ALL_SUPPORTED_TYPES_SCHEMA, new NativeLogicalTypesAvroTypeManager()).getTypeParameters(), false)) {
+                new NativeLogicalTypesAvroTypeBlockHandler().typeFor(ALL_SUPPORTED_TYPES_SCHEMA).getTypeParameters(), false)) {
             fileWriter.write(ALL_SUPPORTED_PAGE);
         }
 
         try (AvroFileReader fileReader = new AvroFileReader(
                 trinoLocalFilesystem.newInputFile(testLocation),
                 ALL_SUPPORTED_TYPES_SCHEMA,
-                new NativeLogicalTypesAvroTypeManager())) {
+                new NativeLogicalTypesAvroTypeBlockHandler())) {
             assertThat(fileReader.hasNext()).isTrue();
             assertIsAllSupportedTypePage(fileReader.next());
             assertThat(fileReader.hasNext()).isFalse();
