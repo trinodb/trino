@@ -52,7 +52,7 @@ public interface ConnectorSplit
     @JsonIgnore
     default Object getInfo()
     {
-        throw new UnsupportedOperationException("getInfo is deprecated and will be removed in the future. Use getMetadata instead.");
+        throw new UnsupportedOperationException("getInfo is deprecated and will be removed in the future. Use getSplitInfo instead.");
     }
 
     default SplitWeight getSplitWeight()
