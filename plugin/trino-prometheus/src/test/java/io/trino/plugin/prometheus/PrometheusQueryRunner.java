@@ -34,7 +34,15 @@ public final class PrometheusQueryRunner
 {
     private PrometheusQueryRunner() {}
 
-    public static QueryRunner createPrometheusQueryRunner(PrometheusServer server, Map<String, String> extraProperties, Map<String, String> connectorProperties)
+    // TODO convert to builder
+    public static QueryRunner createPrometheusQueryRunner(PrometheusServer server, Map<String, String> connectorProperties)
+            throws Exception
+    {
+        return createPrometheusQueryRunner(server, ImmutableMap.of(), connectorProperties);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createPrometheusQueryRunner(PrometheusServer server, Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
         QueryRunner queryRunner = null;

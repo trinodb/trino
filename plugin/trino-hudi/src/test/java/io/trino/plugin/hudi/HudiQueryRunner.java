@@ -34,6 +34,8 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class HudiQueryRunner
 {
+    private HudiQueryRunner() {}
+
     static {
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.hudi", Level.OFF);
@@ -41,9 +43,17 @@ public final class HudiQueryRunner
 
     private static final String SCHEMA_NAME = "tests";
 
-    private HudiQueryRunner() {}
-
+    // TODO convert to builder
     public static QueryRunner createHudiQueryRunner(
+            Map<String, String> connectorProperties,
+            HudiTablesInitializer dataLoader)
+            throws Exception
+    {
+        return createHudiQueryRunner(ImmutableMap.of(), connectorProperties, dataLoader);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createHudiQueryRunner(
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             HudiTablesInitializer dataLoader)

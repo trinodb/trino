@@ -32,7 +32,6 @@ public class TestRedisLatestConnectorTest
         RedisServer redisServer = closeAfterClass(new RedisServer(LATEST_VERSION, true));
         return createRedisQueryRunner(
                 redisServer,
-                ImmutableMap.of(),
                 ImmutableMap.of("redis.user", USER, "redis.password", PASSWORD),
                 "string",
                 REQUIRED_TPCH_TABLES);

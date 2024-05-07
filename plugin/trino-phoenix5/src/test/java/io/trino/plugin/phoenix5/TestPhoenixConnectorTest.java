@@ -77,7 +77,7 @@ public class TestPhoenixConnectorTest
             throws Exception
     {
         testingPhoenixServer = closeAfterClass(TestingPhoenixServer.getInstance()).get();
-        return createPhoenixQueryRunner(testingPhoenixServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createPhoenixQueryRunner(testingPhoenixServer, REQUIRED_TPCH_TABLES);
     }
 
     @Override

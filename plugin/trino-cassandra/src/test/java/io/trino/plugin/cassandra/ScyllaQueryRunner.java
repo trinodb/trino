@@ -37,6 +37,15 @@ public final class ScyllaQueryRunner
 
     public static QueryRunner createScyllaQueryRunner(
             TestingScyllaServer server,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createScyllaQueryRunner(server, Map.of(), tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createScyllaQueryRunner(
+            TestingScyllaServer server,
             Map<String, String> extraProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception

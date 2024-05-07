@@ -32,7 +32,6 @@ public class TestHudiConnectorTest
             throws Exception
     {
         return createHudiQueryRunner(
-                ImmutableMap.of(),
                 ImmutableMap.of("hudi.columns-to-hide", COLUMNS_TO_HIDE),
                 new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES));
     }

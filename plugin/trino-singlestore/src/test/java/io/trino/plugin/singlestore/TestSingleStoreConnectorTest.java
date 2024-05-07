@@ -54,7 +54,7 @@ public class TestSingleStoreConnectorTest
             throws Exception
     {
         singleStoreServer = new TestingSingleStoreServer();
-        return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @AfterAll

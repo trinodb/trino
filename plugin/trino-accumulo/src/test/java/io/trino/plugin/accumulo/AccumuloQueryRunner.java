@@ -53,7 +53,14 @@ public final class AccumuloQueryRunner
 
     private AccumuloQueryRunner() {}
 
-    public static synchronized QueryRunner createAccumuloQueryRunner(Map<String, String> extraProperties)
+    public static synchronized QueryRunner createAccumuloQueryRunner()
+            throws Exception
+    {
+        return createAccumuloQueryRunner(ImmutableMap.of());
+    }
+
+    // TODO convert to builder
+    private static synchronized QueryRunner createAccumuloQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())

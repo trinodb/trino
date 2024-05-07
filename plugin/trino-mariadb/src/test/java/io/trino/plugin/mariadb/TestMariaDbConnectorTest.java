@@ -27,7 +27,7 @@ public class TestMariaDbConnectorTest
             throws Exception
     {
         server = closeAfterClass(new TestingMariaDbServer());
-        return createMariaDbQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createMariaDbQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override

@@ -66,7 +66,6 @@ public class TestDruidCaseInsensitiveMapping
         mappingFile = createRuleBasedIdentifierMappingFile();
         QueryRunner queryRunner = createDruidQueryRunnerTpch(
                 druidServer,
-                ImmutableMap.of(),
                 ImmutableMap.of("case-insensitive-name-matching", "true",
                         "case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath(),
                         "case-insensitive-name-matching.config-file.refresh-period", "1ms"), // ~always refresh

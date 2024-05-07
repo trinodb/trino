@@ -58,7 +58,7 @@ public class TestGoogleSheets
     {
         sheetsService = getSheetsService();
         spreadsheetId = createSpreadsheetWithTestdata();
-        return createSheetsQueryRunner(ImmutableMap.of(), ImmutableMap.of(
+        return createSheetsQueryRunner(ImmutableMap.of(
                 "gsheets.metadata-sheet-id", spreadsheetId + "#Metadata",
                 "gsheets.connection-timeout", "1m",
                 "gsheets.read-timeout", "1m",

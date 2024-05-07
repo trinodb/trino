@@ -28,7 +28,7 @@ public class TestSingleStoreLatestConnectorSmokeTest
             throws Exception
     {
         TestingSingleStoreServer singleStoreServer = closeAfterClass(new TestingSingleStoreServer(TestingSingleStoreServer.LATEST_TESTED_TAG));
-        return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override

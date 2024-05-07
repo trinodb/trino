@@ -33,11 +33,21 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class IgniteQueryRunner
 {
-    private static final String IGNITE_SCHEMA = "public";
-
     private IgniteQueryRunner() {}
 
+    private static final String IGNITE_SCHEMA = "public";
+
     public static QueryRunner createIgniteQueryRunner(
+            TestingIgniteServer server,
+            Map<String, String> connectorProperties,
+            List<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createIgniteQueryRunner(server, ImmutableMap.of(), connectorProperties, tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createIgniteQueryRunner(
             TestingIgniteServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
