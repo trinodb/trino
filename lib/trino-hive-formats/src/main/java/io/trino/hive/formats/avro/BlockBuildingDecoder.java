@@ -13,24 +13,13 @@
  */
 package io.trino.hive.formats.avro;
 
-import io.trino.spi.block.Block;
-import io.trino.spi.type.Type;
-import org.apache.avro.Schema;
+import io.trino.spi.block.BlockBuilder;
+import org.apache.avro.io.Decoder;
 
-import java.util.Optional;
-import java.util.function.BiFunction;
+import java.io.IOException;
 
-public class NoOpAvroTypeManager
-        implements AvroTypeManager
+public interface BlockBuildingDecoder
 {
-    public static final NoOpAvroTypeManager INSTANCE = new NoOpAvroTypeManager();
-
-    private NoOpAvroTypeManager() {}
-
-    @Override
-    public Optional<BiFunction<Block, Integer, Object>> overrideBlockToAvroObject(Schema schema, Type type)
-            throws AvroTypeException
-    {
-        return Optional.empty();
-    }
+    void decodeIntoBlock(Decoder decoder, BlockBuilder builder)
+            throws IOException;
 }
