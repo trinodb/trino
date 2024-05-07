@@ -14,6 +14,9 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
+import com.google.common.primitives.Primitives;
 import io.trino.Session;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
@@ -23,18 +26,27 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ParameterRewriter;
+import io.trino.sql.tree.Array;
+import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Property;
+import io.trino.sql.tree.StringLiteral;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
+import static io.trino.util.MoreLists.mappedCopy;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -172,6 +184,61 @@ public final class PropertyUtil
                             expression));
         }
         return sqlObjectValue;
+    }
+
+    public static List<Property> toSqlProperties(
+            Object description,
+            ErrorCodeSupplier errorCode,
+            Map<String, Object> properties,
+            Iterable<PropertyMetadata<?>> metadata)
+    {
+        if (properties.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, PropertyMetadata<?>> indexedMetadata = Maps.uniqueIndex(metadata, PropertyMetadata::getName);
+        ImmutableSortedMap.Builder<String, Expression> sqlProperties = ImmutableSortedMap.naturalOrder();
+
+        properties.forEach((name, value) -> {
+            if (value == null) {
+                throw new TrinoException(errorCode, "Property %s for %s cannot have a null value".formatted(name, description));
+            }
+
+            PropertyMetadata<?> property = indexedMetadata.get(name);
+            if (property == null) {
+                throw new TrinoException(errorCode, "No PropertyMetadata for property: " + name);
+            }
+            if (!Primitives.wrap(property.getJavaType()).isInstance(value)) {
+                throw new TrinoException(errorCode, "Property %s for %s should have value of type %s, not %s"
+                        .formatted(name, description, property.getJavaType().getName(), value.getClass().getName()));
+            }
+
+            sqlProperties.put(name, toExpression(errorCode, property, value));
+        });
+
+        return sqlProperties.build().entrySet().stream()
+                .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
+                .collect(toImmutableList());
+    }
+
+    private static <T> Expression toExpression(ErrorCodeSupplier errorcode, PropertyMetadata<T> property, Object value)
+            throws TrinoException
+    {
+        return toExpression(errorcode, property.encode(property.getJavaType().cast(value)));
+    }
+
+    private static Expression toExpression(ErrorCodeSupplier errorCode, Object value)
+            throws TrinoException
+    {
+        return switch (value) {
+            case String _ -> new StringLiteral(value.toString());
+            case Boolean _ -> new BooleanLiteral(value.toString());
+            case Long _, Integer _ -> new LongLiteral(value.toString());
+            case Double _ -> new DoubleLiteral(value.toString());
+            case List<?> list -> new Array(mappedCopy(list, item -> toExpression(errorCode, item)));
+            case null -> throw new TrinoException(errorCode, "Property value is null");
+            default -> throw new TrinoException(errorCode, "Failed to convert object of type %s to expression".formatted(value.getClass().getName()));
+        };
     }
 
     private static String capitalize(String value)
