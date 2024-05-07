@@ -73,7 +73,6 @@ public class TestDruidConnectorTest
         return createDruidQueryRunnerTpch(
                 druidServer,
                 ImmutableMap.of(),
-                ImmutableMap.of(),
                 ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER));
     }
 

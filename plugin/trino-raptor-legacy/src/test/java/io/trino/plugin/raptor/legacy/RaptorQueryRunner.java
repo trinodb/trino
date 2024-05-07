@@ -47,11 +47,22 @@ import static java.lang.String.format;
 
 public final class RaptorQueryRunner
 {
-    private static final Logger log = Logger.get(RaptorQueryRunner.class);
-
     private RaptorQueryRunner() {}
 
+    private static final Logger log = Logger.get(RaptorQueryRunner.class);
+
+    // TODO convert to builder
     public static QueryRunner createRaptorQueryRunner(
+            List<TpchTable<?>> tablesToLoad,
+            boolean bucketed,
+            Map<String, String> extraRaptorProperties)
+            throws Exception
+    {
+        return createRaptorQueryRunner(ImmutableMap.of(), tablesToLoad, bucketed, extraRaptorProperties);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createRaptorQueryRunner(
             Map<String, String> extraProperties,
             List<TpchTable<?>> tablesToLoad,
             boolean bucketed,

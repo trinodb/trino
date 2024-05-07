@@ -57,7 +57,7 @@ public class TestDruidTypeMapping
             throws Exception
     {
         this.druidServer = new TestingDruidServer(DRUID_DOCKER_IMAGE);
-        return createDruidQueryRunnerTpch(druidServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        return createDruidQueryRunnerTpch(druidServer, ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterAll

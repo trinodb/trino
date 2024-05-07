@@ -14,7 +14,6 @@
 package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.ArrayType;
@@ -109,7 +108,7 @@ public class TestPhoenixTypeMapping
             throws Exception
     {
         phoenixServer = closeAfterClass(TestingPhoenixServer.getInstance()).get();
-        return createPhoenixQueryRunner(phoenixServer, ImmutableMap.of(), ImmutableList.of());
+        return createPhoenixQueryRunner(phoenixServer, ImmutableList.of());
     }
 
     @Test

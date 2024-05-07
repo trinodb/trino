@@ -102,7 +102,7 @@ public class TestSingleStoreTypeMapping
             throws Exception
     {
         singleStoreServer = closeAfterClass(new TestingSingleStoreServer());
-        return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableList.of());
     }
 
     @BeforeAll

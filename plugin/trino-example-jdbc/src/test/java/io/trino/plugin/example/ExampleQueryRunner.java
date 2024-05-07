@@ -26,10 +26,11 @@ import java.util.Map;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class ExampleQueryRunner
+public final class ExampleQueryRunner
 {
     private ExampleQueryRunner() {}
 
+    // TODO convert to builder
     public static QueryRunner createQueryRunner()
             throws Exception
     {
@@ -38,6 +39,7 @@ public class ExampleQueryRunner
                 .setSchema("default")
                 .build();
 
+        // TODO static port binding should be in main() only
         Map<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("http-server.http.port", "8080")
                 .buildOrThrow();

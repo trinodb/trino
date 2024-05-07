@@ -50,7 +50,6 @@ public class TestIgniteCaseInsensitiveMapping
         igniteServer = closeAfterClass(TestingIgniteServer.getInstance()).get();
         return createIgniteQueryRunner(
                 igniteServer,
-                ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("case-insensitive-name-matching", "true")
                         .put("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())

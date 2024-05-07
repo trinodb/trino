@@ -80,7 +80,6 @@ public class TestSnowflakeTypeMapping
             throws Exception
     {
         return createSnowflakeQueryRunner(
-                ImmutableMap.of(),
                 ImmutableMap.of("jdbc-types-mapped-to-varchar", "ARRAY"),
                 ImmutableList.of());
     }

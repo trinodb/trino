@@ -39,7 +39,6 @@ public class TestDruidLatestConnectorSmokeTest
         return createDruidQueryRunnerTpch(
                 druidServer,
                 ImmutableMap.of(),
-                ImmutableMap.of(),
                 REQUIRED_TPCH_TABLES);
     }
 

@@ -37,13 +37,25 @@ import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
 
-public class PinotQueryRunner
+public final class PinotQueryRunner
 {
-    public static final String PINOT_CATALOG = "pinot";
-
     private PinotQueryRunner() {}
 
+    public static final String PINOT_CATALOG = "pinot";
+
+    // TODO convert to builder
     public static QueryRunner createPinotQueryRunner(
+            TestingKafka kafka,
+            TestingPinotCluster pinot,
+            Map<String, String> extraPinotProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createPinotQueryRunner(kafka, pinot, ImmutableMap.of(), extraPinotProperties, tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createPinotQueryRunner(
             TestingKafka kafka,
             TestingPinotCluster pinot,
             Map<String, String> extraProperties,

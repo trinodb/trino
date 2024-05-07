@@ -71,14 +71,22 @@ public final class ThriftQueryRunner
 
     private ThriftQueryRunner() {}
 
-    public static QueryRunner createThriftQueryRunner(int thriftServers, boolean enableIndexJoin, Map<String, String> properties)
+    // TODO convert to builder
+    public static QueryRunner createThriftQueryRunner(int thriftServers, boolean enableIndexJoin)
+            throws Exception
+    {
+        return createThriftQueryRunner(thriftServers, enableIndexJoin, Map.of());
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createThriftQueryRunner(int thriftServers, boolean enableIndexJoin, Map<String, String> extraProperties)
             throws Exception
     {
         List<DriftServer> servers = null;
         QueryRunner runner = null;
         try {
             servers = startThriftServers(thriftServers, enableIndexJoin);
-            runner = createThriftQueryRunnerInternal(servers, properties);
+            runner = createThriftQueryRunnerInternal(servers, extraProperties);
             return new ThriftQueryRunnerWithServers(runner, servers);
         }
         catch (Throwable t) {
@@ -97,8 +105,8 @@ public final class ThriftQueryRunner
             throws Exception
     {
         Logging.initialize();
-        Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        QueryRunner queryRunner = createThriftQueryRunner(3, true, properties);
+        Map<String, String> extraProperties = ImmutableMap.of("http-server.http.port", "8080");
+        QueryRunner queryRunner = createThriftQueryRunner(3, true, extraProperties);
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
@@ -121,7 +129,7 @@ public final class ThriftQueryRunner
         return servers;
     }
 
-    private static QueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, Map<String, String> properties)
+    private static QueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, Map<String, String> extraProperties)
             throws Exception
     {
         String addresses = servers.stream()
@@ -134,7 +142,7 @@ public final class ThriftQueryRunner
                 .build();
 
         QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
-                .setExtraProperties(properties)
+                .setExtraProperties(extraProperties)
                 .build();
 
         queryRunner.installPlugin(new ThriftPlugin());
