@@ -273,8 +273,8 @@ public final class IcebergUtil
     public static Optional<String> getOrcBloomFilterColumns(Map<String, String> properties)
     {
         Optional<String> orcBloomFilterColumns = Stream.of(
-                    properties.get(ORC_BLOOM_FILTER_COLUMNS),
-                    properties.get(BROKEN_ORC_BLOOM_FILTER_COLUMNS_KEY))
+                        properties.get(ORC_BLOOM_FILTER_COLUMNS),
+                        properties.get(BROKEN_ORC_BLOOM_FILTER_COLUMNS_KEY))
                 .filter(Objects::nonNull)
                 .findFirst();
         return orcBloomFilterColumns;
@@ -283,8 +283,8 @@ public final class IcebergUtil
     public static Optional<String> getOrcBloomFilterFpp(Map<String, String> properties)
     {
         return Stream.of(
-                    properties.get(ORC_BLOOM_FILTER_FPP),
-                    properties.get(BROKEN_ORC_BLOOM_FILTER_FPP_KEY))
+                        properties.get(ORC_BLOOM_FILTER_FPP),
+                        properties.get(BROKEN_ORC_BLOOM_FILTER_FPP_KEY))
                 .filter(Objects::nonNull)
                 .findFirst();
     }
@@ -612,6 +612,15 @@ public final class IcebergUtil
     public static Map<Integer, Optional<String>> getPartitionKeys(FileScanTask scanTask)
     {
         return getPartitionKeys(scanTask.file().partition(), scanTask.spec());
+    }
+
+    public static Map<Integer, Optional<String>> getPartitionKeys(Schema tableSchema, PartitionSpec partitionSpec, String partitionDataJson)
+    {
+        org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(tableSchema.findType(field.sourceId())))
+                .toArray(org.apache.iceberg.types.Type[]::new);
+        PartitionData partitionData = PartitionData.fromJson(partitionDataJson, partitionColumnTypes);
+        return getPartitionKeys(partitionData, partitionSpec);
     }
 
     public static Map<Integer, Optional<String>> getPartitionKeys(StructLike partition, PartitionSpec spec)
