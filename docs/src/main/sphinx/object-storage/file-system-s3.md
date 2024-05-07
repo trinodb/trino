@@ -68,7 +68,16 @@ support:
 * - `s3.http-proxy`
   - URL of a HTTP proxy server to use for connecting to S3.
 * - `s3.http-proxy.secure`
-  - Set to `true` to enable HTTPS for the proxy server..
+  - Set to `true` to enable HTTPS for the proxy server.
+* - `s3.retry-mode`
+  - Specifies how the AWS SDK attempts retries. Default value is `LEGACY`.
+    Other allowed values are `STANDARD` and `ADAPTIVE`. The `STANDARD` mode
+    includes a standard set of errors that are retried. `ADAPTIVE` mode is
+    experimental, which includes the functionality of `STANDARD` mode and
+    includes automatic client-side throttling.
+* - `s3.max-error-retries`
+  - Specifies maximum number of retries the client will make on errors.
+    Defaults to `10`.
 :::
 
 ## Authentication

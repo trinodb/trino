@@ -60,6 +60,22 @@ public class S3FileSystemConfig
         }
     }
 
+    public enum RetryMode
+    {
+        STANDARD,
+        LEGACY,
+        ADAPTIVE;
+
+        public static software.amazon.awssdk.core.retry.RetryMode getRetryMode(RetryMode retryMode)
+        {
+            return switch (retryMode) {
+                case STANDARD -> software.amazon.awssdk.core.retry.RetryMode.STANDARD;
+                case LEGACY -> software.amazon.awssdk.core.retry.RetryMode.LEGACY;
+                case ADAPTIVE -> software.amazon.awssdk.core.retry.RetryMode.ADAPTIVE;
+            };
+        }
+    }
+
     private String awsAccessKey;
     private String awsSecretKey;
     private String endpoint;
@@ -83,6 +99,8 @@ public class S3FileSystemConfig
     private HostAndPort httpProxy;
     private boolean httpProxySecure;
     private ObjectCannedAcl objectCannedAcl = ObjectCannedAcl.NONE;
+    private RetryMode retryMode = RetryMode.LEGACY;
+    private int maxErrorRetries = 10;
 
     public String getAwsAccessKey()
     {
@@ -221,6 +239,32 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setCannedAcl(ObjectCannedAcl objectCannedAcl)
     {
         this.objectCannedAcl = objectCannedAcl;
+        return this;
+    }
+
+    public RetryMode getRetryMode()
+    {
+        return retryMode;
+    }
+
+    @Config("s3.retry-mode")
+    @ConfigDescription("Specifies how the AWS SDK attempts retries, default is LEGACY")
+    public S3FileSystemConfig setRetryMode(RetryMode retryMode)
+    {
+        this.retryMode = retryMode;
+        return this;
+    }
+
+    @Min(1) // minimum set to 1 as the SDK validates this has to be > 0
+    public int getMaxErrorRetries()
+    {
+        return maxErrorRetries;
+    }
+
+    @Config("s3.max-error-retries")
+    public S3FileSystemConfig setMaxErrorRetries(int maxErrorRetries)
+    {
+        this.maxErrorRetries = maxErrorRetries;
         return this;
     }
 
