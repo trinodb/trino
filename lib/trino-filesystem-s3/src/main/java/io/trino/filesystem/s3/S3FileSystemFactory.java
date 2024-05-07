@@ -25,6 +25,7 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.regions.Region;
@@ -37,6 +38,7 @@ import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
 import java.net.URI;
 import java.util.Optional;
 
+import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryMode;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
@@ -53,11 +55,15 @@ public final class S3FileSystemFactory
     {
         S3ClientBuilder s3 = S3Client.builder();
 
+        RetryPolicy retryPolicy = RetryPolicy.builder(getRetryMode(config.getRetryMode()))
+                .numRetries(config.getMaxErrorRetries())
+                .build();
         s3.overrideConfiguration(ClientOverrideConfiguration.builder()
                 .addExecutionInterceptor(AwsSdkTelemetry.builder(openTelemetry)
                         .setCaptureExperimentalSpanAttributes(true)
                         .setRecordIndividualHttpError(true)
                         .build().newExecutionInterceptor())
+                .retryPolicy(retryPolicy)
                 .build());
 
         Optional<StaticCredentialsProvider> staticCredentialsProvider = getStaticCredentialsProvider(config);
