@@ -36,12 +36,6 @@ public final class TpcdsQueryRunner
     public static QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
-        return createQueryRunner(extraProperties, ImmutableMap.of());
-    }
-
-    public static QueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> coordinatorProperties)
-            throws Exception
-    {
         Session session = testSessionBuilder()
                 .setSource("test")
                 .setCatalog("tpcds")
@@ -50,7 +44,6 @@ public final class TpcdsQueryRunner
 
         QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setExtraProperties(extraProperties)
-                .setCoordinatorProperties(coordinatorProperties)
                 .build();
 
         try {
