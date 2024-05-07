@@ -142,6 +142,8 @@
 
     <properties>
         <project.build.targetJdk>22</project.build.targetJdk>
+        <!-- for reproducible build support, updated by release plugin -->
+        <project.build.outputTimestamp>2024-04-29T23:23:14Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
