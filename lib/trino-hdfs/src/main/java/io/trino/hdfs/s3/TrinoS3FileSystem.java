@@ -94,6 +94,7 @@ import io.trino.hdfs.MemoryAwareFileSystem;
 import io.trino.hdfs.OpenTelemetryAwareFileSystem;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -167,6 +168,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.hdfs.s3.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.hdfs.s3.RetryDriver.retry;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -251,6 +253,7 @@ public class TrinoS3FileSystem
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
     private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
     private static final String S3_DEFAULT_ROLE_SESSION_NAME = "trino-session";
+    private static final String S3_ACCESS_DENIED_ERROR_CODE = "AccessDenied";
     public static final int DELETE_BATCH_SIZE = 1000;
 
     static final String NO_SUCH_KEY_ERROR_CODE = "NoSuchKey";
@@ -1911,6 +1914,9 @@ public class TrinoS3FileSystem
                 }
                 catch (AmazonServiceException e) {
                     failed = true;
+                    if (e.getErrorCode().equals(S3_ACCESS_DENIED_ERROR_CODE)) {
+                        throw new TrinoException(PERMISSION_DENIED, e);
+                    }
                     throw new IOException(e);
                 }
             }
