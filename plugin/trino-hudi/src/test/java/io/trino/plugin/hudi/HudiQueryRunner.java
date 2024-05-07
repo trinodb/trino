@@ -54,14 +54,14 @@ public final class HudiQueryRunner
 
     // TODO convert to builder
     private static QueryRunner createHudiQueryRunner(
-            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             HudiTablesInitializer dataLoader)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner
                 .builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
 
         queryRunner.installPlugin(new TestingHudiPlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hudi_data")));

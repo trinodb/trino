@@ -113,7 +113,7 @@ public final class MongoQueryRunner
             throws Exception
     {
         QueryRunner queryRunner = builder(new MongoServer())
-                .addExtraProperty("http-server.http.port", "8080")
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())
                 .build();
         Logger log = Logger.get(MongoQueryRunner.class);

@@ -222,7 +222,7 @@ public final class BigQueryQueryRunner
             throws Exception
     {
         QueryRunner queryRunner = BigQueryQueryRunner.builder()
-                .setExtraProperties(Map.of("http-server.http.port", "8080"))
+                .setCoordinatorProperties(Map.of("http-server.http.port", "8080"))
                 .setInitialTables(TpchTable.getTables())
                 .build();
         Logger log = Logger.get(BigQueryQueryRunner.class);

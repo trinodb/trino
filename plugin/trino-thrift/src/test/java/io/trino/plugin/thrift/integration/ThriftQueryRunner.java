@@ -79,14 +79,14 @@ public final class ThriftQueryRunner
     }
 
     // TODO convert to builder
-    private static QueryRunner createThriftQueryRunner(int thriftServers, boolean enableIndexJoin, Map<String, String> extraProperties)
+    private static QueryRunner createThriftQueryRunner(int thriftServers, boolean enableIndexJoin, Map<String, String> coordinatorProperties)
             throws Exception
     {
         List<DriftServer> servers = null;
         QueryRunner runner = null;
         try {
             servers = startThriftServers(thriftServers, enableIndexJoin);
-            runner = createThriftQueryRunnerInternal(servers, extraProperties);
+            runner = createThriftQueryRunnerInternal(servers, coordinatorProperties);
             return new ThriftQueryRunnerWithServers(runner, servers);
         }
         catch (Throwable t) {
@@ -105,8 +105,8 @@ public final class ThriftQueryRunner
             throws Exception
     {
         Logging.initialize();
-        Map<String, String> extraProperties = ImmutableMap.of("http-server.http.port", "8080");
-        QueryRunner queryRunner = createThriftQueryRunner(3, true, extraProperties);
+        Map<String, String> coordinatorProperties = ImmutableMap.of("http-server.http.port", "8080");
+        QueryRunner queryRunner = createThriftQueryRunner(3, true, coordinatorProperties);
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
@@ -129,7 +129,7 @@ public final class ThriftQueryRunner
         return servers;
     }
 
-    private static QueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, Map<String, String> extraProperties)
+    private static QueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, Map<String, String> coordinatorProperties)
             throws Exception
     {
         String addresses = servers.stream()
@@ -142,7 +142,7 @@ public final class ThriftQueryRunner
                 .build();
 
         QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
 
         queryRunner.installPlugin(new ThriftPlugin());

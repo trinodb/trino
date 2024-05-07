@@ -49,7 +49,7 @@ public final class IgniteQueryRunner
     // TODO convert to builder
     private static QueryRunner createIgniteQueryRunner(
             TestingIgniteServer server,
-            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             List<TpchTable<?>> tables)
             throws Exception
@@ -57,7 +57,7 @@ public final class IgniteQueryRunner
         QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());

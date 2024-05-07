@@ -46,12 +46,12 @@ public final class SheetsQueryRunner
 
     // TODO convert to builder
     private static QueryRunner createSheetsQueryRunner(
-            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
         try {
             // note: additional copy via ImmutableList so that if fails on nulls
