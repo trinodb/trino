@@ -16,7 +16,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.hudi.version>0.14.1</dep.hudi.version>
-        <dep.hbase.version>2.4.9</dep.hbase.version>
+        <dep.hbase.version>2.5.8-hadoop3</dep.hbase.version>
     </properties>
 
     <dependencies>
