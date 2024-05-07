@@ -68,9 +68,11 @@ import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -91,6 +93,13 @@ public class TestPostgreSqlClient
                     .setColumnName("c_double")
                     .setColumnType(DOUBLE)
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                    .build();
+
+    private static final JdbcColumnHandle REAL_COLUMN =
+            JdbcColumnHandle.builder()
+                    .setColumnName("c_real")
+                    .setColumnType(REAL)
+                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.REAL, Optional.of("real"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
     private static final JdbcColumnHandle VARCHAR_COLUMN =
@@ -235,15 +244,18 @@ public class TestPostgreSqlClient
                                         Logical.Operator.OR,
                                         List.of(
                                                 new Comparison(Comparison.Operator.EQUAL, new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L)),
-                                                new Comparison(Comparison.Operator.EQUAL, new Reference(BIGINT, "c_bigint_symbol_2"), new Constant(BIGINT, 415L))))),
+                                                new Comparison(Comparison.Operator.EQUAL, new Reference(REAL, "c_real_symbol"), new Constant(REAL, (long) floatToIntBits(3.14f))),
+                                                new Comparison(Comparison.Operator.EQUAL, new Reference(DOUBLE, "c_double_symbol"), new Constant(DOUBLE, 3.14))))),
                         Map.of(
                                 "c_bigint_symbol", BIGINT_COLUMN,
-                                "c_bigint_symbol_2", BIGINT_COLUMN))
+                                "c_real_symbol", REAL_COLUMN,
+                                "c_double_symbol", DOUBLE_COLUMN))
                 .orElseThrow();
-        assertThat(converted.expression()).isEqualTo("((\"c_bigint\") = (?)) OR ((\"c_bigint\") = (?))");
+        assertThat(converted.expression()).isEqualTo("((\"c_bigint\") = (?)) OR ((\"c_real\") = (?)) OR ((\"c_double\") = (?))");
         assertThat(converted.parameters()).isEqualTo(List.of(
                 new QueryParameter(BIGINT, Optional.of(42L)),
-                new QueryParameter(BIGINT, Optional.of(415L))));
+                new QueryParameter(REAL, Optional.of((long) floatToIntBits(3.14f))),
+                new QueryParameter(DOUBLE, Optional.of(3.14))));
     }
 
     @Test
@@ -279,8 +291,16 @@ public class TestPostgreSqlClient
             Optional<ParameterizedExpression> converted = JDBC_CLIENT.convertPredicate(
                     SESSION,
                     translateToConnectorExpression(
-                            new Comparison(operator, new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L))),
-                    Map.of("c_bigint_symbol", BIGINT_COLUMN));
+                            new Logical(
+                                    Logical.Operator.OR,
+                            List.of(
+                                    new Comparison(operator, new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L)),
+                                    new Comparison(operator, new Reference(REAL, "c_real_symbol"), new Constant(REAL, (long) floatToIntBits(3.14f))),
+                                    new Comparison(operator, new Reference(DOUBLE, "c_double_symbol"), new Constant(DOUBLE, 3.14))))),
+                    Map.of(
+                            "c_bigint_symbol", BIGINT_COLUMN,
+                            "c_real_symbol", REAL_COLUMN,
+                            "c_double_symbol", DOUBLE_COLUMN));
 
             switch (operator) {
                 case EQUAL:
@@ -291,8 +311,11 @@ public class TestPostgreSqlClient
                 case GREATER_THAN_OR_EQUAL:
                 case IS_DISTINCT_FROM:
                     assertThat(converted).isPresent();
-                    assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
-                    assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
+                    assertThat(converted.get().expression()).isEqualTo(format("((\"c_bigint\") %1$s (?)) OR ((\"c_real\") %1$s (?)) OR ((\"c_double\") %1$s (?))", operator.getValue()));
+                    assertThat(converted.get().parameters()).isEqualTo(List.of(
+                            new QueryParameter(BIGINT, Optional.of(42L)),
+                            new QueryParameter(REAL, Optional.of((long) floatToIntBits(3.14f))),
+                            new QueryParameter(DOUBLE, Optional.of(3.14))));
                     break;
             }
         }
