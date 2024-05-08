@@ -159,7 +159,7 @@ implementation is used:
     property is specified, it takes precedence over this catalog property.
   - Empty
 * - `iceberg.register-table-procedure.enabled`
-  - Enable to allow user to call `register_table` procedure.
+  - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
 * - `iceberg.query-partition-filter-required`
   - Set to `true` to force a query to use a partition filter. You can use the
@@ -452,16 +452,16 @@ CALL examplecatalog.system.example_procedure()
 ```
 
 (iceberg-register-table)=
-
 #### Register table
 
-The connector can register existing Iceberg tables with the catalog.
+The connector can register existing Iceberg tables into the metastore if
+`iceberg.register-table-procedure.enabled` is set to `true` for the catalog.
 
 The procedure `system.register_table` allows the caller to register an
 existing Iceberg table in the metastore, using its existing metadata and data
 files:
 
-```
+```sql
 CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44')
 ```
 
@@ -470,7 +470,7 @@ metadata. This may be used to register the table with some specific table state,
 or may be necessary if the connector cannot automatically figure out the
 metadata version to use:
 
-```
+```sql
 CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44', metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json')
 ```
 
@@ -479,15 +479,15 @@ default. The procedure is enabled only when
 `iceberg.register-table-procedure.enabled` is set to `true`.
 
 (iceberg-unregister-table)=
-
 #### Unregister table
 
-The connector can unregister existing Iceberg tables from the catalog.
+The connector can remove existing Iceberg tables from the metastore. Once
+unregistered, you can no longer query the table from Trino.
 
 The procedure `system.unregister_table` allows the caller to unregister an
 existing Iceberg table from the metastores without deleting the data:
 
-```
+```sql
 CALL example.system.unregister_table(schema_name => 'testdb', table_name => 'customer_orders')
 ```
 
@@ -1530,7 +1530,7 @@ The connector supports the table functions described in the following sections.
 
 Allows reading row-level changes between two versions of an Iceberg table.
 The following query shows an example of displaying the changes of the `t1`
-table in the `default` schema in the current catalog. 
+table in the `default` schema in the current catalog.
 All changes between the start and end snapshots are returned.
 
 ```sql
@@ -1549,7 +1549,7 @@ FROM
 
 The function takes the following required parameters:
 
-- `schema_name` 
+- `schema_name`
   : Name of the schema for which the function is called.
 - `table_name`
   : Name of the table for which the function is called.
@@ -1561,7 +1561,7 @@ The function takes the following required parameters:
 Use the `$snapshots` metadata table to determine the snapshot IDs of the
 table.
 
-The function returns the columns present in the table, and the following values 
+The function returns the columns present in the table, and the following values
 for each change:
 
 - `_change_type`
@@ -1599,19 +1599,19 @@ INSERT INTO test_schema.pages
 Retrieve the snapshot identifiers of the changes performed on the table:
 
 ```
-SELECT 
+SELECT
     snapshot_id,
-    parent_id, 
-    operation 
+    parent_id,
+    operation
 FROM test_schema."pages$snapshots";
 ```
 
 ```text
-     snapshot_id     |      parent_id      | operation 
+     snapshot_id     |      parent_id      | operation
 ---------------------+---------------------+-----------
- 2009020668682716382 |                NULL | append    
- 2135434251890923160 | 2009020668682716382 | append    
- 3108755571950643966 | 2135434251890923160 | append    
+ 2009020668682716382 |                NULL | append
+ 2135434251890923160 | 2009020668682716382 | append
+ 3108755571950643966 | 2135434251890923160 | append
 (3 rows)
 
 ```
@@ -1634,14 +1634,14 @@ ORDER BY _change_ordinal ASC;
 ```
 
 ```text
- page_url | domain  | views | _change_type | _change_version_id  |      _change_timestamp      | _change_ordinal 
+ page_url | domain  | views | _change_type | _change_version_id  |      _change_timestamp      | _change_ordinal
 ----------+---------+-------+--------------+---------------------+-----------------------------+-----------------
- url1     | domain1 |     1 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0 
- url2     | domain2 |     2 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0 
- url3     | domain1 |     3 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0 
- url4     | domain1 |   400 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1 
- url5     | domain2 |   500 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1 
- url6     | domain3 |     2 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1 
+ url1     | domain1 |     1 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url2     | domain2 |     2 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url3     | domain1 |     3 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url4     | domain1 |   400 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
+ url5     | domain2 |   500 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
+ url6     | domain3 |     2 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
 (6 rows)
 ```
 

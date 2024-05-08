@@ -176,7 +176,7 @@ values. Typical usage does not require you to configure them.
   - Use randomized, unique table locations.
   - `true`
 * - `delta.register-table-procedure.enabled`
-  - Enable to allow users to call the `register_table` procedure.
+  - Enable to allow users to call the [`register_table` procedure](delta-lake-register-table).
   - `false`
 * - `delta.vacuum.min-retention`
   - Minimum retention threshold for the files taken into account for removal by
@@ -446,17 +446,16 @@ CALL examplecatalog.system.example_procedure()
 ```
 
 (delta-lake-register-table)=
-
 #### Register table
 
-The connector can register table into the metastore with existing transaction
-logs and data files.
+The connector can register existing Delta Lake tables into the metastore if
+`delta.register-table-procedure.enabled` is set to `true` for the catalog.
 
 The `system.register_table` procedure allows the caller to register an
 existing Delta Lake table in the metastore, using its existing transaction logs
 and data files:
 
-```
+```sql
 CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 's3://my-bucket/a/path')
 ```
 
@@ -465,15 +464,15 @@ default. The procedure is enabled only when
 `delta.register-table-procedure.enabled` is set to `true`.
 
 (delta-lake-unregister-table)=
-
 #### Unregister table
 
-The connector can unregister existing Delta Lake tables from the metastore.
+The connector can remove existing Delta Lake tables from the metastore. Once
+unregistered, you can no longer query the table from Trino.
 
 The procedure `system.unregister_table` allows the caller to unregister an
 existing Delta Lake table from the metastores without deleting the data:
 
-```
+```sql
 CALL example.system.unregister_table(schema_name => 'testdb', table_name => 'customer_orders')
 ```
 
