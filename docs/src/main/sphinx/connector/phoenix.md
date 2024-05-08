@@ -202,8 +202,6 @@ table:
   - `VARCHAR(n)`
 * - `VARBINARY`
   - `VARBINARY`
-* - `TIME`
-  - `TIME`
 * - `DATE`
   - `DATE`
 * - `ARRAY`
