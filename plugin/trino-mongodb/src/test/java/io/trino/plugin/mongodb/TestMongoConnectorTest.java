@@ -147,6 +147,17 @@ public class TestMongoConnectorTest
                 "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
     }
 
+    @Test
+    @Override // Override because the failure message is different
+    public void testSelectVersionOfNonExistentTable()
+    {
+        String tableName = "foo_" + randomNameSuffix();
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))
+                .failure().hasMessage("This connector does not support versioned tables");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'version1'"))
+                .failure().hasMessage("This connector does not support versioned tables");
+    }
+
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
