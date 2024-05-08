@@ -48,6 +48,9 @@ public class LanceSplitManager
     {
         List<String> fragments = Collections.emptyList();
         // TODO: add support for splits based on fragments, now entire table is only 1 fragment, thus one split
+        // b/c fragments are coming from datasets.getFragments()
+        // we need to prevent dataset changes between plan gen (this thread) and actual pagesource creation (runtime)
+        // so we need to keep version
         return new FixedSplitSource(new LanceSplit(fragments));
     }
 }

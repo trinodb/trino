@@ -28,8 +28,10 @@ import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.List;
 import java.util.Map;
@@ -120,6 +122,12 @@ public class LanceMetadata
             ColumnHandle columnHandle)
     {
         return ((LanceColumnHandle) columnHandle).getColumnMetadata();
+    }
+
+    @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session,
+            ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments) {
+        throw new UnsupportedOperationException("unsupported");
     }
 
     @Override

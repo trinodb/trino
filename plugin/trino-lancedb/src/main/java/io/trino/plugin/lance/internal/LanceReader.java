@@ -30,6 +30,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,6 +38,7 @@ import java.util.stream.Stream;
 
 public class LanceReader
 {
+    // TODO: fix allocator should be size of metadata, not actual data
     private static final BufferAllocator allocator = new RootAllocator(
             RootAllocator.configBuilder().from(RootAllocator.defaultConfig()).maxAllocation(Integer.MAX_VALUE).build());
 
@@ -55,8 +57,7 @@ public class LanceReader
     private static Schema getSchema(String tablePath)
     {
         try (Dataset dataset = Dataset.open(tablePath, allocator)) {
-            Scanner scanner = dataset.newScan();
-            return scanner.schema();
+            return dataset.getSchema();
         }
     }
 
@@ -77,7 +78,7 @@ public class LanceReader
                     .map(f -> new SchemaTableName(schema, f.getFileName().toString())).collect(Collectors.toList());
         }
         catch (IOException e) {
-            return null;
+            return Collections.emptyList();
         }
     }
 

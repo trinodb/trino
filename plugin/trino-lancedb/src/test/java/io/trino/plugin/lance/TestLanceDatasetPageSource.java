@@ -5,13 +5,17 @@ import io.trino.plugin.lance.internal.LanceReader;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import org.junit.BeforeClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.net.URL;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
+@TestInstance(PER_METHOD)
 public class TestLanceDatasetPageSource
 {
     private static final SchemaTableName TEST_TABLE_1 = new SchemaTableName("default", "test_table1");
@@ -28,7 +32,7 @@ public class TestLanceDatasetPageSource
                 .isNotNull();
         LanceConfig lanceConfig = new LanceConfig().setLanceDbUri(lanceDbURL.toString());
         LanceReader lanceReader = new LanceReader(lanceConfig);
-        metadata = new LanceMetadata(lanceReader, lanceConfig);
+        this.metadata = new LanceMetadata(lanceReader, lanceConfig);
     }
 
     @Test

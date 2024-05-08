@@ -345,9 +345,16 @@
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED -Djdk.attach.allowAttachSelf</argLine>
+                    <systemPropertyVariables>
+                        <junit.jupiter.execution.parallel.enabled>false</junit.jupiter.execution.parallel.enabled>
+                    </systemPropertyVariables>
+                    <argLine>
+                        <!-- this doesnt work! need to manually attach the argline b/c forkCount = 0-->
+                        --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED
+                    </argLine>
                     <forkNode implementation="org.apache.maven.plugin.surefire.extensions.SurefireForkNodeFactory"/>
                     <useSystemClassLoader>false</useSystemClassLoader>
+<!--                    <forkCount>0</forkCount>-->
                 </configuration>
             </plugin>
             <plugin>

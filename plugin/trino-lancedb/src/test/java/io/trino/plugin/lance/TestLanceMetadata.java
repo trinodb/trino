@@ -23,6 +23,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.junit.BeforeClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -33,13 +34,16 @@ import java.util.Optional;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
 @TestInstance(PER_METHOD)
 public class TestLanceMetadata
 {
-    private static final LanceTableHandle TEST_TABLE_1_HANDLE = new LanceTableHandle("example", "test_table1");
-    private static final LanceTableHandle TEST_TABLE_2_HANDLE = new LanceTableHandle("example", "test_table2");
+    private static final LanceTableHandle TEST_TABLE_1_HANDLE = new LanceTableHandle("test_table1",
+            Resources.getResource(TestLanceMetadata.class, "/example_db/test_table1").getPath());
+    private static final LanceTableHandle TEST_TABLE_2_HANDLE = new LanceTableHandle("test_table2",
+            Resources.getResource(TestLanceMetadata.class, "/example_db/test_table2").getPath());
     private LanceMetadata metadata;
 
     @BeforeEach
