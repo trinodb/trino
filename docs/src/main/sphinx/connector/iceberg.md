@@ -161,7 +161,7 @@ implementation is used:
     property is specified, it takes precedence over this catalog property.
   - Empty
 * - `iceberg.register-table-procedure.enabled`
-  - Enable to allow user to call `register_table` procedure.
+  - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
 * - `iceberg.query-partition-filter-required`
   - Set to `true` to force a query to use a partition filter. You can use the
@@ -456,13 +456,14 @@ CALL examplecatalog.system.example_procedure()
 (iceberg-register-table)=
 #### Register table
 
-The connector can register existing Iceberg tables with the catalog.
+The connector can register existing Iceberg tables into the metastore if
+`iceberg.register-table-procedure.enabled` is set to `true` for the catalog.
 
 The procedure `system.register_table` allows the caller to register an
 existing Iceberg table in the metastore, using its existing metadata and data
 files:
 
-```
+```sql
 CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44')
 ```
 
@@ -471,7 +472,7 @@ metadata. This may be used to register the table with some specific table state,
 or may be necessary if the connector cannot automatically figure out the
 metadata version to use:
 
-```
+```sql
 CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44', metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json')
 ```
 
@@ -482,12 +483,13 @@ default. The procedure is enabled only when
 (iceberg-unregister-table)=
 #### Unregister table
 
-The connector can unregister existing Iceberg tables from the catalog.
+The connector can remove existing Iceberg tables from the metastore. Once
+unregistered, you can no longer query the table from Trino.
 
 The procedure `system.unregister_table` allows the caller to unregister an
 existing Iceberg table from the metastores without deleting the data:
 
-```
+```sql
 CALL example.system.unregister_table(schema_name => 'testdb', table_name => 'customer_orders')
 ```
 
