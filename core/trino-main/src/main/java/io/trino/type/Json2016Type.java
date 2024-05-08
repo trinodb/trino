@@ -13,7 +13,10 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.util.ByteArrayBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.slice.Slice;
@@ -28,14 +31,23 @@ import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
-import static io.airlift.slice.Slices.utf8Slice;
+import java.io.IOException;
+
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.util.JsonUtil.createJsonFactory;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class Json2016Type
         extends AbstractVariableWidthType
 {
     public static final Json2016Type JSON_2016 = new Json2016Type();
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+
+    static {
+        // Changes factory. Necessary for JsonParser.readValueAsTree to work.
+        new ObjectMapper(JSON_FACTORY);
+    }
 
     public Json2016Type()
     {
@@ -61,10 +73,10 @@ public class Json2016Type
         if (json.equals(JSON_ERROR.toString())) {
             return JSON_ERROR;
         }
-        try {
-            return MAPPER.readTree(json);
+        try (JsonParser parser = JSON_FACTORY.createParser(json)) {
+            return parser.readValueAsTree();
         }
-        catch (JsonProcessingException e) {
+        catch (IOException e) {
             throw new JsonInputConversionException(e);
         }
     }
@@ -72,19 +84,21 @@ public class Json2016Type
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        String json;
+        byte[] json;
         if (value == JSON_ERROR) {
-            json = JSON_ERROR.toString();
+            json = JSON_ERROR.toString().getBytes(UTF_8);
         }
         else {
-            try {
-                json = MAPPER.writeValueAsString(value);
+            ByteArrayBuilder builder = new ByteArrayBuilder();
+            try (JsonGenerator generator = JSON_FACTORY.createGenerator(builder)) {
+                generator.writeObject(value);
             }
-            catch (JsonProcessingException e) {
+            catch (IOException e) {
                 throw new JsonOutputConversionException(e);
             }
+            json = builder.toByteArray();
         }
-        Slice bytes = utf8Slice(json);
+        Slice bytes = wrappedBuffer(json);
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(bytes);
     }
 }

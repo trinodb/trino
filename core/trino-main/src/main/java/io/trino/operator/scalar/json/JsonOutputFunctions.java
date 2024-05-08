@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.json;
 
 import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.util.ByteArrayBuilder;
@@ -40,6 +41,7 @@ import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_OBJECT;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.NULL;
+import static io.trino.util.JsonUtil.createJsonFactory;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -60,7 +62,13 @@ public final class JsonOutputFunctions
     public static final String JSON_TO_VARBINARY_UTF16 = "$json_to_varbinary_utf16";
     public static final String JSON_TO_VARBINARY_UTF32 = "$json_to_varbinary_utf32";
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+
+    static {
+        // Changes factory. Necessary for JsonParser.readValueAsTree to work.
+        new ObjectMapper(JSON_FACTORY);
+    }
+
     private static final EncodingSpecificConstants UTF_8 = new EncodingSpecificConstants(
             JsonEncoding.UTF8,
             StandardCharsets.UTF_8,
@@ -126,8 +134,8 @@ public final class JsonOutputFunctions
         }
 
         ByteArrayBuilder builder = new ByteArrayBuilder();
-        try (JsonGenerator generator = MAPPER.createGenerator(builder, constants.jsonEncoding)) {
-            MAPPER.writeTree(generator, json);
+        try (JsonGenerator generator = JSON_FACTORY.createGenerator(builder, constants.jsonEncoding)) {
+            generator.writeTree(json);
         }
         catch (JsonProcessingException e) {
             if (errorBehavior == NULL.ordinal()) {

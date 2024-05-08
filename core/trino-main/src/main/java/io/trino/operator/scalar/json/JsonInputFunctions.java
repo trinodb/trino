@@ -13,6 +13,8 @@
  */
 package io.trino.operator.scalar.json;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,6 +31,7 @@ import java.nio.charset.Charset;
 
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.util.JsonUtil.createJsonFactory;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -56,7 +59,13 @@ public final class JsonInputFunctions
     public static final String VARBINARY_UTF16_TO_JSON = "$varbinary_utf16_to_json";
     public static final String VARBINARY_UTF32_TO_JSON = "$varbinary_utf32_to_json";
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+
+    static {
+        // Changes factory. Necessary for JsonParser.readValueAsTree to work.
+        new ObjectMapper(JSON_FACTORY);
+    }
+
     private static final Charset UTF_32LE = Charset.forName("UTF-32LE");
 
     private JsonInputFunctions() {}
@@ -102,8 +111,8 @@ public final class JsonInputFunctions
 
     private static JsonNode toJson(Reader reader, boolean failOnError)
     {
-        try {
-            return MAPPER.readTree(reader);
+        try (JsonParser parser = JSON_FACTORY.createParser(reader)) {
+            return parser.readValueAsTree();
         }
         catch (JsonProcessingException e) {
             if (failOnError) {
