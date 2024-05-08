@@ -108,6 +108,7 @@ public class TrinoIcebergSnowflakeCatalogFactory
                 .put(PROPERTY_PREFIX + "user", snowflakeUser)
                 .put(PROPERTY_PREFIX + "password", snowflakePassword)
                 .put("uri", snowflakeUri.toString())
+                .put(PROPERTY_PREFIX + "JDBC_QUERY_RESULT_FORMAT", "JSON")
                 // Populate application identifier in jdbc client
                 .put(PROPERTY_PREFIX + JDBC_APPLICATION_PROPERTY, uniqueAppIdentifier)
                 // Adds application identifier to the user agent header of the JDBC requests.
