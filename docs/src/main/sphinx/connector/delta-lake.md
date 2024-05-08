@@ -763,6 +763,51 @@ The output of the query has the following history columns:
   - Whether or not the operation appended data
 :::
 
+(delta-lake-partitions-table)=
+
+##### `$partitions` table
+
+The `$partitions` table provides a detailed overview of the partitions of the
+Delta Lake table.
+
+You can retrieve the information about the partitions of the Delta Lake table
+`test_table` by using the following query:
+
+```
+SELECT * FROM "test_table$partitions"
+```
+
+```text
+           partition           | file_count | total_size |                     data                     |
+-------------------------------+------------+------------+----------------------------------------------+
+{_bigint=1, _date=2021-01-12}  |          2 |        884 | {_decimal={min=1.0, max=2.0, null_count=0}}  |
+{_bigint=1, _date=2021-01-13}  |          1 |        442 | {_decimal={min=1.0, max=1.0, null_count=0}}  |
+```
+
+The output of the query has the following columns:
+
+:::{list-table} Partitions columns
+:widths: 20, 30, 50
+:header-rows: 1
+
+* - Name
+  - Type
+  - Description
+* - `partition`
+  - `ROW(...)`
+  - A row that contains the mapping of the partition column names to the
+    partition column values.
+* - `file_count`
+  - `BIGINT`
+  - The number of files mapped in the partition.
+* - `total_size`
+  - `BIGINT`
+  - The size of all the files in the partition.
+* - `data`
+  - `ROW(... ROW (min ..., max ... , null_count BIGINT))`
+  - Partition range and null counts.
+:::
+
 ##### `$properties` table
 
 The `$properties` table provides access to Delta Lake table configuration,
