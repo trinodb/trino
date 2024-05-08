@@ -265,9 +265,9 @@ public class CoordinatorModule
             List<OutputStatsEstimatorFactory> getCompositeOutputDataSizeEstimatorDelegateFactories(
                     ByTaskProgressOutputStatsEstimator.Factory byTaskProgressOutputDataSizeEstimatorFactory,
                     BySmallStageOutputStatsEstimator.Factory bySmallStageOutputDataSizeEstimatorFactory,
-                    ByEagerParentOutputStatsEstimator.Factory byEagerParentOutputDataSizeEstimatorFactoryy)
+                    ByEagerParentOutputStatsEstimator.Factory byEagerParentOutputDataSizeEstimatorFactory)
             {
-                return ImmutableList.of(byTaskProgressOutputDataSizeEstimatorFactory, bySmallStageOutputDataSizeEstimatorFactory, byEagerParentOutputDataSizeEstimatorFactoryy);
+                return ImmutableList.of(byTaskProgressOutputDataSizeEstimatorFactory, bySmallStageOutputDataSizeEstimatorFactory, byEagerParentOutputDataSizeEstimatorFactory);
             }
         });
 
