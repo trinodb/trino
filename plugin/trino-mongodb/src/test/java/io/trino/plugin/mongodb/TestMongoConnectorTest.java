@@ -703,9 +703,8 @@ public class TestMongoConnectorTest
                 .append("x", new DBRef("test_db", "test_collection", 1));
         client.getDatabase("test").getCollection(tableName).insertOne(document);
 
-        // TODO Fix MongoPageSource to throw TrinoException
         assertThat(query("SELECT * FROM test." + tableName))
-                .nonTrinoExceptionFailure().hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
+                .failure().hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
 
         assertUpdate("DROP TABLE test." + tableName);
     }

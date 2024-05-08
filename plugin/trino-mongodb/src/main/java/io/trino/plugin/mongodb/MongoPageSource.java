@@ -60,6 +60,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.trino.plugin.mongodb.MongoErrorCode.MONGODB_INVALID_TYPE;
 import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
 import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
 import static io.trino.plugin.mongodb.MongoSession.ID;
@@ -340,7 +341,9 @@ public class MongoPageSource
                 return;
             }
             if (value instanceof DBRef dbRefValue) {
-                checkState(fields.size() == 3, "DBRef should have 3 fields : %s", type);
+                if (fields.size() != 3) {
+                    throw new TrinoException(MONGODB_INVALID_TYPE, "DBRef should have 3 fields : " + type);
+                }
                 ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
                     for (int i = 0; i < fields.size(); i++) {
                         Field field = fields.get(i);
