@@ -114,6 +114,8 @@ import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.TaskContext;
+import io.trino.operator.dynamicfiltering.DynamicPageFilterCache;
+import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
 import io.trino.operator.scalar.json.JsonExistsFunction;
@@ -270,6 +272,7 @@ public class PlanTester
     private final TaskCountEstimator taskCountEstimator;
     private final TestingAccessControlManager accessControl;
     private final SplitManager splitManager;
+    private final DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
@@ -376,7 +379,8 @@ public class PlanTester
                 nodeSchedulerConfig,
                 optimizerConfig));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
-        this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
+        this.dynamicRowFilteringPageSourceProvider = new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(typeOperators));
+        this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager), dynamicRowFilteringPageSourceProvider);
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
         this.indexManager = new IndexManager(createIndexProvider(catalogManager));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));

@@ -303,6 +303,12 @@ public class DeltaLakePageSourceProvider
         }
     }
 
+    @Override
+    public boolean shouldPerformDynamicRowFiltering()
+    {
+        return true;
+    }
+
     public Map<Integer, String> loadParquetIdAndNameMapping(TrinoInputFile inputFile, ParquetReaderOptions options)
     {
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, options, fileFormatDataSourceStats)) {

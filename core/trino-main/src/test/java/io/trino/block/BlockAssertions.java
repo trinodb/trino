@@ -686,6 +686,11 @@ public final class BlockAssertions
         return createTypedLongsBlock(BIGINT, values);
     }
 
+    public static ValueBlock createTypedLongsBlock(Type type, Long... values)
+    {
+        return createBlock(type, type::writeLong, Arrays.asList(values));
+    }
+
     public static ValueBlock createTypedLongsBlock(Type type, Iterable<Long> values)
     {
         return createBlock(type, type::writeLong, values);
@@ -693,10 +698,14 @@ public final class BlockAssertions
 
     public static ValueBlock createLongSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(end - start);
+        return createLongSequenceBlock(start, end, BIGINT);
+    }
 
+    public static ValueBlock createLongSequenceBlock(int start, int end, Type type)
+    {
+        BlockBuilder builder = type.createBlockBuilder(null, end - start);
         for (int i = start; i < end; i++) {
-            BIGINT.writeLong(builder, i);
+            type.writeLong(builder, i);
         }
 
         return builder.buildValueBlock();

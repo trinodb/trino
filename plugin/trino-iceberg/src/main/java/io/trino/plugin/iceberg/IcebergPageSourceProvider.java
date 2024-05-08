@@ -471,6 +471,12 @@ public class IcebergPageSourceProvider
                 .filter((handle, domain) -> !domain.contains(fileStatisticsDomain.getDomain(handle, domain.getType())));
     }
 
+    @Override
+    public boolean shouldPerformDynamicRowFiltering()
+    {
+        return true;
+    }
+
     private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
     {
         ImmutableSet.Builder<IcebergColumnHandle> requiredColumns = ImmutableSet.builder();

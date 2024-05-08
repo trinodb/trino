@@ -234,6 +234,12 @@ public class HivePageSourceProvider
         return Optional.empty();
     }
 
+    @Override
+    public boolean shouldPerformDynamicRowFiltering()
+    {
+        return true;
+    }
+
     private static boolean shouldSkipBucket(HiveTableHandle hiveTable, HiveSplit hiveSplit, DynamicFilter dynamicFilter)
     {
         if (hiveSplit.getTableBucketNumber().isEmpty()) {

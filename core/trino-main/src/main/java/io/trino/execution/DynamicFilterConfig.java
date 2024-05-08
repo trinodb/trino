@@ -18,12 +18,16 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "dynamic-filtering-max-per-driver-row-count",
@@ -72,6 +76,9 @@ public class DynamicFilterConfig
     private int largePartitionedRangeRowLimitPerDriver = 2_000;
     private DataSize largePartitionedMaxSizePerOperator = DataSize.of(2, MEGABYTE);
     private DataSize largeMaxSizePerFilter = DataSize.of(5, MEGABYTE);
+    private boolean dynamicRowFilteringEnabled = true;
+    private double dynamicRowFilterSelectivityThreshold = 0.7;
+    private Duration dynamicRowFilteringBlockingTimeout = new Duration(0, SECONDS);
 
     public boolean isEnableDynamicFiltering()
     {
@@ -349,6 +356,48 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setLargeMaxSizePerFilter(DataSize largeMaxSizePerFilter)
     {
         this.largeMaxSizePerFilter = largeMaxSizePerFilter;
+        return this;
+    }
+
+    public boolean isDynamicRowFilteringEnabled()
+    {
+        return dynamicRowFilteringEnabled;
+    }
+
+    @Config("dynamic-row-filtering.enabled")
+    @ConfigDescription("Enable dynamic row filtering")
+    public DynamicFilterConfig setDynamicRowFilteringEnabled(boolean dynamicRowFilteringEnabled)
+    {
+        this.dynamicRowFilteringEnabled = dynamicRowFilteringEnabled;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getDynamicRowFilterSelectivityThreshold()
+    {
+        return dynamicRowFilterSelectivityThreshold;
+    }
+
+    @Config("dynamic-row-filtering.selectivity-threshold")
+    @ConfigDescription("Avoid using dynamic row filters when fraction of rows selected is above threshold")
+    public DynamicFilterConfig setDynamicRowFilterSelectivityThreshold(double dynamicRowFilterSelectivityThreshold)
+    {
+        this.dynamicRowFilterSelectivityThreshold = dynamicRowFilterSelectivityThreshold;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDynamicRowFilteringWaitTimeout()
+    {
+        return dynamicRowFilteringBlockingTimeout;
+    }
+
+    @Config("dynamic-row-filtering.wait-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters")
+    public DynamicFilterConfig setDynamicRowFilteringWaitTimeout(Duration dynamicRowFilteringBlockingTimeout)
+    {
+        this.dynamicRowFilteringBlockingTimeout = dynamicRowFilteringBlockingTimeout;
         return this;
     }
 }

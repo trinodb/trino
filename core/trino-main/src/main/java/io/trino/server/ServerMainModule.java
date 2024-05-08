@@ -92,6 +92,8 @@ import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.RetryPolicy;
+import io.trino.operator.dynamicfiltering.DynamicPageFilterCache;
+import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
 import io.trino.operator.scalar.json.JsonExistsFunction;
@@ -374,6 +376,10 @@ public class ServerMainModule
         // data stream provider
         binder.bind(PageSourceManager.class).in(Scopes.SINGLETON);
         binder.bind(PageSourceProviderFactory.class).to(PageSourceManager.class).in(Scopes.SINGLETON);
+
+        // dynamic row filtering
+        binder.bind(DynamicRowFilteringPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(DynamicPageFilterCache.class).in(Scopes.SINGLETON);
 
         // page sink provider
         binder.bind(PageSinkManager.class).in(Scopes.SINGLETON);
