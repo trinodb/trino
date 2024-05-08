@@ -1253,7 +1253,7 @@ CROSS JOIN UNNEST(numbers, animals) AS t (n, a);
 (6 rows)
 ```
 
-`LEFT JOIN` is preferable in order to avoid losing the the row containing the array/map field in question
+`LEFT JOIN` is preferable in order to avoid losing the row containing the array/map field in question
 when referenced columns from relations on the left side of the join can be empty or have `NULL` values:
 
 ```

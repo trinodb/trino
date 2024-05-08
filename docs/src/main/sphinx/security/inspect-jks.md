@@ -9,7 +9,7 @@ The JKS system supports both PKCS #12 `.p12` files as well as legacy
 keystore `.jks` files.
 
 The keystore file itself is always password-protected. The keystore file can
-have more than one key in the the same file, each addressed by its **alias**
+have more than one key in the same file, each addressed by its **alias**
 name.
 
 If you receive a keystore file from your site's network admin group, verify that
