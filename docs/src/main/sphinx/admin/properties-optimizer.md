@@ -27,6 +27,7 @@ to make the query plan easier to read.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `false`
+- **Session property:** `optimize_metadata_queries`
 
 Enable optimization of some aggregations by using values that are stored as metadata.
 This allows Trino to execute some simple queries in constant time. Currently, this
@@ -105,6 +106,7 @@ for any reason a cost could not be computed, the `ELIMINATE_CROSS_JOINS` strateg
 
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `8`
+- **Session property:** `max_reordered_joins`
 
 When optimizer.join-reordering-strategy is set to cost-based, this property determines
 the maximum number of joins that can be reordered at once.
@@ -118,6 +120,7 @@ relations, so increasing this value can cause serious performance issues.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
+- **Session property:** `optimize_duplicate_insensitive_joins`
 
 Reduces number of rows produced by joins when optimizer detects that duplicated
 join output rows can be skipped.
@@ -126,16 +129,17 @@ join output rows can be skipped.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `false`
+- **Session property:** `use_exact_partitioning` 
 
 Re-partition data unless the partitioning of the upstream
 {ref}`stage <trino-concept-stage>` exactly matches what the downstream stage
-expects. This can also be specified using the `use_exact_partitioning` session
-property.
+expects.
 
 ## `optimizer.use-table-scan-node-partitioning`
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
+- **Session property:** `use_table_scan_node_partitioning`
 
 Use connector provided table node partitioning when reading tables.
 For example, table node partitioning corresponds to Hive table buckets.
@@ -154,6 +158,7 @@ low compared to number of workers.
 
 - **Type:** {ref}`prop-type-double`
 - **Default value:** `0.5`
+- **Session property:** `table_scan_node_partitioning_min_bucket_to_task_ratio`
 
 Specifies minimal bucket to task ratio that has to be matched or exceeded in order
 to use table scan node partitioning. When the table bucket count is small
@@ -177,6 +182,7 @@ avoid exchanging data between workers using a co-located join to improve query p
 - **Default value:** `0.75`
 - **Min allowed value:** `0`
 - **Max allowed value:** `1`
+- **Session property:** `filter_conjunction_independence_factor`
 
 Scales the strength of independence assumption for estimating the selectivity of
 the conjunction of multiple predicates. Lower values for this property will produce
@@ -191,6 +197,7 @@ the most selective predicate drives the selectivity of a conjunction of predicat
 - **Default value:** `0.25`
 - **Min allowed value:** `0`
 - **Max allowed value:** `1`
+- **Session property:** `join_multi_clause_independence_factor` 
 
 Scales the strength of independence assumption for estimating the output of a
 multi-clause join. Lower values for this property will produce more
@@ -203,6 +210,7 @@ the most selective clause drives the selectivity of the join.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
+- **Session property:** `non_estimatable_predicate_approximation_enabled`
 
 Enables approximation of the output row count of filters whose costs cannot be
 accurately estimated even with complete statistics. This allows the optimizer to
@@ -214,6 +222,7 @@ not estimated.
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `1000000`
 - **Min allowed value:** `0`
+- **Session property:** `join_partitioned_build_min_row_count`
 
 The minimum number of join build side rows required to use partitioned join lookup.
 If the build side of a join is estimated to be smaller than the configured threshold,
