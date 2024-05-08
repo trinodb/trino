@@ -41,7 +41,7 @@ are also available. They are discussed later in this topic.
     object storage itself. A small amount of metadata, however, still requires
     the use of a metastore. In the Iceberg ecosystem, these smaller metastores
     are called Iceberg metadata catalogs, or just catalogs. The examples in each
-    subsection depict the contents of a Trino catalog file that uses the the
+    subsection depict the contents of a Trino catalog file that uses the
     Iceberg connector to configures different Iceberg metadata catalogs.
 
     You must set this property in all Iceberg catalog property files. Valid
