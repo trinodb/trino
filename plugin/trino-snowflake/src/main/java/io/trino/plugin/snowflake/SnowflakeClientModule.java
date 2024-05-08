@@ -32,6 +32,7 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.util.Properties;
 
@@ -74,7 +75,7 @@ public class SnowflakeClientModule
         if (snowflakeConfig.getHttpProxy().isPresent()) {
             String proxy = snowflakeConfig.getHttpProxy().get();
 
-            URL url = new URL(proxy);
+            URL url = URI.create(proxy).toURL();
 
             properties.setProperty("useProxy", "true");
             properties.setProperty("proxyHost", url.getHost());
