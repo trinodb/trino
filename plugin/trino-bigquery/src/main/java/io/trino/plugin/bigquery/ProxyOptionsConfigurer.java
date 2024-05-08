@@ -65,7 +65,9 @@ public class ProxyOptionsConfigurer
                             ApplicationProtocolConfig.SelectorFailureBehavior.CHOOSE_MY_LAST_PROTOCOL,
                             ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
                             "h2"),
-                    OPTIONAL);
+                    OPTIONAL,
+                    null,
+                    false);
             nettyChannelBuilder
                     .sslContext(jdkSslContext)
                     .useTransportSecurity();
