@@ -59,7 +59,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
 
     @Test
-    public void doesNotFireOnPlanWithoutCorrelatedJoinNode()
+    public void testDoesNotFireOnPlanWithoutCorrelatedJoinNode()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.values(p.symbol("a")))
@@ -67,7 +67,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void doesNotFireOnCorrelatedWithoutAggregation()
+    public void testDoesNotFireOnCorrelatedWithoutAggregation()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -78,7 +78,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void doesNotFireOnUncorrelated()
+    public void testDoesNotFireOnUncorrelated()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -89,7 +89,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void doesNotFireOnCorrelatedWithNonScalarAggregation()
+    public void testDoesNotFireOnCorrelatedWithNonScalarAggregation()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -103,7 +103,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void doesNotFireOnMultipleProjections()
+    public void testDoesNotFireOnMultipleProjections()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -121,7 +121,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void doesNotFireOnSubqueryWithoutProjection()
+    public void testDoesNotFireOnSubqueryWithoutProjection()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -135,7 +135,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void rewritesOnSubqueryWithProjection()
+    public void testRewritesOnSubqueryWithProjection()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -157,7 +157,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void rewritesOnSubqueryWithDistinct()
+    public void testRewritesOnSubqueryWithDistinct()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -208,7 +208,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void rewritesOnSubqueryWithDecorrelatableDistinct()
+    public void testRewritesOnSubqueryWithDecorrelatableDistinct()
     {
         // distinct aggregation can be decorrelated in the subquery by PlanNodeDecorrelator
         // because the correlated predicate is equality comparison
@@ -291,7 +291,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void rewritesOnSubqueryWithBoolOr()
+    public void testRewritesOnSubqueryWithBoolOr()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
