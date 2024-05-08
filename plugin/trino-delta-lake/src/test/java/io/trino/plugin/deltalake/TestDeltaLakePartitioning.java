@@ -21,6 +21,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -139,11 +140,39 @@ public class TestDeltaLakePartitioning
     }
 
     @Test
-    public void testPartitionsSystemTableDoesNotExist()
+    public void testReadAllTypesPartitionsSystemTable()
     {
-        assertQueryFails(
-                "SELECT * FROM \"partitions$partitions\"",
-                ".*'delta\\.tpch\\.\"partitions\\$partitions\"' does not exist");
+        assertThat(
+                query("SELECT " +
+                        "partition.p_string, " +
+                        "partition.p_byte, " +
+                        "partition.p_short, " +
+                        "partition.p_int, " +
+                        "partition.p_long, " +
+                        "partition.p_decimal, " +
+                        "partition.p_boolean, " +
+                        "partition.p_float, " +
+                        "partition.p_double, " +
+                        "partition.p_date, " +
+                        "partition.p_timestamp, " +
+                        "file_count, " +
+                        "total_size " +
+                        "FROM \"partitions$partitions\" "))
+                .matches("VALUES (" +
+                        "VARCHAR 'Alice', " +
+                        "TINYINT '123', " +
+                        "SMALLINT '12345', " +
+                        "123456789, " +
+                        "1234567890123456789, " +
+                        "12345678901234567890.123456789012345678, " +
+                        "true, " +
+                        "REAL '3.1415927', " +
+                        "DOUBLE '3.141592653589793', " +
+                        "DATE '2014-01-01', " +
+                        "TIMESTAMP '2014-01-01 23:00:01.123 UTC', " +
+                        "BIGINT '30', " +
+                        "BIGINT '136080' " +
+                        ")");
     }
 
     @Test
