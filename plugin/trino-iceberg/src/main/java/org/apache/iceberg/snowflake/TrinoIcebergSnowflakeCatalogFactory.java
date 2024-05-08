@@ -111,7 +111,9 @@ public class TrinoIcebergSnowflakeCatalogFactory
                 // Populate application identifier in jdbc client
                 .put(PROPERTY_PREFIX + JDBC_APPLICATION_PROPERTY, uniqueAppIdentifier)
                 // Adds application identifier to the user agent header of the JDBC requests.
-                .put(PROPERTY_PREFIX + JDBC_USER_AGENT_SUFFIX_PROPERTY, userAgentSuffix);
+                .put(PROPERTY_PREFIX + JDBC_USER_AGENT_SUFFIX_PROPERTY, userAgentSuffix)
+                // Use JSON to avoid required JVM config for default Arrow format
+                .put(PROPERTY_PREFIX + "JDBC_QUERY_RESULT_FORMAT", "JSON");
         snowflakeRole.ifPresent(role -> properties.put(PROPERTY_PREFIX + "role", role));
 
         return properties.buildOrThrow();
