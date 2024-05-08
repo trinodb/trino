@@ -257,7 +257,7 @@ public class HudiTableFileSystemView
             if (!isPartitionAvailableInStore(partitionPathStr)) {
                 // Not loaded yet
                 try {
-                    LOG.info("Building file system view for partition (" + partitionPathStr + ")");
+                    LOG.debug("Building file system view for partition (%s)", partitionPathStr);
 
                     Location partitionLocation = getPartitionLocation(metaClient.getBasePath(), partitionPathStr);
                     FileIterator partitionFiles = listPartition(partitionLocation);
@@ -272,10 +272,10 @@ public class HudiTableFileSystemView
                 }
             }
             else {
-                LOG.debug("View already built for Partition :" + partitionPathStr + ", FOUND is ");
+                LOG.debug("View already built for Partition :%s, FOUND is ", partitionPathStr);
             }
             long endTs = System.currentTimeMillis();
-            LOG.debug("Time to load partition (" + partitionPathStr + ") =" + (endTs - beginTs));
+            LOG.debug("Time to load partition (%s) =%s", partitionPathStr, endTs - beginTs);
             return true;
         });
     }
@@ -407,7 +407,7 @@ public class HudiTableFileSystemView
 
     private void storePartitionView(String partitionPath, List<HudiFileGroup> fileGroups)
     {
-        LOG.debug("Adding file-groups for partition :" + partitionPath + ", #FileGroups=" + fileGroups.size());
+        LOG.debug("Adding file-groups for partition :%s, #FileGroups=%s", partitionPath, fileGroups.size());
         List<HudiFileGroup> newList = ImmutableList.copyOf(fileGroups);
         partitionToFileGroupsMap.put(partitionPath, newList);
     }
