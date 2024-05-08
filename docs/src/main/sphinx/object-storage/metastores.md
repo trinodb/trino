@@ -51,6 +51,18 @@ are also available. They are discussed later in this topic.
   - Enable caching for partition metadata. You can disable caching to avoid
     inconsistent behavior that results from it.
   - `true`
+* - `hive.metastore-cache.cache-missing`
+  - Enable caching the fact that a table is missing to prevent future metastore
+    calls for that table.
+  - `true`
+* - `hive.metastore-cache.cache-missing-partitions`
+  - Enable caching the fact that a partition is missing to prevent future
+    metastore calls for that partition.
+  - `false`
+* - `hive.metastore-cache.cache-missing-stats`
+  - Enable caching the fact that table statistics for a specific table are 
+    missing to prevent future metastore calls.
+  - `false`
 * - `hive.metastore-cache-ttl`
   - Duration of how long cached metastore data is considered valid.
   - `0s`
