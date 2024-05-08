@@ -55,11 +55,17 @@ public class ProxyOptionsConfigurer
         checkState(managedChannelBuilder instanceof NettyChannelBuilder, "Expected ManagedChannelBuilder to be provider by Netty");
         NettyChannelBuilder nettyChannelBuilder = (NettyChannelBuilder) managedChannelBuilder;
         proxyTransportFactory.getSslContext().ifPresent(context -> {
-            JdkSslContext jdkSslContext = new JdkSslContext(context, true, null, IdentityCipherSuiteFilter.INSTANCE, new ApplicationProtocolConfig(
-                    ApplicationProtocolConfig.Protocol.ALPN,
-                    ApplicationProtocolConfig.SelectorFailureBehavior.CHOOSE_MY_LAST_PROTOCOL,
-                    ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-                    "h2"), OPTIONAL);
+            JdkSslContext jdkSslContext = new JdkSslContext(
+                    context,
+                    true,
+                    null,
+                    IdentityCipherSuiteFilter.INSTANCE,
+                    new ApplicationProtocolConfig(
+                            ApplicationProtocolConfig.Protocol.ALPN,
+                            ApplicationProtocolConfig.SelectorFailureBehavior.CHOOSE_MY_LAST_PROTOCOL,
+                            ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                            "h2"),
+                    OPTIONAL);
             nettyChannelBuilder
                     .sslContext(jdkSslContext)
                     .useTransportSecurity();
