@@ -53,7 +53,7 @@ public final class PinotQueryBuilder
     {
     }
 
-    public static String generatePql(PinotTableHandle tableHandle, List<PinotColumnHandle> columnHandles, Optional<String> tableNameSuffix, Optional<String> timePredicate, int limitForSegmentQueries)
+    public static String generatePql(PinotTableHandle tableHandle, List<PinotColumnHandle> columnHandles, Optional<String> tableNameSuffix, Optional<String> timePredicate, int limitForSegmentQueries, Optional<String> queryOptions)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         StringBuilder pqlBuilder = new StringBuilder();
@@ -81,6 +81,10 @@ public final class PinotQueryBuilder
         }
         pqlBuilder.append(" LIMIT ")
                 .append(limit);
+        if (queryOptions.isPresent()) {
+            pqlBuilder.append(" ");
+            pqlBuilder.append(queryOptions);
+        }
         return pqlBuilder.toString();
     }
 

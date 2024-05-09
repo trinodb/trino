@@ -27,6 +27,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public class PinotSessionProperties
 {
@@ -36,6 +37,7 @@ public class PinotSessionProperties
     private static final String NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = "non_aggregate_limit_for_broker_queries";
     private static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     private static final String COUNT_DISTINCT_PUSHDOWN_ENABLED = "count_distinct_pushdown_enabled";
+    public static final String QUERY_OPTIONS = "query_options";
 
     @VisibleForTesting
     public static final String FORBID_SEGMENT_QUERIES = "forbid_segment_queries";
@@ -88,6 +90,11 @@ public class PinotSessionProperties
         return session.getProperty(COUNT_DISTINCT_PUSHDOWN_ENABLED, Boolean.class);
     }
 
+    public static String getQueryOptions(ConnectorSession session)
+    {
+        return session.getProperty(QUERY_OPTIONS, String.class);
+    }
+
     @Inject
     public PinotSessionProperties(PinotConfig pinotConfig)
     {
@@ -132,6 +139,11 @@ public class PinotSessionProperties
                         COUNT_DISTINCT_PUSHDOWN_ENABLED,
                         "Enable count distinct pushdown",
                         pinotConfig.isCountDistinctPushdownEnabled(),
+                        false),
+                stringProperty(
+                        QUERY_OPTIONS,
+                        "Pinot query option in the format of key:value,key:value",
+                        pinotConfig.getQueryOptions(),
                         false));
     }
 

@@ -13,6 +13,10 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.common.base.CharMatcher;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.client.PinotDataFetcher;
@@ -29,7 +33,11 @@ import io.trino.spi.connector.DynamicFilter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.extractPql;
 import static io.trino.plugin.pinot.query.PinotQueryBuilder.generatePql;
 import static java.util.Objects.requireNonNull;
@@ -42,6 +50,7 @@ public class PinotPageSourceProvider
     private final int limitForBrokerQueries;
     private final long targetSegmentPageSizeBytes;
     private final PinotDataFetcher.Factory pinotDataFetcherFactory;
+    private static final Splitter.MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator(":");
 
     @Inject
     public PinotPageSourceProvider(
@@ -74,7 +83,9 @@ public class PinotPageSourceProvider
             handles.add((PinotColumnHandle) handle);
         }
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
-        String query = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries);
+        String queryOptions = PinotSessionProperties.getQueryOptions(session);
+        Optional<String> queryOptionsString = getQueryOptionsString(queryOptions);
+        String query = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries, queryOptionsString);
 
         switch (pinotSplit.getSplitType()) {
             case SEGMENT:
@@ -103,5 +114,22 @@ public class PinotPageSourceProvider
                         limitForBrokerQueries);
         }
         throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
+    }
+
+    private Optional<String> getQueryOptionsString(String options)
+    {
+        if (isNullOrEmpty(options)) {
+            return Optional.empty();
+        }
+
+        Map<String, String> queryOptionsMap = ImmutableMap.copyOf(MAP_SPLITTER.split(options));
+        if (queryOptionsMap.isEmpty()) {
+            return Optional.empty();
+        }
+        String result = queryOptionsMap.entrySet().stream()
+                .filter(kv -> !Strings.isNullOrEmpty(kv.getKey()) && !Strings.isNullOrEmpty(kv.getValue()))
+                .map(kv -> CharMatcher.anyOf("\"`'").trimFrom(kv.getKey()) + "=" + kv.getValue())
+                .collect(Collectors.joining(",", " option(", ") "));
+        return Optional.of(result);
     }
 }

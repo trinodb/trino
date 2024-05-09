@@ -57,7 +57,7 @@ public class PinotConfig
 
     private int estimatedSizeInBytesForNonNumericColumn = 20;
     private Duration metadataCacheExpiry = new Duration(2, TimeUnit.MINUTES);
-
+    private String queryOptions;
     private boolean preferBrokerQueries;
     private boolean forbidSegmentQueries;
     private int segmentsPerSplit = 1;
@@ -309,5 +309,17 @@ public class PinotConfig
             return grpcEnabled;
         }
         return true;
+    }
+
+    public String getQueryOptions()
+    {
+        return queryOptions;
+    }
+
+    @Config("pinot.query.options")
+    public PinotConfig setQueryOptions(String options)
+    {
+        queryOptions = options;
+        return this;
     }
 }
