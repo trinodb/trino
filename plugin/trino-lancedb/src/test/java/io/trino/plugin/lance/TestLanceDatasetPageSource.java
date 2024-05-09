@@ -5,12 +5,12 @@ import io.trino.plugin.lance.internal.LanceReader;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
-import org.junit.BeforeClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.net.URL;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -38,10 +38,10 @@ public class TestLanceDatasetPageSource
     @Test
     public void testTableScan()
     {
-        ConnectorTableHandle tableHandle = metadata.getTableHandle(null, TEST_TABLE_1);
-        LanceDatasetPageSource pageSource = new LanceDatasetPageSource(metadata.getLanceReader(), (LanceTableHandle) tableHandle, metadata.getLanceConfig().getFetchRetryCount());
-
-        Page page = pageSource.getNextPage();
-        assertThat(page).isNotNull();
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(null, TEST_TABLE_1, Optional.empty(), Optional.empty());
+        try (LanceDatasetPageSource pageSource = new LanceDatasetPageSource(metadata.getLanceReader(), (LanceTableHandle) tableHandle, metadata.getLanceConfig().getFetchRetryCount())) {
+            Page page = pageSource.getNextPage();
+            assertThat(page).isNotNull();
+        }
     }
 }

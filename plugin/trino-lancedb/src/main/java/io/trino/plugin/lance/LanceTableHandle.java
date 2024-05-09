@@ -25,12 +25,14 @@ import static java.util.Objects.requireNonNull;
 public class LanceTableHandle
         implements ConnectorTableHandle
 {
+    private final String schemaName;
     private final String tableName;
     private final String tablePath;
 
     @JsonCreator
-    public LanceTableHandle(@JsonProperty("tableName") String tableName, @JsonProperty("tablePath") String tablePath)
+    public LanceTableHandle(@JsonProperty("schemaName") String schemaName, @JsonProperty("tableName") String tableName, @JsonProperty("tablePath") String tablePath)
     {
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
     }
@@ -38,7 +40,7 @@ public class LanceTableHandle
     @JsonProperty
     public String getSchemaName()
     {
-        return LanceMetadata.SCHEMA_NAME;
+        return schemaName;
     }
 
     @JsonProperty

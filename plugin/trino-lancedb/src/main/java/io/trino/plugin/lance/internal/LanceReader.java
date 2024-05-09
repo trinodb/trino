@@ -38,43 +38,38 @@ import java.util.stream.Stream;
 
 public class LanceReader
 {
-    // TODO: fix allocator should be size of metadata, not actual data
     private static final BufferAllocator allocator = new RootAllocator(
-            RootAllocator.configBuilder().from(RootAllocator.defaultConfig()).maxAllocation(Integer.MAX_VALUE).build());
+            RootAllocator.configBuilder().from(RootAllocator.defaultConfig()).maxAllocation(4 * 1024 * 1024).build());
+    private static final String LOCAL_FILE_PREFIX = "file://";
 
     private final URI lanceDbURI;
-    private final String dbScheme;
-    private final String dbPath;
+    private final Path dbPath;
 
     public LanceReader(LanceConfig lanceConfig)
     {
-        lanceDbURI = lanceConfig.getLanceDbUri();
         // TODO: use https://lancedb.github.io/lancedb/python/python/#lancedb.db.DBConnection
-        dbScheme = lanceDbURI.getScheme();
-        dbPath = lanceDbURI.toString();
+        lanceDbURI = lanceConfig.getLanceDbUri();
+        dbPath = Path.of(lanceDbURI);
     }
 
-    private static Schema getSchema(String tablePath)
+    private static Schema getSchema(Path tablePath)
     {
-        try (Dataset dataset = Dataset.open(tablePath, allocator)) {
+        try (Dataset dataset = Dataset.open(tablePath.toUri().toString(), allocator)) {
             return dataset.getSchema();
         }
     }
 
-    private static String getTablePath(String dbPath, String tableName)
+    private static Path getTablePath(Path dbPath, String tableName)
     {
-        // TODO: local fs impl here to be replaced by
-        // https://lancedb.github.io/lancedb/python/python/#lancedb.db.DBConnection.open_table
-        Path tablePath = Paths.get(dbPath, tableName);
-        return tablePath.toString();
+        return dbPath.resolve(tableName);
     }
 
     public List<SchemaTableName> listTables(ConnectorSession session, String schema)
     {
         // TODO: local fs impl here to be replaced by
         // https://lancedb.github.io/lancedb/python/python/#lancedb.db.DBConnection.table_names
-        try (Stream<Path> stream = Files.list(Paths.get(dbPath))) {
-            return stream.filter(file -> !Files.isDirectory(file))
+        try (Stream<Path> stream = Files.list(dbPath)) {
+            return stream.filter(Files::isDirectory)
                     .map(f -> new SchemaTableName(schema, f.getFileName().toString())).collect(Collectors.toList());
         }
         catch (IOException e) {
@@ -84,14 +79,14 @@ public class LanceReader
 
     public Map<String, ColumnHandle> getColumnHandle(String tableName)
     {
-        String tablePath = getTablePath(dbPath, tableName);
+        Path tablePath = getTablePath(dbPath, tableName);
         Schema arrowSchema = getSchema(tablePath);
         return arrowSchema.getFields().stream().collect(Collectors.toMap(Field::getName,
                 f -> new LanceColumnHandle(f.getName(), LanceColumnHandle.toTrinoType(f.getFieldType().getType()),
                         f.getFieldType())));
     }
 
-    public String getTablePath(SchemaTableName schemaTableName)
+    public Path getTablePath(SchemaTableName schemaTableName)
     {
         return getTablePath(dbPath, schemaTableName.getTableName());
     }

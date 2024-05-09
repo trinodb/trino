@@ -31,6 +31,7 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.List;
@@ -71,20 +72,24 @@ public class LanceMetadata
     }
 
     @Override
-    public LanceTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName,
+    public LanceTableHandle getTableHandle(ConnectorSession session, SchemaTableName name,
             Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
-        return new LanceTableHandle(tableName.getSchemaName(), lanceReader.getTablePath(tableName));
+        return new LanceTableHandle(name.getSchemaName(), name.getTableName(), lanceReader.getTablePath(name).toUri().toString());
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         LanceTableHandle lanceTableHandle = (LanceTableHandle) table;
-        ImmutableList.Builder<ColumnMetadata> columnMetadataBuilder = ImmutableList.builder();
-        SchemaTableName schemaTableName =
-                new SchemaTableName(lanceTableHandle.getSchemaName(), lanceTableHandle.getTableName());
-        return new ConnectorTableMetadata(schemaTableName, columnMetadataBuilder.build());
+        try {
+            List<ColumnMetadata> columnsMetadata = getColumnsMetadata(lanceReader, ((LanceTableHandle) table).getTableName());
+            SchemaTableName schemaTableName =
+                    new SchemaTableName(lanceTableHandle.getSchemaName(), lanceTableHandle.getTableName());
+            return new ConnectorTableMetadata(schemaTableName, columnsMetadata);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override
@@ -97,7 +102,11 @@ public class LanceMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         LanceTableHandle lanceTableHandle = (LanceTableHandle) tableHandle;
-        return lanceReader.getColumnHandle(lanceTableHandle.getTableName());
+        try {
+            return lanceReader.getColumnHandle(lanceTableHandle.getTableName());
+        } catch (Exception e) {
+            throw new TableNotFoundException(new SchemaTableName(lanceTableHandle.getSchemaName(), lanceTableHandle.getTableName()));
+        }
     }
 
     @Override

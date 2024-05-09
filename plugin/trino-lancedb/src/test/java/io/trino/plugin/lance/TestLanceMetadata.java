@@ -23,7 +23,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.junit.BeforeClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -34,16 +33,18 @@ import java.util.Optional;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
 @TestInstance(PER_METHOD)
 public class TestLanceMetadata
 {
-    private static final LanceTableHandle TEST_TABLE_1_HANDLE = new LanceTableHandle("test_table1",
-            Resources.getResource(TestLanceMetadata.class, "/example_db/test_table1").getPath());
-    private static final LanceTableHandle TEST_TABLE_2_HANDLE = new LanceTableHandle("test_table2",
-            Resources.getResource(TestLanceMetadata.class, "/example_db/test_table2").getPath());
+    private static final String TEST_DB_PATH = "file://" + Resources.getResource(TestLanceMetadata.class, "/example_db/").getPath();
+    private static final LanceTableHandle TEST_TABLE_1_HANDLE = new LanceTableHandle("default", "test_table1",
+            TEST_DB_PATH + "test_table1/");
+    private static final LanceTableHandle TEST_TABLE_2_HANDLE = new LanceTableHandle("default", "test_table2",
+            TEST_DB_PATH + "test_table2/");
+
+    private static final ArrowType INT64_TYPE = new ArrowType.Int(64, true);
     private LanceMetadata metadata;
 
     @BeforeEach
@@ -68,24 +69,29 @@ public class TestLanceMetadata
     @Test
     public void testGetTableHandle()
     {
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("default", "test_table1"))).isEqualTo(TEST_TABLE_1_HANDLE);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("anything", "test_table2"))).isEqualTo(TEST_TABLE_2_HANDLE);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "table"))).isNull();
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown"))).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("default", "test_table1"), Optional.empty(), Optional.empty())).isEqualTo(TEST_TABLE_1_HANDLE);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("anything", "test_table2"), Optional.empty(), Optional.empty())).isEqualTo(TEST_TABLE_2_HANDLE);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "table"), Optional.empty(), Optional.empty())).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown"), Optional.empty(), Optional.empty())).isNull();
     }
 
     @Test
     public void testGetColumnHandles()
     {
         // known table
+
         assertThat(metadata.getColumnHandles(SESSION, TEST_TABLE_1_HANDLE)).isEqualTo(ImmutableMap.of(
-                "text", new LanceColumnHandle("text", LanceColumnHandle.toTrinoType(ArrowType.Utf8.INSTANCE), FieldType.nullable(ArrowType.Utf8.INSTANCE))));
+            "b", new LanceColumnHandle("b", LanceColumnHandle.toTrinoType(INT64_TYPE), FieldType.nullable(INT64_TYPE)),
+                "c", new LanceColumnHandle("c", LanceColumnHandle.toTrinoType(INT64_TYPE), FieldType.nullable(INT64_TYPE)),
+                "x", new LanceColumnHandle("x", LanceColumnHandle.toTrinoType(INT64_TYPE), FieldType.nullable(INT64_TYPE)),
+                "y", new LanceColumnHandle("y", LanceColumnHandle.toTrinoType(INT64_TYPE), FieldType.nullable(INT64_TYPE))
+        ));
 
         // unknown table
-        assertThatThrownBy(() -> metadata.getColumnHandles(SESSION, new LanceTableHandle("unknown", "unknown")))
+        assertThatThrownBy(() -> metadata.getColumnHandles(SESSION, new LanceTableHandle("unknown", "unknown", "unknown")))
                 .isInstanceOf(TableNotFoundException.class)
                 .hasMessage("Table 'unknown.unknown' not found");
-        assertThatThrownBy(() -> metadata.getColumnHandles(SESSION, new LanceTableHandle("example", "unknown")))
+        assertThatThrownBy(() -> metadata.getColumnHandles(SESSION, new LanceTableHandle("example", "unknown", "unknown")))
                 .isInstanceOf(TableNotFoundException.class)
                 .hasMessage("Table 'example.unknown' not found");
     }
@@ -97,11 +103,14 @@ public class TestLanceMetadata
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, TEST_TABLE_1_HANDLE);
         assertThat(tableMetadata.getTable()).isEqualTo(new SchemaTableName("default", "test_table1"));
         assertThat(tableMetadata.getColumns()).isEqualTo(ImmutableList.of(
-                new LanceColumnHandle("text", LanceColumnHandle.toTrinoType(ArrowType.Utf8.INSTANCE), FieldType.nullable(ArrowType.Utf8.INSTANCE)).getColumnMetadata()));
+                new LanceColumnHandle("b", LanceColumnHandle.toTrinoType(INT64_TYPE), FieldType.nullable(INT64_TYPE)).getColumnMetadata(),
+                new LanceColumnHandle("c", LanceColumnHandle.toTrinoType(INT64_TYPE), FieldType.nullable(INT64_TYPE)).getColumnMetadata(),
+                new LanceColumnHandle("x", LanceColumnHandle.toTrinoType(INT64_TYPE), FieldType.nullable(INT64_TYPE)).getColumnMetadata(),
+                new LanceColumnHandle("y", LanceColumnHandle.toTrinoType(INT64_TYPE), FieldType.nullable(INT64_TYPE)).getColumnMetadata()));
 
         // unknown tables should produce null
-        assertThat(metadata.getTableMetadata(SESSION, new LanceTableHandle("unknown", "unknown"))).isNull();
-        assertThat(metadata.getTableMetadata(SESSION, new LanceTableHandle("default", "unknown"))).isNull();
+        assertThat(metadata.getTableMetadata(SESSION, new LanceTableHandle("unknown", "unknown", "unknown"))).isNull();
+        assertThat(metadata.getTableMetadata(SESSION, new LanceTableHandle("default", "unknown", "unknown"))).isNull();
     }
 
     @Test
@@ -110,12 +119,16 @@ public class TestLanceMetadata
         // all schemas
         assertThat(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.empty()))).isEqualTo(ImmutableSet.of(
                 new SchemaTableName("default", "test_table1"),
-                new SchemaTableName("default", "test_table2")));
+                new SchemaTableName("default", "test_table2"),
+                new SchemaTableName("default", "test_table3"),
+                new SchemaTableName("default", "test_table4")));
 
         // specific schema
         assertThat(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("default")))).isEqualTo(ImmutableSet.of(
                 new SchemaTableName("default", "test_table1"),
-                new SchemaTableName("default", "test_table2")));
+                new SchemaTableName("default", "test_table2"),
+                new SchemaTableName("default", "test_table3"),
+                new SchemaTableName("default", "test_table4")));
     }
 
     @Test
