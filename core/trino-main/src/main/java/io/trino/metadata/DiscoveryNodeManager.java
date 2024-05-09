@@ -172,7 +172,7 @@ public final class DiscoveryNodeManager
                 .addAll(allNodes.getShuttingDownNodes())
                 .build();
 
-        ImmutableSet<String> aliveNodeIds = aliveNodes.stream()
+        Set<String> aliveNodeIds = aliveNodes.stream()
                 .map(InternalNode::getNodeIdentifier)
                 .collect(toImmutableSet());
 
@@ -302,10 +302,9 @@ public final class DiscoveryNodeManager
 
     private boolean isNodeShuttingDown(String nodeId)
     {
-        Optional<NodeState> remoteNodeState = nodeStates.containsKey(nodeId)
-                ? nodeStates.get(nodeId).getNodeState()
-                : Optional.empty();
-        return remoteNodeState.isPresent() && remoteNodeState.get() == SHUTTING_DOWN;
+        return Optional.ofNullable(nodeStates.get(nodeId))
+                .flatMap(RemoteNodeState::getNodeState)
+                .orElse(NodeState.ACTIVE) == SHUTTING_DOWN;
     }
 
     @Override
