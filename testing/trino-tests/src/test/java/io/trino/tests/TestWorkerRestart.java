@@ -19,7 +19,7 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.tests.tpch.TpchQueryRunner;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -42,7 +42,8 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD) // run single threaded to avoid creating multiple query runners at once
 public class TestWorkerRestart
 {
-    @Test
+    @RepeatedTest(5
+    )
     @Timeout(90)
     public void testRestartBeforeQuery()
             throws Exception
@@ -75,7 +76,7 @@ public class TestWorkerRestart
         }
     }
 
-    @Test
+    @RepeatedTest(5)
     @Timeout(90)
     public void testRestartDuringQuery()
             throws Exception
