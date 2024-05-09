@@ -25,6 +25,7 @@ import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.LanguageFunctionManager;
+import io.trino.metadata.LanguageFunctionProvider.LanguageFunctionData;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties.TablePartitioning;
@@ -57,7 +58,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.routine.ir.IrRoutine;
 import io.trino.transaction.TransactionManager;
 
 import java.util.ArrayList;
@@ -146,14 +146,13 @@ public class PlanFragmenter
                 .map(CatalogInfo::catalogHandle)
                 .flatMap(catalogHandle -> catalogManager.getCatalogProperties(catalogHandle).stream())
                 .collect(toImmutableList());
-        Map<FunctionId, IrRoutine> languageScalarFunctions = languageFunctionManager.serializeFunctionsForWorkers(session);
         Fragmenter fragmenter = new Fragmenter(
                 session,
                 metadata,
                 functionManager,
                 plan.getStatsAndCosts(),
                 activeCatalogs,
-                languageScalarFunctions,
+                languageFunctionManager.serializeFunctionsForWorkers(session),
                 idAllocator,
                 unchangedSubPlans);
         FragmentProperties properties = new FragmentProperties(outputPartitioningScheme);
@@ -248,7 +247,7 @@ public class PlanFragmenter
         private final FunctionManager functionManager;
         private final StatsAndCosts statsAndCosts;
         private final List<CatalogProperties> activeCatalogs;
-        private final Map<FunctionId, IrRoutine> languageFunctions;
+        private final Map<FunctionId, LanguageFunctionData> languageFunctions;
         private final PlanFragmentIdAllocator idAllocator;
         private final Map<ExchangeSourceId, SubPlan> unchangedSubPlans;
         private final PlanFragmentId rootFragmentID;
@@ -259,7 +258,7 @@ public class PlanFragmenter
                 FunctionManager functionManager,
                 StatsAndCosts statsAndCosts,
                 List<CatalogProperties> activeCatalogs,
-                Map<FunctionId, IrRoutine> languageFunctions,
+                Map<FunctionId, LanguageFunctionData> languageFunctions,
                 PlanFragmentIdAllocator idAllocator,
                 Map<ExchangeSourceId, SubPlan> unchangedSubPlans)
         {
