@@ -73,6 +73,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -138,13 +139,13 @@ public class SqlRoutineAnalyzer
 
     public SqlRoutineAnalysis analyze(Session session, AccessControl accessControl, FunctionSpecification function)
     {
-        String functionName = getFunctionName(function);
+        checkArgument(getLanguageName(function).equalsIgnoreCase("SQL"), "function language must be SQL");
+        ControlStatement statement = function.getStatement().orElseThrow();
 
-        ControlStatement statement = validateLanguage(function);
+        String functionName = getFunctionName(function);
 
         boolean calledOnNull = isCalledOnNull(function);
         Optional<String> comment = getComment(function);
-        validateSecurity(function);
 
         ReturnsClause returnsClause = function.getReturnsClause();
         Type returnType = getType(returnsClause, returnsClause.getReturnType());
@@ -225,7 +226,7 @@ public class SqlRoutineAnalyzer
         }
     }
 
-    private static Optional<Identifier> getLanguage(FunctionSpecification function)
+    public static Optional<Identifier> getLanguage(FunctionSpecification function)
     {
         List<LanguageCharacteristic> language = function.getRoutineCharacteristics().stream()
                 .filter(LanguageCharacteristic.class::isInstance)
@@ -241,24 +242,33 @@ public class SqlRoutineAnalyzer
                 .findAny();
     }
 
-    private static ControlStatement validateLanguage(FunctionSpecification function)
+    public static String getLanguageName(FunctionSpecification function)
     {
-        getLanguage(function).ifPresent(language -> {
-            if (!language.getValue().equalsIgnoreCase("sql")) {
-                function.getStatement().ifPresent(statement -> {
-                    throw semanticException(NOT_SUPPORTED, statement, "Only functions using language 'SQL' may be defined using SQL");
-                });
-                throw semanticException(NOT_SUPPORTED, language, "Unsupported function language: %s", language.getCanonicalValue());
+        return getLanguage(function).map(Identifier::getCanonicalValue).orElse("SQL");
+    }
+
+    private static void validateLanguage(FunctionSpecification function)
+    {
+        if (getLanguageName(function).equalsIgnoreCase("SQL")) {
+            function.getDefinition().ifPresent(definition -> {
+                throw semanticException(SYNTAX_ERROR, definition, "Functions using language 'SQL' must be defined using SQL");
+            });
+            List<Property> properties = getProperties(function);
+            if (!properties.isEmpty()) {
+                throw semanticException(INVALID_FUNCTION_PROPERTY, properties.getFirst(), "Function language 'SQL' does not support properties");
             }
-        });
-
-        List<Property> properties = getProperties(function);
-        if (!properties.isEmpty()) {
-            throw semanticException(INVALID_FUNCTION_PROPERTY, properties.getFirst(), "Function language 'SQL' does not support properties");
         }
-
-        return function.getStatement().orElseThrow(() ->
-                semanticException(SYNTAX_ERROR, function.getDefinition().orElseThrow(), "Functions using language 'SQL' must be defined using SQL"));
+        else {
+            function.getStatement().ifPresent(statement -> {
+                throw semanticException(SYNTAX_ERROR, statement, "Only functions using language 'SQL' may be defined using SQL");
+            });
+            function.getRoutineCharacteristics().stream()
+                    .filter(SecurityCharacteristic.class::isInstance)
+                    .findFirst()
+                    .ifPresent(security -> {
+                        throw semanticException(NOT_SUPPORTED, security, "Only functions using language 'SQL' may declare security");
+                    });
+        }
     }
 
     private static boolean isDeterministic(FunctionSpecification function)
@@ -334,7 +344,7 @@ public class SqlRoutineAnalyzer
                 .findAny();
     }
 
-    private static List<Property> getProperties(FunctionSpecification function)
+    public static List<Property> getProperties(FunctionSpecification function)
     {
         List<PropertiesCharacteristic> properties = function.getRoutineCharacteristics().stream()
                 .filter(PropertiesCharacteristic.class::isInstance)
