@@ -39,6 +39,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -189,6 +190,30 @@ public abstract class BaseMySqlConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithLike)
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Test
+    @Override
+    public void testComplexExpressionOnApproximateNumericPredicatePushdown()
+    {
+        assertThat(query("SELECT orderkey FROM orders WHERE totalprice > 10 OR shippriority = 0")).isFullyPushedDown();
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_complex_expression_pushdown_",
+                "AS SELECT 1 as a_int, DOUBLE '3.14' as a_double, DOUBLE '1.9891e30' as a_double_2")) {
+            assertThat(query("SELECT a_int FROM " + testTable.getName() + " WHERE a_double > DOUBLE '3.12' OR a_double_2 >  DOUBLE '1.9890e30'"))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT a_int FROM " + testTable.getName() + " WHERE a_double > DOUBLE '3.12' OR a_double_2 < infinity()"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT a_int FROM " + testTable.getName() + " WHERE a_double < infinity() OR a_double_2 > DOUBLE '1.9890e30'"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT a_int FROM " + testTable.getName() + " WHERE a_double > DOUBLE '3.12' OR a_double_2 <> nan()"))
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
     }
 
     @Test

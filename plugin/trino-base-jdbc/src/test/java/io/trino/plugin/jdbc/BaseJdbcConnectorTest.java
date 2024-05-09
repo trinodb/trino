@@ -101,6 +101,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NATIVE_QUERY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
@@ -1088,6 +1089,34 @@ public abstract class BaseJdbcConnectorTest
                 .failure().hasMessageContaining("by zero");
 
         // TODO add coverage for other arithmetic pushdowns https://github.com/trinodb/trino/issues/14808
+    }
+
+    @Test
+    public void testComplexExpressionOnApproximateNumericPredicatePushdown()
+    {
+        if (!hasBehavior(SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN)) {
+            assertThat(query("SELECT orderkey FROM orders WHERE totalprice > 10 OR shippriority = 0"))
+                    .isNotFullyPushedDown(FilterNode.class);
+            return;
+        }
+        assertThat(query("SELECT orderkey FROM orders WHERE totalprice > 10 OR shippriority = 0")).isFullyPushedDown();
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "complex_expression_",
+                "AS SELECT 1 as a_int, REAL '3.14' as a_real, DOUBLE '1.9891e30' as a_double")) {
+            assertThat(query("SELECT a_int FROM " + testTable.getName() + " WHERE a_real > REAL '3.12' OR a_double >  DOUBLE '1.9890e30'"))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT a_int FROM " + testTable.getName() + " WHERE a_real > REAL '3.12' OR a_double < infinity()"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT a_int FROM " + testTable.getName() + " WHERE a_real < infinity() OR a_double > DOUBLE '1.9890e30'"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT a_int FROM " + testTable.getName() + " WHERE a_real > REAL '3.12' OR a_double <> nan()"))
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
     }
 
     @Test
