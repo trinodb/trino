@@ -41,9 +41,9 @@ To use Iceberg, you need:
   a {ref}`Nessie server <iceberg-nessie-catalog>`, or a
   {ref}`Snowflake catalog <iceberg-snowflake-catalog>`.
 
-- Data files stored in the file formats {ref}`ORC <hive-orc-configuration>` or
-  {ref}`Parquet <hive-parquet-configuration>` (default) on a [supported file
-  system](iceberg-file-system-configuration).
+- Data files stored in the file formats
+  [Parquet](hive-parquet-configuration)(default), [ORC](hive-orc-configuration),
+  or Avro on a [supported file system](iceberg-file-system-configuration).
 
 ## General configuration
 
@@ -1530,7 +1530,7 @@ The connector supports the table functions described in the following sections.
 
 Allows reading row-level changes between two versions of an Iceberg table.
 The following query shows an example of displaying the changes of the `t1`
-table in the `default` schema in the current catalog. 
+table in the `default` schema in the current catalog.
 All changes between the start and end snapshots are returned.
 
 ```sql
@@ -1549,7 +1549,7 @@ FROM
 
 The function takes the following required parameters:
 
-- `schema_name` 
+- `schema_name`
   : Name of the schema for which the function is called.
 - `table_name`
   : Name of the table for which the function is called.
@@ -1561,7 +1561,7 @@ The function takes the following required parameters:
 Use the `$snapshots` metadata table to determine the snapshot IDs of the
 table.
 
-The function returns the columns present in the table, and the following values 
+The function returns the columns present in the table, and the following values
 for each change:
 
 - `_change_type`
@@ -1599,19 +1599,19 @@ INSERT INTO test_schema.pages
 Retrieve the snapshot identifiers of the changes performed on the table:
 
 ```
-SELECT 
+SELECT
     snapshot_id,
-    parent_id, 
-    operation 
+    parent_id,
+    operation
 FROM test_schema."pages$snapshots";
 ```
 
 ```text
-     snapshot_id     |      parent_id      | operation 
+     snapshot_id     |      parent_id      | operation
 ---------------------+---------------------+-----------
- 2009020668682716382 |                NULL | append    
- 2135434251890923160 | 2009020668682716382 | append    
- 3108755571950643966 | 2135434251890923160 | append    
+ 2009020668682716382 |                NULL | append
+ 2135434251890923160 | 2009020668682716382 | append
+ 3108755571950643966 | 2135434251890923160 | append
 (3 rows)
 
 ```
@@ -1634,14 +1634,14 @@ ORDER BY _change_ordinal ASC;
 ```
 
 ```text
- page_url | domain  | views | _change_type | _change_version_id  |      _change_timestamp      | _change_ordinal 
+ page_url | domain  | views | _change_type | _change_version_id  |      _change_timestamp      | _change_ordinal
 ----------+---------+-------+--------------+---------------------+-----------------------------+-----------------
- url1     | domain1 |     1 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0 
- url2     | domain2 |     2 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0 
- url3     | domain1 |     3 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0 
- url4     | domain1 |   400 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1 
- url5     | domain2 |   500 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1 
- url6     | domain3 |     2 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1 
+ url1     | domain1 |     1 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url2     | domain2 |     2 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url3     | domain1 |     3 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url4     | domain1 |   400 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
+ url5     | domain2 |   500 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
+ url6     | domain3 |     2 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
 (6 rows)
 ```
 
