@@ -56,8 +56,11 @@ public abstract class BaseMySqlConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_AGGREGATION_PUSHDOWN,
+                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
                     SUPPORTS_JOIN_PUSHDOWN -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
+                    SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                     SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                     SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
                     SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
