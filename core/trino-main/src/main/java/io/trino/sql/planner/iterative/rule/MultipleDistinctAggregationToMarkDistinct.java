@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
 import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -105,9 +106,9 @@ public class MultipleDistinctAggregationToMarkDistinct
 
     private final DistinctAggregationStrategyChooser distinctAggregationStrategyChooser;
 
-    public MultipleDistinctAggregationToMarkDistinct(TaskCountEstimator taskCountEstimator)
+    public MultipleDistinctAggregationToMarkDistinct(TaskCountEstimator taskCountEstimator, Metadata metadata)
     {
-        this.distinctAggregationStrategyChooser = createDistinctAggregationStrategyChooser(taskCountEstimator);
+        this.distinctAggregationStrategyChooser = createDistinctAggregationStrategyChooser(taskCountEstimator, metadata);
     }
 
     @Override
@@ -121,7 +122,7 @@ public class MultipleDistinctAggregationToMarkDistinct
     {
         DistinctAggregationsStrategy distinctAggregationsStrategy = distinctAggregationsStrategy(context.getSession());
         if (!(distinctAggregationsStrategy.equals(MARK_DISTINCT) ||
-                (distinctAggregationsStrategy.equals(AUTOMATIC) && distinctAggregationStrategyChooser.shouldAddMarkDistinct(parent, context.getSession(), context.getStatsProvider())))) {
+                (distinctAggregationsStrategy.equals(AUTOMATIC) && distinctAggregationStrategyChooser.shouldAddMarkDistinct(parent, context.getSession(), context.getStatsProvider(), context.getLookup())))) {
             return Result.empty();
         }
 
