@@ -28,6 +28,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 
+import java.util.List;
 import java.util.PriorityQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -145,14 +146,14 @@ public class ClusterSizeMonitor
         ImmutableList.Builder<SettableFuture<Void>> listenersBuilder = ImmutableList.builder();
         while (!futuresQueue.isEmpty()) {
             MinNodesFuture minNodesFuture = futuresQueue.peek();
-            if (minNodesFuture == null || minNodesFuture.getExecutionMinCount() > currentCount) {
+            if (minNodesFuture.getExecutionMinCount() > currentCount) {
                 break;
             }
             listenersBuilder.add(minNodesFuture.getFuture());
             // this should not happen since we have a lock
             checkState(futuresQueue.poll() == minNodesFuture, "Unexpected modifications to MinNodesFuture queue");
         }
-        ImmutableList<SettableFuture<Void>> listeners = listenersBuilder.build();
+        List<SettableFuture<Void>> listeners = listenersBuilder.build();
         executor.submit(() -> listeners.forEach(listener -> listener.set(null)));
     }
 
