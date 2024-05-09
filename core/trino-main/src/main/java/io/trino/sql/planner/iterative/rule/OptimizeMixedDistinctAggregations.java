@@ -97,13 +97,18 @@ public class OptimizeMixedDistinctAggregations
 
     public static boolean hasMultipleDistincts(AggregationNode aggregationNode)
     {
+        return distinctAggregationsUniqueArgumentCount(aggregationNode) > 1;
+    }
+
+    public static long distinctAggregationsUniqueArgumentCount(AggregationNode aggregationNode)
+    {
         return aggregationNode.getAggregations()
                        .values().stream()
                        .filter(Aggregation::isDistinct)
                        .map(Aggregation::getArguments)
                        .map(HashSet::new)
                        .distinct()
-                       .count() > 1;
+                       .count();
     }
 
     private static boolean hasMixedDistinctAndNonDistincts(AggregationNode aggregationNode)
@@ -144,7 +149,7 @@ public class OptimizeMixedDistinctAggregations
     public OptimizeMixedDistinctAggregations(PlannerContext plannerContext, TaskCountEstimator taskCountEstimator)
     {
         this.functionResolver = plannerContext.getFunctionResolver();
-        this.distinctAggregationStrategyChooser = createDistinctAggregationStrategyChooser(taskCountEstimator);
+        this.distinctAggregationStrategyChooser = createDistinctAggregationStrategyChooser(taskCountEstimator, plannerContext.getMetadata());
     }
 
     @Override
@@ -159,7 +164,7 @@ public class OptimizeMixedDistinctAggregations
         DistinctAggregationsStrategy distinctAggregationsStrategy = distinctAggregationsStrategy(context.getSession());
 
         if (!(distinctAggregationsStrategy.equals(PRE_AGGREGATE) ||
-                (distinctAggregationsStrategy.equals(AUTOMATIC) && distinctAggregationStrategyChooser.shouldUsePreAggregate(node, context.getSession(), context.getStatsProvider())))) {
+                (distinctAggregationsStrategy.equals(AUTOMATIC) && distinctAggregationStrategyChooser.shouldUsePreAggregate(node, context.getSession(), context.getStatsProvider(), context.getLookup())))) {
             return Result.empty();
         }
 
