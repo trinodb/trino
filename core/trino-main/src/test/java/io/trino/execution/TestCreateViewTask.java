@@ -30,6 +30,7 @@ import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
@@ -149,10 +150,10 @@ public class TestCreateViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(
                 asQualifiedName(viewName),
-                ImmutableList.of(new Property(new Identifier("unknown_property"), new StringLiteral("unknown"))),
+                ImmutableList.of(new Property(new NodeLocation(1, 88), new Identifier("unknown_property"), new StringLiteral("unknown"))),
                 false)))
                 .hasErrorCode(INVALID_VIEW_PROPERTY)
-                .hasMessage("Catalog 'test_catalog' view property 'unknown_property' does not exist");
+                .hasMessage("line 1:88: Catalog 'test_catalog' view property 'unknown_property' does not exist");
     }
 
     @Test
@@ -162,10 +163,10 @@ public class TestCreateViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(
                 asQualifiedName(viewName),
-                ImmutableList.of(new Property(new Identifier("boolean_property"), new StringLiteral("unknown"))),
+                ImmutableList.of(new Property(new NodeLocation(1, 88), new Identifier("boolean_property"), new StringLiteral("unknown"))),
                 false)))
                 .hasErrorCode(INVALID_VIEW_PROPERTY)
-                .hasMessage("Invalid value for catalog 'test_catalog' view property 'boolean_property': Cannot convert ['unknown'] to boolean");
+                .hasMessage("line 1:88: Invalid value for catalog 'test_catalog' view property 'boolean_property': Cannot convert ['unknown'] to boolean");
     }
 
     private ListenableFuture<Void> executeCreateView(QualifiedName viewName, boolean replace)

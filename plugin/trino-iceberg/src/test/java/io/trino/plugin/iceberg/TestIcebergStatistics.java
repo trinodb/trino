@@ -497,7 +497,7 @@ public class TestIcebergStatistics
         assertUpdate(noStatsOnWrite, "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         // analyze NULL list of columns
-        assertQueryFails("ANALYZE " + tableName + " WITH (columns = NULL)", "\\QInvalid null value for catalog 'iceberg' analyze property 'columns' from [null]");
+        assertQueryFails("ANALYZE " + tableName + " WITH (columns = NULL)", "\\Qline 1:41: Invalid null value for catalog 'iceberg' analyze property 'columns' from [null]");
 
         // analyze empty list of columns
         assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY[])", "\\QCannot specify empty list of columns for analysis");
@@ -511,7 +511,7 @@ public class TestIcebergStatistics
         // specify NULL column
         assertQueryFails(
                 "ANALYZE " + tableName + " WITH (columns = ARRAY['nationkey', NULL])",
-                "\\QUnable to set catalog 'iceberg' analyze property 'columns' to [ARRAY['nationkey',null]]: Invalid null value in analyze columns property");
+                "\\Qline 1:41: Unable to set catalog 'iceberg' analyze property 'columns' to [ARRAY['nationkey',null]]: Invalid null value in analyze columns property");
 
         // analyze nationkey and regionkey
         assertUpdate("ANALYZE " + tableName + " WITH (columns = ARRAY['nationkey', 'regionkey'])");

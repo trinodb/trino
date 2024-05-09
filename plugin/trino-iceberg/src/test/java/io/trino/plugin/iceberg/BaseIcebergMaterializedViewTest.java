@@ -177,7 +177,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThatThrownBy(() -> computeActual("CREATE MATERIALIZED VIEW materialized_view_with_property " +
                 "WITH (invalid_property = ARRAY['_date']) AS " +
                 "SELECT _bigint, _date FROM base_table1"))
-                .hasMessage("Catalog 'iceberg' materialized view property 'invalid_property' does not exist");
+                .hasMessage("line 1:64: Catalog 'iceberg' materialized view property 'invalid_property' does not exist");
     }
 
     @Test
