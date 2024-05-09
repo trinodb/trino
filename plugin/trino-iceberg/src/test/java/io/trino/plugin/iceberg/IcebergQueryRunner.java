@@ -56,21 +56,13 @@ import static java.util.Objects.requireNonNull;
 
 public final class IcebergQueryRunner
 {
+    private IcebergQueryRunner() {}
+
     public static final String ICEBERG_CATALOG = "iceberg";
 
     static {
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.iceberg", Level.OFF);
-    }
-
-    private IcebergQueryRunner() {}
-
-    public static QueryRunner createIcebergQueryRunner(TpchTable<?>... tables)
-            throws Exception
-    {
-        return builder()
-                .setInitialTables(tables)
-                .build();
     }
 
     public static Builder builder()
