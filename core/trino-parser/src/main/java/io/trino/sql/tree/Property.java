@@ -59,6 +59,11 @@ public class Property
                 Optional.of(requireNonNull(value, "value is null")));
     }
 
+    public Property(Optional<NodeLocation> location, Identifier name, Expression value)
+    {
+        this(location, name, Optional.of(requireNonNull(value, "value is null")));
+    }
+
     private Property(Optional<NodeLocation> location, Identifier name, Optional<Expression> value)
     {
         super(location);

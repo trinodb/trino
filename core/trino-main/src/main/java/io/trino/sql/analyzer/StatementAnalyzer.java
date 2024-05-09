@@ -1276,12 +1276,12 @@ class StatementAnalyzer
 
             // analyze arguments
 
-            Map<String, Expression> propertiesMap = processTableExecuteArguments(node, procedureMetadata, scope);
+            List<Property> arguments = processTableExecuteArguments(node, procedureMetadata, scope);
             Map<String, Object> tableProperties = tableProceduresPropertyManager.getProperties(
                     catalogName,
                     catalogHandle,
                     procedureName,
-                    propertiesMap,
+                    arguments,
                     session,
                     plannerContext,
                     accessControl,
@@ -1304,7 +1304,7 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 
-        private Map<String, Expression> processTableExecuteArguments(TableExecute node, TableProcedureMetadata procedureMetadata, Optional<Scope> scope)
+        private List<Property> processTableExecuteArguments(TableExecute node, TableProcedureMetadata procedureMetadata, Optional<Scope> scope)
         {
             List<CallArgument> arguments = node.getArguments();
             Predicate<CallArgument> hasName = argument -> argument.getName().isPresent();
@@ -1322,25 +1322,29 @@ class StatementAnalyzer
                 process(argument, scope);
             }
 
-            Map<String, Expression> argumentsMap = new HashMap<>();
+            List<Property> properties = new ArrayList<>();
 
             if (anyNamed) {
                 // all properties named
+                Set<String> names = new HashSet<>();
                 for (CallArgument argument : arguments) {
-                    if (argumentsMap.put(argument.getName().get().getCanonicalValue(), argument.getValue()) != null) {
-                        throw semanticException(DUPLICATE_PROPERTY, argument, "Duplicate named argument: %s", argument.getName());
+                    Identifier name = argument.getName().orElseThrow();
+                    if (!names.add(name.getCanonicalValue())) {
+                        throw semanticException(DUPLICATE_PROPERTY, argument, "Duplicate named argument: %s", name);
                     }
+                    properties.add(new Property(argument.getLocation(), name, argument.getValue()));
                 }
             }
             else {
                 // all properties unnamed
                 int pos = 0;
                 for (CallArgument argument : arguments) {
-                    argumentsMap.put(procedureMetadata.getProperties().get(pos).getName(), argument.getValue());
+                    Identifier name = new Identifier(procedureMetadata.getProperties().get(pos).getName());
+                    properties.add(new Property(argument.getLocation(), name, argument.getValue()));
                     pos++;
                 }
             }
-            return ImmutableMap.copyOf(argumentsMap);
+            return properties;
         }
 
         @Override

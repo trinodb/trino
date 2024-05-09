@@ -120,7 +120,7 @@ public class TestTpchConnectorTest
     public void testAnalyze()
     {
         assertUpdate("ANALYZE orders", 15000);
-        assertQueryFails("ANALYZE orders WITH (foo = 'bar')", ".* analyze property 'foo' does not exist");
+        assertQueryFails("ANALYZE orders WITH (foo = 'bar')", "line 1:22: Catalog 'tpch' analyze property 'foo' does not exist");
     }
 
     @Test
