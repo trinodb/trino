@@ -200,14 +200,14 @@ public class TestDeltaLakeDatabricksUnityCompatibility
         onDelta().executeQuery(format("CREATE TABLE %s.%s.%s (c1 int, c2 string) USING delta LOCATION '%s'", unityCatalogName, schemaName, tableName, tableLocation));
 
         assertQueryFailure(() -> onTrino().executeQuery(format("CREATE TABLE delta.%s.new_table (c1 int) WITH (location = '%s')", schemaName, trinoLocation)))
-                .hasMessageContaining("DDL not enabled in Hive metastore interface.");
+                .hasMessageContaining("method not supported");
         assertQueryFailure(() -> onTrino().executeQuery(format("CREATE TABLE delta.%s.new_table (c1) WITH (location = '%s') AS SELECT 1", schemaName, trinoLocation)))
-                .hasRootCauseMessage("DDL not enabled in Hive metastore interface.");
+                .hasMessageContaining("method not supported");
         assertQueryFailure(() -> onTrino().executeQuery(format("ALTER TABLE delta.%s.%s RENAME TO delta.%s.new_t1", schemaName, tableName, schemaName)))
-                .hasMessageContaining("DDL not enabled in Hive metastore interface.");
+                .hasMessageContaining("method not supported");
         assertQueryFailure(() -> onTrino().executeQuery(format("DROP TABLE delta.%s.%s", schemaName, tableName)))
-                .hasMessageContaining("DDL not enabled in Hive metastore interface.");
+                .hasMessageContaining("method not supported");
         assertQueryFailure(() -> onTrino().executeQuery(format("DROP SCHEMA delta.%s CASCADE", schemaName)))
-                .hasMessageContaining("DDL not enabled in Hive metastore interface.");
+                .hasMessageContaining("method not supported");
     }
 }
