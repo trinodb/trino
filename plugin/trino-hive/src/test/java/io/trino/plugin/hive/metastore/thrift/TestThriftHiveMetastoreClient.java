@@ -45,7 +45,7 @@ public class TestThriftHiveMetastoreClient
                 },
                 "dummy",
                 new MetastoreSupportsDateStatistics(),
-                new AtomicInteger(),
+                true,
                 new AtomicInteger(),
                 new AtomicInteger(),
                 new AtomicInteger());
