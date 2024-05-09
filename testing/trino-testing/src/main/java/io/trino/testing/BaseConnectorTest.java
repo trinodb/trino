@@ -5387,6 +5387,7 @@ public abstract class BaseConnectorTest
                 .add("a\\backslash`")
                 .add("adigit0")
                 .add("0startwithdigit")
+                .add("カラム")
                 .build();
     }
 
