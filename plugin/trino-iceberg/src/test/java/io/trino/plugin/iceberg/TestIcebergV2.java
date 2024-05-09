@@ -589,7 +589,7 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
         assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
-                .failure().hasMessage("Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
+                .failure().hasMessage("line 1:79: Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
     }
 
     @Test

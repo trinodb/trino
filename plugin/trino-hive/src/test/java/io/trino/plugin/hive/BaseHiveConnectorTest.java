@@ -6746,9 +6746,9 @@ public abstract class BaseHiveConnectorTest
         createPartitionedTableForAnalyzeTest(tableName);
 
         // Test invalid property
-        assertQueryFails(format("ANALYZE %s WITH (error = 1)", tableName), ".*'hive' analyze property 'error' does not exist.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = 1)", tableName), "\\QInvalid value for catalog 'hive' analyze property 'partitions': Cannot convert [1] to array(array(varchar))\\E");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = NULL)", tableName), "\\QInvalid null value for catalog 'hive' analyze property 'partitions' from [null]\\E");
+        assertQueryFails(format("ANALYZE %s WITH (error = 1)", tableName), "line 1:64: Catalog 'hive' analyze property 'error' does not exist");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = 1)", tableName), "\\Qline 1:64: Invalid value for catalog 'hive' analyze property 'partitions': Cannot convert [1] to array(array(varchar))\\E");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = NULL)", tableName), "\\Qline 1:64: Invalid null value for catalog 'hive' analyze property 'partitions' from [null]\\E");
         assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[NULL])", tableName), ".*Invalid null value in analyze partitions property.*");
 
         // Test non-existed partition
@@ -7320,7 +7320,7 @@ public abstract class BaseHiveConnectorTest
         // Column names must be strings
         assertQueryFails(
                 "ANALYZE " + tableName + " WITH (columns = ARRAY[42])",
-                "\\QInvalid value for catalog 'hive' analyze property 'columns': Cannot convert [ARRAY[42]] to array(varchar)\\E");
+                "\\Qline 1:52: Invalid value for catalog 'hive' analyze property 'columns': Cannot convert [ARRAY[42]] to array(varchar)\\E");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -9067,10 +9067,10 @@ public abstract class BaseHiveConnectorTest
     {
         assertQueryFails(
                 "CREATE TABLE create_table_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']))",
-                "Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
+                "line 1:78: Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
         assertQueryFails(
                 "CREATE TABLE create_table_select_as_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']))",
-                "Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
+                "line 1:88: Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
     }
 
     @Test
@@ -9130,7 +9130,7 @@ public abstract class BaseHiveConnectorTest
     {
         assertQueryFails(
                 "CREATE VIEW create_view_with_duplicate_extra_properties WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false'])) AS SELECT 1 as colA",
-                "Invalid value for catalog 'hive' view property 'extra_properties': Cannot convert.*");
+                "line 1:63: Invalid value for catalog 'hive' view property 'extra_properties': Cannot convert.*");
     }
 
     @Test
@@ -9159,7 +9159,7 @@ public abstract class BaseHiveConnectorTest
     {
         assertQueryFails(
                 "CREATE VIEW create_view_with_table_properties WITH (format = 'ORC', extra_properties = MAP(ARRAY['extra.property'], ARRAY['true'])) AS SELECT 1 as colA",
-                "Catalog 'hive' view property 'format' does not exist");
+                "line 1:53: Catalog 'hive' view property 'format' does not exist");
     }
 
     @Test

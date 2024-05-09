@@ -1856,10 +1856,10 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 format("line 1:7: Table 'delta.%s.no_such_table_exists' does not exist", SCHEMA));
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33')",
-                "\\QUnable to set catalog 'delta' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");
+                "\\Qline 1:38: Unable to set catalog 'delta' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33s')",
-                "\\QUnable to set catalog 'delta' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33s']: Unknown unit: s");
+                "\\Qline 1:38: Unable to set catalog 'delta' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33s']: Unknown unit: s");
     }
 
     @Test

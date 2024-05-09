@@ -20,6 +20,7 @@ import com.google.common.primitives.Primitives;
 import io.trino.Session;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.Location;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.session.PropertyMetadata;
@@ -46,8 +47,8 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.util.MoreLists.mappedCopy;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public final class PropertyUtil
@@ -69,11 +70,13 @@ public final class PropertyUtil
 
         // Fill in user-specified properties
         for (Property property : setProperties) {
+            Optional<Location> location = extractLocation(property);
             // property names are case-insensitive and normalized to lower case
             String propertyName = property.getName().getValue().toLowerCase(ENGLISH);
             PropertyMetadata<?> propertyMetadata = metadata.get(propertyName);
             if (propertyMetadata == null) {
-                throw new TrinoException(errorCode, format("%s '%s' does not exist", capitalize(propertyTypeDescription), propertyName));
+                String message = "%s '%s' does not exist".formatted(capitalize(propertyTypeDescription), propertyName);
+                throw new TrinoException(errorCode, location, message, null);
             }
 
             Optional<Object> value;
@@ -82,6 +85,7 @@ public final class PropertyUtil
             }
             else {
                 value = Optional.of(evaluateProperty(
+                        location,
                         property.getNonDefaultValue(),
                         propertyMetadata,
                         session,
@@ -106,6 +110,7 @@ public final class PropertyUtil
     }
 
     private static Object evaluateProperty(
+            Optional<Location> location,
             Expression expression,
             PropertyMetadata<?> property,
             Session session,
@@ -116,6 +121,7 @@ public final class PropertyUtil
             String propertyTypeDescription)
     {
         Object sqlObjectValue = evaluateProperty(
+                location,
                 property.getName(),
                 property.getSqlType(),
                 expression,
@@ -130,19 +136,13 @@ public final class PropertyUtil
             return property.decode(sqlObjectValue);
         }
         catch (Exception e) {
-            throw new TrinoException(
-                    errorCode,
-                    format(
-                            "Unable to set %s '%s' to [%s]: %s",
-                            propertyTypeDescription,
-                            property.getName(),
-                            expression,
-                            e.getMessage()),
-                    e);
+            String message = "Unable to set %s '%s' to [%s]: %s".formatted(propertyTypeDescription, property.getName(), expression, e.getMessage());
+            throw new TrinoException(errorCode, location, message, e);
         }
     }
 
     public static Object evaluateProperty(
+            Optional<Location> location,
             String propertyName,
             Type propertyType,
             Expression expression,
@@ -163,25 +163,13 @@ public final class PropertyUtil
             sqlObjectValue = propertyType.getObjectValue(session.toConnectorSession(), block, 0);
         }
         catch (TrinoException e) {
-            throw new TrinoException(
-                    errorCode,
-                    format(
-                            "Invalid value for %s '%s': Cannot convert [%s] to %s",
-                            propertyTypeDescription,
-                            propertyName,
-                            expression,
-                            propertyType),
-                    e);
+            String message = "Invalid value for %s '%s': Cannot convert [%s] to %s".formatted(propertyTypeDescription, propertyName, expression, propertyType);
+            throw new TrinoException(errorCode, location, message, e);
         }
 
         if (sqlObjectValue == null) {
-            throw new TrinoException(
-                    errorCode,
-                    format(
-                            "Invalid null value for %s '%s' from [%s]",
-                            propertyTypeDescription,
-                            propertyName,
-                            expression));
+            String message = "Invalid null value for %s '%s' from [%s]".formatted(propertyTypeDescription, propertyName, expression);
+            throw new TrinoException(errorCode, location, message, null);
         }
         return sqlObjectValue;
     }
