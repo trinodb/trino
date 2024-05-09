@@ -18,6 +18,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize(keyUsing = SymbolKeySerializer.class)
@@ -34,6 +35,7 @@ public record Symbol(Type type, String name)
     public Symbol
     {
         requireNonNull(name, "name is null");
+        checkArgument(!name.isEmpty(), "name is empty");
         requireNonNull(type, "type is null");
     }
 

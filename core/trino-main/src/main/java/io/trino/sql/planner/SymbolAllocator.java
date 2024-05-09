@@ -73,6 +73,9 @@ public class SymbolAllocator
             }
         }
 
+        if (nameHint.isEmpty()) {
+            nameHint = "col";
+        }
         Symbol symbol = new Symbol(type, nameHint);
         while (symbols.putIfAbsent(symbol.name(), symbol) != null) {
             symbol = new Symbol(type, nameHint + "_" + nextId());
