@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -68,12 +67,13 @@ public class MultipleDistinctAggregationToMarkDistinct
         implements Rule<AggregationNode>
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation()
-            .matching(
-                    Predicates.and(
-                            MultipleDistinctAggregationToMarkDistinct::hasNoDistinctWithFilterOrMask,
-                            Predicates.or(
-                                    MultipleDistinctAggregationToMarkDistinct::hasMultipleDistincts,
-                                    MultipleDistinctAggregationToMarkDistinct::hasMixedDistinctAndNonDistincts)));
+            .matching(MultipleDistinctAggregationToMarkDistinct::canUseMarkDistinct);
+
+    public static boolean canUseMarkDistinct(AggregationNode aggregationNode)
+    {
+        return hasNoDistinctWithFilterOrMask(aggregationNode) &&
+               (hasMultipleDistincts(aggregationNode) || hasMixedDistinctAndNonDistincts(aggregationNode));
+    }
 
     private static boolean hasNoDistinctWithFilterOrMask(AggregationNode aggregationNode)
     {
