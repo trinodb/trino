@@ -72,6 +72,7 @@ public class TestPinotConfig
                 .put("pinot.grpc.enabled", "false")
                 .put("pinot.proxy.enabled", "true")
                 .put("pinot.target-segment-page-size", "2MB")
+                .put("pinot.query.options", "enableNullHandling:true,skipUpsert=false")
                 .buildOrThrow();
 
         PinotConfig expected = new PinotConfig()
@@ -90,6 +91,7 @@ public class TestPinotConfig
                 .setCountDistinctPushdownEnabled(false)
                 .setGrpcEnabled(false)
                 .setProxyEnabled(true)
+                .setQueryOptions("enableNullHandling:true,skipUpsert=false")
                 .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);

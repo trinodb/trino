@@ -44,4 +44,17 @@ public class TestPinotSessionProperties
                 .build();
         assertThat(PinotSessionProperties.getConnectionTimeout(session)).isEqualTo(new Duration(0.25, TimeUnit.MINUTES));
     }
+
+    @Test
+    public void testQueryOptionsParsing()
+    {
+        PinotConfig config = new PinotConfig().setQueryOptions(",,enableNullHandling:true,skipUpsert:true,");
+        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(config);
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(pinotSessionProperties.getSessionProperties())
+                .build();
+        String queryOptions = PinotSessionProperties.getQueryOptions(session);
+        assertThat(queryOptions).isEqualTo(",,enableNullHandling:true,skipUpsert:true,");
+        assertThat(PinotPageSourceProvider.getQueryOptionsString(queryOptions).orElse("")).isEqualTo(" option(enableNullHandling=true,skipUpsert=true) ");
+    }
 }

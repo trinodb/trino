@@ -116,7 +116,7 @@ public class PinotPageSourceProvider
         throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
     }
 
-    private Optional<String> getQueryOptionsString(String options)
+    static Optional<String> getQueryOptionsString(String options)
     {
         if (isNullOrEmpty(options)) {
             return Optional.empty();
