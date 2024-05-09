@@ -49,6 +49,7 @@ public class TestPinotConfig
                         .setCountDistinctPushdownEnabled(true)
                         .setGrpcEnabled(true)
                         .setProxyEnabled(false)
+                        .setQueryOptions(null)
                         .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE)));
     }
 
