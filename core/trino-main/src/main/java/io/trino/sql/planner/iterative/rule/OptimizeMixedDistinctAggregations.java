@@ -94,7 +94,7 @@ public class OptimizeMixedDistinctAggregations
                     aggregation -> !aggregation.hasOrderings(),
                     aggregation -> aggregation.getStep().equals(SINGLE)));
 
-    private static boolean hasMultipleDistincts(AggregationNode aggregationNode)
+    public static boolean hasMultipleDistincts(AggregationNode aggregationNode)
     {
         return aggregationNode.getAggregations()
                        .values().stream()

@@ -335,6 +335,16 @@ public abstract class AbstractTestAggregations
     }
 
     @Test
+    public void testMultipleDifferentDistinctOverUnion()
+    {
+        assertQuery("""
+                SELECT custkey, COUNT(DISTINCT orderkey), COUNT(DISTINCT orderstatus)
+                FROM (SELECT orderkey, orderstatus, custkey FROM orders WHERE orderstatus = 'O'
+                UNION ALL SELECT orderkey, orderstatus, custkey FROM orders WHERE orderstatus = 'F')
+                GROUP BY custkey""");
+    }
+
+    @Test
     public void testMultipleDistinct()
     {
         assertQuery(

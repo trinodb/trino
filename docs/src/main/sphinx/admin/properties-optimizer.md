@@ -43,7 +43,7 @@ create them.
 ## `optimizer.distinct-aggregations-strategy`
 
 - **Type:** {ref}`prop-type-string`
-- **Allowed values:** `AUTOMATIC`, `MARK_DISTINCT`, `SINGLE_STEP`, `PRE_AGGREGATE`
+- **Allowed values:** `AUTOMATIC`, `MARK_DISTINCT`, `SINGLE_STEP`, `PRE_AGGREGATE`, `SPLIT_TO_SUBQUERIES`
 - **Default value:** `AUTOMATIC`
 - **Session property:** `distinct_aggregations_strategy`
 
@@ -54,6 +54,8 @@ This strategy will perform poorly if the number of distinct grouping keys is sma
 or for mix of distinct and non-distinct aggregations.
 `PRE_AGGREGATE` Computes distinct aggregations using a combination of aggregation
 and pre-aggregation steps.
+`SPLIT_TO_SUBQUERIES` Splits the aggregation input to independent sub-queries,
+where each subquery computes single distinct aggregation thus improving parallelism
 `AUTOMATIC` chooses the strategy automatically.
 
 Single-step strategy is preferred. However, for cases with limited concurrency due to
