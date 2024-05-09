@@ -134,6 +134,8 @@ Hive connector documentation.
     * `APPEND` - appends data to existing partitions
     * `OVERWRITE` - overwrites existing partitions
     * `ERROR` - modifying existing partitions is not allowed
+
+    The equivalent catalog session property is `insert_existing_partitions_behavior`.
   - `APPEND`
 * - `hive.target-max-file-size`
   - Best effort maximum size of new files.
@@ -195,7 +197,7 @@ Hive connector documentation.
   - JVM default
 * - `hive.timestamp-precision`
   - Specifies the precision to use for Hive columns of type `TIMESTAMP`.
-    Possible values are `MILLISECONDS`, `MICROSECONDS` and `NANOSECONDS`. 
+    Possible values are `MILLISECONDS`, `MICROSECONDS` and `NANOSECONDS`.
     Values with higher precision than configured are rounded. The equivalent
     [catalog session property](/sql/set-session) is `timestamp_precision` for
     session specific use.
