@@ -35,6 +35,7 @@ public class TestBigQueryAvroConnectorTest
             .add("a:colon")
             .add("an'apostrophe")
             .add("0startwithdigit")
+            .add("カラム")
             .build();
 
     @Override
