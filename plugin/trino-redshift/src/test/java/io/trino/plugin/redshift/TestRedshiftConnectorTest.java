@@ -30,6 +30,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
@@ -391,7 +392,27 @@ public class TestRedshiftConnectorTest
                     .matches("VALUES BIGINT '6'")
                     .isFullyPushedDown();
 
-            assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+            Session withMarkDistinct = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
+                    .build();
+
+            Session withSingleStepDistinct = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
+                    .build();
+
+            Session withPreAggregate = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                    .build();
+
+            assertThat(query(withMarkDistinct, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                    .matches("VALUES (BIGINT '6', BIGINT '6')")
+                    .isFullyPushedDown();
+
+            assertThat(query(withSingleStepDistinct, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                    .matches("VALUES (BIGINT '6', BIGINT '6')")
+                    .isFullyPushedDown();
+
+            assertThat(query(withPreAggregate, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
                     .matches("VALUES (BIGINT '6', BIGINT '6')")
                     .isFullyPushedDown();
         }
