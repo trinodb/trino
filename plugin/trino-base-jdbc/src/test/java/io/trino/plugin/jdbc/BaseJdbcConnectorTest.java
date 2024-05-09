@@ -25,6 +25,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
@@ -400,34 +401,74 @@ public abstract class BaseJdbcConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES BIGINT '4'");
 
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_string), count(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches("VALUES (BIGINT '4', BIGINT '3')");
-
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_char), count(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches("VALUES (BIGINT '4', BIGINT '3')");
-
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_string), sum(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches(sumDistinctAggregationPushdownExpectedResult());
-
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_char), sum(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches(sumDistinctAggregationPushdownExpectedResult());
+            Session withMarkDistinct = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
+                    .build();
+            Session withSingleStep = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
+                    .build();
+            Session withPreAggregate = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                    .build();
+            verifyMultipleDistinctPushdown(
+                    withMarkDistinct,
+                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))),
+                    supportsPushdownWithVarcharInequality,
+                    supportsCountDistinctPushdown,
+                    supportsSumDistinctPushdown,
+                    table);
+            verifyMultipleDistinctPushdown(
+                    withSingleStep,
+                    node(AggregationNode.class, anyTree(node(TableScanNode.class))),
+                    supportsPushdownWithVarcharInequality,
+                    supportsCountDistinctPushdown,
+                    supportsSumDistinctPushdown,
+                    table);
+            verifyMultipleDistinctPushdown(
+                    withPreAggregate,
+                    node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))),
+                    supportsPushdownWithVarcharInequality,
+                    supportsCountDistinctPushdown,
+                    supportsSumDistinctPushdown,
+                    table);
         }
+    }
+
+    private void verifyMultipleDistinctPushdown(
+            Session session,
+            PlanMatchPattern otherwiseExpected,
+            boolean supportsPushdownWithVarcharInequality,
+            boolean supportsCountDistinctPushdown,
+            boolean supportsSumDistinctPushdown,
+            TestTable table)
+    {
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_string), count(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches("VALUES (BIGINT '4', BIGINT '3')");
+
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_char), count(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches("VALUES (BIGINT '4', BIGINT '3')");
+
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_string), sum(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches(sumDistinctAggregationPushdownExpectedResult());
+
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_char), sum(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches(sumDistinctAggregationPushdownExpectedResult());
     }
 
     protected String sumDistinctAggregationPushdownExpectedResult()
@@ -506,42 +547,59 @@ public abstract class BaseJdbcConnectorTest
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
                 node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
 
-        Session withoutMarkDistinct = Session.builder(getSession())
+        Session withSingleStep = Session.builder(getSession())
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
                 .build();
+        Session withPreAggregate = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                .build();
+
+        verifyDistinctAggregationPushdown(
+                withMarkDistinct,
+                node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+        verifyDistinctAggregationPushdown(
+                withSingleStep,
+                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+        verifyDistinctAggregationPushdown(
+                withPreAggregate,
+                node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))));
+    }
+
+    private void verifyDistinctAggregationPushdown(Session session, PlanMatchPattern multiDistinctOtherwiseExpected)
+    {
         // distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        assertThat(query(session, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
         // distinct aggregation with GROUP BY
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query(session, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         // distinct aggregation with varchar
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT count(DISTINCT comment) FROM nation",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
                 node(AggregationNode.class, node(TableScanNode.class)));
         // two distinct aggregations
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT sum(DISTINCT regionkey), sum(DISTINCT nationkey) FROM nation",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
 
         // distinct aggregation and a non-distinct aggregation
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT sum(DISTINCT regionkey), sum(nationkey) FROM nation",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
     }
 
     @Test
@@ -598,6 +656,16 @@ public abstract class BaseJdbcConnectorTest
                 .map(value -> format("'%1$s', '%1$s'", value))
                 .collect(toImmutableList());
 
+        Session withMarkDistinct = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
+                .build();
+        Session withSingleStep = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
+                .build();
+        Session withPreAggregate = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                .build();
+
         try (TestTable testTable = new TestTable(getQueryRunner()::execute, "distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
             if (!(hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN) && hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY))) {
                 // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
@@ -618,7 +686,7 @@ public abstract class BaseJdbcConnectorTest
                         .matches("VALUES BIGINT '7'")
                         .isNotFullyPushedDown(AggregationNode.class);
 
-                assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                assertThat(query(withMarkDistinct, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
                         .matches("VALUES (BIGINT '7', BIGINT '7')")
                         .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
             }
@@ -634,10 +702,20 @@ public abstract class BaseJdbcConnectorTest
                         .isFullyPushedDown();
 
                 assertConditionallyPushedDown(
-                        getSession(),
+                        withMarkDistinct,
                         "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(),
                         hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
                         node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                assertConditionallyPushedDown(
+                        withSingleStep,
+                        "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(),
+                        hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
+                        node(AggregationNode.class, anyTree(node(TableScanNode.class))));
+                assertConditionallyPushedDown(
+                        withPreAggregate,
+                        "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(),
+                        hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
+                        node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))));
             }
         }
     }

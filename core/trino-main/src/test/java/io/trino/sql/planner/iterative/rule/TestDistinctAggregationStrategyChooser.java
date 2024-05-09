@@ -102,7 +102,7 @@ public class TestDistinctAggregationStrategyChooser
     }
 
     @Test
-    public void testMarkDistinctPreferredForLowCardinality2GroupByKeys()
+    public void testPreAggregatePreferredForLowCardinality2GroupByKeys()
     {
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
@@ -124,6 +124,7 @@ public class TestDistinctAggregationStrategyChooser
                                 Function.identity(),
                                 _ -> SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())))),
                 new SymbolAllocator());
+        assertThat(aggregationStrategyChooser.shouldUsePreAggregate(aggregationNode, context.getSession(), context.getStatsProvider())).isTrue();
         assertThat(aggregationStrategyChooser.shouldAddMarkDistinct(aggregationNode, context.getSession(), context.getStatsProvider())).isTrue();
     }
 
