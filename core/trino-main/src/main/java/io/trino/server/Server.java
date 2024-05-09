@@ -24,7 +24,6 @@ import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
-import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.event.client.EventModule;
 import io.airlift.event.client.JsonEventModule;
 import io.airlift.http.server.HttpServerModule;
@@ -62,7 +61,6 @@ import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.server.security.oauth2.OAuth2Client;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManagerModule;
 import io.trino.util.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
@@ -75,16 +73,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.Set;
 
-import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
-import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
 import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.joining;
 
 public class Server
 {
@@ -155,18 +149,13 @@ public class Server
             ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
             connectorServicesProvider.loadInitialCatalogs();
 
-            // Only static catalog manager announces catalogs
             // Connector event listeners are only supported for statically loaded catalogs
             // TODO: remove connector event listeners or add support for dynamic loading from connector
             if (injector.getInstance(CatalogManagerConfig.class).getCatalogMangerKind() == CatalogMangerKind.STATIC) {
-                CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
                 addConnectorEventListeners(
-                        catalogManager,
+                        injector.getInstance(CatalogManager.class),
                         injector.getInstance(ConnectorServicesProvider.class),
                         injector.getInstance(EventListenerManager.class));
-
-                // TODO: remove this huge hack
-                updateConnectorIds(injector.getInstance(Announcer.class), catalogManager);
             }
 
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
@@ -239,41 +228,6 @@ public class Server
     protected Iterable<? extends Module> getAdditionalModules()
     {
         return ImmutableList.of();
-    }
-
-    private static void updateConnectorIds(Announcer announcer, CatalogManager catalogManager)
-    {
-        // get existing announcement
-        ServiceAnnouncement announcement = getTrinoAnnouncement(announcer.getServiceAnnouncements());
-
-        // automatically build catalogHandleIds if not configured
-        String catalogHandleIds = catalogManager.getCatalogNames().stream()
-                .map(catalogManager::getCatalog)
-                .flatMap(Optional::stream)
-                .map(Catalog::getCatalogHandle)
-                .map(CatalogHandle::getId)
-                .distinct()
-                .sorted()
-                .collect(joining(","));
-
-        // build announcement with updated sources
-        ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
-        builder.addProperties(announcement.getProperties());
-        builder.addProperty("catalogHandleIds", catalogHandleIds);
-
-        // update announcement
-        announcer.removeServiceAnnouncement(announcement.getId());
-        announcer.addServiceAnnouncement(builder.build());
-    }
-
-    private static ServiceAnnouncement getTrinoAnnouncement(Set<ServiceAnnouncement> announcements)
-    {
-        for (ServiceAnnouncement announcement : announcements) {
-            if (announcement.getType().equals("trino")) {
-                return announcement;
-            }
-        }
-        throw new IllegalArgumentException("Trino announcement not found: " + announcements);
     }
 
     private static void logLocation(Logger log, String name, Path path)

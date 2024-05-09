@@ -442,7 +442,8 @@ public class ServerMainModule
         binder.bind(NodeVersion.class).toInstance(new NodeVersion(nodeVersion));
         discoveryBinder(binder).bindHttpAnnouncement("trino")
                 .addProperty("node_version", nodeVersion)
-                .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()));
+                .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
+                .bindPropertyProvider("catalogHandleIds", StaticCatalogHandleIds.class);
 
         // server info resource
         jaxrsBinder(binder).bind(ServerInfoResource.class);
