@@ -259,9 +259,13 @@ public final class DiscoveryNodeManager
             }
         }
 
+        Set<InternalNode> activeNodes = activeNodesBuilder.build();
+        Set<InternalNode> inactiveNodes = inactiveNodesBuilder.build();
+        Set<InternalNode> coordinators = coordinatorsBuilder.build();
+        Set<InternalNode> shuttingDownNodes = shuttingDownNodesBuilder.build();
         if (allNodes != null) {
             // log node that are no longer active (but not shutting down)
-            SetView<InternalNode> missingNodes = difference(allNodes.getActiveNodes(), Sets.union(activeNodesBuilder.build(), shuttingDownNodesBuilder.build()));
+            SetView<InternalNode> missingNodes = difference(allNodes.getActiveNodes(), Sets.union(activeNodes, shuttingDownNodes));
             for (InternalNode missingNode : missingNodes) {
                 log.info("Previously active node is missing: %s (last seen at %s)", missingNode.getNodeIdentifier(), missingNode.getHost());
             }
@@ -272,12 +276,12 @@ public final class DiscoveryNodeManager
             activeNodesByCatalogHandle = Optional.of(byCatalogHandleBuilder.build());
         }
 
-        AllNodes allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build(), coordinatorsBuilder.build());
+        AllNodes allNodes = new AllNodes(activeNodes, inactiveNodes, shuttingDownNodes, coordinators);
         // only update if all nodes actually changed (note: this does not include the connectors registered with the nodes)
         if (!allNodes.equals(this.allNodes)) {
             // assign allNodes to a local variable for use in the callback below
             this.allNodes = allNodes;
-            coordinators = coordinatorsBuilder.build();
+            this.coordinators = coordinators;
 
             // notify listeners
             List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
