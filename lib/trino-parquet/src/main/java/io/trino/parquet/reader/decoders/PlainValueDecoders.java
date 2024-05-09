@@ -177,16 +177,10 @@ public final class PlainValueDecoders
 
             // Read full bytes
             int bytesToRead = length / Byte.SIZE;
-            while (bytesToRead >= Long.BYTES) {
-                long packedLong = input.readLong();
-                BitPackingUtils.unpack64FromLong(values, offset, packedLong);
-                bytesToRead -= Long.BYTES;
-                offset += Long.SIZE;
-            }
-            while (bytesToRead >= Byte.BYTES) {
+            while (bytesToRead > 0) {
                 byte packedByte = input.readByte();
                 BitPackingUtils.unpack8FromByte(values, offset, packedByte);
-                bytesToRead -= Byte.BYTES;
+                bytesToRead--;
                 offset += Byte.SIZE;
             }
 

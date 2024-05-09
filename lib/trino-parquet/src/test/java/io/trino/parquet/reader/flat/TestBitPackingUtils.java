@@ -102,39 +102,6 @@ public class TestBitPackingUtils
         }
     }
 
-    @Test
-    public void testUnpack64()
-    {
-        Random random = new Random(1);
-        boolean[] values = new boolean[100 + 64];
-        for (int i = 0; i < 100_000; i++) {
-            int offset = random.nextInt(100);
-            long packedValue = random.nextLong();
-            int nonNullCount = unpack(values, offset, packedValue);
-            assertThat(nonNullCount).isEqualTo(64 - Long.bitCount(packedValue));
-
-            for (int bit = 0; bit < 64; bit++) {
-                assertThat(values[offset + bit]).isEqualTo(((packedValue >>> bit) & 1) == 1);
-            }
-        }
-    }
-
-    @Test
-    public void testUnpack64FromLong()
-    {
-        Random random = new Random(1);
-        byte[] values = new byte[100 + 64];
-        for (int i = 0; i < 100_000; i++) {
-            int offset = random.nextInt(100);
-            long packedValue = random.nextLong();
-            BitPackingUtils.unpack64FromLong(values, offset, packedValue);
-
-            for (int bit = 0; bit < 64; bit++) {
-                assertThat(values[offset + bit]).isEqualTo((byte) ((packedValue >>> bit) & 1));
-            }
-        }
-    }
-
     private static int selectBits(int packedByte, int start, int end)
     {
         return (packedByte >>> start) & ((1 << (end - start)) - 1);

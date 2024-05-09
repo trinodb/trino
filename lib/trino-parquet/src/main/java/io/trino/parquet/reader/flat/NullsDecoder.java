@@ -94,11 +94,6 @@ public class NullsDecoder
                 int chunkSize = min(length, valuesLeftInGroup);
                 int leftToRead = chunkSize;
                 // All values read from input are inverted as Trino uses 1 for null but Parquet uses 1 for non-null value
-                while (leftToRead >= Long.SIZE) {
-                    nonNullCount += unpack(values, offset, ~input.readLong());
-                    offset += Long.SIZE;
-                    leftToRead -= Long.SIZE;
-                }
                 while (leftToRead >= Byte.SIZE) {
                     nonNullCount += unpack(values, offset, (byte) ~input.readByte());
                     offset += Byte.SIZE;
