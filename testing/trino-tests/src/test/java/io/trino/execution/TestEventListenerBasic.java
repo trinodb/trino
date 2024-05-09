@@ -1501,6 +1501,19 @@ public class TestEventListenerBasic
                 .isEqualTo(Optional.of(ANONYMIZED_PLAN_JSON_CODEC.toJson(anonymizedPlan)));
     }
 
+    @Test
+    public void testAllImmediateFailureEventsPresent()
+            throws Exception
+    {
+        String immediatelyFailingQuery = "grant select on fake_catalog_%s.fake_schema.fake_table to fake_role";
+        String expectedFailure = "line 1:1: Table 'fake_catalog_%s.fake_schema.fake_table' does not exist";
+        int queryCount = 100;
+
+        for (int i = 0; i < queryCount; i++) {
+            assertFailedQuery(immediatelyFailingQuery.formatted(i), expectedFailure.formatted(i));
+        }
+    }
+
     private void assertLineage(String baseQuery, Set<String> inputTables, OutputColumnMetadata... outputColumnMetadata)
             throws Exception
     {
