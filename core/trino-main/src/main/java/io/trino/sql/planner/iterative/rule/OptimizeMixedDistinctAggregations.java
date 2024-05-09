@@ -17,7 +17,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.FunctionResolver;
@@ -28,6 +28,7 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.Rule;
@@ -52,7 +53,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.AUTOMATIC;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.PRE_AGGREGATE;
+import static io.trino.sql.planner.iterative.rule.DistinctAggregationStrategyChooser.createDistinctAggregationStrategyChooser;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -135,10 +138,12 @@ public class OptimizeMixedDistinctAggregations
     }
 
     private final FunctionResolver functionResolver;
+    private final DistinctAggregationStrategyChooser distinctAggregationStrategyChooser;
 
-    public OptimizeMixedDistinctAggregations(PlannerContext plannerContext)
+    public OptimizeMixedDistinctAggregations(PlannerContext plannerContext, TaskCountEstimator taskCountEstimator)
     {
         this.functionResolver = plannerContext.getFunctionResolver();
+        this.distinctAggregationStrategyChooser = createDistinctAggregationStrategyChooser(taskCountEstimator);
     }
 
     @Override
@@ -148,14 +153,15 @@ public class OptimizeMixedDistinctAggregations
     }
 
     @Override
-    public boolean isEnabled(Session session)
-    {
-        return distinctAggregationsStrategy(session).equals(PRE_AGGREGATE);
-    }
-
-    @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
+        DistinctAggregationsStrategy distinctAggregationsStrategy = distinctAggregationsStrategy(context.getSession());
+
+        if (!(distinctAggregationsStrategy.equals(PRE_AGGREGATE) ||
+                (distinctAggregationsStrategy.equals(AUTOMATIC) && distinctAggregationStrategyChooser.shouldUsePreAggregate(node, context.getSession(), context.getStatsProvider())))) {
+            return Result.empty();
+        }
+
         SymbolAllocator symbolAllocator = context.getSymbolAllocator();
 
         Set<Symbol> originalDistinctAggregationArguments = node.getAggregations().values()
