@@ -16,12 +16,12 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.base.util.UncheckedCloseable;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.DOUBLE_SLASH;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TRIPLE_SLASH;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TWO_TRAILING_SLASHES;
-import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -51,20 +51,24 @@ public class TestHiveS3AndGlueMetastoreTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()));
-
         Session session = createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
         QueryRunner queryRunner = HiveQueryRunner.builder(session)
                 .addExtraProperty("sql.path", "hive.functions")
                 .addExtraProperty("sql.default-function-catalog", "hive")
                 .addExtraProperty("sql.default-function-schema", "functions")
                 .setCreateTpchSchemas(false)
+                .addHiveProperty("hive.metastore", "glue")
+                .addHiveProperty("hive.metastore.glue.default-warehouse-dir", schemaPath())
                 .addHiveProperty("hive.security", "allow-all")
                 .addHiveProperty("hive.non-managed-table-writes-enabled", "true")
-                .setMetastore(runner -> metastore)
+                .addHiveProperty("fs.hadoop.enabled", "false")
+                .addHiveProperty("fs.native-s3.enabled", "true")
                 .build();
         queryRunner.execute("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaPath() + "')");
         queryRunner.execute("CREATE SCHEMA IF NOT EXISTS functions");
+
+        metastore = getConnectorService(queryRunner, GlueHiveMetastore.class);
+
         return queryRunner;
     }
 
@@ -304,9 +308,12 @@ public class TestHiveS3AndGlueMetastoreTest
 
         assertUpdate("CREATE SCHEMA \"%2$s\" WITH (location = 's3://%1$s/%2$s')".formatted(bucketName, schemaName));
         try (var _ = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
-            assertThatThrownBy(() -> computeActual("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1"))
-                    .hasMessage("Error committing write to Hive")
-                    .hasStackTraceContaining("Invalid URI (Service: Amazon S3; Status Code: 400");
+            assertThat(query("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1"))
+                    .failure().hasMessage("Error committing write to Hive")
+                    .cause()
+                    .cause().hasMessageMatching("Put failed for bucket \\[\\S+] key \\[\\.\\./test_create_schema_invalid_location_\\w+/test_table_schema_invalid_location_\\w+/\\S+]: .*")
+                    // The message could be better. In AWS SDK v1 it used to be "Invalid URI".
+                    .cause().hasMessageMatching("null \\(Service: S3, Status Code: 400, Request ID: .*");
         }
     }
 
