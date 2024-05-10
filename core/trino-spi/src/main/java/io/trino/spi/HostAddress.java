@@ -271,8 +271,8 @@ public class HostAddress
             return false;
         }
         HostAddress other = (HostAddress) obj;
-        return Objects.equals(this.host, other.host) &&
-                Objects.equals(this.port, other.port);
+        return this.port == other.port &&
+               Objects.equals(this.host, other.host);
     }
 
     /**

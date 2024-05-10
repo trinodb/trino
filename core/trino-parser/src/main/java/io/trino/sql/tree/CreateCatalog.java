@@ -132,7 +132,7 @@ public class CreateCatalog
         }
         CreateCatalog o = (CreateCatalog) obj;
         return Objects.equals(catalogName, o.catalogName) &&
-                Objects.equals(notExists, o.notExists) &&
+                notExists == o.notExists &&
                 Objects.equals(properties, o.properties) &&
                 Objects.equals(comment, o.comment);
     }
