@@ -302,7 +302,7 @@ public class IoPlanPrinter
                 return false;
             }
             Constraint o = (Constraint) obj;
-            return Objects.equals(isNone, o.isNone) &&
+            return isNone == o.isNone &&
                     Objects.equals(columnConstraints, o.columnConstraints);
         }
 

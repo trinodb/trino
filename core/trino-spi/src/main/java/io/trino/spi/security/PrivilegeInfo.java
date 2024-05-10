@@ -53,6 +53,6 @@ public class PrivilegeInfo
         }
         PrivilegeInfo privilegeInfo = (PrivilegeInfo) o;
         return privilege == privilegeInfo.privilege &&
-                Objects.equals(grantOption, privilegeInfo.grantOption);
+               grantOption == privilegeInfo.grantOption;
     }
 }

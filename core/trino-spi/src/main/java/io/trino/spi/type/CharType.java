@@ -206,8 +206,7 @@ public final class CharType
         }
 
         CharType other = (CharType) o;
-
-        return Objects.equals(this.length, other.length);
+        return this.length == other.length;
     }
 
     @Override

@@ -75,7 +75,7 @@ public final class ErrorCode
         }
 
         ErrorCode that = (ErrorCode) obj;
-        return Objects.equals(this.code, that.code);
+        return this.code == that.code;
     }
 
     @Override

@@ -83,7 +83,7 @@ public class Union
         }
         Union o = (Union) obj;
         return Objects.equals(relations, o.relations) &&
-                Objects.equals(isDistinct(), o.isDistinct());
+               isDistinct() == o.isDistinct();
     }
 
     @Override

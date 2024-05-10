@@ -75,7 +75,7 @@ public class FieldDereference
 
         FieldDereference that = (FieldDereference) o;
         return Objects.equals(target, that.target)
-                && Objects.equals(field, that.field)
+                && field == that.field
                 && Objects.equals(getType(), that.getType());
     }
 

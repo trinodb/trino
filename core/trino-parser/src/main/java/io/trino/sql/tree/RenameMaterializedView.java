@@ -92,7 +92,7 @@ public final class RenameMaterializedView
         RenameMaterializedView o = (RenameMaterializedView) obj;
         return Objects.equals(source, o.source) &&
                 Objects.equals(target, o.target) &&
-                Objects.equals(exists, o.exists);
+                exists == o.exists;
     }
 
     @Override
