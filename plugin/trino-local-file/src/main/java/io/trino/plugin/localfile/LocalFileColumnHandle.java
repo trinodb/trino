@@ -80,7 +80,7 @@ public class LocalFileColumnHandle
         LocalFileColumnHandle that = (LocalFileColumnHandle) o;
         return Objects.equals(columnName, that.columnName) &&
                 Objects.equals(columnType, that.columnType) &&
-                Objects.equals(ordinalPosition, that.ordinalPosition);
+                ordinalPosition == that.ordinalPosition;
     }
 
     @Override

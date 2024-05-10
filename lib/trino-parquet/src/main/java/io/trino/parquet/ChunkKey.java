@@ -44,8 +44,8 @@ public class ChunkKey
             return false;
         }
         ChunkKey other = (ChunkKey) obj;
-        return Objects.equals(this.column, other.column)
-                && Objects.equals(this.rowGroup, other.rowGroup);
+        return this.column == other.column &&
+               this.rowGroup == other.rowGroup;
     }
 
     @Override

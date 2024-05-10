@@ -389,7 +389,7 @@ public class ShardRecoveryManager
             }
 
             MissingShard other = (MissingShard) o;
-            return Objects.equals(this.active, other.active) &&
+            return this.active == other.active &&
                     Objects.equals(this.shardUuid, other.shardUuid);
         }
 

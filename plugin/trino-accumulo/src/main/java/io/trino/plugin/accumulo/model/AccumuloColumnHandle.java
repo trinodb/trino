@@ -139,12 +139,12 @@ public final class AccumuloColumnHandle
         }
 
         AccumuloColumnHandle other = (AccumuloColumnHandle) obj;
-        return Objects.equals(this.indexed, other.indexed)
+        return this.indexed == other.indexed
                 && Objects.equals(this.name, other.name)
                 && Objects.equals(this.family, other.family)
                 && Objects.equals(this.qualifier, other.qualifier)
                 && Objects.equals(this.type, other.type)
-                && Objects.equals(this.ordinal, other.ordinal)
+                && this.ordinal == other.ordinal
                 && Objects.equals(this.extraInfo, other.extraInfo)
                 && Objects.equals(this.comment, other.comment);
     }
