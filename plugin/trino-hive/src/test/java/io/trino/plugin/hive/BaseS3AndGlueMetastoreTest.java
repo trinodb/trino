@@ -86,6 +86,26 @@ public abstract class BaseS3AndGlueMetastoreTest
     }
 
     @Test
+    public void testTableNotFound()
+    {
+        assertThat(query("TABLE non_existent_table_" + randomNameSuffix()))
+                .failure().hasMessageMatching("line 1:1: Table '\\w+.test_glue_s3_\\w+.non_existent_table_\\w+' does not exist");
+
+        assertThat(query("SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'non_existent_table_" + randomNameSuffix() + "'"))
+                .result().isEmpty();
+    }
+
+    @Test
+    public void testSchemaNotFound()
+    {
+        assertThat(query("SHOW TABLES FROM non_existent_schema_" + randomNameSuffix()))
+                .failure().hasMessageMatching("line 1:1: Schema 'non_existent_schema_\\w+' does not exist");
+
+        assertThat(query("SELECT * FROM information_schema.tables WHERE table_schema = 'non_existent_schema_" + randomNameSuffix() + "'"))
+                .result().isEmpty();
+    }
+
+    @Test
     public void testBasicOperationsWithProvidedTableLocation()
     {
         for (LocationPattern locationPattern : LocationPattern.values()) {
