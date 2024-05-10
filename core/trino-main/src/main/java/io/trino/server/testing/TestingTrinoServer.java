@@ -83,6 +83,7 @@ import io.trino.server.SessionContext;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.SessionSupplier;
 import io.trino.server.ShutdownAction;
+import io.trino.server.StartupStatus;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.spi.ErrorType;
@@ -424,6 +425,7 @@ public class TestingTrinoServer
         eventListeners.forEach(eventListenerManager::addEventListener);
 
         getFutureValue(injector.getInstance(Announcer.class).forceAnnounce());
+        injector.getInstance(StartupStatus.class).startupComplete();
 
         refreshNodes();
     }
