@@ -221,7 +221,7 @@ final class S3OutputStream
             }
             catch (SdkException e) {
                 failed = true;
-                throw new IOException(e);
+                throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), e), e);
             }
         }
 

@@ -13,10 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.ListObjectsV2Request;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
 import io.trino.Session;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -28,6 +24,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.util.List;
 import java.util.Set;
@@ -57,7 +55,7 @@ public abstract class BaseS3AndGlueMetastoreTest
     protected final String schemaName = "test_glue_s3_" + randomNameSuffix();
 
     protected HiveMetastore metastore;
-    protected AmazonS3 s3;
+    protected S3Client s3;
 
     protected BaseS3AndGlueMetastoreTest(String partitionByKeyword, String locationKeyword, String bucketName)
     {
@@ -69,7 +67,7 @@ public abstract class BaseS3AndGlueMetastoreTest
     @BeforeAll
     public void setUp()
     {
-        s3 = AmazonS3ClientBuilder.standard().build();
+        s3 = S3Client.builder().build();
     }
 
     @AfterAll
@@ -80,7 +78,7 @@ public abstract class BaseS3AndGlueMetastoreTest
             metastore = null;
         }
         if (s3 != null) {
-            s3.shutdown();
+            s3.close();
             s3 = null;
         }
     }
@@ -340,9 +338,8 @@ public abstract class BaseS3AndGlueMetastoreTest
         Matcher matcher = Pattern.compile("s3://[^/]+/(.+)").matcher(location);
         verify(matcher.matches(), "Does not match [%s]: [%s]", matcher.pattern(), location);
         String fileKey = matcher.group(1);
-        ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucketName).withPrefix(fileKey);
-        return s3.listObjectsV2(req).getObjectSummaries().stream()
-                .map(S3ObjectSummary::getKey)
+        return s3.listObjectsV2(request -> request.bucket(bucketName).prefix(fileKey)).contents().stream()
+                .map(S3Object::key)
                 .map(key -> format("s3://%s/%s", bucketName, key))
                 .toList();
     }
