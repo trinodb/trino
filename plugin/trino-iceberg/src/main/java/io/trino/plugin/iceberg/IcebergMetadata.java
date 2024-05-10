@@ -1597,11 +1597,12 @@ public class IcebergMetadata
             }
         };
 
-        table.expireSnapshots()
-                .expireOlderThan(expireTimestampMillis)
-                .deleteWith(deleteFunction)
-                .commit();
         try {
+            table.expireSnapshots()
+                    .expireOlderThan(expireTimestampMillis)
+                    .deleteWith(deleteFunction)
+                    .commit();
+
             fileSystem.deleteFiles(pathsToDelete);
         }
         catch (IOException e) {
