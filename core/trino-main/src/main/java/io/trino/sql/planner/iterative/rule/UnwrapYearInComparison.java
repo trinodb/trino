@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -29,7 +30,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Not;
 import io.trino.sql.planner.IrExpressionInterpreter;
 
 import java.time.LocalDate;
@@ -45,6 +45,7 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.and;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
@@ -94,11 +95,13 @@ public class UnwrapYearInComparison
             extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final PlannerContext plannerContext;
+        private final Metadata metadata;
         private final Session session;
 
         public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.metadata = plannerContext.getMetadata();
             this.session = requireNonNull(session, "session is null");
         }
 
@@ -175,9 +178,9 @@ public class UnwrapYearInComparison
             int year = toIntExact((Long) rightValue);
             return switch (expression.operator()) {
                 case EQUAL -> between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType));
-                case NOT_EQUAL -> new Not(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
+                case NOT_EQUAL -> not(metadata, between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
                 case IDENTICAL -> and(
-                        new Not(new IsNull(argument)),
+                        not(metadata, new IsNull(argument)),
                         between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
                 case LESS_THAN -> {
                     Object value = calculateRangeStartInclusive(year, argumentType);

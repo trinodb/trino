@@ -61,7 +61,6 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
 import io.trino.sql.planner.TranslationMap.ParametersRow;
@@ -187,6 +186,7 @@ import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.coerce;
@@ -1077,7 +1077,7 @@ class RelationPlanner
         return new RelationPlan(root, scope, outputSymbols, outerContext);
     }
 
-    private static Expression translateComparison(ComparisonExpression.Operator operator, Symbol left, Symbol right)
+    private Expression translateComparison(ComparisonExpression.Operator operator, Symbol left, Symbol right)
     {
         return switch (operator) {
             case EQUAL -> new Comparison(EQUAL, left.toSymbolReference(), right.toSymbolReference());
@@ -1086,7 +1086,7 @@ class RelationPlanner
             case LESS_THAN_OR_EQUAL -> new Comparison(LESS_THAN_OR_EQUAL, left.toSymbolReference(), right.toSymbolReference());
             case GREATER_THAN -> new Comparison(GREATER_THAN, left.toSymbolReference(), right.toSymbolReference());
             case GREATER_THAN_OR_EQUAL -> new Comparison(GREATER_THAN_OR_EQUAL, left.toSymbolReference(), right.toSymbolReference());
-            case IS_DISTINCT_FROM -> new Not(new Comparison(IDENTICAL, left.toSymbolReference(), right.toSymbolReference()));
+            case IS_DISTINCT_FROM -> not(plannerContext.getMetadata(), new Comparison(IDENTICAL, left.toSymbolReference(), right.toSymbolReference()));
         };
     }
 

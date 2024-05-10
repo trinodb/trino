@@ -41,7 +41,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Not;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.type.TypeCoercion;
 
@@ -75,6 +74,7 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
 import static java.lang.Float.intBitsToFloat;
@@ -378,7 +378,7 @@ public class UnwrapCastInComparison
                 case GREATER_THAN_OR_EQUAL -> Optional.of(new Comparison(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp));
                 case IDENTICAL -> Optional.of(
                         and(
-                                new Not(new IsNull(timestampExpression)),
+                                not(plannerContext.getMetadata(), new IsNull(timestampExpression)),
                                 new Comparison(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp),
                                 new Comparison(LESS_THAN, timestampExpression, nextDateTimestamp)));
             };
@@ -503,6 +503,11 @@ public class UnwrapCastInComparison
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
             }
         }
+
+        public Expression trueIfNotNull(Expression argument)
+        {
+            return or(not(plannerContext.getMetadata(), new IsNull(argument)), new Constant(BOOLEAN, null));
+        }
     }
 
     /**
@@ -552,10 +557,5 @@ public class UnwrapCastInComparison
     public static Expression falseIfNotNull(Expression argument)
     {
         return and(new IsNull(argument), new Constant(BOOLEAN, null));
-    }
-
-    public static Expression trueIfNotNull(Expression argument)
-    {
-        return or(new Not(new IsNull(argument)), new Constant(BOOLEAN, null));
     }
 }

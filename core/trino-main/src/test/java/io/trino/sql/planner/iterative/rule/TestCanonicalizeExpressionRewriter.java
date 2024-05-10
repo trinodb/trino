@@ -27,7 +27,6 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.assertions.SymbolAliases;
@@ -52,6 +51,7 @@ import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -73,8 +73,8 @@ public class TestCanonicalizeExpressionRewriter
     public void testRewriteIsNotNullPredicate()
     {
         assertRewritten(
-                new Not(new IsNull(new Reference(BIGINT, "x"))),
-                new Not(new IsNull(new Reference(BIGINT, "x"))));
+                not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(BIGINT, "x"))),
+                not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(BIGINT, "x"))));
     }
 
     @Test

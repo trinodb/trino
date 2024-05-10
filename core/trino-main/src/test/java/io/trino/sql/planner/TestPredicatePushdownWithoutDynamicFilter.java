@@ -24,7 +24,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.plan.ExchangeNode;
 import org.junit.jupiter.api.Test;
@@ -36,6 +35,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -133,7 +133,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        new Not(new IsNull(new Reference(VARCHAR, "c_name"))),
+                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(VARCHAR, "c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
 
         // nested joins
@@ -159,7 +159,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        new Not(new IsNull(new Reference(VARCHAR, "c_name"))),
+                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(VARCHAR, "c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
     }
 

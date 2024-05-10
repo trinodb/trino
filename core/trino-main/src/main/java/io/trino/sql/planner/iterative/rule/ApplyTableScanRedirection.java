@@ -60,10 +60,12 @@ public class ApplyTableScanRedirection
             .matching(node -> !node.isUpdateTarget());
 
     private final PlannerContext plannerContext;
+    private final DomainTranslator domainTranslator;
 
     public ApplyTableScanRedirection(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
     }
 
     @Override
@@ -214,7 +216,7 @@ public class ApplyTableScanRedirection
                         newAssignments.keySet(),
                         casts.buildOrThrow(),
                         newScanNode),
-                DomainTranslator.toPredicate(transformedConstraint));
+                domainTranslator.toPredicate(transformedConstraint));
 
         return Result.ofPlanNode(applyProjection(
                 context.getIdAllocator(),

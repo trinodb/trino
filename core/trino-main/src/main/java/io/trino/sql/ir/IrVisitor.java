@@ -82,11 +82,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitNot(Not node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitCase(Case node, C context)
     {
         return visitExpression(node, context);

@@ -195,25 +195,6 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        public Expression visitNot(Not node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteNot(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            Expression value = rewrite(node.value(), context.get());
-
-            if (value != node.value()) {
-                return new Not(value);
-            }
-
-            return node;
-        }
-
-        @Override
         protected Expression visitIsNull(IsNull node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

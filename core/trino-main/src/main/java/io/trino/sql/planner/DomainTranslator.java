@@ -20,6 +20,7 @@ import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.ErrorCode;
@@ -50,7 +51,6 @@ import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.type.LikeFunctions;
 import io.trino.type.LikePattern;
@@ -96,6 +96,7 @@ import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.combineDisjunctsWithDefault;
@@ -107,9 +108,14 @@ import static java.util.stream.Collectors.toList;
 
 public final class DomainTranslator
 {
-    private DomainTranslator() {}
+    private final Metadata metadata;
 
-    public static Expression toPredicate(TupleDomain<Symbol> tupleDomain)
+    public DomainTranslator(Metadata metadata)
+    {
+        this.metadata = metadata;
+    }
+
+    public Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return FALSE;
@@ -122,14 +128,14 @@ public final class DomainTranslator
                 .collect(collectingAndThen(toImmutableList(), IrUtils::combineConjuncts));
     }
 
-    private static Expression toPredicate(Domain domain, Reference reference)
+    private Expression toPredicate(Domain domain, Reference reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNull(reference) : FALSE;
         }
 
         if (domain.getValues().isAll()) {
-            return domain.isNullAllowed() ? TRUE : new Not(new IsNull(reference));
+            return domain.isNullAllowed() ? TRUE : not(metadata, new IsNull(reference));
         }
 
         List<Expression> disjuncts = new ArrayList<>();
@@ -181,13 +187,13 @@ public final class DomainTranslator
         return combineConjuncts(rangeConjuncts);
     }
 
-    private static Expression combineRangeWithExcludedPoints(Type type, Reference reference, Range range, List<Expression> excludedPoints)
+    private Expression combineRangeWithExcludedPoints(Type type, Reference reference, Range range, List<Expression> excludedPoints)
     {
         if (excludedPoints.isEmpty()) {
             return processRange(type, range, reference);
         }
 
-        Expression excludedPointsExpression = new Not(new In(reference, excludedPoints));
+        Expression excludedPointsExpression = not(metadata, new In(reference, excludedPoints));
         if (excludedPoints.size() == 1) {
             excludedPointsExpression = new Comparison(NOT_EQUAL, reference, getOnlyElement(excludedPoints));
         }
@@ -195,7 +201,7 @@ public final class DomainTranslator
         return combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
     }
 
-    private static List<Expression> extractDisjuncts(Type type, Ranges ranges, Reference reference)
+    private List<Expression> extractDisjuncts(Type type, Ranges ranges, Reference reference)
     {
         List<Expression> disjuncts = new ArrayList<>();
         List<Expression> singleValues = new ArrayList<>();
@@ -257,7 +263,7 @@ public final class DomainTranslator
         return disjuncts;
     }
 
-    private static List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, Reference reference)
+    private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, Reference reference)
     {
         List<Expression> values = discreteValues.getValues().stream()
                 .map(object -> new Constant(type, object))
@@ -275,7 +281,7 @@ public final class DomainTranslator
         }
 
         if (!discreteValues.isInclusive()) {
-            predicate = new Not(predicate);
+            predicate = not(metadata, predicate);
         }
         return ImmutableList.of(predicate);
     }
@@ -324,9 +330,9 @@ public final class DomainTranslator
             return complement ? domain.complement() : domain;
         }
 
-        private static Expression complementIfNecessary(Expression expression, boolean complement)
+        private Expression complementIfNecessary(Expression expression, boolean complement)
         {
-            return complement ? new Not(expression) : expression;
+            return complement ? not(plannerContext.getMetadata(), expression) : expression;
         }
 
         @Override
@@ -424,12 +430,6 @@ public final class DomainTranslator
                     return new ExtractionResult(columnUnionedTupleDomain, remainingExpression);
             }
             throw new AssertionError("Unknown operator: " + node.operator());
-        }
-
-        @Override
-        protected ExtractionResult visitNot(Not node, Boolean complement)
-        {
-            return process(node.value(), !complement);
         }
 
         @Override
@@ -879,7 +879,7 @@ public final class DomainTranslator
             if (extractionResult.tupleDomain.isAll()) {
                 Expression originalPredicate = node;
                 if (complement) {
-                    originalPredicate = new Not(originalPredicate);
+                    originalPredicate = not(plannerContext.getMetadata(), originalPredicate);
                 }
                 return new ExtractionResult(extractionResult.tupleDomain, originalPredicate);
             }
@@ -945,10 +945,10 @@ public final class DomainTranslator
                 remainingExpression = TRUE;
             }
             else if (excludedExpressions.size() == 1) {
-                remainingExpression = new Not(new Comparison(EQUAL, node.value(), getOnlyElement(excludedExpressions)));
+                remainingExpression = not(plannerContext.getMetadata(), new Comparison(EQUAL, node.value(), getOnlyElement(excludedExpressions)));
             }
             else {
-                remainingExpression = new Not(new In(node.value(), excludedExpressions));
+                remainingExpression = not(plannerContext.getMetadata(), new In(node.value(), excludedExpressions));
             }
 
             return Optional.of(new ExtractionResult(tupleDomain, remainingExpression));
@@ -1033,6 +1033,9 @@ public final class DomainTranslator
                 if (result.isPresent()) {
                     return result.get();
                 }
+            }
+            else if (name.equals(builtinFunctionName("$not"))) {
+                return process(node.arguments().getFirst(), !complement);
             }
             return visitExpression(node, complement);
         }

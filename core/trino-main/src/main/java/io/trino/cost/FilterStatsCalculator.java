@@ -30,7 +30,6 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
@@ -54,12 +53,14 @@ import static io.trino.cost.PlanNodeStatsEstimateMath.capStats;
 import static io.trino.cost.PlanNodeStatsEstimateMath.estimateCorrelatedConjunctionRowCount;
 import static io.trino.cost.PlanNodeStatsEstimateMath.intersectCorrelatedStats;
 import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static java.lang.Double.NaN;
@@ -137,23 +138,6 @@ public class FilterStatsCalculator
         protected PlanNodeStatsEstimate visitExpression(Expression node, Void context)
         {
             return PlanNodeStatsEstimate.unknown();
-        }
-
-        @Override
-        protected PlanNodeStatsEstimate visitNot(Not node, Void context)
-        {
-            if (node.value() instanceof IsNull inner) {
-                if (inner.value() instanceof Reference) {
-                    Symbol symbol = Symbol.from(inner.value());
-                    SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
-                    PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
-                    result.setOutputRowCount(input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()));
-                    result.addSymbolStatistics(symbol, symbolStats.mapNullsFraction(x -> 0.0));
-                    return result.build();
-                }
-                return PlanNodeStatsEstimate.unknown();
-            }
-            return subtractSubsetStats(input, process(node.value()));
         }
 
         @Override
@@ -372,7 +356,7 @@ public class FilterStatsCalculator
             }
 
             if (left instanceof Reference && left.equals(right)) {
-                return process(new Not(new IsNull(left)));
+                return process(not(plannerContext.getMetadata(), new IsNull(left)));
             }
 
             SymbolStatsEstimate leftStats = getExpressionStats(left);
@@ -404,6 +388,22 @@ public class FilterStatsCalculator
             if (isDynamicFilter(node)) {
                 return process(Booleans.TRUE, context);
             }
+            else if (node.function().name().equals(builtinFunctionName("$not"))) {
+                Expression argument = node.arguments().getFirst();
+                if (argument instanceof IsNull inner) {
+                    if (inner.value() instanceof Reference) {
+                        Symbol symbol = Symbol.from(inner.value());
+                        SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
+                        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
+                        result.setOutputRowCount(input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()));
+                        result.addSymbolStatistics(symbol, symbolStats.mapNullsFraction(x -> 0.0));
+                        return result.build();
+                    }
+                    return PlanNodeStatsEstimate.unknown();
+                }
+                return subtractSubsetStats(input, process(argument));
+            }
+
             return PlanNodeStatsEstimate.unknown();
         }
 

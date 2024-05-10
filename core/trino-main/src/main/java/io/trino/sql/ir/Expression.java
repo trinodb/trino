@@ -36,7 +36,6 @@ import java.util.List;
         @JsonSubTypes.Type(value = IsNull.class, name = "isnull"),
         @JsonSubTypes.Type(value = Lambda.class, name = "lambda"),
         @JsonSubTypes.Type(value = Logical.class, name = "logical"),
-        @JsonSubTypes.Type(value = Not.class, name = "not"),
         @JsonSubTypes.Type(value = NullIf.class, name = "nullif"),
         @JsonSubTypes.Type(value = Row.class, name = "row"),
         @JsonSubTypes.Type(value = Case.class, name = "case"),
@@ -47,7 +46,7 @@ import java.util.List;
 public sealed interface Expression
         permits Array, Between, Bind, Call, Case, Cast, Coalesce,
         Comparison, Constant, FieldReference, In, IsNull, Lambda, Logical,
-        Not, NullIf, Reference, Row, Switch
+        NullIf, Reference, Row, Switch
 {
     Type type();
 
