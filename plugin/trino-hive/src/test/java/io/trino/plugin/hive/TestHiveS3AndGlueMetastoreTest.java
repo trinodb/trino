@@ -296,17 +296,31 @@ public class TestHiveS3AndGlueMetastoreTest
     }
 
     @Test
+    public void testInvalidSchemaNameLocation()
+    {
+        String schemaNameSuffix = randomNameSuffix();
+        String schemaName = "../test_create_schema_invalid_location_" + schemaNameSuffix;
+        String tableName = "test_table_schema_invalid_location_" + randomNameSuffix();
+
+        assertUpdate("CREATE SCHEMA \"%2$s\" WITH (location = 's3://%1$s/%2$s')".formatted(bucketName, schemaName));
+        try (var _ = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
+            assertThatThrownBy(() -> computeActual("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1"))
+                    .hasMessage("Error committing write to Hive")
+                    .hasStackTraceContaining("Invalid URI (Service: Amazon S3; Status Code: 400");
+        }
+    }
+
+    @Test
     public void testSchemaNameEscape()
     {
         String schemaNameSuffix = randomNameSuffix();
         String schemaName = "../test_create_schema_escaped_" + schemaNameSuffix;
         String tableName = "test_table_schema_escaped_" + randomNameSuffix();
 
-        assertUpdate("CREATE SCHEMA \"%2$s\" WITH (location = 's3://%1$s/%2$s')".formatted(bucketName, schemaName));
-        try (UncheckedCloseable ignored = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
-            assertThatThrownBy(() -> computeActual("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1"))
-                    .hasMessage("Error committing write to Hive")
-                    .hasStackTraceContaining("Invalid URI (Service: Amazon S3; Status Code: 400");
+        assertUpdate("CREATE SCHEMA \"%2$s\"".formatted(bucketName, schemaName));
+        try (var _ = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
+            assertUpdate("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1", 1);
+            assertUpdate("DROP TABLE \"" + schemaName + "\"." + tableName);
         }
     }
 
