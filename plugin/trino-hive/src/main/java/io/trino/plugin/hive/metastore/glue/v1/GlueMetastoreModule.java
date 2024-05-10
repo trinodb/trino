@@ -18,8 +18,10 @@ import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
+import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.Provides;
+import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
@@ -34,13 +36,19 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 
+import java.lang.annotation.Annotation;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -76,6 +84,10 @@ public class GlueMetastoreModule
 
         newOptionalBinder(binder, GlueColumnStatisticsProviderFactory.class)
                 .setDefault().to(DefaultGlueColumnStatisticsProviderFactory.class).in(Scopes.SINGLETON);
+
+        createExecutor(ForGlueHiveMetastore.class, "hive-glue-partitions-%s", GlueHiveMetastoreConfig::getGetPartitionThreads);
+        createExecutor(ForGlueColumnStatisticsRead.class, "hive-glue-statistics-read-%s", GlueHiveMetastoreConfig::getReadStatisticsThreads);
+        createExecutor(ForGlueColumnStatisticsWrite.class, "hive-glue-statistics-write-%s", GlueHiveMetastoreConfig::getWriteStatisticsThreads);
     }
 
     @ProvidesIntoSet
@@ -89,37 +101,46 @@ public class GlueMetastoreModule
                 .newRequestHandler();
     }
 
-    @Provides
-    @Singleton
-    @ForGlueHiveMetastore
-    public Executor createExecutor(GlueHiveMetastoreConfig hiveConfig)
+    private void createExecutor(Class<? extends Annotation> annotationClass, String nameTemplate, Function<GlueHiveMetastoreConfig, Integer> threads)
     {
-        return createExecutor("hive-glue-partitions-%s", hiveConfig.getGetPartitionThreads());
+        install(conditionalModule(
+                GlueHiveMetastoreConfig.class,
+                config -> threads.apply(config) > 1,
+                binder -> {
+                    binder.bind(Key.get(ExecutorService.class, annotationClass)).toInstance(newCachedThreadPool(daemonThreadsNamed(nameTemplate)));
+                    binder.bind(Key.get(Executor.class, annotationClass)).toProvider(new BoundedExecutorProvider(annotationClass, threads)).in(Scopes.SINGLETON);
+                    closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, annotationClass));
+                },
+                binder -> binder.bind(Key.get(Executor.class, annotationClass))
+                        .toInstance(directExecutor())));
     }
 
-    @Provides
-    @Singleton
-    @ForGlueColumnStatisticsRead
-    public Executor createStatisticsReadExecutor(GlueHiveMetastoreConfig hiveConfig)
+    private static class BoundedExecutorProvider
+            implements Provider<BoundedExecutor>
     {
-        return createExecutor("hive-glue-statistics-read-%s", hiveConfig.getReadStatisticsThreads());
-    }
+        private final Class<? extends Annotation> annotationClass;
+        private final Function<GlueHiveMetastoreConfig, Integer> threads;
+        private Injector injector;
 
-    @Provides
-    @Singleton
-    @ForGlueColumnStatisticsWrite
-    public Executor createStatisticsWriteExecutor(GlueHiveMetastoreConfig hiveConfig)
-    {
-        return createExecutor("hive-glue-statistics-write-%s", hiveConfig.getWriteStatisticsThreads());
-    }
-
-    private Executor createExecutor(String nameTemplate, int threads)
-    {
-        if (threads == 1) {
-            return directExecutor();
+        public BoundedExecutorProvider(Class<? extends Annotation> annotationClass, Function<GlueHiveMetastoreConfig, Integer> threads)
+        {
+            this.annotationClass = annotationClass;
+            this.threads = threads;
         }
-        return new BoundedExecutor(
-                newCachedThreadPool(daemonThreadsNamed(nameTemplate)),
-                threads);
+
+        @Inject
+        public void setInjector(Injector injector)
+        {
+            this.injector = injector;
+        }
+
+        @Override
+        public BoundedExecutor get()
+        {
+            ExecutorService executor = injector.getInstance(Key.get(ExecutorService.class, annotationClass));
+            int threads = this.threads.apply(injector.getInstance(GlueHiveMetastoreConfig.class));
+            checkArgument(threads > 0, "Invalid number of threads: %s", threads);
+            return new BoundedExecutor(executor, threads);
+        }
     }
 }
