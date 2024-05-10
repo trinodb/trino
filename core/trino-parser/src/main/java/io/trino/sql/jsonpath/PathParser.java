@@ -18,6 +18,7 @@ import io.trino.grammar.jsonpath.JsonPathLexer;
 import io.trino.grammar.jsonpath.JsonPathParser;
 import io.trino.sql.jsonpath.tree.PathNode;
 import io.trino.sql.parser.ParsingException;
+import io.trino.sql.tree.NodeLocation;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonToken;
@@ -114,7 +115,7 @@ public final class PathParser
             return new PathTreeBuilder().visit(tree);
         }
         catch (StackOverflowError e) {
-            throw new ParsingException("stack overflow while parsing JSON path");
+            throw new ParsingException("stack overflow while parsing JSON path", new NodeLocation(1, 1));
         }
     }
 
