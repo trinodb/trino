@@ -161,8 +161,13 @@ final class LongTimestampWithTimeZoneType
         int valuePosition = block.getUnderlyingValuePosition(position);
         long packedEpochMillis = getPackedEpochMillis(valueBlock, valuePosition);
         int picosOfMilli = getPicosOfMilli(valueBlock, valuePosition);
-
-        return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(packedEpochMillis), picosOfMilli, unpackZoneKey(packedEpochMillis));
+        TimeZoneKey tzKey = unpackZoneKey(packedEpochMillis);
+        if (session != null) {
+            if (session.getUseSessionTimeZoneForDisplay()) {
+            tzKey = session.getTimeZoneKey();
+            }
+        }
+        return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(packedEpochMillis), picosOfMilli, tzKey);
     }
 
     @Override

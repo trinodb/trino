@@ -135,7 +135,14 @@ final class ShortTimestampWithTimeZoneType
         }
 
         long value = getLong(block, position);
-        return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(value), 0, unpackZoneKey(value));
+        TimeZoneKey tzKey = unpackZoneKey(value);
+        Boolean displayTZ;
+        if (session != null) {
+            if (session.getUseSessionTimeZoneForDisplay()) {
+            tzKey = session.getTimeZoneKey();
+            }
+        }
+        return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(value), 0, tzKey);
     }
 
     @Override

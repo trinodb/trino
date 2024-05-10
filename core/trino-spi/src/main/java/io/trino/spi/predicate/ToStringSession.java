@@ -53,6 +53,12 @@ enum ToStringSession
     }
 
     @Override
+    public Boolean getUseSessionTimeZoneForDisplay()
+    {
+        return Boolean.TRUE;
+    }
+
+    @Override
     public TimeZoneKey getTimeZoneKey()
     {
         return UTC_KEY;

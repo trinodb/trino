@@ -91,6 +91,12 @@ public class FullConnectorSession
     }
 
     @Override
+    public Boolean getUseSessionTimeZoneForDisplay()
+    {
+        return SystemSessionProperties.getUseSessionTimeZoneForDisplay(session);
+    }
+
+    @Override
     public TimeZoneKey getTimeZoneKey()
     {
         return session.getTimeZoneKey();

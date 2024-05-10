@@ -211,6 +211,7 @@ public final class SystemSessionProperties
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
+    public static final String USE_SESSION_TIMEZONE_FOR_DISPLAY = "use_session_timezone_to_display_timestamptz";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -753,6 +754,11 @@ public final class SystemSessionProperties
                             }
                         },
                         true),
+                booleanProperty(
+                        USE_SESSION_TIMEZONE_FOR_DISPLAY,
+                        "Use Session TimeZone  when displaying Timestamp with Timezone",
+                        true,
+                        false),
                 booleanProperty(
                         LEGACY_CATALOG_ROLES,
                         "Enable legacy role management syntax that assumed all roles are catalog scoped",
@@ -1623,6 +1629,11 @@ public final class SystemSessionProperties
     public static Optional<String> getTimeZoneId(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(TIME_ZONE_ID, String.class));
+    }
+
+    public static boolean getUseSessionTimeZoneForDisplay(Session session)
+    {
+        return session.getSystemProperty(USE_SESSION_TIMEZONE_FOR_DISPLAY, Boolean.class);
     }
 
     public static boolean isLegacyCatalogRoles(Session session)
