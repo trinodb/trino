@@ -79,7 +79,6 @@ import static org.apache.parquet.schema.LogicalTypeAnnotation.bsonType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.dateType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.enumType;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.float16Type;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.intType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.jsonType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.listType;
@@ -156,7 +155,7 @@ public final class ParquetMetadataConverter
                 yield timestampType(timestamp.isAdjustedToUTC, convertTimeUnit(timestamp.unit));
             }
             case UUID -> uuidType();
-            case FLOAT16 -> float16Type();
+            case FLOAT16 -> throw new UnsupportedOperationException("Float16 type not supported");
         };
     }
 
