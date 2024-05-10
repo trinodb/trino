@@ -56,6 +56,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
 import jakarta.annotation.Nullable;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -99,8 +100,8 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -184,7 +185,7 @@ public class GlueHiveMetastore
     private final boolean assumeCanonicalPartitionKeys;
     private final GlueMetastoreStats stats = new GlueMetastoreStats();
     private final Predicate<software.amazon.awssdk.services.glue.model.Table> tableVisibilityFilter;
-    private final Executor executor;
+    private final ExecutorService executor;
 
     @Inject
     public GlueHiveMetastore(
@@ -207,7 +208,7 @@ public class GlueHiveMetastore
                 newFixedThreadPool(config.getThreads(), Thread.ofPlatform().name("glue-", 0L).factory()));
     }
 
-    public GlueHiveMetastore(
+    private GlueHiveMetastore(
             GlueClient glueClient,
             GlueContext glueContext,
             GlueCache glueCache, TrinoFileSystem fileSystem,
@@ -215,7 +216,7 @@ public class GlueHiveMetastore
             int partitionSegments,
             boolean assumeCanonicalPartitionKeys,
             Set<TableKind> visibleTableKinds,
-            Executor executor)
+            ExecutorService executor)
     {
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.glueContext = requireNonNull(glueContext, "glueContext is null");
@@ -226,6 +227,12 @@ public class GlueHiveMetastore
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         this.tableVisibilityFilter = createTablePredicate(visibleTableKinds);
         this.executor = taskWrapping(requireNonNull(executor, "executor is null"));
+    }
+
+    @PreDestroy
+    public void shutdown()
+    {
+        executor.shutdownNow();
     }
 
     @Managed
