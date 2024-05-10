@@ -122,8 +122,8 @@ public abstract class BaseS3AndGlueMetastoreTest
 
         String actualTableLocation;
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
-                "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
-                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
+                     "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
+                     "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
             actualTableLocation = validateTableLocation(tableName, location);
@@ -208,22 +208,22 @@ public abstract class BaseS3AndGlueMetastoreTest
 
         String actualTableLocation;
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
-                "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
-                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
+                     "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
+                     "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             actualTableLocation = validateTableLocation(tableName, location);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
             assertUpdate("MERGE INTO " + tableName + " USING (VALUES 1) t(x) ON false" +
-                    " WHEN NOT MATCHED THEN INSERT VALUES ('str4', 4)", 1);
+                         " WHEN NOT MATCHED THEN INSERT VALUES ('str4', 4)", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
             assertUpdate("MERGE INTO " + tableName + " USING (VALUES 2) t(x) ON col_int = x" +
-                    " WHEN MATCHED THEN UPDATE SET col_str = 'other'", 1);
+                         " WHEN MATCHED THEN UPDATE SET col_str = 'other'", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3), ('str4', 4)");
 
             assertUpdate("MERGE INTO " + tableName + " USING (VALUES 3) t(x) ON col_int = x" +
-                    " WHEN MATCHED THEN DELETE", 1);
+                         " WHEN MATCHED THEN DELETE", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str4', 4)");
 
             assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
@@ -250,7 +250,7 @@ public abstract class BaseS3AndGlueMetastoreTest
         String locationQueryPart = locationKeyword + "= '" + location + "'";
 
         assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) " +
-                "WITH (" + locationQueryPart + partitionQueryPart + ")");
+                     "WITH (" + locationQueryPart + partitionQueryPart + ")");
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             // create multiple data files, INSERT with multiple values would create only one file (if not partitioned)
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);

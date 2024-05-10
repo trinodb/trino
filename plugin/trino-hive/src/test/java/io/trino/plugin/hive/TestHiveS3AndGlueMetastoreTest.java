@@ -127,8 +127,8 @@ public class TestHiveS3AndGlueMetastoreTest
         String partitionQueryPart = (partitioned ? ",partitioned_by = ARRAY['col_int']" : "");
 
         String create = "CREATE TABLE " + tableName + "(col_str, col_int)" +
-                "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
-                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
+                        "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
+                        "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
         if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
             assertQueryFails(create, "\\QUnsupported location that cannot be internally represented: " + location);
             return;
@@ -248,8 +248,8 @@ public class TestHiveS3AndGlueMetastoreTest
         String partitionQueryPart = (partitioned ? ",partitioned_by = ARRAY['col_int']" : "");
 
         String create = "CREATE TABLE " + tableName + "(col_str, col_int)" +
-                "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
-                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
+                        "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
+                        "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
         if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
             assertQueryFails(create, "\\QUnsupported location that cannot be internally represented: " + location);
             return;
