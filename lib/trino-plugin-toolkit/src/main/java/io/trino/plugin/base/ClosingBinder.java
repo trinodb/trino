@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
+import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.Provider;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import jakarta.annotation.PreDestroy;
@@ -26,7 +28,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
@@ -69,6 +73,45 @@ public class ClosingBinder
     public void registerCloseable(Key<? extends AutoCloseable> key)
     {
         closeables.addBinding().to(key);
+    }
+
+    public <T> void registerResource(Class<T> type, Consumer<? super T> close)
+    {
+        registerResource(Key.get(type), close);
+    }
+
+    public <T> void registerResource(Key<T> key, Consumer<? super T> close)
+    {
+        closeables.addBinding().toProvider(new ResourceCloser<T>(key, close));
+    }
+
+    private static class ResourceCloser<T>
+            implements Provider<AutoCloseable>
+    {
+        private final Key<T> key;
+        private final Consumer<? super T> close;
+        private Injector injector;
+
+        private ResourceCloser(Key<T> key, Consumer<? super T> close)
+        {
+            this.key = requireNonNull(key, "key is null");
+            this.close = requireNonNull(close, "close is null");
+        }
+
+        @Inject
+        public void setInjector(Injector injector)
+        {
+            this.injector = injector;
+        }
+
+        @Override
+        public AutoCloseable get()
+        {
+            T object = injector.getInstance(key);
+            verifyNotNull(object, "null at key %s", key);
+            Consumer<? super T> close = this.close;
+            return () -> close.accept(object);
+        }
     }
 
     private record Cleanup(
