@@ -87,7 +87,7 @@ class InMemoryGlueCache
         this.allFunctionsCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
         this.functionCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
 
-        OptionalLong columnStatisticsCacheTtlMillis = OptionalLong.of(metadataCacheTtl.toMillis());
+        OptionalLong columnStatisticsCacheTtlMillis = OptionalLong.of(columnStatisticsCacheTtl.toMillis());
         this.tableColumnStatsCache = buildCache(columnStatisticsCacheTtlMillis, maximumSize, ColumnStatisticsHolder::new);
         this.partitionColumnStatsCache = buildCache(columnStatisticsCacheTtlMillis, maximumSize, ColumnStatisticsHolder::new);
     }
