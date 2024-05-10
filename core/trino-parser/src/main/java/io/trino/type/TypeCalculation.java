@@ -25,6 +25,7 @@ import io.trino.grammar.type.TypeCalculationParser.NumericLiteralContext;
 import io.trino.grammar.type.TypeCalculationParser.ParenthesizedExpressionContext;
 import io.trino.grammar.type.TypeCalculationParser.TypeCalculationContext;
 import io.trino.sql.parser.ParsingException;
+import io.trino.sql.tree.NodeLocation;
 import org.antlr.v4.runtime.ANTLRErrorListener;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
@@ -70,7 +71,7 @@ public final class TypeCalculation
             return result.longValueExact();
         }
         catch (StackOverflowError e) {
-            throw new ParsingException("Type calculation is too large (stack overflow while parsing)");
+            throw new ParsingException("Type calculation is too large (stack overflow while parsing)", new NodeLocation(1, 1));
         }
     }
 
