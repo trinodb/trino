@@ -295,7 +295,7 @@ public class TestPostgreSqlClient
                     break;
                 case IDENTICAL:
                     assertThat(converted).isPresent();
-                    assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") IS NOT DISTINCT FROM (?)"));
+                    assertThat(converted.get().expression()).isEqualTo("(\"c_bigint\") IS NOT DISTINCT FROM (?)");
                     assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
                     break;
             }
