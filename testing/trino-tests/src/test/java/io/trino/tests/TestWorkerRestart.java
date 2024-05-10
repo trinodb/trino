@@ -133,9 +133,7 @@ public class TestWorkerRestart
                 Future<MaterializedResult> future = executor.submit(() -> queryRunner.execute("SELECT count(*) FROM tpch.tiny.lineitem -- " + randomUUID()));
                 // the worker is shut down already, but restartWorker() will reuse its address
                 queryRunner.restartWorker(worker);
-                assertThatThrownBy(future::get)
-                        .isInstanceOf(ExecutionException.class)
-                        .hasStackTraceContaining("Error loading catalogs on worker");
+                future.get(); // query should succeed
 
                 // Ensure that the restarted worker is able to serve queries.
                 assertThat((long) queryRunner.execute("SELECT count(*) FROM tpch.tiny.lineitem").getOnlyValue())
