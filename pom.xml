@@ -1623,13 +1623,6 @@
                 <version>8.5.13</version>
             </dependency>
 
-            <!-- TODO: remove when added to airbase -->
-            <dependency>
-                <groupId>net.bytebuddy</groupId>
-                <artifactId>byte-buddy</artifactId>
-                <version>1.14.14</version>
-            </dependency>
-
             <dependency>
                 <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
                 <groupId>net.java.dev.jna</groupId>
