@@ -14,10 +14,10 @@
 package io.trino.plugin.hive.containers;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.testing.ResourcePresence;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
-import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.Network;
 
 import java.util.List;
