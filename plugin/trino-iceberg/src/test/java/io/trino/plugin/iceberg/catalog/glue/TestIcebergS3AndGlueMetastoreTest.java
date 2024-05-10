@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.hive.BaseS3AndGlueMetastoreTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -43,14 +45,16 @@ public class TestIcebergS3AndGlueMetastoreTest
             throws Exception
     {
         metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()));
-        QueryRunner queryRunner = IcebergQueryRunner.builder()
+        return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "glue")
                         .put("hive.metastore.glue.default-warehouse-dir", schemaPath())
                         .buildOrThrow())
+                .setSchemaInitializer(SchemaInitializer.builder()
+                        .withSchemaName(schemaName)
+                        .withSchemaProperties(Map.of("location", "'" + schemaPath() + "'"))
+                        .build())
                 .build();
-        queryRunner.execute("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaPath() + "')");
-        return queryRunner;
     }
 
     @Override
