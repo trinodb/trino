@@ -94,7 +94,7 @@ class TestingH2JdbcClient
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        this(config, connectionFactory, new DefaultQueryBuilder(RemoteQueryModifier.NONE), new DefaultIdentifierMapping());
+        this(config, connectionFactory, new NaNSpecificQueryBuilder(RemoteQueryModifier.NONE), new DefaultIdentifierMapping());
     }
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)

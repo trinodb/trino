@@ -90,6 +90,7 @@ public class TestPhoenixConnectorTest
                  SUPPORTS_UPDATE -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_NAN_INFINITY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
@@ -830,5 +831,11 @@ public class TestPhoenixConnectorTest
                 throw new RuntimeException(e);
             }
         };
+    }
+
+    @Override
+    protected void verifyApproximateNumericSpecialValueFailure(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Character .* is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark\\.");
     }
 }

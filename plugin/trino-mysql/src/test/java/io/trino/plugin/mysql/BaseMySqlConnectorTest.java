@@ -63,6 +63,7 @@ public abstract class BaseMySqlConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
                  SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_ARRAY,
+                 SUPPORTS_NAN_INFINITY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
@@ -626,5 +627,11 @@ public abstract class BaseMySqlConnectorTest
                 }
             }
         }
+    }
+
+    @Override
+    protected void verifyApproximateNumericSpecialValueFailure(Throwable e)
+    {
+        assertThat(e).hasMessageMatching(".* is not a valid numeric or approximate numeric value");
     }
 }

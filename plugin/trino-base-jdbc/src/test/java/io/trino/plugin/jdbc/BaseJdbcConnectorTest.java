@@ -98,9 +98,11 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_W
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NAN_INFINITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NATIVE_QUERY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
@@ -190,6 +192,127 @@ public abstract class BaseJdbcConnectorTest
             assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test  '", "VALUES 'test      '");
             assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test        '", "VALUES 'test      '");
             assertQueryReturnsEmptyResult("SELECT * FROM " + tableName + " WHERE x = char ' test'");
+        }
+    }
+
+    @Test
+    public void testSpecialValueOnApproximateNumericColumn()
+    {
+        if (!hasBehavior(SUPPORTS_NAN_INFINITY)) {
+            assertThatThrownBy(() -> assertUpdate("CREATE TABLE spl_values_nan AS SELECT CAST(Nan() AS REAL) real_col, Nan() AS double_col"))
+                    .satisfies(this::verifyApproximateNumericSpecialValueFailure);
+            assertThatThrownBy(() -> assertUpdate("CREATE TABLE spl_values_infinity AS SELECT CAST(Infinity() AS REAL) real_col, Infinity() AS double_col"))
+                    .satisfies(this::verifyApproximateNumericSpecialValueFailure);
+            assertThatThrownBy(() -> assertUpdate("CREATE TABLE spl_values_negative_infinity AS SELECT CAST(-Infinity() AS REAL) real_col, -Infinity() AS double_col"))
+                    .satisfies(this::verifyApproximateNumericSpecialValueFailure);
+            return;
+        }
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "spl_approx_numeric",
+                "(c_varchar VARCHAR, c_real REAL, c_real_2 REAL, c_double DOUBLE, c_double_2 DOUBLE)",
+                List.of(
+                        "'1', NaN(), REAL '1', Nan(), DOUBLE '1'",
+                        "'2', -Infinity(), REAL '1', -Infinity(), DOUBLE '1'",
+                        "'3', Infinity(),  REAL '1', Infinity(), DOUBLE '1'",
+                        "'4', Nan(), Nan(), NaN(), Nan()"))) {
+            String tableName = table.getName();
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > 1 AND c_double > 1"))
+                    .isFullyPushedDown()
+                    .skippingTypesCheck()
+                    .matches("VALUES '3'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real < 1 AND c_double < 1"))
+                    .isFullyPushedDown()
+                    .skippingTypesCheck()
+                    .matches("VALUES '2'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real < Infinity() AND c_double < Infinity()"))
+                    .isFullyPushedDown()
+                    .skippingTypesCheck()
+                    .matches("VALUES '2'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > -Infinity() AND c_double > -Infinity()"))
+                    .isFullyPushedDown()
+                    .skippingTypesCheck()
+                    .matches("VALUES '3'");
+
+            if (hasBehavior(SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN)) {
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > c_real_2 AND c_double > c_double_2"))
+                        .isFullyPushedDown()
+                        .skippingTypesCheck()
+                        .matches("VALUES '3'");
+
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real IS DISTINCT FROM c_real_2 AND c_double IS DISTINCT FROM c_double_2"))
+                        .isFullyPushedDown()
+                        .skippingTypesCheck()
+                        .matches("VALUES '1', '2', '3'");
+
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real_2 IS DISTINCT FROM c_real AND c_double_2 IS DISTINCT FROM c_double"))
+                        .isFullyPushedDown()
+                        .skippingTypesCheck()
+                        .matches("VALUES '1', '2', '3'");
+
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > c_real_2 OR c_double > c_double_2"))
+                        .isFullyPushedDown()
+                        .skippingTypesCheck()
+                        .matches("VALUES '3'");
+
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real = c_real_2 OR c_double = c_double_2"))
+                        .isFullyPushedDown()
+                        .returnsEmptyResult();
+
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real <> c_real_2 OR c_double <> c_double_2"))
+                        .isFullyPushedDown()
+                        .skippingTypesCheck()
+                        .matches("VALUES '1', '2', '3', '4'");
+            }
+            else {
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > c_real_2 AND c_double > c_double_2"))
+                        .isNotFullyPushedDown(FilterNode.class)
+                        .skippingTypesCheck()
+                        .matches("VALUES '3'");
+
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real IS DISTINCT FROM c_real_2 AND c_double IS DISTINCT FROM c_double_2"))
+                        .isNotFullyPushedDown(FilterNode.class)
+                        .skippingTypesCheck()
+                        .matches("VALUES '1', '2', '3'");
+
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real_2 IS DISTINCT FROM c_real AND c_double_2 IS DISTINCT FROM c_double"))
+                        .isNotFullyPushedDown(FilterNode.class)
+                        .skippingTypesCheck()
+                        .matches("VALUES '1', '2', '3'");
+
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > c_real_2 OR c_double > c_double_2"))
+                        .isNotFullyPushedDown(FilterNode.class)
+                        .skippingTypesCheck()
+                        .matches("VALUES '3'");
+
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real = c_real_2 OR c_double = c_double_2"))
+                        .isNotFullyPushedDown(FilterNode.class)
+                        .returnsEmptyResult();
+
+                assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real <> c_real_2 OR c_double <> c_double_2"))
+                        .isNotFullyPushedDown(FilterNode.class)
+                        .skippingTypesCheck()
+                        .matches("VALUES '1', '2', '3', '4'");
+            }
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real < 1 OR c_double < 1"))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .skippingTypesCheck()
+                    .matches("VALUES '2'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real < Infinity() OR c_double < Infinity()"))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .skippingTypesCheck()
+                    .matches("VALUES '2'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > -Infinity() OR c_double > -Infinity()"))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .skippingTypesCheck()
+                    .matches("VALUES '3'");
         }
     }
 
@@ -2203,6 +2326,12 @@ public abstract class BaseJdbcConnectorTest
     {
         assertDynamicFiltering(sql, joinDistributionType, true);
     }
+
+    protected void verifyApproximateNumericSpecialValueFailure(Throwable e)
+    {
+        throw new AssertionError("Unexpected special value", e);
+    }
+
 
     private void assertNoDynamicFiltering(@Language("SQL") String sql)
     {

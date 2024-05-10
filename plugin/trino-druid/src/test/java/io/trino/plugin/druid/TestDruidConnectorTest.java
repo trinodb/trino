@@ -210,6 +210,13 @@ public class TestDruidConnectorTest
         assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
     }
 
+    @Test
+    @Override
+    public void testSpecialValueOnApproximateNumericColumn()
+    {
+        abort("Druid connector does not support NaN and Infinity");
+    }
+
     /**
      * This test verifies that the filtering we have in place to overcome Druid's limitation of
      * not handling the escaping of search characters like % and _, works correctly.

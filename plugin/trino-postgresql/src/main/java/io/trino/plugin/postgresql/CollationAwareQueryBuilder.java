@@ -14,11 +14,11 @@
 package io.trino.plugin.postgresql;
 
 import com.google.inject.Inject;
-import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.NaNSpecificQueryBuilder;
 import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
@@ -34,7 +34,7 @@ import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.isEnableStr
 import static java.lang.String.format;
 
 public class CollationAwareQueryBuilder
-        extends DefaultQueryBuilder
+        extends NaNSpecificQueryBuilder
 {
     @Inject
     public CollationAwareQueryBuilder(RemoteQueryModifier queryModifier)

@@ -59,6 +59,7 @@ public abstract class BaseSqlServerConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
                  SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_ARRAY,
+                 SUPPORTS_NAN_INFINITY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
@@ -872,5 +873,13 @@ public abstract class BaseSqlServerConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @Override
+    protected void verifyApproximateNumericSpecialValueFailure(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Failed to insert data: The incoming tabular data stream \\(TDS\\) remote procedure call \\(RPC\\) protocol stream is incorrect\\. " +
+                "Parameter 3 \\(\"\"\\): The supplied value is not a valid instance of data type real\\. Check the source data for invalid values\\. " +
+                "An example of an invalid value is data of numeric type with scale greater than precision\\.");
     }
 }
