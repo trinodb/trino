@@ -14,9 +14,9 @@
 package io.trino.hdfs.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
-import io.trino.util.AutoCloseableCloser;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.junit.jupiter.api.AfterAll;
