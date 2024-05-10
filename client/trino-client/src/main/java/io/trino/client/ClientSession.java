@@ -15,6 +15,7 @@ package io.trino.client;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -28,6 +29,7 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 
@@ -54,6 +56,7 @@ public class ClientSession
     private final String transactionId;
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
+    private final DataSize targetDataSize;
 
     public static Builder builder()
     {
@@ -93,7 +96,8 @@ public class ClientSession
             Map<String, String> extraCredentials,
             String transactionId,
             Duration clientRequestTimeout,
-            boolean compressionDisabled)
+            boolean compressionDisabled,
+            DataSize targetDataSize)
     {
         this.server = requireNonNull(server, "server is null");
         this.principal = requireNonNull(principal, "principal is null");
@@ -116,6 +120,7 @@ public class ClientSession
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.clientRequestTimeout = clientRequestTimeout;
         this.compressionDisabled = compressionDisabled;
+        this.targetDataSize = requireNonNull(targetDataSize, "targetDataSize is null");
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -259,6 +264,11 @@ public class ClientSession
         return compressionDisabled;
     }
 
+    public DataSize getTargetDataSize()
+    {
+        return targetDataSize;
+    }
+
     @Override
     public String toString()
     {
@@ -277,6 +287,7 @@ public class ClientSession
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)
+                .add("targetDataSize", targetDataSize)
                 .omitNullValues()
                 .toString();
     }
@@ -304,6 +315,7 @@ public class ClientSession
         private String transactionId;
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
+        private DataSize targetDataSize = DataSize.of(1, MEGABYTE);
 
         private Builder() {}
 
@@ -331,6 +343,7 @@ public class ClientSession
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
             compressionDisabled = clientSession.isCompressionDisabled();
+            targetDataSize = clientSession.getTargetDataSize();
         }
 
         public Builder server(URI server)
@@ -459,6 +472,12 @@ public class ClientSession
             return this;
         }
 
+        public Builder targetDataSize(DataSize targetDataSize)
+        {
+            this.targetDataSize = targetDataSize;
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
@@ -482,7 +501,8 @@ public class ClientSession
                     credentials,
                     transactionId,
                     clientRequestTimeout,
-                    compressionDisabled);
+                    compressionDisabled,
+                    targetDataSize);
         }
     }
 }

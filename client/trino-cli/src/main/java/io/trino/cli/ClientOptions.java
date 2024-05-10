@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
@@ -46,6 +47,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.uri.PropertyName.ACCESS_TOKEN;
@@ -273,6 +275,9 @@ public class ClientOptions
     @Option(names = "--disable-auto-suggestion", description = "Disable auto suggestion")
     public boolean disableAutoSuggestion;
 
+    @Option(names = "--target-result-size", description = "Target result data size", hidden = true)
+    public DataSize targetResultSize = DataSize.of(1, MEGABYTE);
+
     public enum OutputFormat
     {
         AUTO,
@@ -333,6 +338,7 @@ public class ClientOptions
                 .transactionId(null)
                 .clientRequestTimeout(clientRequestTimeout)
                 .compressionDisabled(disableCompression)
+                .targetDataSize(targetResultSize)
                 .build();
     }
 

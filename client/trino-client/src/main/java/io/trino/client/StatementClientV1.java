@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
@@ -99,6 +100,7 @@ class StatementClientV1
     private final Optional<String> originalUser;
     private final String clientCapabilities;
     private final boolean compressionDisabled;
+    private final DataSize targetDataSize;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
@@ -124,6 +126,7 @@ class StatementClientV1
                 .map(Enum::name)
                 .collect(toImmutableSet())));
         this.compressionDisabled = session.isCompressionDisabled();
+        this.targetDataSize = session.getTargetDataSize();
 
         Request request = buildQueryRequest(session, query);
 
@@ -334,9 +337,12 @@ class StatementClientV1
 
     private Request.Builder prepareRequest(HttpUrl url)
     {
-        Request.Builder builder = new Request.Builder()
+        Request.Builder
+                builder = new Request.Builder()
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
-                .url(url);
+                .url(url.newBuilder()
+                        .addQueryParameter("targetResultSize", targetDataSize.toString())
+                        .build());
         user.ifPresent(requestUser -> builder.addHeader(TRINO_HEADERS.requestUser(), requestUser));
         originalUser.ifPresent(originalUser -> builder.addHeader(TRINO_HEADERS.requestOriginalUser(), originalUser));
         if (compressionDisabled) {
