@@ -39,7 +39,6 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.Switch;
@@ -121,6 +120,7 @@ import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
@@ -482,7 +482,7 @@ public class TestLogicalPlanner
                                         .right(
                                                 any(
                                                         filter(
-                                                                new Not(new IsNull(new Reference(BIGINT, "L_ORDERKEY"))),
+                                                                not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "L_ORDERKEY"))),
                                                                 tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))))));
     }
 
@@ -594,7 +594,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM lineitem WHERE linenumber < 0)",
                 anyTree(
                         filter(
-                                new Not(new Reference(BOOLEAN, "S")),
+                                not(getPlanTester().getPlannerContext().getMetadata(), new Reference(BOOLEAN, "S")),
                                 semiJoin("X", "Y", "S",
                                         tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                         anyTree(
@@ -1577,14 +1577,14 @@ public class TestLogicalPlanner
                                                                         assignUniqueId(
                                                                                 "unique",
                                                                                 filter(
-                                                                                        new Not(new IsNull(new Reference(BIGINT, "region_regionkey"))),
+                                                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "region_regionkey"))),
                                                                                         tableScan("region", ImmutableMap.of(
                                                                                                 "region_regionkey", "regionkey",
                                                                                                 "region_name", "name")))))
                                                                 .right(
                                                                         any(
                                                                                 filter(
-                                                                                        new Not(new IsNull(new Reference(BIGINT, "nation_regionkey"))),
+                                                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "nation_regionkey"))),
                                                                                         tableScan("nation", ImmutableMap.of(
                                                                                                 "nation_name", "name",
                                                                                                 "nation_regionkey", "regionkey"))))))))))));

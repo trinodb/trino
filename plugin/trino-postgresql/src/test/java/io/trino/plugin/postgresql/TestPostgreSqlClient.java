@@ -45,7 +45,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
@@ -70,6 +69,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -355,7 +355,7 @@ public class TestPostgreSqlClient
         // c_varchar IS NOT NULL
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
-                                new Not(new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
+                                not(FUNCTIONS.getMetadata(), new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IS NOT NULL");
@@ -383,8 +383,9 @@ public class TestPostgreSqlClient
         // NOT(expression)
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
-                                new Not(
-                                        new Not(new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
+                                not(
+                                        FUNCTIONS.getMetadata(),
+                                        not(FUNCTIONS.getMetadata(), new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("NOT ((\"c_varchar\") IS NOT NULL)");

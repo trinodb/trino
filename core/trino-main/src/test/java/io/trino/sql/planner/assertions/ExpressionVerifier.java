@@ -28,7 +28,6 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.Switch;
@@ -174,16 +173,6 @@ public final class ExpressionVerifier
         return process(actual.value(), expected.value()) &&
                 process(actual.min(), expected.min()) &&
                 process(actual.max(), expected.max());
-    }
-
-    @Override
-    protected Boolean visitNot(Not actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof Not expected)) {
-            return false;
-        }
-
-        return process(actual.value(), expected.value());
     }
 
     @Override

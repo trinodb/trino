@@ -47,7 +47,6 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.tree.QualifiedName;
@@ -103,6 +102,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
@@ -344,7 +344,7 @@ public final class ConnectorExpressionTranslator
         {
             Optional<Expression> translatedArgument = translate(argument);
             if (translatedArgument.isPresent()) {
-                return Optional.of(new Not(new IsNull(translatedArgument.get())));
+                return Optional.of(not(plannerContext.getMetadata(), new IsNull(translatedArgument.get())));
             }
 
             return Optional.empty();
@@ -364,7 +364,7 @@ public final class ConnectorExpressionTranslator
         {
             Optional<Expression> translatedArgument = translate(argument);
             if (argument.getType().equals(BOOLEAN) && translatedArgument.isPresent()) {
-                return Optional.of(new Not(translatedArgument.get()));
+                return Optional.of(not(plannerContext.getMetadata(), translatedArgument.get()));
             }
             return Optional.empty();
         }
@@ -754,16 +754,6 @@ public final class ConnectorExpressionTranslator
             Optional<ConnectorExpression> translatedValue = process(node.value());
             if (translatedValue.isPresent()) {
                 return Optional.of(new io.trino.spi.expression.Call(BOOLEAN, IS_NULL_FUNCTION_NAME, ImmutableList.of(translatedValue.get())));
-            }
-            return Optional.empty();
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitNot(Not node, Void context)
-        {
-            Optional<ConnectorExpression> translatedValue = process(node.value());
-            if (translatedValue.isPresent()) {
-                return Optional.of(new io.trino.spi.expression.Call(BOOLEAN, NOT_FUNCTION_NAME, List.of(translatedValue.get())));
             }
             return Optional.empty();
         }

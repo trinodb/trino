@@ -34,9 +34,9 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.transaction.TestingTransactionManager;
@@ -551,7 +551,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testNotStats()
     {
-        assertExpression(new Not(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0))))
+        assertExpression(not(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0))))
                 .outputRowsCount(625) // FIXME - nulls shouldn't be restored
                 .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -561,7 +561,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.4)) // FIXME - nulls shouldn't be restored
                 .symbolStats(new Symbol(DOUBLE, "y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
 
-        assertExpression(new Not(new IsNull(new Reference(DOUBLE, "x"))))
+        assertExpression(not(new IsNull(new Reference(DOUBLE, "x"))))
                 .outputRowsCount(750)
                 .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -571,7 +571,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0))
                 .symbolStats(new Symbol(DOUBLE, "y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
 
-        assertExpression(new Not(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new Reference(DOUBLE, "x")))))
+        assertExpression(not(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new Reference(DOUBLE, "x")))))
                 .outputRowsCountUnknown();
     }
 
@@ -593,7 +593,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testIsNotNullFilter()
     {
-        assertExpression(new Not(new IsNull(new Reference(DOUBLE, "x"))))
+        assertExpression(not(new IsNull(new Reference(DOUBLE, "x"))))
                 .outputRowsCount(750.0)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(40.0)
@@ -601,7 +601,7 @@ public class TestFilterStatsCalculator
                                 .highValue(10.0)
                                 .nullsFraction(0.0));
 
-        assertExpression(new Not(new IsNull(new Reference(DOUBLE, "emptyRange"))))
+        assertExpression(not(new IsNull(new Reference(DOUBLE, "emptyRange"))))
                 .outputRowsCount(0.0)
                 .symbolStats("emptyRange", SymbolStatsAssertion::empty);
     }
@@ -864,5 +864,10 @@ public class TestFilterStatsCalculator
                             expression,
                             transactionSession));
                 });
+    }
+
+    private Expression not(Expression value)
+    {
+        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), value);
     }
 }

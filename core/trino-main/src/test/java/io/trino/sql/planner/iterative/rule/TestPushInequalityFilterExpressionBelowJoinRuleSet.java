@@ -23,7 +23,6 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -35,6 +34,7 @@ import static io.trino.sql.ir.Comparison.Operator;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.and;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -276,7 +276,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             INNER,
                             p.values(a),
                             p.values(b),
-                            new Not(comparison(IDENTICAL, a.toSymbolReference(), b.toSymbolReference())));
+                            not(FUNCTIONS.getMetadata(), comparison(IDENTICAL, a.toSymbolReference(), b.toSymbolReference())));
                 }).doesNotFire();
     }
 

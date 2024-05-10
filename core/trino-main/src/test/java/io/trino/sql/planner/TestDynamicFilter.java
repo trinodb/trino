@@ -30,7 +30,6 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -61,6 +60,7 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -366,7 +366,7 @@ public class TestDynamicFilter
         // Dynamic filter is not supported for IS DISTINCT FROM
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS DISTINCT FROM o.orderkey",
                 anyTree(filter(
-                        new Not(new Comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"))),
+                        not(getPlanTester().getPlannerContext().getMetadata(), new Comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"))),
                         join(INNER, builder -> builder
                                 .left(
                                         tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
@@ -695,7 +695,7 @@ public class TestDynamicFilter
                 "SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM lineitem WHERE linenumber < 0)",
                 anyTree(
                         filter(
-                                new Not(new Reference(BOOLEAN, "S")),
+                                not(getPlanTester().getPlannerContext().getMetadata(), new Reference(BOOLEAN, "S")),
                                 semiJoin("X", "Y", "S", false,
                                         tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                         anyTree(
