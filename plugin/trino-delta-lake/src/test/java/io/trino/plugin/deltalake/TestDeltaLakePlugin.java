@@ -35,7 +35,7 @@ public class TestDeltaLakePlugin
     {
         ConnectorFactory factory = getConnectorFactory();
         factory.create(
-                "test",
+                        "test",
                         ImmutableMap.of(
                                 "hive.metastore.uri", "thrift://foo:1234",
                                 "bootstrap.quiet", "true"),
