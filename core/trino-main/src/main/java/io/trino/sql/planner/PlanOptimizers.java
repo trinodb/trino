@@ -544,7 +544,7 @@ public class PlanOptimizers
                                 new TransformUncorrelatedSubqueryToJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedJoinToJoin(plannerContext),
-                                new DecorrelateInnerUnnestWithGlobalAggregation(),
+                                new DecorrelateInnerUnnestWithGlobalAggregation(metadata),
                                 new DecorrelateLeftUnnestWithGlobalAggregation(),
                                 new DecorrelateUnnest(metadata),
                                 new TransformCorrelatedGlobalAggregationWithProjection(plannerContext),
@@ -599,7 +599,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new InlineProjectIntoFilter())
-                                .add(new SimplifyFilterPredicate())
+                                .add(new SimplifyFilterPredicate(metadata))
                                 .addAll(columnPruningRules)
                                 .add(new InlineProjections())
                                 .addAll(new PushFilterThroughCountAggregation(plannerContext).rules()) // must run after PredicatePushDown and after TransformFilteringSemiJoinToInnerJoin

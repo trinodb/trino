@@ -47,7 +47,6 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -480,7 +479,7 @@ public class IrExpressionInterpreter
 
             if (min instanceof Constant minConstant && max instanceof Constant maxConstant) {
                 if (!isConstantNull(minConstant) && !isConstantNull(maxConstant) && !Boolean.TRUE.equals(functionInvoker.invoke(lessThanOrEqual, connectorSession, minConstant.value(), maxConstant.value()))) {
-                    return ifExpression(new Not(new IsNull(value)), FALSE);
+                    return ifExpression(new IsNull(value), NULL_BOOLEAN, FALSE);
                 }
 
                 if (value instanceof Constant valueConstant) {
@@ -539,18 +538,6 @@ public class IrExpressionInterpreter
             }
 
             return new NullIf(first, second);
-        }
-
-        @Override
-        protected Expression visitNot(Not node, SymbolResolver context)
-        {
-            Expression argument = processWithExceptionHandling(node.value(), context);
-
-            return switch (argument) {
-                case Constant constant when constant.value() == null -> NULL_BOOLEAN;
-                case Constant(Type type, Boolean value) -> new Constant(BOOLEAN, !value);
-                default -> new Not(argument);
-            };
         }
 
         @Override

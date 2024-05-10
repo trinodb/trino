@@ -31,7 +31,6 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -58,10 +57,12 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
@@ -238,13 +239,13 @@ public class TestExpressionInterpreter
     public void testIsNotNull()
     {
         assertOptimizedEquals(
-                new Not(new IsNull(new Constant(UNKNOWN, null))),
+                not(FUNCTIONS.getMetadata(), new IsNull(new Constant(UNKNOWN, null))),
                 FALSE);
         assertOptimizedEquals(
-                new Not(new IsNull(new Constant(INTEGER, 1L))),
+                not(FUNCTIONS.getMetadata(), new IsNull(new Constant(INTEGER, 1L))),
                 TRUE);
         assertOptimizedEquals(
-                new Not(new IsNull(new Call(ADD_INTEGER, ImmutableList.of(new Constant(INTEGER, null), new Constant(INTEGER, 1L))))),
+                not(FUNCTIONS.getMetadata(), new IsNull(new Call(ADD_INTEGER, ImmutableList.of(new Constant(INTEGER, null), new Constant(INTEGER, 1L))))),
                 FALSE);
     }
 
@@ -283,17 +284,17 @@ public class TestExpressionInterpreter
     public void testNot()
     {
         assertOptimizedEquals(
-                new Not(TRUE),
+                not(PLANNER_CONTEXT.getMetadata(), TRUE),
                 FALSE);
         assertOptimizedEquals(
-                new Not(FALSE),
+                not(PLANNER_CONTEXT.getMetadata(), FALSE),
                 TRUE);
         assertOptimizedEquals(
-                new Not(new Constant(BOOLEAN, null)),
+                not(PLANNER_CONTEXT.getMetadata(), new Constant(BOOLEAN, null)),
                 new Constant(BOOLEAN, null));
         assertOptimizedEquals(
-                new Not(new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))),
-                new Not(new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))));
+                not(PLANNER_CONTEXT.getMetadata(), new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))),
+                not(PLANNER_CONTEXT.getMetadata(), new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))));
     }
 
     @Test
@@ -349,7 +350,7 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals(
                 new Between(new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 0L)),
-                ifExpression(new Not(new IsNull(new Reference(INTEGER, "unbound_value"))), FALSE));
+                ifExpression(new IsNull(new Reference(INTEGER, "unbound_value")), NULL_BOOLEAN, FALSE));
     }
 
     @Test

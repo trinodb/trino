@@ -252,7 +252,7 @@ public class PushFilterThroughBoolOrAggregation
 
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(boolOrSymbol));
         Expression newPredicate = combineConjuncts(
-                DomainTranslator.toPredicate(newTupleDomain),
+                new DomainTranslator(plannerContext.getMetadata()).toPredicate(newTupleDomain),
                 remainingExpression);
         if (!newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterSource, newPredicate));

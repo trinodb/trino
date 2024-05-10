@@ -32,7 +32,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.OrderingScheme;
@@ -57,6 +56,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
@@ -333,7 +333,7 @@ public class TestPushDownDereferencesRules
                                 new Logical(AND, ImmutableList.of(
                                         new Comparison(NOT_EQUAL, new FieldReference(new FieldReference(new Reference(nestedRowType, "a"), 0), 0), new Constant(BIGINT, 5L)),
                                         new Comparison(EQUAL, new FieldReference(new Reference(ROW_TYPE, "b"), 1), new Constant(BIGINT, 2L)),
-                                        new Not(new IsNull(new Cast(new FieldReference(new Reference(nestedRowType, "a"), 0), JSON))))),
+                                        not(FUNCTIONS.getMetadata(), new IsNull(new Cast(new FieldReference(new Reference(nestedRowType, "a"), 0), JSON))))),
                                 p.tableScan(
                                         testTable,
                                         ImmutableList.of(p.symbol("a", nestedRowType), p.symbol("b", ROW_TYPE)),
@@ -342,7 +342,7 @@ public class TestPushDownDereferencesRules
                                                 p.symbol("b", ROW_TYPE), new TpchColumnHandle("b", ROW_TYPE)))))
                 .matches(project(
                         filter(
-                                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(BIGINT, "expr"), new Constant(BIGINT, 5L)), new Comparison(EQUAL, new Reference(BIGINT, "expr_0"), new Constant(BIGINT, 2L)), new Not(new IsNull(new Cast(new Reference(ROW_TYPE, "expr_1"), JSON))))),
+                                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(BIGINT, "expr"), new Constant(BIGINT, 5L)), new Comparison(EQUAL, new Reference(BIGINT, "expr_0"), new Constant(BIGINT, 2L)), not(FUNCTIONS.getMetadata(), new IsNull(new Cast(new Reference(ROW_TYPE, "expr_1"), JSON))))),
                                 strictProject(
                                         ImmutableMap.of(
                                                 "expr", expression(new FieldReference(new FieldReference(new Reference(nestedRowType, "a"), 0), 0)),
@@ -368,7 +368,7 @@ public class TestPushDownDereferencesRules
                                         p.symbol("expr", BIGINT), new FieldReference(new Reference(ROW_TYPE, "msg"), 0),
                                         p.symbol("expr_2", BIGINT), new FieldReference(new Reference(ROW_TYPE, "msg2"), 0)),
                                 p.filter(
-                                        new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new FieldReference(new Reference(ROW_TYPE, "msg"), 0), new Constant(BIGINT, 3L)), new Not(new IsNull(new Reference(ROW_TYPE, "msg2"))))),
+                                        new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new FieldReference(new Reference(ROW_TYPE, "msg"), 0), new Constant(BIGINT, 3L)), not(FUNCTIONS.getMetadata(), new IsNull(new Reference(ROW_TYPE, "msg2"))))),
                                         p.values(p.symbol("msg", ROW_TYPE), p.symbol("msg2", ROW_TYPE)))))
                 .matches(
                         strictProject(
@@ -376,7 +376,7 @@ public class TestPushDownDereferencesRules
                                         "expr", expression(new Reference(BIGINT, "msg_x")),
                                         "expr_2", expression(new FieldReference(new Reference(ROW_TYPE, "msg2"), 0))), // not pushed down since predicate contains msg2 reference
                                 filter(
-                                        new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(BIGINT, "msg_x"), new Constant(BIGINT, 3L)), new Not(new IsNull(new Reference(ROW_TYPE, "msg2"))))),
+                                        new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(BIGINT, "msg_x"), new Constant(BIGINT, 3L)), not(FUNCTIONS.getMetadata(), new IsNull(new Reference(ROW_TYPE, "msg2"))))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "msg_x", expression(new FieldReference(new Reference(ROW_TYPE, "msg"), 0)),

@@ -35,7 +35,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Not;
 import io.trino.sql.planner.IrExpressionInterpreter;
 
 import java.lang.invoke.MethodHandle;
@@ -59,9 +58,10 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.and;
 import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.falseIfNotNull;
-import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.trueIfNotNull;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.scaleFactor;
 import static java.lang.Math.floorDiv;
@@ -198,14 +198,14 @@ public class UnwrapDateTruncInComparison
                     if (!rightValueAtRangeLow) {
                         yield trueIfNotNull(argument);
                     }
-                    yield new Not(between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield not(plannerContext.getMetadata(), between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case IDENTICAL -> {
                     if (!rightValueAtRangeLow) {
                         yield FALSE;
                     }
                     yield and(
-                            new Not(new IsNull(argument)),
+                            not(plannerContext.getMetadata(), new IsNull(argument)),
                             between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case LESS_THAN -> {
@@ -227,6 +227,11 @@ public class UnwrapDateTruncInComparison
                     yield new Comparison(GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
             };
+        }
+
+        public Expression trueIfNotNull(Expression argument)
+        {
+            return or(not(plannerContext.getMetadata(), new IsNull(argument)), new Constant(BOOLEAN, null));
         }
 
         private Object calculateRangeEndInclusive(Object rangeStart, Type type, SupportedUnit rangeUnit)

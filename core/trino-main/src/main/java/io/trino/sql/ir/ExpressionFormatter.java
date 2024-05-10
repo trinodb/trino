@@ -159,12 +159,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitNot(Not node, Void context)
-        {
-            return "(NOT " + process(node.value(), context) + ")";
-        }
-
-        @Override
         protected String visitComparison(Comparison node, Void context)
         {
             return formatBinaryExpression(node.operator().getValue(), node.left(), node.right());

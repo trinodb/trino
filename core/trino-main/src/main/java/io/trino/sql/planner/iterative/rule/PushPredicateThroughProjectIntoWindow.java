@@ -80,6 +80,7 @@ public class PushPredicateThroughProjectIntoWindow
 
     private final PlannerContext plannerContext;
     private final Pattern<FilterNode> pattern;
+    private final DomainTranslator domainTranslator;
 
     public PushPredicateThroughProjectIntoWindow(PlannerContext plannerContext)
     {
@@ -91,6 +92,7 @@ public class PushPredicateThroughProjectIntoWindow
                         .with(source().matching(window()
                                 .matching(window -> toTopNRankingType(window).isPresent())
                                 .capturedAs(WINDOW)))));
+        this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
     }
 
     @Override
@@ -145,7 +147,7 @@ public class PushPredicateThroughProjectIntoWindow
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
-                DomainTranslator.toPredicate(newTupleDomain));
+                domainTranslator.toPredicate(newTupleDomain));
         if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }

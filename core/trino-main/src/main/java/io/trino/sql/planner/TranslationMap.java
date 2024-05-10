@@ -51,7 +51,6 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Switch;
@@ -150,6 +149,7 @@ import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
@@ -475,7 +475,8 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(IsNotNullPredicate expression)
     {
-        return new Not(
+        return not(
+                plannerContext.getMetadata(),
                 new IsNull(
                         translateExpression(expression.getValue())));
     }
@@ -541,7 +542,7 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(NotExpression expression)
     {
-        return new Not(translateExpression(expression.getValue()));
+        return not(plannerContext.getMetadata(), translateExpression(expression.getValue()));
     }
 
     private io.trino.sql.ir.Expression translate(Row expression)
@@ -563,7 +564,7 @@ public class TranslationMap
             case LESS_THAN_OR_EQUAL -> new Comparison(LESS_THAN_OR_EQUAL, left, right);
             case GREATER_THAN -> new Comparison(GREATER_THAN, left, right);
             case GREATER_THAN_OR_EQUAL -> new Comparison(GREATER_THAN_OR_EQUAL, left, right);
-            case IS_DISTINCT_FROM -> new Not(new Comparison(IDENTICAL, left, right));
+            case IS_DISTINCT_FROM -> not(plannerContext.getMetadata(), new Comparison(IDENTICAL, left, right));
         };
     }
 

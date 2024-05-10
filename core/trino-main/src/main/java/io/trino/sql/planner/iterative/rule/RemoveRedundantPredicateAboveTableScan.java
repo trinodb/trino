@@ -66,10 +66,12 @@ public class RemoveRedundantPredicateAboveTableScan
                             .matching(node -> !node.getEnforcedConstraint().isAll())));
 
     private final PlannerContext plannerContext;
+    private final DomainTranslator domainTranslator;
 
     public RemoveRedundantPredicateAboveTableScan(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
     }
 
     @Override
@@ -134,7 +136,7 @@ public class RemoveRedundantPredicateAboveTableScan
                 plannerContext,
                 session,
                 Booleans.TRUE, // Dynamic filters are included in decomposedPredicate.getRemainingExpression()
-                DomainTranslator.toPredicate(unenforcedDomain.transformKeys(assignments::get)),
+                domainTranslator.toPredicate(unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
 

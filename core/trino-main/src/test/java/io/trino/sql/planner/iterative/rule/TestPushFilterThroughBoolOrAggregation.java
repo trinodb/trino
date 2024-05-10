@@ -19,7 +19,6 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PushFilterThroughBoolOrAggregation.PushFilterThroughBoolOrAggregationWithProject;
@@ -39,6 +38,7 @@ import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -212,7 +212,7 @@ public class TestPushFilterThroughBoolOrAggregation
                     Symbol bool = p.symbol("bool", BOOLEAN);
                     Symbol aggrBool = p.symbol("aggrbool", BOOLEAN);
                     return p.filter(
-                            new Not(new Coalesce(aggrBool.toSymbolReference(), TRUE)),
+                            not(tester().getMetadata(), new Coalesce(aggrBool.toSymbolReference(), TRUE)),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(
