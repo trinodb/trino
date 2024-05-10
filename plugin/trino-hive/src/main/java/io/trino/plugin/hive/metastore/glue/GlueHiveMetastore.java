@@ -422,19 +422,25 @@ public class GlueHiveMetastore
 
     private List<TableInfo> getTablesInternal(Consumer<Table> cacheTable, String databaseName)
     {
-        return stats.getGetTables()
-                .call(() -> glueClient.getTablesPaginator(builder -> builder
-                                .applyMutation(glueContext::configureClient)
-                                .databaseName(databaseName)).stream()
-                        .map(GetTablesResponse::tableList)
-                        .flatMap(List::stream))
-                .filter(tableVisibilityFilter)
-                .map(glueTable -> GlueConverter.fromGlueTable(glueTable, databaseName))
-                .peek(cacheTable)
-                .map(table -> new TableInfo(
-                        new SchemaTableName(databaseName, table.getTableName()),
-                        TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.getTableType(), table.getParameters().get(TABLE_COMMENT))))
-                .toList();
+        try {
+            return stats.getGetTables()
+                    .call(() -> glueClient.getTablesPaginator(builder -> builder
+                                    .applyMutation(glueContext::configureClient)
+                                    .databaseName(databaseName)).stream()
+                            .map(GetTablesResponse::tableList)
+                            .flatMap(List::stream))
+                    .filter(tableVisibilityFilter)
+                    .map(glueTable -> GlueConverter.fromGlueTable(glueTable, databaseName))
+                    .peek(cacheTable)
+                    .map(table -> new TableInfo(
+                            new SchemaTableName(databaseName, table.getTableName()),
+                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.getTableType(), table.getParameters().get(TABLE_COMMENT))))
+                    .toList();
+        }
+        catch (EntityNotFoundException _) {
+            // Database might have been deleted concurrently.
+            return ImmutableList.of();
+        }
     }
 
     @Override
