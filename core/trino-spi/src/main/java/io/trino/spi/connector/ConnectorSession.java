@@ -35,6 +35,8 @@ public interface ConnectorSession
 
     TimeZoneKey getTimeZoneKey();
 
+    Boolean getUseSessionTimeZoneForDisplay();
+
     Locale getLocale();
 
     Optional<String> getTraceToken();

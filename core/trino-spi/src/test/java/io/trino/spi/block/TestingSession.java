@@ -48,6 +48,12 @@ public final class TestingSession
             return ConnectorIdentity.ofUser("user");
         }
 
+        @Override 
+        public Boolean getUseSessionTimeZoneForDisplay()
+        {
+            return true;
+        }
+
         @Override
         public TimeZoneKey getTimeZoneKey()
         {

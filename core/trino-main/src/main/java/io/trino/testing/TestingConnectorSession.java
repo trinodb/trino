@@ -97,6 +97,12 @@ public class TestingConnectorSession
     }
 
     @Override
+    public Boolean getUseSessionTimeZoneForDisplay()
+    {
+        return true;
+    }
+
+    @Override
     public Locale getLocale()
     {
         return locale;
