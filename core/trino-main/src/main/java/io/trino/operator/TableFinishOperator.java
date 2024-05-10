@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.operator.OperationTimer.OperationTiming;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.QueryId;
@@ -30,7 +31,6 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
-import io.trino.util.AutoCloseableCloser;
 
 import java.util.Collection;
 import java.util.List;
