@@ -49,6 +49,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.multibindings.ProvidesIntoOptional.Type.DEFAULT;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class GlueMetastoreModule
@@ -68,6 +69,8 @@ public class GlueMetastoreModule
                 .to(GlueHiveMetastoreFactory.class)
                 .in(Scopes.SINGLETON);
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(false);
+
+        closingBinder(binder).registerCloseable(GlueClient.class);
     }
 
     @ProvidesIntoOptional(DEFAULT)
