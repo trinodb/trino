@@ -1067,7 +1067,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails(
                 session,
                 "EXECUTE my_query USING 2, 99999999999999999999",
-                "\\Qline 1:1: Invalid numeric literal: 99999999999999999999\\E");
+                "\\Qline 1:27: Invalid numeric literal: 99999999999999999999\\E");
     }
 
     @Test
@@ -1131,7 +1131,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails(
                 session,
                 "EXECUTE my_query USING 2, 99999999999999999999",
-                "\\Qline 1:1: Invalid numeric literal: 99999999999999999999\\E");
+                "\\Qline 1:27: Invalid numeric literal: 99999999999999999999\\E");
     }
 
     @Test
@@ -1190,7 +1190,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails(
                 session,
                 "EXECUTE my_query USING 2, 99999999999999999999",
-                "\\Qline 1:1: Invalid numeric literal: 99999999999999999999\\E");
+                "\\Qline 1:27: Invalid numeric literal: 99999999999999999999\\E");
     }
 
     @Test

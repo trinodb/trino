@@ -44,7 +44,7 @@ public class LongLiteral
             this.parsedValue = parse(value);
         }
         catch (NumberFormatException e) {
-            throw new ParsingException("Invalid numeric literal: " + value);
+            throw new ParsingException("Invalid numeric literal: " + value, location.orElse(new NodeLocation(1, 1)));
         }
     }
 
