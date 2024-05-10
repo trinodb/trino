@@ -123,8 +123,8 @@ public class TestIcebergS3AndGlueMetastoreTest
         String partitionQueryPart = (partitioned ? ",partitioning = ARRAY['col_str']" : "");
 
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
-                "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
-                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
+                     "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
+                     "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
