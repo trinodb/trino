@@ -62,7 +62,7 @@ public class AggregationFunctionMatcher
         return Objects.equals(expectedCall.name(), aggregation.getResolvedFunction().signature().getName().getFunctionName()) &&
                 Objects.equals(expectedCall.filter(), aggregation.getFilter()) &&
                 Objects.equals(expectedCall.orderBy(), aggregation.getOrderingScheme()) &&
-                Objects.equals(expectedCall.distinct(), aggregation.isDistinct()) &&
+                expectedCall.distinct() == aggregation.isDistinct() &&
                 Objects.equals(expectedCall.arguments(), aggregation.getArguments());
     }
 

@@ -97,7 +97,7 @@ public final class RaptorColumnHandle
             return false;
         }
         RaptorColumnHandle other = (RaptorColumnHandle) obj;
-        return Objects.equals(this.columnId, other.columnId);
+        return this.columnId == other.columnId;
     }
 
     @Override

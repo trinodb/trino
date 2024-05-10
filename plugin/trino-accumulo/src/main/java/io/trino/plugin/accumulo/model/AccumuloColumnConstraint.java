@@ -98,7 +98,7 @@ public class AccumuloColumnConstraint
                 && Objects.equals(this.family, other.family)
                 && Objects.equals(this.qualifier, other.qualifier)
                 && Objects.equals(this.domain, other.domain)
-                && Objects.equals(this.indexed, other.indexed);
+                && this.indexed == other.indexed;
     }
 
     @Override
