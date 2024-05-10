@@ -16,7 +16,6 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 public class Parameter
@@ -68,7 +67,7 @@ public class Parameter
         }
 
         Parameter that = (Parameter) o;
-        return Objects.equals(id, that.id);
+        return id == that.id;
     }
 
     @Override

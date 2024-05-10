@@ -121,8 +121,8 @@ public class CreateMaterializedView
         CreateMaterializedView o = (CreateMaterializedView) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
-                && Objects.equals(replace, o.replace)
-                && Objects.equals(notExists, o.notExists)
+                && replace == o.replace
+                && notExists == o.notExists
                 && Objects.equals(gracePeriod, o.gracePeriod)
                 && Objects.equals(properties, o.properties)
                 && Objects.equals(comment, o.comment);

@@ -218,8 +218,7 @@ public final class VarcharType
         }
 
         VarcharType other = (VarcharType) o;
-
-        return Objects.equals(this.length, other.length);
+        return this.length == other.length;
     }
 
     @Override

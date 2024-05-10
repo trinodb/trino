@@ -90,7 +90,7 @@ public class SetColumnType
         return Objects.equals(tableName, o.tableName) &&
                 Objects.equals(columnName, o.columnName) &&
                 Objects.equals(type, o.type) &&
-                Objects.equals(tableExists, o.tableExists);
+                tableExists == o.tableExists;
     }
 
     @Override

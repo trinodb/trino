@@ -2719,6 +2719,8 @@
                                     -Xep:NullOptional:ERROR \
                                     -Xep:NullableOptional:ERROR \
                                     -Xep:NullablePrimitive:ERROR \
+                                    <!-- requires https://github.com/google/error-prone/issues/4390 before switching to ERROR -->
+                                    -Xep:ObjectEqualsForPrimitives:WARN \
                                     -Xep:ObjectToString:ERROR \
                                     -Xep:OptionalNotPresent:ERROR \
                                     -Xep:OrphanedFormatString:ERROR \

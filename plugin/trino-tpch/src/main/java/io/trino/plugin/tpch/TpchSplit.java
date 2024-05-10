@@ -100,8 +100,8 @@ public class TpchSplit
             return false;
         }
         TpchSplit other = (TpchSplit) obj;
-        return Objects.equals(this.totalParts, other.totalParts) &&
-                Objects.equals(this.partNumber, other.partNumber);
+        return this.totalParts == other.totalParts &&
+               this.partNumber == other.partNumber;
     }
 
     @Override
