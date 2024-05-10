@@ -68,12 +68,12 @@ public class TestHivePlugin
         ConnectorFactory factory = getHiveConnectorFactory();
 
         factory.create(
-                "test",
-                ImmutableMap.of(
-                        "hive.metastore", "thrift",
-                        "hive.metastore.uri", "thrift://foo:1234",
-                        "bootstrap.quiet", "true"),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "thrift",
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
@@ -83,12 +83,12 @@ public class TestHivePlugin
         ConnectorFactory factory = getHiveConnectorFactory();
 
         factory.create(
-                "test",
-                ImmutableMap.of(
-                        "hive.metastore", "glue",
-                        "hive.metastore.glue.region", "us-east-2",
-                        "bootstrap.quiet", "true"),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "glue",
+                                "hive.metastore.glue.region", "us-east-2",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
                 .shutdown();
 
         assertThatThrownBy(() -> factory.create(
@@ -164,13 +164,13 @@ public class TestHivePlugin
         ConnectorFactory connectorFactory = getHiveConnectorFactory();
 
         connectorFactory.create(
-                "test",
-                ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", "thrift://foo:1234")
-                        .put("hive.security", "allow-all")
-                        .put("bootstrap.quiet", "true")
-                        .buildOrThrow(),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("hive.metastore.uri", "thrift://foo:1234")
+                                .put("hive.security", "allow-all")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
@@ -180,13 +180,13 @@ public class TestHivePlugin
         ConnectorFactory connectorFactory = getHiveConnectorFactory();
 
         connectorFactory.create(
-                "test",
-                ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", "thrift://foo:1234")
-                        .put("hive.security", "read-only")
-                        .put("bootstrap.quiet", "true")
-                        .buildOrThrow(),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("hive.metastore.uri", "thrift://foo:1234")
+                                .put("hive.security", "read-only")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
@@ -200,14 +200,14 @@ public class TestHivePlugin
         Files.write(tempFile.toPath(), "{}".getBytes(UTF_8));
 
         connectorFactory.create(
-                "test",
-                ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", "thrift://foo:1234")
-                        .put("hive.security", "file")
-                        .put("security.config-file", tempFile.getAbsolutePath())
-                        .put("bootstrap.quiet", "true")
-                        .buildOrThrow(),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("hive.metastore.uri", "thrift://foo:1234")
+                                .put("hive.security", "file")
+                                .put("security.config-file", tempFile.getAbsolutePath())
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
@@ -234,24 +234,24 @@ public class TestHivePlugin
         ConnectorFactory connectorFactory = getHiveConnectorFactory();
 
         connectorFactory.create(
-                "test",
-                ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", "https://localhost:443")
-                        .put("hive.metastore.http.client.bearer-token", "token")
-                        .put("hive.metastore.http.client.additional-headers", "key:value")
-                        .put("hive.metastore.http.client.authentication.type", "BEARER")
-                        .buildOrThrow(),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("hive.metastore.uri", "https://localhost:443")
+                                .put("hive.metastore.http.client.bearer-token", "token")
+                                .put("hive.metastore.http.client.additional-headers", "key:value")
+                                .put("hive.metastore.http.client.authentication.type", "BEARER")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
                 .shutdown();
 
         connectorFactory.create(
-                "test",
-                ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", "http://localhost:443")
-                        .put("hive.metastore.http.client.additional-headers", "key:value")
-                        .put("hive.metastore.http.client.authentication.type", "BEARER")
-                        .buildOrThrow(),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("hive.metastore.uri", "http://localhost:443")
+                                .put("hive.metastore.http.client.additional-headers", "key:value")
+                                .put("hive.metastore.http.client.authentication.type", "BEARER")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
                 .shutdown();
 
         assertThatThrownBy(() -> connectorFactory.create(
