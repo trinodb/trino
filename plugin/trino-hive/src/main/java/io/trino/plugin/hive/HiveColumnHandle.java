@@ -238,7 +238,7 @@ public class HiveColumnHandle
         }
         HiveColumnHandle other = (HiveColumnHandle) obj;
         return Objects.equals(this.baseColumnName, other.baseColumnName) &&
-                Objects.equals(this.baseHiveColumnIndex, other.baseHiveColumnIndex) &&
+                this.baseHiveColumnIndex == other.baseHiveColumnIndex &&
                 Objects.equals(this.baseHiveType, other.baseHiveType) &&
                 Objects.equals(this.baseType, other.baseType) &&
                 Objects.equals(this.hiveColumnProjectionInfo, other.hiveColumnProjectionInfo) &&

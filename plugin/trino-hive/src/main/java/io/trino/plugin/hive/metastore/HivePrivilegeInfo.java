@@ -127,7 +127,7 @@ public class HivePrivilegeInfo
         }
         HivePrivilegeInfo hivePrivilegeInfo = (HivePrivilegeInfo) o;
         return hivePrivilege == hivePrivilegeInfo.hivePrivilege &&
-                Objects.equals(grantOption, hivePrivilegeInfo.grantOption) &&
+                grantOption == hivePrivilegeInfo.grantOption &&
                 Objects.equals(grantor, hivePrivilegeInfo.grantor) &&
                 Objects.equals(grantee, hivePrivilegeInfo.grantee);
     }

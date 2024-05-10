@@ -96,7 +96,7 @@ public class KuduColumnHandle
         }
         KuduColumnHandle other = (KuduColumnHandle) obj;
         return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
+                this.ordinalPosition == other.ordinalPosition &&
                 Objects.equals(this.type, other.type);
     }
 

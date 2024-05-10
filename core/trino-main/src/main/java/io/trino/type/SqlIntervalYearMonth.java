@@ -50,7 +50,7 @@ public class SqlIntervalYearMonth
             return false;
         }
         SqlIntervalYearMonth other = (SqlIntervalYearMonth) obj;
-        return Objects.equals(this.months, other.months);
+        return this.months == other.months;
     }
 
     @JsonValue

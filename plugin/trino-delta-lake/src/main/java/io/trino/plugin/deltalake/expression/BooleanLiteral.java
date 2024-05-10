@@ -60,7 +60,7 @@ public class BooleanLiteral
             return false;
         }
         BooleanLiteral other = (BooleanLiteral) obj;
-        return Objects.equals(this.value, other.value);
+        return this.value == other.value;
     }
 
     @Override

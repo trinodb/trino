@@ -157,7 +157,7 @@ public class BigQuerySplit
                 Objects.equals(streamName, that.streamName) &&
                 Objects.equals(schemaString, that.schemaString) &&
                 Objects.equals(columns, that.columns) &&
-                Objects.equals(emptyRowsToGenerate, that.emptyRowsToGenerate);
+                emptyRowsToGenerate == that.emptyRowsToGenerate;
     }
 
     @Override
