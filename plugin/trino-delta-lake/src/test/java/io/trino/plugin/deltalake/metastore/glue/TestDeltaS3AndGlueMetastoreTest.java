@@ -45,6 +45,8 @@ public class TestDeltaS3AndGlueMetastoreTest
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "glue")
                         .put("hive.metastore.glue.default-warehouse-dir", schemaPath())
+                        .put("fs.hadoop.enabled", "false")
+                        .put("fs.native-s3.enabled", "true")
                         .put("delta.enable-non-concurrent-writes", "true")
                         .buildOrThrow())
                 .setSchemaLocation(schemaPath())
