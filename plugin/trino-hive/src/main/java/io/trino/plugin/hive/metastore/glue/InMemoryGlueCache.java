@@ -75,7 +75,7 @@ class InMemoryGlueCache
     private final AtomicLong tableInvalidationCounter = new AtomicLong();
     private final AtomicLong partitionInvalidationCounter = new AtomicLong();
 
-    public InMemoryGlueCache(Duration metadataCacheTtl, Duration columnStatisticsCacheTtl, long maximumSize)
+    public InMemoryGlueCache(Duration metadataCacheTtl, Duration statsCacheTtl, long maximumSize)
     {
         OptionalLong metadataCacheTtlMillis = OptionalLong.of(metadataCacheTtl.toMillis());
         this.databaseNamesCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
@@ -87,9 +87,9 @@ class InMemoryGlueCache
         this.allFunctionsCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
         this.functionCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
 
-        OptionalLong columnStatisticsCacheTtlMillis = OptionalLong.of(columnStatisticsCacheTtl.toMillis());
-        this.tableColumnStatsCache = buildCache(columnStatisticsCacheTtlMillis, maximumSize, ColumnStatisticsHolder::new);
-        this.partitionColumnStatsCache = buildCache(columnStatisticsCacheTtlMillis, maximumSize, ColumnStatisticsHolder::new);
+        OptionalLong statsCacheTtlMillis = OptionalLong.of(statsCacheTtl.toMillis());
+        this.tableColumnStatsCache = buildCache(statsCacheTtlMillis, maximumSize, ColumnStatisticsHolder::new);
+        this.partitionColumnStatsCache = buildCache(statsCacheTtlMillis, maximumSize, ColumnStatisticsHolder::new);
     }
 
     @Override
