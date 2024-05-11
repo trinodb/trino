@@ -164,7 +164,7 @@ final class LongTimestampWithTimeZoneType
         TimeZoneKey tzKey = unpackZoneKey(packedEpochMillis);
         if (session != null) {
             if (session.getUseSessionTimeZoneForDisplay()) {
-            tzKey = session.getTimeZoneKey();
+                tzKey = session.getTimeZoneKey();
             }
         }
         return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(packedEpochMillis), picosOfMilli, tzKey);

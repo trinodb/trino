@@ -136,10 +136,9 @@ final class ShortTimestampWithTimeZoneType
 
         long value = getLong(block, position);
         TimeZoneKey tzKey = unpackZoneKey(value);
-        Boolean displayTZ;
         if (session != null) {
             if (session.getUseSessionTimeZoneForDisplay()) {
-            tzKey = session.getTimeZoneKey();
+                tzKey = session.getTimeZoneKey();
             }
         }
         return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(value), 0, tzKey);

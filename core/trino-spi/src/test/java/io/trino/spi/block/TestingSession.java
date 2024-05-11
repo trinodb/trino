@@ -48,7 +48,7 @@ public final class TestingSession
             return ConnectorIdentity.ofUser("user");
         }
 
-        @Override 
+        @Override
         public Boolean getUseSessionTimeZoneForDisplay()
         {
             return true;
