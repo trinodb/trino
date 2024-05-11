@@ -142,6 +142,7 @@ public class TestHiveConcurrentModificationGlueMetastore
     {
         if (metastore != null) {
             metastore.dropDatabase(SCHEMA, false);
+            metastore.shutdown();
             deleteRecursively(dataDirectory, ALLOW_INSECURE);
         }
     }

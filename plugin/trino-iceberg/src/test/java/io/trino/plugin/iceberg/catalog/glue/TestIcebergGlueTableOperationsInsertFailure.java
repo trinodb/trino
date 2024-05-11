@@ -19,7 +19,7 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.Failure;
 import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -59,7 +59,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
 
     private final String schemaName = "test_iceberg_glue_" + randomNameSuffix();
 
-    private HiveMetastore glueHiveMetastore;
+    private GlueHiveMetastore glueHiveMetastore;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -111,6 +111,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
             if (glueHiveMetastore != null) {
                 // Data is on the local disk and will be deleted by the deleteOnExit hook
                 glueHiveMetastore.dropDatabase(schemaName, false);
+                glueHiveMetastore.shutdown();
             }
         }
         catch (Exception e) {

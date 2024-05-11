@@ -17,6 +17,7 @@ import io.trino.Session;
 import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -175,6 +176,9 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
     {
         if (metastore != null) {
             metastore.dropDatabase(SCHEMA, false);
+            if (metastore instanceof GlueHiveMetastore glueMetastore) {
+                glueMetastore.shutdown();
+            }
             deleteRecursively(dataDirectory, ALLOW_INSECURE);
         }
     }

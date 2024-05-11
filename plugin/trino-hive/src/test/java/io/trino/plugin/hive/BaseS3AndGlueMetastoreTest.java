@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import io.trino.Session;
 import io.trino.plugin.base.util.UncheckedCloseable;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
@@ -54,7 +54,7 @@ public abstract class BaseS3AndGlueMetastoreTest
     protected final String bucketName;
     protected final String schemaName = "test_glue_s3_" + randomNameSuffix();
 
-    protected HiveMetastore metastore;
+    protected GlueHiveMetastore metastore;
     protected S3Client s3;
 
     protected BaseS3AndGlueMetastoreTest(String partitionByKeyword, String locationKeyword, String bucketName)
@@ -75,6 +75,7 @@ public abstract class BaseS3AndGlueMetastoreTest
     {
         if (metastore != null) {
             metastore.dropDatabase(schemaName, true);
+            metastore.shutdown();
             metastore = null;
         }
         if (s3 != null) {
