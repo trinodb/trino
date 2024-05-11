@@ -56,5 +56,6 @@ public class TestDeltaLakeRegisterTableProcedureWithGlue
     {
         // Data is on the local disk and will be deleted by query runner cleanup
         metastore.dropDatabase(schema, false);
+        metastore.shutdown();
     }
 }
