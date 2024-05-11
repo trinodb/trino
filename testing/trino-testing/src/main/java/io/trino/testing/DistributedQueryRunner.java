@@ -642,7 +642,7 @@ public class DistributedQueryRunner
         private Optional<FactoryConfiguration> systemAccessControlConfiguration = Optional.empty();
         private Optional<List<SystemAccessControl>> systemAccessControls = Optional.empty();
         private List<EventListener> eventListeners = ImmutableList.of();
-        private List<AutoCloseable> extraCloseables = ImmutableList.of();
+        private ImmutableList.Builder<AutoCloseable> extraCloseables = ImmutableList.builder();
         private TestingTrinoClientFactory testingTrinoClientFactory = TestingTrinoClient::new;
 
         protected Builder(Session defaultSession)
@@ -797,6 +797,20 @@ public class DistributedQueryRunner
         }
 
         @CanIgnoreReturnValue
+        public SELF registerResource(AutoCloseable closeable)
+        {
+            extraCloseables.add(requireNonNull(closeable, "closeable is null"));
+            return self();
+        }
+
+        @CanIgnoreReturnValue
+        public SELF registerResources(Iterable<? extends AutoCloseable> closeables)
+        {
+            closeables.forEach(this::registerResource);
+            return self();
+        }
+
+        @CanIgnoreReturnValue
         public SELF withTracing()
         {
             this.withTracing = true;
@@ -813,10 +827,9 @@ public class DistributedQueryRunner
                 throws Exception
         {
             if (withTracing) {
-                checkState(extraCloseables.isEmpty(), "extraCloseables already set");
                 OpenTracingCollector collector = new OpenTracingCollector();
                 collector.start();
-                extraCloseables = ImmutableList.of(collector);
+                extraCloseables.add(collector);
                 addExtraProperties(Map.of("tracing.enabled", "true", "tracing.exporter.endpoint", collector.getExporterEndpoint().toString()));
                 checkState(eventListeners.isEmpty(), "eventListeners already set");
                 setEventListener(new EventListener()
@@ -848,7 +861,7 @@ public class DistributedQueryRunner
                     systemAccessControlConfiguration,
                     systemAccessControls,
                     eventListeners,
-                    extraCloseables,
+                    extraCloseables.build(),
                     testingTrinoClientFactory);
 
             try {
