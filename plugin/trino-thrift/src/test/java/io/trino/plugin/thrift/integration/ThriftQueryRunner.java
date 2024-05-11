@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.thrift.integration;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.drift.codec.ThriftCodecManager;
@@ -56,15 +57,18 @@ public final class ThriftQueryRunner
     private static QueryRunner createThriftQueryRunner(int thriftServers, boolean enableIndexJoin, Map<String, String> coordinatorProperties)
             throws Exception
     {
-        List<DriftServer> servers = null;
+        StartedServers startedServers = null;
         try {
-            servers = startThriftServers(thriftServers, enableIndexJoin);
-            return createThriftQueryRunnerInternal(servers, coordinatorProperties);
+            startedServers = startThriftServers(thriftServers, enableIndexJoin);
+            return createThriftQueryRunnerInternal(startedServers.servers(), startedServers.resources(), coordinatorProperties);
         }
         catch (Throwable t) {
-            if (servers != null) {
-                for (DriftServer server : servers) {
+            if (startedServers != null) {
+                for (DriftServer server : startedServers.servers()) {
                     server.shutdown();
+                }
+                for (AutoCloseable resource : startedServers.resources()) {
+                    resource.close();
                 }
             }
             throw t;
@@ -82,9 +86,10 @@ public final class ThriftQueryRunner
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
-    static List<DriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
+    static StartedServers startThriftServers(int thriftServers, boolean enableIndexJoin)
     {
         List<DriftServer> servers = new ArrayList<>(thriftServers);
+        List<AutoCloseable> resources = new ArrayList<>(thriftServers);
         for (int i = 0; i < thriftServers; i++) {
             ThriftTpchService service = enableIndexJoin ? new ThriftIndexedTpchService() : new ThriftTpchService();
             DriftServer server = new DriftServer(
@@ -95,11 +100,12 @@ public final class ThriftQueryRunner
                     ImmutableSet.of());
             server.start();
             servers.add(server);
+            resources.add(service);
         }
-        return servers;
+        return new StartedServers(servers, resources);
     }
 
-    private static QueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, Map<String, String> coordinatorProperties)
+    private static QueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, List<AutoCloseable> resources, Map<String, String> coordinatorProperties)
             throws Exception
     {
         String addresses = servers.stream()
@@ -114,6 +120,7 @@ public final class ThriftQueryRunner
         QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
                 .setCoordinatorProperties(coordinatorProperties)
                 .registerResources(servers.stream().map(server -> (AutoCloseable) server::shutdown).toList())
+                .registerResources(resources)
                 .build();
 
         queryRunner.installPlugin(new ThriftPlugin());
@@ -133,5 +140,14 @@ public final class ThriftQueryRunner
     static int driftServerPort(DriftServer server)
     {
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
+    }
+
+    record StartedServers(List<DriftServer> servers, List<AutoCloseable> resources)
+    {
+        StartedServers
+        {
+            servers = ImmutableList.copyOf(servers);
+            resources = ImmutableList.copyOf(resources);
+        }
     }
 }
