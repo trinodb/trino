@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import org.junit.jupiter.api.AfterAll;
 
 import java.io.IOException;
@@ -27,7 +28,7 @@ final class TestGlueHiveMetastore
         extends AbstractTestHiveMetastore
 {
     private final Path tempDir;
-    private final HiveMetastore metastore;
+    private final GlueHiveMetastore metastore;
 
     TestGlueHiveMetastore()
             throws IOException
@@ -40,6 +41,7 @@ final class TestGlueHiveMetastore
     void tearDown()
             throws IOException
     {
+        metastore.shutdown();
         deleteRecursively(tempDir, ALLOW_INSECURE);
     }
 

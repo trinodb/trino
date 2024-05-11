@@ -14,7 +14,7 @@
 package io.trino.plugin.deltalake.metastore.glue;
 
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestDeltaLakeViewsGlueMetastore
         extends AbstractTestQueryFramework
 {
-    private HiveMetastore metastore;
+    private GlueHiveMetastore metastore;
     private String schema;
 
     @Override
@@ -62,6 +62,7 @@ public class TestDeltaLakeViewsGlueMetastore
             throws IOException
     {
         metastore.dropDatabase(schema, false);
+        metastore.shutdown();
     }
 
     @Test
