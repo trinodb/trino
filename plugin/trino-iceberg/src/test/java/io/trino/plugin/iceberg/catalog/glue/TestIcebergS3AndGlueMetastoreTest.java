@@ -44,7 +44,7 @@ public class TestIcebergS3AndGlueMetastoreTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()));
+        metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()), this::closeAfterClass);
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "glue")
