@@ -40,7 +40,7 @@ public class TestDeltaLakeRegisterTableProcedureWithGlue
     {
         Path warehouseDir = Files.createTempDirectory("warehouse-dir");
         closeAfterClass(() -> deleteRecursively(warehouseDir, ALLOW_INSECURE));
-        metastore = createTestingGlueHiveMetastore(warehouseDir);
+        metastore = createTestingGlueHiveMetastore(warehouseDir, this::closeAfterClass);
         schema = "test_delta_lake_register_table" + randomNameSuffix();
         return DeltaLakeQueryRunner.builder(schema)
                 .addDeltaProperty("hive.metastore", "glue")

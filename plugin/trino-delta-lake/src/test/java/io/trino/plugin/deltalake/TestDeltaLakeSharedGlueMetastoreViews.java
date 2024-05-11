@@ -29,6 +29,6 @@ public class TestDeltaLakeSharedGlueMetastoreViews
     @Override
     protected HiveMetastore createTestMetastore(Path dataDirectory)
     {
-        return createTestingGlueHiveMetastore(dataDirectory);
+        return createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
     }
 }

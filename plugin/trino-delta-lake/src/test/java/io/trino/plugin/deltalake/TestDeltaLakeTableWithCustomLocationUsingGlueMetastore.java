@@ -41,7 +41,7 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
     {
         Path warehouseDir = Files.createTempDirectory("warehouse-dir");
         closeAfterClass(() -> deleteRecursively(warehouseDir, ALLOW_INSECURE));
-        metastore = createTestingGlueHiveMetastore(warehouseDir);
+        metastore = createTestingGlueHiveMetastore(warehouseDir, this::closeAfterClass);
         schema = "test_tables_with_custom_location" + randomNameSuffix();
         return DeltaLakeQueryRunner.builder(schema)
                 .addDeltaProperty("hive.metastore", "glue")
