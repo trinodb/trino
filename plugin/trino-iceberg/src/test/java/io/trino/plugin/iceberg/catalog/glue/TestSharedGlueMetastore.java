@@ -93,7 +93,7 @@ public class TestSharedGlueMetastore
                         "hive.metastore.glue.default-warehouse-dir", dataDirectory.toString(),
                         "iceberg.hive-catalog-name", "hive"));
 
-        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory);
+        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
         queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), glueMetastore));
         queryRunner.createCatalog(HIVE_CATALOG, "hive");
         queryRunner.createCatalog(

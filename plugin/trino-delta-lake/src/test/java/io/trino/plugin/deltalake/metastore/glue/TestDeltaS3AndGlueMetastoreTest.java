@@ -40,7 +40,7 @@ public class TestDeltaS3AndGlueMetastoreTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()));
+        metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()), this::closeAfterClass);
         return DeltaLakeQueryRunner.builder(schemaName)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "glue")

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import org.junit.jupiter.api.AfterAll;
 
@@ -27,6 +28,7 @@ import static java.nio.file.Files.createTempDirectory;
 final class TestGlueHiveMetastore
         extends AbstractTestHiveMetastore
 {
+    private final AutoCloseableCloser closer = AutoCloseableCloser.create();
     private final Path tempDir;
     private final GlueHiveMetastore metastore;
 
@@ -34,15 +36,16 @@ final class TestGlueHiveMetastore
             throws IOException
     {
         tempDir = createTempDirectory("test");
-        metastore = createTestingGlueHiveMetastore(tempDir);
+        metastore = createTestingGlueHiveMetastore(tempDir, closer::register);
     }
 
     @AfterAll
     void tearDown()
-            throws IOException
+            throws Exception
     {
         metastore.shutdown();
         deleteRecursively(tempDir, ALLOW_INSECURE);
+        closer.close();
     }
 
     @Override

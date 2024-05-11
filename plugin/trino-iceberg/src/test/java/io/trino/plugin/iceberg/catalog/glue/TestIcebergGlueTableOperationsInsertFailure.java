@@ -91,7 +91,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory, Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider))));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of());
 
-        glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory);
+        glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
 
         Database database = Database.builder()
                 .setDatabaseName(schemaName)

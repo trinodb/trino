@@ -15,11 +15,13 @@ package io.trino.plugin.hive.metastore.glue;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.TableKind;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.EnumSet;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
@@ -32,7 +34,7 @@ public final class TestingGlueHiveMetastore
 {
     private TestingGlueHiveMetastore() {}
 
-    public static GlueHiveMetastore createTestingGlueHiveMetastore(Path defaultWarehouseDir)
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(Path defaultWarehouseDir, Consumer<AutoCloseable> registerResource)
     {
         if (!exists(defaultWarehouseDir)) {
             try {
@@ -43,15 +45,17 @@ public final class TestingGlueHiveMetastore
             }
         }
         verify(isDirectory(defaultWarehouseDir), "%s is not a directory", defaultWarehouseDir);
-        return createTestingGlueHiveMetastore(defaultWarehouseDir.toUri());
+        return createTestingGlueHiveMetastore(defaultWarehouseDir.toUri(), registerResource);
     }
 
-    public static GlueHiveMetastore createTestingGlueHiveMetastore(URI warehouseUri)
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(URI warehouseUri, Consumer<AutoCloseable> registerResource)
     {
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(warehouseUri.toString());
+        GlueClient glueClient = createGlueClient(glueConfig, OpenTelemetry.noop());
+        registerResource.accept(glueClient);
         return new GlueHiveMetastore(
-                createGlueClient(glueConfig, OpenTelemetry.noop()),
+                glueClient,
                 new GlueContext(glueConfig),
                 GlueCache.NOOP,
                 HDFS_FILE_SYSTEM_FACTORY,
