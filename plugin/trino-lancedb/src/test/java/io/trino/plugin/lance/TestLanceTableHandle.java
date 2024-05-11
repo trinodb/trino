@@ -14,7 +14,6 @@
 package io.trino.plugin.lance;
 
 import io.airlift.json.JsonCodec;
-import io.airlift.testing.EquivalenceTester;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;

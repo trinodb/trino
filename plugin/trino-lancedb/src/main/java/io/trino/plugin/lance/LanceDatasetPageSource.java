@@ -18,14 +18,12 @@ import io.trino.plugin.lance.internal.LanceArrowToPageScanner;
 import io.trino.plugin.lance.internal.LanceReader;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.VisibleForTesting;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;

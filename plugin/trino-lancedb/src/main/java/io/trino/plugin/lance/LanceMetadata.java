@@ -87,7 +87,8 @@ public class LanceMetadata
             SchemaTableName schemaTableName =
                     new SchemaTableName(lanceTableHandle.getSchemaName(), lanceTableHandle.getTableName());
             return new ConnectorTableMetadata(schemaTableName, columnsMetadata);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             return null;
         }
     }
@@ -104,7 +105,8 @@ public class LanceMetadata
         LanceTableHandle lanceTableHandle = (LanceTableHandle) tableHandle;
         try {
             return lanceReader.getColumnHandle(lanceTableHandle.getTableName());
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new TableNotFoundException(new SchemaTableName(lanceTableHandle.getSchemaName(), lanceTableHandle.getTableName()));
         }
     }
@@ -135,7 +137,8 @@ public class LanceMetadata
 
     @Override
     public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session,
-            ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments) {
+            ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
+    {
         throw new UnsupportedOperationException("unsupported");
     }
 
