@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.lance;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
+import com.lancedb.lance.DatasetFragment;
 import io.airlift.log.Logger;
 import io.trino.plugin.lance.internal.LanceReader;
 import io.trino.spi.connector.ConnectorSession;
@@ -33,24 +35,30 @@ import static java.util.Objects.requireNonNull;
 public class LanceSplitManager
         implements ConnectorSplitManager
 {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final Logger log = Logger.get(LanceSplitManager.class);
     private final LanceReader lanceReader;
+    private final LanceConfig lanceConfig;
 
     @Inject
-    public LanceSplitManager(LanceReader lanceReader)
+    public LanceSplitManager(LanceReader lanceReader, LanceConfig lanceConfig)
     {
-        this.lanceReader = requireNonNull(lanceReader, "client is null");
+        this.lanceReader = requireNonNull(lanceReader, "reader is null");
+        this.lanceConfig = requireNonNull(lanceConfig, "config is null");
     }
 
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session,
             ConnectorTableHandle tableHandle, DynamicFilter dynamicFilter, Constraint constraint)
     {
-        List<String> fragments = Collections.emptyList();
-        // TODO: add support for splits based on fragments, now entire table is only 1 fragment, thus one split
-        // b/c fragments are coming from datasets.getFragments()
-        // we need to prevent dataset changes between plan gen (this thread) and actual pagesource creation (runtime)
-        // so we need to keep version
-        return new FixedSplitSource(new LanceSplit(fragments));
+        if (lanceConfig.getConnectorType() == LanceConfig.Type.FRAGMENT) {
+            List<Integer> fragmentIds = lanceReader.getFragments((LanceTableHandle) tableHandle)
+                    .stream().map(DatasetFragment::getId).toList();
+            return new FixedSplitSource(fragmentIds.stream().map(id -> new LanceSplit(Collections.singletonList(id))).toList());
+        }
+        else {
+            // use empty list to indicate dataset based page source split
+            return new FixedSplitSource(new LanceSplit(Collections.emptyList()));
+        }
     }
 }

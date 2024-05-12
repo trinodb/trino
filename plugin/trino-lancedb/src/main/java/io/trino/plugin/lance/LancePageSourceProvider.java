@@ -53,8 +53,8 @@ public class LancePageSourceProvider
             return new LanceDatasetPageSource(lanceReader, lanceTableHandle, lanceConfig.getFetchRetryCount());
         }
         else {
-            // TODO: support LanceFragmentPageSource()
-            throw new UnsupportedOperationException("Split based on Fragment is not supported!");
+            // TODO: support multiple fragment per split, now it is 1-to-1 mapping between fragment and split
+            return new LanceFragmentPageSource(lanceReader, lanceTableHandle, lanceSplit.getFragments(), lanceConfig.getFetchRetryCount());
         }
     }
 }

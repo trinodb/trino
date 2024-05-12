@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.lance.internal;
 
-import com.lancedb.lance.Dataset;
 import com.lancedb.lance.ipc.LanceScanner;
 import io.airlift.slice.Slice;
 import io.trino.plugin.lance.LanceColumnHandle;
@@ -66,21 +65,21 @@ public class LanceArrowToPageScanner
     private final BufferAllocator allocator;
     private final List<Type> columnTypes;
     private final List<String> columnNames;
-    private final Dataset lanceDataset;
+    private final ScannerFactory scannerFactory;
+
     private final LanceScanner lanceScanner;
     private final ArrowReader arrowReader;
     private final VectorSchemaRoot vectorSchemaRoot;
 
-    public LanceArrowToPageScanner(BufferAllocator allocator, String path, List<LanceColumnHandle> columns)
+    public LanceArrowToPageScanner(BufferAllocator allocator, String path, List<LanceColumnHandle> columns, ScannerFactory scannerFactory)
     {
         this.allocator = requireNonNull(allocator, "allocator is null");
         this.columnTypes = requireNonNull(columns, "columns is null").stream().map(LanceColumnHandle::trinoType)
                 .collect(toImmutableList());
         this.columnNames = columns.stream().map(LanceColumnHandle::name).collect(toImmutableList());
+        this.scannerFactory = scannerFactory;
         try {
-            this.lanceDataset = Dataset.open(path, allocator);
-            // TODO: add additional configs such as batch size, column, filter, etc.
-            this.lanceScanner = lanceDataset.newScan();
+            lanceScanner = scannerFactory.open(path, allocator);
             this.arrowReader = lanceScanner.scanBatches();
             this.vectorSchemaRoot = arrowReader.getVectorSchemaRoot();
         }
@@ -236,6 +235,6 @@ public class LanceArrowToPageScanner
         catch (IOException ioe) {
             // ignore for now.
         }
-        lanceDataset.close();
+        scannerFactory.close();
     }
 }

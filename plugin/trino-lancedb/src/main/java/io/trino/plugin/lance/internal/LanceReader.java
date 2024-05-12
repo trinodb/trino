@@ -14,8 +14,10 @@
 package io.trino.plugin.lance.internal;
 
 import com.lancedb.lance.Dataset;
+import com.lancedb.lance.DatasetFragment;
 import io.trino.plugin.lance.LanceColumnHandle;
 import io.trino.plugin.lance.LanceConfig;
+import io.trino.plugin.lance.LanceTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -50,18 +52,6 @@ public class LanceReader
         dbPath = Path.of(lanceDbURI);
     }
 
-    private static Schema getSchema(Path tablePath)
-    {
-        try (Dataset dataset = Dataset.open(tablePath.toUri().toString(), allocator)) {
-            return dataset.getSchema();
-        }
-    }
-
-    private static Path getTablePath(Path dbPath, String tableName)
-    {
-        return dbPath.resolve(tableName);
-    }
-
     public List<SchemaTableName> listTables(ConnectorSession session, String schema)
     {
         // TODO: local fs impl here to be replaced by
@@ -87,5 +77,29 @@ public class LanceReader
     public Path getTablePath(SchemaTableName schemaTableName)
     {
         return getTablePath(dbPath, schemaTableName.getTableName());
+    }
+
+    public List<DatasetFragment> getFragments(LanceTableHandle tableHandle)
+    {
+        return getFragments(getTablePath(dbPath, tableHandle.getTableName()));
+    }
+
+    private static List<DatasetFragment> getFragments(Path tablePath)
+    {
+        try (Dataset dataset = Dataset.open(tablePath.toUri().toString(), allocator)) {
+            return dataset.getFragments();
+        }
+    }
+
+    private static Schema getSchema(Path tablePath)
+    {
+        try (Dataset dataset = Dataset.open(tablePath.toUri().toString(), allocator)) {
+            return dataset.getSchema();
+        }
+    }
+
+    private static Path getTablePath(Path dbPath, String tableName)
+    {
+        return dbPath.resolve(tableName);
     }
 }

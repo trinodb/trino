@@ -13,40 +13,55 @@
  */
 package io.trino.plugin.lance;
 
+import com.google.common.base.Preconditions;
 import com.lancedb.lance.Dataset;
+import com.lancedb.lance.DatasetFragment;
 import com.lancedb.lance.ipc.LanceScanner;
 import io.airlift.log.Logger;
 import io.trino.plugin.lance.internal.LanceReader;
 import io.trino.plugin.lance.internal.ScannerFactory;
 import org.apache.arrow.memory.BufferAllocator;
 
-public class LanceDatasetPageSource
+import java.util.List;
+
+public class LanceFragmentPageSource
         extends LanceBasePageSource
 {
-    private static final Logger log = Logger.get(LanceDatasetPageSource.class);
+    private static final Logger log = Logger.get(LanceFragmentPageSource.class);
+    private final int fragmentId;
 
-    public LanceDatasetPageSource(LanceReader lanceReader, LanceTableHandle tableHandle, int maxReadRowsRetries)
+    public LanceFragmentPageSource(LanceReader lanceReader, LanceTableHandle tableHandle, List<Integer> fragments, int maxReadRowsRetries)
     {
         super(lanceReader, tableHandle, maxReadRowsRetries);
+        Preconditions.checkState(fragments.size() == 1, "only one fragment is allowed, found: " + fragments.size());
+        this.fragmentId = fragments.getFirst();
     }
 
     @Override
     public ScannerFactory getScannerFactory()
     {
-        return new DatasetScannerFactory();
+        return new FragmentScannerFactory(fragmentId);
     }
 
-    public static class DatasetScannerFactory
+    public static class FragmentScannerFactory
             implements ScannerFactory
     {
+        private final int fragmentId;
         private Dataset lanceDataset;
+        private DatasetFragment lanceFragment;
         private LanceScanner lanceScanner;
+
+        public FragmentScannerFactory(int fragmentId)
+        {
+            this.fragmentId = fragmentId;
+        }
 
         @Override
         public LanceScanner open(String tablePath, BufferAllocator allocator)
         {
             this.lanceDataset = Dataset.open(tablePath, allocator);
-            this.lanceScanner = lanceDataset.newScan();
+            this.lanceFragment = lanceDataset.getFragments().get(this.fragmentId);
+            this.lanceScanner = lanceFragment.newScan();
             return lanceScanner;
         }
 

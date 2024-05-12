@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.lance;
 
-import com.google.common.base.Splitter;
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -24,8 +23,6 @@ import java.util.concurrent.TimeUnit;
 
 public class LanceConfig
 {
-    private static final Splitter LIST_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings();
-
     /**
      * URL used to access a lancedb via REST client
      */
@@ -34,6 +31,8 @@ public class LanceConfig
     private Duration connectionTimeout = new Duration(1, TimeUnit.MINUTES);
 
     private int fetchRetryCount = 5;
+
+    private String connectorType = Type.DATASET.name();
 
     public URI getLanceDbUri()
     {
@@ -71,5 +70,24 @@ public class LanceConfig
     {
         this.fetchRetryCount = fetchRetryCount;
         return this;
+    }
+
+    public Type getConnectorType()
+    {
+        return Type.valueOf(this.connectorType);
+    }
+
+    @Config("lance.connector_type")
+    public LanceConfig setConnectorType(String connectorType)
+    {
+        // use enum to check and ensure connector type is supported
+        this.connectorType = Type.valueOf(connectorType).name();
+        return this;
+    }
+
+    public enum Type
+    {
+        DATASET,
+        FRAGMENT
     }
 }
