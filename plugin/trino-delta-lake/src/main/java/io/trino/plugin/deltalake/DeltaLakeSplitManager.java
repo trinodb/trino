@@ -170,7 +170,7 @@ public class DeltaLakeSplitManager
                 tableHandle.getWriteType().isEmpty() &&
                         // When only partitioning columns projected, there is no point splitting the files
                         mayAnyDataColumnProjected(tableHandle);
-        Optional<Instant> filesModifiedAfter = tableHandle.getAnalyzeHandle().flatMap(AnalyzeHandle::getFilesModifiedAfter);
+        Optional<Instant> filesModifiedAfter = tableHandle.getAnalyzeHandle().flatMap(AnalyzeHandle::filesModifiedAfter);
         Optional<Long> maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
 
         MetadataEntry metadataEntry = tableHandle.getMetadataEntry();
@@ -193,7 +193,7 @@ public class DeltaLakeSplitManager
         return validDataFiles
                 .flatMap(addAction -> {
                     if (tableHandle.getAnalyzeHandle().isPresent() &&
-                            !(tableHandle.getAnalyzeHandle().get().getAnalyzeMode() == FULL_REFRESH) && !addAction.isDataChange()) {
+                            !(tableHandle.getAnalyzeHandle().get().analyzeMode() == FULL_REFRESH) && !addAction.isDataChange()) {
                         // skip files which do not introduce data change on non FULL REFRESH
                         return Stream.empty();
                     }

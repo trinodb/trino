@@ -3450,7 +3450,7 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) table;
         AnalyzeHandle analyzeHandle = tableHandle.getAnalyzeHandle().orElseThrow(() -> new IllegalArgumentException("analyzeHandle not set"));
-        if (analyzeHandle.getAnalyzeMode() == FULL_REFRESH) {
+        if (analyzeHandle.analyzeMode() == FULL_REFRESH) {
             // TODO: Populate stats for incremental ANALYZE https://github.com/trinodb/trino/issues/18110
             generateMissingFileStatistics(session, tableHandle, computedStatistics);
         }
@@ -3561,7 +3561,7 @@ public class DeltaLakeMetadata
             boolean ignoreFailure)
     {
         Optional<ExtendedStatistics> oldStatistics = Optional.empty();
-        boolean loadExistingStats = analyzeHandle.isEmpty() || analyzeHandle.get().getAnalyzeMode() == INCREMENTAL;
+        boolean loadExistingStats = analyzeHandle.isEmpty() || analyzeHandle.get().analyzeMode() == INCREMENTAL;
         if (loadExistingStats) {
             oldStatistics = statisticsAccess.readExtendedStatistics(session, schemaTableName, location);
         }
@@ -3608,7 +3608,7 @@ public class DeltaLakeMetadata
             finalAlreadyAnalyzedModifiedTimeMax = Comparators.max(oldStatistics.get().getAlreadyAnalyzedModifiedTimeMax(), finalAlreadyAnalyzedModifiedTimeMax);
         }
 
-        Optional<Set<String>> analyzedColumns = analyzeHandle.flatMap(AnalyzeHandle::getColumns);
+        Optional<Set<String>> analyzedColumns = analyzeHandle.flatMap(AnalyzeHandle::columns);
         // If update is invoked by other command than ANALYZE, statistics should preserve previous columns set.
         if (analyzeHandle.isEmpty()) {
             analyzedColumns = oldStatistics.flatMap(ExtendedStatistics::getAnalyzedColumns);
