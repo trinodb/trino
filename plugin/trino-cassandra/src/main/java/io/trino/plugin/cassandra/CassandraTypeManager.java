@@ -335,7 +335,7 @@ public class CassandraTypeManager
             case SMALLINT -> Short.toString(row.getShort(position));
             case TINYINT -> Byte.toString(row.getByte(position));
             case BIGINT, COUNTER -> Long.toString(row.getLong(position));
-            case BOOLEAN -> Boolean.toString(row.getBool(position));
+            case BOOLEAN -> Boolean.toString(row.getBoolean(position));
             case DOUBLE -> Double.toString(row.getDouble(position));
             case FLOAT -> Float.toString(row.getFloat(position));
             case DECIMAL -> row.getBigDecimal(position).toString();

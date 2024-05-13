@@ -71,7 +71,7 @@ public class CassandraRecordCursor
     @Override
     public boolean getBoolean(int i)
     {
-        return currentRow.getBool(validColumnName(columnNames.get(i)));
+        return currentRow.getBoolean(validColumnName(columnNames.get(i)));
     }
 
     @Override
