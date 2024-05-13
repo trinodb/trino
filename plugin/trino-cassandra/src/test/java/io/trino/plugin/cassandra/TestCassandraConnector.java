@@ -37,7 +37,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DateType;
@@ -176,9 +175,9 @@ public class TestCassandraConnector
     @Test
     public void testListUnknownSchema()
     {
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual"))).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual"), Optional.empty(), Optional.empty())).isNull();
         assertThat(metadata.listTables(SESSION, Optional.of("totally_invalid_database_name"))).isEqualTo(ImmutableList.of());
-        assertThat(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual"))).isEqualTo(ImmutableMap.of());
+        assertThat(metadata.streamRelationColumns(SESSION, Optional.of("totally_invalid_database_name"), names -> names).hasNext()).isEqualTo(false);
     }
 
     @Test
@@ -435,7 +434,7 @@ public class TestCassandraConnector
 
     private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
-        ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName);
+        ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName, Optional.empty(), Optional.empty());
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
     }
