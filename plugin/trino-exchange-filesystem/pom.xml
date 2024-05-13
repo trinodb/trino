@@ -69,10 +69,6 @@
             <artifactId>gax</artifactId>
             <exclusions>
                 <exclusion>
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>io.opencensus</groupId>
                     <artifactId>opencensus-api</artifactId>
                 </exclusion>
@@ -133,10 +129,6 @@
                 <exclusion>
                     <groupId>com.google.oauth-client</groupId>
                     <artifactId>google-oauth-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>io.opencensus</groupId>
