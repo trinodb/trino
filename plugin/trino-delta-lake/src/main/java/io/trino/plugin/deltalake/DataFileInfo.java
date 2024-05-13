@@ -13,15 +13,19 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class DataFileInfo
+public record DataFileInfo(
+        String path,
+        long size,
+        long creationTime,
+        io.trino.plugin.deltalake.DataFileInfo.DataFileType dataFileType,
+        List<String> partitionValues,
+        DeltaLakeJsonFileStatistics statistics)
 {
     public enum DataFileType
     {
@@ -29,63 +33,9 @@ public class DataFileInfo
         CHANGE_DATA_FEED,
     }
 
-    private final String path;
-    private final List<String> partitionValues;
-    private final long size;
-    private final DataFileType dataFileType;
-    private final long creationTime;
-    private final DeltaLakeJsonFileStatistics statistics;
-
-    @JsonCreator
-    public DataFileInfo(
-            @JsonProperty("path") String path,
-            @JsonProperty("size") long size,
-            @JsonProperty("creationTime") long creationTime,
-            @JsonProperty("fileType") DataFileType dataFileType,
-            @JsonProperty("partitionValues") List<String> partitionValues,
-            @JsonProperty("statistics") DeltaLakeJsonFileStatistics statistics)
+    public DataFileInfo
     {
-        this.path = path;
-        this.size = size;
-        this.creationTime = creationTime;
-        this.dataFileType = requireNonNull(dataFileType, "dataFileType is null");
-        this.partitionValues = partitionValues;
-        this.statistics = requireNonNull(statistics, "statistics is null");
-    }
-
-    @JsonProperty
-    public String getPath()
-    {
-        return path;
-    }
-
-    @JsonProperty
-    public List<String> getPartitionValues()
-    {
-        return partitionValues;
-    }
-
-    @JsonProperty
-    public long getSize()
-    {
-        return size;
-    }
-
-    @JsonProperty
-    public long getCreationTime()
-    {
-        return creationTime;
-    }
-
-    @JsonProperty
-    public DataFileType getDataFileType()
-    {
-        return dataFileType;
-    }
-
-    @JsonProperty
-    public DeltaLakeJsonFileStatistics getStatistics()
-    {
-        return statistics;
+        requireNonNull(dataFileType, "dataFileType is null");
+        requireNonNull(statistics, "statistics is null");
     }
 }
