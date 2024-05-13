@@ -947,6 +947,13 @@ public class PlanOptimizers
                         new PushPartialAggregationThroughExchange(plannerContext),
                         new PruneJoinColumns(),
                         new PruneJoinChildrenColumns())));
+        // This rule currently does not touch query plans, but only add subfields if necessary. Trigger at the near end
+        builder.add(new IterativeOptimizer(
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new PushSubscriptLambdaIntoTableScan(plannerContext, typeAnalyzer, scalarStatsCalculator))));
         builder.add(new IterativeOptimizer(
                 plannerContext,
                 ruleStats,

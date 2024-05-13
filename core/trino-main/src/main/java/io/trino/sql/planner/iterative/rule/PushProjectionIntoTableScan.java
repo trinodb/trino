@@ -114,7 +114,7 @@ public class PushProjectionIntoTableScan
                                 session,
                                 typeAnalyzer,
                                 context.getSymbolAllocator().getTypes(),
-                                plannerContext).entrySet().stream())
+                                plannerContext).entrySet().stream().filter(entry -> !(entry.getValue() instanceof ArrayFieldDereference)))
                 // Avoid duplicates
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (first, ignore) -> first));
 

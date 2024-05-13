@@ -56,7 +56,8 @@ public class TestParquetPageSourceFactory
                         ImmutableList.of(1, 1),
                         ImmutableList.of("optional_level2", "required_level3"),
                         toHiveType(IntegerType.INTEGER),
-                        IntegerType.INTEGER)),
+                        IntegerType.INTEGER,
+                        ImmutableList.of())),
                 REGULAR,
                 Optional.empty());
         MessageType fileSchema = new MessageType(

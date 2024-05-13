@@ -675,6 +675,32 @@ public final class ConnectorExpressionTranslator
                 return translateLike(node);
             }
 
+            // Very narrow case that only try to extract a particular type of lambda expression
+            // TODO: Expand the scope
+            if ("transform".equals(functionName)) {
+                List<Expression> allNodeArgument = node.getArguments();
+                // at this point, SubscriptExpression should already been pushed down by PushProjectionIntoTableScan,
+                // if not, it means its referenced by other expressions. we only care about SymbolReference at this moment
+                List<Expression> inputExpressions = allNodeArgument.stream().filter(SymbolReference.class::isInstance)
+                        .collect(toImmutableList());
+                List<LambdaExpression> lambdaExpressions = allNodeArgument.stream().filter(e -> e instanceof LambdaExpression lambda
+                                && lambda.getArguments().size() == 1
+                                && lambda.getArguments().get(0).getName().getValue().contains("transformarray$element"))
+                        .map(LambdaExpression.class::cast)
+                        .collect(toImmutableList());
+                if (inputExpressions.size() == 1 && lambdaExpressions.size() == 1) {
+                    Optional<ConnectorExpression> inputVariable = process(inputExpressions.get(0));
+                    if (lambdaExpressions.get(0).getBody() instanceof Row row) {
+                        List<Expression> rowFields = row.getItems();
+                        List<ConnectorExpression> translatedRowFields =
+                                rowFields.stream().map(e -> process(e)).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
+                        if (inputVariable.isPresent() && translatedRowFields.size() == rowFields.size()) {
+                            return Optional.of(new ArrayFieldDereference(typeOf(node), inputVariable.get(), translatedRowFields));
+                        }
+                    }
+                }
+            }
+
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
             for (Expression argumentExpression : node.getArguments()) {
                 Optional<ConnectorExpression> argument = process(argumentExpression);

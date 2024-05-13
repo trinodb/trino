@@ -144,7 +144,8 @@ public class TestConnectorPushdownRulesWithHive
                         ImmutableList.of(0),
                         ImmutableList.of("a"),
                         toHiveType(BIGINT),
-                        BIGINT)),
+                        BIGINT,
+                        ImmutableList.of())),
                 REGULAR,
                 Optional.empty());
 
@@ -300,7 +301,8 @@ public class TestConnectorPushdownRulesWithHive
                         ImmutableList.of(0),
                         ImmutableList.of("a"),
                         toHiveType(BIGINT),
-                        BIGINT)),
+                        BIGINT,
+                        ImmutableList.of())),
                 REGULAR,
                 Optional.empty());
 

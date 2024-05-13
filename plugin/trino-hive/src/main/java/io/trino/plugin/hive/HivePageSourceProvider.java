@@ -563,7 +563,8 @@ public class HivePageSourceProvider
                                     projectedColumn.getDereferenceIndices(),
                                     projectedColumn.getDereferenceNames(),
                                     fromHiveType,
-                                    createTypeFromCoercer(typeManager, fromHiveType, columnHandle.getHiveType(), timestampPrecision));
+                                    createTypeFromCoercer(typeManager, fromHiveType, columnHandle.getHiveType(), timestampPrecision),
+                                    projectedColumn.getSubfields());
                         });
 
                         return new HiveColumnHandle(

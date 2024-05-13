@@ -273,7 +273,8 @@ public class CheckpointEntryIterator
                         ImmutableList.of(0), // hiveColumnIndex; we provide fake value because we always find columns by name
                         ImmutableList.of(field),
                         HiveType.toHiveType(type),
-                        type)),
+                        type,
+                        ImmutableList.of())),
                 ColumnType.REGULAR,
                 column.getComment());
         return TupleDomain.withColumnDomains(ImmutableMap.of(handle, Domain.notNull(handle.getType())));

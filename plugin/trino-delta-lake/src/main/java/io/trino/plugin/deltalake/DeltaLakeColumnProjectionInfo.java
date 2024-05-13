@@ -89,7 +89,7 @@ public class DeltaLakeColumnProjectionInfo
 
     public HiveColumnProjectionInfo toHiveColumnProjectionInfo()
     {
-        return new HiveColumnProjectionInfo(dereferenceIndices, dereferencePhysicalNames, toHiveType(type), type);
+        return new HiveColumnProjectionInfo(dereferenceIndices, dereferencePhysicalNames, toHiveType(type), type, ImmutableList.of());
     }
 
     @Override

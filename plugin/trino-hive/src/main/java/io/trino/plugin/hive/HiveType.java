@@ -308,6 +308,15 @@ public final class HiveType
         return dereferenceNames.build();
     }
 
+    public List<String> getHiveDereferenceNamesWithinArray(List<Integer> dereferences)
+    {
+        TypeInfo typeInfo = getTypeInfo();
+        checkArgument(typeInfo instanceof ListTypeInfo);
+        // Minimum but not optimized code change to reuse getHiveDereferenceNames
+        // Only single level of dereference into Array is possible for now
+        return toHiveType(((ListTypeInfo) typeInfo).getListElementTypeInfo()).getHiveDereferenceNames(dereferences);
+    }
+
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes() + typeInfo.getRetainedSizeInBytes();

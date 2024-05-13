@@ -517,7 +517,8 @@ public abstract class AbstractTestHiveFileFormats
                                 testColumn.getDereferenceIndices(),
                                 testColumn.getDereferenceNames(),
                                 partialHiveType,
-                                partialHiveType.getType(TESTING_TYPE_MANAGER))),
+                                partialHiveType.getType(TESTING_TYPE_MANAGER),
+                                ImmutableList.of())),
                         testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR,
                         Optional.empty());
                 columns.add(hiveColumnHandle);
