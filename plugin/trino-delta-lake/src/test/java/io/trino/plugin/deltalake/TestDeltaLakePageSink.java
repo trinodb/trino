@@ -128,14 +128,14 @@ public class TestDeltaLakePageSink
 
             assertThat(round(stats.getInputPageSizeInBytes().getAllTime().getMax())).isEqualTo(page.getRetainedSizeInBytes());
 
-            assertThat(dataFileInfo.getStatistics().getNumRecords()).isEqualTo(Optional.of(rows));
-            assertThat(dataFileInfo.getPartitionValues()).isEqualTo(ImmutableList.of());
-            assertThat(dataFileInfo.getSize()).isEqualTo(outputFile.length());
-            assertThat(dataFileInfo.getPath()).isEqualTo(outputFile.getName());
+            assertThat(dataFileInfo.statistics().getNumRecords()).isEqualTo(Optional.of(rows));
+            assertThat(dataFileInfo.partitionValues()).isEqualTo(ImmutableList.of());
+            assertThat(dataFileInfo.size()).isEqualTo(outputFile.length());
+            assertThat(dataFileInfo.path()).isEqualTo(outputFile.getName());
 
             Instant now = Instant.now();
-            assertThat(dataFileInfo.getCreationTime() < now.toEpochMilli()).isTrue();
-            assertThat(dataFileInfo.getCreationTime() > now.minus(1, MINUTES).toEpochMilli()).isTrue();
+            assertThat(dataFileInfo.creationTime() < now.toEpochMilli()).isTrue();
+            assertThat(dataFileInfo.creationTime() > now.minus(1, MINUTES).toEpochMilli()).isTrue();
         }
         finally {
             deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
