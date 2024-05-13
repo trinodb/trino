@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -109,7 +108,9 @@ public class Query
             catch (UndeclaredThrowableException e) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot get column definition", Throwables.getRootCause(e));
             }
-            checkState(!columnHandles.isEmpty(), "Handle doesn't have columns info");
+            if (columnHandles.isEmpty()) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot get column definition");
+            }
             Descriptor returnedType = new Descriptor(columnHandles.stream()
                     .map(CassandraColumnHandle.class::cast)
                     .map(column -> new Field(column.name(), Optional.of(column.getType())))
