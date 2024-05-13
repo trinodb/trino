@@ -24,6 +24,7 @@ import io.trino.operator.scalar.JsonPath;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.expression.ArrayFieldDereference;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
@@ -46,9 +47,11 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.JoniRegexp;
 import io.trino.type.JsonPathType;
@@ -69,6 +72,7 @@ import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
+import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
@@ -127,7 +131,13 @@ public final class ConnectorExpressionTranslator
 
     public static Optional<ConnectorExpression> translate(Session session, Expression expression)
     {
-        return new SqlToConnectorExpressionTranslator(session)
+        return new SqlToConnectorExpressionTranslator(session, false)
+                .process(expression);
+    }
+
+    public static Optional<ConnectorExpression> translate(Session session, Expression expression, boolean translateArrayFieldReference)
+    {
+        return new SqlToConnectorExpressionTranslator(session, translateArrayFieldReference)
                 .process(expression);
     }
 
@@ -135,7 +145,7 @@ public final class ConnectorExpressionTranslator
             Session session,
             Expression expression)
     {
-        SqlToConnectorExpressionTranslator translator = new SqlToConnectorExpressionTranslator(session);
+        SqlToConnectorExpressionTranslator translator = new SqlToConnectorExpressionTranslator(session, false);
 
         List<Expression> conjuncts = extractConjuncts(expression);
         List<Expression> remaining = new ArrayList<>();
@@ -562,10 +572,12 @@ public final class ConnectorExpressionTranslator
             extends IrVisitor<Optional<ConnectorExpression>, Void>
     {
         private final Session session;
+        private final boolean translateArrayFieldReference;
 
-        public SqlToConnectorExpressionTranslator(Session session)
+        public SqlToConnectorExpressionTranslator(Session session, boolean translateArrayFieldReference)
         {
             this.session = requireNonNull(session, "session is null");
+            this.translateArrayFieldReference = translateArrayFieldReference;
         }
 
         @Override
@@ -692,6 +704,37 @@ public final class ConnectorExpressionTranslator
             else if (functionName.equals(builtinFunctionName(MODULUS))) {
                 return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
                         new io.trino.spi.expression.Call(node.type(), MODULUS_FUNCTION_NAME, ImmutableList.of(left, right))));
+            }
+
+            // Very narrow case that only tries to extract a particular type of lambda expression
+            // TODO: Expand the scope
+            if (translateArrayFieldReference && functionName.equals(builtinFunctionName(ARRAY_TRANSFORM_NAME))) {
+                List<Expression> allNodeArgument = node.arguments();
+                // at this point, SubscriptExpression should already been pushed down by PushProjectionIntoTableScan,
+                // if not, it means its referenced by other expressions. we only care about SymbolReference at this moment
+                List<Expression> inputExpressions = allNodeArgument.stream().filter(Reference.class::isInstance)
+                        .collect(toImmutableList());
+                List<Lambda> lambdaExpressions = allNodeArgument.stream().filter(e -> e instanceof Lambda lambda
+                                && lambda.arguments().size() == 1)
+                        .map(Lambda.class::cast)
+                        .collect(toImmutableList());
+                if (inputExpressions.size() == 1 && lambdaExpressions.size() == 1) {
+                    Optional<ConnectorExpression> inputVariable = process(inputExpressions.get(0));
+                    if (lambdaExpressions.get(0).body() instanceof Row row) {
+                        List<Expression> rowFields = row.items();
+                        List<ConnectorExpression> translatedRowFields =
+                                rowFields.stream().map(e -> process(e)).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
+                        if (inputVariable.isPresent() && translatedRowFields.size() == rowFields.size()) {
+                            return Optional.of(new ArrayFieldDereference(node.type(), inputVariable.get(), translatedRowFields));
+                        }
+                    }
+                    if (lambdaExpressions.get(0).body() instanceof FieldReference fieldReference) {
+                        Optional<ConnectorExpression> fieldReferenceConnectorExpr = process(fieldReference);
+                        if (inputVariable.isPresent() && fieldReferenceConnectorExpr.isPresent() && fieldReferenceConnectorExpr.get() instanceof FieldDereference expr) {
+                            return Optional.of(new ArrayFieldDereference(node.type(), inputVariable.get(), ImmutableList.of(expr)));
+                        }
+                    }
+                }
             }
 
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();

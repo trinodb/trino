@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -36,6 +37,7 @@ import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.RowGroupInfo;
+import io.trino.plugin.base.subfield.Subfield;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -56,6 +58,7 @@ import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
@@ -343,6 +346,34 @@ public class ParquetPageSourceFactory
         if (baseColumnType.isEmpty() || column.getHiveColumnProjectionInfo().isEmpty()) {
             return baseColumnType;
         }
+
+        // If subfields is not empty, it is the source of truth instead, because it will contain all prefixes from the root
+        // if subfields are only created through PushSubscriptLambdaIntoTableScan rule, so disable the rule will automatically
+        // skip below logic if anything goes wrong
+        // TODO: This part of logic can be consolidated after switching completely to Subfield
+        if (useParquetColumnNames && !column.getHiveColumnProjectionInfo().get().getSubfields().isEmpty()) {
+            try {
+                MessageType combinedPrunedTypes = null;
+                for (Subfield subfield : column.getHiveColumnProjectionInfo().get().getSubfields()) {
+                    MessageType prunedType = pruneRootTypeForSubfield(messageType, subfield);
+                    if (combinedPrunedTypes == null) {
+                        combinedPrunedTypes = prunedType;
+                    }
+                    else {
+                        combinedPrunedTypes = combinedPrunedTypes.union(prunedType);
+                    }
+                }
+                return Optional.of(combinedPrunedTypes) // Should never be null since subfields is non-empty.
+                        .map(type -> getParquetTypeByName(column.getBaseColumnName(), type));
+            }
+            catch (Exception e) {
+                return baseColumnType;
+            }
+        }
+        else if (column.getHiveColumnProjectionInfo().get().getDereferenceNames().isEmpty()) {
+            return baseColumnType;
+        }
+
         GroupType baseType = baseColumnType.get().asGroupType();
         Optional<List<org.apache.parquet.schema.Type>> subFieldTypesOptional = dereferenceSubFieldTypes(baseType, column.getHiveColumnProjectionInfo().get());
 
@@ -494,6 +525,11 @@ public class ParquetPageSourceFactory
         checkArgument(baseType != null, "base type cannot be null when dereferencing");
         checkArgument(projectionInfo != null, "hive column projection info cannot be null when doing dereferencing");
 
+        // dereferenceNames can be empty if subfields are available
+        if (projectionInfo.getDereferenceNames().isEmpty()) {
+            return Optional.empty();
+        }
+
         ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
         org.apache.parquet.schema.Type parentType = baseType;
 
@@ -507,5 +543,85 @@ public class ParquetPageSourceFactory
         }
 
         return Optional.of(typeBuilder.build());
+    }
+
+    // Below are directly referenced from Presto to minimize testings needed, no further change was done
+    private static MessageType pruneRootTypeForSubfield(MessageType rootType, Subfield subfield)
+    {
+        org.apache.parquet.schema.Type columnType = getParquetTypeByName(subfield.getRootName(), rootType);
+        if (columnType == null) {
+            return new MessageType(rootType.getName(), ImmutableList.of());
+        }
+        org.apache.parquet.schema.Type prunedColumnType = pruneColumnTypeForPath(columnType, subfield.getPath());
+        return new MessageType(rootType.getName(), prunedColumnType);
+    }
+
+    @VisibleForTesting
+    static org.apache.parquet.schema.Type pruneColumnTypeForPath(org.apache.parquet.schema.Type columnType, List<Subfield.PathElement> pathElements)
+    {
+        try {
+            return pruneTypeForPath(columnType, pathElements);
+        }
+        catch (Exception e) {
+            String singleLineColumnTypeString = (columnType == null) ?
+                    "Unknown" :
+                    columnType.toString().replaceAll("[\\r\\n]+", "");
+            return columnType;
+        }
+    }
+
+    private static org.apache.parquet.schema.Type pruneTypeForPath(org.apache.parquet.schema.Type type, List<Subfield.PathElement> path)
+    {
+        if (path.isEmpty()) {
+            return type;
+        }
+
+        // Path is not empty, so type must be a group type
+        GroupType groupType = type.asGroupType();
+
+        Subfield.PathElement pathElement = path.get(0);
+        OriginalType originalType = type.getOriginalType();
+        if (pathElement.isSubscript()) { // Accessing an array or map
+
+            // If path element is subscript and its the last element, no more pruning is possible, only nested fields
+            // result in pruning
+            if (path.size() == 1) {
+                return type;
+            }
+
+            GroupType firstFieldType = groupType.getType(0).asGroupType();
+
+            if (originalType == OriginalType.MAP
+                    || originalType == OriginalType.MAP_KEY_VALUE) { // Backwards compatibility case
+                org.apache.parquet.schema.Type keyType = firstFieldType.asGroupType().getType(0);
+                org.apache.parquet.schema.Type valueType = firstFieldType.asGroupType().getType(1);
+                org.apache.parquet.schema.Type newValueType = pruneTypeForPath(valueType,
+                        path.subList(1, path.size()));
+                return groupType.withNewFields(firstFieldType.withNewFields(keyType, newValueType));
+            }
+
+            if (originalType == OriginalType.LIST) {
+                if (firstFieldType.getFields().size() > 1
+                        || firstFieldType.getName().equals("array")
+                        || firstFieldType.getName().equals(type.getName() + "_tuple")) {
+                    return groupType.withNewFields(pruneTypeForPath(firstFieldType, path.subList(1, path.size())));
+                }
+
+                return groupType.withNewFields(firstFieldType.withNewFields(
+                        pruneTypeForPath(firstFieldType.getType(0), path.subList(1, path.size()))));
+            }
+        }
+        else { // Accessing a nested field
+
+            // The only non-subscript field is NestedField, casting is safe here
+            final String name = ((Subfield.NestedField) pathElement).getName();
+
+            org.apache.parquet.schema.Type subType = pruneTypeForPath(getParquetTypeByName(name, groupType),
+                    path.subList(1, path.size()));
+            return groupType.withNewFields(subType);
+        }
+
+        // Fallback to original type without pruning
+        return type;
     }
 }

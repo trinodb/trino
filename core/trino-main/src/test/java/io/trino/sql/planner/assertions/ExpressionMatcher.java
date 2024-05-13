@@ -34,11 +34,13 @@ public class ExpressionMatcher
 {
     private final String sql;
     private final Expression expression;
+    private final Optional<SymbolAliases> extraSymbolAliases;
 
-    ExpressionMatcher(Expression expression)
+    ExpressionMatcher(Expression expression, Optional<SymbolAliases> extraSymbolAliases)
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.sql = ExpressionFormatter.formatExpression(expression);
+        this.extraSymbolAliases = requireNonNull(extraSymbolAliases, "extraSymbolAliases is null");
     }
 
     @Override
@@ -52,7 +54,8 @@ public class ExpressionMatcher
             return result;
         }
 
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+        // Temporary solution, there is a separate PR to support lambda expression verifier
+        ExpressionVerifier verifier = new ExpressionVerifier(extraSymbolAliases.isPresent() ? SymbolAliases.builder().putAll(symbolAliases).putAll(extraSymbolAliases.get()).build() : symbolAliases);
 
         for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
             if (verifier.process(assignment.getValue(), expression)) {

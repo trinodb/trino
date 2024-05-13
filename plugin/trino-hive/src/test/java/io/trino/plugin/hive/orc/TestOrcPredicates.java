@@ -96,7 +96,8 @@ class TestOrcPredicates
                     ImmutableList.of(1),
                     ImmutableList.of("field1"),
                     HiveType.HIVE_LONG,
-                    BIGINT)),
+                    BIGINT,
+                    ImmutableList.of())),
             STRUCT_COLUMN.getColumnType(),
             STRUCT_COLUMN.getComment());
     private static final List<HiveColumnHandle> PROJECTED_COLUMNS = ImmutableList.of(BIGINT_COLUMN, STRUCT_FIELD1_COLUMN);

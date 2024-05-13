@@ -89,7 +89,9 @@ public class DeltaLakeColumnProjectionInfo
 
     public HiveColumnProjectionInfo toHiveColumnProjectionInfo()
     {
-        return new HiveColumnProjectionInfo(dereferenceIndices, dereferencePhysicalNames, toHiveType(type), type);
+        // Currently not supporting DeltaLake subfield
+        // TODO: Once Subfield is accepted, will extend it to DeltaLake, or even Iceberg which currently not even supporting ColumnProjectionInfo
+        return new HiveColumnProjectionInfo(dereferenceIndices, dereferencePhysicalNames, toHiveType(type), type, ImmutableList.of());
     }
 
     @Override

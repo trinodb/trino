@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.SizeOf;
 import io.trino.metastore.HiveType;
+import io.trino.plugin.base.subfield.Subfield;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -37,23 +38,26 @@ public class HiveColumnProjectionInfo
     private final HiveType hiveType;
     private final Type type;
     private final String partialName;
+    private List<Subfield> subfields;
 
     @JsonCreator
     public HiveColumnProjectionInfo(
             @JsonProperty("dereferenceIndices") List<Integer> dereferenceIndices,
             @JsonProperty("dereferenceNames") List<String> dereferenceNames,
             @JsonProperty("hiveType") HiveType hiveType,
-            @JsonProperty("type") Type type)
+            @JsonProperty("type") Type type,
+            @JsonProperty("subfields") List<Subfield> subfields)
     {
         this.dereferenceIndices = requireNonNull(dereferenceIndices, "dereferenceIndices is null");
         this.dereferenceNames = requireNonNull(dereferenceNames, "dereferenceNames is null");
-        checkArgument(dereferenceIndices.size() > 0, "dereferenceIndices should not be empty");
+        // checkArgument(dereferenceIndices.size() > 0, "dereferenceIndices should not be empty");
         checkArgument(dereferenceIndices.size() == dereferenceNames.size(), "dereferenceIndices and dereferenceNames should have the same sizes");
 
         this.hiveType = requireNonNull(hiveType, "hiveType is null");
         this.type = requireNonNull(type, "type is null");
 
         this.partialName = generatePartialName(dereferenceNames);
+        this.subfields = subfields;
     }
 
     public String getPartialName()
@@ -85,10 +89,16 @@ public class HiveColumnProjectionInfo
         return type;
     }
 
+    @JsonProperty
+    public List<Subfield> getSubfields()
+    {
+        return subfields;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(dereferenceIndices, dereferenceNames, hiveType, type);
+        return Objects.hash(dereferenceIndices, dereferenceNames, hiveType, type, subfields);
     }
 
     @Override
@@ -105,7 +115,8 @@ public class HiveColumnProjectionInfo
         return Objects.equals(this.dereferenceIndices, other.dereferenceIndices) &&
                 Objects.equals(this.dereferenceNames, other.dereferenceNames) &&
                 Objects.equals(this.hiveType, other.hiveType) &&
-                Objects.equals(this.type, other.type);
+                Objects.equals(this.type, other.type) &&
+                Objects.equals(this.subfields, other.subfields);
     }
 
     @Override

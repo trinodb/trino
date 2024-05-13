@@ -37,13 +37,14 @@ public final class PartialTranslator
      */
     public static Map<NodeRef<Expression>, ConnectorExpression> extractPartialTranslations(
             Expression inputExpression,
-            Session session)
+            Session session,
+            boolean translateArrayFieldReference)
     {
         requireNonNull(inputExpression, "inputExpression is null");
         requireNonNull(session, "session is null");
 
         Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = new HashMap<>();
-        new Visitor(session, partialTranslations).process(inputExpression);
+        new Visitor(session, partialTranslations, translateArrayFieldReference).process(inputExpression);
         return ImmutableMap.copyOf(partialTranslations);
     }
 
@@ -53,10 +54,10 @@ public final class PartialTranslator
         private final Map<NodeRef<Expression>, ConnectorExpression> translatedSubExpressions;
         private final ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator translator;
 
-        Visitor(Session session, Map<NodeRef<Expression>, ConnectorExpression> translatedSubExpressions)
+        Visitor(Session session, Map<NodeRef<Expression>, ConnectorExpression> translatedSubExpressions, boolean translateArrayFieldReference)
         {
             this.translatedSubExpressions = requireNonNull(translatedSubExpressions, "translatedSubExpressions is null");
-            this.translator = new ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator(session);
+            this.translator = new ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator(session, translateArrayFieldReference);
         }
 
         @Override

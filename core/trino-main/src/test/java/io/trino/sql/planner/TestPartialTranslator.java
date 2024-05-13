@@ -74,7 +74,7 @@ public class TestPartialTranslator
 
     private void assertFullTranslation(Expression expression)
     {
-        Map<NodeRef<Expression>, ConnectorExpression> translation = extractPartialTranslations(expression, TEST_SESSION);
+        Map<NodeRef<Expression>, ConnectorExpression> translation = extractPartialTranslations(expression, TEST_SESSION, false);
         assertThat(getOnlyElement(translation.keySet())).isEqualTo(NodeRef.of(expression));
         assertThat(getOnlyElement(translation.values())).isEqualTo(translate(TEST_SESSION, expression).get());
     }

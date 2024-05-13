@@ -156,7 +156,8 @@ public class TestParquetPredicateUtils
                 ImmutableList.of(1),
                 ImmutableList.of("b"),
                 HiveType.HIVE_INT,
-                INTEGER);
+                INTEGER,
+                ImmutableList.of());
 
         HiveColumnHandle projectedColumn = new HiveColumnHandle(
                 "row_field",
@@ -197,7 +198,8 @@ public class TestParquetPredicateUtils
                 ImmutableList.of(2),
                 ImmutableList.of("C"),
                 HiveTypeTranslator.toHiveType(c1Type),
-                c1Type);
+                c1Type,
+                        ImmutableList.of());
 
         HiveColumnHandle projectedColumn = new HiveColumnHandle(
                 "row_field",
@@ -237,7 +239,8 @@ public class TestParquetPredicateUtils
                 ImmutableList.of(2),
                 ImmutableList.of("non_exist"),
                 HiveType.HIVE_INT,
-                INTEGER);
+                INTEGER,
+                ImmutableList.of());
 
         HiveColumnHandle projectedColumn = new HiveColumnHandle(
                 "row_field",

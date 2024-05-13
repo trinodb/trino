@@ -23,6 +23,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.JsonPath;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.expression.ArrayFieldDereference;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
@@ -43,12 +44,15 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.FunctionType;
 import io.trino.type.LikeFunctions;
 import org.junit.jupiter.api.Test;
 
@@ -60,6 +64,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
@@ -96,6 +101,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -114,6 +120,10 @@ public class TestConnectorExpressionTranslator
     private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
     private static final VarcharType VARCHAR_TYPE = createUnboundedVarcharType();
     private static final ArrayType VARCHAR_ARRAY_TYPE = new ArrayType(VARCHAR_TYPE);
+    private static final Type ANONYMOUS_ROW_TYPE = RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(5)));
+    private static final ArrayType ARRAY_ROW_TYPE = new ArrayType(ANONYMOUS_ROW_TYPE);
+    private static final Type PRUNED_ROW_TYPE = RowType.anonymous(ImmutableList.of(INTEGER));
+    private static final ArrayType PRUNED_ARRAY_ROW_TYPE = new ArrayType(PRUNED_ROW_TYPE);
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction NEGATION_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(DOUBLE));
@@ -556,6 +566,69 @@ public class TestConnectorExpressionTranslator
                 });
     }
 
+    @Test
+    public void testTranslateFieldDereferenceInLambda()
+    {
+        TransactionManager transactionManager = new TestingTransactionManager();
+        Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
+        transaction(transactionManager, metadata, new AllowAllAccessControl())
+                .readOnly()
+                .execute(TEST_SESSION, transactionSession -> {
+                    // Base case, returns proper ArrayFieldDereference expression
+                    ArrayFieldDereference translated = new ArrayFieldDereference(PRUNED_ARRAY_ROW_TYPE,
+                            new Variable("array_of_struct", ARRAY_ROW_TYPE),
+                            List.of(new FieldDereference(
+                                    INTEGER,
+                                    new Variable("transformarray$element", ANONYMOUS_ROW_TYPE),
+                                    0)));
+
+                    // Test wrap with row
+                    assertTranslationToConnectorExpressionWithArrayDereference(
+                            transactionSession,
+                            new Call(FUNCTIONS.resolveFunction(ARRAY_TRANSFORM_NAME, fromTypes(ARRAY_ROW_TYPE, new FunctionType(ImmutableList.of(ANONYMOUS_ROW_TYPE), PRUNED_ROW_TYPE))), ImmutableList.of(new Reference(ARRAY_ROW_TYPE, "array_of_struct"),
+                                    new Lambda(ImmutableList.of(new Symbol(ANONYMOUS_ROW_TYPE, "transformarray$element")),
+                                            new Row(ImmutableList.of(new FieldReference(
+                                                    new Reference(ANONYMOUS_ROW_TYPE, "transformarray$element"),
+                                                    0)))))),
+                            Optional.of(translated));
+
+                    // Test FieldReference only
+                    assertTranslationToConnectorExpressionWithArrayDereference(
+                            transactionSession,
+                            new Call(FUNCTIONS.resolveFunction(ARRAY_TRANSFORM_NAME, fromTypes(ARRAY_ROW_TYPE, new FunctionType(ImmutableList.of(ANONYMOUS_ROW_TYPE), INTEGER))), ImmutableList.of(new Reference(ARRAY_ROW_TYPE, "array_of_struct"),
+                                    new Lambda(ImmutableList.of(new Symbol(ANONYMOUS_ROW_TYPE, "transformarray$element")),
+                                            new FieldReference(
+                                                    new Reference(ANONYMOUS_ROW_TYPE, "transformarray$element"),
+                                                    0)))),
+                            Optional.of(new ArrayFieldDereference(new ArrayType(INTEGER),
+                                    new Variable("array_of_struct", ARRAY_ROW_TYPE),
+                                    List.of(new FieldDereference(
+                                            INTEGER,
+                                            new Variable("transformarray$element", ANONYMOUS_ROW_TYPE),
+                                            0)))));
+
+                    // Multiple subscript expressions available, multiple FieldReferences within ArrayFieldDereference translated
+                    assertTranslationToConnectorExpressionWithArrayDereference(
+                            transactionSession,
+                            new Call(FUNCTIONS.resolveFunction(ARRAY_TRANSFORM_NAME, fromTypes(ARRAY_ROW_TYPE, new FunctionType(ImmutableList.of(ANONYMOUS_ROW_TYPE), ANONYMOUS_ROW_TYPE))), ImmutableList.of(new Reference(ARRAY_ROW_TYPE, "array_of_struct"),
+                                    new Lambda(ImmutableList.of(new Symbol(ANONYMOUS_ROW_TYPE, "transformarray$element")),
+                                            new Row(ImmutableList.of(new FieldReference(
+                                                    new Reference(ANONYMOUS_ROW_TYPE, "transformarray$element"),
+                                                    0),
+                                                    new FieldReference(
+                                                            new Reference(ANONYMOUS_ROW_TYPE, "transformarray$element"),
+                                                            1)))))),
+                            Optional.of(new ArrayFieldDereference(ARRAY_ROW_TYPE,
+                                    new Variable("array_of_struct", ARRAY_ROW_TYPE),
+                                    List.of(new FieldDereference(
+                                                    INTEGER,
+                                                    new Variable("transformarray$element", ANONYMOUS_ROW_TYPE), 0),
+                                            new FieldDereference(
+                                                    createVarcharType(5),
+                                                    new Variable("transformarray$element", ANONYMOUS_ROW_TYPE), 1)))));
+                });
+    }
+
     private void assertTranslationRoundTrips(Expression expression, ConnectorExpression connectorExpression)
     {
         assertTranslationRoundTrips(TEST_SESSION, expression, connectorExpression);
@@ -583,5 +656,12 @@ public class TestConnectorExpressionTranslator
     {
         Expression translation = ConnectorExpressionTranslator.translate(session, connectorExpression, PLANNER_CONTEXT, variableMappings);
         assertThat(translation).isEqualTo(expected);
+    }
+
+    private void assertTranslationToConnectorExpressionWithArrayDereference(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)
+    {
+        Optional<ConnectorExpression> translation = translate(session, expression, true);
+        assertThat(connectorExpression.isPresent()).isEqualTo(translation.isPresent());
+        translation.ifPresent(value -> assertThat(value).isEqualTo(connectorExpression.get()));
     }
 }

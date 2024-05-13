@@ -151,7 +151,11 @@ import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughSort;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopN;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopNRanking;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughWindow;
+import io.trino.sql.planner.iterative.rule.PushDownFieldReferenceLambdaThroughFilter;
+import io.trino.sql.planner.iterative.rule.PushDownFieldReferenceLambdaThroughProject;
 import io.trino.sql.planner.iterative.rule.PushDownProjectionsFromPatternRecognition;
+import io.trino.sql.planner.iterative.rule.PushFieldReferenceLambdaIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushFieldReferenceLambdaThroughFilterIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushFilterIntoValues;
 import io.trino.sql.planner.iterative.rule.PushFilterThroughBoolOrAggregation;
 import io.trino.sql.planner.iterative.rule.PushFilterThroughCountAggregation;
@@ -346,7 +350,9 @@ public class PlanOptimizers
                 new PushDownDereferencesThroughWindow(),
                 new PushDownDereferencesThroughTopN(),
                 new PushDownDereferencesThroughRowNumber(),
-                new PushDownDereferencesThroughTopNRanking());
+                new PushDownDereferencesThroughTopNRanking(),
+                new PushDownFieldReferenceLambdaThroughProject(),
+                new PushDownFieldReferenceLambdaThroughFilter());
 
         Set<Rule<?>> limitPushdownRules = ImmutableSet.of(
                 new PushLimitThroughOffset(),
@@ -999,6 +1005,15 @@ public class PlanOptimizers
                         new PushPartialAggregationThroughExchange(plannerContext),
                         new PruneJoinColumns(),
                         new PruneJoinChildrenColumns())));
+        // This rule does not touch query plans, but only add subfields if necessary. Trigger at the near end
+        // Keeping this as iterative as it could be combined with PushProjectionIntoTableScan in the future
+        builder.add(new IterativeOptimizer(
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new PushFieldReferenceLambdaIntoTableScan(plannerContext),
+                        new PushFieldReferenceLambdaThroughFilterIntoTableScan(plannerContext))));
         builder.add(new IterativeOptimizer(
                 plannerContext,
                 ruleStats,

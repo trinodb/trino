@@ -2017,7 +2017,7 @@ public final class TestHiveFileFormats
                     columnIndex,
                     toHiveType(baseType),
                     baseType,
-                    Optional.of(new HiveColumnProjectionInfo(ImmutableList.of(0), ImmutableList.of(name), toHiveType(type), type)),
+                    Optional.of(new HiveColumnProjectionInfo(ImmutableList.of(0), ImmutableList.of(name), toHiveType(type), type, ImmutableList.of())),
                     partitionKey ? PARTITION_KEY : REGULAR,
                     Optional.empty());
         }

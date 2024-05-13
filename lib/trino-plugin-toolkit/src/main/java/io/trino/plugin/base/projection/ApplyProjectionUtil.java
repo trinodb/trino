@@ -15,6 +15,8 @@ package io.trino.plugin.base.projection;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.base.subfield.Subfield;
+import io.trino.spi.expression.ArrayFieldDereference;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -24,9 +26,12 @@ import io.trino.spi.expression.Variable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public final class ApplyProjectionUtil
@@ -121,6 +126,29 @@ public final class ApplyProjectionUtil
         // We cannot skip processing for unsupported expression shapes. This may lead to variables being left in ProjectionApplicationResult
         // which are no longer bound.
         throw new UnsupportedOperationException("Unsupported expression: " + expression);
+    }
+
+    public static Optional<Set<ArrayFieldDereference>> validArrayFieldDereferences(List<ConnectorExpression> projections)
+    {
+        Set<ArrayFieldDereference> arrayFieldDereferences = projections.stream()
+                .filter(ArrayFieldDereference.class::isInstance)
+                .map(ArrayFieldDereference.class::cast)
+                .filter(e -> e.getTarget() instanceof Variable)
+                .collect(toImmutableSet());
+        if (arrayFieldDereferences.size() != projections.size()) {
+            // Sanity check to prevent any unhandled edge cases
+            // Currently very narrow cases can generate ArrayFieldDereference and can be passed down here
+            // If ArrayFieldDereference at this point can not be translated to new projections, then we need to dig on the reasons
+            return Optional.empty();
+        }
+        return Optional.of(arrayFieldDereferences);
+    }
+
+    public static void generatePathElementWithNames(ImmutableList.Builder<Subfield.PathElement> pathElements, List<String> pathNamesWithinArray)
+    {
+        for (String pathName : pathNamesWithinArray) {
+            pathElements.add(new Subfield.NestedField(pathName));
+        }
     }
 
     public static class ProjectedColumnRepresentation

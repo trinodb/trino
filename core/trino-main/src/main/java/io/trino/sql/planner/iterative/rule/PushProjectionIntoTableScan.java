@@ -103,7 +103,8 @@ public class PushProjectionIntoTableScan
                 .flatMap(expression ->
                         extractPartialTranslations(
                                 expression.getValue(),
-                                session
+                                session,
+                                false // In the future, we want to rewrite this class to translate ArrayFieldReference here as well
                         ).entrySet().stream())
                 // Filter out constant expressions. Constant expressions should not be pushed to the connector.
                 .filter(entry -> !(entry.getValue() instanceof io.trino.spi.expression.Constant))

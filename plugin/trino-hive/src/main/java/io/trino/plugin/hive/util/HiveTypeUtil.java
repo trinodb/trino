@@ -36,6 +36,7 @@ import static com.google.common.base.Strings.lenientFormat;
 import static io.trino.hive.formats.UnionToRowCoercionUtils.UNION_FIELD_FIELD_PREFIX;
 import static io.trino.hive.formats.UnionToRowCoercionUtils.UNION_FIELD_TAG_NAME;
 import static io.trino.hive.formats.UnionToRowCoercionUtils.UNION_FIELD_TAG_TYPE;
+import static io.trino.metastore.HiveType.fromTypeInfo;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
@@ -141,7 +142,15 @@ public final class HiveTypeUtil
                 throw new IllegalArgumentException(lenientFormat("typeInfo: %s should be struct or union type", typeInfo));
             }
         }
-        return Optional.of(HiveType.fromTypeInfo(typeInfo));
+        return Optional.of(fromTypeInfo(typeInfo));
+    }
+
+    public static List<String> getHiveDereferenceNamesWithinArray(TypeInfo typeInfo, List<Integer> dereferences)
+    {
+        checkArgument(typeInfo instanceof ListTypeInfo);
+        // Minimum but not optimized code change to reuse getHiveDereferenceNames
+        // Only single level of dereference into Array is possible for now
+        return HiveTypeUtil.getHiveDereferenceNames(fromTypeInfo(((ListTypeInfo) typeInfo).getListElementTypeInfo()), dereferences);
     }
 
     public static List<String> getHiveDereferenceNames(HiveType hiveType, List<Integer> dereferences)

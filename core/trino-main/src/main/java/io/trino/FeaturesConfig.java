@@ -122,6 +122,8 @@ public class FeaturesConfig
 
     private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
 
+    private boolean pushFieldDereferenceLambdaIntoScanEnabled;
+
     public enum DataIntegrityVerification
     {
         NONE,
@@ -516,5 +518,18 @@ public class FeaturesConfig
     public void applyFaultTolerantExecutionDefaults()
     {
         exchangeCompressionCodec = LZ4;
+    }
+
+    public boolean isPushFieldDereferenceLambdaIntoScanEnabled()
+    {
+        return pushFieldDereferenceLambdaIntoScanEnabled;
+    }
+
+    @Config("experimental.enable-push-field-dereference-lambda-into-scan.enabled")
+    @ConfigDescription("Enables pushing field dereferences in lambda into table scan")
+    public FeaturesConfig setPushFieldDereferenceLambdaIntoScanEnabled(boolean pushFieldDereferenceLambdaIntoScanEnabled)
+    {
+        this.pushFieldDereferenceLambdaIntoScanEnabled = pushFieldDereferenceLambdaIntoScanEnabled;
+        return this;
     }
 }

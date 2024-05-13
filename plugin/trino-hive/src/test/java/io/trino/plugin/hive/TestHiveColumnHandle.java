@@ -71,7 +71,8 @@ public class TestHiveColumnHandle
                 ImmutableList.of(1),
                 ImmutableList.of("b"),
                 HiveType.HIVE_LONG,
-                BIGINT);
+                BIGINT,
+                ImmutableList.of());
 
         HiveColumnHandle projectedColumn = new HiveColumnHandle(
                 "struct_col",

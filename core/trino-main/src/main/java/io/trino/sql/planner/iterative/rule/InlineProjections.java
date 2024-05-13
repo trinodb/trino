@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static io.trino.sql.planner.iterative.rule.DereferencePushdown.getSubscriptLambdaInputExpression;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static java.util.stream.Collectors.toSet;
@@ -186,6 +187,10 @@ public class InlineProjections
                     }
 
                     return true;
+                })
+                .filter(entry -> {
+                    // skip subscript lambdas, otherwise, inlining can cause conflicts with PushdownDereferences
+                    return getSubscriptLambdaInputExpression(child.getAssignments().get(entry.getKey())).isEmpty();
                 })
                 .map(Map.Entry::getKey)
                 .collect(toSet());

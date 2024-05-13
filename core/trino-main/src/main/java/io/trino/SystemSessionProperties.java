@@ -216,6 +216,7 @@ public final class SystemSessionProperties
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
     public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
+    public static final String ENABLE_PUSH_FIELD_DEREFERENCE_LAMBDA_INTO_SCAN = "enable_push_field_dereference_lambda_into_scan";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1103,7 +1104,12 @@ public final class SystemSessionProperties
                         ALLOW_UNSAFE_PUSHDOWN,
                         "Allow pushing down expressions that may fail for some inputs",
                         optimizerConfig.isUnsafePushdownAllowed(),
-                        true));
+                        true),
+                booleanProperty(
+                        ENABLE_PUSH_FIELD_DEREFERENCE_LAMBDA_INTO_SCAN,
+                        "Enable pushing field dereferences in lambda into scan",
+                        featuresConfig.isPushFieldDereferenceLambdaIntoScanEnabled(),
+                        false));
     }
 
     @Override
@@ -1981,5 +1987,10 @@ public final class SystemSessionProperties
     public static boolean isUnsafePushdownAllowed(Session session)
     {
         return session.getSystemProperty(ALLOW_UNSAFE_PUSHDOWN, Boolean.class);
+    }
+
+    public static boolean isPushFieldDereferenceLambdaIntoScanEnabled(Session session)
+    {
+        return session.getSystemProperty(ENABLE_PUSH_FIELD_DEREFERENCE_LAMBDA_INTO_SCAN, Boolean.class);
     }
 }

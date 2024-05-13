@@ -76,7 +76,7 @@ public class TestHiveReaderProjectionsUtil
         List<String> names = getHiveDereferenceNames(baseHiveType, indices);
         HiveType hiveType = getHiveTypeForDereferences(baseHiveType, indices).get();
 
-        HiveColumnProjectionInfo columnProjection = new HiveColumnProjectionInfo(indices, names, hiveType, TESTING_TYPE_MANAGER.getType(getTypeSignature(hiveType)));
+        HiveColumnProjectionInfo columnProjection = new HiveColumnProjectionInfo(indices, names, hiveType, TESTING_TYPE_MANAGER.getType(getTypeSignature(hiveType)), ImmutableList.of());
 
         return new HiveColumnHandle(
                 column.getBaseColumnName(),

@@ -1028,7 +1028,12 @@ public final class PlanMatchPattern
 
     public static ExpressionMatcher expression(Expression expression)
     {
-        return new ExpressionMatcher(expression);
+        return expression(expression, Optional.empty());
+    }
+
+    public static ExpressionMatcher expression(Expression expression, Optional<SymbolAliases> extraSymbolAliases)
+    {
+        return new ExpressionMatcher(expression, extraSymbolAliases);
     }
 
     public PlanMatchPattern withOutputs(List<String> aliases)

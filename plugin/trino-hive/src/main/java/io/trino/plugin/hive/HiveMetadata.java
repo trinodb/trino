@@ -48,8 +48,10 @@ import io.trino.metastore.SortingColumn;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
+import io.trino.metastore.type.ListTypeInfo;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
+import io.trino.plugin.base.subfield.Subfield;
 import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import io.trino.plugin.hive.HiveWritableTableHandle.BucketInfo;
 import io.trino.plugin.hive.LocationService.WriteInfo;
@@ -106,7 +108,9 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
+import io.trino.spi.expression.ArrayFieldDereference;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
@@ -173,8 +177,12 @@ import static io.trino.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
 import static io.trino.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.metastore.type.Category.PRIMITIVE;
 import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.createProjectedColumnRepresentation;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.generatePathElementWithNames;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.validArrayFieldDereferences;
+import static io.trino.plugin.base.subfield.Subfield.allSubscripts;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getPartitionList;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.find;
@@ -294,6 +302,7 @@ import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveDereferenceNames;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveDereferenceNamesWithinArray;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
@@ -3124,6 +3133,17 @@ public class HiveMetadata
             return Optional.empty();
         }
 
+        // Reuse the applyProjection interface while handling ArrayFieldDereference separately.
+        // ArrayFieldDereference can only be passed in from PushSubscriptLambdaIntoTableScan rule at this moment
+        // TODO: fully integrate PushSubscriptLambdaIntoTableScan with PushProjectionIntoTableScan rule
+        if (projections.stream().anyMatch(ArrayFieldDereference.class::isInstance)) {
+            Optional<Set<ArrayFieldDereference>> arrayFieldDereferences =
+                    validArrayFieldDereferences(projections);
+            return arrayFieldDereferences.isPresent() ?
+                    applyArrayFieldDereferences((HiveTableHandle) handle, arrayFieldDereferences.get(), assignments) :
+                    Optional.empty();
+        }
+
         // Create projected column representations for supported sub expressions. Simple column references and chain of
         // dereferences on a variable are supported right now.
         Set<ConnectorExpression> projectedExpressions = projections.stream()
@@ -3202,6 +3222,131 @@ public class HiveMetadata
                 false));
     }
 
+    private Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyArrayFieldDereferences(
+            HiveTableHandle handle,
+            Set<ArrayFieldDereference> arrayFieldDereferences,
+            Map<String, ColumnHandle> assignments)
+    {
+        ImmutableMap.Builder<String, HiveColumnHandle> newAssignmentsMapBuilder = ImmutableMap.builder();
+        for (ArrayFieldDereference arrayFieldDereference : arrayFieldDereferences) {
+            Variable inputVariable = (Variable) arrayFieldDereference.getTarget();
+            String inputSymbolName = inputVariable.getName();
+            HiveColumnHandle previousColumnHandle = (HiveColumnHandle) assignments.get(inputSymbolName);
+            List<ConnectorExpression> subscriptExpressions = arrayFieldDereference.getElementFieldDereferences();
+            if (!subscriptExpressions.stream().allMatch(FieldDereference.class::isInstance) || previousColumnHandle == null) {
+                // Do not create subfields from non FieldDereference expression
+                continue;
+            }
+
+            Optional<HiveColumnProjectionInfo> previousProjectionInfo = previousColumnHandle.getHiveColumnProjectionInfo();
+            List<String> existingPathNames =
+                    previousProjectionInfo.isPresent() ? previousProjectionInfo.get().getDereferenceNames() : ImmutableList.of();
+
+            // Generate new subfields
+            ImmutableList.Builder<Subfield> subfields = ImmutableList.builder();
+            generateNewSubfields(previousProjectionInfo.isPresent() ?
+                            previousProjectionInfo.get().getHiveType() : previousColumnHandle.getHiveType(),
+                    previousColumnHandle.getBaseColumnName(), subscriptExpressions, existingPathNames, subfields);
+            ImmutableList<Subfield> newSubfields = subfields.build();
+
+            if (newSubfields.size() != subscriptExpressions.size()) {
+                // Do not overwrite projection in case any subscript expression failed to be handled and causing missing data.
+                continue;
+            }
+
+            HiveColumnProjectionInfo newHiveColumnProjectionInfo;
+            if (previousProjectionInfo.isPresent() && !previousProjectionInfo.get().getSubfields().equals(newSubfields)) {
+                // We want to overwrite the previous subfields result in case they are no longer eligible
+                newHiveColumnProjectionInfo = previousProjectionInfo.get();
+                newHiveColumnProjectionInfo = new HiveColumnProjectionInfo(
+                        newHiveColumnProjectionInfo.getDereferenceIndices(),
+                        newHiveColumnProjectionInfo.getDereferenceNames(),
+                        newHiveColumnProjectionInfo.getHiveType(),
+                        newHiveColumnProjectionInfo.getType(),
+                        newSubfields);
+            }
+            else if (!previousProjectionInfo.isPresent() && !newSubfields.isEmpty()) {
+                // create new HiveColumnProjectionInfo
+                newHiveColumnProjectionInfo = new HiveColumnProjectionInfo(
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        previousColumnHandle.getBaseHiveType(),
+                        previousColumnHandle.getBaseType(),
+                        newSubfields);
+            }
+            else {
+                // no new projection is added
+                continue;
+            }
+
+            // Create new HiveColumnHandle
+            HiveColumnHandle newHiveColumnHandle = new HiveColumnHandle(
+                    previousColumnHandle.getBaseColumnName(),
+                    previousColumnHandle.getBaseHiveColumnIndex(),
+                    previousColumnHandle.getBaseHiveType(),
+                    previousColumnHandle.getBaseType(),
+                    Optional.of(newHiveColumnProjectionInfo),
+                    previousColumnHandle.getColumnType(),
+                    previousColumnHandle.getComment());
+            newAssignmentsMapBuilder.put(inputSymbolName, newHiveColumnHandle);
+        }
+
+        Map<String, HiveColumnHandle> newAssignmentsMap = newAssignmentsMapBuilder.buildOrThrow();
+        // Only return new tableHandle if the rule actually create different subfields
+        if (!newAssignmentsMap.isEmpty()) {
+            return getProjectionApplicationResult(handle, arrayFieldDereferences, assignments, newAssignmentsMap);
+        }
+        return Optional.empty();
+    }
+
+    private void generateNewSubfields(HiveType hivetype, String baseColumnName, List<ConnectorExpression> subscriptExpressions,
+                                      List<String> existingPathNames, ImmutableList.Builder<Subfield> subfields)
+    {
+        for (ConnectorExpression fieldDereferenceExpression : subscriptExpressions) {
+            ProjectedColumnRepresentation subscriptRepresentation = createProjectedColumnRepresentation(fieldDereferenceExpression);
+            ImmutableList.Builder<Subfield.PathElement> pathElements = ImmutableList.builder();
+            // Generate subfields with existing prefix
+            generatePathElementWithNames(pathElements, existingPathNames);
+
+            List<Integer> dereferenceIndices = subscriptRepresentation.getDereferenceIndices();
+
+            // Generate subfields with dereferences on array
+            if (!dereferenceIndices.isEmpty() && hivetype.getTypeInfo() instanceof ListTypeInfo typeInfo) {
+                pathElements.add(allSubscripts());
+                generatePathElementWithNames(pathElements, getHiveDereferenceNamesWithinArray(typeInfo, dereferenceIndices));
+            }
+
+            ImmutableList<Subfield.PathElement> pathElementList = pathElements.build();
+            if (!pathElementList.isEmpty()) {
+                subfields.add(new Subfield(baseColumnName, pathElementList));
+            }
+        }
+    }
+
+    private Optional<ProjectionApplicationResult<ConnectorTableHandle>> getProjectionApplicationResult(HiveTableHandle handle,
+                                                                                                       Set<ArrayFieldDereference> arrayFieldDereferences,
+                                                                                                       Map<String, ColumnHandle> assignments,
+                                                                                                       Map<String, HiveColumnHandle> newAssignmentsMap)
+    {
+        ImmutableSet.Builder<HiveColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
+        ImmutableList.Builder<Assignment> newAssignmentBuilder = ImmutableList.builder();
+        // Assignment type does not matter, only columnhandle is going to be used, type is kept to prevent touching
+        // existing applyProjection validations
+        for (Map.Entry<String, ColumnHandle> m : assignments.entrySet()) {
+            String originalSymbol = m.getKey();
+            HiveColumnHandle originalColumnHandle = (HiveColumnHandle) m.getValue();
+            projectedColumnsBuilder.add(newAssignmentsMap.containsKey(originalSymbol) ? newAssignmentsMap.get(originalSymbol) : originalColumnHandle);
+            newAssignmentBuilder.add(newAssignmentsMap.containsKey(originalSymbol) ?
+                    new Assignment(originalSymbol, newAssignmentsMap.get(originalSymbol), ((HiveColumnHandle) originalColumnHandle).getType())
+                    : new Assignment(originalSymbol, originalColumnHandle, ((HiveColumnHandle) originalColumnHandle).getType()));
+        }
+        return Optional.of(new ProjectionApplicationResult<>(
+                handle.withProjectedColumns(projectedColumnsBuilder.build()),
+                ImmutableList.copyOf(arrayFieldDereferences),
+                newAssignmentBuilder.build(),
+                false));
+    }
+
     private HiveColumnHandle createProjectedColumnHandle(HiveColumnHandle column, List<Integer> indices)
     {
         HiveType oldHiveType = column.getHiveType();
@@ -3223,7 +3368,8 @@ public class HiveMetadata
                         .addAll(getHiveDereferenceNames(oldHiveType, indices))
                         .build(),
                 newHiveType,
-                typeManager.getType(getTypeSignature(newHiveType)));
+                typeManager.getType(getTypeSignature(newHiveType)),
+                ImmutableList.of()); // If prefixes were updated, this will need to be re-created. However this will never happen due to order of rules
 
         return new HiveColumnHandle(
                 column.getBaseColumnName(),
