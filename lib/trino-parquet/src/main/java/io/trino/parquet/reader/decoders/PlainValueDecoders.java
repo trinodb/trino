@@ -99,10 +99,8 @@ public final class PlainValueDecoders
         @Override
         public void read(short[] values, int offset, int length)
         {
-            input.ensureBytesAvailable(Integer.BYTES * length);
-            int endOffset = offset + length;
-            for (int i = offset; i < endOffset; i++) {
-                values[i] = toShortExact(input.readIntUnsafe());
+            for (int i = offset; i < offset + length; i++) {
+                values[i] = toShortExact(input.readIntUnchecked());
             }
         }
 
@@ -127,10 +125,8 @@ public final class PlainValueDecoders
         @Override
         public void read(byte[] values, int offset, int length)
         {
-            input.ensureBytesAvailable(Integer.BYTES * length);
-            int endOffset = offset + length;
-            for (int i = offset; i < endOffset; i++) {
-                values[i] = toByteExact(input.readIntUnsafe());
+            for (int i = offset; i < offset + length; i++) {
+                values[i] = toByteExact(input.readIntUnchecked());
             }
         }
 
@@ -172,7 +168,6 @@ public final class PlainValueDecoders
         @Override
         public void read(long[] values, int offset, int length)
         {
-            input.ensureBytesAvailable(typeLength * length);
             if (typeLength <= Long.BYTES) {
                 decimalValueDecoder.getShortDecimalValues(input, values, offset, length);
                 return;
@@ -281,9 +276,8 @@ public final class PlainValueDecoders
         @Override
         public void read(int[] values, int offset, int length)
         {
-            input.ensureBytesAvailable(length * LENGTH);
             for (int i = offset; i < offset + length; i++) {
-                DecodedTimestamp timestamp = decodeInt96Timestamp(input.readLongUnsafe(), input.readIntUnsafe());
+                DecodedTimestamp timestamp = decodeInt96Timestamp(input.readLongUnchecked(), input.readIntUnchecked());
                 encodeFixed12(timestamp.epochSeconds(), timestamp.nanosOfSecond(), values, i);
             }
         }
