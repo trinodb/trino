@@ -128,7 +128,6 @@ public class DeltaLakeModule
                 .setDefault().toInstance(DeltaLakeRedirectionsProvider.NOOP);
 
         jsonCodecBinder(binder).bindJsonCodec(DataFileInfo.class);
-        jsonCodecBinder(binder).bindJsonCodec(DeltaLakeUpdateResult.class);
         jsonCodecBinder(binder).bindJsonCodec(DeltaLakeMergeResult.class);
         binder.bind(DeltaLakeWriterStats.class).in(Scopes.SINGLETON);
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
