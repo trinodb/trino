@@ -108,12 +108,6 @@ public final class AggregateFunctionPatterns
     }
 
     @Deprecated
-    public static Property<ConnectorExpression, ?, Type> expressionType()
-    {
-        return ConnectorExpressionPatterns.type();
-    }
-
-    @Deprecated
     public static Predicate<List<? extends ConnectorExpression>> expressionTypes(Type... types)
     {
         return ConnectorExpressionPatterns.expressionTypes(types);
