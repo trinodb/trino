@@ -49,11 +49,11 @@ public class TestSharedHiveMetastore
     {
         Session icebergSession = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
-                .setSchema(schema)
+                .setSchema(tpchSchema)
                 .build();
         Session hiveSession = testSessionBuilder()
                 .setCatalog(HIVE_CATALOG)
-                .setSchema(schema)
+                .setSchema(tpchSchema)
                 .build();
 
         QueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession).build();
@@ -86,9 +86,10 @@ public class TestSharedHiveMetastore
                 "hive",
                 ImmutableMap.of("hive.iceberg-catalog-name", "iceberg"));
 
-        queryRunner.execute("CREATE SCHEMA " + schema);
+        queryRunner.execute("CREATE SCHEMA " + tpchSchema);
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, icebergSession, ImmutableList.of(TpchTable.NATION));
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, hiveSession, ImmutableList.of(TpchTable.REGION));
+        queryRunner.execute("CREATE SCHEMA " + testSchema);
 
         return queryRunner;
     }
@@ -96,9 +97,10 @@ public class TestSharedHiveMetastore
     @AfterAll
     public void cleanup()
     {
-        assertQuerySucceeds("DROP TABLE IF EXISTS hive." + schema + ".region");
-        assertQuerySucceeds("DROP TABLE IF EXISTS iceberg." + schema + ".nation");
-        assertQuerySucceeds("DROP SCHEMA IF EXISTS hive." + schema);
+        assertQuerySucceeds("DROP TABLE IF EXISTS hive." + tpchSchema + ".region");
+        assertQuerySucceeds("DROP TABLE IF EXISTS iceberg." + tpchSchema + ".nation");
+        assertQuerySucceeds("DROP SCHEMA IF EXISTS hive." + tpchSchema);
+        assertQuerySucceeds("DROP SCHEMA IF EXISTS hive." + testSchema);
     }
 
     @Override
@@ -109,7 +111,7 @@ public class TestSharedHiveMetastore
                WITH (
                   location = 'local:///%s'
                )"""
-                .formatted(catalogName, schema, schema);
+                .formatted(catalogName, tpchSchema, tpchSchema);
     }
 
     @Override
@@ -120,6 +122,6 @@ public class TestSharedHiveMetastore
                 "WITH (\n" +
                 "   location = '%s/%s'\n" +
                 ")";
-        return format(expectedIcebergCreateSchema, catalogName, schema, dataDirectory, schema);
+        return format(expectedIcebergCreateSchema, catalogName, tpchSchema, dataDirectory, tpchSchema);
     }
 }
