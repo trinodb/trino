@@ -82,12 +82,6 @@ public final class AggregateFunctionPatterns
         return Property.property("hasFilter", aggregateFunction -> aggregateFunction.getFilter().isPresent());
     }
 
-    @Deprecated
-    public static Pattern<Variable> variable()
-    {
-        return ConnectorExpressionPatterns.variable();
-    }
-
     public static Pattern<List<Variable>> variables()
     {
         return new Pattern<>(Optional.empty())
