@@ -328,16 +328,6 @@ public abstract class BaseBigQueryConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Test
-    @Override
-    public void testNoDataSystemTable()
-    {
-        // TODO (https://github.com/trinodb/trino/issues/6515): Big Query throws an error when trying to read "some_table$data".
-        assertThatThrownBy(super::testNoDataSystemTable)
-                .hasMessageFindingMatch(".*Cannot read partition information from a table that is not partitioned.*");
-        abort("TODO");
-    }
-
     @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
@@ -666,7 +656,7 @@ public abstract class BaseBigQueryConnectorTest
         // Override because the connector throws an exception instead of an empty result when the value is out of supported range
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
         assertThat(query("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'"))
-                .nonTrinoExceptionFailure().hasMessageMatching(".*Could not cast literal \"-1996-09-14\" to type DATE.*");
+                .failure().hasMessageMatching(".*Could not cast literal \"-1996-09-14\" to type DATE.*");
     }
 
     @Test
@@ -825,8 +815,7 @@ public abstract class BaseBigQueryConnectorTest
 
             // Verify query cache is empty
             assertThat(query(createNeverDisposition, "SELECT * FROM test." + materializedView))
-                    // TODO should be TrinoException, provide a better error message
-                    .nonTrinoExceptionFailure().hasMessageContaining("Not found");
+                    .failure().hasMessageMatching("Failed to run the query: Not found: Table .* was not found .*");
             // Populate cache and verify it
             assertQuery(queryResultsCacheSession, "SELECT * FROM test." + materializedView, "VALUES 5");
             assertQuery(createNeverDisposition, "SELECT * FROM test." + materializedView, "VALUES 5");
@@ -878,8 +867,7 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery("DESCRIBE test.\"" + wildcardTable + "\"", "VALUES ('value', 'varchar', '', '')");
 
             assertThat(query("SELECT * FROM test.\"" + wildcardTable + "\""))
-                    // TODO should be TrinoException
-                    .nonTrinoExceptionFailure().hasMessageContaining("Cannot read field of type INT64 as STRING Field: value");
+                    .failure().hasMessageContaining("Cannot read field of type INT64 as STRING Field: value");
         }
         finally {
             onBigQuery("DROP TABLE IF EXISTS test." + firstTable);
@@ -891,7 +879,7 @@ public abstract class BaseBigQueryConnectorTest
     public void testMissingWildcardTable()
     {
         assertThat(query("SELECT * FROM test.\"test_missing_wildcard_table_*\""))
-                .nonTrinoExceptionFailure().hasMessageEndingWith("does not match any table.");
+                .failure().hasMessageMatching(".* Table .* does not exist");
     }
 
     @Override
@@ -1030,7 +1018,7 @@ public abstract class BaseBigQueryConnectorTest
             // Check that column 'two' is not supported.
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'test' AND table_name = '" + tableName + "'", "VALUES 'one', 'three'");
             assertThat(query("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM test." + tableName + "'))"))
-                    .nonTrinoExceptionFailure().hasMessageContaining("Unsupported type");
+                    .failure().hasMessageContaining("Unsupported type");
         }
         finally {
             onBigQuery("DROP TABLE IF EXISTS test." + tableName);

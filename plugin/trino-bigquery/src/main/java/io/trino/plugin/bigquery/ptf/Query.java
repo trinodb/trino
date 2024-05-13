@@ -27,6 +27,7 @@ import io.trino.plugin.bigquery.BigQueryColumnHandle;
 import io.trino.plugin.bigquery.BigQueryQueryRelationHandle;
 import io.trino.plugin.bigquery.BigQueryTableHandle;
 import io.trino.plugin.bigquery.BigQueryTypeManager;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -47,6 +48,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -113,7 +115,8 @@ public class Query
             ImmutableList.Builder<BigQueryColumnHandle> columnsBuilder = ImmutableList.builderWithExpectedSize(schema.getFields().size());
             for (com.google.cloud.bigquery.Field field : schema.getFields()) {
                 if (!typeManager.isSupportedType(field)) {
-                    throw new UnsupportedOperationException("Unsupported type: " + field.getType());
+                    // TODO: Skip unsupported type instead of throwing an exception
+                    throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + field.getType());
                 }
                 columnsBuilder.add(typeManager.toColumnHandle(field));
             }
