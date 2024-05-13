@@ -256,8 +256,8 @@ public final class ParquetMetadataConverter
                     BinaryTruncator truncator = BinaryTruncator.getTruncator(stats.type());
                     byte[] originalMin = stats.getMinBytes();
                     byte[] originalMax = stats.getMaxBytes();
-                    min = tuncateMin(truncator, truncateLength, originalMin);
-                    max = tuncateMax(truncator, truncateLength, originalMax);
+                    min = truncateMin(truncator, truncateLength, originalMin);
+                    max = truncateMax(truncator, truncateLength, originalMax);
                     isMinValueExact = originalMin.length == min.length;
                     isMaxValueExact = originalMax.length == max.length;
                 }
@@ -384,12 +384,12 @@ public final class ParquetMetadataConverter
                 binaryStats.isSmallerThanWithTruncation(MAX_STATS_SIZE, truncateLength);
     }
 
-    private static byte[] tuncateMin(BinaryTruncator truncator, int truncateLength, byte[] input)
+    private static byte[] truncateMin(BinaryTruncator truncator, int truncateLength, byte[] input)
     {
         return truncator.truncateMin(Binary.fromConstantByteArray(input), truncateLength).getBytes();
     }
 
-    private static byte[] tuncateMax(BinaryTruncator truncator, int truncateLength, byte[] input)
+    private static byte[] truncateMax(BinaryTruncator truncator, int truncateLength, byte[] input)
     {
         return truncator.truncateMax(Binary.fromConstantByteArray(input), truncateLength).getBytes();
     }
