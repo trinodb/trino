@@ -215,9 +215,6 @@ public class ServerMainModule
 
         QueryManagerConfig queryManagerConfig = buildConfigObject(QueryManagerConfig.class);
         RetryPolicy retryPolicy = queryManagerConfig.getRetryPolicy();
-        if (retryPolicy == TASK) {
-            configBinder(binder).bindConfigDefaults(QueryManagerConfig.class, QueryManagerConfig::applyFaultTolerantExecutionDefaults);
-        }
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
         if (retryPolicy == TASK) {

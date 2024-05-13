@@ -35,7 +35,7 @@ public class TestDirectExchangeClientConfig
         assertRecordedDefaults(recordDefaults(DirectExchangeClientConfig.class)
                 .setMaxBufferSize(DataSize.of(32, Unit.MEGABYTE))
                 .setConcurrentRequestMultiplier(3)
-                .setMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
+                .setMaxErrorDuration(new Duration(1, TimeUnit.MINUTES))
                 .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
                 .setPageBufferClientMaxCallbackThreads(25)
                 .setClientThreads(25)

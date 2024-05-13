@@ -85,10 +85,7 @@ public class QueryManagerConfig
     private int maxStateMachineCallbackThreads = 5;
     private int maxSplitManagerCallbackThreads = 100;
 
-    /**
-     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
-     */
-    private Duration remoteTaskMaxErrorDuration = new Duration(5, TimeUnit.MINUTES);
+    private Duration remoteTaskMaxErrorDuration = new Duration(1, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
     private String queryExecutionPolicy = "phased";
@@ -1134,10 +1131,5 @@ public class QueryManagerConfig
     {
         this.faultTolerantExecutionAdaptiveQueryPlanningEnabled = faultTolerantExecutionSmallStageEstimationEnabled;
         return this;
-    }
-
-    public void applyFaultTolerantExecutionDefaults()
-    {
-        remoteTaskMaxErrorDuration = new Duration(1, MINUTES);
     }
 }

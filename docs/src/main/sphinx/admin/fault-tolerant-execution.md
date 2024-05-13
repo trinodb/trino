@@ -134,10 +134,6 @@ following changes:
 - Set the `query.low-memory-killer.delay`
   {doc}`query management property </admin/properties-query-management>` to
   `0s` so the cluster immediately unblocks nodes that run out of memory.
-- Modify the `query.remote-task.max-error-duration`
-  {doc}`query management property </admin/properties-query-management>`
-  to adjust how long Trino allows a remote task to try reconnecting before
-  considering it lost and rescheduling.
 
 :::{note}
 A `TASK` retry policy is best suited for large batch queries, but this
