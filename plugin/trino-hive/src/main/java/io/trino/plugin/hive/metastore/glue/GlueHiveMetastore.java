@@ -88,7 +88,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -98,11 +97,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -128,6 +124,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
+import static io.trino.plugin.hive.metastore.glue.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.fromGlueStatistics;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueColumnStatistics;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueDatabaseInput;
@@ -1594,29 +1591,7 @@ public class GlueHiveMetastore
     private <T> List<T> runParallel(Collection<Callable<T>> tasks)
             throws ExecutionException
     {
-        CompletionService<T> completionService = new ExecutorCompletionService<>(executor);
-        List<Future<T>> futures = new ArrayList<>(tasks.size());
-        for (Callable<T> task : tasks) {
-            futures.add(completionService.submit(task));
-        }
-        try {
-            for (int i = 0; i < futures.size(); i++) {
-                completionService.take();
-            }
-
-            List<T> results = new ArrayList<>(futures.size());
-            for (Future<T> future : futures) {
-                results.add(future.get());
-            }
-            return Collections.unmodifiableList(results);
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new TrinoException(HIVE_METASTORE_ERROR, "Interrupted", e);
-        }
-        finally {
-            futures.forEach(future -> future.cancel(true));
-        }
+        return processWithAdditionalThreads(tasks, executor);
     }
 
     public enum TableKind
