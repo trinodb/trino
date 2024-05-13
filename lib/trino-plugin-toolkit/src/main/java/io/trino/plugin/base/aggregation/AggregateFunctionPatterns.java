@@ -18,7 +18,6 @@ import io.trino.matching.Match;
 import io.trino.matching.Pattern;
 import io.trino.matching.PatternVisitor;
 import io.trino.matching.Property;
-import io.trino.plugin.base.expression.ConnectorExpressionPatterns;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
@@ -26,7 +25,6 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public final class AggregateFunctionPatterns
@@ -105,11 +103,5 @@ public final class AggregateFunctionPatterns
             {
             }
         };
-    }
-
-    @Deprecated
-    public static Predicate<List<? extends ConnectorExpression>> expressionTypes(Type... types)
-    {
-        return ConnectorExpressionPatterns.expressionTypes(types);
     }
 }
