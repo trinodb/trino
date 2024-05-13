@@ -2392,14 +2392,14 @@ public class DeltaLakeMetadata
     public Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
-        return switch (executeHandle.getProcedureId()) {
+        return switch (executeHandle.procedureId()) {
             case OPTIMIZE -> getLayoutForOptimize(executeHandle);
         };
     }
 
     private Optional<ConnectorTableLayout> getLayoutForOptimize(DeltaLakeTableExecuteHandle executeHandle)
     {
-        DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.getProcedureHandle();
+        DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.procedureHandle();
         List<String> partitionColumnNames = optimizeHandle.getMetadataEntry().getLowercasePartitionColumns();
         if (partitionColumnNames.isEmpty()) {
             return Optional.empty();
@@ -2422,7 +2422,7 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) updatedSourceTableHandle;
-        return switch (executeHandle.getProcedureId()) {
+        return switch (executeHandle.procedureId()) {
             case OPTIMIZE -> beginOptimize(session, executeHandle, table);
         };
     }
@@ -2432,7 +2432,7 @@ public class DeltaLakeMetadata
             DeltaLakeTableExecuteHandle executeHandle,
             DeltaLakeTableHandle table)
     {
-        DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.getProcedureHandle();
+        DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.procedureHandle();
 
         checkWriteAllowed(session, table);
         checkSupportedWriterVersion(table);
@@ -2446,19 +2446,19 @@ public class DeltaLakeMetadata
     public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
-        switch (executeHandle.getProcedureId()) {
+        switch (executeHandle.procedureId()) {
             case OPTIMIZE:
                 finishOptimize(session, executeHandle, fragments, splitSourceInfo);
                 return;
         }
-        throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
+        throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
     }
 
     private void finishOptimize(ConnectorSession session, DeltaLakeTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
-        DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.getProcedureHandle();
+        DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.procedureHandle();
         long readVersion = optimizeHandle.getCurrentVersion().orElseThrow(() -> new IllegalArgumentException("currentVersion not set"));
-        String tableLocation = executeHandle.getTableLocation();
+        String tableLocation = executeHandle.tableLocation();
 
         // paths to be deleted
         Set<DeltaLakeScannedDataFile> scannnedDataFiles = splitSourceInfo.stream()
@@ -2472,7 +2472,7 @@ public class DeltaLakeMetadata
                 .collect(toImmutableList());
 
         if (optimizeHandle.isRetriesEnabled()) {
-            cleanExtraOutputFiles(session, Location.of(executeHandle.getTableLocation()), dataFileInfos);
+            cleanExtraOutputFiles(session, Location.of(executeHandle.tableLocation()), dataFileInfos);
         }
 
         boolean writeCommitted = false;
@@ -2509,8 +2509,8 @@ public class DeltaLakeMetadata
             Optional<Long> checkpointInterval = Optional.of(1L); // force checkpoint
             writeCheckpointIfNeeded(
                     session,
-                    executeHandle.getSchemaTableName(),
-                    executeHandle.getTableLocation(),
+                    executeHandle.schemaTableName(),
+                    executeHandle.tableLocation(),
                     optimizeHandle.getCurrentVersion().orElseThrow(),
                     checkpointInterval,
                     commitVersion);
