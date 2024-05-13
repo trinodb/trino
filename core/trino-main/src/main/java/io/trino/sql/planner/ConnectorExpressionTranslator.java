@@ -91,6 +91,7 @@ import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.TRY_CAST_FUNCTION_NAME;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULUS;
@@ -252,6 +253,10 @@ public final class ConnectorExpressionTranslator
                 return translateCast(call.getType(), call.getArguments().get(0));
             }
 
+            if (TRY_CAST_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
+                return translateTryCast(call.getType(), call.getArguments().get(0));
+            }
+
             // comparisons
             if (call.getArguments().size() == 2) {
                 Optional<Comparison.Operator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
@@ -292,6 +297,21 @@ public final class ConnectorExpressionTranslator
                     fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));
 
             return translateCall(call.getFunctionName().getName(), resolved, call.getArguments());
+        }
+
+        private Optional<Expression> translateTryCast(Type type, ConnectorExpression argument)
+        {
+            Optional<Expression> translatedArgument = translate(argument);
+            if (translatedArgument.isEmpty()) {
+                return Optional.empty();
+            }
+
+            return Optional.of(new Call(
+                    plannerContext.getMetadata().getCoercion(
+                            builtinFunctionName("$try_cast"),
+                            argument.getType(),
+                            type),
+                    ImmutableList.of(translatedArgument.get())));
         }
 
         private Optional<Expression> translateCall(String functionName, ResolvedFunction resolved, List<ConnectorExpression> arguments)

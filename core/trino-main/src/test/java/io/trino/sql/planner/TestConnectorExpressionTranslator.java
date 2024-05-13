@@ -58,6 +58,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
@@ -112,6 +113,7 @@ public class TestConnectorExpressionTranslator
     private static final ResolvedFunction NEGATION_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(DOUBLE));
 
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
+            .put(new Symbol(BIGINT, "bigint_symbol"), BIGINT)
             .put(new Symbol(DOUBLE, "double_symbol_1"), DOUBLE)
             .put(new Symbol(DOUBLE, "double_symbol_2"), DOUBLE)
             .put(new Symbol(ROW_TYPE, "row_symbol_1"), ROW_TYPE)
@@ -388,6 +390,26 @@ public class TestConnectorExpressionTranslator
                         NULLIF_FUNCTION_NAME,
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new Variable("varchar_symbol_1", VARCHAR_TYPE))));
+    }
+
+    @Test
+    public void testTranslateTryCast()
+    {
+        TransactionManager transactionManager = new TestingTransactionManager();
+        Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
+        transaction(transactionManager, metadata, new AllowAllAccessControl())
+                .readOnly()
+                .execute(TEST_SESSION, transactionSession -> {
+                    assertTranslationRoundTrips(
+                            transactionSession,
+                            new Call(
+                                PLANNER_CONTEXT.getMetadata().getCoercion(builtinFunctionName("$try_cast"), BIGINT, VARCHAR_TYPE),
+                                ImmutableList.of(new Reference(BIGINT, "bigint_symbol"))),
+                            new io.trino.spi.expression.Call(
+                                    VARCHAR_TYPE,
+                                    new FunctionName("$try_cast"),
+                                    List.of(new Variable("bigint_symbol", BIGINT))));
+                });
     }
 
     @Test
