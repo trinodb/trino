@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode;
 
@@ -24,39 +22,16 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class AnalyzeHandle
+public record AnalyzeHandle(
+        AnalyzeMode analyzeMode,
+        Optional<Instant> filesModifiedAfter,
+        Optional<Set<String>> columns)
 {
-    private final AnalyzeMode analyzeMode;
-    private final Optional<Instant> filesModifiedAfter;
-    private final Optional<Set<String>> columns;
-
-    @JsonCreator
-    public AnalyzeHandle(
-            @JsonProperty("analyzeMode") AnalyzeMode analyzeMode,
-            @JsonProperty("startTime") Optional<Instant> filesModifiedAfter,
-            @JsonProperty("columns") Optional<Set<String>> columns)
+    public AnalyzeHandle
     {
-        this.analyzeMode = requireNonNull(analyzeMode, "analyzeMode is null");
-        this.filesModifiedAfter = requireNonNull(filesModifiedAfter, "filesModifiedAfter is null");
+        requireNonNull(analyzeMode, "analyzeMode is null");
+        requireNonNull(filesModifiedAfter, "filesModifiedAfter is null");
         requireNonNull(columns, "columns is null");
-        this.columns = columns.map(ImmutableSet::copyOf);
-    }
-
-    @JsonProperty
-    public AnalyzeMode getAnalyzeMode()
-    {
-        return analyzeMode;
-    }
-
-    @JsonProperty
-    public Optional<Instant> getFilesModifiedAfter()
-    {
-        return filesModifiedAfter;
-    }
-
-    @JsonProperty
-    public Optional<Set<String>> getColumns()
-    {
-        return columns;
+        columns = columns.map(ImmutableSet::copyOf);
     }
 }
