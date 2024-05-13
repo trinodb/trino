@@ -1494,7 +1494,7 @@ public class TestCassandraConnectorTest
         String tableName = "test_create" + randomNameSuffix();
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'CREATE TABLE tpch." + tableName + "(col INT PRIMARY KEY)'))"))
-                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
+                .failure().hasMessage("Cannot get column definition");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
@@ -1520,9 +1520,9 @@ public class TestCassandraConnectorTest
                 .build(), new Duration(1, MINUTES));
 
         assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (3)'))"))
-                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
+                .failure().hasMessage("Cannot get column definition");
         assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'DELETE FROM tpch." + tableName + " WHERE col = 1'))"))
-                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
+                .failure().hasMessage("Cannot get column definition");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 1");
 
