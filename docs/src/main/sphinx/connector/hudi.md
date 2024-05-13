@@ -19,7 +19,7 @@ To use the Hudi connector, you need:
 
 ## General configuration
 
-To configure the Hive connector, create a catalog properties file
+To configure the Hudi connector, create a catalog properties file
 `etc/catalog/example.properties` that references the `hudi`
 connector and defines the HMS to use with the `hive.metastore.uri`
 configuration property:
