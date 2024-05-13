@@ -98,12 +98,12 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 636))
                         .add(new CacheOperation("Alluxio.readExternal", "00000000000000000002.json", 0, 636))
                         .add(new CacheOperation("Alluxio.writeCache", "00000000000000000002.json", 0, 636))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p1/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p2/", 0, 218))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 218))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p1/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p2/", 0, 220))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 220))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 220))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
@@ -111,8 +111,8 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 757))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 636))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 636))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 220))
                         .build());
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('p3', '3-xyz')", 1);
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('p4', '4-xyz')", 1);
@@ -128,17 +128,17 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000005.json", 0, 636))
                         .add(new CacheOperation("Alluxio.readExternal", "00000000000000000005.json", 0, 636))
                         .add(new CacheOperation("Alluxio.writeCache", "00000000000000000005.json", 0, 636))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p3/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p4/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p5/", 0, 218))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p3/", 0, 218))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p4/", 0, 218))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p3/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p4/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p5/", 0, 220))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p3/", 0, 220))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p4/", 0, 220))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/", 0, 220))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
@@ -149,11 +149,11 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000003.json", 0, 636))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000004.json", 0, 636))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000005.json", 0, 636))
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 218), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 218), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 218), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 220), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 220), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 220), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 220), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 220), 1)
                         .build());
     }
 
