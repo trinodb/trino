@@ -55,11 +55,6 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         // (the most significant byte is the zeroth element)
     }
 
-    /**
-     * This method uses Unsafe operations on Slice.
-     * Always check if needed data is available with ensureBytesAvailable method.
-     * Failing to do so may result in instant JVM crash.
-     */
     public void getShortDecimalValues(SimpleSliceInputStream input, long[] values, int offset, int length)
     {
         decoder.decode(input, values, offset, length);
@@ -106,10 +101,10 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
 
         private long decode(SimpleSliceInputStream input, int index)
         {
-            long value = (input.getByteUnsafe(index + 6) & 0xFFL)
-                    | (input.getByteUnsafe(index + 5) & 0xFFL) << 8
-                    | (input.getByteUnsafe(index + 4) & 0xFFL) << 16
-                    | (Integer.reverseBytes(input.getIntUnsafe(index)) & 0xFFFFFFFFL) << 24;
+            long value = (input.getByteUnchecked(index + 6) & 0xFFL)
+                    | (input.getByteUnchecked(index + 5) & 0xFFL) << 8
+                    | (input.getByteUnchecked(index + 4) & 0xFFL) << 16
+                    | (Integer.reverseBytes(input.getIntUnchecked(index)) & 0xFFFFFFFFL) << 24;
             return propagateSignBit(value, 8);
         }
     }
@@ -139,9 +134,9 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
 
         private long decode(SimpleSliceInputStream input, int index)
         {
-            long value = (input.getByteUnsafe(index + 5) & 0xFFL)
-                    | (input.getByteUnsafe(index + 4) & 0xFFL) << 8
-                    | (Integer.reverseBytes(input.getIntUnsafe(index)) & 0xFFFFFFFFL) << 16;
+            long value = (input.getByteUnchecked(index + 5) & 0xFFL)
+                    | (input.getByteUnchecked(index + 4) & 0xFFL) << 8
+                    | (Integer.reverseBytes(input.getIntUnchecked(index)) & 0xFFFFFFFFL) << 16;
             return propagateSignBit(value, 16);
         }
     }
@@ -171,8 +166,8 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
 
         private long decode(SimpleSliceInputStream input, int index)
         {
-            long value = (input.getByteUnsafe(index + 4) & 0xFFL)
-                    | (Integer.reverseBytes(input.getIntUnsafe(index)) & 0xFFFFFFFFL) << 8;
+            long value = (input.getByteUnchecked(index + 4) & 0xFFL)
+                    | (Integer.reverseBytes(input.getIntUnchecked(index)) & 0xFFFFFFFFL) << 8;
             return propagateSignBit(value, 24);
         }
     }
@@ -224,9 +219,9 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
 
         private long decode(SimpleSliceInputStream input, int index)
         {
-            long value = (input.getByteUnsafe(index + 2) & 0xFFL)
-                    | (input.getByteUnsafe(index + 1) & 0xFFL) << 8
-                    | (input.getByteUnsafe(index) & 0xFFL) << 16;
+            long value = (input.getByteUnchecked(index + 2) & 0xFFL)
+                    | (input.getByteUnchecked(index + 1) & 0xFFL) << 8
+                    | (input.getByteUnchecked(index) & 0xFFL) << 16;
             return propagateSignBit(value, 40);
         }
     }
