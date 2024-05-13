@@ -227,7 +227,7 @@ ensure that each task has a minimum amount of work to perform. Requires
 ## `query.remote-task.max-error-duration`
 
 - **Type:** {ref}`prop-type-duration`
-- **Default value:** `5m`
+- **Default value:** `1m`
 
 Timeout value for remote tasks that fail to communicate with the coordinator. If
 the coordinator is unable to receive updates from a remote task before this
