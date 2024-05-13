@@ -200,7 +200,7 @@ public class PrimitiveColumnWriter
                 totalUnCompressedSize,
                 totalCompressedSize,
                 -1);
-        columnMetaData.setStatistics(ParquetMetadataUtils.toParquetStatistics(columnStatistics, MAX_STATISTICS_LENGTH_IN_BYTES));
+        columnMetaData.setStatistics(ParquetMetadataConverter.toParquetStatistics(columnStatistics, MAX_STATISTICS_LENGTH_IN_BYTES));
         ImmutableList.Builder<PageEncodingStats> pageEncodingStats = ImmutableList.builder();
         dataPagesWithEncoding.entrySet().stream()
                 .map(encodingAndCount -> new PageEncodingStats(PageType.DATA_PAGE, encodingAndCount.getKey(), encodingAndCount.getValue()))
