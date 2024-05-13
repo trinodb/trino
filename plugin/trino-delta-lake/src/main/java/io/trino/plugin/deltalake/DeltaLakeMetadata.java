@@ -2232,7 +2232,7 @@ public class DeltaLakeMetadata
                 .collect(toImmutableList());
 
         List<DataFileInfo> allFiles = mergeResults.stream()
-                .map(DeltaLakeMergeResult::getNewFile)
+                .map(DeltaLakeMergeResult::newFile)
                 .flatMap(Optional::stream)
                 .collect(toImmutableList());
 
@@ -2278,10 +2278,10 @@ public class DeltaLakeMetadata
             }
 
             for (DeltaLakeMergeResult mergeResult : mergeResults) {
-                if (mergeResult.getOldFile().isEmpty()) {
+                if (mergeResult.oldFile().isEmpty()) {
                     continue;
                 }
-                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(mergeResult.getOldFile().get()), createPartitionValuesMap(partitionColumns, mergeResult.getPartitionValues()), writeTimestamp, true));
+                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(mergeResult.oldFile().get()), createPartitionValuesMap(partitionColumns, mergeResult.partitionValues()), writeTimestamp, true));
             }
 
             appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, getExactColumnNames(handle.getMetadataEntry()), true);
