@@ -31,19 +31,23 @@ public class TestLanceConfig
         assertRecordedDefaults(recordDefaults(LanceConfig.class)
                 .setFetchRetryCount(5)
                 .setConnectionTimeout(Duration.valueOf("1m"))
-                .setLanceDbUri("dummy://db.connect"));
+                .setLanceDbUri("dummy://db.connect")
+                .setConnectorType(LanceConfig.Type.DATASET.name()));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         String testPath = "file://path/to/db";
-        Map<String, String> properties = ImmutableMap.of("lance.uri", testPath, "lance.connection-retry-count", "1", "lance.connection-timeout", "30s");
+        Map<String, String> properties = ImmutableMap.of(
+                "lance.uri", testPath, "lance.connection-retry-count", "1",
+                "lance.connection-timeout", "30s", "lance.connector-type", LanceConfig.Type.FRAGMENT.name());
 
         LanceConfig expected = new LanceConfig()
                 .setLanceDbUri(testPath)
                 .setFetchRetryCount(1)
-                .setConnectionTimeout(Duration.valueOf("30s"));
+                .setConnectionTimeout(Duration.valueOf("30s"))
+                .setConnectorType(LanceConfig.Type.FRAGMENT.name());
 
         assertFullMapping(properties, expected);
     }

@@ -34,6 +34,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,7 +47,6 @@ import static java.util.function.UnaryOperator.identity;
 public class LanceMetadata
         implements ConnectorMetadata
 {
-    public static final String SCHEMA_NAME = "default";
     private final LanceReader lanceReader;
     private final LanceConfig lanceConfig;
 
@@ -58,24 +58,22 @@ public class LanceMetadata
         this.lanceConfig = lanceConfig;
     }
 
-    public static List<ColumnMetadata> getColumnsMetadata(LanceReader lanceReader, String tableName)
-    {
-        Map<String, ColumnHandle> columnHandlers = lanceReader.getColumnHandle(tableName);
-        return columnHandlers.values().stream().map(c -> ((LanceColumnHandle) c).getColumnMetadata())
-                .collect(toImmutableList());
-    }
-
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.of(SCHEMA_NAME);
+        return ImmutableList.of(LanceReader.SCHEMA);
     }
 
     @Override
     public LanceTableHandle getTableHandle(ConnectorSession session, SchemaTableName name,
             Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
-        return new LanceTableHandle(name.getSchemaName(), name.getTableName(), lanceReader.getTablePath(name).toUri().toString());
+        Path tablePath = lanceReader.getTablePath(name);
+        if (tablePath != null) {
+            return new LanceTableHandle(name.getSchemaName(), name.getTableName(), tablePath.toUri().toString());
+        } else {
+            return null;
+        }
     }
 
     @Override
@@ -83,7 +81,7 @@ public class LanceMetadata
     {
         LanceTableHandle lanceTableHandle = (LanceTableHandle) table;
         try {
-            List<ColumnMetadata> columnsMetadata = getColumnsMetadata(lanceReader, ((LanceTableHandle) table).getTableName());
+            List<ColumnMetadata> columnsMetadata = lanceReader.getColumnsMetadata(((LanceTableHandle) table).getTableName());
             SchemaTableName schemaTableName =
                     new SchemaTableName(lanceTableHandle.getSchemaName(), lanceTableHandle.getTableName());
             return new ConnectorTableMetadata(schemaTableName, columnsMetadata);
@@ -96,7 +94,7 @@ public class LanceMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaNameOrNull)
     {
-        return lanceReader.listTables(session, schemaNameOrNull.isPresent() ? schemaNameOrNull.get() : SCHEMA_NAME);
+        return lanceReader.listTables(session, schemaNameOrNull.orElse(LanceReader.SCHEMA));
     }
 
     @Override
@@ -119,7 +117,7 @@ public class LanceMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : lanceReader.listTables(session, prefix.toString())) {
             ConnectorTableMetadata tableMetadata =
-                    new ConnectorTableMetadata(tableName, getColumnsMetadata(lanceReader, tableName.getTableName()));
+                    new ConnectorTableMetadata(tableName, lanceReader.getColumnsMetadata(tableName.getTableName()));
             // table can disappear during listing operation
             if (tableMetadata != null) {
                 columns.put(tableName, tableMetadata.getColumns());

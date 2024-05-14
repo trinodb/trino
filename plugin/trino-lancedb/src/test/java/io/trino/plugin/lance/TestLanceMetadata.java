@@ -70,8 +70,8 @@ public class TestLanceMetadata
     public void testGetTableHandle()
     {
         assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("default", "test_table1"), Optional.empty(), Optional.empty())).isEqualTo(TEST_TABLE_1_HANDLE);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("anything", "test_table2"), Optional.empty(), Optional.empty())).isEqualTo(TEST_TABLE_2_HANDLE);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "table"), Optional.empty(), Optional.empty())).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("default", "test_table2"), Optional.empty(), Optional.empty())).isEqualTo(TEST_TABLE_2_HANDLE);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("other_schema", "test_table3"), Optional.empty(), Optional.empty())).isNull();
         assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown"), Optional.empty(), Optional.empty())).isNull();
     }
 

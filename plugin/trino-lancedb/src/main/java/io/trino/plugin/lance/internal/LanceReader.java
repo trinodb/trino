@@ -19,6 +19,7 @@ import io.trino.plugin.lance.LanceColumnHandle;
 import io.trino.plugin.lance.LanceConfig;
 import io.trino.plugin.lance.LanceTableHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import org.apache.arrow.memory.BufferAllocator;
@@ -36,8 +37,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 public class LanceReader
 {
+    // TODO: support schema
+    public static final String SCHEMA = "default";
     private static final BufferAllocator allocator = new RootAllocator(
             RootAllocator.configBuilder().from(RootAllocator.defaultConfig()).maxAllocation(4 * 1024 * 1024).build());
     private static final String LOCAL_FILE_PREFIX = "file://";
@@ -54,15 +59,14 @@ public class LanceReader
 
     public List<SchemaTableName> listTables(ConnectorSession session, String schema)
     {
-        // TODO: local fs impl here to be replaced by
-        // https://lancedb.github.io/lancedb/python/python/#lancedb.db.DBConnection.table_names
-        try (Stream<Path> stream = Files.list(dbPath)) {
-            return stream.filter(Files::isDirectory)
-                    .map(f -> new SchemaTableName(schema, f.getFileName().toString())).collect(Collectors.toList());
-        }
-        catch (IOException e) {
-            return Collections.emptyList();
-        }
+        return listTables(dbPath, schema);
+    }
+
+    public List<ColumnMetadata> getColumnsMetadata(String tableName)
+    {
+        Map<String, ColumnHandle> columnHandlers = this.getColumnHandle(tableName);
+        return columnHandlers.values().stream().map(c -> ((LanceColumnHandle) c).getColumnMetadata())
+                .collect(toImmutableList());
     }
 
     public Map<String, ColumnHandle> getColumnHandle(String tableName)
@@ -76,12 +80,35 @@ public class LanceReader
 
     public Path getTablePath(SchemaTableName schemaTableName)
     {
-        return getTablePath(dbPath, schemaTableName.getTableName());
+        // TODO: local fs impl here to be replaced by
+        // https://lancedb.github.io/lancedb/python/python/#lancedb.db.DBConnection.open_table
+        List<SchemaTableName> schemaTableNameList = listTables(dbPath, schemaTableName.getSchemaName());
+        if (schemaTableNameList.contains(schemaTableName)) {
+            return getTablePath(dbPath, schemaTableName.getTableName());
+        } else {
+            return null;
+        }
     }
 
     public List<DatasetFragment> getFragments(LanceTableHandle tableHandle)
     {
         return getFragments(getTablePath(dbPath, tableHandle.getTableName()));
+    }
+
+    private static List<SchemaTableName> listTables(Path dbPath, String schema) {
+        // TODO: local fs impl here to be replaced by
+        // https://lancedb.github.io/lancedb/python/python/#lancedb.db.DBConnection.table_names
+        if (SCHEMA.equals(schema)) {
+            try (Stream<Path> stream = Files.list(dbPath)) {
+                return stream.filter(Files::isDirectory)
+                        .map(f -> new SchemaTableName(schema, f.getFileName().toString())).collect(Collectors.toList());
+            }
+            catch (IOException e) {
+                return Collections.emptyList();
+            }
+        } else {
+            return Collections.emptyList();
+        }
     }
 
     private static List<DatasetFragment> getFragments(Path tablePath)

@@ -77,7 +77,7 @@ public class LanceConfig
         return Type.valueOf(this.connectorType);
     }
 
-    @Config("lance.connector_type")
+    @Config("lance.connector-type")
     public LanceConfig setConnectorType(String connectorType)
     {
         // use enum to check and ensure connector type is supported
