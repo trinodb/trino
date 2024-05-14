@@ -380,7 +380,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
     {
         boolean allowed = sessionPropertyRules.stream()
                 .map(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), propertyName))
@@ -390,12 +390,6 @@ public class FileBasedSystemAccessControl
         if (!allowed) {
             denySetSystemSessionProperty(propertyName);
         }
-    }
-
-    @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
-    {
-        checkCanSetSystemSessionProperty(identity, propertyName);
     }
 
     @Override

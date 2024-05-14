@@ -108,12 +108,6 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
-    {
-        delegate().checkCanSetSystemSessionProperty(identity, propertyName);
-    }
-
-    @Override
     public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
     {
         delegate().checkCanSetSystemSessionProperty(identity, queryId, propertyName);
