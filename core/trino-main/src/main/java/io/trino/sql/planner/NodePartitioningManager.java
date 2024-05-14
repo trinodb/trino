@@ -26,6 +26,7 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
@@ -50,7 +51,9 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.util.Failures.checkCondition;
@@ -235,6 +238,26 @@ public class NodePartitioningManager
         });
     }
 
+    /**
+     * Query plans typically divide data into buckets to help split the work among Trino nodes.  How many buckets?  That is dictated by the connector, via
+     * {@link #getConnectorBucketNodeMap}.  But when that returns empty, this method should be used to determine how many buckets to create.
+     *
+     * @return The default bucket count to use when the connector doesn't provide a number.
+     */
+    private int getDefaultBucketCount(Session session, PartitioningHandle partitioningHandle)
+    {
+        // The goal is to have enough buckets to evenly distribute them across tasks created.  The simplest way to do that is to have exactly as many buckets as there are tasks;
+        // then each task gets one bucket.  So let's return the total number of tasks here.  This number, unfortunately, is hard to know precisely because of the variety of ways in
+        // which schedulers create tasks.  We therefore have to estimate.
+        if (getRetryPolicy(session) != RetryPolicy.TASK) {
+            // Pipeline schedulers typically create as many tasks as there are nodes.
+            return getNodeCount(session, partitioningHandle);
+        }
+        // The FTE scheduler usually creates as many tasks as there are partitions.
+        // TODO: get the actual number of partitions if PartitioningHandle ever offers it or if we get the partitioning scheme here as a parameter.
+        return getFaultTolerantExecutionMaxPartitionCount(session);
+    }
+
     public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
     {
         Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
@@ -245,7 +268,7 @@ public class NodePartitioningManager
         }
 
         List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
-        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(nodes::size);
+        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session, partitioningHandle));
         return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(nodes, bucketCount));
     }
 
