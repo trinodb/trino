@@ -13,6 +13,7 @@
  */
 package io.trino.server.remotetask;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.SetThreadName;
@@ -117,6 +118,17 @@ class DynamicFiltersFetcher
         fetchDynamicFiltersIfNecessary();
     }
 
+    private synchronized void stop()
+    {
+        running = false;
+    }
+
+    @VisibleForTesting
+    synchronized boolean isRunning()
+    {
+        return running;
+    }
+
     private synchronized void fetchDynamicFiltersIfNecessary()
     {
         // stopped?
@@ -182,17 +194,19 @@ class DynamicFiltersFetcher
                 updateStats(requestStartNanos);
                 try {
                     errorTracker.requestFailed(cause);
+                    fetchDynamicFiltersIfNecessary();
                 }
                 catch (Error e) {
+                    stop();
                     onFail.accept(e);
                     throw e;
                 }
                 catch (RuntimeException e) {
+                    stop();
                     onFail.accept(e);
                 }
                 finally {
                     cleanupRequest();
-                    fetchDynamicFiltersIfNecessary();
                 }
             }
         }
@@ -202,6 +216,7 @@ class DynamicFiltersFetcher
         {
             try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
                 updateStats(requestStartNanos);
+                stop();
                 onFail.accept(cause);
             }
             finally {

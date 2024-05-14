@@ -612,6 +612,12 @@ public final class HttpRemoteTask
         return whenSplitQueueHasSpace.createNewListener();
     }
 
+    @VisibleForTesting
+    DynamicFiltersFetcher getDynamicFiltersFetcher()
+    {
+        return dynamicFiltersFetcher;
+    }
+
     private synchronized void updateSplitQueueSpace()
     {
         // Must check whether the unacknowledged split count threshold is reached even without listeners registered yet
