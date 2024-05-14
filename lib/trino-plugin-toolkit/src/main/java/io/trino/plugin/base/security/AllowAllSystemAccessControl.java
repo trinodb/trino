@@ -81,9 +81,6 @@ public class AllowAllSystemAccessControl
     public void checkCanWriteSystemInformation(Identity identity) {}
 
     @Override
-    public void checkCanExecuteQuery(Identity identity) {}
-
-    @Override
     public void checkCanExecuteQuery(Identity identity, QueryId queryId) {}
 
     @Override
