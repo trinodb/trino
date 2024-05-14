@@ -325,19 +325,17 @@ public class TaskInfoFetcher
             try (SetThreadName ignored = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
                 lastUpdateNanos.set(System.nanoTime());
 
-                try {
-                    // if task not already done, record error
-                    if (!isDone(getTaskInfo())) {
-                        errorTracker.requestFailed(cause);
-                    }
+                // if task not already done, record error
+                if (!isDone(getTaskInfo())) {
+                    errorTracker.requestFailed(cause);
                 }
-                catch (Error e) {
-                    onFail.accept(e);
-                    throw e;
-                }
-                catch (RuntimeException e) {
-                    onFail.accept(e);
-                }
+            }
+            catch (Error e) {
+                onFail.accept(e);
+                throw e;
+            }
+            catch (RuntimeException e) {
+                onFail.accept(e);
             }
             finally {
                 cleanupRequest();
