@@ -243,7 +243,7 @@ public class TestOpaAccessControl
     @Test
     public void testStringResourceAction()
     {
-        testStringResourceAction("SetSystemSessionProperty", "systemSessionProperty", (accessControl, systemSecurityContext, argument) -> accessControl.checkCanSetSystemSessionProperty(systemSecurityContext.getIdentity(), argument));
+        testStringResourceAction("SetSystemSessionProperty", "systemSessionProperty", (accessControl, systemSecurityContext, argument) -> accessControl.checkCanSetSystemSessionProperty(systemSecurityContext.getIdentity(), TEST_QUERY_ID, argument));
         testStringResourceAction("CreateCatalog", "catalog", OpaAccessControl::checkCanCreateCatalog);
         testStringResourceAction("DropCatalog", "catalog", OpaAccessControl::checkCanDropCatalog);
         testStringResourceAction("ShowSchemas", "catalog", OpaAccessControl::checkCanShowSchemas);

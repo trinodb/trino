@@ -96,9 +96,6 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName) {}
-
-    @Override
     public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName) {}
 
     @Override
