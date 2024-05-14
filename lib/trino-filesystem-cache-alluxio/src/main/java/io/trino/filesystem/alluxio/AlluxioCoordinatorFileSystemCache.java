@@ -25,6 +25,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.cache.AllowFilesystemCacheOnCoordinator;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
+import jakarta.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -61,6 +62,15 @@ public class AlluxioCoordinatorFileSystemCache
             catch (Exception e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    @PreDestroy
+    public void shutdown()
+            throws Exception
+    {
+        if (alluxioFileSystemCache.isPresent()) {
+            alluxioFileSystemCache.get().shutdown();
         }
     }
 
