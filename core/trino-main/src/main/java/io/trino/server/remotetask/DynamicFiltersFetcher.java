@@ -185,25 +185,23 @@ class DynamicFiltersFetcher
         {
             try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
                 updateStats(requestStartNanos);
-                try {
-                    if (newDynamicFilterDomains.getVersion() < requestedDynamicFiltersVersion) {
-                        // Receiving older dynamic filter shouldn't happen unless
-                        // a worker is restarted and a new task was created as a byproduct
-                        // of the dynamic filter request. In that case, the task should be failed.
-                        stop();
-                        onFail.accept(new TrinoException(
-                                GENERIC_INTERNAL_ERROR,
-                                format("Dynamic filter response version (%s) is older than requested version (%s)", newDynamicFilterDomains.getVersion(), requestedDynamicFiltersVersion)));
-                    }
-                    else {
-                        updateDynamicFilterDomains(newDynamicFilterDomains);
-                        errorTracker.requestSucceeded();
-                        fetchDynamicFiltersIfNecessary();
-                    }
+                if (newDynamicFilterDomains.getVersion() < requestedDynamicFiltersVersion) {
+                    // Receiving older dynamic filter shouldn't happen unless
+                    // a worker is restarted and a new task was created as a byproduct
+                    // of the dynamic filter request. In that case, the task should be failed.
+                    stop();
+                    onFail.accept(new TrinoException(
+                            GENERIC_INTERNAL_ERROR,
+                            format("Dynamic filter response version (%s) is older than requested version (%s)", newDynamicFilterDomains.getVersion(), requestedDynamicFiltersVersion)));
                 }
-                finally {
-                    cleanupRequest();
+                else {
+                    updateDynamicFilterDomains(newDynamicFilterDomains);
+                    errorTracker.requestSucceeded();
+                    fetchDynamicFiltersIfNecessary();
                 }
+            }
+            finally {
+                cleanupRequest();
             }
         }
 
@@ -212,22 +210,20 @@ class DynamicFiltersFetcher
         {
             try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
                 updateStats(requestStartNanos);
-                try {
-                    errorTracker.requestFailed(cause);
-                    fetchDynamicFiltersIfNecessary();
-                }
-                catch (Error e) {
-                    stop();
-                    onFail.accept(e);
-                    throw e;
-                }
-                catch (RuntimeException e) {
-                    stop();
-                    onFail.accept(e);
-                }
-                finally {
-                    cleanupRequest();
-                }
+                errorTracker.requestFailed(cause);
+                fetchDynamicFiltersIfNecessary();
+            }
+            catch (Error e) {
+                stop();
+                onFail.accept(e);
+                throw e;
+            }
+            catch (RuntimeException e) {
+                stop();
+                onFail.accept(e);
+            }
+            finally {
+                cleanupRequest();
             }
         }
 
