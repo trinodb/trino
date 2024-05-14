@@ -26,6 +26,7 @@ import io.opentelemetry.api.trace.SpanBuilder;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.TaskId;
 import io.trino.server.DynamicFilterService;
+import io.trino.spi.TrinoException;
 
 import java.net.URI;
 import java.util.concurrent.Executor;
@@ -43,6 +44,8 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class DynamicFiltersFetcher
@@ -163,13 +166,19 @@ class DynamicFiltersFetcher
 
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, createFullJsonResponseHandler(dynamicFilterDomainsCodec));
-        addCallback(future, new SimpleHttpResponseHandler<>(new DynamicFiltersResponseCallback(), request.getUri(), stats), executor);
+        addCallback(future, new SimpleHttpResponseHandler<>(new DynamicFiltersResponseCallback(dynamicFiltersVersion), request.getUri(), stats), executor);
     }
 
     private class DynamicFiltersResponseCallback
             implements SimpleHttpResponseCallback<VersionedDynamicFilterDomains>
     {
         private final long requestStartNanos = System.nanoTime();
+        private final long requestedDynamicFiltersVersion;
+
+        public DynamicFiltersResponseCallback(long requestedDynamicFiltersVersion)
+        {
+            this.requestedDynamicFiltersVersion = requestedDynamicFiltersVersion;
+        }
 
         @Override
         public void success(VersionedDynamicFilterDomains newDynamicFilterDomains)
@@ -177,12 +186,23 @@ class DynamicFiltersFetcher
             try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
                 updateStats(requestStartNanos);
                 try {
-                    updateDynamicFilterDomains(newDynamicFilterDomains);
-                    errorTracker.requestSucceeded();
+                    if (newDynamicFilterDomains.getVersion() < requestedDynamicFiltersVersion) {
+                        // Receiving older dynamic filter shouldn't happen unless
+                        // a worker is restarted and a new task was created as a byproduct
+                        // of the dynamic filter request. In that case, the task should be failed.
+                        stop();
+                        onFail.accept(new TrinoException(
+                                GENERIC_INTERNAL_ERROR,
+                                format("Dynamic filter response version (%s) is older than requested version (%s)", newDynamicFilterDomains.getVersion(), requestedDynamicFiltersVersion)));
+                    }
+                    else {
+                        updateDynamicFilterDomains(newDynamicFilterDomains);
+                        errorTracker.requestSucceeded();
+                        fetchDynamicFiltersIfNecessary();
+                    }
                 }
                 finally {
                     cleanupRequest();
-                    fetchDynamicFiltersIfNecessary();
                 }
             }
         }
