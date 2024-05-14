@@ -157,7 +157,7 @@ public sealed class OpaAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
     {
         opaHighLevelClient.queryAndEnforce(
                 buildQueryContext(identity),
