@@ -36,6 +36,8 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_HIVE_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.nio.file.attribute.PosixFilePermissions.fromString;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -101,7 +103,9 @@ public class EnvMultinodeAzure
                                 .map(files -> files + "," + temptoConfig)
                                 .orElse(temptoConfig)));
 
-        builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")), CONTAINER_TRINO_HIVE_PROPERTIES);
+        builder.addConnector("delta_lake", forHostPath(configDir.getPath("delta.properties")), CONTAINER_TRINO_ETC + "/catalog/delta.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg.properties");
     }
 
     private Path getCoreSiteOverrideXml()
