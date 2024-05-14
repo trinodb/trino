@@ -25,7 +25,7 @@ import static java.math.BigDecimal.ONE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Use TestBigQueryTypeMapping
+ * @deprecated Use {@link BaseBigQueryTypeMapping}.
  */
 @Deprecated
 public class TestBigQueryType
