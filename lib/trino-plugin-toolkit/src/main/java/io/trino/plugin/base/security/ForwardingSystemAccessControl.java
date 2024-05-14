@@ -84,12 +84,6 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteQuery(Identity identity)
-    {
-        delegate().checkCanExecuteQuery(identity);
-    }
-
-    @Override
     public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
         delegate().checkCanExecuteQuery(identity, queryId);

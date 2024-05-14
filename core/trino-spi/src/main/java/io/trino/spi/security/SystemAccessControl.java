@@ -131,22 +131,10 @@ public interface SystemAccessControl
      * Checks if identity can execute a query.
      *
      * @throws AccessDeniedException if not allowed
-     * @deprecated use {@link #checkCanExecuteQuery(Identity, QueryId)}
-     */
-    @Deprecated
-    default void checkCanExecuteQuery(Identity identity)
-    {
-        denyExecuteQuery();
-    }
-
-    /**
-     * Checks if identity can execute a query.
-     *
-     * @throws AccessDeniedException if not allowed
      */
     default void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
-        checkCanExecuteQuery(identity);
+        denyExecuteQuery();
     }
 
     /**
