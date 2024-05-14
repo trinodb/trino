@@ -76,6 +76,7 @@ public final class TestGroups
     public static final String TWO_HIVES = "two_hives";
     public static final String ICEBERG = "iceberg";
     public static final String ICEBERG_GCS = "iceberg_gcs";
+    public static final String ICEBERG_AZURE = "iceberg_azure";
     public static final String ICEBERG_ALLUXIO_CACHING = "iceberg_alluxio_caching";
     public static final String ICEBERG_FORMAT_VERSION_COMPATIBILITY = "iceberg_format_version_compatibility";
     public static final String ICEBERG_REST = "iceberg_rest";
@@ -89,6 +90,7 @@ public final class TestGroups
     public static final String DELTA_LAKE_OSS = "delta-lake-oss";
     public static final String DELTA_LAKE_HDFS = "delta-lake-hdfs";
     public static final String DELTA_LAKE_MINIO = "delta-lake-minio";
+    public static final String DELTA_LAKE_AZURE = "delta-lake-azure";
     public static final String DELTA_LAKE_GCS = "delta-lake-gcs";
     public static final String DELTA_LAKE_DATABRICKS = "delta-lake-databricks";
     public static final String DELTA_LAKE_DATABRICKS_104 = "delta-lake-databricks-104";
