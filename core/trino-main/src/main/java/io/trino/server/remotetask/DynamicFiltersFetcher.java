@@ -204,6 +204,9 @@ class DynamicFiltersFetcher
                 updateStats(requestStartNanos);
                 onFail.accept(cause);
             }
+            finally {
+                cleanupRequest();
+            }
         }
     }
 

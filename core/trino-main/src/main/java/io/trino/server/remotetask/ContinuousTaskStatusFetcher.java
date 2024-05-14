@@ -217,6 +217,9 @@ class ContinuousTaskStatusFetcher
                 updateStats(requestStartNanos);
                 onFail.accept(cause);
             }
+            finally {
+                cleanupRequest();
+            }
         }
     }
 
