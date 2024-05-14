@@ -30,7 +30,6 @@ import io.trino.plugin.bigquery.ptf.Query;
 import io.trino.spi.NodeManager;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
-import java.lang.annotation.Target;
 import java.lang.management.ManagementFactory;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -43,10 +42,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.bigquery.BigQueryConfig.ARROW_SERIALIZATION_ENABLED;
-import static java.lang.annotation.ElementType.CONSTRUCTOR;
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toSet;
 
@@ -122,7 +117,6 @@ public class BigQueryConnectorModule
         }
 
         @Provides
-        @ForBigQuery
         public ListeningExecutorService provideListeningExecutor(BigQueryConfig config)
         {
             return listeningDecorator(newFixedThreadPool(config.getMetadataParallelism(), daemonThreadsNamed("big-query-%s"))); // limit parallelism
@@ -185,10 +179,5 @@ public class BigQueryConnectorModule
                         .in(Scopes.SINGLETON);
             }
         }
-    }
-
-    @Target({PARAMETER, FIELD, METHOD, CONSTRUCTOR})
-    public @interface ForBigQuery
-    {
     }
 }
