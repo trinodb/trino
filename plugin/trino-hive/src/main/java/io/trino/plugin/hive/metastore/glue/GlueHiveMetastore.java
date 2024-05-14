@@ -103,6 +103,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -176,6 +177,8 @@ public class GlueHiveMetastore
             .withMaxRetries(3)
             .build();
 
+    private static final AtomicInteger poolCounter = new AtomicInteger();
+
     private final GlueClient glueClient;
     private final GlueContext glueContext;
     private final GlueCache glueCache;
@@ -205,7 +208,7 @@ public class GlueHiveMetastore
                 config.getPartitionSegments(),
                 config.isAssumeCanonicalPartitionKeys(),
                 visibleTableKinds,
-                newFixedThreadPool(config.getThreads(), Thread.ofPlatform().name("glue-", 0L).factory()));
+                newFixedThreadPool(config.getThreads(), Thread.ofPlatform().name("glue-%d-".formatted(poolCounter.getAndIncrement()), 0L).factory()));
     }
 
     private GlueHiveMetastore(
