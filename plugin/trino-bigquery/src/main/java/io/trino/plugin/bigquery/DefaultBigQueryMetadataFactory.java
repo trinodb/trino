@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 
-import static io.trino.plugin.bigquery.BigQueryConnectorModule.ForBigQuery;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultBigQueryMetadataFactory
@@ -31,7 +30,7 @@ public class DefaultBigQueryMetadataFactory
     public DefaultBigQueryMetadataFactory(
             BigQueryClientFactory bigQueryClient,
             BigQueryTypeManager typeManager,
-            @ForBigQuery ListeningExecutorService executorService,
+            ListeningExecutorService executorService,
             BigQueryConfig config)
     {
         this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
