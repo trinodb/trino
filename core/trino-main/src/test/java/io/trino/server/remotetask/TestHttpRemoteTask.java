@@ -283,6 +283,55 @@ public class TestHttpRemoteTask
 
     @Test
     @Timeout(30)
+    public void testDynamicFilterFetcherVersionMismatch()
+            throws Exception
+    {
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
+        Reference df1 = symbol1.toSymbolReference();
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        Map<DynamicFilterId, Domain> domain = ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L));
+        ColumnHandle handle1 = new TestingColumnHandle("column1");
+        QueryId queryId = new QueryId("test");
+
+        TestingTaskResource testingTaskResource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(
+                PLANNER_CONTEXT.getMetadata(),
+                PLANNER_CONTEXT.getFunctionManager(),
+                new TypeOperators(),
+                new DynamicFilterConfig());
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
+        HttpRemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+
+        dynamicFilterService.registerQuery(
+                queryId,
+                TEST_SESSION,
+                ImmutableSet.of(filterId1),
+                ImmutableSet.of(filterId1),
+                ImmutableSet.of());
+        dynamicFilterService.stageCannotScheduleMoreTasks(new StageId(queryId, 1), 0, 1);
+        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
+                queryId,
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId1, df1)),
+                ImmutableMap.of(symbol1, handle1));
+
+        remoteTask.start();
+
+        testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(1L, domain));
+        dynamicFilter.isBlocked().get();
+        assertThat(remoteTask.getDynamicFiltersFetcher().isRunning()).isTrue();
+
+        // make sure getting older DF version after newer version was observed causes task to fail
+        remoteTask.getDynamicFiltersFetcher().updateDynamicFiltersVersionAndFetchIfNecessary(10L);
+        assertEventually(new Duration(30, SECONDS), () -> assertThat(remoteTask.getTaskStatus().getState()).isEqualTo(FAILED));
+        assertThat(remoteTask.getDynamicFiltersFetcher().isRunning()).isFalse();
+
+        httpRemoteTaskFactory.stop();
+    }
+
+    @Test
+    @Timeout(30)
     public void testDynamicFilters()
             throws Exception
     {
