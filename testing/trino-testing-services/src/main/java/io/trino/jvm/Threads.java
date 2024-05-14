@@ -22,8 +22,10 @@ import java.lang.management.MonitorInfo;
 import java.lang.management.ThreadInfo;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.lang.String.format;
 
 public final class Threads
@@ -38,8 +40,18 @@ public final class Threads
     {
         StringBuilder sb = new StringBuilder();
 
+        String moreThInfo = "?";
+        Optional<Thread> realThread = Thread.getAllStackTraces().keySet().stream()
+                .filter(th -> th.threadId() == thread.getThreadId())
+                .collect(toOptional());
+        if (realThread.isPresent()) {
+            Thread th = realThread.get();
+            moreThInfo = th.toString();
+            moreThInfo += " " + th.getContextClassLoader();
+        }
+
         sb.append(format(
-                "\"%s\"%s prio=%s Id=%s %s%s%s%s%s\n",
+                "\"%s\"%s prio=%s Id=%s %s%s%s%s%s :: %s\n",
                 thread.getThreadName(),
                 thread.isDaemon() ? " daemon" : "",
                 thread.getPriority(),
@@ -48,7 +60,8 @@ public final class Threads
                 thread.getLockName() != null ? " on " + thread.getLockName() : "",
                 thread.getLockOwnerName() != null ? " owned by " + thread.getLockOwnerName() : "",
                 thread.isSuspended() ? " (suspended)" : "",
-                thread.isInNative() ? " (in native)" : ""));
+                thread.isInNative() ? " (in native)" : "",
+                moreThInfo));
 
         Iterator<StackTraceElement> stackTrace = Arrays.asList(thread.getStackTrace()).iterator();
 
