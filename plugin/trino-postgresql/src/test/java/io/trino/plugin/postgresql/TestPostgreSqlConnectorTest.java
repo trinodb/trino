@@ -601,12 +601,11 @@ public class TestPostgreSqlConnectorTest
                 .setCatalogSessionProperty("postgresql", "enable_string_pushdown_with_collate", "true")
                 .build();
 
-        String notDistinctOperator = "IS NOT DISTINCT FROM";
         List<String> nonEqualities = Stream.concat(
                         Stream.of(JoinCondition.Operator.values())
                                 .filter(operator -> operator != JoinCondition.Operator.EQUAL && operator != JoinCondition.Operator.IDENTICAL)
                                 .map(JoinCondition.Operator::getValue),
-                        Stream.of(notDistinctOperator))
+                        Stream.of("IS DISTINCT FROM", "IS NOT DISTINCT FROM"))
                 .collect(toImmutableList());
 
         try (TestTable nationLowercaseTable = new TestTable(
