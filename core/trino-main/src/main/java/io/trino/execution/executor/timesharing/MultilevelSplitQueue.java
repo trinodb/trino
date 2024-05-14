@@ -47,7 +47,7 @@ public class MultilevelSplitQueue
     private final AtomicLong[] levelMinPriority;
     private final CounterStat[] selectedLevelCounters;
 
-    private final double[] levelWeight = new double[LEVEL_THRESHOLD_SECONDS.length];
+    private final double[] levelWeights = new double[LEVEL_THRESHOLD_SECONDS.length];
 
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition notEmpty = lock.newCondition();
@@ -72,7 +72,7 @@ public class MultilevelSplitQueue
             levelMinPriority[level] = new AtomicLong(-1);
             levelWaitingSplits[level] = new PriorityQueue<>();
             selectedLevelCounters[level] = new CounterStat();
-            levelWeight[level] = Math.pow(levelTimeMultiplier, LEVEL_THRESHOLD_SECONDS.length - 1 - level);
+            levelWeights[level] = Math.pow(levelTimeMultiplier, LEVEL_THRESHOLD_SECONDS.length - 1 - level);
         }
 
         this.levelTimeMultiplier = levelTimeMultiplier;
@@ -107,7 +107,7 @@ public class MultilevelSplitQueue
                 // the fact that only running splits that complete during this computation
                 // can update the level time. Therefore, this is benign.
                 long level0Time = getLevel0TargetTime();
-                long levelExpectedTime = (long) (level0Time / levelWeight[LEVEL_THRESHOLD_SECONDS.length - 1 - level]);
+                long levelExpectedTime = (long) (level0Time / levelWeights[levelWeights.length - 1 - level]);
                 long delta = levelExpectedTime - levelScheduledTime[level].get();
                 levelScheduledTime[level].addAndGet(delta);
             }
@@ -164,7 +164,7 @@ public class MultilevelSplitQueue
         for (int level = 0; level < LEVEL_THRESHOLD_SECONDS.length; level++) {
             if (!levelWaitingSplits[level].isEmpty()) {
                 long levelTime = levelScheduledTime[level].get();
-                double scheduledTimeWithoutWeight = levelTime == 0 ? 0 : levelTime / levelWeight[level];
+                double scheduledTimeWithoutWeight = levelTime / levelWeights[level];
                 if (selectedLevel == -1 || scheduledTimeWithoutWeight < minScheduledTimeWithoutWeight) {
                     minScheduledTimeWithoutWeight = scheduledTimeWithoutWeight;
                     selectedLevel = level;
