@@ -23,6 +23,8 @@ import java.util.List;
 
 import static io.trino.tests.product.TestGroups.AZURE;
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_AZURE;
+import static io.trino.tests.product.TestGroups.ICEBERG_AZURE;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteAzure
@@ -34,6 +36,12 @@ public class SuiteAzure
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeAzure.class)
                         .withGroups(CONFIGURED_FEATURES, AZURE)
+                        .build(),
+                testOnEnvironment(EnvMultinodeAzure.class)
+                        .withGroups(DELTA_LAKE_AZURE, CONFIGURED_FEATURES)
+                        .build(),
+                testOnEnvironment(EnvMultinodeAzure.class)
+                        .withGroups(ICEBERG_AZURE, CONFIGURED_FEATURES)
                         .build());
     }
 }
