@@ -304,17 +304,11 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteQuery(Identity identity)
+    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
         if (!canAccessQuery(identity, Optional.empty(), QueryAccessRule.AccessMode.EXECUTE)) {
             denyExecuteQuery();
         }
-    }
-
-    @Override
-    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
-    {
-        checkCanExecuteQuery(identity);
     }
 
     @Override
