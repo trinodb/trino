@@ -33,6 +33,7 @@ import io.trino.FeaturesConfig;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
+import io.trino.cache.CacheMetadata;
 import io.trino.client.NodeVersion;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
@@ -422,6 +423,9 @@ public class ServerMainModule
 
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
+
+        // cache metadata
+        binder.bind(CacheMetadata.class).in(Scopes.SINGLETON);
 
         // node partitioning manager
         binder.bind(NodePartitioningManager.class).in(Scopes.SINGLETON);

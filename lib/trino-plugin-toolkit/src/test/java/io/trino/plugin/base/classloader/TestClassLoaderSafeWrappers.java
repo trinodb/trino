@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.classloader;
 
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -48,6 +49,7 @@ public class TestClassLoaderSafeWrappers
             throws Exception
     {
         testClassLoaderSafe(ConnectorAccessControl.class, ClassLoaderSafeConnectorAccessControl.class);
+        testClassLoaderSafe(ConnectorCacheMetadata.class, ClassLoaderSafeConnectorCacheMetadata.class);
         testClassLoaderSafe(ConnectorMetadata.class, ClassLoaderSafeConnectorMetadata.class);
         testClassLoaderSafe(ConnectorMergeSink.class, ClassLoaderSafeConnectorMergeSink.class);
         testClassLoaderSafe(ConnectorPageSink.class, ClassLoaderSafeConnectorPageSink.class);

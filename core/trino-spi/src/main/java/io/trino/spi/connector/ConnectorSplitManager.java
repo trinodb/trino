@@ -14,7 +14,13 @@
 package io.trino.spi.connector;
 
 import io.trino.spi.Experimental;
+import io.trino.spi.cache.CacheColumnId;
+import io.trino.spi.cache.CacheManager;
+import io.trino.spi.cache.CacheSplitId;
+import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+
+import java.util.Optional;
 
 public interface ConnectorSplitManager
 {
@@ -35,5 +41,15 @@ public interface ConnectorSplitManager
             ConnectorTableFunctionHandle function)
     {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Returns a split identifier for the purpose of caching with {@link CacheManager}.
+     * {@link CacheSplitId} together with {@link CacheTableId} and {@link CacheColumnId}s
+     * represents rows produced by {@link ConnectorPageSource} for a given split.
+     */
+    default Optional<CacheSplitId> getCacheSplitId(ConnectorSplit split)
+    {
+        return Optional.empty();
     }
 }

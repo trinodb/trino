@@ -14,6 +14,7 @@
 package io.trino.plugin.tpch;
 
 import io.trino.spi.NodeManager;
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -108,6 +109,12 @@ public class TpchConnectorFactory
             public ConnectorSplitManager getSplitManager()
             {
                 return new TpchSplitManager(nodeManager, splitsPerNode);
+            }
+
+            @Override
+            public ConnectorCacheMetadata getCacheMetadata()
+            {
+                return new TpchCacheMetadata();
             }
 
             @Override

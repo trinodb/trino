@@ -21,6 +21,7 @@ import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Streams;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.json.JsonCodec;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -36,10 +37,13 @@ import io.trino.metastore.Table;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.plugin.hive.util.HiveUtil;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -70,6 +74,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static com.google.common.collect.Iterators.singletonIterator;
@@ -122,6 +127,7 @@ public class HiveSplitManager
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
     private final TypeManager typeManager;
+    private final JsonCodec<HiveCacheSplitId> splitIdCodec;
     private final CachingHostAddressProvider cachingHostAddressProvider;
     private final int maxPartitionsPerScan;
 
@@ -134,6 +140,7 @@ public class HiveSplitManager
             ExecutorService executorService,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager,
+            JsonCodec<HiveCacheSplitId> splitIdCodec,
             CachingHostAddressProvider cachingHostAddressProvider)
     {
         this(
@@ -151,6 +158,7 @@ public class HiveSplitManager
                 hiveConfig.getMaxSplitsPerSecond(),
                 hiveConfig.getRecursiveDirWalkerEnabled(),
                 typeManager,
+                splitIdCodec,
                 cachingHostAddressProvider,
                 hiveConfig.getMaxPartitionsPerScan());
     }
@@ -170,6 +178,7 @@ public class HiveSplitManager
             @Nullable Integer maxSplitsPerSecond,
             boolean recursiveDfsWalkerEnabled,
             TypeManager typeManager,
+            JsonCodec<HiveCacheSplitId> splitIdCodec,
             CachingHostAddressProvider cachingHostAddressProvider,
             int maxPartitionsPerScan)
     {
@@ -188,6 +197,7 @@ public class HiveSplitManager
         this.maxSplitsPerSecond = firstNonNull(maxSplitsPerSecond, Integer.MAX_VALUE);
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.splitIdCodec = requireNonNull(splitIdCodec, "splitIdCodec is null");
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
         this.maxPartitionsPerScan = maxPartitionsPerScan;
     }
@@ -295,6 +305,62 @@ public class HiveSplitManager
         hiveSplitLoader.start(splitSource);
 
         return splitSource;
+    }
+
+    @Override
+    public Optional<CacheSplitId> getCacheSplitId(ConnectorSplit split)
+    {
+        HiveSplit hiveSplit = (HiveSplit) split;
+
+        if (hiveSplit.getAcidInfo().isPresent()) {
+            // skip caching of transactional tables as transactions affect how split rows are read
+            return Optional.empty();
+        }
+
+        // ensure cache id generation is revisited whenever handle classes change
+        hiveSplit = new HiveSplit(
+                // database and table names are already part of table id
+                hiveSplit.getPartitionName(),
+                hiveSplit.getPath(),
+                hiveSplit.getStart(),
+                hiveSplit.getLength(),
+                hiveSplit.getEstimatedFileSize(),
+                hiveSplit.getFileModifiedTime(),
+                hiveSplit.getSchema(),
+                hiveSplit.getPartitionKeys(),
+                // addresses can be ignored
+                ImmutableList.of(),
+                hiveSplit.getReadBucketNumber(),
+                hiveSplit.getTableBucketNumber(),
+                // force local scheduling can be skipped
+                false,
+                hiveSplit.getHiveColumnCoercions(),
+                hiveSplit.getBucketConversion(),
+                hiveSplit.getBucketValidation(),
+                Optional.empty(),
+                // weight does not impact split rows
+                SplitWeight.standard());
+
+        return Optional.of(new CacheSplitId(splitIdCodec.toJson(new HiveCacheSplitId(
+                hiveSplit.getPath(),
+                hiveSplit.getStart(),
+                hiveSplit.getLength(),
+                hiveSplit.getEstimatedFileSize(),
+                hiveSplit.getFileModifiedTime(),
+                hiveSplit.getPartitionKeys(),
+                hiveSplit.getPartitionName(),
+                hiveSplit.getReadBucketNumber(),
+                hiveSplit.getTableBucketNumber(),
+                hiveSplit.getHiveColumnCoercions(),
+                hiveSplit.getBucketConversion(),
+                hiveSplit.getBucketValidation(),
+                new Schema(
+                        hiveSplit.getSchema().serializationLibraryName(),
+                        hiveSplit.getSchema().isFullAcidTable(),
+                        // order schema keys to canonicalize schema map
+                        hiveSplit.getSchema().serdeProperties().entrySet().stream()
+                                .sorted(Map.Entry.comparingByKey())
+                                .collect(toImmutableMap((Map.Entry entry) -> entry.getKey().toString(), Map.Entry::getValue)))))));
     }
 
     @Managed
