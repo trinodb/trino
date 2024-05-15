@@ -26,6 +26,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.hadoop.io.Text;
 import org.intellij.lang.annotations.Language;
 
@@ -86,7 +87,9 @@ public final class AccumuloQueryRunner
         if (!tpchLoaded) {
             queryRunner.execute("CREATE SCHEMA accumulo.tpch");
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
-            server.getClient().tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
+            try (AccumuloClient client = server.createClient()) {
+                client.tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
+            }
             tpchLoaded = true;
         }
 
