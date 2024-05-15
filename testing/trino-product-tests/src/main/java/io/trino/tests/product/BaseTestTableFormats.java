@@ -21,6 +21,7 @@ import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -125,5 +126,31 @@ public abstract class BaseTestTableFormats
             onTrino().executeQuery("DROP TABLE %1$s.test.%2$s".formatted(getCatalogName(), tableName));
             onTrino().executeQuery("DROP SCHEMA %1$s.test".formatted(getCatalogName()));
         }
+    }
+
+    protected void testSparkCompatibilityOnTrinoCreatedTable(String schemaLocation)
+    {
+        String baseTableName = "trino_created_table_using_parquet_" + randomNameSuffix();
+        String sparkTableName = format("%s.test_compat.%s", getSparkCatalog(), baseTableName);
+        String trinoTableName = format("%s.test_compat.%s", getCatalogName(), baseTableName);
+        try {
+            onTrino().executeQuery(format("CREATE SCHEMA %s.test_compat WITH (location = '%s')", getCatalogName(), schemaLocation));
+
+            onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(a_boolean boolean, a_varchar varchar) WITH (format = 'PARQUET')");
+            onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (true, 'test data')");
+
+            List<QueryAssert.Row> expected = List.of(row(true, "test data"));
+            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+            assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+            onTrino().executeQuery("DROP SCHEMA IF EXISTS %s.test_compat".formatted(getCatalogName()));
+        }
+    }
+
+    protected String getSparkCatalog()
+    {
+        return "spark_catalog";
     }
 }
