@@ -63,10 +63,8 @@ public class ZooKeeperMetadataManager
         String zookeepers = config.getZooKeepers();
 
         // Create the connection to ZooKeeper to check if the metadata root exists
-        CuratorFramework checkRoot = CuratorFrameworkFactory.newClient(zookeepers, new RetryForever(1000));
-        checkRoot.start();
-
-        try {
+        try (CuratorFramework checkRoot = CuratorFrameworkFactory.newClient(zookeepers, new RetryForever(1000))) {
+            checkRoot.start();
             // If the metadata root does not exist, create it
             if (checkRoot.checkExists().forPath(zkMetadataRoot) == null) {
                 checkRoot.create().forPath(zkMetadataRoot);
@@ -75,7 +73,6 @@ public class ZooKeeperMetadataManager
         catch (Exception e) {
             throw new TrinoException(ZOOKEEPER_ERROR, "ZK error checking metadata root", e);
         }
-        checkRoot.close();
 
         // Create the curator client framework to use for metadata management, set at the ZK root
         curator = CuratorFrameworkFactory.newClient(zookeepers + zkMetadataRoot, new RetryForever(1000));
