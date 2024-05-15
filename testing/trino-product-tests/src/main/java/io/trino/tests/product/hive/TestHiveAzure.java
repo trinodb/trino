@@ -51,4 +51,10 @@ public class TestHiveAzure
     {
         super.testCreateAndInsertTable(schemaLocation);
     }
+
+    @Test(groups = {AZURE, PROFILE_SPECIFIC_TESTS})
+    public void testPathContainsSpecialCharacter()
+    {
+        super.testPathContainsSpecialCharacter(schemaLocation, "partitioned_by");
+    }
 }
