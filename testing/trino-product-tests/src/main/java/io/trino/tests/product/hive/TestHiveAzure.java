@@ -57,4 +57,10 @@ public class TestHiveAzure
     {
         super.testPathContainsSpecialCharacter(schemaLocation, "partitioned_by");
     }
+
+    @Test(groups = {AZURE, PROFILE_SPECIFIC_TESTS})
+    public void testSparkReadingTrinoData()
+    {
+        super.testSparkCompatibilityOnTrinoCreatedTable(schemaLocation);
+    }
 }
