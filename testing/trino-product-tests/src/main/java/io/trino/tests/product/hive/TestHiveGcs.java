@@ -40,6 +40,12 @@ public class TestHiveGcs
         super.testPathContainsSpecialCharacter(warehouseDirectory, "partitioned_by");
     }
 
+    @Test(groups = {HIVE_GCS, PROFILE_SPECIFIC_TESTS})
+    public void testSparkReadingTrinoData()
+    {
+        super.testSparkCompatibilityOnTrinoCreatedTable(warehouseDirectory);
+    }
+
     @Override
     protected String getCatalogName()
     {

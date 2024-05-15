@@ -16,11 +16,17 @@ package io.trino.tests.product.launcher.env.environment;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
+import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
+import io.trino.tests.product.launcher.testcontainers.PortBinder;
+import org.testcontainers.containers.BindMode;
+import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,6 +37,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Base64;
 import java.util.UUID;
 
+import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
@@ -54,14 +61,20 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class EnvMultinodeGcs
         extends EnvironmentProvider
 {
+    private static final int SPARK_THRIFT_PORT = 10213;
+    private static final File HIVE_JDBC_PROVIDER = new File("testing/trino-product-tests-launcher/target/hive-jdbc.jar");
     private final String gcsTestDirectory = "env_multinode_gcs_" + UUID.randomUUID();
     private final DockerFiles dockerFiles;
+    private final PortBinder portBinder;
+    private final String hadoopImagesVersion;
 
     @Inject
-    public EnvMultinodeGcs(DockerFiles dockerFiles, StandardMultinode multinode, Hadoop hadoop)
+    public EnvMultinodeGcs(DockerFiles dockerFiles, StandardMultinode multinode, Hadoop hadoop, EnvironmentConfig environmentConfig, PortBinder portBinder)
     {
         super(ImmutableList.of(multinode, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
+        hadoopImagesVersion = environmentConfig.getHadoopImagesVersion();
     }
 
     @Override
@@ -104,13 +117,45 @@ public class EnvMultinodeGcs
 
         builder.configureContainer(TESTS, container -> container
                 .withEnv("GCP_STORAGE_BUCKET", gcpStorageBucket)
-                .withEnv("GCP_TEST_DIRECTORY", gcsTestDirectory));
+                .withEnv("GCP_TEST_DIRECTORY", gcsTestDirectory)
+                .withFileSystemBind(HIVE_JDBC_PROVIDER.getParent(), "/docker/jdbc", BindMode.READ_ONLY));
 
         builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/hive.properties")), CONTAINER_TRINO_HIVE_PROPERTIES);
         builder.addConnector("delta_lake", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/delta.properties")), CONTAINER_TRINO_ETC + "/catalog/delta.properties");
         builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/iceberg.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg.properties");
 
         configureTempto(builder, dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-gcs/"));
+
+        builder.addContainer(createSpark(forHostPath(gcpCredentialsFile.toPath())))
+                .containerDependsOn("spark", HADOOP);
+    }
+
+    private DockerContainer createSpark(MountableFile credentialsFile)
+    {
+        String containerGcpCredentialsFile = "/spark/conf/gcp-credentials.json";
+        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-iceberg:" + hadoopImagesVersion, "spark")
+                .withEnv("HADOOP_USER_NAME", "hive")
+                .withCopyFileToContainer(
+                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/spark-defaults.conf")),
+                        "/spark/conf/spark-defaults.conf")
+                .withCopyFileToContainer(
+                        forHostPath(dockerFiles.getDockerFilesHostPath("common/spark/log4j2.properties")),
+                        "/spark/conf/log4j2.properties")
+                .withCommand(
+                        "spark-submit",
+                        "--master", "local[*]",
+                        "--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
+                        "--name", "Thrift JDBC/ODBC Server",
+                        "--packages", "org.apache.spark:spark-avro_2.12:3.2.1",
+                        "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
+                        "spark-internal")
+                .withCopyFileToContainer(credentialsFile, containerGcpCredentialsFile)
+                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
+                .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
+
+        portBinder.exposePort(container, SPARK_THRIFT_PORT);
+
+        return container;
     }
 
     private Path getCoreSiteOverrideXml(String containerGcpCredentialsFilePath)

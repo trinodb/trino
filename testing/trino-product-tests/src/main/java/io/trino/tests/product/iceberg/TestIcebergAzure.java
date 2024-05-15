@@ -63,4 +63,16 @@ public class TestIcebergAzure
     {
         super.testPathContainsSpecialCharacter(schemaLocation, "partitioning");
     }
+
+    @Test(groups = {ICEBERG_AZURE, PROFILE_SPECIFIC_TESTS})
+    public void testSparkReadingTrinoData()
+    {
+        super.testSparkCompatibilityOnTrinoCreatedTable(schemaLocation);
+    }
+
+    @Override
+    protected String getSparkCatalog()
+    {
+        return "iceberg_test";
+    }
 }
