@@ -28,7 +28,7 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.tree.SetRole;
+import io.trino.sql.tree.Statement;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import io.trino.transaction.TransactionManager;
@@ -153,7 +153,11 @@ public class TestSetRoleTask
 
     private QueryStateMachine executeSetRole(String statement)
     {
-        SetRole setRole = (SetRole) parser.createStatement(statement);
+        return execute(statement, new SetRoleTask(metadata, accessControl));
+    }
+
+    protected <T extends Statement> QueryStateMachine execute(String statement, DataDefinitionTask<T> task)
+    {
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 Optional.empty(),
                 statement,
@@ -173,7 +177,21 @@ public class TestSetRoleTask
                 Optional.empty(),
                 true,
                 new NodeVersion("test"));
-        new SetRoleTask(metadata, accessControl).execute(setRole, stateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        task.execute((T) parser.createStatement(statement), stateMachine, ImmutableList.of(), WarningCollector.NOOP);
         return stateMachine;
+    }
+
+    private QueryStateMachine executeDropRole(String statement)
+    {
+        return execute(statement, new DropRoleTask(metadata, accessControl));
+    }
+
+    @Test
+    void testDropUnknownRole()
+    {
+        assertTrinoExceptionThrownBy(() -> executeDropRole("DROP ROLE nonexistentrole1234"))
+                .hasErrorCode(ROLE_NOT_FOUND)
+                .hasMessage("line 1:1: Role 'nonexistentrole1234' does not exist");
+        executeDropRole("DROP ROLE IF EXISTS nonexistantrole1234"); // Shouldn't throw.
     }
 }
