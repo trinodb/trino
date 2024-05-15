@@ -62,6 +62,7 @@ public class TestAccumuloMetadataManager
     @AfterAll
     public void tearDown()
     {
+        zooKeeperMetadataManager.close();
         zooKeeperMetadataManager = null;
         metadataManager = null;
     }

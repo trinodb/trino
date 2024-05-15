@@ -25,6 +25,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.PreDestroy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryForever;
@@ -87,6 +88,12 @@ public class ZooKeeperMetadataManager
         catch (Exception e) {
             throw new TrinoException(ZOOKEEPER_ERROR, "ZK error checking/creating default schema", e);
         }
+    }
+
+    @PreDestroy
+    public void close()
+    {
+        curator.close();
     }
 
     public void createSchema(String schemaName)
