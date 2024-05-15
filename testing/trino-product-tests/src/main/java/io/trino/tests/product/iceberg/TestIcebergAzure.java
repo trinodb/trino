@@ -57,4 +57,10 @@ public class TestIcebergAzure
     {
         super.testBasicWriteOperations(schemaLocation);
     }
+
+    @Test(groups = {ICEBERG_AZURE, PROFILE_SPECIFIC_TESTS})
+    public void testPathContainsSpecialCharacter()
+    {
+        super.testPathContainsSpecialCharacter(schemaLocation, "partitioning");
+    }
 }

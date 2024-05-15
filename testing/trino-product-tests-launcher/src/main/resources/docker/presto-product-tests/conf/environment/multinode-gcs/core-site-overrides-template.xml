@@ -5,6 +5,11 @@
         <value>false</value>
     </property>
 
+    <property>
+        <name>fs.gs.path.encoding</name>
+        <value>uri-path</value>
+    </property>
+
     <!-- Google Cloud Storage properties -->
     <property>
         <name>fs.gs.impl</name>

@@ -13,7 +13,11 @@
  */
 package io.trino.tests.product;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.tempto.ProductTest;
+import io.trino.tempto.assertions.QueryAssert;
+
+import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -74,6 +78,52 @@ public abstract class BaseTestTableFormats
         }
         finally {
             onTrino().executeQuery("DROP SCHEMA %s.test CASCADE".formatted(getCatalogName()));
+        }
+    }
+
+    protected void testPathContainsSpecialCharacter(String schemaLocation, String partitioningPropertyName)
+    {
+        String tableName = "test_path_special_character" + randomNameSuffix();
+        try {
+            onTrino().executeQuery(format("CREATE SCHEMA %1$s.test WITH (location = '%2$s')", getCatalogName(), schemaLocation));
+            onTrino().executeQuery(format(
+                    "CREATE TABLE %1$s.test.%2$s (id bigint, part varchar) WITH (%3$s = ARRAY['part'])",
+                    getCatalogName(),
+                    tableName,
+                    partitioningPropertyName));
+
+            onTrino().executeQuery("INSERT INTO " + getCatalogName() + ".test." + tableName + " VALUES " +
+                    "(1, 'with-hyphen')," +
+                    "(2, 'with.dot')," +
+                    "(3, 'with:colon')," +
+                    "(4, 'with/slash')," +
+                    "(5, 'with\\\\backslashes')," +
+                    "(6, 'with\\backslash')," +
+                    "(7, 'with=equal')," +
+                    "(8, 'with?question')," +
+                    "(9, 'with!exclamation')," +
+                    "(10, 'with%percent')," +
+                    "(11, 'with%%percents')," +
+                    "(12, 'with space')");
+
+            List<QueryAssert.Row> expectedRows = ImmutableList.of(
+                    row(1, "with-hyphen"),
+                    row(2, "with.dot"),
+                    row(3, "with:colon"),
+                    row(4, "with/slash"),
+                    row(5, "with\\\\backslashes"),
+                    row(6, "with\\backslash"),
+                    row(7, "with=equal"),
+                    row(8, "with?question"),
+                    row(9, "with!exclamation"),
+                    row(10, "with%percent"),
+                    row(11, "with%%percents"),
+                    row(12, "with space"));
+            assertThat(onTrino().executeQuery(format("SELECT * FROM %1$s.test.%2$s", getCatalogName(), tableName))).containsOnly(expectedRows);
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE %1$s.test.%2$s".formatted(getCatalogName(), tableName));
+            onTrino().executeQuery("DROP SCHEMA %1$s.test".formatted(getCatalogName()));
         }
     }
 }

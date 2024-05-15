@@ -57,4 +57,10 @@ public class TestDeltaLakeAzure
     {
         super.testBasicWriteOperations(schemaLocation);
     }
+
+    @Test(groups = {DELTA_LAKE_AZURE, PROFILE_SPECIFIC_TESTS})
+    public void testPathContainsSpecialCharacter()
+    {
+        super.testPathContainsSpecialCharacter(schemaLocation, "partitioned_by");
+    }
 }

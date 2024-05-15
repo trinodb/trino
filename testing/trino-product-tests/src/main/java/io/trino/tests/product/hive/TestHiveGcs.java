@@ -34,6 +34,12 @@ public class TestHiveGcs
         super.testCreateAndInsertTable(warehouseDirectory);
     }
 
+    @Test(groups = {HIVE_GCS, PROFILE_SPECIFIC_TESTS})
+    public void testPathContainsSpecialCharacter()
+    {
+        super.testPathContainsSpecialCharacter(warehouseDirectory, "partitioned_by");
+    }
+
     @Override
     protected String getCatalogName()
     {
