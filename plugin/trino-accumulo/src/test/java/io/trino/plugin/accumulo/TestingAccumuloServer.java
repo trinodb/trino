@@ -86,7 +86,7 @@ public class TestingAccumuloServer
         return "secret";
     }
 
-    public AccumuloClient getClient()
+    public AccumuloClient createClient()
     {
         return Accumulo.newClient().to(getInstanceName(), getZooKeepers())
                 .as(getUser(), getPassword())
