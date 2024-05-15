@@ -40,6 +40,12 @@ public class TestDeltaLakeGcs
         super.testBasicWriteOperations(warehouseDirectory);
     }
 
+    @Test(groups = {DELTA_LAKE_GCS, PROFILE_SPECIFIC_TESTS})
+    public void testPathContainsSpecialCharacter()
+    {
+        super.testPathContainsSpecialCharacter(warehouseDirectory, "partitioned_by");
+    }
+
     @Override
     protected String getCatalogName()
     {

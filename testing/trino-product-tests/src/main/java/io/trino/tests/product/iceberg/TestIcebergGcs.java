@@ -40,6 +40,12 @@ public class TestIcebergGcs
         super.testBasicWriteOperations(warehouseDirectory);
     }
 
+    @Test(groups = {ICEBERG_GCS, PROFILE_SPECIFIC_TESTS})
+    public void testPathContainsSpecialCharacter()
+    {
+        super.testPathContainsSpecialCharacter(warehouseDirectory, "partitioning");
+    }
+
     @Override
     protected String getCatalogName()
     {
