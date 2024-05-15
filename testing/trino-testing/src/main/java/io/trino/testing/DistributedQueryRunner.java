@@ -81,6 +81,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -229,6 +230,22 @@ public class DistributedQueryRunner
 
         ensureNodesGloballyVisible();
         log.info("Created DistributedQueryRunner in %s (unclosed instances = %s)", nanosSince(start), unclosedInstances.incrementAndGet());
+    }
+
+    public void registerResource(AutoCloseable resource)
+    {
+        requireNonNull(resource, "resource is null");
+        checkState(!closed, "already closed");
+        closer.register(() -> {
+            try {
+                resource.close();
+            }
+            catch (Exception e) {
+                throwIfUnchecked(e);
+                throwIfInstanceOf(e, IOException.class);
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private TestingTrinoServer createServer(
@@ -835,6 +852,7 @@ public class DistributedQueryRunner
         @CanIgnoreReturnValue
         public SELF registerResource(AutoCloseable closeable)
         {
+            checkState(extraCloseables != null, "query runner is already built");
             extraCloseables.add(requireNonNull(closeable, "closeable is null"));
             return self();
         }
@@ -899,6 +917,7 @@ public class DistributedQueryRunner
                     eventListeners,
                     extraCloseables.build(),
                     testingTrinoClientFactory);
+            extraCloseables = null;
 
             try {
                 additionalSetup.accept(queryRunner);

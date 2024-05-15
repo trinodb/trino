@@ -164,7 +164,7 @@ public final class S3HiveQueryRunner
                     testingThriftHiveMetastoreBuilder()
                             .metastoreClient(hiveMetastoreEndpoint, thriftMetastoreTimeout)
                             .thriftMetastoreConfig(thriftMetastoreConfig)
-                            .build()));
+                            .build(distributedQueryRunner::registerResource)));
             setInitialSchemasLocationBase("s3a://" + bucketName); // cannot use s3:// as Hive metastore is not configured to accept it
             return super.build();
         }

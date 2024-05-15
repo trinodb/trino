@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.trino.hive.thrift.metastore.ColumnStatisticsData;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
 import io.trino.hive.thrift.metastore.LongColumnStatsData;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveMetastoreClosure;
@@ -118,6 +119,7 @@ public class TestCachingHiveMetastore
     private static final TableInfo TEST_TABLE_INFO = new TableInfo(TEST_SCHEMA_TABLE, TableInfo.ExtendedRelationType.TABLE);
     private static final Duration CACHE_TTL = new Duration(5, TimeUnit.MINUTES);
 
+    private AutoCloseableCloser closer;
     private MockThriftMetastoreClient mockClient;
     private ThriftMetastore thriftHiveMetastore;
     private ListeningExecutorService executor;
@@ -128,6 +130,7 @@ public class TestCachingHiveMetastore
     @BeforeEach
     public void setUp()
     {
+        closer = AutoCloseableCloser.create();
         mockClient = new MockThriftMetastoreClient();
         thriftHiveMetastore = createThriftHiveMetastore();
         executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
@@ -140,10 +143,13 @@ public class TestCachingHiveMetastore
 
     @AfterAll
     public void tearDown()
+            throws Exception
     {
         executor.shutdownNow();
         executor = null;
         metastore = null;
+        closer.close();
+        closer = null;
     }
 
     private ThriftMetastore createThriftHiveMetastore()
@@ -151,11 +157,11 @@ public class TestCachingHiveMetastore
         return createThriftHiveMetastore(mockClient);
     }
 
-    private static ThriftMetastore createThriftHiveMetastore(ThriftMetastoreClient client)
+    private ThriftMetastore createThriftHiveMetastore(ThriftMetastoreClient client)
     {
         return testingThriftHiveMetastoreBuilder()
                 .metastoreClient(client)
-                .build();
+                .build(closer::register);
     }
 
     @Test
@@ -1050,7 +1056,7 @@ public class TestCachingHiveMetastore
         return new PartitionCachingAssertions(executor);
     }
 
-    static class PartitionCachingAssertions
+    class PartitionCachingAssertions
     {
         private final CachingHiveMetastore cachingHiveMetastore;
         private final MockThriftMetastoreClient thriftClient;
