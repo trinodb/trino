@@ -4538,6 +4538,7 @@ public class TestSqlParser
     public void testDropRole()
     {
         assertStatement("DROP ROLE role", new DropRole(new Identifier("role"), Optional.empty()));
+        assertStatement("DROP ROLE IF EXISTS role", new DropRole(new Identifier("role"), Optional.empty()));
         assertStatement("DROP ROLE \"role\"", new DropRole(new Identifier("role"), Optional.empty()));
         assertStatement("DROP ROLE \"ro le\"", new DropRole(new Identifier("ro le"), Optional.empty()));
         assertStatement("DROP ROLE \"!@#$%^&*'ад\"\"мін\"", new DropRole(new Identifier("!@#$%^&*'ад\"мін"), Optional.empty()));
