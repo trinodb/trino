@@ -170,7 +170,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         this.metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
                         .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
-                        .build());
+                        .build(this::closeAfterClass));
 
         QueryRunner queryRunner = createDeltaLakeQueryRunner();
         try {

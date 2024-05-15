@@ -175,7 +175,7 @@ public class TestIcebergGcsConnectorSmokeTest
         HiveMetastore metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
                         .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
-                        .build());
+                        .build(this::closeAfterClass));
         metastore.dropTable(schema, tableName, false);
         assertThat(metastore.getTable(schema, tableName)).isEmpty();
     }
@@ -186,7 +186,7 @@ public class TestIcebergGcsConnectorSmokeTest
         HiveMetastore metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
                         .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
-                        .build());
+                        .build(this::closeAfterClass));
         return metastore
                 .getTable(schema, tableName).orElseThrow()
                 .getParameters().get("metadata_location");

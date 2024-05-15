@@ -99,7 +99,7 @@ public final class HiveQueryRunner
         private ImmutableMap.Builder<String, String> hiveProperties = ImmutableMap.builder();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Optional<String> initialSchemasLocationBase = Optional.empty();
-        private Optional<Function<QueryRunner, HiveMetastore>> metastore = Optional.empty();
+        private Optional<Function<DistributedQueryRunner, HiveMetastore>> metastore = Optional.empty();
         private boolean tpcdsCatalogEnabled;
         private boolean tpchBucketedCatalogEnabled;
         private boolean createTpchSchemas = true;
@@ -153,7 +153,7 @@ public final class HiveQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public SELF setMetastore(Function<QueryRunner, HiveMetastore> metastore)
+        public SELF setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
         {
             this.metastore = Optional.of(metastore);
             return self();
