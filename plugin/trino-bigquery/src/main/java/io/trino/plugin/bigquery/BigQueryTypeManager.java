@@ -55,12 +55,12 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.google.cloud.bigquery.Field.Mode.REPEATED;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRECISION;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_SCALE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -83,7 +83,6 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public final class BigQueryTypeManager
 {
@@ -372,7 +371,9 @@ public final class BigQueryTypeManager
                 // create the row
                 FieldList subTypes = field.getSubFields();
                 checkArgument(!subTypes.isEmpty(), "a record or struct must have sub-fields");
-                List<RowType.Field> fields = subTypes.stream().map(subField -> toRawTypeField(subField.getName(), subField)).collect(toList());
+                List<RowType.Field> fields = subTypes.stream()
+                        .map(subField -> toRawTypeField(subField.getName(), subField))
+                        .collect(toImmutableList());
                 RowType rowType = RowType.from(fields);
                 return Optional.of(new ColumnMapping(rowType, false));
             default:
@@ -388,7 +389,7 @@ public final class BigQueryTypeManager
                 subFields.stream()
                         .filter(this::isSupportedType)
                         .map(this::toColumnHandle)
-                        .collect(Collectors.toList());
+                        .collect(toImmutableList());
         ColumnMapping columnMapping = toTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported type: " + field));
         return new BigQueryColumnHandle(
                 field.getName(),
