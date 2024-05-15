@@ -20,6 +20,7 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.Session;
+import io.trino.cache.CacheMetadata;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.warnings.WarningCollector;
@@ -187,6 +188,12 @@ public final class StandaloneQueryRunner
     public PlannerContext getPlannerContext()
     {
         return server.getPlannerContext();
+    }
+
+    @Override
+    public CacheMetadata getCacheMetadata()
+    {
+        return server.getCacheMetadata();
     }
 
     @Override

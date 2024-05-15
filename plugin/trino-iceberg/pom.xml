@@ -339,6 +339,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>tracing</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk-trace</artifactId>
             <scope>runtime</scope>
