@@ -154,7 +154,7 @@ a few caveats:
   - Use REST API to access views instead of Storage API. BigQuery `BIGNUMERIC` 
     and `TIMESTAMP` types are unsupported.
   - `false`
-* - `bigqueryview-materialization-with-filter`
+* - `bigquery.view-materialization-with-filter`
   - Use filter conditions when materializing views.
   - `false`
 * - `bigquery.views-cache-ttl`
