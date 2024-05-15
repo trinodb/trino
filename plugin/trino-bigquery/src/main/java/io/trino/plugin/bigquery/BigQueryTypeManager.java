@@ -23,25 +23,14 @@ import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
-import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 
@@ -64,17 +53,28 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRECISION;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_SCALE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.Decimals.MAX_PRECISION;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.StandardTypes.JSON;
-import static io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION;
-import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
 import static java.lang.Math.floorDiv;
@@ -249,34 +249,34 @@ public final class BigQueryTypeManager
 
     private StandardSQLTypeName toStandardSqlTypeName(Type type)
     {
-        if (type == BooleanType.BOOLEAN) {
+        if (type == BOOLEAN) {
             return StandardSQLTypeName.BOOL;
         }
-        if (type == TinyintType.TINYINT || type == SmallintType.SMALLINT || type == IntegerType.INTEGER || type == BigintType.BIGINT) {
+        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT) {
             return StandardSQLTypeName.INT64;
         }
-        if (type == DoubleType.DOUBLE) {
+        if (type == DOUBLE) {
             return StandardSQLTypeName.FLOAT64;
         }
         if (type instanceof DecimalType) {
             return StandardSQLTypeName.NUMERIC;
         }
-        if (type == DateType.DATE) {
+        if (type == DATE) {
             return StandardSQLTypeName.DATE;
         }
-        if (type == createTimeWithTimeZoneType(DEFAULT_PRECISION)) {
+        if (type == TIME_MICROS) {
             return StandardSQLTypeName.TIME;
         }
-        if (type == TimestampType.TIMESTAMP_MICROS) {
+        if (type == TIMESTAMP_MICROS) {
             return StandardSQLTypeName.DATETIME;
         }
-        if (type == TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS) {
+        if (type == TIMESTAMP_TZ_MICROS) {
             return StandardSQLTypeName.TIMESTAMP;
         }
         if (type instanceof VarcharType) {
             return StandardSQLTypeName.STRING;
         }
-        if (type == VarbinaryType.VARBINARY) {
+        if (type == VARBINARY) {
             return StandardSQLTypeName.BYTES;
         }
         if (type instanceof ArrayType) {
@@ -334,11 +334,11 @@ public final class BigQueryTypeManager
     {
         switch (field.getType().getStandardType()) {
             case BOOL:
-                return Optional.of(new ColumnMapping(BooleanType.BOOLEAN, true));
+                return Optional.of(new ColumnMapping(BOOLEAN, true));
             case INT64:
-                return Optional.of(new ColumnMapping(BigintType.BIGINT, true));
+                return Optional.of(new ColumnMapping(BIGINT, true));
             case FLOAT64:
-                return Optional.of(new ColumnMapping(DoubleType.DOUBLE, true));
+                return Optional.of(new ColumnMapping(DOUBLE, true));
             case NUMERIC:
             case BIGNUMERIC:
                 Long precision = field.getPrecision();
@@ -354,17 +354,17 @@ public final class BigQueryTypeManager
             case STRING:
                 return Optional.of(new ColumnMapping(createUnboundedVarcharType(), true));
             case BYTES:
-                return Optional.of(new ColumnMapping(VarbinaryType.VARBINARY, true));
+                return Optional.of(new ColumnMapping(VARBINARY, true));
             case DATE:
-                return Optional.of(new ColumnMapping(DateType.DATE, true));
+                return Optional.of(new ColumnMapping(DATE, true));
             case DATETIME:
-                return Optional.of(new ColumnMapping(TimestampType.TIMESTAMP_MICROS, true));
+                return Optional.of(new ColumnMapping(TIMESTAMP_MICROS, true));
             case TIME:
-                return Optional.of(new ColumnMapping(TimeType.TIME_MICROS, true));
+                return Optional.of(new ColumnMapping(TIME_MICROS, true));
             case TIMESTAMP:
-                return Optional.of(new ColumnMapping(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS, true));
+                return Optional.of(new ColumnMapping(TIMESTAMP_TZ_MICROS, true));
             case GEOGRAPHY:
-                return Optional.of(new ColumnMapping(VarcharType.VARCHAR, false));
+                return Optional.of(new ColumnMapping(VARCHAR, false));
             case JSON:
                 return Optional.of(new ColumnMapping(jsonType, false));
             case STRUCT:
@@ -410,7 +410,7 @@ public final class BigQueryTypeManager
             if (field.getPrecision() == null && field.getScale() == null) {
                 return false;
             }
-            if (field.getPrecision() != null && field.getPrecision() > Decimals.MAX_PRECISION) {
+            if (field.getPrecision() != null && field.getPrecision() > MAX_PRECISION) {
                 return false;
             }
         }
