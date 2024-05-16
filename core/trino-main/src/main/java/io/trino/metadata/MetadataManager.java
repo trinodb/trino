@@ -514,7 +514,7 @@ public final class MetadataManager
             if (relationType.isPresent()) {
                 return ImmutableList.of(objectName.get());
             }
-            // TODO we can probably return empty lit here
+            // TODO we can probably return empty list here
         }
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
