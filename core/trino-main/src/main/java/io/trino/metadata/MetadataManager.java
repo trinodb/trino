@@ -510,11 +510,18 @@ public final class MetadataManager
 
         Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
         if (objectName.isPresent()) {
-            Optional<RelationType> relationType = getRelationTypeIfExists(session, objectName.get());
-            if (relationType.isPresent()) {
-                return ImmutableList.of(objectName.get());
+            try {
+                Optional<RelationType> relationType = getRelationTypeIfExists(session, objectName.get());
+                if (relationType.isPresent()) {
+                    return ImmutableList.of(objectName.get());
+                }
+                // TODO we can probably return empty list here
             }
-            // TODO we can probably return empty list here
+            catch (RuntimeException e) {
+                handleListingError(e, prefix);
+                // TODO This could be potentially improved to not return empty results https://github.com/trinodb/trino/issues/6551
+                return ImmutableList.of();
+            }
         }
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
