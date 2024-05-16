@@ -106,6 +106,45 @@ public class TestHiveMetadataListing
             Optional.of("SELECT 1"),
             OptionalLong.empty());
 
+    private static final Table CORRECT_TABLE = new Table(
+            DATABASE_NAME,
+            "correct_table",
+            Optional.of("owner"),
+            "MANAGED_TABLE",
+            TABLE_STORAGE,
+            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(TABLE_COLUMN),
+            ImmutableMap.of("param", "value3"),
+            Optional.empty(),
+            Optional.empty(),
+            OptionalLong.empty());
+
+    private static final Table FAILING_SERDE_INFO_TABLE = new Table(
+            DATABASE_NAME,
+            "failing_serde_info_table",
+            Optional.of("owner"),
+            "MANAGED_TABLE",
+            TABLE_STORAGE,
+            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(TABLE_COLUMN),
+            ImmutableMap.of("param", "value3"),
+            Optional.empty(),
+            Optional.empty(),
+            OptionalLong.empty());
+
+    private static final Table FAILING_GENERAL_TABLE = new Table(
+            DATABASE_NAME,
+            "failing_general_table",
+            Optional.of("owner"),
+            "MANAGED_TABLE",
+            TABLE_STORAGE,
+            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(TABLE_COLUMN),
+            ImmutableMap.of("param", "value3"),
+            Optional.empty(),
+            Optional.empty(),
+            OptionalLong.empty());
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -147,6 +186,39 @@ public class TestHiveMetadataListing
         assertQueryReturnsEmptyResult(withSchemaAndFailingGeneralViewFilter);
     }
 
+    @Test
+    public void testTableListing()
+    {
+        String withSchemaFilter = format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", DATABASE_NAME);
+        assertQuery(withSchemaFilter,
+                """
+                        VALUES ('correct_view'),
+                        ('failing_general_view'),
+                        ('failing_storage_descriptor_view'),
+                        ('correct_table'),
+                        ('failing_serde_info_table'),
+                        ('failing_general_table')""");
+
+        String withSchemaAndCorrectTableFilter = format(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'",
+                DATABASE_NAME,
+                CORRECT_TABLE.getSchemaTableName().getTableName());
+        assertThat(computeScalar(withSchemaAndCorrectTableFilter)).isEqualTo(CORRECT_TABLE.getSchemaTableName().getTableName());
+
+        String withSchemaAndFailingSDTableFilter = format(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'",
+                DATABASE_NAME,
+                FAILING_SERDE_INFO_TABLE.getSchemaTableName().getTableName());
+        assertQueryReturnsEmptyResult(withSchemaAndFailingSDTableFilter);
+
+        // TODO This could be potentially improved to not return empty results https://github.com/trinodb/trino/issues/6551
+        String withSchemaAndFailingGeneralTableFilter = format(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'",
+                DATABASE_NAME,
+                FAILING_GENERAL_TABLE.getSchemaTableName().getTableName());
+        assertQueryReturnsEmptyResult(withSchemaAndFailingGeneralTableFilter);
+    }
+
     private static class TestingHiveMetastore
             implements HiveMetastore
     {
@@ -163,6 +235,9 @@ public class TestHiveMetadataListing
                     .add(new TableInfo(CORRECT_VIEW.getSchemaTableName(), TableInfo.ExtendedRelationType.OTHER_VIEW))
                     .add(new TableInfo(FAILING_STORAGE_DESCRIPTOR_VIEW.getSchemaTableName(), TableInfo.ExtendedRelationType.OTHER_VIEW))
                     .add(new TableInfo(FAILING_GENERAL_VIEW.getSchemaTableName(), TableInfo.ExtendedRelationType.OTHER_VIEW))
+                    .add(new TableInfo(CORRECT_TABLE.getSchemaTableName(), TableInfo.ExtendedRelationType.TABLE))
+                    .add(new TableInfo(FAILING_SERDE_INFO_TABLE.getSchemaTableName(), TableInfo.ExtendedRelationType.TABLE))
+                    .add(new TableInfo(FAILING_GENERAL_TABLE.getSchemaTableName(), TableInfo.ExtendedRelationType.TABLE))
                     .build();
         }
 
@@ -177,6 +252,12 @@ public class TestHiveMetadataListing
                 throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Table StorageDescriptor is null for failing_view");
             }
             if (schemaTableName.equals(FAILING_GENERAL_VIEW.getSchemaTableName())) {
+                throw new RuntimeException("General error");
+            }
+            if (schemaTableName.equals(FAILING_SERDE_INFO_TABLE.getSchemaTableName())) {
+                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Table SerdeInfo is null for table failing_table");
+            }
+            if (schemaTableName.equals(FAILING_GENERAL_TABLE.getSchemaTableName())) {
                 throw new RuntimeException("General error");
             }
             return Optional.empty();
