@@ -54,9 +54,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.execution.TaskManagerConfig.MAX_WRITER_COUNT;
+import static io.trino.operator.exchange.LocalExchange.SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.util.Failures.checkCondition;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class NodePartitioningManager
@@ -260,16 +263,29 @@ public class NodePartitioningManager
      */
     private int getDefaultBucketCount(Session session, PartitioningHandle partitioningHandle)
     {
-        // The goal is to have enough buckets to evenly distribute them across tasks created.  The simplest way to do that is to have exactly as many buckets as there are tasks;
-        // then each task gets one bucket.  So let's return the total number of tasks here.  This number, unfortunately, is hard to know precisely because of the variety of ways in
-        // which schedulers create tasks.  We therefore have to estimate.
+        // The default bucket count is used by both remote and local exchanges to assign buckets to nodes and drivers. The goal is to have enough
+        // buckets to evenly distribute them across tasks or drivers. If number of buckets is too low, then some tasks or drivers will be idle.
+        // Excessive number of buckets would make bucket lists or arrays too large.
+
+        // For remote exchanges bucket count can be assumed to be equal to node count multiplied by some constant.
+        // Multiplying by a constant allows to better distribute skewed buckets which would otherwise be assigned
+        // to a single node.
+        int remoteBucketCount;
         if (getRetryPolicy(session) != RetryPolicy.TASK) {
             // Pipeline schedulers typically create as many tasks as there are nodes.
-            return getNodeCount(session, partitioningHandle);
+            remoteBucketCount = getNodeCount(session, partitioningHandle) * 3;
         }
-        // The FTE scheduler usually creates as many tasks as there are partitions.
-        // TODO: get the actual number of partitions if PartitioningHandle ever offers it or if we get the partitioning scheme here as a parameter.
-        return getFaultTolerantExecutionMaxPartitionCount(session);
+        else {
+            // The FTE scheduler usually creates as many tasks as there are partitions.
+            // TODO: get the actual number of partitions if PartitioningHandle ever offers it or if we get the partitioning scheme here as a parameter.
+            remoteBucketCount = getFaultTolerantExecutionMaxPartitionCount(session) * 3;
+        }
+
+        // For local exchanges we need to multiply MAX_WRITER_COUNT by SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER to account
+        // for local exchanges that are used to distributed data between table writer drivers.
+        int localBucketCount = MAX_WRITER_COUNT * SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
+
+        return max(remoteBucketCount, localBucketCount);
     }
 
     public int getNodeCount(Session session, PartitioningHandle partitioningHandle)
