@@ -14,7 +14,6 @@
 package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.TestingProperties;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
@@ -23,6 +22,7 @@ import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,6 +35,7 @@ import static io.trino.tests.product.TestGroups.ICEBERG_FORMAT_VERSION_COMPATIBI
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class SuiteCompatibility
         extends Suite
@@ -54,12 +55,12 @@ public class SuiteCompatibility
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         ImmutableList<SuiteTestRun> trinoCompatibilityTestRuns = testedTrinoDockerImages().stream()
-                .map(image -> testOnEnvironment(EnvSinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
+                .map(testedImage -> testOnEnvironment(EnvSinglenodeCompatibility.class, Map.of("compatibility.testVersion", Integer.toString(testedImage.version), "compatibility.testDockerImage", testedImage.image))
                         .withGroups(CONFIGURED_FEATURES, HIVE_VIEW_COMPATIBILITY, ICEBERG_FORMAT_VERSION_COMPATIBILITY)
                         .build())
                 .collect(toImmutableList());
         ImmutableList<SuiteTestRun> prestoCompatibilityTestRuns = testedPrestoDockerImages().stream()
-                .map(image -> testOnEnvironment(EnvSinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
+                .map(testedImage -> testOnEnvironment(EnvSinglenodeCompatibility.class, Map.of("compatibility.testVersion", Integer.toString(testedImage.version), "compatibility.testDockerImage", testedImage.image))
                         .withGroups(CONFIGURED_FEATURES, HIVE_VIEW_COMPATIBILITY)
                         .build())
                 .collect(toImmutableList());
@@ -70,14 +71,14 @@ public class SuiteCompatibility
                 .build();
     }
 
-    private static List<String> testedTrinoDockerImages()
+    private static List<TestedImage> testedTrinoDockerImages()
     {
         try {
             String currentVersionString = TestingProperties.getProjectVersion();
             Matcher matcher = Pattern.compile("(\\d+)(?:-SNAPSHOT)?").matcher(currentVersionString);
             checkState(matcher.matches());
             int currentVersion = parseInt(matcher.group(1));
-            ImmutableList.Builder<String> testedTrinoVersions = ImmutableList.builder();
+            ImmutableList.Builder<TestedImage> testedTrinoVersions = ImmutableList.builder();
             int testVersion = currentVersion - 1; // always test last release version
             for (int i = 0; i < NUMBER_OF_TESTED_VERSIONS; i++) {
                 if (testVersion == 404) {
@@ -87,7 +88,7 @@ public class SuiteCompatibility
                 if (testVersion < FIRST_TRINO_VERSION) {
                     break;
                 }
-                testedTrinoVersions.add(format("%s:%s", TRINO_IMAGE, testVersion));
+                testedTrinoVersions.add(new TestedImage(testVersion, format("%s:%s", TRINO_IMAGE, testVersion)));
                 testVersion -= TESTED_VERSIONS_GRANULARITY;
             }
 
@@ -98,8 +99,16 @@ public class SuiteCompatibility
         }
     }
 
-    private static List<String> testedPrestoDockerImages()
+    private static List<TestedImage> testedPrestoDockerImages()
     {
-        return ImmutableList.of(format("%s:%s", PRESTOSQL_IMAGE, LAST_PRESTOSQL_VERSION));
+        return ImmutableList.of(new TestedImage(LAST_PRESTOSQL_VERSION, format("%s:%s", PRESTOSQL_IMAGE, LAST_PRESTOSQL_VERSION)));
+    }
+
+    record TestedImage(int version, String image)
+    {
+        TestedImage
+        {
+            requireNonNull(image, "image is null");
+        }
     }
 }
