@@ -139,6 +139,7 @@ public class TestHiveMetadataListing
                 FAILING_STORAGE_DESCRIPTOR_VIEW.getSchemaTableName().getTableName());
         assertQueryReturnsEmptyResult(withSchemaAndFailingSDViewFilter);
 
+        // TODO This could be potentially improved to not return empty results https://github.com/trinodb/trino/issues/6551
         String withSchemaAndFailingGeneralViewFilter = format(
                 "SELECT table_name FROM information_schema.views WHERE table_schema = '%s' AND table_name = '%s'",
                 DATABASE_NAME,
