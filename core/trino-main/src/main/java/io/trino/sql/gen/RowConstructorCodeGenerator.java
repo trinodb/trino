@@ -72,11 +72,13 @@ public class RowConstructorCodeGenerator
 
         Variable fieldBlocks = scope.createTempVariable(Block[].class);
         block.append(fieldBlocks.set(newArray(type(Block[].class), arguments.size())));
+        // Cache local variable declarations per java type on stack for reuse
+        Map<Class<?>, Variable> javaTypeTempVariables = new HashMap<>();
 
         Variable blockBuilder = scope.createTempVariable(BlockBuilder.class);
         for (int i = 0; i < arguments.size(); ++i) {
             Type fieldType = types.get(i);
-            Variable field = scope.createTempVariable(fieldType.getJavaType());
+            Variable field = javaTypeTempVariables.computeIfAbsent(fieldType.getJavaType(), scope::createTempVariable);
 
             block.append(blockBuilder.set(constantType(binder, fieldType).invoke(
                     "createBlockBuilder",
