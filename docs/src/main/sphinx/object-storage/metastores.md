@@ -45,7 +45,8 @@ are also available. They are discussed later in this topic.
     Iceberg connector to configures different Iceberg metadata catalogs.
 
     You must set this property in all Iceberg catalog property files. Valid
-    values are `HIVE_METASTORE`, `GLUE`, `JDBC`, `REST`, and `NESSIE`.
+    values are `hive_metastore`, `glue`, `jdbc`, `rest`, `nessie`, and
+    `snowflake`.
   -
 * - `hive.metastore-cache.cache-partitions`
   - Enable caching for partition metadata. You can disable caching to avoid
@@ -577,7 +578,6 @@ The Nessie catalog does not support [view management](sql-view-management) or
 [materialized view management](sql-materialized-view-management).
 
 (iceberg-snowflake-catalog)=
-
 ### Snowflake catalog
 
 In order to use a Snowflake catalog, configure the catalog type with
@@ -611,6 +611,21 @@ iceberg.snowflake-catalog.user=user
 iceberg.snowflake-catalog.password=secret
 iceberg.snowflake-catalog.database=db
 ```
+
+When using the Snowflake catalog, data management tasks such as creating tables,
+must be performed in Snowflake because using the catalog from external systems
+like Trino only supports `SELECT` queries and other [read operations](sql-read-operations).
+
+Additionally, the [Snowflake-created Iceberg
+tables](https://docs.snowflake.com/en/sql-reference/sql/create-iceberg-table-snowflake)
+do not expose partitioning information, which prevents efficient parallel reads
+and therefore can have significant negative performance implications.
+
+The Snowflake catalog does not support [view management](sql-view-management) or
+[materialized view management](sql-materialized-view-management).
+
+Further information is available in the [Snowflake catalog
+documentation](https://docs.snowflake.com/en/user-guide/tables-iceberg-catalog).
 
 (partition-projection)=
 

@@ -76,13 +76,15 @@ implementation is used:
   - Description
   - Default
 * - `iceberg.catalog.type`
-  - Define the metastore type to use. Possible values are:
+  - Define the [metastore type](general-metastore-properties) to use. Possible
+    values are:
 
     * `hive_metastore`
     * `glue`
     * `jdbc`
     * `rest`
     * `nessie`
+    * `snowflake`
   -
 * - `iceberg.file-format`
   - Define the data storage file format for Iceberg tables. Possible values are:
