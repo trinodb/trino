@@ -238,6 +238,20 @@ public class NodePartitioningManager
         });
     }
 
+    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
+    {
+        Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
+
+        ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle);
+        if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
+            return new BucketNodeMap(splitToBucket, getFixedMapping(bucketNodeMap.get()));
+        }
+
+        List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
+        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session, partitioningHandle));
+        return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(nodes, bucketCount));
+    }
+
     /**
      * Query plans typically divide data into buckets to help split the work among Trino nodes.  How many buckets?  That is dictated by the connector, via
      * {@link #getConnectorBucketNodeMap}.  But when that returns empty, this method should be used to determine how many buckets to create.
@@ -256,20 +270,6 @@ public class NodePartitioningManager
         // The FTE scheduler usually creates as many tasks as there are partitions.
         // TODO: get the actual number of partitions if PartitioningHandle ever offers it or if we get the partitioning scheme here as a parameter.
         return getFaultTolerantExecutionMaxPartitionCount(session);
-    }
-
-    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
-    {
-        Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
-
-        ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle);
-        if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
-            return new BucketNodeMap(splitToBucket, getFixedMapping(bucketNodeMap.get()));
-        }
-
-        List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
-        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session, partitioningHandle));
-        return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(nodes, bucketCount));
     }
 
     public int getNodeCount(Session session, PartitioningHandle partitioningHandle)
