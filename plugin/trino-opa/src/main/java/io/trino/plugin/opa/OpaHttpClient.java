@@ -28,9 +28,12 @@ import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.plugin.opa.schema.OpaBatchQueryResult;
+import io.trino.plugin.opa.schema.OpaColumnMaskQueryResult;
 import io.trino.plugin.opa.schema.OpaQuery;
 import io.trino.plugin.opa.schema.OpaQueryInput;
 import io.trino.plugin.opa.schema.OpaQueryResult;
+import io.trino.plugin.opa.schema.OpaViewExpression;
+import io.trino.spi.connector.ColumnSchema;
 
 import java.net.URI;
 import java.util.Collection;
@@ -44,6 +47,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
@@ -51,6 +55,7 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -123,22 +128,24 @@ public class OpaHttpClient
         }
     }
 
+    public Map<ColumnSchema, OpaViewExpression> parallelColumnMasksFromOpa(List<ColumnSchema> items, Function<ColumnSchema, OpaQueryInput> requestBuilder, URI uri, JsonCodec<? extends OpaColumnMaskQueryResult> deserializer)
+    {
+        return parallelRequest(
+                items,
+                requestBuilder,
+                (item, result) -> result.result().map(viewExpression -> Map.entry(item, viewExpression)),
+                uri,
+                deserializer).stream().collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
     public <T> Set<T> parallelFilterFromOpa(Collection<T> items, Function<T, OpaQueryInput> requestBuilder, URI uri, JsonCodec<? extends OpaQueryResult> deserializer)
     {
-        if (items.isEmpty()) {
-            return ImmutableSet.of();
-        }
-        List<FluentFuture<Optional<T>>> allFutures = items.stream()
-                .map(item -> submitOpaRequest(requestBuilder.apply(item), uri, deserializer)
-                        .transform(result -> result.result() ? Optional.of(item) : Optional.<T>empty(), executor))
-                .collect(toImmutableList());
-        return consumeOpaResponse(
-                Futures.whenAllComplete(allFutures).call(() -> allFutures.stream()
-                                .map(this::consumeOpaResponse)
-                                .filter(Optional::isPresent)
-                                .map(Optional::get)
-                                .collect(toImmutableSet()),
-                        executor));
+        return ImmutableSet.copyOf(parallelRequest(
+                items,
+                requestBuilder,
+                (item, result) -> result.result() ? Optional.of(item) : Optional.empty(),
+                uri,
+                deserializer));
     }
 
     public <T> Set<T> batchFilterFromOpa(Collection<T> items, Function<List<T>, OpaQueryInput> requestBuilder, URI uri, JsonCodec<? extends OpaBatchQueryResult> deserializer)
@@ -152,33 +159,25 @@ public class OpaHttpClient
 
     public <K, V> Map<K, Set<V>> parallelBatchFilterFromOpa(Map<K, ? extends Collection<V>> items, BiFunction<K, List<V>, OpaQueryInput> requestBuilder, URI uri, JsonCodec<? extends OpaBatchQueryResult> deserializer)
     {
-        ImmutableMap.Builder<K, FluentFuture<ImmutableSet<V>>> allFuturesBuilder = ImmutableMap.builder();
-
-        for (Map.Entry<K, ? extends Collection<V>> mapEntry : items.entrySet()) {
-            if (mapEntry.getValue().isEmpty()) {
-                continue;
-            }
-            List<V> orderedItems = ImmutableList.copyOf(mapEntry.getValue());
-            allFuturesBuilder.put(
-                    mapEntry.getKey(),
-                    submitOpaRequest(requestBuilder.apply(mapEntry.getKey(), orderedItems), uri, deserializer)
-                            .transform(
-                                    response -> requireNonNullElse(response.result(), ImmutableList.<Integer>of()).stream()
-                                            .map(orderedItems::get)
-                                            .collect(toImmutableSet()),
-                                    executor));
-        }
-
-        ImmutableMap<K, FluentFuture<ImmutableSet<V>>> allFutures = allFuturesBuilder.buildOrThrow();
-        ImmutableMap.Builder<K, Set<V>> resultBuilder = ImmutableMap.builder();
-        List<Map.Entry<K, ImmutableSet<V>>> consumedFutures = consumeOpaResponse(
-                Futures.whenAllComplete(allFutures.values()).call(
-                        () -> allFutures.entrySet().stream()
-                                .map(entry -> Map.entry(entry.getKey(), consumeOpaResponse(entry.getValue())))
-                                .filter(entry -> !entry.getValue().isEmpty())
-                                .collect(toImmutableList()),
-                        executor));
-        return resultBuilder.putAll(consumedFutures).buildKeepingLast();
+        ImmutableList<Map.Entry<K, ImmutableList<V>>> parallelRequestItems = items.entrySet()
+                .stream()
+                .filter(entry -> !entry.getValue().isEmpty())
+                .map(entry -> Map.entry(entry.getKey(), ImmutableList.copyOf(entry.getValue())))
+                .collect(toImmutableList());
+        return parallelRequest(
+                    parallelRequestItems,
+                    entry -> requestBuilder.apply(entry.getKey(), entry.getValue()),
+                    (entry, result) ->
+                            Optional.of(requireNonNullElse(result.result(), ImmutableList.<Integer>of()))
+                                    .flatMap(indices -> indices.isEmpty() ? Optional.empty() : Optional.of(indices))
+                                    .map(indices -> indices.stream()
+                                        .map(index -> entry.getValue().get(index))
+                                        .collect(toImmutableSet()))
+                                    .map(values -> Map.entry(entry.getKey(), values)),
+                    uri,
+                    deserializer)
+                .stream()
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     private <T> T parseOpaResponse(FullJsonResponseHandler.JsonResponse<T> response, URI uri)
@@ -207,5 +206,23 @@ public class OpaHttpClient
                     response.getHeaders());
         }
         return response.getValue();
+    }
+
+    private <T, U, X> List<X> parallelRequest(Collection<T> items, Function<T, OpaQueryInput> requestBuilder, BiFunction<T, U, Optional<X>> parser, URI uri, JsonCodec<U> deserializer)
+    {
+        if (items.isEmpty()) {
+            return ImmutableList.of();
+        }
+        List<FluentFuture<Optional<X>>> allFutures = items.stream()
+                .map(item -> submitOpaRequest(requestBuilder.apply(item), uri, deserializer)
+                        .transform(result -> parser.apply(item, result), executor))
+                .collect(toImmutableList());
+        return consumeOpaResponse(
+                Futures.whenAllComplete(allFutures).call(() -> allFutures.stream()
+                                .map(this::consumeOpaResponse)
+                                .filter(Optional::isPresent)
+                                .map(Optional::get)
+                                .collect(toImmutableList()),
+                        executor));
     }
 }
