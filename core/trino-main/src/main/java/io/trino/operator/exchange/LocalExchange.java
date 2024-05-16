@@ -66,7 +66,7 @@ import static java.util.function.Function.identity;
 @ThreadSafe
 public class LocalExchange
 {
-    private static final int SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER = 128;
+    public static final int SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER = 128;
 
     private final Supplier<LocalExchanger> exchangerSupplier;
 

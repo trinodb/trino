@@ -48,6 +48,8 @@ import static java.math.BigDecimal.TWO;
 })
 public class TaskManagerConfig
 {
+    public static final int MAX_WRITER_COUNT = 64;
+
     private boolean threadPerDriverSchedulerEnabled = true;
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
@@ -88,7 +90,7 @@ public class TaskManagerConfig
     // available processor. Whereas, on the worker nodes due to more available processors, the default value could
     // be above 1. Therefore, it can cause error due to config mismatch during execution. Additionally, cap
     // it to 64 in order to avoid small pages produced by local partitioning exchanges.
-    private int maxWriterCount = clamp(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2, 64);
+    private int maxWriterCount = clamp(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2, MAX_WRITER_COUNT);
     // Default value of task concurrency should be above 1, otherwise it can create a plan with a single gather
     // exchange node on the coordinator due to a single available processor. Whereas, on the worker nodes due to
     // more available processors, the default value could be above 1. Therefore, it can cause error due to config
