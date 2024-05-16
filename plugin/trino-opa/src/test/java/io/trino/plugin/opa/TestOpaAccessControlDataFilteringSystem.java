@@ -14,6 +14,7 @@
 package io.trino.plugin.opa;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
@@ -28,6 +29,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -43,6 +45,7 @@ public class TestOpaAccessControlDataFilteringSystem
     private static final String OPA_ALLOW_POLICY_NAME = "allow";
     private static final String OPA_ROW_LEVEL_FILTERING_POLICY_NAME = "rowFilters";
     private static final String OPA_COLUMN_MASKING_POLICY_NAME = "columnMask";
+    private static final String OPA_BATCH_COLUMN_MASKING_POLICY_NAME = "batchColumnMasks";
     private static final String SAMPLE_ROW_LEVEL_FILTERING_POLICY = """
             package trino
             import future.keywords.in
@@ -89,6 +92,14 @@ public class TestOpaAccessControlDataFilteringSystem
                 column_resource.schemaName == "sample_schema"
                 column_resource.tableName == "restricted_table"
                 column_resource.columnName == "user_name"
+            }
+
+            batchColumnMasks contains {
+                "index": i,
+                "viewExpression": cm
+            } if {
+                some i
+                cm := columnMask with input.action.resource.column as input.action.filterResources[i].column
             }
             """;
 
@@ -146,10 +157,26 @@ public class TestOpaAccessControlDataFilteringSystem
     public void testColumnMasking()
             throws Exception
     {
-        setupTrinoWithOpa(
+        testColumnMasking(
+                new OpaConfig()
+                    .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
+                    .setOpaColumnMaskingUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_COLUMN_MASKING_POLICY_NAME)));
+    }
+
+    @Test
+    public void testBatchColumnMasking()
+        throws Exception
+    {
+        testColumnMasking(
                 new OpaConfig()
                         .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
-                        .setOpaColumnMaskingUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_COLUMN_MASKING_POLICY_NAME)));
+                        .setOpaBatchColumnMaskingUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_BATCH_COLUMN_MASKING_POLICY_NAME)));
+    }
+
+    private void testColumnMasking(OpaConfig opaConfig)
+            throws Exception
+    {
+        setupTrinoWithOpa(opaConfig);
         OPA_CONTAINER.submitPolicy(SAMPLE_COLUMN_MASKING_POLICY);
 
         @Language("SQL") String userNamesInUnrestrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.unrestricted_table";
@@ -179,6 +206,33 @@ public class TestOpaAccessControlDataFilteringSystem
         assertResultsForUser("admin", phoneNumbersInRestrictedTableQuery, allExpectedPhoneNumbers);
         // "bob" cannot see any phone numbers in the restricted table
         assertResultsForUser("bob", phoneNumbersInRestrictedTableQuery, ImmutableSet.of("<NULL>"));
+
+        Set<String> allExpectedUserTypes = ImmutableSet.of("customer", "internal_user");
+
+        // Selecting multiple columns including column without mask
+        @Language("SQL") String allColumnsInUnrestrictedTableQuery = "SELECT user_type, user_name, user_phone FROM sample_catalog.sample_schema.unrestricted_table";
+        @Language("SQL") String allColumnsInRestrictedTableQuery = "SELECT user_type, user_name, user_phone FROM sample_catalog.sample_schema.restricted_table";
+
+        // No masking is applied to the unrestricted table
+        assertResultsForUser("admin", allColumnsInUnrestrictedTableQuery, ImmutableMap.of(
+                "user_type", allExpectedUserTypes,
+                "user_name", ALL_DUMMY_USERS_IN_TABLE,
+                "user_phone", allExpectedPhoneNumbers));
+        assertResultsForUser("bob", allColumnsInUnrestrictedTableQuery, ImmutableMap.of(
+                "user_type", allExpectedUserTypes,
+                "user_name", ALL_DUMMY_USERS_IN_TABLE,
+                "user_phone", allExpectedPhoneNumbers));
+
+        // No masking is applied for admin in restricted table
+        assertResultsForUser("admin", allColumnsInRestrictedTableQuery, ImmutableMap.of(
+                "user_type", allExpectedUserTypes,
+                "user_name", ALL_DUMMY_USERS_IN_TABLE,
+                "user_phone", allExpectedPhoneNumbers));
+        // "bob" cannot see any phone numbers, only the last 3 characters of user_name and the complete user_type for the restricted table
+        assertResultsForUser("bob", allColumnsInRestrictedTableQuery, ImmutableMap.of(
+                "user_type", allExpectedUserTypes,
+                "user_name", expectedMaskedUserNames,
+                "user_phone", ImmutableSet.of("<NULL>")));
     }
 
     @Test
@@ -247,6 +301,11 @@ public class TestOpaAccessControlDataFilteringSystem
     private void assertResultsForUser(String asUser, @Language("SQL") String query, Set<String> expectedResults)
     {
         assertThat(runner.querySetOfStrings(asUser, query)).containsExactlyInAnyOrderElementsOf(expectedResults);
+    }
+
+    private void assertResultsForUser(String asUser, @Language("SQL") String query, Map<String, Set<String>> expectedResults)
+    {
+        assertThat(runner.queryColumnsAsSetOfStrings(asUser, query)).containsExactlyInAnyOrderEntriesOf(expectedResults);
     }
 
     private void setupTrinoWithOpa(OpaConfig opaConfig)

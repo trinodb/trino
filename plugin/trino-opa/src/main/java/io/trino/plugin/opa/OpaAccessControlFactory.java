@@ -22,6 +22,10 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonModule;
+import io.airlift.tracetoken.TraceTokenModule;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
+import io.trino.plugin.opa.schema.OpaBatchColumnMaskQueryResult;
 import io.trino.plugin.opa.schema.OpaColumnMaskQueryResult;
 import io.trino.plugin.opa.schema.OpaPluginContext;
 import io.trino.plugin.opa.schema.OpaQuery;
@@ -70,16 +74,22 @@ public class OpaAccessControlFactory
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
+                new TraceTokenModule(),
                 binder -> {
                     jsonCodecBinder(binder).bindJsonCodec(OpaQuery.class);
                     jsonCodecBinder(binder).bindJsonCodec(OpaQueryResult.class);
                     jsonCodecBinder(binder).bindJsonCodec(OpaRowFiltersQueryResult.class);
                     jsonCodecBinder(binder).bindJsonCodec(OpaColumnMaskQueryResult.class);
+                    jsonCodecBinder(binder).bindJsonCodec(OpaBatchColumnMaskQueryResult.class);
                     httpClient.ifPresentOrElse(
                             client -> binder.bind(Key.get(HttpClient.class, ForOpa.class)).toInstance(client),
-                            () -> httpClientBinder(binder).bindHttpClient("opa", ForOpa.class));
+                            () -> httpClientBinder(binder).bindHttpClient("opa", ForOpa.class).withTracing());
                     context.ifPresentOrElse(
-                            actualContext -> binder.bind(OpaPluginContext.class).toInstance(new OpaPluginContext(actualContext.getVersion())),
+                            actualContext -> {
+                                binder.bind(OpaPluginContext.class).toInstance(new OpaPluginContext(actualContext.getVersion()));
+                                binder.bind(OpenTelemetry.class).toInstance(actualContext.getOpenTelemetry());
+                                binder.bind(Tracer.class).toInstance(actualContext.getTracer());
+                            },
                             () -> binder.bind(OpaPluginContext.class).toInstance(new OpaPluginContext("UNKNOWN")));
                     binder.bind(OpaHighLevelClient.class);
                     binder.bind(Key.get(Executor.class, ForOpa.class))
