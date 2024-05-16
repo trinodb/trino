@@ -35,8 +35,15 @@ import java.security.Key;
 import java.security.SecureRandom;
 import java.time.ZonedDateTime;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -70,6 +77,18 @@ public class FormWebUiAuthenticationFilter
     private final Function<String, String> jwtGenerator;
     private final FormAuthenticator formAuthenticator;
     private final Optional<Authenticator> authenticator;
+    protected static final Set<String> denyList = new HashSet<>();
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+        private final AtomicInteger counter = new AtomicInteger(0);
+
+        @Override
+        public Thread newThread(Runnable r)
+        {
+            Thread thread = new Thread(r);
+            thread.setName("CustomThread-" + counter.getAndIncrement());
+            return thread;
+        }
+    });
 
     private static final MultipartUiCookie MULTIPART_COOKIE = new MultipartUiCookie(TRINO_UI_COOKIE, "/ui");
 
@@ -99,6 +118,7 @@ public class FormWebUiAuthenticationFilter
 
         this.formAuthenticator = requireNonNull(formAuthenticator, "formAuthenticator is null");
         this.authenticator = requireNonNull(authenticator, "authenticator is null");
+        scheduler.scheduleAtFixedRate(this::cleanupDenyList, sessionTimeoutNanos, sessionTimeoutNanos, NANOSECONDS);
     }
 
     @Override
@@ -118,7 +138,13 @@ public class FormWebUiAuthenticationFilter
         }
 
         // login and logout resource is not visible to protocol authenticators
-        if ((path.equals(UI_LOGIN) && request.getMethod().equals("POST")) || path.equals(UI_LOGOUT)) {
+        if ((path.equals(UI_LOGIN) && request.getMethod().equals("POST"))) {
+            return;
+        }
+
+        if (path.equals(UI_LOGOUT)) {
+            String token = request.getCookies().get(TRINO_UI_COOKIE).getValue();
+            denyList.add(token);
             return;
         }
 
@@ -236,6 +262,10 @@ public class FormWebUiAuthenticationFilter
 
     private Optional<String> getAuthenticatedUsername(ContainerRequestContext request)
     {
+        Optional<String> token = MULTIPART_COOKIE.read(request.getCookies());
+        if (token.isPresent() && denyList.contains(token.get())) {
+            return Optional.empty();
+        }
         try {
             return MULTIPART_COOKIE.read(request.getCookies()).map(this::parseJwt);
         }
@@ -294,5 +324,18 @@ public class FormWebUiAuthenticationFilter
             return true;
         }
         return false;
+    }
+
+    public void cleanupDenyList()
+    {
+        Iterator<String> denyListItr = denyList.iterator();
+        while (denyListItr.hasNext()) {
+            try {
+                parseJwt(denyListItr.next());
+            }
+            catch (JwtException e) {
+                denyListItr.remove();
+            }
+        }
     }
 }
