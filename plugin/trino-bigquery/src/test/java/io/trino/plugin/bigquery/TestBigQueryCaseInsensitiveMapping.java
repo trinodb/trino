@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -21,7 +22,6 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -43,7 +43,11 @@ public class TestBigQueryCaseInsensitiveMapping
             throws Exception
     {
         return BigQueryQueryRunner.builder()
-                .setConnectorProperties(Map.of("bigquery.case-insensitive-name-matching", "true"))
+                .setConnectorProperties(ImmutableMap.<String, String>builder()
+                        .put("bigquery.case-insensitive-name-matching", "true")
+                        .put("bigquery.case-insensitive-name-matching.cache-ttl", "1m")
+                        .put("bigquery.service-cache-ttl", "0ms") // Disable service cache to focus on metadata cache
+                        .buildOrThrow())
                 .build();
     }
 

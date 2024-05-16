@@ -44,6 +44,7 @@ public class TestBigQueryConfig
                 .setViewMaterializationDataset(null)
                 .setMaxReadRowsRetries(3)
                 .setCaseInsensitiveNameMatching(false)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(0, MILLISECONDS))
                 .setViewsCacheTtl(new Duration(15, MINUTES))
                 .setServiceCacheTtl(new Duration(3, MINUTES))
                 .setMetadataCacheTtl(new Duration(0, MILLISECONDS))
@@ -73,6 +74,7 @@ public class TestBigQueryConfig
                 .put("bigquery.view-materialization-dataset", "vmdataset")
                 .put("bigquery.max-read-rows-retries", "10")
                 .put("bigquery.case-insensitive-name-matching", "true")
+                .put("bigquery.case-insensitive-name-matching.cache-ttl", "1h")
                 .put("bigquery.views-cache-ttl", "1m")
                 .put("bigquery.service-cache-ttl", "10d")
                 .put("bigquery.metadata.cache-ttl", "5d")
@@ -97,6 +99,7 @@ public class TestBigQueryConfig
                 .setViewMaterializationDataset("vmdataset")
                 .setMaxReadRowsRetries(10)
                 .setCaseInsensitiveNameMatching(true)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, HOURS))
                 .setViewsCacheTtl(new Duration(1, MINUTES))
                 .setServiceCacheTtl(new Duration(10, DAYS))
                 .setMetadataCacheTtl(new Duration(5, DAYS))
@@ -133,5 +136,12 @@ public class TestBigQueryConfig
                 .validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("bigquery.views-enabled config property must be enabled when view materialization with filter is enabled");
+
+        assertThatThrownBy(() -> new BigQueryConfig()
+                .setCaseInsensitiveNameMatching(false)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(30, MINUTES))
+                .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("bigquery.case-insensitive-name-matching config must be enabled when case insensitive name matching cache TTL is set");
     }
 }
