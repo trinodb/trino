@@ -177,6 +177,10 @@ a few caveats:
 * - `bigquery.case-insensitive-name-matching`
   - Match dataset and table names case-insensitively.
   - `false`
+* - `bigquery.case-insensitive-name-matching.cache-ttl`
+  - [Duration](prop-type-duration) for which case insensitive schema and table
+    names are cached. Set to `0ms` to disable the cache.
+  - `0ms`
 * - `bigquery.query-results-cache.enabled`
   - Enable [query results cache](https://cloud.google.com/bigquery/docs/cached-results).
   - `false`

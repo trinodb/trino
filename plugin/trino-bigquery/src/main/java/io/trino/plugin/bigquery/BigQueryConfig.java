@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigHidden;
-import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -35,7 +34,6 @@ import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-@DefunctConfig("bigquery.case-insensitive-name-matching.cache-ttl")
 public class BigQueryConfig
 {
     public static final int DEFAULT_MAX_READ_ROWS_RETRIES = 3;
@@ -54,6 +52,7 @@ public class BigQueryConfig
     private Optional<String> viewMaterializationDataset = Optional.empty();
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
     private boolean caseInsensitiveNameMatching;
+    private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(0, MILLISECONDS);
     private Duration viewsCacheTtl = new Duration(15, MINUTES);
     private Duration serviceCacheTtl = new Duration(3, MINUTES);
     private Duration metadataCacheTtl = new Duration(0, MILLISECONDS);
@@ -225,6 +224,21 @@ public class BigQueryConfig
     }
 
     @NotNull
+    @MinDuration("0ms")
+    public Duration getCaseInsensitiveNameMatchingCacheTtl()
+    {
+        return caseInsensitiveNameMatchingCacheTtl;
+    }
+
+    @Config("bigquery.case-insensitive-name-matching.cache-ttl")
+    @ConfigDescription("Duration for which case insensitive schema and table names are cached. Set to 0ms to disable the cache.")
+    public BigQueryConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
+    {
+        this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    @NotNull
     @MinDuration("0m")
     public Duration getViewsCacheTtl()
     {
@@ -366,6 +380,9 @@ public class BigQueryConfig
         }
         if (viewMaterializationWithFilter) {
             checkState(viewsEnabled, "%s config property must be enabled when view materialization with filter is enabled", VIEWS_ENABLED);
+        }
+        if (!caseInsensitiveNameMatchingCacheTtl.isZero()) {
+            checkState(caseInsensitiveNameMatching, "bigquery.case-insensitive-name-matching config must be enabled when case insensitive name matching cache TTL is set");
         }
     }
 }
