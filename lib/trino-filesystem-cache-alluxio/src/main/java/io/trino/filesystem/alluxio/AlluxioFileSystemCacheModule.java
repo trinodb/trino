@@ -48,12 +48,9 @@ public class AlluxioFileSystemCacheModule
         newExporter(binder).export(AlluxioCacheStats.class).as(generator -> generator.generatedNameOf(AlluxioCacheStats.class));
 
         if (isCoordinator) {
-            binder.bind(TrinoFileSystemCache.class).to(AlluxioCoordinatorFileSystemCache.class).in(SINGLETON);
             newOptionalBinder(binder, CachingHostAddressProvider.class).setBinding().to(ConsistentHashingHostAddressProvider.class).in(SINGLETON);
         }
-        else {
-            binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);
-        }
+        binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);
 
         Properties metricProps = new Properties();
         metricProps.put("sink.jmx.class", "alluxio.metrics.sink.JmxSink");
