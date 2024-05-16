@@ -79,7 +79,6 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
-import io.trino.operator.RetryPolicy;
 import io.trino.operator.RowNumberOperator;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import io.trino.operator.SetBuilderOperator.SetBuilderOperatorFactory;
@@ -330,6 +329,7 @@ import static io.trino.operator.OperatorFactories.join;
 import static io.trino.operator.OperatorFactories.spillingJoin;
 import static io.trino.operator.OutputSpoolingOperatorFactory.layoutUnionWithSpooledMetadata;
 import static io.trino.operator.OutputSpoolingOperatorFactory.spooledOutputLayout;
+import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
 import static io.trino.operator.TableFinishOperator.TableFinisher;
 import static io.trino.operator.TableWriterOperator.FRAGMENT_CHANNEL;
@@ -905,7 +905,7 @@ public class LocalExecutionPlanner
         private PhysicalOperation createMergeSource(RemoteSourceNode node, LocalExecutionPlanContext context)
         {
             checkArgument(node.getOrderingScheme().isPresent(), "orderingScheme is absent");
-            checkArgument(node.getRetryPolicy() == RetryPolicy.NONE, "unexpected retry policy: %s", node.getRetryPolicy());
+            checkArgument(node.getRetryPolicy() == NONE, "unexpected retry policy: %s", node.getRetryPolicy());
 
             // merging remote source must have a single driver
             context.setDriverInstanceCount(1);
