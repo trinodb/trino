@@ -29,11 +29,15 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.util.regex.Pattern.quote;
 
 final class TrinoSystemRequirements
 {
@@ -49,6 +53,7 @@ final class TrinoSystemRequirements
         verifyOsArchitecture();
         verifyByteOrder();
         verifyUsingG1Gc();
+        verifyJdk8329528Workaround();
         verifyFileDescriptor();
         verifySlice();
         verifyUtf8();
@@ -118,6 +123,17 @@ final class TrinoSystemRequirements
         }
     }
 
+    private static void verifyJdk8329528Workaround()
+    {
+        if (Runtime.version().compareTo(Version.parse("22.0.2")) < 0) {
+            Optional<String> collectionsKeepPinned = getJvmConfigurationFlag("XX:G1NumCollectionsKeepPinned");
+            int requiredValue = 10000000;
+            if (collectionsKeepPinned.isEmpty() || collectionsKeepPinned.map(Integer::parseInt).orElse(0) < requiredValue) {
+                failRequirement("Trino requires -XX:+UnlockDiagnosticVMOptions -XX:G1NumCollectionsKeepPinned=%d on Java versions lower than 22.0.2 due to JDK-8329528", requiredValue);
+            }
+        }
+    }
+
     private static void verifyFileDescriptor()
     {
         OptionalLong maxFileDescriptorCount = getMaxFileDescriptorCount();
@@ -172,6 +188,18 @@ final class TrinoSystemRequirements
         if (currentYear < 2022) {
             failRequirement("Trino requires the system time to be current (found year %s)", currentYear);
         }
+    }
+
+    private static Optional<String> getJvmConfigurationFlag(String pattern)
+    {
+        Pattern compiled = Pattern.compile("-%s=(.*)".formatted(quote(pattern)), Pattern.DOTALL);
+        return ManagementFactory.getRuntimeMXBean()
+                .getInputArguments()
+                .stream()
+                .map(compiled::matcher)
+                .filter(Matcher::matches)
+                .map(matcher -> matcher.group(1))
+                .findFirst();
     }
 
     @FormatMethod
