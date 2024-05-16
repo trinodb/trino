@@ -123,6 +123,10 @@ jobs:
           platforms: arm64,ppc64le
       - name: Build and Test Docker Image
         run: core/docker/build.sh
+      - name: Print hs_err if exists
+        if: always()
+        run: |
+          cat hs_err_*.log || echo "No hs_err files"
 
   check-commits-dispatcher:
     runs-on: ubuntu-latest
@@ -202,6 +206,10 @@ jobs:
           # Skip checks, these are run in `maven-checks` job and e.g. checkstyle is expensive.
           $MAVEN ${MAVEN_TEST} -T 1C clean verify -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+      - name: Print hs_err if exists
+        if: always()
+        run: |
+          cat hs_err_*.log || echo "No hs_err files"    
 
   web-ui-checks:
     runs-on: ubuntu-latest
@@ -394,6 +402,10 @@ jobs:
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
             !:trino-thrift'
+      - name: Print hs_err if exists
+        if: always()
+        run: |
+          cat hs_err_*.log || echo "No hs_err files"
       - name: Upload test results
         uses: ./.github/actions/process-test-results
         if: always()
