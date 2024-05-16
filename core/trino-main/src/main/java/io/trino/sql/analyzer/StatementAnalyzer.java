@@ -593,10 +593,8 @@ class StatementAnalyzer
                     .collect(toImmutableList());
             List<String> checkConstraints = tableSchema.tableSchema().getCheckConstraints();
 
-            for (ColumnSchema column : columns) {
-                if (accessControl.getColumnMask(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isPresent()) {
-                    throw semanticException(NOT_SUPPORTED, insert, "Insert into table with column masks is not supported");
-                }
+            if (!accessControl.getTableColumnMasks(session.toSecurityContext(), targetTable, columns).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, insert, "Insert into table with column masks is not supported");
             }
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
@@ -829,10 +827,8 @@ class StatementAnalyzer
             accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
 
             TableSchema tableSchema = metadata.getTableSchema(session, handle);
-            for (ColumnSchema tableColumn : tableSchema.columns()) {
-                if (accessControl.getColumnMask(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isPresent()) {
-                    throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
-                }
+            if (!accessControl.getTableColumnMasks(session.toSecurityContext(), tableName, tableSchema.tableSchema().getColumns()).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
             }
 
             // Analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
@@ -1256,10 +1252,8 @@ class StatementAnalyzer
             }
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            for (ColumnMetadata tableColumn : tableMetadata.columns()) {
-                if (accessControl.getColumnMask(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isPresent()) {
-                    throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with column masks");
-                }
+            if (!accessControl.getTableColumnMasks(session.toSecurityContext(), tableName, tableMetadata.columns().stream().map(ColumnMetadata::getColumnSchema).collect(toImmutableList())).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with column masks");
             }
 
             Scope tableScope = analyze(table);
@@ -2374,15 +2368,25 @@ class StatementAnalyzer
 
         private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, RelationType relationType, Scope accessControlScope)
         {
+            ImmutableList.Builder<ColumnSchema> columnSchemaBuilder = ImmutableList.builder();
             for (int index = 0; index < relationType.getAllFieldCount(); index++) {
                 Field field = relationType.getFieldByIndex(index);
-                if (field.getName().isPresent()) {
-                    Optional<ViewExpression> mask = accessControl.getColumnMask(session.toSecurityContext(), name, field.getName().get(), field.getType());
+                field.getName().ifPresent(fieldName -> columnSchemaBuilder.add(ColumnSchema.builder()
+                        .setName(fieldName)
+                        .setType(field.getType())
+                        .setHidden(field.isHidden())
+                        .build()));
+            }
+            List<ColumnSchema> columnSchemas = columnSchemaBuilder.build();
 
-                    if (mask.isPresent() && checkCanSelectFromColumn(name, field.getName().orElseThrow())) {
-                        analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask.get());
+            Map<ColumnSchema, ViewExpression> masks = accessControl.getTableColumnMasks(session.toSecurityContext(), name, columnSchemas);
+
+            for (ColumnSchema columnSchema : columnSchemas) {
+                Optional.ofNullable(masks.get(columnSchema)).ifPresent(mask -> {
+                    if (checkCanSelectFromColumn(name, columnSchema.getName())) {
+                        analyzeColumnMask(session.getIdentity().getUser(), table, name, columnSchema, accessControlScope, mask);
                     }
-                }
+                });
             }
 
             accessControl.getRowFilters(session.toSecurityContext(), name)
@@ -3391,10 +3395,8 @@ class StatementAnalyzer
 
             // TODO: how to deal with connectors that need to see the pre-image of rows to perform the update without
             //       flowing that data through the masking logic
-            for (ColumnSchema tableColumn : allColumns) {
-                if (accessControl.getColumnMask(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isPresent()) {
-                    throw semanticException(NOT_SUPPORTED, update, "Updating a table with column masks is not supported");
-                }
+            if (!accessControl.getTableColumnMasks(session.toSecurityContext(), tableName, tableSchema.columns()).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, update, "Updating a table with column masks is not supported");
             }
 
             List<ColumnSchema> updatedColumnSchemas = allColumns.stream()
@@ -3538,10 +3540,8 @@ class StatementAnalyzer
             analyzeCheckConstraints(table, tableName, targetTableScope, tableSchema.tableSchema().getCheckConstraints());
             analysis.registerTable(table, redirection.tableHandle(), tableName, session.getIdentity().getUser(), targetTableScope, Optional.empty());
 
-            for (ColumnSchema column : dataColumnSchemas) {
-                if (accessControl.getColumnMask(session.toSecurityContext(), tableName, column.getName(), column.getType()).isPresent()) {
-                    throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with column masks");
-                }
+            if (!accessControl.getTableColumnMasks(session.toSecurityContext(), tableName, tableSchema.columns()).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with column masks");
             }
 
             Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, targetTableHandle);
@@ -5191,9 +5191,9 @@ class StatementAnalyzer
             analysis.addCheckConstraints(table, expression);
         }
 
-        private void analyzeColumnMask(String currentIdentity, Table table, QualifiedObjectName tableName, Field field, Scope scope, ViewExpression mask)
+        private void analyzeColumnMask(String currentIdentity, Table table, QualifiedObjectName tableName, ColumnSchema columnSchema, Scope scope, ViewExpression mask)
         {
-            String column = field.getName().orElseThrow();
+            String column = columnSchema.getName();
             if (analysis.hasColumnMask(tableName, column, currentIdentity)) {
                 throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Column mask for '%s.%s' is recursive", tableName, column), null);
             }
@@ -5237,13 +5237,13 @@ class StatementAnalyzer
 
             analysis.recordSubqueries(expression, expressionAnalysis);
 
-            Type expectedType = field.getType();
+            Type expectedType = columnSchema.getType();
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(expectedType)) {
                 TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
 
-                if (!coercion.canCoerce(actualType, field.getType())) {
-                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);
+                if (!coercion.canCoerce(actualType, columnSchema.getType())) {
+                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, columnSchema.getType(), actualType), null);
                 }
 
                 // TODO: this should be "coercion.isTypeOnlyCoercion(actualType, expectedType)", but type-only coercions are broken

@@ -40,6 +40,7 @@ import io.trino.spi.connector.CatalogHandle.CatalogHandleType;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.EntityKindAndName;
@@ -55,7 +56,6 @@ import io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlConte
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import jakarta.annotation.PreDestroy;
@@ -1411,30 +1411,31 @@ public class AccessControlManager
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    public Map<ColumnSchema, ViewExpression> getTableColumnMasks(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
         requireNonNull(context, "context is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(columns, "columns is null");
 
-        ImmutableList.Builder<ViewExpression> masks = ImmutableList.builder();
+        ImmutableMap.Builder<ColumnSchema, ViewExpression> columnMasksBuilder = ImmutableMap.builder();
 
         ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(context.getTransactionId(), tableName.catalogName());
         if (connectorAccessControl != null) {
-            connectorAccessControl.getColumnMask(toConnectorSecurityContext(tableName.catalogName(), context), tableName.asSchemaTableName(), columnName, type)
-                    .ifPresent(masks::add);
+            Map<ColumnSchema, ViewExpression> connectorMasks = connectorAccessControl.getTableColumnMasks(toConnectorSecurityContext(tableName.catalogName(), context), tableName.asSchemaTableName(), columns);
+            columnMasksBuilder.putAll(connectorMasks);
         }
 
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-            systemAccessControl.getColumnMask(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnName, type)
-                    .ifPresent(masks::add);
+            Map<ColumnSchema, ViewExpression> systemMasks = systemAccessControl.getTableColumnMasks(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columns);
+            columnMasksBuilder.putAll(systemMasks);
         }
 
-        List<ViewExpression> allMasks = masks.build();
-        if (allMasks.size() > 1) {
-            throw new TrinoException(INVALID_COLUMN_MASK, format("Column must have a single mask: %s", columnName));
+        try {
+            return columnMasksBuilder.buildOrThrow();
         }
-
-        return allMasks.stream().findFirst();
+        catch (IllegalArgumentException exception) {
+            throw new TrinoException(INVALID_COLUMN_MASK, "Multiple masks for the same column found", exception);
+        }
     }
 
     private ConnectorAccessControl getConnectorAccessControl(TransactionId transactionId, String catalogName)
