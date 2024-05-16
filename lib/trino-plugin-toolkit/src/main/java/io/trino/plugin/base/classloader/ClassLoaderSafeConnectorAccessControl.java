@@ -15,6 +15,7 @@ package io.trino.plugin.base.classloader;
 
 import com.google.inject.Inject;
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
@@ -570,6 +571,14 @@ public class ClassLoaderSafeConnectorAccessControl
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getColumnMask(context, tableName, columnName, type);
+        }
+    }
+
+    @Override
+    public Map<ColumnSchema, ViewExpression> getTableColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTableColumnMasks(context, tableName, columns);
         }
     }
 }
