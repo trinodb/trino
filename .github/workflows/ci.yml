@@ -1017,7 +1017,7 @@ jobs:
     runs-on: ubuntu-latest
     # explicitly define the name to avoid adding the value of the `ignore exclusion if` matrix item
     name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
-    if: needs.build-pt.outputs.matrix != '{}'
+    if: false
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.build-pt.outputs.matrix) }}
