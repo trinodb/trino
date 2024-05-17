@@ -66,7 +66,7 @@ public class NullIfCodeGenerator
         LabelNode notMatch = new LabelNode("notMatch");
 
         // push first arg on the stack
-        Variable firstValue = scope.createTempVariable(first.type().getJavaType());
+        Variable firstValue = scope.getOrCreateTempVariable(first.type().getJavaType());
         BytecodeBlock block = new BytecodeBlock()
                 .comment("check if first arg is null")
                 .append(generatorContext.generate(first))
@@ -98,6 +98,8 @@ public class NullIfCodeGenerator
                 .condition(conditionBlock)
                 .ifTrue(trueBlock)
                 .ifFalse(notMatch));
+
+        scope.releaseTempVariableForReuse(firstValue);
 
         return block;
     }
