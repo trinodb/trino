@@ -46,6 +46,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -194,10 +195,12 @@ public final class LambdaBytecodeGenerator
         Variable wasNull = scope.getVariable("wasNull");
 
         // generate values to be captured
-        ImmutableList.Builder<BytecodeExpression> captureVariableBuilder = ImmutableList.builder();
+        ImmutableList.Builder<BytecodeExpression> captureVariableBuilder = ImmutableList.builderWithExpectedSize(captureExpressions.size());
+        List<Variable> captureTempVariables = new ArrayList<>(captureExpressions.size());
         for (RowExpression captureExpression : captureExpressions) {
             Class<?> valueType = Primitives.wrap(captureExpression.type().getJavaType());
-            Variable valueVariable = scope.createTempVariable(valueType);
+            Variable valueVariable = scope.getOrCreateTempVariable(valueType);
+            captureTempVariables.add(valueVariable);
             block.append(context.generate(captureExpression));
             block.append(boxPrimitiveIfNecessary(scope, valueType));
             block.putVariable(valueVariable);
@@ -227,6 +230,7 @@ public final class LambdaBytecodeGenerator
                         "apply",
                         type(lambdaInterface),
                         captureVariables));
+        captureTempVariables.forEach(scope::releaseTempVariableForReuse);
         return block;
     }
 
