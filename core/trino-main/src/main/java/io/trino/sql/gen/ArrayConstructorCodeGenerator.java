@@ -53,10 +53,10 @@ public class ArrayConstructorCodeGenerator
 
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for array(%s)".formatted(elementType));
 
-        Variable blockBuilder = scope.createTempVariable(BlockBuilder.class);
+        Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
         block.append(blockBuilder.set(constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(elements.size()))));
 
-        Variable element = scope.createTempVariable(elementType.getJavaType());
+        Variable element = scope.getOrCreateTempVariable(elementType.getJavaType());
 
         for (RowExpression item : elements) {
             block.append(context.wasNull().set(constantFalse()));
@@ -67,8 +67,10 @@ public class ArrayConstructorCodeGenerator
                     .ifTrue(blockBuilder.invoke("appendNull", BlockBuilder.class).pop())
                     .ifFalse(constantType(binder, elementType).writeValue(blockBuilder, element).pop()));
         }
+        scope.releaseTempVariableForReuse(element);
 
         block.append(blockBuilder.invoke("build", Block.class));
+        scope.releaseTempVariableForReuse(blockBuilder);
         block.append(context.wasNull().set(constantFalse()));
 
         return block;
