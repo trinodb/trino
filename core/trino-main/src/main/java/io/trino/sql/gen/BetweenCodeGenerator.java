@@ -59,7 +59,7 @@ public class BetweenCodeGenerator
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext context)
     {
-        Variable firstValue = context.getScope().createTempVariable(value.type().getJavaType());
+        Variable firstValue = context.getScope().getOrCreateTempVariable(value.type().getJavaType());
         VariableReferenceExpression valueReference = createTempVariableReferenceExpression(firstValue, value.type());
 
         SpecialForm newExpression = new SpecialForm(
@@ -78,6 +78,8 @@ public class BetweenCodeGenerator
                 .putVariable(firstValue)
                 .append(context.generate(newExpression))
                 .visitLabel(done);
+
+        context.getScope().releaseTempVariableForReuse(firstValue);
 
         return block;
     }
