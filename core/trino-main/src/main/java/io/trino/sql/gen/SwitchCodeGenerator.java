@@ -126,7 +126,7 @@ public class SwitchCodeGenerator
 
         // evaluate the value and store it in a variable
         LabelNode nullValue = new LabelNode("nullCondition");
-        Variable tempVariable = scope.createTempVariable(valueType);
+        Variable tempVariable = scope.getOrCreateTempVariable(valueType);
         BytecodeBlock block = new BytecodeBlock()
                 .append(valueBytecode)
                 .append(BytecodeUtils.ifWasNullClearPopAndGoto(scope, nullValue, void.class, valueType))
@@ -163,6 +163,8 @@ public class SwitchCodeGenerator
                     .ifFalse(elseValue);
         }
 
-        return block.append(elseValue);
+        block.append(elseValue);
+        scope.releaseTempVariableForReuse(tempVariable);
+        return block;
     }
 }
