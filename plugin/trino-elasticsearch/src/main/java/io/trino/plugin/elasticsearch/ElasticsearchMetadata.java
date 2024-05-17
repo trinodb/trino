@@ -187,7 +187,7 @@ public class ElasticsearchMetadata
     private ConnectorTableMetadata getTableMetadata(String schemaName, String tableName)
     {
         InternalTableMetadata internalTableMetadata = makeInternalTableMetadata(schemaName, tableName);
-        return new ConnectorTableMetadata(new SchemaTableName(schemaName, tableName), internalTableMetadata.getColumnMetadata());
+        return new ConnectorTableMetadata(new SchemaTableName(schemaName, tableName), internalTableMetadata.columnMetadata());
     }
 
     private InternalTableMetadata makeInternalTableMetadata(ConnectorTableHandle table)
@@ -225,7 +225,7 @@ public class ElasticsearchMetadata
         for (IndexMetadata.Field field : fields) {
             result.add(ColumnMetadata.builder()
                     .setName(field.getName())
-                    .setType(toTrino(field).getType())
+                    .setType(toTrino(field).type())
                     .build());
         }
         return result.build();
@@ -243,8 +243,8 @@ public class ElasticsearchMetadata
             TypeAndDecoder converted = toTrino(field);
             result.put(field.getName(), new ElasticsearchColumnHandle(
                     field.getName(),
-                    converted.getType(),
-                    converted.getDecoderDescriptor(),
+                    converted.type(),
+                    converted.decoderDescriptor(),
                     supportsPredicates(field.getType())));
         }
 
@@ -291,7 +291,7 @@ public class ElasticsearchMetadata
 
         if (field.isArray()) {
             TypeAndDecoder element = toTrino(path, elementField(field));
-            return new TypeAndDecoder(new ArrayType(element.getType()), new ArrayDecoder.Descriptor(element.getDecoderDescriptor()));
+            return new TypeAndDecoder(new ArrayType(element.type()), new ArrayDecoder.Descriptor(element.decoderDescriptor()));
         }
 
         IndexMetadata.Type type = field.getType();
@@ -337,8 +337,8 @@ public class ElasticsearchMetadata
                 TypeAndDecoder child = toTrino(path, rowField);
 
                 if (child != null) {
-                    decoderFields.add(new RowDecoder.NameAndDescriptor(name, child.getDecoderDescriptor()));
-                    rowFieldsBuilder.add(RowType.field(name, child.getType()));
+                    decoderFields.add(new RowDecoder.NameAndDescriptor(name, child.decoderDescriptor()));
+                    rowFieldsBuilder.add(RowType.field(name, child.type()));
                 }
             }
 
@@ -402,7 +402,7 @@ public class ElasticsearchMetadata
         }
 
         InternalTableMetadata tableMetadata = makeInternalTableMetadata(tableHandle);
-        return tableMetadata.getColumnHandles();
+        return tableMetadata.columnHandles();
     }
 
     @Override
@@ -673,57 +673,7 @@ public class ElasticsearchMetadata
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 
-    private static class InternalTableMetadata
-    {
-        private final SchemaTableName tableName;
-        private final List<ColumnMetadata> columnMetadata;
-        private final Map<String, ColumnHandle> columnHandles;
+    private record InternalTableMetadata(SchemaTableName tableName, List<ColumnMetadata> columnMetadata, Map<String, ColumnHandle> columnHandles) {}
 
-        public InternalTableMetadata(
-                SchemaTableName tableName,
-                List<ColumnMetadata> columnMetadata,
-                Map<String, ColumnHandle> columnHandles)
-        {
-            this.tableName = tableName;
-            this.columnMetadata = columnMetadata;
-            this.columnHandles = columnHandles;
-        }
-
-        public SchemaTableName getTableName()
-        {
-            return tableName;
-        }
-
-        public List<ColumnMetadata> getColumnMetadata()
-        {
-            return columnMetadata;
-        }
-
-        public Map<String, ColumnHandle> getColumnHandles()
-        {
-            return columnHandles;
-        }
-    }
-
-    private static class TypeAndDecoder
-    {
-        private final Type type;
-        private final DecoderDescriptor decoderDescriptor;
-
-        public TypeAndDecoder(Type type, DecoderDescriptor decoderDescriptor)
-        {
-            this.type = type;
-            this.decoderDescriptor = decoderDescriptor;
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
-
-        public DecoderDescriptor getDecoderDescriptor()
-        {
-            return decoderDescriptor;
-        }
-    }
+    private record TypeAndDecoder(Type type, DecoderDescriptor decoderDescriptor) {}
 }
