@@ -22,6 +22,7 @@ import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.auth.WebIdentityTokenCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.S3ClientOptions;
@@ -573,10 +574,18 @@ public class TestTrinoS3FileSystem
             throws Exception
     {
         Configuration config = new Configuration(false);
+        // use a class which constructor takes a URI and a Configuration object
         config.set(S3_CREDENTIALS_PROVIDER, TestCredentialsProvider.class.getName());
         try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             assertInstanceOf(getAwsCredentialsProvider(fs), TestCredentialsProvider.class);
+        }
+
+        // use a class which constructor doesn't take any arguments
+        config.set(S3_CREDENTIALS_PROVIDER, WebIdentityTokenCredentialsProvider.class.getName());
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertInstanceOf(getAwsCredentialsProvider(fs), WebIdentityTokenCredentialsProvider.class);
         }
     }
 

@@ -132,6 +132,11 @@ rotate credentials on a regular basis without any additional work on your part.
 
 ## Custom S3 credentials provider
 
+A custom credentials provider can be used to provide temporary credentials from
+STS (using `STSSessionCredentialsProvider`), IAM role-based credentials (using
+`STSAssumeRoleSessionCredentialsProvider`), or credentials for a specific use
+case (e.g., bucket/user specific credentials).
+
 You can configure a custom S3 credentials provider by setting the configuration
 property `trino.s3.credentials-provider` to the fully qualified class name of
 a custom AWS credentials provider implementation. The property must be set in
@@ -140,12 +145,10 @@ connector property.
 
 The class must implement the
 [AWSCredentialsProvider](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/AWSCredentialsProvider.html)
-interface and provide a two-argument constructor that takes a
-`java.net.URI` and a Hadoop `org.apache.hadoop.conf.Configuration`
-as arguments. A custom credentials provider can be used to provide
-temporary credentials from STS (using `STSSessionCredentialsProvider`),
-IAM role-based credentials (using `STSAssumeRoleSessionCredentialsProvider`),
-or credentials for a specific use case (e.g., bucket/user specific credentials).
+interface and provide one of the following:
+* A two-argument constructor that takes a `java.net.URI` and a Hadoop
+  `org.apache.hadoop.conf.Configuration` as arguments.
+* A constructor without any arguments.
 
 (hive-s3-security-mapping)=
 

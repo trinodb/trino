@@ -1197,17 +1197,26 @@ public class TrinoS3FileSystem
         return provider;
     }
 
-    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(URI uri, Configuration conf, String providerClass)
+    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(URI uri, Configuration conf, String providerClassName)
     {
         try {
-            log.debug("Using AWS credential provider %s for URI %s", providerClass, uri);
-            return conf.getClassByName(providerClass)
-                    .asSubclass(AWSCredentialsProvider.class)
-                    .getConstructor(URI.class, Configuration.class)
-                    .newInstance(uri, conf);
+            log.debug("Using AWS credential provider %s for URI %s", providerClassName, uri);
+
+            Class<? extends AWSCredentialsProvider> providerClass = conf.getClassByName(providerClassName)
+                    .asSubclass(AWSCredentialsProvider.class);
+            try {
+                return providerClass
+                        .getConstructor(URI.class, Configuration.class)
+                        .newInstance(uri, conf);
+            }
+            catch (NoSuchMethodException e) {
+                return providerClass
+                        .getConstructor()
+                        .newInstance();
+            }
         }
         catch (ReflectiveOperationException e) {
-            throw new RuntimeException(format("Error creating an instance of %s for URI %s", providerClass, uri), e);
+            throw new RuntimeException(format("Error creating an instance of %s for URI %s", providerClassName, uri), e);
         }
     }
 
