@@ -19,6 +19,8 @@ import io.trino.Session;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
+import java.util.List;
+
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 
@@ -36,7 +38,12 @@ public final class MetastoreInvocations
     {
         queryRunner.execute(session, query);
 
-        Multiset<MetastoreMethod> invocations = queryRunner.getSpans().stream()
+        assertMultisetsEqual(filterInvocations(queryRunner.getSpans()), expectedInvocations);
+    }
+
+    public static Multiset<MetastoreMethod> filterInvocations(List<SpanData> spans)
+    {
+        return spans.stream()
                 .map(SpanData::getName)
                 .filter(name -> name.startsWith(TRACE_PREFIX))
                 .map(name -> name.substring(TRACE_PREFIX.length()))
@@ -44,7 +51,5 @@ public final class MetastoreInvocations
                 .filter(name -> !name.equals("listTablePrivileges"))
                 .map(MetastoreMethod::fromMethodName)
                 .collect(toImmutableMultiset());
-
-        assertMultisetsEqual(invocations, expectedInvocations);
     }
 }
