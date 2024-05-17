@@ -424,7 +424,7 @@ public final class SqlRoutineCompiler
         {
             BytecodeBlock block = new BytecodeBlock();
 
-            Variable interruption = scope.createTempVariable(int.class);
+            Variable interruption = scope.getOrCreateTempVariable(int.class);
             block.putVariable(interruption, 0);
 
             BytecodeBlock interruptionBlock = new BytecodeBlock()
@@ -449,6 +449,8 @@ public final class SqlRoutineCompiler
             if (label.isPresent()) {
                 block.visitLabel(breakLabel);
             }
+
+            scope.releaseTempVariableForReuse(interruption);
 
             return block;
         }
