@@ -338,14 +338,14 @@ public final class StateCompiler
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
-        Variable fieldBuilder = scope.createTempVariable(BlockBuilder.class);
+        Variable fieldBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
         for (int i = 0; i < fields.size(); i++) {
             StateField field = fields.get(i);
             Method getter = getGetter(clazz, field);
 
             SqlTypeBytecodeExpression sqlType = constantType(binder, field.getSqlType());
 
-            Variable fieldValue = scope.createTempVariable(getter.getReturnType());
+            Variable fieldValue = scope.getOrCreateTempVariable(getter.getReturnType());
             body.append(fieldValue.set(state.cast(getter.getDeclaringClass()).invoke(getter)));
 
             body.append(fieldBuilder.set(fieldBuilders.invoke("get", Object.class, constantInt(i)).cast(BlockBuilder.class)));
@@ -359,7 +359,9 @@ public final class StateCompiler
                 // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
                 body.append(sqlType.writeValue(fieldBuilder, fieldValue.cast(field.getSqlType().getJavaType())));
             }
+            scope.releaseTempVariableForReuse(fieldValue);
         }
+        scope.releaseTempVariableForReuse(fieldBuilder);
         body.ret();
         return method;
     }
