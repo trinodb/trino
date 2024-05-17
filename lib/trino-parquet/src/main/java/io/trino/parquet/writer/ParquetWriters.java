@@ -66,6 +66,8 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
+import static io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter.newDefinitionLevelWriter;
+import static io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter.newRepetitionLevelWriter;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -270,8 +272,8 @@ final class ParquetWriters
             return new PrimitiveColumnWriter(
                     columnDescriptor,
                     getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor, bloomFilter), trinoType, columnDescriptor.getPrimitiveType(), parquetTimeZone),
-                    parquetProperties.newDefinitionLevelWriter(columnDescriptor),
-                    parquetProperties.newRepetitionLevelWriter(columnDescriptor),
+                    newDefinitionLevelWriter(columnDescriptor, parquetProperties.getPageSizeThreshold()),
+                    newRepetitionLevelWriter(columnDescriptor, parquetProperties.getPageSizeThreshold()),
                     compressionCodec,
                     parquetProperties.getPageSizeThreshold(),
                     pageValueCountLimit,
