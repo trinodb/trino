@@ -28,9 +28,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
@@ -70,15 +68,12 @@ public class RowConstructorCodeGenerator
         Scope scope = context.getScope();
         List<Type> types = rowType.getTypeParameters();
 
-        Variable fieldBlocks = scope.createTempVariable(Block[].class);
+        Variable fieldBlocks = scope.getOrCreateTempVariable(Block[].class);
         block.append(fieldBlocks.set(newArray(type(Block[].class), arguments.size())));
-        // Cache local variable declarations per java type on stack for reuse
-        Map<Class<?>, Variable> javaTypeTempVariables = new HashMap<>();
 
-        Variable blockBuilder = scope.createTempVariable(BlockBuilder.class);
+        Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
         for (int i = 0; i < arguments.size(); ++i) {
             Type fieldType = types.get(i);
-            Variable field = javaTypeTempVariables.computeIfAbsent(fieldType.getJavaType(), scope::createTempVariable);
 
             block.append(blockBuilder.set(constantType(binder, fieldType).invoke(
                     "createBlockBuilder",
@@ -89,16 +84,20 @@ public class RowConstructorCodeGenerator
             block.comment("Clean wasNull and Generate + " + i + "-th field of row");
             block.append(context.wasNull().set(constantFalse()));
             block.append(context.generate(arguments.get(i)));
+            Variable field = scope.getOrCreateTempVariable(fieldType.getJavaType());
             block.putVariable(field);
             block.append(new IfStatement()
                     .condition(context.wasNull())
                     .ifTrue(blockBuilder.invoke("appendNull", BlockBuilder.class).pop())
                     .ifFalse(constantType(binder, fieldType).writeValue(blockBuilder, field).pop()));
+            scope.releaseTempVariableForReuse(field);
 
             block.append(fieldBlocks.setElement(i, blockBuilder.invoke("build", Block.class)));
         }
+        scope.releaseTempVariableForReuse(blockBuilder);
 
         block.append(newInstance(SqlRow.class, constantInt(0), fieldBlocks));
+        scope.releaseTempVariableForReuse(fieldBlocks);
         block.append(context.wasNull().set(constantFalse()));
         return block;
     }
@@ -112,29 +111,30 @@ public class RowConstructorCodeGenerator
         Scope scope = context.getScope();
         List<Type> types = rowType.getTypeParameters();
 
-        Variable fieldBuilders = scope.createTempVariable(BlockBuilder[].class);
+        Variable fieldBuilders = scope.getOrCreateTempVariable(BlockBuilder[].class);
         block.append(fieldBuilders.set(invokeStatic(RowConstructorCodeGenerator.class, "createFieldBlockBuildersForSingleRow", BlockBuilder[].class, constantType(binder, rowType))));
 
-        // Cache local variable declarations per java type on stack for reuse
-        Map<Class<?>, Variable> javaTypeTempVariables = new HashMap<>();
-        Variable blockBuilder = scope.createTempVariable(BlockBuilder.class);
+        Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
         for (int i = 0; i < arguments.size(); ++i) {
             Type fieldType = types.get(i);
-            Variable field = javaTypeTempVariables.computeIfAbsent(fieldType.getJavaType(), scope::createTempVariable);
 
             block.append(blockBuilder.set(fieldBuilders.getElement(constantInt(i))));
 
             block.comment("Clean wasNull and Generate + " + i + "-th field of row");
             block.append(context.wasNull().set(constantFalse()));
             block.append(context.generate(arguments.get(i)));
+            Variable field = scope.getOrCreateTempVariable(fieldType.getJavaType());
             block.putVariable(field);
             block.append(new IfStatement()
                     .condition(context.wasNull())
                     .ifTrue(blockBuilder.invoke("appendNull", BlockBuilder.class).pop())
                     .ifFalse(constantType(binder, fieldType).writeValue(blockBuilder, field).pop()));
+            scope.releaseTempVariableForReuse(field);
         }
+        scope.releaseTempVariableForReuse(blockBuilder);
 
         block.append(invokeStatic(RowConstructorCodeGenerator.class, "createSqlRowFromFieldBuildersForSingleRow", SqlRow.class, fieldBuilders));
+        scope.releaseTempVariableForReuse(fieldBuilders);
         block.append(context.wasNull().set(constantFalse()));
         return block;
     }
