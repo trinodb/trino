@@ -11,59 +11,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.parquet.writer;
+package io.trino.parquet.writer.valuewriter;
 
-import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 
-import java.util.List;
-
-class TestingValuesWriter
+/**
+ * This is a special writer that doesn't write anything. The idea being that
+ * some columns will always be the same value, and this will capture that. An
+ * example is the set of repetition levels for a schema with no repeated fields.
+ */
+public class DevNullValuesWriter
         implements ColumnDescriptorValuesWriter
 {
-    private final IntList values = new IntArrayList();
-
     @Override
     public long getBufferedSize()
     {
-        throw new UnsupportedOperationException();
+        return 0;
     }
+
+    @Override
+    public void reset() {}
+
+    @Override
+    public void writeInteger(int v) {}
 
     @Override
     public BytesInput getBytes()
     {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Encoding getEncoding()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void reset()
-    {
-        throw new UnsupportedOperationException();
+        return BytesInput.empty();
     }
 
     @Override
     public long getAllocatedSize()
     {
-        throw new UnsupportedOperationException();
+        return 0;
     }
 
     @Override
-    public void writeInteger(int v)
+    @SuppressWarnings("deprecation")
+    public Encoding getEncoding()
     {
-        values.add(v);
-    }
-
-    List<Integer> getWrittenValues()
-    {
-        return values;
+        return Encoding.BIT_PACKED;
     }
 }
