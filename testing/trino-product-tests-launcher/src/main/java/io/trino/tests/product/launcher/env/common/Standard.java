@@ -16,7 +16,6 @@ package io.trino.tests.product.launcher.env.common;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.airlift.units.DataSize;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Debug;
 import io.trino.tests.product.launcher.env.DockerContainer;
@@ -47,7 +46,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.UrlEscapers.urlFragmentEscaper;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.OPENTRACING_COLLECTOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
@@ -67,9 +65,6 @@ public final class Standard
         implements EnvironmentExtender
 {
     private static final Logger log = Logger.get(Standard.class);
-
-    private static final DataSize TRINO_NODE_MEMORY_LIMIT = DataSize.of(2048 + 512, MEGABYTE); // Xmx + headroom
-
     private static final int COLLECTOR_UI_PORT = 16686;
     private static final int COLLECTOR_GRPC_PORT = 4317;
 
@@ -201,7 +196,6 @@ public final class Standard
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/trino-health-check.sh")), CONTAINER_HEALTH_D + "trino-health-check.sh")
                 // the server package is hundreds MB and file system bind is much more efficient
                 .withFileSystemBind(serverPackage.getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
-                .withMemoryLimit(TRINO_NODE_MEMORY_LIMIT)
                 .withEnv("JAVA_HOME", jdkProvider.getJavaHome())
                 .withCommand("/docker/presto-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
