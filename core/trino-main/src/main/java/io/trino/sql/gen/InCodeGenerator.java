@@ -170,10 +170,10 @@ public class InCodeGenerator
         LabelNode defaultLabel = new LabelNode("default");
 
         Scope scope = generatorContext.getScope();
-        Variable value = scope.createTempVariable(javaType);
+        Variable value = scope.getOrCreateTempVariable(javaType);
 
         BytecodeNode switchBlock;
-        Variable expression = scope.createTempVariable(int.class);
+        Variable expression = scope.getOrCreateTempVariable(int.class);
         SwitchBuilder switchBuilder = new SwitchBuilder().expression(expression);
 
         switch (switchGenerationCase) {
@@ -278,6 +278,9 @@ public class InCodeGenerator
 
         block.visitLabel(end);
 
+        scope.releaseTempVariableForReuse(expression);
+        scope.releaseTempVariableForReuse(value);
+
         return block;
     }
 
@@ -299,7 +302,7 @@ public class InCodeGenerator
     {
         Variable caseWasNull = null; // caseWasNull is set to true the first time a null in `testValues` is encountered
         if (checkForNulls) {
-            caseWasNull = scope.createTempVariable(boolean.class);
+            caseWasNull = scope.getOrCreateTempVariable(boolean.class);
         }
 
         BytecodeBlock caseBlock = new BytecodeBlock();
@@ -360,6 +363,10 @@ public class InCodeGenerator
             elseLabel = testLabel;
         }
         caseBlock.append(elseNode);
+
+        if (checkForNulls) {
+            scope.releaseTempVariableForReuse(caseWasNull);
+        }
         return caseBlock;
     }
 
