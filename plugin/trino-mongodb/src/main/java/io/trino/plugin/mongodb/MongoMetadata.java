@@ -723,9 +723,6 @@ public class MongoMetadata
         }
         if (connectorExpression instanceof FieldDereference fieldDereference) {
             RowType rowType = (RowType) fieldDereference.getTarget().getType();
-            if (isDBRefField(rowType)) {
-                return false;
-            }
             Field field = rowType.getFields().get(fieldDereference.getField());
             if (field.getName().isEmpty()) {
                 return false;

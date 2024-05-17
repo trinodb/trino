@@ -61,8 +61,11 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
+import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME_NATIVE;
 import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
+import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME_NATIVE;
 import static io.trino.plugin.mongodb.MongoSession.ID;
+import static io.trino.plugin.mongodb.MongoSession.ID_NATIVE;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.TypeUtils.isJsonType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -416,9 +419,9 @@ public class MongoPageSource
         checkState(!dereferenceNames.isEmpty(), "dereferenceNames is empty");
         String leafColumnName = dereferenceNames.getLast();
         return switch (leafColumnName) {
-            case DATABASE_NAME -> dbRefValue.getDatabaseName();
-            case COLLECTION_NAME -> dbRefValue.getCollectionName();
-            case ID -> dbRefValue.getId();
+            case DATABASE_NAME_NATIVE -> dbRefValue.getDatabaseName();
+            case COLLECTION_NAME_NATIVE -> dbRefValue.getCollectionName();
+            case ID_NATIVE -> dbRefValue.getId();
             default -> throw new IllegalStateException("Unsupported DBRef column name: " + leafColumnName);
         };
     }
