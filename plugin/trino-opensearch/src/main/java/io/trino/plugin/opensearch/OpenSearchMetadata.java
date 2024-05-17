@@ -148,6 +148,7 @@ public class OpenSearchMetadata
         return ImmutableList.of(schemaName);
     }
 
+    @SuppressWarnings("deprecation") // TODO Implement getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional) method
     @Override
     public OpenSearchTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
@@ -418,12 +419,14 @@ public class OpenSearchMetadata
                         .build());
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
     }
 
+    @SuppressWarnings("deprecation") // TODO Implement streamRelationColumns method
     @Override
     public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
