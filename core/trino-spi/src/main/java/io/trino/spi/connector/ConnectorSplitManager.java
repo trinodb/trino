@@ -34,6 +34,17 @@ public interface ConnectorSplitManager
         throw new UnsupportedOperationException();
     }
 
+    default ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            DynamicFilter dynamicFilter,
+            boolean preferDeterministicSplits,
+            Constraint constraint)
+    {
+        return getSplits(transaction, session, table, dynamicFilter, constraint);
+    }
+
     @Experimental(eta = "2023-07-31")
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,

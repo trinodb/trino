@@ -60,6 +60,20 @@ public final class ClassLoaderSafeConnectorSplitManager
     public ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
+            ConnectorTableHandle table,
+            DynamicFilter dynamicFilter,
+            boolean preferDeterministicSplits,
+            Constraint constraint)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSplits(transaction, session, table, dynamicFilter, preferDeterministicSplits, constraint);
+        }
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
             ConnectorTableFunctionHandle function)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
