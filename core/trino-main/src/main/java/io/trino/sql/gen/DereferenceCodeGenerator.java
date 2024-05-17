@@ -55,7 +55,7 @@ public class DereferenceCodeGenerator
 
         BytecodeBlock block = new BytecodeBlock().comment("DEREFERENCE").setDescription("DEREFERENCE");
         Variable wasNull = generator.wasNull();
-        Variable row = generator.getScope().createTempVariable(SqlRow.class);
+        Variable row = generator.getScope().getOrCreateTempVariable(SqlRow.class);
 
         // clear the wasNull flag before evaluating the row value
         block.putVariable(wasNull, false);
@@ -88,6 +88,8 @@ public class DereferenceCodeGenerator
                 .comment("otherwise call type.getTYPE(row, index)")
                 .append(value)
                 .putVariable(wasNull, false);
+
+        generator.getScope().releaseTempVariableForReuse(row);
 
         block.append(ifFieldIsNull)
                 .visitLabel(end);
