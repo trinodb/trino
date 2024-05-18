@@ -405,8 +405,8 @@ public abstract class BaseFailureRecoveryTest
                             .hasMessageContaining(".%s' does not exist", temporaryTableName);
                 }
                 catch (AssertionError e) {
-                    remainingTemporaryTables.computeIfAbsent(queryId, ignored -> new HashSet<>()).add(temporaryTableName);
-                    assertionErrorMessages.computeIfAbsent(queryId, ignored -> new HashSet<>()).add(e.getMessage());
+                    remainingTemporaryTables.computeIfAbsent(queryId, _ -> new HashSet<>()).add(temporaryTableName);
+                    assertionErrorMessages.computeIfAbsent(queryId, _ -> new HashSet<>()).add(e.getMessage());
                 }
             }
         }

@@ -561,7 +561,7 @@ public class GlueHiveMetastore
             throw new TrinoException(NOT_SUPPORTED, "Table rename is not yet supported by Glue service");
         }
 
-        updateTable(databaseName, tableName, ignored -> newTable);
+        updateTable(databaseName, tableName, _ -> newTable);
     }
 
     private void updateTable(String databaseName, String tableName, TableModifier modifier)
@@ -1268,7 +1268,7 @@ public class GlueHiveMetastore
         // partitions are required for update
         // the glue cache is not used here because we need up-to-date partitions for the read-update-write operation
         // loaded partitions are not cached here since the partition values are invalidated after the update
-        Collection<Partition> partitions = batchGetPartition(databaseName, tableName, ImmutableList.copyOf(newStatistics.keySet()), ignored -> {});
+        Collection<Partition> partitions = batchGetPartition(databaseName, tableName, ImmutableList.copyOf(newStatistics.keySet()), _ -> {});
 
         // existing column statistics are required for the columns being updated when in merge incremental mode
         // this is fetched before the basic statistics are updated, to avoid reloading in the case of retries updating basic statistics

@@ -217,9 +217,9 @@ public class QueuedStatementResource
         return FluentFuture.from(query.waitForDispatched())
                 // wait for query to be dispatched, up to the wait timeout
                 .withTimeout(waitMillis, MILLISECONDS, timeoutExecutor)
-                .catching(TimeoutException.class, ignored -> null, directExecutor())
+                .catching(TimeoutException.class, _ -> null, directExecutor())
                 // when state changes, fetch the next result
-                .transform(ignored -> query.getQueryResults(token, uriInfo), responseExecutor)
+                .transform(_ -> query.getQueryResults(token, uriInfo), responseExecutor)
                 .transform(this::createQueryResultsResponse, directExecutor());
     }
 

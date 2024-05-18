@@ -587,7 +587,7 @@ public class MemoryMetadata
     @Override
     public synchronized void createLanguageFunction(ConnectorSession session, SchemaFunctionName name, LanguageFunction function, boolean replace)
     {
-        Map<String, LanguageFunction> map = functions.computeIfAbsent(name, ignored -> new HashMap<>());
+        Map<String, LanguageFunction> map = functions.computeIfAbsent(name, _ -> new HashMap<>());
         if (!replace && map.containsKey(function.signatureToken())) {
             throw new TrinoException(ALREADY_EXISTS, "Function already exists");
         }

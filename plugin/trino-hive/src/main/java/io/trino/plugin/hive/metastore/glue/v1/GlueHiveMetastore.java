@@ -724,7 +724,7 @@ public class GlueHiveMetastore
         for (int i = 0; i < columns.size(); i++) {
             // Glue columns are always lowercase
             if (columns.get(i).getName().equals(columnName)) {
-                index.ifPresent(ignored -> {
+                index.ifPresent(_ -> {
                     throw new TrinoException(HIVE_INVALID_METADATA, "Found two columns with names matching " + columnName);
                 });
                 index = Optional.of(i);

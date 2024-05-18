@@ -148,7 +148,7 @@ public class DeduplicatingDirectExchangeBuffer
         }
 
         if (!outputReady.isDone()) {
-            return nonCancellationPropagating(Futures.transformAsync(outputReady, ignored -> {
+            return nonCancellationPropagating(Futures.transformAsync(outputReady, _ -> {
                 synchronized (this) {
                     if (outputSource != null) {
                         return outputSource.isBlocked();
@@ -656,7 +656,7 @@ public class DeduplicatingDirectExchangeBuffer
 
             // Finish ExchangeSink and create ExchangeSource asynchronously to avoid blocking an ExchangeClient thread for potentially substantial amount of time
             ListenableFuture<ExchangeSource> exchangeSourceFuture = FluentFuture.from(toListenableFuture(exchangeSink.finish()))
-                    .transformAsync(ignored -> {
+                    .transformAsync(_ -> {
                         exchange.sinkFinished(sinkHandle, 0);
                         exchange.allRequiredSinksFinished();
                         synchronized (this) {

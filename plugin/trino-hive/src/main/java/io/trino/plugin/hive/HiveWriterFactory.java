@@ -733,7 +733,7 @@ public class HiveWriterFactory
     {
         // text format files must have the correct extension when compressed
         return compression.getHiveCompressionKind()
-                .filter(ignored -> format.getOutputFormat().equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS))
+                .filter(_ -> format.getOutputFormat().equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS))
                 .map(CompressionKind::getFileExtension)
                 .orElse("");
     }

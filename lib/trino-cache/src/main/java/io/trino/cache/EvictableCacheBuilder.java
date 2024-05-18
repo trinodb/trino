@@ -234,7 +234,7 @@ public final class EvictableCacheBuilder<K, V>
 
     private static <K, V> CacheLoader<K, V> unimplementedCacheLoader()
     {
-        return CacheLoader.from(ignored -> {
+        return CacheLoader.from(_ -> {
             throw new UnsupportedOperationException();
         });
     }

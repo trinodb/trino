@@ -421,7 +421,7 @@ public final class TupleDomain<T>
             if (!domain.isNone()) {
                 for (Map.Entry<T, Domain> entry : domain.getDomains().get().entrySet()) {
                     if (commonColumns.contains(entry.getKey())) {
-                        List<Domain> domainForColumn = domainsByColumn.computeIfAbsent(entry.getKey(), ignored -> new ArrayList<>());
+                        List<Domain> domainForColumn = domainsByColumn.computeIfAbsent(entry.getKey(), _ -> new ArrayList<>());
                         domainForColumn.add(entry.getValue());
                     }
                 }

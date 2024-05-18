@@ -210,7 +210,7 @@ public class DeltaLakeMergeSink
 
             List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.toStringUtf8());
 
-            FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, ignored -> new FileDeletion(partitionValues));
+            FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, _ -> new FileDeletion(partitionValues));
 
             if (cdfOperation.equals(UPDATE_PREIMAGE_CDF_LABEL)) {
                 deletion.rowsDeletedByUpdate().addLong(rowPosition);

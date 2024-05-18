@@ -107,7 +107,7 @@ public class TestHivePartitionedBucketFunction
             int hiveBucket = hiveBucketFunction.getBucket(bucketedColumnPage, i);
             Long hivePartition = partitionValues.get(i);
             // record list of positions for each combination of hive partition and bucket
-            partitionedBucketPositions.computeIfAbsent(hivePartition, ignored -> HashMultimap.create())
+            partitionedBucketPositions.computeIfAbsent(hivePartition, _ -> HashMultimap.create())
                     .put(hiveBucket, i);
         }
 
