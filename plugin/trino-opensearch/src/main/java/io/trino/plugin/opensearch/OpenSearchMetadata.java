@@ -155,7 +155,7 @@ public class OpenSearchMetadata
         requireNonNull(tableName, "tableName is null");
 
         if (tableName.getSchemaName().equals(schemaName)) {
-            if (client.indexExists(tableName.getTableName()) && !client.getIndexMetadata(tableName.getTableName()).getSchema().getFields().isEmpty()) {
+            if (client.indexExists(tableName.getTableName()) && !client.getIndexMetadata(tableName.getTableName()).schema().fields().isEmpty()) {
                 return new OpenSearchTableHandle(OpenSearchTableHandle.Type.SCAN, schemaName, tableName.getTableName(), Optional.empty());
             }
         }
@@ -197,12 +197,12 @@ public class OpenSearchMetadata
 
     private List<IndexMetadata.Field> getColumnFields(IndexMetadata metadata)
     {
-        Map<String, Long> counts = metadata.getSchema()
-                .getFields().stream()
-                .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
+        Map<String, Long> counts = metadata.schema()
+                .fields().stream()
+                .collect(Collectors.groupingBy(f -> f.name().toLowerCase(ENGLISH), Collectors.counting()));
 
-        return metadata.getSchema().getFields().stream()
-                .filter(field -> toTrino(field) != null && counts.get(field.getName().toLowerCase(ENGLISH)) <= 1)
+        return metadata.schema().fields().stream()
+                .filter(field -> toTrino(field) != null && counts.get(field.name().toLowerCase(ENGLISH)) <= 1)
                 .collect(toImmutableList());
     }
 
@@ -216,7 +216,7 @@ public class OpenSearchMetadata
 
         for (IndexMetadata.Field field : fields) {
             result.add(ColumnMetadata.builder()
-                    .setName(field.getName())
+                    .setName(field.name())
                     .setType(toTrino(field).type())
                     .build());
         }
@@ -233,11 +233,11 @@ public class OpenSearchMetadata
 
         for (IndexMetadata.Field field : fields) {
             TypeAndDecoder converted = toTrino(field);
-            result.put(field.getName(), new OpenSearchColumnHandle(
-                    field.getName(),
+            result.put(field.name(), new OpenSearchColumnHandle(
+                    field.name(),
                     converted.type(),
                     converted.decoderDescriptor(),
-                    supportsPredicates(field.getType())));
+                    supportsPredicates(field.type())));
         }
 
         return result.buildOrThrow();
@@ -250,7 +250,7 @@ public class OpenSearchMetadata
         }
 
         if (type instanceof PrimitiveType) {
-            switch (((PrimitiveType) type).getName().toLowerCase(ENGLISH)) {
+            switch (((PrimitiveType) type).name().toLowerCase(ENGLISH)) {
                 case "boolean":
                 case "byte":
                 case "short":
@@ -273,7 +273,7 @@ public class OpenSearchMetadata
 
     private TypeAndDecoder toTrino(String prefix, IndexMetadata.Field field)
     {
-        String path = appendPath(prefix, field.getName());
+        String path = appendPath(prefix, field.name());
 
         checkArgument(!field.asRawJson() || !field.isArray(), format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", path));
 
@@ -286,9 +286,9 @@ public class OpenSearchMetadata
             return new TypeAndDecoder(new ArrayType(element.type()), new ArrayDecoder.Descriptor(element.decoderDescriptor()));
         }
 
-        IndexMetadata.Type type = field.getType();
+        IndexMetadata.Type type = field.type();
         if (type instanceof PrimitiveType primitiveType) {
-            switch (primitiveType.getName()) {
+            switch (primitiveType.name()) {
                 case "float":
                     return new TypeAndDecoder(REAL, new RealDecoder.Descriptor(path));
                 case "double":
@@ -316,7 +316,7 @@ public class OpenSearchMetadata
             return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
         }
         else if (type instanceof DateTimeType dateTimeType) {
-            if (dateTimeType.getFormats().isEmpty()) {
+            if (dateTimeType.formats().isEmpty()) {
                 return new TypeAndDecoder(TIMESTAMP_MILLIS, new TimestampDecoder.Descriptor(path));
             }
             // otherwise, skip -- we don't support custom formats, yet
@@ -324,8 +324,8 @@ public class OpenSearchMetadata
         else if (type instanceof ObjectType objectType) {
             ImmutableList.Builder<RowType.Field> rowFieldsBuilder = ImmutableList.builder();
             ImmutableList.Builder<RowDecoder.NameAndDescriptor> decoderFields = ImmutableList.builder();
-            for (IndexMetadata.Field rowField : objectType.getFields()) {
-                String name = rowField.getName();
+            for (IndexMetadata.Field rowField : objectType.fields()) {
+                String name = rowField.name();
                 TypeAndDecoder child = toTrino(path, rowField);
 
                 if (child != null) {
@@ -357,7 +357,7 @@ public class OpenSearchMetadata
     public static IndexMetadata.Field elementField(IndexMetadata.Field field)
     {
         checkArgument(field.isArray(), "Cannot get element field from a non-array field");
-        return new IndexMetadata.Field(field.asRawJson(), false, field.getName(), field.getType());
+        return new IndexMetadata.Field(field.asRawJson(), false, field.name(), field.type());
     }
 
     @Override
@@ -541,9 +541,9 @@ public class OpenSearchMetadata
 
                     if (!newRegexes.containsKey(columnName) && pattern instanceof Slice) {
                         IndexMetadata metadata = client.getIndexMetadata(handle.index());
-                        if (metadata.getSchema()
-                                    .getFields().stream()
-                                    .anyMatch(field -> columnName.equals(field.getName()) && field.getType() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.getType()).getName()))) {
+                        if (metadata.schema()
+                                    .fields().stream()
+                                    .anyMatch(field -> columnName.equals(field.name()) && field.type() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.type()).name()))) {
                             newRegexes.put(columnName, likeToRegexp((Slice) pattern, escape));
                             continue;
                         }
