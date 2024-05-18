@@ -391,7 +391,7 @@ public class ElasticsearchClient
                     if (docsCount == 0 && deletedDocsCount == 0) {
                         try {
                             // without documents, the index won't have any dynamic mappings, but maybe there are some explicit ones
-                            if (getIndexMetadata(index).getSchema().getFields().isEmpty()) {
+                            if (getIndexMetadata(index).schema().fields().isEmpty()) {
                                 continue;
                             }
                         }
