@@ -371,7 +371,7 @@ public class TpchHudiTablesInitializer
 
         private static Function<TpchColumnType, HiveType> hiveTypeOf(HiveType hiveType)
         {
-            return ignored -> hiveType;
+            return _ -> hiveType;
         }
 
         private static HiveType hiveVarcharOf(TpchColumnType type)

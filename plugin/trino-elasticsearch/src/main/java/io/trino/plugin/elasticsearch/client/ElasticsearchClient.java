@@ -203,7 +203,7 @@ public class ElasticsearchClient
                         .map(httpHost -> new HttpHost(httpHost, config.getPort(), config.isTlsEnabled() ? "https" : "http"))
                         .toArray(HttpHost[]::new));
 
-        builder.setHttpClientConfigCallback(ignored -> {
+        builder.setHttpClientConfigCallback(_ -> {
             RequestConfig requestConfig = RequestConfig.custom()
                     .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
                     .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis()))

@@ -269,7 +269,7 @@ public class CounterBasedAnonymizer
 
     private <T> String anonymize(T object, ObjectType objectType)
     {
-        return anonymizedMap.computeIfAbsent(objectType.name() + object, ignored -> {
+        return anonymizedMap.computeIfAbsent(objectType.name() + object, _ -> {
             Integer counter = counterMap.computeIfPresent(objectType, (k, v) -> v + 1);
             return objectType.name().toLowerCase(ENGLISH) + "_" + counter;
         });

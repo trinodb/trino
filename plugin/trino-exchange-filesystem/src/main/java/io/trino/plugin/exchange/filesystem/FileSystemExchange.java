@@ -303,7 +303,7 @@ public class FileSystemExchange
     {
         // Add a randomized prefix to evenly distribute data into different S3 shards
         // Data output file path format: {randomizedHexPrefix}.{queryId}.{stageId}.{sinkPartitionId}/{attemptId}/{sourcePartitionId}_{splitId}.data
-        return outputDirectories.computeIfAbsent(taskPartitionId, ignored -> baseDirectories.get(ThreadLocalRandom.current().nextInt(baseDirectories.size()))
+        return outputDirectories.computeIfAbsent(taskPartitionId, _ -> baseDirectories.get(ThreadLocalRandom.current().nextInt(baseDirectories.size()))
                 .resolve(generateRandomizedHexPrefix() + "." + exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + "." + taskPartitionId + PATH_SEPARATOR));
     }
 

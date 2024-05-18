@@ -198,7 +198,7 @@ public class BigQuerySplitManager
             long rowsPerSplit = numberOfRows / actualParallelism;
             long remainingRows = numberOfRows - (rowsPerSplit * actualParallelism); // need to be added to one fo the split due to integer division
             List<BigQuerySplit> splits = range(0, actualParallelism)
-                    .mapToObj(ignored -> BigQuerySplit.emptyProjection(rowsPerSplit))
+                    .mapToObj(_ -> BigQuerySplit.emptyProjection(rowsPerSplit))
                     .collect(toList());
             splits.set(0, BigQuerySplit.emptyProjection(rowsPerSplit + remainingRows));
             return splits;

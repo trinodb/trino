@@ -773,7 +773,7 @@ public final class SortedRangeSet
             case ValueBlock valueBlock -> copyValueBlock(source, valueBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
             case DictionaryBlock dictionaryBlock -> copyDictionaryBlock(source, dictionaryBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
             case RunLengthEncodedBlock rleBlock -> copyRleBlock(source, rleBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
-            case LazyBlock ignored -> throw new IllegalArgumentException("Did not expect LazyBlock");
+            case LazyBlock _ -> throw new IllegalArgumentException("Did not expect LazyBlock");
         }
     }
 

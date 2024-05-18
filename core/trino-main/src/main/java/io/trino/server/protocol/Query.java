@@ -296,7 +296,7 @@ class Query
             futureStateChange = addTimeout(futureStateChange, () -> null, wait, timeoutExecutor);
         }
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, _ -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
     public void markResultsConsumedIfReady()

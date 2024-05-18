@@ -61,7 +61,7 @@ public class StageExecutionStats
 
     private CounterStat getCounterStat(String outputEstimationKind)
     {
-        return outputEstimationKindCounters.computeIfAbsent(outputEstimationKind, ignored -> {
+        return outputEstimationKindCounters.computeIfAbsent(outputEstimationKind, _ -> {
             CounterStat counter = new CounterStat();
             mbeanExporter.exportWithGeneratedName(counter, StageExecutionStats.class, "output_size_estimation" + "_" + outputEstimationKind);
             return counter;

@@ -37,6 +37,6 @@ public interface NestedLoopJoinBridge
     @Override
     default ListenableFuture<Void> whenBuildFinishes()
     {
-        return transform(getPagesFuture(), ignored -> null, directExecutor());
+        return transform(getPagesFuture(), _ -> null, directExecutor());
     }
 }

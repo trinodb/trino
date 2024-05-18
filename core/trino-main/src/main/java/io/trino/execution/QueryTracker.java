@@ -195,7 +195,7 @@ public class QueryTracker<T extends TrackedQuery>
             }
             planningTime
                     .filter(duration -> duration.compareTo(queryMaxPlanningTime) > 0)
-                    .ifPresent(ignored -> query.fail(new TrinoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum planning time limit of " + queryMaxPlanningTime)));
+                    .ifPresent(_ -> query.fail(new TrinoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum planning time limit of " + queryMaxPlanningTime)));
             if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
                 query.fail(new TrinoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
             }

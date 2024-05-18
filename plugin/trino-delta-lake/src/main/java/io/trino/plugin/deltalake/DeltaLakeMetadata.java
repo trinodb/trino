@@ -812,7 +812,7 @@ public class DeltaLakeMetadata
     public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         List<SchemaTableName> tables = prefix.getTable()
-                .map(ignored -> singletonList(prefix.toSchemaTableName()))
+                .map(_ -> singletonList(prefix.toSchemaTableName()))
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
 
         return tables.stream()

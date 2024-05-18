@@ -121,7 +121,7 @@ public class DeltaLakeSplitSource
         long timeLeft = dynamicFilteringWaitTimeoutMillis - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
         if (dynamicFilter.isAwaitable() && timeLeft > 0) {
             return dynamicFilter.isBlocked()
-                    .thenApply(ignored -> EMPTY_BATCH)
+                    .thenApply(_ -> EMPTY_BATCH)
                     .completeOnTimeout(EMPTY_BATCH, timeLeft, MILLISECONDS);
         }
 

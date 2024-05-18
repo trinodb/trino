@@ -77,7 +77,7 @@ public abstract class BaseTrinoCatalogTest
         TrinoCatalog catalog = createTrinoCatalog(false);
         String namespace = "test_create_namespace_with_location_" + randomNameSuffix();
         Map<String, Object> namespaceProperties = new HashMap<>(defaultNamespaceProperties(namespace));
-        String namespaceLocation = (String) namespaceProperties.computeIfAbsent(LOCATION_PROPERTY, ignored -> "local:///a/path/");
+        String namespaceLocation = (String) namespaceProperties.computeIfAbsent(LOCATION_PROPERTY, _ -> "local:///a/path/");
         namespaceProperties = ImmutableMap.copyOf(namespaceProperties);
         catalog.createNamespace(SESSION, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         assertThat(catalog.listNamespaces(SESSION)).contains(namespace);
@@ -305,7 +305,7 @@ public abstract class BaseTrinoCatalogTest
         Map<String, Object> namespaceProperties = new HashMap<>(defaultNamespaceProperties(namespace));
         String namespaceLocation = (String) namespaceProperties.computeIfAbsent(
                 LOCATION_PROPERTY,
-                ignored -> "local:///iceberg_catalog_test_rename_table_" + UUID.randomUUID());
+                _ -> "local:///iceberg_catalog_test_rename_table_" + UUID.randomUUID());
 
         catalog.createNamespace(SESSION, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         try {

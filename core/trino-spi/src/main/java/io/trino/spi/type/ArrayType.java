@@ -493,7 +493,7 @@ public class ArrayType
                     offset += 1 + elementFixedSize;
                 }
             }
-            case LazyBlock ignored -> throw new IllegalStateException("Did not expect LazyBlock after loading " + array.getClass().getSimpleName());
+            case LazyBlock _ -> throw new IllegalStateException("Did not expect LazyBlock after loading " + array.getClass().getSimpleName());
         }
     }
 

@@ -93,7 +93,7 @@ public final class MemorySplitManager
     private static CompletableFuture<?> whenCompleted(DynamicFilter dynamicFilter)
     {
         if (dynamicFilter.isAwaitable()) {
-            return dynamicFilter.isBlocked().thenCompose(ignored -> whenCompleted(dynamicFilter));
+            return dynamicFilter.isBlocked().thenCompose(_ -> whenCompleted(dynamicFilter));
         }
         return NOT_BLOCKED;
     }
@@ -113,7 +113,7 @@ public final class MemorySplitManager
         @Override
         public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
         {
-            return delay.thenCompose(ignored -> delegate.getNextBatch(maxSize));
+            return delay.thenCompose(_ -> delegate.getNextBatch(maxSize));
         }
 
         @Override

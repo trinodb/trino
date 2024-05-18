@@ -193,7 +193,7 @@ public class AsyncQueue<T>
             else {
                 borrowedListFuture = Futures.transform(
                         notEmptySignal,
-                        ignored -> {
+                        _ -> {
                             synchronized (this) {
                                 List<T> batch = getBatch(maxSize);
                                 if (!batch.isEmpty()) {

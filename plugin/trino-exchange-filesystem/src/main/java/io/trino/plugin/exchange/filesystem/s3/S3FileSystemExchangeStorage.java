@@ -267,7 +267,7 @@ public class S3FileSystemExchangeStorage
                             .subscribe(listObjectsV2Response -> listObjectsV2Response.contents().stream()
                                     .map(S3Object::key)
                                     .forEach(keys::add))),
-                    ignored -> keys.build(),
+                    _ -> keys.build(),
                     directExecutor());
             bucketToListObjectsFuturesBuilder.put(getBucketName(dir), listObjectsFuture);
         }
@@ -322,7 +322,7 @@ public class S3FileSystemExchangeStorage
                                 fileStatuses.add(new FileStatus(uri.toString(), s3Object.size()));
                             }
                         })),
-                ignored -> fileStatuses.build(),
+                _ -> fileStatuses.build(),
                 directExecutor()));
     }
 
