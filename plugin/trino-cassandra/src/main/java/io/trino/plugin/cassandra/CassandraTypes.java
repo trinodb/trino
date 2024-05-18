@@ -27,33 +27,34 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 
+import static io.trino.plugin.cassandra.CassandraType.primitiveType;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
 public final class CassandraTypes
 {
     private CassandraTypes() {}
 
-    public static final CassandraType ASCII = new CassandraType(Kind.ASCII, createUnboundedVarcharType());
-    public static final CassandraType BIGINT = new CassandraType(Kind.BIGINT, BigintType.BIGINT);
-    public static final CassandraType BLOB = new CassandraType(Kind.BLOB, VarbinaryType.VARBINARY);
-    public static final CassandraType BOOLEAN = new CassandraType(Kind.BOOLEAN, BooleanType.BOOLEAN);
-    public static final CassandraType COUNTER = new CassandraType(Kind.COUNTER, BigintType.BIGINT);
-    public static final CassandraType CUSTOM = new CassandraType(Kind.CUSTOM, VarbinaryType.VARBINARY);
-    public static final CassandraType DATE = new CassandraType(Kind.DATE, DateType.DATE);
-    public static final CassandraType DECIMAL = new CassandraType(Kind.DECIMAL, DoubleType.DOUBLE);
-    public static final CassandraType DOUBLE = new CassandraType(Kind.DOUBLE, DoubleType.DOUBLE);
-    public static final CassandraType FLOAT = new CassandraType(Kind.FLOAT, RealType.REAL);
-    public static final CassandraType INT = new CassandraType(Kind.INT, IntegerType.INTEGER);
-    public static final CassandraType LIST = new CassandraType(Kind.LIST, createUnboundedVarcharType());
-    public static final CassandraType MAP = new CassandraType(Kind.MAP, createUnboundedVarcharType());
-    public static final CassandraType SET = new CassandraType(Kind.SET, createUnboundedVarcharType());
-    public static final CassandraType SMALLINT = new CassandraType(Kind.SMALLINT, SmallintType.SMALLINT);
-    public static final CassandraType TEXT = new CassandraType(Kind.TEXT, createUnboundedVarcharType());
-    public static final CassandraType TIME = new CassandraType(Kind.TIME, TimeType.TIME_NANOS);
-    public static final CassandraType TIMESTAMP = new CassandraType(Kind.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS);
-    public static final CassandraType TIMEUUID = new CassandraType(Kind.TIMEUUID, UuidType.UUID);
-    public static final CassandraType TINYINT = new CassandraType(Kind.TINYINT, TinyintType.TINYINT);
-    public static final CassandraType UUID = new CassandraType(Kind.UUID, UuidType.UUID);
-    public static final CassandraType VARCHAR = new CassandraType(Kind.VARCHAR, createUnboundedVarcharType());
-    public static final CassandraType VARINT = new CassandraType(Kind.VARINT, createUnboundedVarcharType());
+    public static final CassandraType ASCII = primitiveType(Kind.ASCII, createUnboundedVarcharType());
+    public static final CassandraType BIGINT = primitiveType(Kind.BIGINT, BigintType.BIGINT);
+    public static final CassandraType BLOB = primitiveType(Kind.BLOB, VarbinaryType.VARBINARY);
+    public static final CassandraType BOOLEAN = primitiveType(Kind.BOOLEAN, BooleanType.BOOLEAN);
+    public static final CassandraType COUNTER = primitiveType(Kind.COUNTER, BigintType.BIGINT);
+    public static final CassandraType CUSTOM = primitiveType(Kind.CUSTOM, VarbinaryType.VARBINARY);
+    public static final CassandraType DATE = primitiveType(Kind.DATE, DateType.DATE);
+    public static final CassandraType DECIMAL = primitiveType(Kind.DECIMAL, DoubleType.DOUBLE);
+    public static final CassandraType DOUBLE = primitiveType(Kind.DOUBLE, DoubleType.DOUBLE);
+    public static final CassandraType FLOAT = primitiveType(Kind.FLOAT, RealType.REAL);
+    public static final CassandraType INT = primitiveType(Kind.INT, IntegerType.INTEGER);
+    public static final CassandraType LIST = primitiveType(Kind.LIST, createUnboundedVarcharType());
+    public static final CassandraType MAP = primitiveType(Kind.MAP, createUnboundedVarcharType());
+    public static final CassandraType SET = primitiveType(Kind.SET, createUnboundedVarcharType());
+    public static final CassandraType SMALLINT = primitiveType(Kind.SMALLINT, SmallintType.SMALLINT);
+    public static final CassandraType TEXT = primitiveType(Kind.TEXT, createUnboundedVarcharType());
+    public static final CassandraType TIME = primitiveType(Kind.TIME, TimeType.TIME_NANOS);
+    public static final CassandraType TIMESTAMP = primitiveType(Kind.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS);
+    public static final CassandraType TIMEUUID = primitiveType(Kind.TIMEUUID, UuidType.UUID);
+    public static final CassandraType TINYINT = primitiveType(Kind.TINYINT, TinyintType.TINYINT);
+    public static final CassandraType UUID = primitiveType(Kind.UUID, UuidType.UUID);
+    public static final CassandraType VARCHAR = primitiveType(Kind.VARCHAR, createUnboundedVarcharType());
+    public static final CassandraType VARINT = primitiveType(Kind.VARINT, createUnboundedVarcharType());
 }

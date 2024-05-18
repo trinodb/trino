@@ -522,7 +522,7 @@ public class CassandraSession
     {
         List<Term> values = filterPrefixes
                 .stream()
-                .map(value -> cassandraTypeManager.getJavaValue(column.cassandraType().getKind(), value))
+                .map(value -> cassandraTypeManager.getJavaValue(column.cassandraType().kind(), value))
                 .map(QueryBuilder::literal)
                 .collect(toList());
 
@@ -535,7 +535,7 @@ public class CassandraSession
                 .range(0, Math.min(partitionKeyColumns.size(), filterPrefix.size()))
                 .mapToObj(i -> {
                     CassandraColumnHandle column = partitionKeyColumns.get(i);
-                    Object value = cassandraTypeManager.getJavaValue(column.cassandraType().getKind(), filterPrefix.get(i));
+                    Object value = cassandraTypeManager.getJavaValue(column.cassandraType().kind(), filterPrefix.get(i));
                     return Relation.column(CassandraCqlUtils.validColumnName(column.name())).isEqualTo(literal(value));
                 })
                 .collect(toImmutableList());
