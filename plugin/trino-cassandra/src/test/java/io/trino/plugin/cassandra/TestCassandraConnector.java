@@ -289,11 +289,11 @@ public class TestCassandraConnector
                     assertThat(tupleValueBlock.getFieldCount()).isEqualTo(3);
 
                     CassandraColumnHandle tupleColumnHandle = (CassandraColumnHandle) columnHandles.get(columnIndex.get("typetuple"));
-                    List<CassandraType> tupleArgumentTypes = tupleColumnHandle.cassandraType().getArgumentTypes();
+                    List<CassandraType> tupleArgumentTypes = tupleColumnHandle.cassandraType().argumentTypes();
                     int rawIndex = tupleValueBlock.getRawIndex();
-                    assertThat(tupleArgumentTypes.get(0).getTrinoType().getLong(tupleValueBlock.getRawFieldBlock(0), rawIndex)).isEqualTo(rowNumber);
-                    assertThat(tupleArgumentTypes.get(1).getTrinoType().getSlice(tupleValueBlock.getRawFieldBlock(1), rawIndex).toStringUtf8()).isEqualTo("text-" + rowNumber);
-                    assertThat(tupleArgumentTypes.get(2).getTrinoType().getLong(tupleValueBlock.getRawFieldBlock(2), rawIndex)).isEqualTo(Float.floatToRawIntBits(1.11f * rowNumber));
+                    assertThat(tupleArgumentTypes.get(0).trinoType().getLong(tupleValueBlock.getRawFieldBlock(0), rawIndex)).isEqualTo(rowNumber);
+                    assertThat(tupleArgumentTypes.get(1).trinoType().getSlice(tupleValueBlock.getRawFieldBlock(1), rawIndex).toStringUtf8()).isEqualTo("text-" + rowNumber);
+                    assertThat(tupleArgumentTypes.get(2).trinoType().getLong(tupleValueBlock.getRawFieldBlock(2), rawIndex)).isEqualTo(Float.floatToRawIntBits(1.11f * rowNumber));
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertThat(newCompletedBytes >= completedBytes).isTrue();
