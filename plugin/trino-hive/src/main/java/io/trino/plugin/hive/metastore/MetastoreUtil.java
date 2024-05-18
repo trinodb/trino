@@ -70,6 +70,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.io.BaseEncoding.base64Url;
 import static io.trino.hive.formats.HiveClassNames.AVRO_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.COLUMNAR_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.ORC_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.BUCKET_COUNT;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.BUCKET_FIELD_NAME;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -106,6 +110,7 @@ public final class MetastoreUtil
     public static final String RAW_DATA_SIZE = "rawDataSize";
     public static final String TOTAL_SIZE = "totalSize";
     public static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
+    public static final Set<String> ALLOWED_TO_DROP_TABLE_SERDES = ImmutableSet.of(LAZY_SIMPLE_SERDE_CLASS, COLUMNAR_SERDE_CLASS, PARQUET_HIVE_SERDE_CLASS, ORC_SERDE_CLASS);
 
     public static Map<String, String> getHiveSchema(Table table)
     {
@@ -303,6 +308,9 @@ public final class MetastoreUtil
         }
         if (table.getDataColumns().size() <= 1) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot drop the only non-partition column in a table");
+        }
+        if (!ALLOWED_TO_DROP_TABLE_SERDES.contains(table.getStorage().getStorageFormat().getSerde())) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop columns due to incompatible SerDe format");
         }
     }
 

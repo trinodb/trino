@@ -154,6 +154,7 @@ import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.ALLOWED_TO_DROP_TABLE_SERDES;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -5138,6 +5139,17 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testDropColumnWithUnsupportedSerDe()
+    {
+        for(HiveStorageFormat format : ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON, HiveStorageFormat.RCBINARY)) {
+            @Language("SQL") String createAvroTable = format("CREATE TABLE test_drop_avro (x int, y int) WITH (format = '%s')", format);
+            assertUpdate(createAvroTable);
+            assertQueryFails("ALTER TABLE test_drop_avro DROP COLUMN x", "Cannot drop columns due to incompatible SerDe format");
+            assertUpdate("DROP TABLE test_drop_avro");
+        }
+    }
+
+    @Test
     public void testAvroTypeValidation()
     {
         assertQueryFails("CREATE TABLE test_avro_types (x map(bigint, bigint)) WITH (format = 'AVRO')", "Column 'x' has a non-varchar map key, which is not supported by Avro");
@@ -5561,7 +5573,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testSchemaMismatchesWithDereferenceProjections()
     {
-        testWithAllStorageFormats(this::testSchemaMismatchesWithDereferenceProjections);
+        testWithStorageFormatsSupportingDropColumn(this::testSchemaMismatchesWithDereferenceProjections);
     }
 
     private void testSchemaMismatchesWithDereferenceProjections(Session session, HiveStorageFormat format)
@@ -5659,19 +5671,21 @@ public abstract class BaseHiveConnectorTest
         String tableName = testReadWithPartitionSchemaMismatchAddedColumns(session, format);
 
         // with mapping by name also test behavior with dropping columns
-        // start with table with a, b, c, _part
-        // drop b
-        assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN b");
-        // create new partition
-        assertUpdate(session, "INSERT INTO " + tableName + " values (21, 22, 20)", 1); // a, c, _part
-        assertQuery(session, "SELECT a, c, _part FROM " + tableName, "VALUES (1, null, 0), (11, 13, 10), (21, 22, 20)");
-        assertQuery(session, "SELECT a, _part FROM " + tableName, "VALUES (1,  0), (11, 10), (21, 20)");
-        // add d
-        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN d bigint");
-        // create new partition
-        assertUpdate(session, "INSERT INTO " + tableName + " values (31, 32, 33, 30)", 1); // a, c, d, _part
-        assertQuery(session, "SELECT a, c, d, _part FROM " + tableName, "VALUES (1, null, null, 0), (11, 13, null, 10), (21, 22, null, 20), (31, 32, 33, 30)");
-        assertQuery(session, "SELECT a, d, _part FROM " + tableName, "VALUES (1, null, 0), (11, null, 10), (21, null, 20), (31, 33, 30)");
+        if (ALLOWED_TO_DROP_TABLE_SERDES.contains(format.getSerde())) {
+            // start with table with a, b, c, _part
+            // drop b
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN b");
+            // create new partition
+            assertUpdate(session, "INSERT INTO " + tableName + " values (21, 22, 20)", 1); // a, c, _part
+            assertQuery(session, "SELECT a, c, _part FROM " + tableName, "VALUES (1, null, 0), (11, 13, 10), (21, 22, 20)");
+            assertQuery(session, "SELECT a, _part FROM " + tableName, "VALUES (1,  0), (11, 10), (21, 20)");
+            // add d
+            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN d bigint");
+            // create new partition
+            assertUpdate(session, "INSERT INTO " + tableName + " values (31, 32, 33, 30)", 1); // a, c, d, _part
+            assertQuery(session, "SELECT a, c, d, _part FROM " + tableName, "VALUES (1, null, null, 0), (11, 13, null, 10), (21, 22, null, 20), (31, 32, 33, 30)");
+            assertQuery(session, "SELECT a, d, _part FROM " + tableName, "VALUES (1, null, 0), (11, null, 10), (21, null, 20), (31, 33, 30)");
+        }
     }
 
     private void testReadWithPartitionSchemaMismatchByIndex(Session session, HiveStorageFormat format)
@@ -5703,8 +5717,8 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testSubfieldReordering()
     {
-        // Validate for formats for which subfield access is name based
-        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET, HiveStorageFormat.AVRO);
+        // Validate for formats for which subfield access is name based and drop column is allowed
+        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET);
         String tableName = "evolve_test_" + randomNameSuffix();
 
         for (HiveStorageFormat format : formats) {
@@ -8875,9 +8889,6 @@ public abstract class BaseHiveConnectorTest
         testUseColumnAddDrop(HiveStorageFormat.ORC, false);
         testUseColumnAddDrop(HiveStorageFormat.PARQUET, true);
         testUseColumnAddDrop(HiveStorageFormat.PARQUET, false);
-        testUseColumnAddDrop(HiveStorageFormat.AVRO, false);
-        testUseColumnAddDrop(HiveStorageFormat.JSON, false);
-        testUseColumnAddDrop(HiveStorageFormat.RCBINARY, false);
         testUseColumnAddDrop(HiveStorageFormat.RCTEXT, false);
         testUseColumnAddDrop(HiveStorageFormat.SEQUENCEFILE, false);
         testUseColumnAddDrop(HiveStorageFormat.TEXTFILE, false);
@@ -9338,6 +9349,13 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
+    private void testWithStorageFormatsSupportingDropColumn(BiConsumer<Session, HiveStorageFormat> test)
+    {
+        for (TestingHiveStorageFormat storageFormat : getTestingHiveStorageFormatSupportingDropColumn()) {
+            testWithStorageFormat(storageFormat, test);
+        }
+    }
+
     private static void testWithStorageFormat(TestingHiveStorageFormat storageFormat, BiConsumer<Session, HiveStorageFormat> test)
     {
         requireNonNull(storageFormat, "storageFormat is null");
@@ -9365,6 +9383,17 @@ public abstract class BaseHiveConnectorTest
             }
 
             formats.add(new TestingHiveStorageFormat(getSession(), hiveStorageFormat));
+        }
+        return formats.build();
+    }
+
+    private List<TestingHiveStorageFormat> getTestingHiveStorageFormatSupportingDropColumn()
+    {
+        ImmutableList.Builder<TestingHiveStorageFormat> formats = ImmutableList.builder();
+        for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
+            if (ALLOWED_TO_DROP_TABLE_SERDES.contains(hiveStorageFormat.getSerde())) {
+                formats.add(new TestingHiveStorageFormat(getSession(), hiveStorageFormat));
+            }
         }
         return formats.build();
     }
