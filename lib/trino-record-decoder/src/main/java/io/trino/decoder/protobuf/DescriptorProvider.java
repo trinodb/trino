@@ -19,7 +19,7 @@ import io.trino.spi.TrinoException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
+import java.net.URI;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -34,7 +34,7 @@ public interface DescriptorProvider
     {
         requireNonNull(url, "url is null");
         ByteArrayOutputStream typeBytes = new ByteArrayOutputStream();
-        try (InputStream stream = new URL(url).openStream()) {
+        try (InputStream stream = URI.create(url).toURL().openStream()) {
             stream.transferTo(typeBytes);
         }
         catch (IOException e) {
