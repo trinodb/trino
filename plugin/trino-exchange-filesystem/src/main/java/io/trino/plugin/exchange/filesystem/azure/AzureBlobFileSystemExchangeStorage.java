@@ -503,7 +503,7 @@ public class AzureBlobFileSystemExchangeStorage
 
             ListenableFuture<Void> finishFuture = translateFailures(Futures.transformAsync(
                     Futures.allAsList(multiPartUploadFutures),
-                    ignored -> toListenableFuture(blockBlobAsyncClient.commitBlockList(blockIds).toFuture()),
+                    _ -> toListenableFuture(blockBlobAsyncClient.commitBlockList(blockIds).toFuture()),
                     directExecutor()));
             Futures.addCallback(finishFuture, new FutureCallback<>() {
                 @Override

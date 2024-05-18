@@ -54,19 +54,19 @@ class TestInMemoryGlueCache
     void testGetDatabaseNames()
     {
         GlueCache glueCache = createGlueCache();
-        assertThat(glueCache.getDatabaseNames(ignored -> ImmutableList.of("db1", "db2"))).containsExactly("db1", "db2");
+        assertThat(glueCache.getDatabaseNames(_ -> ImmutableList.of("db1", "db2"))).containsExactly("db1", "db2");
         // call back is not invoked when the names are already in the cache
-        assertThat(glueCache.getDatabaseNames(ignored -> ImmutableList.of("fail"))).containsExactly("db1", "db2");
-        assertThat(glueCache.getDatabaseNames(ignored -> { throw new RuntimeException(); })).containsExactly("db1", "db2");
+        assertThat(glueCache.getDatabaseNames(_ -> ImmutableList.of("fail"))).containsExactly("db1", "db2");
+        assertThat(glueCache.getDatabaseNames(_ -> { throw new RuntimeException(); })).containsExactly("db1", "db2");
 
         glueCache.invalidateDatabaseNames();
-        assertThat(glueCache.getDatabaseNames(ignored -> ImmutableList.of("db5", "db6"))).containsExactly("db5", "db6");
+        assertThat(glueCache.getDatabaseNames(_ -> ImmutableList.of("db5", "db6"))).containsExactly("db5", "db6");
 
         glueCache.invalidateDatabaseNames();
-        assertThatThrownBy(() -> glueCache.getDatabaseNames(ignored -> { throw new TrinoException(HIVE_METASTORE_ERROR, "test"); }))
+        assertThatThrownBy(() -> glueCache.getDatabaseNames(_ -> { throw new TrinoException(HIVE_METASTORE_ERROR, "test"); }))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("test");
-        assertThat(glueCache.getDatabaseNames(ignored -> ImmutableList.of("after exception"))).containsExactly("after exception");
+        assertThat(glueCache.getDatabaseNames(_ -> ImmutableList.of("after exception"))).containsExactly("after exception");
     }
 
     @Test
@@ -356,48 +356,48 @@ class TestInMemoryGlueCache
     void testGetPartitionNames()
     {
         GlueCache glueCache = createGlueCache();
-        assertThat(glueCache.getPartitionNames("db1", "table1", "", ignored -> Set.of(testPartitionName("part1"), testPartitionName("part2"))))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "", _ -> Set.of(testPartitionName("part1"), testPartitionName("part2"))))
                 .containsExactlyInAnyOrder(testPartitionName("part1"), testPartitionName("part2"));
-        assertThat(glueCache.getPartitionNames("db1", "table1", "", ignored -> Set.of(testPartitionName("fail"))))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "", _ -> Set.of(testPartitionName("fail"))))
                 .containsExactlyInAnyOrder(testPartitionName("part1"), testPartitionName("part2"));
-        assertThat(glueCache.getPartitionNames("db1", "table1", "", ignored -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "", _ -> { throw new RuntimeException(); }))
                 .containsExactlyInAnyOrder(testPartitionName("part1"), testPartitionName("part2"));
 
         // each expression has a different cache
-        assertThat(glueCache.getPartitionNames("db1", "table1", "expression", ignored -> Set.of(testPartitionName("a"), testPartitionName("b"))))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "expression", _ -> Set.of(testPartitionName("a"), testPartitionName("b"))))
                 .containsExactlyInAnyOrder(testPartitionName("a"), testPartitionName("b"));
-        assertThat(glueCache.getPartitionNames("db1", "table1", "expression", ignored -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "expression", _ -> { throw new RuntimeException(); }))
                 .containsExactlyInAnyOrder(testPartitionName("a"), testPartitionName("b"));
 
         // invalidation invalidates all expressions
         glueCache.invalidateTable("db1", "table1", true);
-        assertThat(glueCache.getPartitionNames("db1", "table1", "", ignored -> Set.of(testPartitionName("part3"), testPartitionName("part4"))))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "", _ -> Set.of(testPartitionName("part3"), testPartitionName("part4"))))
                 .containsExactlyInAnyOrder(testPartitionName("part3"), testPartitionName("part4"));
-        assertThat(glueCache.getPartitionNames("db1", "table1", "expression", ignored -> Set.of(testPartitionName("c"), testPartitionName("d"))))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "expression", _ -> Set.of(testPartitionName("c"), testPartitionName("d"))))
                 .containsExactlyInAnyOrder(testPartitionName("c"), testPartitionName("d"));
 
         glueCache.invalidateTable("db1", "table1", true);
-        assertThatThrownBy(() -> glueCache.getPartitionNames("db1", "table1", "", ignored -> { throw new TrinoException(HIVE_METASTORE_ERROR, "test"); }))
+        assertThatThrownBy(() -> glueCache.getPartitionNames("db1", "table1", "", _ -> { throw new TrinoException(HIVE_METASTORE_ERROR, "test"); }))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("test");
-        assertThat(glueCache.getPartitionNames("db1", "table1", "", ignored -> Set.of(testPartitionName("after exception"))))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "", _ -> Set.of(testPartitionName("after exception"))))
                 .containsExactlyInAnyOrder(testPartitionName("after exception"));
 
         // invalidate table without "cascade" set does not invalidate the partition names
-        assertThat(glueCache.getPartitionNames("db1", "table1", "flush", ignored -> Set.of(testPartitionName("flush1"), testPartitionName("flush2"))))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "flush", _ -> Set.of(testPartitionName("flush1"), testPartitionName("flush2"))))
                 .containsExactlyInAnyOrder(testPartitionName("flush1"), testPartitionName("flush2"));
         glueCache.invalidateTable("db1", "table1", false);
-        assertThat(glueCache.getPartitionNames("db1", "table1", "flush", ignored -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "flush", _ -> { throw new RuntimeException(); }))
                 .containsExactlyInAnyOrder(testPartitionName("flush1"), testPartitionName("flush2"));
 
         // invalidate table with cascade invalidates the partition names
         glueCache.invalidateTable("db1", "table1", true);
-        assertThat(glueCache.getPartitionNames("db1", "table1", "flush", ignored -> Set.of(testPartitionName("flush3"), testPartitionName("flush4"))))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "flush", _ -> Set.of(testPartitionName("flush3"), testPartitionName("flush4"))))
                 .containsExactlyInAnyOrder(testPartitionName("flush3"), testPartitionName("flush4"));
 
         // database invalidation invalidates the partition names
         glueCache.invalidateDatabase("db1");
-        assertThat(glueCache.getPartitionNames("db1", "table1", "flush", ignored -> Set.of(testPartitionName("flush5"), testPartitionName("flush6"))))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "flush", _ -> Set.of(testPartitionName("flush5"), testPartitionName("flush6"))))
                 .containsExactlyInAnyOrder(testPartitionName("flush5"), testPartitionName("flush6"));
     }
 

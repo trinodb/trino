@@ -33,7 +33,7 @@ public class WorkerLanguageFunctionProvider
     @Override
     public void registerTask(TaskId taskId, Map<FunctionId, IrRoutine> functions)
     {
-        queryFunctions.computeIfAbsent(taskId, ignored -> functions);
+        queryFunctions.computeIfAbsent(taskId, _ -> functions);
     }
 
     @Override

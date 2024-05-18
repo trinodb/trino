@@ -202,13 +202,13 @@ public final class CachingHiveMetastore
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cacheMissing = cacheMissing;
 
-        databaseNamesCache = cacheFactory.buildCache(ignored -> loadAllDatabases());
+        databaseNamesCache = cacheFactory.buildCache(_ -> loadAllDatabases());
         databaseCache = cacheFactory.buildCache(this::loadDatabase);
         tablesCacheNew = cacheFactory.buildCache(this::loadTablesNew);
         tableColumnStatisticsCache = statsCacheFactory.buildCache(this::refreshTableColumnStatistics);
         tableCache = cacheFactory.buildCache(this::loadTable);
         tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.database(), key.table(), key.owner(), key.principal()));
-        rolesCache = cacheFactory.buildCache(ignored -> loadRoles());
+        rolesCache = cacheFactory.buildCache(_ -> loadRoles());
         roleGrantsCache = cacheFactory.buildCache(this::loadRoleGrants);
         configValuesCache = cacheFactory.buildCache(this::loadConfigValue);
 

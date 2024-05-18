@@ -366,7 +366,7 @@ final class BlockUtil
             case RunLengthEncodedBlock rleBlock -> blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
             case DictionaryBlock dictionaryBlock -> blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), offset, length);
             case ValueBlock valueBlock -> blockBuilder.appendRange(valueBlock, offset, length);
-            case LazyBlock ignored -> throw new IllegalStateException("Did not expect LazyBlock after loading " + rawBlock.getClass().getSimpleName());
+            case LazyBlock _ -> throw new IllegalStateException("Did not expect LazyBlock after loading " + rawBlock.getClass().getSimpleName());
         }
     }
 }

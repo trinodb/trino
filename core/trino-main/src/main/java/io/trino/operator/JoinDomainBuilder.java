@@ -177,7 +177,7 @@ public class JoinDomainBuilder
                         add(dictionary, dictionaryBlock.getId(i));
                     }
                 }
-                case LazyBlock ignored -> throw new VerifyException("Did not expect LazyBlock after loading " + block.getClass().getSimpleName());
+                case LazyBlock _ -> throw new VerifyException("Did not expect LazyBlock after loading " + block.getClass().getSimpleName());
             }
 
             // if the distinct size is too large, fall back to min max, and drop the distinct values

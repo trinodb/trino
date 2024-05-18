@@ -91,7 +91,7 @@ public class RaptorMergeSink
                         : OptionalInt.of(INTEGER.getInt(shardBucketBlock, position));
                 UUID uuid = trinoUuidToJavaUuid(UuidType.UUID.getSlice(shardUuidBlock, position));
                 int rowId = toIntExact(BIGINT.getLong(shardRowIdBlock, position));
-                Entry<OptionalInt, BitSet> entry = rowsToDelete.computeIfAbsent(uuid, ignored -> Map.entry(bucketNumber, new BitSet()));
+                Entry<OptionalInt, BitSet> entry = rowsToDelete.computeIfAbsent(uuid, _ -> Map.entry(bucketNumber, new BitSet()));
                 verify(entry.getKey().equals(bucketNumber), "multiple bucket numbers for same shard");
                 entry.getValue().set(rowId);
             }
@@ -119,7 +119,7 @@ public class RaptorMergeSink
         }));
 
         return allOf(futures.toArray(CompletableFuture[]::new))
-                .thenApply(ignored -> futures.stream()
+                .thenApply(_ -> futures.stream()
                         .map(CompletableFuture::join)
                         .flatMap(Collection::stream)
                         .collect(toUnmodifiableList()));

@@ -1170,7 +1170,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 currentPlanStages.add(stageId);
                 StageExecution stageExecution = stageExecutions.get(stageId);
                 if (stageExecution == null) {
-                    IsReadyForExecutionResult result = isReadyForExecutionCache.computeIfAbsent(subPlan, ignored -> isReadyForExecution(subPlan));
+                    IsReadyForExecutionResult result = isReadyForExecutionCache.computeIfAbsent(subPlan, _ -> isReadyForExecution(subPlan));
                     if (result.isReadyForExecution()) {
                         createStageExecution(
                                 subPlan,

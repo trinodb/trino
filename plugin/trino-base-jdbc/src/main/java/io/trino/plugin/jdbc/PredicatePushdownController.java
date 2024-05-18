@@ -92,6 +92,6 @@ public interface PredicatePushdownController
         return domain.getValues().getValuesProcessor().transform(
                 Ranges::getRangeCount,
                 DiscreteValues::getValuesCount,
-                ignored -> 0);
+                _ -> 0);
     }
 }

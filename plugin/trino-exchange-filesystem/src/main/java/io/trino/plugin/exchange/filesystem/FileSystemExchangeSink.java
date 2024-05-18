@@ -177,7 +177,7 @@ public class FileSystemExchangeSink
         addSuccessCallback(finishFuture, this::destroy);
         finishFuture = Futures.transformAsync(
                 finishFuture,
-                ignored -> exchangeStorage.createEmptyFile(outputDirectory.resolve(COMMITTED_MARKER_FILE_NAME)),
+                _ -> exchangeStorage.createEmptyFile(outputDirectory.resolve(COMMITTED_MARKER_FILE_NAME)),
                 directExecutor());
         Futures.addCallback(finishFuture, new FutureCallback<>()
         {
@@ -211,7 +211,7 @@ public class FileSystemExchangeSink
 
         return stats.getExchangeSinkAbort().record(toCompletableFuture(Futures.transformAsync(
                 abortFuture,
-                ignored -> exchangeStorage.deleteRecursively(ImmutableList.of(outputDirectory)),
+                _ -> exchangeStorage.deleteRecursively(ImmutableList.of(outputDirectory)),
                 directExecutor())));
     }
 

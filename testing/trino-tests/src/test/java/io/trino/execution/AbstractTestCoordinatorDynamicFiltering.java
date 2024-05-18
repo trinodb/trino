@@ -606,7 +606,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                                 return completedFuture(new ConnectorSplitBatch(ImmutableList.of(createRemoteSplit()), isFinished()));
                             }
 
-                            return blocked.thenApply(ignored -> {
+                            return blocked.thenApply(_ -> {
                                 // yield until dynamic filter is fully loaded
                                 return new ConnectorSplitBatch(ImmutableList.of(), false);
                             });

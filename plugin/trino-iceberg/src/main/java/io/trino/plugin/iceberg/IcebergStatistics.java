@@ -208,7 +208,7 @@ record IcebergStatistics(
             if (type.isOrderable() && (nullCount.isEmpty() || nullCount.get() != recordCount)) {
                 // Capture the initial bounds during construction so there are always valid min/max values to compare to. This does make the first call to
                 // `ColumnStatistics#updateMinMax` a no-op.
-                columnStatistics.computeIfAbsent(id, ignored -> {
+                columnStatistics.computeIfAbsent(id, _ -> {
                     MethodHandle comparisonHandle = typeManager.getTypeOperators()
                             .getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
                     return new ColumnStatistics(comparisonHandle, lowerBound, upperBound);

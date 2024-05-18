@@ -65,7 +65,7 @@ final class EventsCollector
 
     public QueryEvents getQueryEvents(QueryId queryId)
     {
-        return queryEvents.computeIfAbsent(queryId, ignored -> new QueryEvents());
+        return queryEvents.computeIfAbsent(queryId, _ -> new QueryEvents());
     }
 
     @ThreadSafe

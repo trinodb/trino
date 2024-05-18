@@ -139,7 +139,7 @@ public final class DeleteFile
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
-                + estimatedSizeOf(equalityFieldIds, ignored -> SIZE_OF_INT)
+                + estimatedSizeOf(equalityFieldIds, _ -> SIZE_OF_INT)
                 + estimatedSizeOf(lowerBounds, entry -> SIZE_OF_INT, SizeOf::sizeOf)
                 + estimatedSizeOf(upperBounds, entry -> SIZE_OF_INT, SizeOf::sizeOf);
     }
