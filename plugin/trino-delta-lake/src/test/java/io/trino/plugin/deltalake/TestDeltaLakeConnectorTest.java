@@ -153,17 +153,17 @@ public class TestDeltaLakeConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_CREATE_OR_REPLACE_TABLE,
-                    SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
+                 SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_FIELD,
-                    SUPPORTS_AGGREGATION_PUSHDOWN,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_DROP_FIELD,
-                    SUPPORTS_LIMIT_PUSHDOWN,
-                    SUPPORTS_PREDICATE_PUSHDOWN,
-                    SUPPORTS_RENAME_FIELD,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN -> false;
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_DROP_FIELD,
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_PREDICATE_PUSHDOWN,
+                 SUPPORTS_RENAME_FIELD,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

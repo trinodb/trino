@@ -67,11 +67,11 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_COMMENT_ON_VIEW,
-                    SUPPORTS_COMMENT_ON_VIEW_COLUMN,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_RENAME_MATERIALIZED_VIEW,
-                    SUPPORTS_RENAME_SCHEMA -> false;
+                 SUPPORTS_COMMENT_ON_VIEW_COLUMN,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_RENAME_MATERIALIZED_VIEW,
+                 SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
