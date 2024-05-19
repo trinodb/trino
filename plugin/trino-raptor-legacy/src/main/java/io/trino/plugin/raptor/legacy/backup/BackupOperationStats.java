@@ -70,7 +70,7 @@ public class BackupOperationStats
 
     public <V> V run(Supplier<V> supplier)
     {
-        try (TimeStat.BlockTimer ignored = time.time()) {
+        try (TimeStat.BlockTimer _ = time.time()) {
             V value = supplier.get();
             successes.update(1);
             return value;

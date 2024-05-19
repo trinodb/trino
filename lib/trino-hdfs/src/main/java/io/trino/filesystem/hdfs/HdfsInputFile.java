@@ -115,7 +115,7 @@ class HdfsInputFile
         openFileCallStat.newCall();
         FileSystem fileSystem = environment.getFileSystem(context, file);
         return environment.doAs(context.getIdentity(), () -> {
-            try (TimeStat.BlockTimer ignored = openFileCallStat.time()) {
+            try (TimeStat.BlockTimer _ = openFileCallStat.time()) {
                 return fileSystem.open(file);
             }
             catch (IOException e) {
