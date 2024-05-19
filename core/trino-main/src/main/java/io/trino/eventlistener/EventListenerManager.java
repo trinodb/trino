@@ -143,7 +143,7 @@ public class EventListenerManager
 
     public void queryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider)
     {
-        try (TimeStat.BlockTimer ignored = queryCompletedTime.time()) {
+        try (TimeStat.BlockTimer _ = queryCompletedTime.time()) {
             doQueryCompleted(queryCompletedEventProvider);
         }
     }
@@ -163,7 +163,7 @@ public class EventListenerManager
 
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
-        try (TimeStat.BlockTimer ignored = queryCreatedTime.time()) {
+        try (TimeStat.BlockTimer _ = queryCreatedTime.time()) {
             doQueryCreated(queryCreatedEvent);
         }
     }
@@ -182,7 +182,7 @@ public class EventListenerManager
 
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
-        try (TimeStat.BlockTimer ignored = splitCompletedTime.time()) {
+        try (TimeStat.BlockTimer _ = splitCompletedTime.time()) {
             doSplitCompleted(splitCompletedEvent);
         }
     }

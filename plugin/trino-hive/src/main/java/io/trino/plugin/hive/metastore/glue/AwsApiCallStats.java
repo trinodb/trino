@@ -32,7 +32,7 @@ public class AwsApiCallStats
     public <V, E extends Exception> V call(ThrowingCallable<V, E> callable)
             throws E
     {
-        try (TimeStat.BlockTimer ignored = time.time()) {
+        try (TimeStat.BlockTimer _ = time.time()) {
             return callable.call();
         }
         catch (Exception e) {

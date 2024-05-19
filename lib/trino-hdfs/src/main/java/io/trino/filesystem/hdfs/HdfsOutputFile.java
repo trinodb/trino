@@ -93,7 +93,7 @@ class HdfsOutputFile
         Path file = hadoopPath(location);
         FileSystem fileSystem = environment.getFileSystem(context, file);
         FileSystem rawFileSystem = getRawFileSystem(fileSystem);
-        try (TimeStat.BlockTimer ignored = createFileCallStat.time()) {
+        try (TimeStat.BlockTimer _ = createFileCallStat.time()) {
             if (rawFileSystem instanceof MemoryAwareFileSystem memoryAwareFileSystem) {
                 return create(() -> memoryAwareFileSystem.create(file, memoryContext));
             }
