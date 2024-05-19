@@ -78,7 +78,7 @@ public class SnapshotsTable
         pagesBuilder.appendBigint(structLike.get(columnNameToPositionInSchema.get(SNAPSHOT_ID_COLUMN_NAME), Long.class));
 
         Long parentId = structLike.get(columnNameToPositionInSchema.get(PARENT_ID_COLUMN_NAME), Long.class);
-        pagesBuilder.appendBigint(parentId != null ? parentId.longValue() : null);
+        pagesBuilder.appendBigint(parentId);
 
         pagesBuilder.appendVarchar(structLike.get(columnNameToPositionInSchema.get(OPERATION_COLUMN_NAME), String.class));
         pagesBuilder.appendVarchar(structLike.get(columnNameToPositionInSchema.get(MANIFEST_LIST_COLUMN_NAME), String.class));
