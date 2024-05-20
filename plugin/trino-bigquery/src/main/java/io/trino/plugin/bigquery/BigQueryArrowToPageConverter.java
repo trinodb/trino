@@ -85,14 +85,12 @@ public class BigQueryArrowToPageConverter
     private final BigQueryTypeManager typeManager;
     private final VectorSchemaRoot root;
     private final VectorLoader loader;
-    private final BufferAllocator allocator;
     private final List<Type> columnTypes;
     private final List<String> columnNames;
 
     public BigQueryArrowToPageConverter(BigQueryTypeManager typeManager, BufferAllocator allocator, Schema schema, List<BigQueryColumnHandle> columns)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.allocator = requireNonNull(allocator, "allocator is null");
         this.columnTypes = requireNonNull(columns, "columns is null").stream()
                 .map(BigQueryColumnHandle::trinoType)
                 .collect(toImmutableList());
@@ -238,18 +236,8 @@ public class BigQueryArrowToPageConverter
     {
         Type elementType = arrayType.getElementType();
         ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
-            ArrowBuf offsetBuffer = vector.getOffsetBuffer();
-
-            int start = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
-            int end = offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH);
-
             FieldVector innerVector = ((ListVector) vector).getDataVector();
-
-            TransferPair transferPair = innerVector.getTransferPair(allocator);
-            transferPair.splitAndTransfer(start, end - start);
-            try (FieldVector sliced = (FieldVector) transferPair.getTo()) {
-                convertType(elementBuilder, elementType, sliced, 0, sliced.getValueCount());
-            }
+            convertType(elementBuilder, elementType, innerVector, index, innerVector.getValueCount());
         });
     }
 
