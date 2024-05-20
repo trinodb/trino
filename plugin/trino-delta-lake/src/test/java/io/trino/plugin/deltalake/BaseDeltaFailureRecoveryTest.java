@@ -85,7 +85,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     @Override
     protected void testDelete()
     {
-        // Test method is overriden because method from superclass assumes more complex plan for `DELETE` query.
+        // Test method is overridden because method from superclass assumes more complex plan for `DELETE` query.
         // Assertions do not play well if plan consists of just two fragments.
 
         Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
@@ -170,7 +170,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     @Override
     protected void testUpdate()
     {
-        // Test method is overriden because method from superclass assumes more complex plan for `UPDATE` query.
+        // Test method is overridden because method from superclass assumes more complex plan for `UPDATE` query.
         // Assertions do not play well if plan consists of just two fragments.
 
         Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
