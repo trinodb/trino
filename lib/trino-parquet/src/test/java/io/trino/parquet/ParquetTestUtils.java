@@ -78,7 +78,7 @@ public class ParquetTestUtils
             throws IOException
     {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ParquetWriter writer = createParquetWriter(outputStream, writerOptions, types, columnNames);
+        ParquetWriter writer = createParquetWriter(outputStream, writerOptions, types, columnNames, CompressionCodec.SNAPPY);
 
         for (io.trino.spi.Page inputPage : inputPages) {
             checkArgument(types.size() == inputPage.getChannelCount());
@@ -88,7 +88,7 @@ public class ParquetTestUtils
         return Slices.wrappedBuffer(outputStream.toByteArray());
     }
 
-    public static ParquetWriter createParquetWriter(OutputStream outputStream, ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames)
+    public static ParquetWriter createParquetWriter(OutputStream outputStream, ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames, CompressionCodec compression)
     {
         checkArgument(types.size() == columnNames.size());
         ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames, false, false);
@@ -97,7 +97,7 @@ public class ParquetTestUtils
                 schemaConverter.getMessageType(),
                 schemaConverter.getPrimitiveTypes(),
                 writerOptions,
-                CompressionCodec.SNAPPY,
+                compression,
                 "test-version",
                 Optional.of(DateTimeZone.getDefault()),
                 Optional.empty());
