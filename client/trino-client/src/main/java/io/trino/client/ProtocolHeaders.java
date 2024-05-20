@@ -15,14 +15,16 @@ package io.trino.client;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public final class ProtocolHeaders
 {
-    public static final ProtocolHeaders TRINO_HEADERS = new ProtocolHeaders("Trino");
+    public static final ProtocolHeaders TRINO_HEADERS = new ProtocolHeaders("Trino", identity());
 
     private final String name;
     private final String requestUser;
@@ -62,45 +64,54 @@ public final class ProtocolHeaders
         if (TRINO_HEADERS.getProtocolName().equalsIgnoreCase(name)) {
             return TRINO_HEADERS;
         }
-        return new ProtocolHeaders(name);
+        return new ProtocolHeaders(name, identity());
     }
 
-    private ProtocolHeaders(String name)
+    public static ProtocolHeaders createProtocolHeadersLowerCase(String name)
+    {
+        // canonicalize trino name
+        if (TRINO_HEADERS.getProtocolName().equalsIgnoreCase(name)) {
+            return new ProtocolHeaders(TRINO_HEADERS.getProtocolName(), value -> value.toLowerCase(ENGLISH));
+        }
+        return new ProtocolHeaders(name, value -> value.toLowerCase(ENGLISH));
+    }
+
+    private ProtocolHeaders(String name, Function<String, String> transform)
     {
         requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
         this.name = name;
         String prefix = "X-" + name + "-";
-        requestUser = prefix + "User";
-        requestOriginalUser = prefix + "Original-User";
-        requestSource = prefix + "Source";
-        requestCatalog = prefix + "Catalog";
-        requestSchema = prefix + "Schema";
-        requestPath = prefix + "Path";
-        requestTimeZone = prefix + "Time-Zone";
-        requestLanguage = prefix + "Language";
-        requestTraceToken = prefix + "Trace-Token";
-        requestSession = prefix + "Session";
-        requestRole = prefix + "Role";
-        requestPreparedStatement = prefix + "Prepared-Statement";
-        requestTransactionId = prefix + "Transaction-Id";
-        requestClientInfo = prefix + "Client-Info";
-        requestClientTags = prefix + "Client-Tags";
-        requestClientCapabilities = prefix + "Client-Capabilities";
-        requestResourceEstimate = prefix + "Resource-Estimate";
-        requestExtraCredential = prefix + "Extra-Credential";
-        responseSetCatalog = prefix + "Set-Catalog";
-        responseSetSchema = prefix + "Set-Schema";
-        responseSetPath = prefix + "Set-Path";
-        responseSetSession = prefix + "Set-Session";
-        responseClearSession = prefix + "Clear-Session";
-        responseSetRole = prefix + "Set-Role";
-        responseAddedPrepare = prefix + "Added-Prepare";
-        responseDeallocatedPrepare = prefix + "Deallocated-Prepare";
-        responseStartedTransactionId = prefix + "Started-Transaction-Id";
-        responseClearTransactionId = prefix + "Clear-Transaction-Id";
-        responseSetAuthorizationUser = prefix + "Set-Authorization-User";
-        responseResetAuthorizationUser = prefix + "Reset-Authorization-User";
+        requestUser = transform.apply(prefix + "User");
+        requestOriginalUser = transform.apply(prefix + "Original-User");
+        requestSource = transform.apply(prefix + "Source");
+        requestCatalog = transform.apply(prefix + "Catalog");
+        requestSchema = transform.apply(prefix + "Schema");
+        requestPath = transform.apply(prefix + "Path");
+        requestTimeZone = transform.apply(prefix + "Time-Zone");
+        requestLanguage = transform.apply(prefix + "Language");
+        requestTraceToken = transform.apply(prefix + "Trace-Token");
+        requestSession = transform.apply(prefix + "Session");
+        requestRole = transform.apply(prefix + "Role");
+        requestPreparedStatement = transform.apply(prefix + "Prepared-Statement");
+        requestTransactionId = transform.apply(prefix + "Transaction-Id");
+        requestClientInfo = transform.apply(prefix + "Client-Info");
+        requestClientTags = transform.apply(prefix + "Client-Tags");
+        requestClientCapabilities = transform.apply(prefix + "Client-Capabilities");
+        requestResourceEstimate = transform.apply(prefix + "Resource-Estimate");
+        requestExtraCredential = transform.apply(prefix + "Extra-Credential");
+        responseSetCatalog = transform.apply(prefix + "Set-Catalog");
+        responseSetSchema = transform.apply(prefix + "Set-Schema");
+        responseSetPath = transform.apply(prefix + "Set-Path");
+        responseSetSession = transform.apply(prefix + "Set-Session");
+        responseClearSession = transform.apply(prefix + "Clear-Session");
+        responseSetRole = transform.apply(prefix + "Set-Role");
+        responseAddedPrepare = transform.apply(prefix + "Added-Prepare");
+        responseDeallocatedPrepare = transform.apply(prefix + "Deallocated-Prepare");
+        responseStartedTransactionId = transform.apply(prefix + "Started-Transaction-Id");
+        responseClearTransactionId = transform.apply(prefix + "Clear-Transaction-Id");
+        responseSetAuthorizationUser = transform.apply(prefix + "Set-Authorization-User");
+        responseResetAuthorizationUser = transform.apply(prefix + "Reset-Authorization-User");
     }
 
     public String getProtocolName()
