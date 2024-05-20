@@ -86,10 +86,10 @@ public class NodesSystemTable
         for (ElasticsearchNode node : nodes) {
             VARCHAR.writeString(nodeId, currentNode.getNodeIdentifier());
             VARCHAR.writeString(trinoAddress, currentNode.getHostAndPort().toString());
-            VARCHAR.writeString(elasticsearchNodeId, node.getId());
+            VARCHAR.writeString(elasticsearchNodeId, node.id());
 
-            if (node.getAddress().isPresent()) {
-                VARCHAR.writeString(elasticsearchAddress, node.getAddress().get());
+            if (node.address().isPresent()) {
+                VARCHAR.writeString(elasticsearchAddress, node.address().get());
             }
             else {
                 elasticsearchAddress.appendNull();

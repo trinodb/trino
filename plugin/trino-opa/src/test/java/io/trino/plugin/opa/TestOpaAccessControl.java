@@ -563,6 +563,9 @@ public class TestOpaAccessControl
                 new ThrowingMethodWrapper(authorizer -> authorizer.checkCanDropFunction(TEST_SECURITY_CONTEXT, routine)),
                 ImmutableSet.of(baseRequest.formatted("DropFunction")));
         assertAccessControlMethodBehaviour(
+                new ThrowingMethodWrapper(authorizer -> authorizer.checkCanShowCreateFunction(TEST_SECURITY_CONTEXT, routine)),
+                ImmutableSet.of(baseRequest.formatted("ShowCreateFunction")));
+        assertAccessControlMethodBehaviour(
                 new ReturningMethodWrapper(authorizer -> authorizer.canExecuteFunction(TEST_SECURITY_CONTEXT, routine)),
                 ImmutableSet.of(baseRequest.formatted("ExecuteFunction")));
         assertAccessControlMethodBehaviour(

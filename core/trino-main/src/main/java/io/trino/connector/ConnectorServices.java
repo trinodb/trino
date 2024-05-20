@@ -86,6 +86,7 @@ public class ConnectorServices
     private final List<EventListener> eventListeners;
     private final Map<String, PropertyMetadata<?>> sessionProperties;
     private final Map<String, PropertyMetadata<?>> tableProperties;
+    private final Map<String, PropertyMetadata<?>> viewProperties;
     private final Map<String, PropertyMetadata<?>> materializedViewProperties;
     private final Map<String, PropertyMetadata<?>> schemaProperties;
     private final Map<String, PropertyMetadata<?>> columnProperties;
@@ -124,7 +125,7 @@ public class ConnectorServices
         try {
             splitManager = connector.getSplitManager();
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
         this.splitManager = Optional.ofNullable(splitManager);
 
@@ -133,7 +134,7 @@ public class ConnectorServices
             connectorPageSourceProvider = connector.getPageSourceProvider();
             requireNonNull(connectorPageSourceProvider, format("Connector '%s' returned a null page source provider", catalogHandle));
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
 
         try {
@@ -142,7 +143,7 @@ public class ConnectorServices
             verify(connectorPageSourceProvider == null, "Connector '%s' returned both page source and record set providers", catalogHandle);
             connectorPageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
         this.pageSourceProvider = Optional.ofNullable(connectorPageSourceProvider);
 
@@ -151,7 +152,7 @@ public class ConnectorServices
             connectorPageSinkProvider = connector.getPageSinkProvider();
             requireNonNull(connectorPageSinkProvider, format("Connector '%s' returned a null page sink provider", catalogHandle));
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
         this.pageSinkProvider = Optional.ofNullable(connectorPageSinkProvider);
 
@@ -160,7 +161,7 @@ public class ConnectorServices
             indexProvider = connector.getIndexProvider();
             requireNonNull(indexProvider, format("Connector '%s' returned a null index provider", catalogHandle));
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
         this.indexProvider = Optional.ofNullable(indexProvider);
 
@@ -169,7 +170,7 @@ public class ConnectorServices
             partitioningProvider = connector.getNodePartitioningProvider();
             requireNonNull(partitioningProvider, format("Connector '%s' returned a null partitioning provider", catalogHandle));
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
         this.partitioningProvider = Optional.ofNullable(partitioningProvider);
 
@@ -177,7 +178,7 @@ public class ConnectorServices
         try {
             accessControl = connector.getAccessControl();
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
         verifyAccessControl(accessControl);
         this.accessControl = Optional.ofNullable(accessControl);
@@ -193,6 +194,10 @@ public class ConnectorServices
         List<PropertyMetadata<?>> tableProperties = connector.getTableProperties();
         requireNonNull(tableProperties, format("Connector '%s' returned a null table properties set", catalogHandle));
         this.tableProperties = Maps.uniqueIndex(tableProperties, PropertyMetadata::getName);
+
+        List<PropertyMetadata<?>> viewProperties = connector.getViewProperties();
+        requireNonNull(viewProperties, format("Connector '%s' returned a null view properties set", catalogHandle));
+        this.viewProperties = Maps.uniqueIndex(viewProperties, PropertyMetadata::getName);
 
         List<PropertyMetadata<?>> materializedViewProperties = connector.getMaterializedViewProperties();
         requireNonNull(materializedViewProperties, format("Connector '%s' returned a null materialized view properties set", catalogHandle));
@@ -306,6 +311,11 @@ public class ConnectorServices
         return tableProperties;
     }
 
+    public Map<String, PropertyMetadata<?>> getViewProperties()
+    {
+        return viewProperties;
+    }
+
     public Map<String, PropertyMetadata<?>> getMaterializedViewProperties()
     {
         return materializedViewProperties;
@@ -337,7 +347,7 @@ public class ConnectorServices
             return;
         }
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
             connector.shutdown();
         }
         catch (Throwable t) {
@@ -393,7 +403,7 @@ public class ConnectorServices
                     clazz.getName(),
                     name, Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));
         }
-        catch (ReflectiveOperationException ignored) {
+        catch (ReflectiveOperationException _) {
         }
     }
 }

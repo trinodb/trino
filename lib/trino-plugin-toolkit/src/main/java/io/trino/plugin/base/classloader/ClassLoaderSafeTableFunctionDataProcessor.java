@@ -36,7 +36,7 @@ public class ClassLoaderSafeTableFunctionDataProcessor
     @Override
     public TableFunctionProcessorState process(List<Optional<Page>> input)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.process(input);
         }
     }

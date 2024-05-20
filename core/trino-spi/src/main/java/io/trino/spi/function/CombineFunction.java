@@ -29,7 +29,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * into the first one.
  * <p>
  * The second argument is guaranteed to be the output of
- * {@link AccumulatorStateSerializer#deserialize(Block, int, Object)}.
+ * {@link AccumulatorStateSerializer#deserialize(Block, int, AccumulatorState)}.
  * As a result, the implementation of {@code deserialize} method likely
  * provides some application-specific guarantees to the second argument.
  */

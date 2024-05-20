@@ -35,6 +35,7 @@ import io.trino.memory.MemoryPool;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.server.testing.TestingTrinoServer;
@@ -54,7 +55,6 @@ import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
-import io.trino.util.AutoCloseableCloser;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -225,9 +225,9 @@ public abstract class AbstractTestQueryFramework
                         SqlTaskManager taskManager = server.getTaskManager();
                         List<TaskInfo> taskInfos = taskManager.getAllTaskInfo();
                         for (TaskInfo taskInfo : taskInfos) {
-                            TaskId taskId = taskInfo.getTaskStatus().getTaskId();
+                            TaskId taskId = taskInfo.taskStatus().getTaskId();
                             QueryId queryId = taskId.getQueryId();
-                            TaskState taskState = taskInfo.getTaskStatus().getState();
+                            TaskState taskState = taskInfo.taskStatus().getState();
                             if (!taskState.isDone()) {
                                 try {
                                     BasicQueryInfo basicQueryInfo = queryManager.getQueryInfo(queryId);
@@ -235,7 +235,7 @@ public abstract class AbstractTestQueryFramework
                                     String querySummary = createQueryDebuggingSummary(basicQueryInfo, queryInfo);
                                     fail("Task is expected to be in done state, found: %s - TaskId: %s, QueryId: %s".formatted(taskState, taskId, queryId) + "\n\n" + querySummary);
                                 }
-                                catch (NoSuchElementException ignored) {
+                                catch (NoSuchElementException _) {
                                 }
                                 fail("Task is expected to be in done state, found: %s - TaskId: %s, QueryId: %s, Query: unknown".formatted(taskState, taskId, queryId));
                             }
@@ -258,7 +258,7 @@ public abstract class AbstractTestQueryFramework
                             return stageDetail;
                         }
                         return stageDetail + stageInfo.getTasks().stream()
-                                .map(TaskInfo::getTaskStatus)
+                                .map(TaskInfo::taskStatus)
                                 .map(task -> {
                                     String taskDetail = format("Task %s [%s]", task.getTaskId(), task.getState());
                                     if (task.getFailures().isEmpty()) {
@@ -722,7 +722,7 @@ public abstract class AbstractTestQueryFramework
     {
         return inTransaction(getSession(), transactionSession -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogHandle().getCatalogName().toString());
+            getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(transactionSession, tableHandle.catalogHandle().getCatalogName().toString());
             return getQueryRunner().getPlannerContext().getMetadata().getTableName(transactionSession, tableHandle);
         });
     }

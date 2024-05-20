@@ -27,7 +27,7 @@ public class TestRaptorReadOnlySecurity
     public void testCannotWrite()
             throws Exception
     {
-        try (QueryRunner queryRunner = createRaptorQueryRunner(ImmutableMap.of(), ImmutableList.of(), false, ImmutableMap.of("raptor.security", "read-only"))) {
+        try (QueryRunner queryRunner = createRaptorQueryRunner(ImmutableList.of(), false, ImmutableMap.of("raptor.security", "read-only"))) {
             assertThatThrownBy(() -> {
                 queryRunner.execute("CREATE TABLE test_create (a bigint, b double, c varchar)");
             })

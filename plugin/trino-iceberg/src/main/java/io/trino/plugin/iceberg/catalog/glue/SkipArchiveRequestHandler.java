@@ -15,12 +15,14 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.handlers.RequestHandler2;
+import com.amazonaws.services.glue.model.BatchGetPartitionRequest;
 import com.amazonaws.services.glue.model.CreateDatabaseRequest;
 import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
 import com.amazonaws.services.glue.model.DeleteTableRequest;
 import com.amazonaws.services.glue.model.GetDatabaseRequest;
 import com.amazonaws.services.glue.model.GetDatabasesRequest;
+import com.amazonaws.services.glue.model.GetPartitionsRequest;
 import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.glue.model.GetTablesRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
@@ -41,7 +43,10 @@ public class SkipArchiveRequestHandler
                 request instanceof CreateTableRequest ||
                 request instanceof DeleteTableRequest ||
                 request instanceof GetTablesRequest ||
-                request instanceof GetTableRequest) {
+                request instanceof GetTableRequest ||
+                // The following requests are required for migrate procedure
+                request instanceof GetPartitionsRequest ||
+                request instanceof BatchGetPartitionRequest) {
             return request;
         }
         throw new IllegalArgumentException("Unsupported request: " + request);

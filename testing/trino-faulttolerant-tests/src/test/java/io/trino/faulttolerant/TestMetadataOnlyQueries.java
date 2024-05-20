@@ -25,16 +25,17 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.tpch.TpchTable.NATION;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -55,7 +56,7 @@ public class TestMetadataOnlyQueries
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", exchangeManagerProperties);
                 })
-                .setInitialTables(TpchTable.getTables())
+                .setInitialTables(List.of(NATION))
                 .build();
 
         try {
@@ -95,16 +96,16 @@ public class TestMetadataOnlyQueries
             });
             assertEventually(() -> assertThat(queryState(slowQuery).orElseThrow()).isEqualTo(QueryState.RUNNING));
 
-            assertThat(query("DESCRIBE lineitem")).succeeds();
+            assertThat(query("DESCRIBE nation")).succeeds();
             assertThat(query("SHOW TABLES")).succeeds();
-            assertThat(query("SHOW TABLES LIKE 'line%'")).succeeds();
+            assertThat(query("SHOW TABLES LIKE 'nat%'")).succeeds();
             assertThat(query("SHOW SCHEMAS")).succeeds();
             assertThat(query("SHOW SCHEMAS LIKE 'def%'")).succeeds();
             assertThat(query("SHOW CATALOGS")).succeeds();
             assertThat(query("SHOW CATALOGS LIKE 'mem%'")).succeeds();
             assertThat(query("SHOW FUNCTIONS")).succeeds();
             assertThat(query("SHOW FUNCTIONS LIKE 'split%'")).succeeds();
-            assertThat(query("SHOW COLUMNS FROM lineitem")).succeeds();
+            assertThat(query("SHOW COLUMNS FROM nation")).succeeds();
             assertThat(query("SHOW SESSION")).succeeds();
             assertThat(query("SELECT count(*) FROM information_schema.tables")).succeeds();
             assertThat(query("SELECT * FROM system.jdbc.tables WHERE table_schem LIKE 'def%'")).succeeds();

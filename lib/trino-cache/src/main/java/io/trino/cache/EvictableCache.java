@@ -107,7 +107,7 @@ class EvictableCache<K, V>
     {
         Token<K> newToken = new Token<>(key);
         int invalidations = this.invalidations.get();
-        Token<K> token = tokens.computeIfAbsent(key, ignored -> newToken);
+        Token<K> token = tokens.computeIfAbsent(key, _ -> newToken);
         try {
             V value = dataCache.get(token, valueLoader);
             if (invalidations == this.invalidations.get()) {
@@ -140,7 +140,7 @@ class EvictableCache<K, V>
     {
         Token<K> newToken = new Token<>(key);
         int invalidations = this.invalidations.get();
-        Token<K> token = tokens.computeIfAbsent(key, ignored -> newToken);
+        Token<K> token = tokens.computeIfAbsent(key, _ -> newToken);
         try {
             V value = dataCache.get(token);
             if (invalidations == this.invalidations.get()) {

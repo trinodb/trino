@@ -56,6 +56,7 @@ public class CachingKerberosAuthentication
         }
     }
 
+    @GuardedBy("this")
     private boolean ticketNeedsRefresh()
     {
         return nextRefreshTime < System.currentTimeMillis();

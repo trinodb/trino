@@ -24,6 +24,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.tests.FailingMockConnectorPlugin;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
 import java.util.stream.IntStream;
@@ -33,7 +34,9 @@ import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.joining;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // CountingMockConnector is shared mutable state
 public class TestSystemMetadataConnector
         extends AbstractTestQueryFramework
 {
@@ -49,7 +52,7 @@ public class TestSystemMetadataConnector
         closeAfterClass(() -> countingMockConnector = null);
         Session session = testSessionBuilder().build();
         QueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
         try {
@@ -335,7 +338,7 @@ public class TestSystemMetadataConnector
                 // TODO introduce materialized views in CountingMockConnector
                 "VALUES 0",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.getMaterializedViews")
+                        .add("ConnectorMetadata.listMaterializedViews")
                         .build());
 
         // Big LIMIT
@@ -344,7 +347,7 @@ public class TestSystemMetadataConnector
                 // TODO introduce thousands of materialized views in CountingMockConnector
                 "VALUES 0",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.getMaterializedViews")
+                        .add("ConnectorMetadata.listMaterializedViews")
                         .build());
 
         // Non-existent catalog

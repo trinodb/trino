@@ -109,4 +109,9 @@ with Parquet files performed by supported object storage connectors:
     entirely. The equivalent catalog session property is named
     `parquet_small_file_threshold`.
   - `3MB`
+* - `parquet.experimental.vectorized-decoding.enabled`
+  - Enable using Java Vector API for faster decoding of parquet files. 
+    The equivalent catalog session property is
+    `parquet_vectorized_decoding_enabled`.
+  - `true`
 :::

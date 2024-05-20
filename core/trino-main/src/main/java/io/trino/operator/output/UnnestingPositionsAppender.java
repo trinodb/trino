@@ -18,7 +18,7 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -50,7 +50,7 @@ public class UnnestingPositionsAppender
 
     private final PositionsAppender delegate;
     @Nullable
-    private final BlockPositionIsDistinctFrom isDistinctFromOperator;
+    private final BlockPositionIsIdentical identicalOperator;
 
     private State state = State.UNINITIALIZED;
 
@@ -62,11 +62,11 @@ public class UnnestingPositionsAppender
     private ValueBlock rleValue;
     private int rlePositionCount;
 
-    public UnnestingPositionsAppender(PositionsAppender delegate, Optional<BlockPositionIsDistinctFrom> isDistinctFromOperator)
+    public UnnestingPositionsAppender(PositionsAppender delegate, Optional<BlockPositionIsIdentical> identicalOperator)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.dictionaryIdsBuilder = new DictionaryIdsBuilder(1024);
-        this.isDistinctFromOperator = isDistinctFromOperator.orElse(null);
+        this.identicalOperator = identicalOperator.orElse(null);
     }
 
     public void append(IntArrayList positions, Block source)
@@ -116,7 +116,7 @@ public class UnnestingPositionsAppender
         if (state == State.DICTIONARY) {
             transitionToDirect();
         }
-        if (isDistinctFromOperator == null) {
+        if (identicalOperator == null) {
             transitionToDirect();
         }
 
@@ -127,7 +127,7 @@ public class UnnestingPositionsAppender
             return;
         }
         if (state == State.RLE) {
-            if (!isDistinctFromOperator.isDistinctFrom(rleValue, 0, value, 0)) {
+            if (identicalOperator.isIdentical(rleValue, 0, value, 0)) {
                 // the values match. we can just add positions.
                 rlePositionCount += positionCount;
                 return;

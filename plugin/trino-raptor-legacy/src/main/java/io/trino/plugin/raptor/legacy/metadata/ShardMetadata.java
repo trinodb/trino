@@ -177,12 +177,12 @@ public class ShardMetadata
             return false;
         }
         ShardMetadata that = (ShardMetadata) o;
-        return Objects.equals(tableId, that.tableId) &&
-                Objects.equals(shardId, that.shardId) &&
+        return tableId == that.tableId &&
+                shardId == that.shardId &&
                 Objects.equals(bucketNumber, that.bucketNumber) &&
-                Objects.equals(rowCount, that.rowCount) &&
-                Objects.equals(compressedSize, that.compressedSize) &&
-                Objects.equals(uncompressedSize, that.uncompressedSize) &&
+                rowCount == that.rowCount &&
+                compressedSize == that.compressedSize &&
+                uncompressedSize == that.uncompressedSize &&
                 Objects.equals(xxhash64, that.xxhash64) &&
                 Objects.equals(shardUuid, that.shardUuid) &&
                 Objects.equals(rangeStart, that.rangeStart) &&

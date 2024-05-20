@@ -15,7 +15,6 @@ package io.trino.parquet.reader;
 
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.decoders.ValueDecoder;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.PrimitiveType;
 
@@ -24,6 +23,7 @@ import java.util.function.Supplier;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
+import static io.trino.parquet.reader.decoders.ValueDecoder.createLevelsDecoder;
 import static io.trino.parquet.reader.flat.DictionaryDecoder.getDictionaryDecoder;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -107,12 +107,13 @@ public class TestNestedColumnReaderRowRanges
         return new NestedColumnReader<>(
                 field,
                 valueDecodersProvider,
-                ValueDecoder::createLevelsDecoder,
+                maxLevel -> createLevelsDecoder(maxLevel, false),
                 (dictionaryPage, isNonNull) -> getDictionaryDecoder(
                         dictionaryPage,
                         INT_ADAPTER,
                         valueDecodersProvider.create(PLAIN),
-                        isNonNull),
+                        isNonNull,
+                        false),
                 INT_ADAPTER,
                 MEMORY_CONTEXT);
     }

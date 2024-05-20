@@ -146,7 +146,7 @@ public class KuduTableHandle
         return Objects.equals(this.schemaTableName, other.schemaTableName) &&
                 Objects.equals(this.constraint, other.constraint) &&
                 Objects.equals(this.desiredColumns, other.desiredColumns) &&
-                Objects.equals(this.requiresRowId, other.requiresRowId) &&
+                this.requiresRowId == other.requiresRowId &&
                 Objects.equals(this.bucketCount, other.bucketCount) &&
                 Objects.equals(this.limit, other.limit);
     }

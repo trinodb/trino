@@ -34,7 +34,7 @@ information about reporting vulnerabilities.
 ## Build requirements
 
 * Mac OS X or Linux
-* Java 21.0.1+, 64-bit
+* Java 22.0.0+, 64-bit
 * Docker
   * Turn SELinux or other systems disabling write access to the local checkout
     off, to allow containers to mount parts of the Trino source tree
@@ -70,8 +70,8 @@ After opening the project in IntelliJ, double check that the Java SDK is
 properly configured for the project:
 
 * Open the File menu and select Project Structure
-* In the SDKs section, ensure that JDK 21 is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 21
+* In the SDKs section, ensure that JDK 22 is selected (create one if none exist)
+* In the Project section, ensure the Project language level is set to 22
 
 ### Running a testing server
 

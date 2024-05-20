@@ -110,7 +110,7 @@ public class TestAccessControlManager
         assertAccessControl(new ReadOnlySystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
         {
             accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
-            accessControlManager.checkCanSetSystemSessionProperty(identity, "property");
+            accessControlManager.checkCanSetSystemSessionProperty(identity, queryId, "property");
             accessControlManager.checkCanSetCatalogSessionProperty(securityContext, TEST_CATALOG_NAME, "property");
             accessControlManager.checkCanShowSchemas(securityContext, TEST_CATALOG_NAME);
             accessControlManager.checkCanShowTables(securityContext, new CatalogSchemaName(TEST_CATALOG_NAME, "schema"));
@@ -426,7 +426,7 @@ public class TestAccessControlManager
                 return new SystemAccessControl()
                 {
                     @Override
-                    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+                    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
                     {
                     }
 

@@ -289,7 +289,7 @@ public class TestJsonReader
                     return longValue;
                 }
             }
-            catch (NumberFormatException ignored) {
+            catch (NumberFormatException _) {
             }
 
             try {
@@ -297,7 +297,7 @@ public class TestJsonReader
                 double asDouble = Double.parseDouble(string);
                 return asDecimal.compareTo(BigDecimal.valueOf(asDouble)) == 0 ? asDouble : asDecimal;
             }
-            catch (NumberFormatException ignored) {
+            catch (NumberFormatException _) {
             }
 
             return string;

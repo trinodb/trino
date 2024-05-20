@@ -65,6 +65,7 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.csvSchem
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiDatabase;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCsvPartition;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiFunction;
@@ -401,6 +402,9 @@ public class BridgingHiveMetastore
                     .map(ThriftMetastoreUtil::toMetastoreApiFieldSchema)
                     .collect(toImmutableList());
             return ThriftMetastoreUtil.fromMetastoreApiPartition(partition, schema);
+        }
+        if (isCsvPartition(partition)) {
+            return ThriftMetastoreUtil.fromMetastoreApiPartition(partition, csvSchemaFields(partition.getSd().getCols()));
         }
 
         return ThriftMetastoreUtil.fromMetastoreApiPartition(partition);

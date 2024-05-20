@@ -62,32 +62,32 @@ public class TestInlineFunctions
     {
         assertThat(assertions.query(
                 """
-                WITH FUNCTION my_func(x bigint) 
-                    RETURNS bigint 
+                WITH FUNCTION my_func(x bigint)
+                    RETURNS bigint
                     RETURN x * 2
-                SELECT my_func(nationkey) 
-                FROM nation 
+                SELECT my_func(nationkey)
+                FROM nation
                 WHERE nationkey = 1
                 """))
                 .matches("VALUES BIGINT '2'");
 
         assertThat(assertions.query(
                 """
-                WITH FUNCTION my_func(x bigint) 
-                    RETURNS bigint 
+                WITH FUNCTION my_func(x bigint)
+                    RETURNS bigint
                     RETURN x * 2
-                SELECT my_func(nationkey) 
-                FROM nation 
+                SELECT my_func(nationkey)
+                FROM nation
                 WHERE nationkey >= 1
                 """))
                 .matches("SELECT nationkey * 2 FROM nation WHERE nationkey >= 1");
 
         assertThat(assertions.query(
                 """
-                WITH FUNCTION my_func(x bigint) 
-                    RETURNS bigint 
+                WITH FUNCTION my_func(x bigint)
+                    RETURNS bigint
                     RETURN x * 2
-                SELECT my_func(nationkey) 
+                SELECT my_func(nationkey)
                 FROM nation
                 """))
                 .matches("SELECT nationkey * 2 FROM nation");

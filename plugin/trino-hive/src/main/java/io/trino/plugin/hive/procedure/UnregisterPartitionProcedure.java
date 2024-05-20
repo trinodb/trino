@@ -82,7 +82,7 @@ public class UnregisterPartitionProcedure
 
     public void unregisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumns, List<String> partitionValues)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doUnregisterPartition(session, accessControl, schemaName, tableName, partitionColumns, partitionValues);
         }
     }

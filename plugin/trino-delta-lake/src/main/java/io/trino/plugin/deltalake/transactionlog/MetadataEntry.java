@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.spi.TrinoException;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
@@ -33,6 +35,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.MA
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class MetadataEntry
 {
@@ -213,6 +216,84 @@ public class MetadataEntry
     {
         return format("MetadataEntry{id=%s, name=%s, description=%s, format=%s, schemaString=%s, partitionColumns=%s, configuration=%s, createdTime=%d}",
                 id, name, description, format, schemaString, partitionColumns, configuration, createdTime);
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static Builder builder(MetadataEntry metadataEntry)
+    {
+        return new Builder(metadataEntry);
+    }
+
+    public static class Builder
+    {
+        private String id = UUID.randomUUID().toString();
+        private String name;
+        private Optional<String> description = Optional.empty();
+        private Format format = new Format("parquet", ImmutableMap.of());
+        private String schemaString;
+        private List<String> partitionColumns = ImmutableList.of();
+        private Map<String, String> configuration;
+        private long createdTime;
+
+        private Builder() {}
+
+        private Builder(MetadataEntry metadataEntry)
+        {
+            requireNonNull(metadataEntry, "metadataEntry is null");
+            id = metadataEntry.id;
+            name = metadataEntry.name;
+            description = Optional.ofNullable(metadataEntry.description);
+            format = metadataEntry.format;
+            schemaString = metadataEntry.schemaString;
+            partitionColumns = ImmutableList.copyOf(metadataEntry.partitionColumns);
+            configuration = ImmutableMap.copyOf(metadataEntry.configuration);
+            createdTime = metadataEntry.createdTime;
+        }
+
+        public Builder setId(String id)
+        {
+            this.id = id;
+            return this;
+        }
+
+        public Builder setDescription(Optional<String> description)
+        {
+            this.description = description;
+            return this;
+        }
+
+        public Builder setSchemaString(String schemaString)
+        {
+            this.schemaString = schemaString;
+            return this;
+        }
+
+        public Builder setPartitionColumns(List<String> partitionColumns)
+        {
+            this.partitionColumns = ImmutableList.copyOf(partitionColumns);
+            return this;
+        }
+
+        public Builder setConfiguration(Map<String, String> configuration)
+        {
+            this.configuration = ImmutableMap.copyOf(configuration);
+            return this;
+        }
+
+        public Builder setCreatedTime(long createdTime)
+        {
+            this.createdTime = createdTime;
+            return this;
+        }
+
+        public MetadataEntry build()
+        {
+            return new MetadataEntry(id, name, description.orElse(null), format, schemaString, partitionColumns, configuration, createdTime);
+        }
     }
 
     public record Format(String provider, Map<String, String> options) {}

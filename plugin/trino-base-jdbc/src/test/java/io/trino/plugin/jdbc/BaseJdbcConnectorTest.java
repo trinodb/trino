@@ -45,7 +45,6 @@ import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
@@ -77,6 +76,7 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
@@ -120,9 +120,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
 {
@@ -144,10 +142,10 @@ public abstract class BaseJdbcConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_UPDATE -> true;
             case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
-                    SUPPORTS_ROW_LEVEL_UPDATE -> false;
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
             // Dynamic filters can be pushed down only if predicate push down is supported.
             // It is possible for a connector to have predicate push down support but not push down dynamic filters.
             // TODO default SUPPORTS_DYNAMIC_FILTER_PUSHDOWN to SUPPORTS_PREDICATE_PUSHDOWN
@@ -254,7 +252,7 @@ public abstract class BaseJdbcConnectorTest
                 getSession(),
                 "SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey",
                 hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
-                node(TopNNode.class, anyTree(node(TableScanNode.class))));
+                project(node(TopNNode.class, anyTree(node(TableScanNode.class)))));
         // GROUP BY with JOIN
         assertConditionallyPushedDown(
                 joinPushdownEnabled(getSession()),
@@ -911,7 +909,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // with TopN over numeric column
-        PlanMatchPattern topnOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
+        PlanMatchPattern topnOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
         assertConditionallyPushedDown(
                 getSession(),
                 "SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5",
@@ -1102,7 +1100,7 @@ public abstract class BaseJdbcConnectorTest
 
         // topN over varchar/char columns should only be pushed down if the remote systems's sort order matches Trino
         boolean expectTopNPushdown = hasBehavior(SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR);
-        PlanMatchPattern topNOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
+        PlanMatchPattern topNOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
 
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
@@ -1215,12 +1213,11 @@ public abstract class BaseJdbcConnectorTest
                         .setSystemProperty("enable_dynamic_filtering", "false")
                         .build();
 
-                String notDistinctOperator = "IS NOT DISTINCT FROM";
                 List<String> nonEqualities = Stream.concat(
                                 Stream.of(JoinCondition.Operator.values())
-                                        .filter(operator -> operator != JoinCondition.Operator.EQUAL)
+                                        .filter(operator -> operator != JoinCondition.Operator.EQUAL && operator != JoinCondition.Operator.IDENTICAL)
                                         .map(JoinCondition.Operator::getValue),
-                                Stream.of(notDistinctOperator))
+                                Stream.of("IS DISTINCT FROM", "IS NOT DISTINCT FROM"))
                         .collect(toImmutableList());
 
                 // basic case
@@ -1412,12 +1409,12 @@ public abstract class BaseJdbcConnectorTest
 
     protected boolean expectJoinPushdown(String operator)
     {
-        if ("IS NOT DISTINCT FROM".equals(operator)) {
+        if ("IS DISTINCT FROM".equals(operator)) {
             return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
         }
         return switch (toJoinConditionOperator(operator)) {
             case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> true;
-            case IS_DISTINCT_FROM -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
+            case IDENTICAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
         };
     }
 
@@ -1429,18 +1426,21 @@ public abstract class BaseJdbcConnectorTest
 
     private boolean expectVarcharJoinPushdown(String operator)
     {
-        if ("IS NOT DISTINCT FROM".equals(operator)) {
+        if ("IS DISTINCT FROM".equals(operator)) {
             return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
         }
         return switch (toJoinConditionOperator(operator)) {
             case EQUAL, NOT_EQUAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
             case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
-            case IS_DISTINCT_FROM -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
+            case IDENTICAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
         };
     }
 
     private JoinCondition.Operator toJoinConditionOperator(String operator)
     {
+        if (operator.equals("IS NOT DISTINCT FROM")) {
+            return JoinCondition.Operator.IDENTICAL;
+        }
         return Stream.of(JoinCondition.Operator.values())
                 .filter(joinOperator -> joinOperator.getValue().equals(operator))
                 .collect(toOptional())

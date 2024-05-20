@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -39,8 +38,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.lang.String.format;
@@ -96,14 +93,16 @@ public class TestDeltaLakeReadTimestamps
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.register-table-procedure.enabled", "true"));
+        return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("delta.register-table-procedure.enabled", "true")
+                .build();
     }
 
     @BeforeAll
     public void registerTables()
     {
         String dataPath = getClass().getClassLoader().getResource("databricks73/read_timestamps").toExternalForm();
-        getQueryRunner().execute(format("CALL system.register_table('%s', 'read_timestamps', '%s')", getSession().getSchema().orElseThrow(), dataPath));
+        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, 'read_timestamps', '%s')", dataPath));
     }
 
     @Test

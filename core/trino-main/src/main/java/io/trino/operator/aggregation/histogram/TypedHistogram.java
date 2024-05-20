@@ -71,7 +71,7 @@ public final class TypedHistogram
     private final MethodHandle readFlat;
     private final MethodHandle writeFlat;
     private final MethodHandle hashFlat;
-    private final MethodHandle distinctFlatBlock;
+    private final MethodHandle identicalFlatBlock;
     private final MethodHandle hashBlock;
 
     private final int recordSize;
@@ -99,7 +99,7 @@ public final class TypedHistogram
             MethodHandle readFlat,
             MethodHandle writeFlat,
             MethodHandle hashFlat,
-            MethodHandle distinctFlatBlock,
+            MethodHandle identicalFlatBlock,
             MethodHandle hashBlock,
             boolean grouped)
     {
@@ -108,7 +108,7 @@ public final class TypedHistogram
         this.readFlat = requireNonNull(readFlat, "readFlat is null");
         this.writeFlat = requireNonNull(writeFlat, "writeFlat is null");
         this.hashFlat = requireNonNull(hashFlat, "hashFlat is null");
-        this.distinctFlatBlock = requireNonNull(distinctFlatBlock, "distinctFlatBlock is null");
+        this.identicalFlatBlock = requireNonNull(identicalFlatBlock, "identicalFlatBlock is null");
         this.hashBlock = requireNonNull(hashBlock, "hashBlock is null");
 
         capacity = INITIAL_CAPACITY;
@@ -280,7 +280,7 @@ public final class TypedHistogram
         long controlMatches = match(controlVector, repeated);
         while (controlMatches != 0) {
             int bucket = bucket(vectorStartBucket + (Long.numberOfTrailingZeros(controlMatches) >>> 3));
-            if (valueNotDistinctFrom(bucket, block, position, groupId)) {
+            if (valueIdentical(bucket, block, position, groupId)) {
                 return bucket;
             }
 
@@ -467,7 +467,7 @@ public final class TypedHistogram
         }
     }
 
-    private boolean valueNotDistinctFrom(int leftPosition, ValueBlock right, int rightPosition, int rightGroupId)
+    private boolean valueIdentical(int leftPosition, ValueBlock right, int rightPosition, int rightGroupId)
     {
         byte[] leftRecords = getRecords(leftPosition);
         int leftRecordOffset = getRecordOffset(leftPosition);
@@ -485,7 +485,7 @@ public final class TypedHistogram
         }
 
         try {
-            return !(boolean) distinctFlatBlock.invokeExact(
+            return (boolean) identicalFlatBlock.invokeExact(
                     leftRecords,
                     leftRecordOffset + recordValueOffset,
                     leftVariableWidthChunk,

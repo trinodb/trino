@@ -128,7 +128,7 @@ final class H2TestUtil
     {
         QueryRunner queryRunner = DistributedQueryRunner
                 .builder(testSessionBuilder().setCatalog("tpch").setSchema("tiny").build())
-                .setNodeCount(2)
+                .setWorkerCount(1)
                 .setEnvironment(environment)
                 .build();
         try {

@@ -58,19 +58,19 @@ import static java.util.Objects.requireNonNull;
  * TODO This rule should be removed as soon as WindowNode becomes capable of absorbing pruning projections (i.e. capable of pruning outputs).
  * <p>
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - Filter (ranking <= 5 && a > 1)
  *     - Project (a, ranking)
  *         - Window ([row_number()|rank()] OVER (ORDER BY a))
  *             - source (a, b)
- * </pre>
+ * }</pre>
  * into:
- * <pre>
+ * <pre>{@code
  * - Filter (a > 1)
  *     - Project (a, ranking)
  *         - TopNRanking (type = [ROW_NUMBER|RANK], maxRankingPerPartition = 5, order by a)
  *             - source (a, b)
- * </pre>
+ * }</pre>
  */
 public class PushPredicateThroughProjectIntoWindow
         implements Rule<FilterNode>
@@ -80,6 +80,7 @@ public class PushPredicateThroughProjectIntoWindow
 
     private final PlannerContext plannerContext;
     private final Pattern<FilterNode> pattern;
+    private final DomainTranslator domainTranslator;
 
     public PushPredicateThroughProjectIntoWindow(PlannerContext plannerContext)
     {
@@ -91,6 +92,7 @@ public class PushPredicateThroughProjectIntoWindow
                         .with(source().matching(window()
                                 .matching(window -> toTopNRankingType(window).isPresent())
                                 .capturedAs(WINDOW)))));
+        this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
     }
 
     @Override
@@ -145,7 +147,7 @@ public class PushPredicateThroughProjectIntoWindow
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
-                DomainTranslator.toPredicate(newTupleDomain));
+                domainTranslator.toPredicate(newTupleDomain));
         if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }

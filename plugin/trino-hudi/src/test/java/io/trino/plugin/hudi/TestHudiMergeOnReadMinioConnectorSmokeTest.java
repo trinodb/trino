@@ -35,7 +35,6 @@ public class TestHudiMergeOnReadMinioConnectorSmokeTest
         hiveMinioDataLake.getMinioClient().ensureBucketExists(bucketName);
 
         return S3HudiQueryRunner.create(
-                ImmutableMap.of(),
                 ImmutableMap.of("hudi.columns-to-hide", COLUMNS_TO_HIDE),
                 new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES),
                 hiveMinioDataLake);

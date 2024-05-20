@@ -71,7 +71,7 @@ public class CassandraRecordCursor
     @Override
     public boolean getBoolean(int i)
     {
-        return currentRow.getBool(validColumnName(columnNames.get(i)));
+        return currentRow.getBoolean(validColumnName(columnNames.get(i)));
     }
 
     @Override
@@ -90,7 +90,7 @@ public class CassandraRecordCursor
     public double getDouble(int i)
     {
         String columnName = validColumnName(columnNames.get(i));
-        switch (getCassandraType(i).getKind()) {
+        switch (getCassandraType(i).kind()) {
             case DOUBLE:
                 return currentRow.getDouble(columnName);
             case FLOAT:
@@ -106,7 +106,7 @@ public class CassandraRecordCursor
     public long getLong(int i)
     {
         String columnName = validColumnName(columnNames.get(i));
-        switch (getCassandraType(i).getKind()) {
+        switch (getCassandraType(i).kind()) {
             case INT:
                 return currentRow.getInt(columnName);
             case SMALLINT:
@@ -137,7 +137,7 @@ public class CassandraRecordCursor
     @Override
     public Slice getSlice(int i)
     {
-        if (getCassandraType(i).getKind() == Kind.TIMESTAMP) {
+        if (getCassandraType(i).kind() == Kind.TIMESTAMP) {
             throw new IllegalArgumentException("Timestamp column can not be accessed with getSlice");
         }
         NullableValue value = cassandraTypeManager.getColumnValue(cassandraTypes.get(i), currentRow, currentRow.firstIndexOf(validColumnName(columnNames.get(i))));
@@ -151,7 +151,7 @@ public class CassandraRecordCursor
     public Object getObject(int i)
     {
         CassandraType cassandraType = cassandraTypes.get(i);
-        switch (cassandraType.getKind()) {
+        switch (cassandraType.kind()) {
             case TUPLE:
             case UDT:
                 return cassandraTypeManager.getColumnValue(cassandraType, currentRow, currentRow.firstIndexOf(validColumnName(columnNames.get(i)))).getValue();
@@ -163,14 +163,14 @@ public class CassandraRecordCursor
     @Override
     public Type getType(int i)
     {
-        return getCassandraType(i).getTrinoType();
+        return getCassandraType(i).trinoType();
     }
 
     @Override
     public boolean isNull(int i)
     {
         String columnName = validColumnName(columnNames.get(i));
-        if (getCassandraType(i).getKind() == Kind.TIMESTAMP) {
+        if (getCassandraType(i).kind() == Kind.TIMESTAMP) {
             return currentRow.getInstant(columnName) == null;
         }
         return currentRow.isNull(columnName);

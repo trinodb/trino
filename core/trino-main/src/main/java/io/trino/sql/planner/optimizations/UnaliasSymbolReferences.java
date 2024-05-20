@@ -115,13 +115,13 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Re-maps symbol references that are just aliases of each other (e.g., due to projections like {@code $0 := $1})
- * <p/>
+ * <p>
  * E.g.,
- * <p/>
+ * <p>
  * {@code Output[$0, $1] -> Project[$0 := $2, $1 := $3 * 100] -> Aggregate[$2, $3 := sum($4)] -> ...}
- * <p/>
+ * <p>
  * gets rewritten as
- * <p/>
+ * <p>
  * {@code Output[$2, $1] -> Project[$2, $1 := $3 * 100] -> Aggregate[$2, $3 := sum($4)] -> ...}
  */
 public class UnaliasSymbolReferences
@@ -317,20 +317,20 @@ public class UnaliasSymbolReferences
 
                 SymbolMapper inputMapper = symbolMapper(new HashMap<>(newSource.getMappings()));
                 TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
-                Optional<DataOrganizationSpecification> newSpecification = properties.getSpecification().map(inputMapper::mapAndDistinct);
+                Optional<DataOrganizationSpecification> newSpecification = properties.specification().map(inputMapper::mapAndDistinct);
                 PassThroughSpecification newPassThroughSpecification = new PassThroughSpecification(
-                        properties.getPassThroughSpecification().declaredAsPassThrough(),
-                        properties.getPassThroughSpecification().columns().stream()
+                        properties.passThroughSpecification().declaredAsPassThrough(),
+                        properties.passThroughSpecification().columns().stream()
                                 .map(column -> new PassThroughColumn(
                                         inputMapper.map(column.symbol()),
                                         column.isPartitioningColumn()))
                                 .collect(toImmutableList()));
                 newTableArgumentProperties.add(new TableArgumentProperties(
-                        properties.getArgumentName(),
-                        properties.isRowSemantics(),
-                        properties.isPruneWhenEmpty(),
+                        properties.argumentName(),
+                        properties.rowSemantics(),
+                        properties.pruneWhenEmpty(),
                         newPassThroughSpecification,
-                        inputMapper.map(properties.getRequiredColumns()),
+                        inputMapper.map(properties.requiredColumns()),
                         newSpecification));
             }
 

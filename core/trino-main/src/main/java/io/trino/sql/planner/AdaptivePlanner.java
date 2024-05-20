@@ -155,7 +155,7 @@ public class AdaptivePlanner
         // Add the adaptive plan node recursively where initialPlan remain as it is and optimizedPlan as new currentPlan
         PlanNode adaptivePlan = addAdaptivePlanNode(idAllocator, initialPlan, optimizationResult.plan(), optimizationResult.changedPlanNodes());
         // validate the adaptive plan
-        try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-adaptive-plan")) {
+        try (var _ = scopedSpan(plannerContext.getTracer(), "validate-adaptive-plan")) {
             planSanityChecker.validateAdaptivePlan(adaptivePlan, session, plannerContext, warningCollector);
         }
 

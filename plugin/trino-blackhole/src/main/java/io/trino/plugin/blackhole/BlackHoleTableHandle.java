@@ -13,117 +13,34 @@
  */
 package io.trino.plugin.blackhole;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
-import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-public final class BlackHoleTableHandle
+public record BlackHoleTableHandle(
+        String schemaName,
+        String tableName,
+        List<BlackHoleColumnHandle> columnHandles,
+        int splitCount,
+        int pagesPerSplit,
+        int rowsPerPage,
+        int fieldsLength,
+        Duration pageProcessingDelay)
         implements ConnectorTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
-    private final List<BlackHoleColumnHandle> columnHandles;
-    private final int splitCount;
-    private final int pagesPerSplit;
-    private final int rowsPerPage;
-    private final int fieldsLength;
-    private final Duration pageProcessingDelay;
-
-    public BlackHoleTableHandle(
-            ConnectorTableMetadata tableMetadata,
-            int splitCount,
-            int pagesPerSplit,
-            int rowsPerPage,
-            int fieldsLength,
-            Duration pageProcessingDelay)
+    public BlackHoleTableHandle
     {
-        this(tableMetadata.getTable().getSchemaName(),
-                tableMetadata.getTable().getTableName(),
-                tableMetadata.getColumns().stream()
-                        .map(BlackHoleColumnHandle::new)
-                        .collect(toList()),
-                splitCount,
-                pagesPerSplit,
-                rowsPerPage,
-                fieldsLength,
-                pageProcessingDelay);
-    }
-
-    @JsonCreator
-    public BlackHoleTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("columnHandles") List<BlackHoleColumnHandle> columnHandles,
-            @JsonProperty("splitCount") int splitCount,
-            @JsonProperty("pagesPerSplit") int pagesPerSplit,
-            @JsonProperty("rowsPerPage") int rowsPerPage,
-            @JsonProperty("fieldsLength") int fieldsLength,
-            @JsonProperty("pageProcessingDelay") Duration pageProcessingDelay)
-    {
-        this.schemaName = schemaName;
-        this.tableName = tableName;
-        this.columnHandles = columnHandles;
-        this.splitCount = splitCount;
-        this.pagesPerSplit = pagesPerSplit;
-        this.rowsPerPage = rowsPerPage;
-        this.fieldsLength = fieldsLength;
-        this.pageProcessingDelay = pageProcessingDelay;
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public List<BlackHoleColumnHandle> getColumnHandles()
-    {
-        return columnHandles;
-    }
-
-    @JsonProperty
-    public int getSplitCount()
-    {
-        return splitCount;
-    }
-
-    @JsonProperty
-    public int getPagesPerSplit()
-    {
-        return pagesPerSplit;
-    }
-
-    @JsonProperty
-    public int getRowsPerPage()
-    {
-        return rowsPerPage;
-    }
-
-    @JsonProperty
-    public int getFieldsLength()
-    {
-        return fieldsLength;
-    }
-
-    @JsonProperty
-    public Duration getPageProcessingDelay()
-    {
-        return pageProcessingDelay;
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
+        columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
+        requireNonNull(pageProcessingDelay, "pageProcessingDelay is null");
     }
 
     public ConnectorTableMetadata toTableMetadata()
@@ -136,32 +53,6 @@ public final class BlackHoleTableHandle
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(schemaName, tableName, columnHandles, splitCount, pagesPerSplit, rowsPerPage, fieldsLength, pageProcessingDelay);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        BlackHoleTableHandle other = (BlackHoleTableHandle) obj;
-        return Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName) &&
-                Objects.equals(this.columnHandles, other.columnHandles) &&
-                this.splitCount == other.splitCount &&
-                this.pagesPerSplit == other.pagesPerSplit &&
-                this.rowsPerPage == other.rowsPerPage &&
-                this.fieldsLength == other.fieldsLength &&
-                Objects.equals(this.pageProcessingDelay, other.pageProcessingDelay);
     }
 
     @Override

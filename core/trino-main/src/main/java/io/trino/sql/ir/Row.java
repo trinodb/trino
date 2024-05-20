@@ -50,4 +50,14 @@ public record Row(List<Expression> items)
     {
         return items;
     }
+
+    @Override
+    public String toString()
+    {
+        return "(" +
+                items.stream()
+                        .map(Expression::toString)
+                        .collect(Collectors.joining(", ")) +
+                ")";
+    }
 }

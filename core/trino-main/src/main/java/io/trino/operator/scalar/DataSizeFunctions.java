@@ -109,28 +109,18 @@ public final class DataSizeFunctions
 
         public static Unit parse(String unitString, String dataSize)
         {
-            switch (unitString) {
-                case "B":
-                    return BYTE;
-                case "kB":
-                    return KILOBYTE;
-                case "MB":
-                    return MEGABYTE;
-                case "GB":
-                    return GIGABYTE;
-                case "TB":
-                    return TERABYTE;
-                case "PB":
-                    return PETABYTE;
-                case "EB":
-                    return EXABYTE;
-                case "ZB":
-                    return ZETTABYTE;
-                case "YB":
-                    return YOTTABYTE;
-                default:
-                    throw invalidDataSize(dataSize);
-            }
+            return switch (unitString) {
+                case "B" -> BYTE;
+                case "kB" -> KILOBYTE;
+                case "MB" -> MEGABYTE;
+                case "GB" -> GIGABYTE;
+                case "TB" -> TERABYTE;
+                case "PB" -> PETABYTE;
+                case "EB" -> EXABYTE;
+                case "ZB" -> ZETTABYTE;
+                case "YB" -> YOTTABYTE;
+                default -> throw invalidDataSize(dataSize);
+            };
         }
     }
 }

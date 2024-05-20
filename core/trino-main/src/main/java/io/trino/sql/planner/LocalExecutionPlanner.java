@@ -78,7 +78,6 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
-import io.trino.operator.RegularTableFunctionPartition.PassThroughColumnSpecification;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.RowNumberOperator;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
@@ -91,7 +90,6 @@ import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
 import io.trino.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
 import io.trino.operator.StreamingAggregationOperator;
-import io.trino.operator.TableFunctionOperator.TableFunctionOperatorFactory;
 import io.trino.operator.TableMutationOperator.TableMutationOperatorFactory;
 import io.trino.operator.TableScanOperator.TableScanOperatorFactory;
 import io.trino.operator.TaskContext;
@@ -110,6 +108,8 @@ import io.trino.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOpe
 import io.trino.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
 import io.trino.operator.exchange.LocalMergeSourceOperator.LocalMergeSourceOperatorFactory;
 import io.trino.operator.exchange.PageChannelSelector;
+import io.trino.operator.function.RegularTableFunctionPartition.PassThroughColumnSpecification;
+import io.trino.operator.function.TableFunctionOperator.TableFunctionOperatorFactory;
 import io.trino.operator.index.DynamicTupleFilterFactory;
 import io.trino.operator.index.FieldSetFilteringRecordSet;
 import io.trino.operator.index.IndexBuildDriverFactoryProvider;
@@ -190,6 +190,7 @@ import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
@@ -275,6 +276,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -571,7 +573,7 @@ public class LocalExecutionPlanner
                         if (argument.isConstant()) {
                             return argument.getConstant().getType();
                         }
-                        return argument.getColumn().getType();
+                        return argument.getColumn().type();
                     })
                     .collect(toImmutableList());
         }
@@ -638,7 +640,7 @@ public class LocalExecutionPlanner
         Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
         List<Type> outputTypes = outputLayout.stream()
-                .map(Symbol::getType)
+                .map(Symbol::type)
                 .collect(toImmutableList());
 
         context.addDriverFactory(
@@ -895,8 +897,8 @@ public class LocalExecutionPlanner
 
             OrderingScheme orderingScheme = node.getOrderingScheme().get();
             ImmutableMap<Symbol, Integer> layout = makeLayout(node);
-            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), layout);
-            List<SortOrder> sortOrder = orderingScheme.getOrderingList();
+            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), layout);
+            List<SortOrder> sortOrder = orderingScheme.orderingList();
 
             List<Type> types = getSourceOperatorTypes(node);
             ImmutableList<Integer> outputChannels = IntStream.range(0, types.size())
@@ -1008,10 +1010,10 @@ public class LocalExecutionPlanner
                     .map(channel -> source.getTypes().get(channel))
                     .collect(toImmutableList());
 
-            List<Symbol> orderBySymbols = node.getOrderingScheme().getOrderBy();
+            List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
             List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
             List<SortOrder> sortOrder = orderBySymbols.stream()
-                    .map(symbol -> node.getOrderingScheme().getOrdering(symbol))
+                    .map(symbol -> node.getOrderingScheme().ordering(symbol))
                     .collect(toImmutableList());
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
@@ -1069,8 +1071,8 @@ public class LocalExecutionPlanner
 
             if (node.getOrderingScheme().isPresent()) {
                 OrderingScheme orderingScheme = node.getOrderingScheme().get();
-                sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), source.getLayout());
-                sortOrder = orderingScheme.getOrderingList();
+                sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), source.getLayout());
+                sortOrder = orderingScheme.orderingList();
             }
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
@@ -1127,13 +1129,13 @@ public class LocalExecutionPlanner
                 }
                 Symbol symbol = entry.getKey();
                 WindowFunctionSupplier windowFunctionSupplier = getWindowFunctionImplementation(resolvedFunction);
-                Type type = resolvedFunction.getSignature().getReturnType();
+                Type type = resolvedFunction.signature().getReturnType();
 
                 List<Lambda> lambdas = function.getArguments().stream()
                         .filter(Lambda.class::isInstance)
                         .map(Lambda.class::cast)
                         .collect(toImmutableList());
-                List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+                List<FunctionType> functionTypes = resolvedFunction.signature().getArgumentTypes().stream()
                         .filter(FunctionType.class::isInstance)
                         .map(FunctionType.class::cast)
                         .collect(toImmutableList());
@@ -1182,13 +1184,13 @@ public class LocalExecutionPlanner
 
         private WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
         {
-            if (resolvedFunction.getFunctionKind() == FunctionKind.AGGREGATE) {
-                return uncheckedCacheGet(aggregationWindowFunctionSupplierCache, new FunctionKey(resolvedFunction.getFunctionId(), resolvedFunction.getSignature()), () -> {
+            if (resolvedFunction.functionKind() == FunctionKind.AGGREGATE) {
+                return uncheckedCacheGet(aggregationWindowFunctionSupplierCache, new FunctionKey(resolvedFunction.functionId(), resolvedFunction.signature()), () -> {
                     AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction);
                     return new AggregationWindowFunctionSupplier(
-                            resolvedFunction.getSignature(),
+                            resolvedFunction.signature(),
                             aggregationImplementation,
-                            resolvedFunction.getFunctionNullability());
+                            resolvedFunction.functionNullability());
                 });
             }
             return plannerContext.getFunctionManager().getWindowFunctionSupplier(resolvedFunction);
@@ -1208,8 +1210,8 @@ public class LocalExecutionPlanner
 
             if (node.getOrderingScheme().isPresent()) {
                 OrderingScheme orderingScheme = node.getOrderingScheme().get();
-                sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), source.getLayout());
-                sortOrder = orderingScheme.getOrderingList();
+                sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), source.getLayout());
+                sortOrder = orderingScheme.orderingList();
             }
 
             // The output order for pattern recognition operation is defined as follows:
@@ -1267,13 +1269,13 @@ public class LocalExecutionPlanner
                     }
                 }
                 WindowFunctionSupplier windowFunctionSupplier = getWindowFunctionImplementation(resolvedFunction);
-                Type type = resolvedFunction.getSignature().getReturnType();
+                Type type = resolvedFunction.signature().getReturnType();
 
                 List<Lambda> lambdas = function.getArguments().stream()
                         .filter(Lambda.class::isInstance)
                         .map(Lambda.class::cast)
                         .collect(toImmutableList());
-                List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+                List<FunctionType> functionTypes = resolvedFunction.signature().getArgumentTypes().stream()
                         .filter(FunctionType.class::isInstance)
                         .map(FunctionType.class::cast)
                         .collect(toImmutableList());
@@ -1452,10 +1454,10 @@ public class LocalExecutionPlanner
                 inputTypes.put(
                         assignment.symbol(),
                         switch (assignment.valuePointer()) {
-                            case AggregationValuePointer pointer -> pointer.getFunction().getSignature().getReturnType();
+                            case AggregationValuePointer pointer -> pointer.getFunction().signature().getReturnType();
                             case ClassifierValuePointer pointer -> VARCHAR;
                             case MatchNumberValuePointer pointer -> BIGINT;
-                            case ScalarValuePointer pointer -> pointer.getInputSymbol().getType();
+                            case ScalarValuePointer pointer -> pointer.getInputSymbol().type();
                         });
             }
 
@@ -1497,7 +1499,7 @@ public class LocalExecutionPlanner
                     case ScalarValuePointer pointer -> {
                         valueAccessors.add(new PhysicalValuePointer(
                                 getOnlyElement(getChannelsForSymbols(ImmutableList.of(pointer.getInputSymbol()), sourceLayout)),
-                                pointer.getInputSymbol().getType(),
+                                pointer.getInputSymbol().type(),
                                 pointer.getLogicalIndexPointer().toLogicalIndexNavigation(mapping)));
                     }
                     case AggregationValuePointer pointer -> {
@@ -1507,7 +1509,7 @@ public class LocalExecutionPlanner
                         AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(pointer.getFunction());
 
                         ImmutableList.Builder<Map.Entry<Expression, Type>> builder = ImmutableList.builder();
-                        List<Type> signatureTypes = resolvedFunction.getSignature().getArgumentTypes();
+                        List<Type> signatureTypes = resolvedFunction.signature().getArgumentTypes();
                         for (int i = 0; i < pointer.getArguments().size(); i++) {
                             builder.add(new SimpleEntry<>(pointer.getArguments().get(i), signatureTypes.get(i)));
                         }
@@ -1520,7 +1522,7 @@ public class LocalExecutionPlanner
                                 .map(Lambda.class::cast)
                                 .collect(toImmutableList());
 
-                        List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+                        List<FunctionType> functionTypes = resolvedFunction.signature().getArgumentTypes().stream()
                                 .filter(FunctionType.class::isInstance)
                                 .map(FunctionType.class::cast)
                                 .collect(toImmutableList());
@@ -1573,13 +1575,13 @@ public class LocalExecutionPlanner
 
                         AggregationWindowFunctionSupplier aggregationWindowFunctionSupplier = uncheckedCacheGet(
                                 aggregationWindowFunctionSupplierCache,
-                                new FunctionKey(resolvedFunction.getFunctionId(), resolvedFunction.getSignature()),
+                                new FunctionKey(resolvedFunction.functionId(), resolvedFunction.signature()),
                                 () -> new AggregationWindowFunctionSupplier(
-                                        resolvedFunction.getSignature(),
+                                        resolvedFunction.signature(),
                                         aggregationImplementation,
-                                        resolvedFunction.getFunctionNullability()));
+                                        resolvedFunction.functionNullability()));
                         matchAggregations.add(new MatchAggregationInstantiator(
-                                resolvedFunction.getSignature(),
+                                resolvedFunction.signature(),
                                 aggregationWindowFunctionSupplier,
                                 valueChannels,
                                 lambdaProviders,
@@ -1626,9 +1628,9 @@ public class LocalExecutionPlanner
                 OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(
                         context.getNextOperatorId(),
                         node.getId(),
-                        node.getHandle().getCatalogHandle(),
+                        node.getHandle().catalogHandle(),
                         processorProvider,
-                        node.getHandle().getFunctionHandle());
+                        node.getHandle().functionHandle());
                 return new PhysicalOperation(operatorFactory, makeLayout(node));
             }
 
@@ -1659,24 +1661,24 @@ public class LocalExecutionPlanner
             }
 
             List<Integer> partitionChannels = node.getSpecification()
-                    .map(DataOrganizationSpecification::getPartitionBy)
+                    .map(DataOrganizationSpecification::partitionBy)
                     .map(list -> getChannelsForSymbols(list, source.getLayout()))
                     .orElse(ImmutableList.of());
 
             List<Integer> sortChannels = ImmutableList.of();
             List<SortOrder> sortOrders = ImmutableList.of();
-            if (node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).isPresent()) {
-                OrderingScheme orderingScheme = node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).orElseThrow();
-                sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), source.getLayout());
-                sortOrders = orderingScheme.getOrderingList();
+            if (node.getSpecification().flatMap(DataOrganizationSpecification::orderingScheme).isPresent()) {
+                OrderingScheme orderingScheme = node.getSpecification().flatMap(DataOrganizationSpecification::orderingScheme).orElseThrow();
+                sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), source.getLayout());
+                sortOrders = orderingScheme.orderingList();
             }
 
             OperatorFactory operator = new TableFunctionOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     processorProvider,
-                    node.getHandle().getCatalogHandle(),
-                    node.getHandle().getFunctionHandle(),
+                    node.getHandle().catalogHandle(),
+                    node.getHandle().functionHandle(),
                     properChannelsCount,
                     toIntExact(passThroughSourcesCount),
                     requiredChannels,
@@ -1714,13 +1716,13 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> orderBySymbols = node.getOrderingScheme().getOrderBy();
+            List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
 
             List<Integer> sortChannels = new ArrayList<>();
             List<SortOrder> sortOrders = new ArrayList<>();
             for (Symbol symbol : orderBySymbols) {
                 sortChannels.add(source.getLayout().get(symbol));
-                sortOrders.add(node.getOrderingScheme().getOrdering(symbol));
+                sortOrders.add(node.getOrderingScheme().ordering(symbol));
             }
 
             OperatorFactory operator = TopNOperator.createOperatorFactory(
@@ -1740,13 +1742,13 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> orderBySymbols = node.getOrderingScheme().getOrderBy();
+            List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
 
             List<Integer> orderByChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
 
             ImmutableList.Builder<SortOrder> sortOrder = ImmutableList.builder();
             for (Symbol symbol : orderBySymbols) {
-                sortOrder.add(node.getOrderingScheme().getOrdering(symbol));
+                sortOrder.add(node.getOrderingScheme().ordering(symbol));
             }
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
@@ -2043,7 +2045,7 @@ public class LocalExecutionPlanner
 
         private RowExpression toRowExpression(Expression expression, Map<Symbol, Integer> layout)
         {
-            return SqlToRowExpressionTranslator.translate(expression, layout, metadata, plannerContext.getFunctionManager(), plannerContext.getTypeManager(), session, true);
+            return SqlToRowExpressionTranslator.translate(expression, layout, metadata, plannerContext.getTypeManager());
         }
 
         @Override
@@ -2135,7 +2137,7 @@ public class LocalExecutionPlanner
 
             ImmutableList.Builder<Type> replicateTypes = ImmutableList.builder();
             for (Symbol symbol : node.getReplicateSymbols()) {
-                replicateTypes.add(symbol.getType());
+                replicateTypes.add(symbol.type());
             }
 
             List<Symbol> unnestSymbols = node.getMappings().stream()
@@ -2144,10 +2146,10 @@ public class LocalExecutionPlanner
 
             ImmutableList.Builder<Type> unnestTypes = ImmutableList.builder();
             for (Symbol symbol : unnestSymbols) {
-                unnestTypes.add(symbol.getType());
+                unnestTypes.add(symbol.type());
             }
             Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
-            Optional<Type> ordinalityType = ordinalitySymbol.map(Symbol::getType);
+            Optional<Type> ordinalityType = ordinalitySymbol.map(Symbol::type);
             ordinalityType.ifPresent(type -> checkState(type.equals(BIGINT), "Type of ordinalitySymbol must always be BIGINT."));
 
             List<Integer> replicateChannels = getChannelsForSymbols(node.getReplicateSymbols(), source.getLayout());
@@ -2451,7 +2453,7 @@ public class LocalExecutionPlanner
                 if (spatialComparison.operator() == LESS_THAN || spatialComparison.operator() == LESS_THAN_OR_EQUAL) {
                     // ST_Distance(a, b) <= r
                     Expression radius = spatialComparison.right();
-                    if (radius instanceof Reference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius)) {
+                    if (radius instanceof Reference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius) || radius instanceof Constant) {
                         Call spatialFunction = (Call) spatialComparison.left();
                         Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.operator()));
                         if (operation.isPresent()) {
@@ -2485,6 +2487,21 @@ public class LocalExecutionPlanner
             PlanNode buildNode = node.getRight();
             Set<Reference> buildSymbols = getSymbolReferences(buildNode.getOutputSymbols());
 
+            Optional<Symbol> radiusSymbol = Optional.empty();
+            OptionalDouble constantRadius = OptionalDouble.empty();
+            if (radius.isPresent()) {
+                Expression expression = radius.get();
+                if (expression instanceof Reference reference) {
+                    radiusSymbol = Optional.of(Symbol.from(reference));
+                }
+                else if (expression instanceof Constant constant) {
+                    constantRadius = OptionalDouble.of((Double) constant.value());
+                }
+                else {
+                    throw new IllegalArgumentException("Unexpected expression for radius: " + expression);
+                }
+            }
+
             if (probeSymbols.contains(firstSymbol) && buildSymbols.contains(secondSymbol)) {
                 return Optional.of(createSpatialLookupJoin(
                         node,
@@ -2492,7 +2509,8 @@ public class LocalExecutionPlanner
                         Symbol.from(firstSymbol),
                         buildNode,
                         Symbol.from(secondSymbol),
-                        radius.map(Symbol::from),
+                        radiusSymbol,
+                        constantRadius,
                         spatialTest(spatialFunction, true, comparisonOperator),
                         filterExpression,
                         context));
@@ -2504,7 +2522,8 @@ public class LocalExecutionPlanner
                         Symbol.from(secondSymbol),
                         buildNode,
                         Symbol.from(firstSymbol),
-                        radius.map(Symbol::from),
+                        radiusSymbol,
+                        constantRadius,
                         spatialTest(spatialFunction, false, comparisonOperator),
                         filterExpression,
                         context));
@@ -2520,7 +2539,7 @@ public class LocalExecutionPlanner
 
         private SpatialPredicate spatialTest(Call call, boolean probeFirst, Optional<Comparison.Operator> comparisonOperator)
         {
-            CatalogSchemaFunctionName functionName = call.function().getName();
+            CatalogSchemaFunctionName functionName = call.function().name();
             if (functionName.equals(builtinFunctionName(ST_CONTAINS))) {
                 if (probeFirst) {
                     return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
@@ -2614,6 +2633,7 @@ public class LocalExecutionPlanner
                 PlanNode buildNode,
                 Symbol buildSymbol,
                 Optional<Symbol> radiusSymbol,
+                OptionalDouble constantRadius,
                 SpatialPredicate spatialRelationshipTest,
                 Optional<Expression> joinFilter,
                 LocalExecutionPlanContext context)
@@ -2626,6 +2646,7 @@ public class LocalExecutionPlanner
                     buildNode,
                     buildSymbol,
                     radiusSymbol,
+                    constantRadius,
                     probeSource.getLayout(),
                     spatialRelationshipTest,
                     joinFilter,
@@ -2677,6 +2698,7 @@ public class LocalExecutionPlanner
                 PlanNode buildNode,
                 Symbol buildSymbol,
                 Optional<Symbol> radiusSymbol,
+                OptionalDouble constantRadius,
                 Map<Symbol, Integer> probeLayout,
                 SpatialPredicate spatialRelationshipTest,
                 Optional<Expression> joinFilter,
@@ -2708,6 +2730,7 @@ public class LocalExecutionPlanner
                     buildOutputChannels,
                     buildChannel,
                     radiusChannel,
+                    constantRadius,
                     partitionChannel,
                     spatialRelationshipTest,
                     node.getKdbTree(),
@@ -3589,8 +3612,8 @@ public class LocalExecutionPlanner
 
             OrderingScheme orderingScheme = node.getOrderingScheme().get();
             ImmutableMap<Symbol, Integer> layout = makeLayout(node);
-            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), layout);
-            List<SortOrder> orderings = orderingScheme.getOrderingList();
+            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), layout);
+            List<SortOrder> orderings = orderingScheme.orderingList();
             OperatorFactory operatorFactory = new LocalMergeSourceOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -3698,7 +3721,7 @@ public class LocalExecutionPlanner
         private List<Type> getSymbolTypes(List<Symbol> symbols)
         {
             return symbols.stream()
-                    .map(Symbol::getType)
+                    .map(Symbol::type)
                     .collect(toImmutableList());
         }
 
@@ -3719,11 +3742,11 @@ public class LocalExecutionPlanner
             AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(aggregation.getResolvedFunction());
             AccumulatorFactory accumulatorFactory = uncheckedCacheGet(
                     accumulatorFactoryCache,
-                    new FunctionKey(resolvedFunction.getFunctionId(), resolvedFunction.getSignature()),
+                    new FunctionKey(resolvedFunction.functionId(), resolvedFunction.signature()),
                     () -> generateAccumulatorFactory(
-                            resolvedFunction.getSignature(),
+                            resolvedFunction.signature(),
                             aggregationImplementation,
-                            resolvedFunction.getFunctionNullability(),
+                            resolvedFunction.functionNullability(),
                             specializeAggregationLoops));
 
             if (aggregation.isDistinct()) {
@@ -3742,10 +3765,10 @@ public class LocalExecutionPlanner
                         .collect(toImmutableList());
 
                 OrderingScheme orderingScheme = aggregation.getOrderingScheme().get();
-                List<Symbol> sortKeys = orderingScheme.getOrderBy();
+                List<Symbol> sortKeys = orderingScheme.orderBy();
 
                 List<SortOrder> sortOrders = sortKeys.stream()
-                        .map(orderingScheme::getOrdering)
+                        .map(orderingScheme::ordering)
                         .collect(toImmutableList());
 
                 List<Integer> inputOrderByChannels = new ArrayList<>();
@@ -3773,7 +3796,7 @@ public class LocalExecutionPlanner
                     .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
                     .collect(toImmutableList());
             Type intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
-            Type finalType = resolvedFunction.getSignature().getReturnType();
+            Type finalType = resolvedFunction.signature().getReturnType();
 
             OptionalInt maskChannel = aggregation.getMask().stream()
                     .mapToInt(value -> source.getLayout().get(value))
@@ -3783,7 +3806,7 @@ public class LocalExecutionPlanner
                     .filter(Lambda.class::isInstance)
                     .map(Lambda.class::cast)
                     .collect(toImmutableList());
-            List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+            List<FunctionType> functionTypes = resolvedFunction.signature().getArgumentTypes().stream()
                     .filter(FunctionType.class::isInstance)
                     .map(FunctionType.class::cast)
                     .collect(toImmutableList());
@@ -4212,7 +4235,7 @@ public class LocalExecutionPlanner
 
             return range(0, channelCount)
                     .mapToObj(channelLayout::get)
-                    .map(symbol -> symbol.getType())
+                    .map(symbol -> symbol.type())
                     .collect(toImmutableList());
         }
 

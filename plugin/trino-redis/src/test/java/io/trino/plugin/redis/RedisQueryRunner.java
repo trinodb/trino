@@ -47,9 +47,21 @@ public final class RedisQueryRunner
     private static final Logger log = Logger.get(RedisQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
+    // TODO convert to builder
     public static QueryRunner createRedisQueryRunner(
             RedisServer redisServer,
-            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            String dataFormat,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createRedisQueryRunner(redisServer, ImmutableMap.of(), connectorProperties, dataFormat, tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createRedisQueryRunner(
+            RedisServer redisServer,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             String dataFormat,
             Iterable<TpchTable<?>> tables)
@@ -58,7 +70,7 @@ public final class RedisQueryRunner
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());

@@ -52,7 +52,7 @@ public final class SpatialJoinUtils
 
     private static boolean isSupportedSpatialFunction(Call call)
     {
-        CatalogSchemaFunctionName functionName = call.function().getName();
+        CatalogSchemaFunctionName functionName = call.function().name();
         return functionName.equals(builtinFunctionName(ST_CONTAINS)) ||
                 functionName.equals(builtinFunctionName(ST_WITHIN)) ||
                 functionName.equals(builtinFunctionName(ST_INTERSECTS));
@@ -60,10 +60,12 @@ public final class SpatialJoinUtils
 
     /**
      * Returns a subset of conjuncts matching one the following shapes:
-     * - ST_Distance(...) <= ...
-     * - ST_Distance(...) < ...
-     * - ... >= ST_Distance(...)
-     * - ... > ST_Distance(...)
+     * <ul>
+     * <li>{@code ST_Distance(...) <= ...}</li>
+     * <li>{@code ST_Distance(...) < ...}</li>
+     * <li>{@code ... >= ST_Distance(...)}</li>
+     * <li>{@code ... > ST_Distance(...)}</li>
+     * </ul>
      * <p>
      * Doesn't check or guarantee anything about ST_Distance functions arguments
      * or the other side of the comparison.
@@ -79,22 +81,17 @@ public final class SpatialJoinUtils
 
     private static boolean isSupportedSpatialComparison(Comparison expression)
     {
-        switch (expression.operator()) {
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-                return isSTDistance(expression.left());
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
-                return isSTDistance(expression.right());
-            default:
-                return false;
-        }
+        return switch (expression.operator()) {
+            case LESS_THAN, LESS_THAN_OR_EQUAL -> isSTDistance(expression.left());
+            case GREATER_THAN, GREATER_THAN_OR_EQUAL -> isSTDistance(expression.right());
+            default -> false;
+        };
     }
 
     private static boolean isSTDistance(Expression expression)
     {
         if (expression instanceof Call call) {
-            return call.function().getName().equals(builtinFunctionName(ST_DISTANCE));
+            return call.function().name().equals(builtinFunctionName(ST_DISTANCE));
         }
 
         return false;

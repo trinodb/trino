@@ -82,17 +82,12 @@ public final class LibSvmUtils
 
     private static int parseKernelType(String value)
     {
-        switch (value.toLowerCase(ENGLISH)) {
-            case "linear":
-                return svm_parameter.LINEAR;
-            case "poly":
-                return svm_parameter.POLY;
-            case "rbf":
-                return svm_parameter.RBF;
-            case "sigmoid":
-                return svm_parameter.SIGMOID;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unknown kernel type %s", value));
-        }
+        return switch (value.toLowerCase(ENGLISH)) {
+            case "linear" -> svm_parameter.LINEAR;
+            case "poly" -> svm_parameter.POLY;
+            case "rbf" -> svm_parameter.RBF;
+            case "sigmoid" -> svm_parameter.SIGMOID;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unknown kernel type %s", value));
+        };
     }
 }

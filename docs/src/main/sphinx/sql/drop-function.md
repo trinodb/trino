@@ -45,7 +45,7 @@ DROP FUNCTION meaning_of_life();
 ## See also
 
 * [](/sql/create-function)
+* [](/sql/show-create-function)
 * [](/sql/show-functions)
 * [](/routines/introduction)
 * [](/admin/properties-sql-environment)
-

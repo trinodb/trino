@@ -328,7 +328,7 @@ No other types are supported.
 
 ## Delta Lake table features
 
-The connector supports the following [Delta Lake table 
+The connector supports the following [Delta Lake table
 features](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#table-features):
 
 :::{list-table} Table features
@@ -389,7 +389,7 @@ security values in the following table:
   - Authorization checks are enforced using a catalog-level access control
     configuration file whose path is specified in the `security.config-file`
     catalog configuration property. See [](catalog-file-based-access-control)
-    for information on the authorization configuration file. :::
+    for information on the authorization configuration file.
 :::
 
 (delta-lake-sql-support)=
@@ -408,6 +408,31 @@ statements, the connector supports the following features:
   - {ref}`sql-schema-table-management`, see details for  {ref}`Delta Lake schema
     and table management <delta-lake-schema-table-management>`
   - {ref}`sql-view-management`
+
+(delta-time-travel)=
+
+### Time travel queries
+
+The connector offers the ability to query historical data. This allows to
+query the table as it was when a previous snapshot of the table was taken, even
+if the data has since been modified or deleted.
+
+The historical data of the table can be retrieved by specifying the version
+number corresponding to the version of the table to be retrieved:
+
+```
+SELECT *
+FROM example.testdb.customer_orders FOR VERSION AS OF 3
+```
+
+Use the `$history` metadata table to determine the snapshot ID of the
+table like in the following query:
+
+```
+SELECT version, operation
+FROM example.testdb."customer_orders$history"
+ORDER BY version DESC
+```
 
 ### Procedures
 
@@ -584,6 +609,25 @@ TABLE AS </sql/create-table-as>` syntax.
 
 The connector supports the following [](/sql/alter-table) statements.
 
+(delta-lake-create-or-replace)=
+#### Replace tables
+
+The connector supports replacing an existing table as an atomic operation.
+Atomic table replacement creates a new snapshot with the new table definition as
+part of the [table history](#delta-lake-history-table).
+
+To replace a table, use [`CREATE OR REPLACE TABLE`](/sql/create-table) or
+[`CREATE OR REPLACE TABLE AS`](/sql/create-table-as).
+
+In this example, a table `example_table` is replaced by a completely new
+definition and data from the source table:
+
+```sql
+CREATE OR REPLACE TABLE example_table
+WITH (partitioned_by = ARRAY['a'])
+AS SELECT * FROM another_table;
+```
+
 (delta-lake-alter-table-execute)=
 #### ALTER TABLE EXECUTE
 
@@ -657,6 +701,7 @@ metadata table name to the table name:
 SELECT * FROM "test_table$history"
 ```
 
+(delta-lake-history-table)=
 ##### `$history` table
 
 The `$history` table provides a log of the metadata changes performed on
@@ -718,6 +763,51 @@ The output of the query has the following history columns:
   - Whether or not the operation appended data
 :::
 
+(delta-lake-partitions-table)=
+
+##### `$partitions` table
+
+The `$partitions` table provides a detailed overview of the partitions of the
+Delta Lake table.
+
+You can retrieve the information about the partitions of the Delta Lake table
+`test_table` by using the following query:
+
+```
+SELECT * FROM "test_table$partitions"
+```
+
+```text
+           partition           | file_count | total_size |                     data                     |
+-------------------------------+------------+------------+----------------------------------------------+
+{_bigint=1, _date=2021-01-12}  |          2 |        884 | {_decimal={min=1.0, max=2.0, null_count=0}}  |
+{_bigint=1, _date=2021-01-13}  |          1 |        442 | {_decimal={min=1.0, max=1.0, null_count=0}}  |
+```
+
+The output of the query has the following columns:
+
+:::{list-table} Partitions columns
+:widths: 20, 30, 50
+:header-rows: 1
+
+* - Name
+  - Type
+  - Description
+* - `partition`
+  - `ROW(...)`
+  - A row that contains the mapping of the partition column names to the
+    partition column values.
+* - `file_count`
+  - `BIGINT`
+  - The number of files mapped in the partition.
+* - `total_size`
+  - `BIGINT`
+  - The size of all the files in the partition.
+* - `data`
+  - `ROW(... ROW (min ..., max ... , null_count BIGINT))`
+  - Partition range and null counts.
+:::
+
 ##### `$properties` table
 
 The `$properties` table provides access to Delta Lake table configuration,
@@ -756,7 +846,6 @@ directly or used in conditional statements.
   : Size of the file for this row.
 
 (delta-lake-fte-support)=
-
 ## Fault-tolerant execution support
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query

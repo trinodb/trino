@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
+import io.airlift.concurrent.BoundedExecutor;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
@@ -46,6 +47,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.util.List;
 import java.util.Optional;
@@ -113,7 +115,7 @@ public class DispatchManager
 
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
 
-        this.dispatchExecutor = dispatchExecutor.getExecutor();
+        this.dispatchExecutor = new BoundedExecutor(dispatchExecutor.getExecutor(), queryManagerConfig.getDispatcherQueryPoolSize());
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -136,6 +138,13 @@ public class DispatchManager
     public QueryManagerStats getStats()
     {
         return stats;
+    }
+
+    @Managed
+    @Nested
+    public QueryTracker<DispatchQuery> getQueryTracker()
+    {
+        return queryTracker;
     }
 
     public QueryId createQueryId()
@@ -161,7 +170,7 @@ public class DispatchManager
                     .addLink(Span.current().getSpanContext())
                     .setParent(Context.current().with(querySpan))
                     .startSpan();
-            try (var ignored = scopedSpan(span)) {
+            try (var _ = scopedSpan(span)) {
                 createQueryInternal(queryId, querySpan, slug, sessionContext, query, resourceGroupManager);
             }
             finally {
@@ -190,7 +199,7 @@ public class DispatchManager
             session = sessionSupplier.createSession(queryId, querySpan, sessionContext);
 
             // check query execute permissions
-            accessControl.checkCanExecuteQuery(sessionContext.getIdentity());
+            accessControl.checkCanExecuteQuery(sessionContext.getIdentity(), queryId);
 
             // prepare query
             preparedQuery = queryPreparer.prepareQuery(session, query);

@@ -22,7 +22,7 @@ Like {func}`cast`, but returns null if the cast fails.
 ## Formatting
 
 :::{function} format(format, args...) -> varchar
-Returns a formatted string using the specified [format string](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Formatter.html#syntax)
+Returns a formatted string using the specified [format string](https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/Formatter.html#syntax)
 and arguments:
 
 ```

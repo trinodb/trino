@@ -24,9 +24,9 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.type.DateTimes;
@@ -51,7 +51,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
@@ -131,39 +131,44 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a <> DOUBLE '1'", new Comparison(NOT_EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)));
 
         // non-representable
-        testUnwrap("smallint", "a <> DOUBLE '1.1'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
-        testUnwrap("smallint", "a <> DOUBLE '1.9'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a <> DOUBLE '1.1'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a <> DOUBLE '1.9'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
 
-        testUnwrap("smallint", "a <> DOUBLE '1.9'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a <> DOUBLE '1.9'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
 
-        testUnwrap("bigint", "a <> DOUBLE '1.1'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(BIGINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("bigint", "a <> DOUBLE '1.1'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(BIGINT, "a"))), new Constant(BOOLEAN, null))));
 
         // below top of range
         testUnwrap("smallint", "a <> DOUBLE '32766'", new Comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32766L)));
 
         // round to top of range
-        testUnwrap("smallint", "a <> DOUBLE '32766.9'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a <> DOUBLE '32766.9'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
 
         // top of range
         testUnwrap("smallint", "a <> DOUBLE '32767'", new Comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L)));
 
         // above range
-        testUnwrap("smallint", "a <> DOUBLE '32768.1'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a <> DOUBLE '32768.1'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
 
         // 2^64 constant
-        testUnwrap("bigint", "a <> DOUBLE '18446744073709551616'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(BIGINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("bigint", "a <> DOUBLE '18446744073709551616'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(BIGINT, "a"))), new Constant(BOOLEAN, null))));
 
         // above bottom of range
         testUnwrap("smallint", "a <> DOUBLE '-32767'", new Comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32767L)));
 
         // round to bottom of range
-        testUnwrap("smallint", "a <> DOUBLE '-32767.9'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a <> DOUBLE '-32767.9'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
 
         // bottom of range
         testUnwrap("smallint", "a <> DOUBLE '-32768'", new Comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L)));
 
         // below range
-        testUnwrap("smallint", "a <> DOUBLE '-32768.1'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a <> DOUBLE '-32768.1'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+    }
+
+    private Expression not(Expression value)
+    {
+        return IrExpressions.not(FUNCTIONS.getMetadata(), value);
     }
 
     @Test
@@ -191,7 +196,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a < DOUBLE '32767'", new Comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L)));
 
         // above range
-        testUnwrap("smallint", "a < DOUBLE '32768.1'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a < DOUBLE '32768.1'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
 
         // above bottom of range
         testUnwrap("smallint", "a < DOUBLE '-32767'", new Comparison(LESS_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32767L)));
@@ -231,13 +236,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a <= DOUBLE '32766.9'", new Comparison(LESS_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L)));
 
         // top of range
-        testUnwrap("smallint", "a <= DOUBLE '32767'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a <= DOUBLE '32767'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
 
         // above range
-        testUnwrap("smallint", "a <= DOUBLE '32768.1'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a <= DOUBLE '32768.1'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
 
         // 2^64 constant
-        testUnwrap("bigint", "a <= DOUBLE '18446744073709551616'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(BIGINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("bigint", "a <= DOUBLE '18446744073709551616'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(BIGINT, "a"))), new Constant(BOOLEAN, null))));
 
         // above bottom of range
         testUnwrap("smallint", "a <= DOUBLE '-32767'", new Comparison(LESS_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32767L)));
@@ -292,7 +297,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a > DOUBLE '-32768'", new Comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L)));
 
         // below range
-        testUnwrap("smallint", "a > DOUBLE '-32768.1'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a > DOUBLE '-32768.1'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
     }
 
     @Test
@@ -329,22 +334,22 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a >= DOUBLE '-32767.9'", new Comparison(GREATER_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L)));
 
         // bottom of range
-        testUnwrap("smallint", "a >= DOUBLE '-32768'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a >= DOUBLE '-32768'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
 
         // below range
-        testUnwrap("smallint", "a >= DOUBLE '-32768.1'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a >= DOUBLE '-32768.1'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
 
         // -2^64 constant
-        testUnwrap("bigint", "a >= DOUBLE '-18446744073709551616'", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(BIGINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("bigint", "a >= DOUBLE '-18446744073709551616'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(BIGINT, "a"))), new Constant(BOOLEAN, null))));
     }
 
     @Test
     public void testDistinctFrom()
     {
         // representable
-        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '1'", new Comparison(IS_DISTINCT_FROM, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 1L)));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '1'", not(new Comparison(IDENTICAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 1L))));
 
-        testUnwrap("bigint", "a IS DISTINCT FROM DOUBLE '1'", new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)));
+        testUnwrap("bigint", "a IS DISTINCT FROM DOUBLE '1'", not(new Comparison(IDENTICAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L))));
 
         // non-representable
         testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '1.1'");
@@ -354,13 +359,13 @@ public class TestUnwrapCastInComparison
         testRemoveFilter("bigint", "a IS DISTINCT FROM DOUBLE '1.9'");
 
         // below top of range
-        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '32766'", new Comparison(IS_DISTINCT_FROM, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32766L)));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '32766'", not(new Comparison(IDENTICAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32766L))));
 
         // round to top of range
         testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '32766.9'");
 
         // top of range
-        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '32767'", new Comparison(IS_DISTINCT_FROM, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L)));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '32767'", not(new Comparison(IDENTICAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L))));
 
         // above range
         testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '32768.1'");
@@ -369,13 +374,13 @@ public class TestUnwrapCastInComparison
         testRemoveFilter("bigint", "a IS DISTINCT FROM DOUBLE '18446744073709551616'");
 
         // above bottom of range
-        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '-32767'", new Comparison(IS_DISTINCT_FROM, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32767L)));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '-32767'", not(new Comparison(IDENTICAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32767L))));
 
         // round to bottom of range
         testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '-32767.9'");
 
         // bottom of range
-        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '-32768'", new Comparison(IS_DISTINCT_FROM, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L)));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '-32768'", not(new Comparison(IDENTICAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L))));
 
         // below range
         testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '-32768.1'");
@@ -398,9 +403,9 @@ public class TestUnwrapCastInComparison
 
         testUnwrap("smallint", "a <= CAST(NULL AS DOUBLE)", new Constant(BOOLEAN, null));
 
-        testUnwrap("smallint", "a IS DISTINCT FROM CAST(NULL AS DOUBLE)", new Not(new IsNull(new Cast(new Reference(SMALLINT, "a"), DOUBLE))));
+        testUnwrap("smallint", "a IS DISTINCT FROM CAST(NULL AS DOUBLE)", not(new IsNull(new Cast(new Reference(SMALLINT, "a"), DOUBLE))));
 
-        testUnwrap("bigint", "a IS DISTINCT FROM CAST(NULL AS DOUBLE)", new Not(new IsNull(new Cast(new Reference(BIGINT, "a"), DOUBLE))));
+        testUnwrap("bigint", "a IS DISTINCT FROM CAST(NULL AS DOUBLE)", not(new IsNull(new Cast(new Reference(BIGINT, "a"), DOUBLE))));
     }
 
     @Test
@@ -412,7 +417,7 @@ public class TestUnwrapCastInComparison
 
         testUnwrap("smallint", "a < nan()", new Logical(AND, ImmutableList.of(new IsNull(new Reference(SMALLINT, "a")), new Constant(BOOLEAN, null))));
 
-        testUnwrap("smallint", "a <> nan()", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("smallint", "a <> nan()", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
 
         testRemoveFilter("smallint", "a IS DISTINCT FROM nan()");
 
@@ -422,9 +427,9 @@ public class TestUnwrapCastInComparison
 
         testUnwrap("real", "a < nan()", new Logical(AND, ImmutableList.of(new IsNull(new Reference(REAL, "a")), new Constant(BOOLEAN, null))));
 
-        testUnwrap("real", "a <> nan()", new Logical(OR, ImmutableList.of(new Not(new IsNull(new Reference(REAL, "a"))), new Constant(BOOLEAN, null))));
+        testUnwrap("real", "a <> nan()", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(REAL, "a"))), new Constant(BOOLEAN, null))));
 
-        testUnwrap("real", "a IS DISTINCT FROM nan()", new Comparison(IS_DISTINCT_FROM, new Reference(REAL, "a"), new Constant(REAL, toReal(Float.NaN))));
+        testUnwrap("real", "a IS DISTINCT FROM nan()", not(new Comparison(IDENTICAL, new Reference(REAL, "a"), new Constant(REAL, toReal(Float.NaN)))));
     }
 
     @Test
@@ -529,16 +534,16 @@ public class TestUnwrapCastInComparison
         testUnwrap(utcSession, "date", "a >= TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", new Comparison(GREATER_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22"))));
 
         // is distinct
-        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00 UTC'", new Comparison(IS_DISTINCT_FROM, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22"))));
-        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", new Comparison(IS_DISTINCT_FROM, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22"))));
-        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", new Comparison(IS_DISTINCT_FROM, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22"))));
-        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", new Comparison(IS_DISTINCT_FROM, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22"))));
+        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00 UTC'", not(new Comparison(IDENTICAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22")))));
+        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", not(new Comparison(IDENTICAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22")))));
+        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", not(new Comparison(IDENTICAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22")))));
+        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", not(new Comparison(IDENTICAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22")))));
 
         // is not distinct
-        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00 UTC'", new Not(new Comparison(IS_DISTINCT_FROM, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22")))));
-        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", new Not(new Comparison(IS_DISTINCT_FROM, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22")))));
-        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", new Not(new Comparison(IS_DISTINCT_FROM, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22")))));
-        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", new Not(new Comparison(IS_DISTINCT_FROM, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22")))));
+        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00 UTC'", new Comparison(IDENTICAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22"))));
+        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", new Comparison(IDENTICAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22"))));
+        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", new Comparison(IDENTICAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22"))));
+        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", new Comparison(IDENTICAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22"))));
 
         // null date literal
         testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) = NULL", new Constant(BOOLEAN, null));
@@ -546,7 +551,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) <= NULL", new Constant(BOOLEAN, null));
         testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) > NULL", new Constant(BOOLEAN, null));
         testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) >= NULL", new Constant(BOOLEAN, null));
-        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) IS DISTINCT FROM NULL", new Not(new IsNull(new Cast(new Reference(DATE, "a"), TIMESTAMP_TZ_MILLIS))));
+        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) IS DISTINCT FROM NULL", not(new IsNull(new Cast(new Reference(DATE, "a"), TIMESTAMP_TZ_MILLIS))));
 
         // timestamp with time zone value on the left
         testUnwrap(utcSession, "date", "TIMESTAMP '1981-06-22 00:00:00 UTC' = a", new Comparison(EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1981-06-22"))));
@@ -724,10 +729,10 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(12)", "CAST(a AS DATE) IS DISTINCT FROM DATE '1981-06-22'", new Logical(OR, ImmutableList.of(new IsNull(new Reference(createTimestampType(12), "a")), new Comparison(LESS_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-22 00:00:00.000000000000"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-23 00:00:00.000000000000"))))));
 
         // is not distinct
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(new Not(new IsNull(new Reference(createTimestampType(3), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-23 00:00:00.000"))))));
-        testUnwrap("timestamp(6)", "CAST(a AS DATE) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(new Not(new IsNull(new Reference(createTimestampType(6), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-22 00:00:00.000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-23 00:00:00.000000"))))));
-        testUnwrap("timestamp(9)", "CAST(a AS DATE) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(new Not(new IsNull(new Reference(createTimestampType(9), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-22 00:00:00.000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-23 00:00:00.000000000"))))));
-        testUnwrap("timestamp(12)", "CAST(a AS DATE) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(new Not(new IsNull(new Reference(createTimestampType(12), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-22 00:00:00.000000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-23 00:00:00.000000000000"))))));
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(not(new IsNull(new Reference(createTimestampType(3), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-23 00:00:00.000"))))));
+        testUnwrap("timestamp(6)", "CAST(a AS DATE) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(not(new IsNull(new Reference(createTimestampType(6), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-22 00:00:00.000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-23 00:00:00.000000"))))));
+        testUnwrap("timestamp(9)", "CAST(a AS DATE) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(not(new IsNull(new Reference(createTimestampType(9), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-22 00:00:00.000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-23 00:00:00.000000000"))))));
+        testUnwrap("timestamp(12)", "CAST(a AS DATE) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(not(new IsNull(new Reference(createTimestampType(12), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-22 00:00:00.000000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-23 00:00:00.000000000000"))))));
 
         // null date literal
         testUnwrap("timestamp(3)", "CAST(a AS DATE) = NULL", new Constant(BOOLEAN, null));
@@ -735,7 +740,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(3)", "CAST(a AS DATE) <= NULL", new Constant(BOOLEAN, null));
         testUnwrap("timestamp(3)", "CAST(a AS DATE) > NULL", new Constant(BOOLEAN, null));
         testUnwrap("timestamp(3)", "CAST(a AS DATE) >= NULL", new Constant(BOOLEAN, null));
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) IS DISTINCT FROM NULL", new Not(new IsNull(new Cast(new Reference(createTimestampType(3), "a"), DATE))));
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) IS DISTINCT FROM NULL", not(new IsNull(new Cast(new Reference(createTimestampType(3), "a"), DATE))));
 
         // non-optimized expression on the right
         testUnwrap("timestamp(3)", "CAST(a AS DATE) = DATE '1981-06-22' + INTERVAL '2' DAY", new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-24 00:00:00.000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-25 00:00:00.000"))))));
@@ -790,10 +795,10 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(12)", "date(a) IS DISTINCT FROM DATE '1981-06-22'", new Logical(OR, ImmutableList.of(new IsNull(new Reference(createTimestampType(12), "a")), new Comparison(LESS_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-22 00:00:00.000000000000"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-23 00:00:00.000000000000"))))));
 
         // is not distinct
-        testUnwrap("timestamp(3)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(new Not(new IsNull(new Reference(createTimestampType(3), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-23 00:00:00.000"))))));
-        testUnwrap("timestamp(6)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(new Not(new IsNull(new Reference(createTimestampType(6), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-22 00:00:00.000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-23 00:00:00.000000"))))));
-        testUnwrap("timestamp(9)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(new Not(new IsNull(new Reference(createTimestampType(9), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-22 00:00:00.000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-23 00:00:00.000000000"))))));
-        testUnwrap("timestamp(12)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(new Not(new IsNull(new Reference(createTimestampType(12), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-22 00:00:00.000000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-23 00:00:00.000000000000"))))));
+        testUnwrap("timestamp(3)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(not(new IsNull(new Reference(createTimestampType(3), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-23 00:00:00.000"))))));
+        testUnwrap("timestamp(6)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(not(new IsNull(new Reference(createTimestampType(6), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-22 00:00:00.000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-23 00:00:00.000000"))))));
+        testUnwrap("timestamp(9)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(not(new IsNull(new Reference(createTimestampType(9), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-22 00:00:00.000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-23 00:00:00.000000000"))))));
+        testUnwrap("timestamp(12)", "date(a) IS NOT DISTINCT FROM DATE '1981-06-22'", new Logical(AND, ImmutableList.of(not(new IsNull(new Reference(createTimestampType(12), "a"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-22 00:00:00.000000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-23 00:00:00.000000000000"))))));
 
         // null date literal
         testUnwrap("timestamp(3)", "date(a) = NULL", new Constant(BOOLEAN, null));
@@ -801,7 +806,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(3)", "date(a) <= NULL", new Constant(BOOLEAN, null));
         testUnwrap("timestamp(3)", "date(a) > NULL", new Constant(BOOLEAN, null));
         testUnwrap("timestamp(3)", "date(a) >= NULL", new Constant(BOOLEAN, null));
-        testUnwrap("timestamp(3)", "date(a) IS DISTINCT FROM NULL", new Not(new IsNull(new Cast(new Reference(createTimestampType(3), "a"), DATE))));
+        testUnwrap("timestamp(3)", "date(a) IS DISTINCT FROM NULL", not(new IsNull(new Cast(new Reference(createTimestampType(3), "a"), DATE))));
 
         // non-optimized expression on the right
         testUnwrap("timestamp(3)", "date(a) = DATE '1981-06-22' + INTERVAL '2' DAY", new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-24 00:00:00.000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-25 00:00:00.000"))))));

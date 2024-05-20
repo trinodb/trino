@@ -103,7 +103,7 @@ public class CreateSchema
         }
         CreateSchema o = (CreateSchema) obj;
         return Objects.equals(schemaName, o.schemaName) &&
-                Objects.equals(notExists, o.notExists) &&
+                notExists == o.notExists &&
                 Objects.equals(properties, o.properties);
     }
 

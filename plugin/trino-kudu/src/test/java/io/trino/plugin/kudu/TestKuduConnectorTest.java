@@ -62,18 +62,18 @@ public class TestKuduConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ARRAY,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_COMMENT_ON_TABLE,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_NEGATIVE_DATE,
-                    SUPPORTS_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_ROW_TYPE,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_TRUNCATE -> false;
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_NEGATIVE_DATE,
+                 SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_TRUNCATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -196,15 +196,15 @@ public class TestKuduConnectorTest
     {
         assertThat(computeScalar("SHOW CREATE TABLE orders"))
                 .isEqualTo("CREATE TABLE kudu.default.orders (\n" +
-                        "   orderkey bigint COMMENT '' WITH ( nullable = true ),\n" +
-                        "   custkey bigint COMMENT '' WITH ( nullable = true ),\n" +
-                        "   orderstatus varchar COMMENT '' WITH ( nullable = true ),\n" +
-                        "   totalprice double COMMENT '' WITH ( nullable = true ),\n" +
-                        "   orderdate varchar COMMENT '' WITH ( nullable = true ),\n" +
-                        "   orderpriority varchar COMMENT '' WITH ( nullable = true ),\n" +
-                        "   clerk varchar COMMENT '' WITH ( nullable = true ),\n" +
-                        "   shippriority integer COMMENT '' WITH ( nullable = true ),\n" +
-                        "   comment varchar COMMENT '' WITH ( nullable = true )\n" +
+                        "   orderkey bigint COMMENT '' WITH (nullable = true),\n" +
+                        "   custkey bigint COMMENT '' WITH (nullable = true),\n" +
+                        "   orderstatus varchar COMMENT '' WITH (nullable = true),\n" +
+                        "   totalprice double COMMENT '' WITH (nullable = true),\n" +
+                        "   orderdate varchar COMMENT '' WITH (nullable = true),\n" +
+                        "   orderpriority varchar COMMENT '' WITH (nullable = true),\n" +
+                        "   clerk varchar COMMENT '' WITH (nullable = true),\n" +
+                        "   shippriority integer COMMENT '' WITH (nullable = true),\n" +
+                        "   comment varchar COMMENT '' WITH (nullable = true)\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   number_of_replicas = 1,\n" +

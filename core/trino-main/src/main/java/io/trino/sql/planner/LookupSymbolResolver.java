@@ -47,6 +47,6 @@ public class LookupSymbolResolver
             return Optional.empty();
         }
 
-        return Optional.of(new Constant(symbol.getType(), bindings.get(column).getValue()));
+        return Optional.of(new Constant(symbol.type(), bindings.get(column).getValue()));
     }
 }

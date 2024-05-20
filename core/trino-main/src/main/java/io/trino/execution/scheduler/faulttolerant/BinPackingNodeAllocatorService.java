@@ -40,6 +40,8 @@ import io.trino.spi.memory.MemoryPoolInfo;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.assertj.core.util.VisibleForTesting;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -88,7 +90,7 @@ public class BinPackingNodeAllocatorService
     private final InternalNodeManager nodeManager;
     private final Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier;
 
-    private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(2, daemonThreadsNamed("bin-packing-node-allocator"));
+    private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(3, daemonThreadsNamed("bin-packing-node-allocator"));
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
     private final Semaphore processSemaphore = new Semaphore(0);
@@ -101,6 +103,8 @@ public class BinPackingNodeAllocatorService
     private final Deque<PendingAcquire> pendingAcquires = new ConcurrentLinkedDeque<>();
     private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
     private final Duration allowedNoMatchingNodePeriod;
+
+    private final StatsHolder stats = new StatsHolder();
 
     @Inject
     public BinPackingNodeAllocatorService(
@@ -169,6 +173,16 @@ public class BinPackingNodeAllocatorService
             catch (Throwable e) {
                 // ignore to avoid getting unscheduled
                 log.error(e, "Unexpected error while refreshing node pool memory infos");
+            }
+        }, 1, 1, TimeUnit.SECONDS);
+
+        executor.scheduleWithFixedDelay(() -> {
+            try {
+                updateStats();
+            }
+            catch (Throwable e) {
+                // ignore to avoid getting unscheduled
+                log.error(e, "Unexpected error while updating stats");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -301,6 +315,48 @@ public class BinPackingNodeAllocatorService
         // nothing to do here. leases should be released by the calling party.
         // TODO would be great to be able to validate if it actually happened but close() is called from SqlQueryScheduler code
         //      and that can be done before all leases are yet returned from running (soon to be failed) tasks.
+    }
+
+    @Managed
+    @Nested
+    public StatsHolder getStats()
+    {
+        // it is required that @Managed annotated method returns same object instance every time;
+        // we return mutable wrapper while we keep Stats object immutable.
+        return stats;
+    }
+
+    private void updateStats()
+    {
+        long pendingStandard = 0;
+        long pendingSpeculative = 0;
+        long pendingEagerSpeculative = 0;
+        long fulfilledStandard = 0;
+        long fulfilledSpeculative = 0;
+        long fulfilledEagerSpeculative = 0;
+
+        for (PendingAcquire acquire : pendingAcquires) {
+            switch (acquire.getExecutionClass()) {
+                case STANDARD -> pendingStandard++;
+                case SPECULATIVE -> pendingSpeculative++;
+                case EAGER_SPECULATIVE -> pendingEagerSpeculative++;
+            }
+        }
+
+        for (BinPackingNodeLease acquire : fulfilledAcquires) {
+            switch (acquire.getExecutionClass()) {
+                case STANDARD -> fulfilledStandard++;
+                case SPECULATIVE -> fulfilledSpeculative++;
+                case EAGER_SPECULATIVE -> fulfilledEagerSpeculative++;
+            }
+        }
+        stats.updateStats(new Stats(
+                pendingStandard,
+                pendingSpeculative,
+                pendingEagerSpeculative,
+                fulfilledStandard,
+                fulfilledSpeculative,
+                fulfilledEagerSpeculative));
     }
 
     private static class PendingAcquire
@@ -694,5 +750,62 @@ public class BinPackingNodeAllocatorService
                 return node.orElseThrow(() -> new IllegalStateException("node not set"));
             }
         }
+    }
+
+    public static class StatsHolder
+    {
+        private final AtomicReference<Stats> statsReference = new AtomicReference<>(Stats.ZERO);
+
+        public void updateStats(Stats stats)
+        {
+            statsReference.set(stats);
+        }
+
+        @Managed
+        public long getPendingStandard()
+        {
+            return statsReference.get().pendingStandard();
+        }
+
+        @Managed
+        public long getPendingSpeculative()
+        {
+            return statsReference.get().pendingSpeculative();
+        }
+
+        @Managed
+        public long getPendingEagerSpeculative()
+        {
+            return statsReference.get().pendingEagerSpeculative();
+        }
+
+        @Managed
+        public long getFulfilledStandard()
+        {
+            return statsReference.get().fulfilledStandard();
+        }
+
+        @Managed
+        public long getFulfilledSpeculative()
+        {
+            return statsReference.get().fulfilledSpeculative();
+        }
+
+        @Managed
+        public long getFulfilledEagerSpeculative()
+        {
+            return statsReference.get().fulfilledEagerSpeculative();
+        }
+    }
+
+    private record Stats(
+            long pendingStandard,
+            long pendingSpeculative,
+            long pendingEagerSpeculative,
+            long fulfilledStandard,
+            long fulfilledSpeculative,
+            long fulfilledEagerSpeculative)
+    {
+        static final Stats ZERO = new Stats(0, 0, 0, 0, 0, 0);
     }
 }

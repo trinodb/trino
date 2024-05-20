@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -61,7 +62,7 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
     private static final int DATA_GENERATION_BATCH_SIZE = 16384;
     private static final int READ_BATCH_SIZE = 4096;
 
-    private final ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC);
+    private final ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions());
     private final List<DataPage> dataPages = new ArrayList<>();
     private int dataPositions;
 
@@ -139,7 +140,7 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
             throws RunnerException
     {
         benchmark(clazz, WarmupMode.BULK)
-                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g"))
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "--add-modules=jdk.incubator.vector"))
                 .run();
     }
 }

@@ -62,7 +62,8 @@ public class BenchmarkRleBitPackingDecoder
     @Param({
             // This encoding is not meant to store big numbers so 2^20 is enough
             "1", "2", "3", "4", "5", "6", "7", "8",
-            "9", "10", "13", "16", "17", "18", "20",
+            "9", "10", "11", "12", "13", "14", "15",
+            "16", "17", "18", "19", "20"
     })
     public int bitWidth;
 
@@ -124,7 +125,17 @@ public class BenchmarkRleBitPackingDecoder
     @Benchmark
     public void rleBitPackingHybridDecoder()
     {
-        ValueDecoder<int[]> decoder = new RleBitPackingHybridDecoder(bitWidth);
+        ValueDecoder<int[]> decoder = new RleBitPackingHybridDecoder(bitWidth, false);
+        decoder.init(new SimpleSliceInputStream(inputSlice));
+        for (int i = 0; i < MAX_VALUES; i += READ_BATCH_SIZE) {
+            decoder.read(output, 0, min(READ_BATCH_SIZE, MAX_VALUES - i));
+        }
+    }
+
+    @Benchmark
+    public void vectorRleBitPackingHybridDecoder()
+    {
+        ValueDecoder<int[]> decoder = new RleBitPackingHybridDecoder(bitWidth, true);
         decoder.init(new SimpleSliceInputStream(inputSlice));
         for (int i = 0; i < MAX_VALUES; i += READ_BATCH_SIZE) {
             decoder.read(output, 0, min(READ_BATCH_SIZE, MAX_VALUES - i));
@@ -167,7 +178,7 @@ public class BenchmarkRleBitPackingDecoder
             throws Exception
     {
         benchmark(BenchmarkRleBitPackingDecoder.class, WarmupMode.BULK)
-                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g"))
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "--add-modules=jdk.incubator.vector"))
                 .run();
     }
 }

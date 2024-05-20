@@ -246,7 +246,7 @@ public final class FlatHash
         long controlMatches = match(controlVector, repeated);
         while (controlMatches != 0) {
             int index = bucket(vectorStartBucket + (Long.numberOfTrailingZeros(controlMatches) >>> 3));
-            if (valueNotDistinctFrom(index, blocks, position, hash)) {
+            if (valueIdentical(index, blocks, position, hash)) {
                 return index;
             }
 
@@ -461,7 +461,7 @@ public final class FlatHash
         }
     }
 
-    private boolean valueNotDistinctFrom(int leftIndex, Block[] rightBlocks, int rightPosition, long rightHash)
+    private boolean valueIdentical(int leftIndex, Block[] rightBlocks, int rightPosition, long rightHash)
     {
         byte[] leftRecords = getRecords(leftIndex);
         int leftRecordOffset = getRecordOffset(leftIndex);
@@ -478,7 +478,7 @@ public final class FlatHash
             leftVariableWidthChunk = variableWidthData.getChunk(leftRecords, leftRecordOffset);
         }
 
-        return flatHashStrategy.valueNotDistinctFrom(
+        return flatHashStrategy.valueIdentical(
                 leftRecords,
                 leftRecordOffset + recordValueOffset,
                 leftVariableWidthChunk,

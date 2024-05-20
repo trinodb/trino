@@ -291,7 +291,7 @@ public class PreAggregateCaseAggregations
                             // Cast pre-projection if needed to match aggregation input type.
                             // This is because entire "CASE WHEN" expression could be wrapped in CAST.
                             Type preProjectionType = getType(preProjection);
-                            Type aggregationInputType = getOnlyElement(key.getFunction().getSignature().getArgumentTypes());
+                            Type aggregationInputType = getOnlyElement(key.getFunction().signature().getArgumentTypes());
                             if (!preProjectionType.equals(aggregationInputType)) {
                                 preProjection = new Cast(preProjection, aggregationInputType);
                                 preProjectionType = aggregationInputType;
@@ -341,7 +341,7 @@ public class PreAggregateCaseAggregations
         }
 
         ResolvedFunction resolvedFunction = aggregation.getResolvedFunction();
-        CatalogSchemaFunctionName name = resolvedFunction.getSignature().getName();
+        CatalogSchemaFunctionName name = resolvedFunction.signature().getName();
         if (!ALLOWED_FUNCTIONS.contains(name)) {
             // only cumulative aggregations (e.g. that can be split into aggregation of aggregations) are supported
             return Optional.empty();
@@ -366,7 +366,7 @@ public class PreAggregateCaseAggregations
             return Optional.empty();
         }
 
-        Type aggregationType = resolvedFunction.getSignature().getReturnType();
+        Type aggregationType = resolvedFunction.signature().getReturnType();
         ResolvedFunction cumulativeFunction;
         try {
             cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(name.getFunctionName(), fromTypes(aggregationType));
@@ -376,7 +376,7 @@ public class PreAggregateCaseAggregations
             return Optional.empty();
         }
 
-        if (!cumulativeFunction.getSignature().getReturnType().equals(aggregationType)) {
+        if (!cumulativeFunction.signature().getReturnType().equals(aggregationType)) {
             // aggregation type after rewrite must not change
             return Optional.empty();
         }

@@ -96,6 +96,7 @@ public class TaskResource
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
+    private final StartupStatus startupStatus;
     private final SqlTaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final Executor responseExecutor;
@@ -106,12 +107,14 @@ public class TaskResource
 
     @Inject
     public TaskResource(
+            StartupStatus startupStatus,
             SqlTaskManager taskManager,
             SessionPropertyManager sessionPropertyManager,
             @ForAsyncHttp BoundedExecutor responseExecutor,
             @ForAsyncHttp ScheduledExecutorService timeoutExecutor,
             FailureInjector failureInjector)
     {
+        this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
@@ -143,8 +146,11 @@ public class TaskResource
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
+        if (failRequestIfInvalid(asyncResponse)) {
+            return;
+        }
 
-        Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials(), taskUpdateRequest.getExchangeEncryptionKey());
+        Session session = taskUpdateRequest.session().toSession(sessionPropertyManager, taskUpdateRequest.extraCredentials(), taskUpdateRequest.exchangeEncryptionKey());
 
         if (injectFailure(session.getTraceToken(), taskId, RequestType.CREATE_OR_UPDATE_TASK, asyncResponse)) {
             return;
@@ -153,12 +159,12 @@ public class TaskResource
         TaskInfo taskInfo = taskManager.updateTask(
                 session,
                 taskId,
-                taskUpdateRequest.getStageSpan(),
-                taskUpdateRequest.getFragment(),
-                taskUpdateRequest.getSplitAssignments(),
-                taskUpdateRequest.getOutputIds(),
-                taskUpdateRequest.getDynamicFilterDomains(),
-                taskUpdateRequest.isSpeculative());
+                taskUpdateRequest.stageSpan(),
+                taskUpdateRequest.fragment(),
+                taskUpdateRequest.splitAssignments(),
+                taskUpdateRequest.outputIds(),
+                taskUpdateRequest.dynamicFilterDomains(),
+                taskUpdateRequest.speculative());
 
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
@@ -179,6 +185,9 @@ public class TaskResource
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
+        if (failRequestIfInvalid(asyncResponse)) {
+            return;
+        }
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_TASK_INFO, asyncResponse)) {
             return;
@@ -221,10 +230,12 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
-            @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
+        if (failRequestIfInvalid(asyncResponse)) {
+            return;
+        }
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_TASK_STATUS, asyncResponse)) {
             return;
@@ -262,11 +273,13 @@ public class TaskResource
     public void acknowledgeAndGetNewDynamicFilterDomains(
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
-            @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
+        if (failRequestIfInvalid(asyncResponse)) {
+            return;
+        }
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS, asyncResponse)) {
             return;
@@ -307,8 +320,7 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public TaskInfo failTask(
             @PathParam("taskId") TaskId taskId,
-            FailTaskRequest failTaskRequest,
-            @Context UriInfo uriInfo)
+            FailTaskRequest failTaskRequest)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(failTaskRequest, "failTaskRequest is null");
@@ -378,7 +390,6 @@ public class TaskResource
     public void destroyTaskResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
-            @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
@@ -399,6 +410,22 @@ public class TaskResource
     public void pruneCatalogs(Set<CatalogHandle> catalogHandles)
     {
         taskManager.pruneCatalogs(catalogHandles);
+    }
+
+    private boolean failRequestIfInvalid(AsyncResponse asyncResponse)
+    {
+        if (!startupStatus.isStartupComplete()) {
+            // When worker node is restarted after a crash, coordinator may be still unaware of the situation and may attempt to schedule tasks on it.
+            // Ideally the coordinator should not schedule tasks on worker that is not ready, but in pipelined execution there is currently no way to move a task.
+            // Accepting a request too early will likely lead to some failure and HTTP 500 (INTERNAL_SERVER_ERROR) response. The coordinator won't retry on this.
+            // Send 503 (SERVICE_UNAVAILABLE) so that request is retried.
+            asyncResponse.resume(Response.status(Status.SERVICE_UNAVAILABLE)
+                    .type(MediaType.TEXT_PLAIN_TYPE)
+                    .entity("The server is not fully started yet ")
+                    .build());
+            return true;
+        }
+        return false;
     }
 
     private boolean injectFailure(

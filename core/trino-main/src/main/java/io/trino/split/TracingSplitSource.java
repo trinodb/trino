@@ -60,7 +60,7 @@ public class TracingSplitSource
                 .startSpan();
 
         ListenableFuture<SplitBatch> future;
-        try (var ignored = span.makeCurrent()) {
+        try (var _ = span.makeCurrent()) {
             future = source.getNextBatch(maxSize);
         }
         catch (Throwable t) {

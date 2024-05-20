@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.containers.HiveHadoop;
@@ -47,12 +48,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 final class TestBridgingHiveMetastore
         extends AbstractTestHiveMetastore
 {
-    private final HiveHadoop hiveHadoop;
+    private final AutoCloseableCloser closer = AutoCloseableCloser.create();
     private final HiveMetastore metastore;
 
     TestBridgingHiveMetastore()
     {
-        hiveHadoop = HiveHadoop.builder().build();
+        HiveHadoop hiveHadoop = closer.register(HiveHadoop.builder().build());
         hiveHadoop.start();
 
         MetastoreClientAdapterProvider metastoreClientAdapterProvider = delegate -> newProxy(ThriftMetastoreClient.class, (proxy, method, methodArgs) -> {
@@ -72,13 +73,14 @@ final class TestBridgingHiveMetastore
         metastore = new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
                 .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint(), metastoreClientAdapterProvider)
                 .thriftMetastoreConfig(new ThriftMetastoreConfig().setDeleteFilesOnDrop(true))
-                .build());
+                .build(closer::register));
     }
 
     @AfterAll
     void afterAll()
+            throws Exception
     {
-        hiveHadoop.stop();
+        closer.close();
     }
 
     @Override

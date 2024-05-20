@@ -243,7 +243,8 @@ public final class TimeZoneKey
             return false;
         }
         TimeZoneKey other = (TimeZoneKey) obj;
-        return Objects.equals(this.id, other.id) && Objects.equals(this.key, other.key);
+        return this.key == other.key &&
+               Objects.equals(this.id, other.id);
     }
 
     @Override

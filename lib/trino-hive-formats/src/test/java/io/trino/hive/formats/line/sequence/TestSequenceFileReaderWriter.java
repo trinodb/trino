@@ -53,6 +53,7 @@ import static io.trino.hive.formats.FormatTestUtils.COMPRESSION;
 import static io.trino.hive.formats.FormatTestUtils.configureCompressionCodecs;
 import static io.trino.hive.formats.ReadWriteUtils.findFirstSyncPosition;
 import static io.trino.hive.formats.compression.CompressionKind.LZOP;
+import static io.trino.hive.formats.compression.CompressionKind.ZSTD;
 import static io.trino.hive.formats.line.sequence.SequenceFileWriter.TRINO_SEQUENCE_FILE_WRITER_VERSION;
 import static io.trino.hive.formats.line.sequence.SequenceFileWriter.TRINO_SEQUENCE_FILE_WRITER_VERSION_METADATA_KEY;
 import static java.lang.Math.toIntExact;
@@ -88,7 +89,7 @@ public class TestSequenceFileReaderWriter
             throws Exception
     {
         for (Optional<CompressionKind> compressionKind : COMPRESSION) {
-            if (compressionKind.equals(Optional.of(LZOP))) {
+            if (compressionKind.equals(Optional.of(LZOP)) || compressionKind.equals(Optional.of(ZSTD))) {
                 continue;
             }
             for (boolean blockCompressed : ImmutableList.of(true)) {

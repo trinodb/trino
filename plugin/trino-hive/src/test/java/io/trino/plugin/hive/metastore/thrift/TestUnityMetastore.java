@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.spi.connector.SchemaTableName;
@@ -38,7 +39,7 @@ final class TestUnityMetastore
         String databricksHost = requireNonNull(System.getenv("DATABRICKS_HOST"), "Environment variable not set: DATABRICKS_HOST");
         String databricksToken = requireNonNull(System.getenv("DATABRICKS_TOKEN"), "Environment variable not set: DATABRICKS_TOKEN");
         String databricksCatalogName = requireNonNull(System.getenv("DATABRICKS_UNITY_CATALOG_NAME"), "Environment variable not set: DATABRICKS_UNITY_CATALOG_NAME");
-        URI metastoreUri = URI.create("https://%s:443/api/2.0/unity-hms-proxy/metadata".formatted(databricksHost));
+        URI metastoreUri = URI.create("https://%s:443/api/2.0/unity-hms-proxy/metadata" .formatted(databricksHost));
 
         ThriftHttpMetastoreConfig config = new ThriftHttpMetastoreConfig()
                 .setAuthenticationMode(BEARER)
@@ -47,18 +48,20 @@ final class TestUnityMetastore
         ThriftMetastoreClient client = ((ThriftMetastoreClientFactory) new HttpThriftMetastoreClientFactory(config, new TestingNodeManager(), OpenTelemetry.noop()))
                 .create(metastoreUri, Optional.empty());
 
-        HiveMetastore metastore = new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
-                .metastoreClient(client)
-                .thriftMetastoreConfig(new ThriftMetastoreConfig().setDeleteFilesOnDrop(true))
-                .build());
+        try (var closer = AutoCloseableCloser.create()) {
+            HiveMetastore metastore = new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
+                    .metastoreClient(client)
+                    .thriftMetastoreConfig(new ThriftMetastoreConfig().setDeleteFilesOnDrop(true))
+                    .build(closer::register));
 
-        List<TableInfo> tables = metastore.getAllDatabases().stream()
-                .map(metastore::getTables)
-                .flatMap(List::stream)
-                .toList();
-        assertThat(tables).isNotEmpty();
+            List<TableInfo> tables = metastore.getAllDatabases().stream()
+                    .map(metastore::getTables)
+                    .flatMap(List::stream)
+                    .toList();
+            assertThat(tables).isNotEmpty();
 
-        SchemaTableName schemaTableName = tables.getFirst().tableName();
-        assertThat(metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())).isPresent();
+            SchemaTableName schemaTableName = tables.getFirst().tableName();
+            assertThat(metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())).isPresent();
+        }
     }
 }

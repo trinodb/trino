@@ -1311,7 +1311,7 @@ public class QueryStateMachine
     {
         // Execution start time is empty if planning has not started
         return queryStateTimer.getExecutionStartTime()
-                .map(ignored -> queryStateTimer.getPlanningTime());
+                .map(_ -> queryStateTimer.getPlanningTime());
     }
 
     public DateTime getLastHeartbeat()
@@ -1492,8 +1492,15 @@ public class QueryStateMachine
                 queryStats.getFailedPhysicalWrittenDataSize(),
                 queryStats.getStageGcStatistics(),
                 queryStats.getDynamicFiltersStats(),
-                ImmutableList.of(),
-                ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially DirectExchangeClientStatus) can hold onto a large amount of memory
+                ImmutableList.of(), // Remove the operator summaries as OperatorInfo (especially DirectExchangeClientStatus) can hold onto a large amount of memory
+                ImmutableList.of());
+    }
+
+    public boolean isQueryInfoPruned()
+    {
+        return finalQueryInfo.get()
+                .map(QueryInfo::isPruned)
+                .orElse(false);
     }
 
     private QueryOutputManager getOutputManager()

@@ -169,7 +169,7 @@ public class PushPredicateIntoTableScan
                 decomposedPredicate.getRemainingExpression());
         Map<String, ColumnHandle> connectorExpressionAssignments = node.getAssignments()
                 .entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
@@ -184,7 +184,7 @@ public class PushPredicateIntoTableScan
                             splitExpression.getDeterministicPredicate(),
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
-                            DomainTranslator.toPredicate(newDomain.simplify().transformKeys(assignments::get))));
+                            new DomainTranslator(plannerContext.getMetadata()).toPredicate(newDomain.simplify().transformKeys(assignments::get))));
             constraint = new Constraint(newDomain, expressionTranslation.connectorExpression(), connectorExpressionAssignments, evaluator::isCandidate, evaluator.getArguments());
         }
         else {
@@ -257,7 +257,7 @@ public class PushPredicateIntoTableScan
         }
         else {
             Map<String, Symbol> variableMappings = assignments.values().stream()
-                    .collect(toImmutableMap(Symbol::getName, Function.identity()));
+                    .collect(toImmutableMap(Symbol::name, Function.identity()));
             Expression translatedExpression = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings);
             // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
             // by ensuring expression is optimized.
@@ -269,7 +269,7 @@ public class PushPredicateIntoTableScan
                 plannerContext,
                 session,
                 splitExpression.getDynamicFilter(),
-                DomainTranslator.toPredicate(remainingFilter.transformKeys(assignments::get)),
+                new DomainTranslator(plannerContext.getMetadata()).toPredicate(remainingFilter.transformKeys(assignments::get)),
                 splitExpression.getNonDeterministicPredicate(),
                 remainingDecomposedPredicate);
 

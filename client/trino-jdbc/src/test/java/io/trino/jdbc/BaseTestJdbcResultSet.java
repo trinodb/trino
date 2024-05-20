@@ -1149,13 +1149,15 @@ public abstract class BaseTestJdbcResultSet
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Max rows exceeds limit of 2147483647")
+    @Test
     public void testMaxRowsExceedsLimit()
             throws Exception
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
             connectedStatement.getStatement().setLargeMaxRows(Integer.MAX_VALUE * 10L);
-            connectedStatement.getStatement().getMaxRows();
+            assertThatThrownBy(connectedStatement.getStatement()::getMaxRows)
+                    .isInstanceOf(SQLException.class)
+                    .hasMessage("Max rows exceeds limit of 2147483647");
         }
     }
 

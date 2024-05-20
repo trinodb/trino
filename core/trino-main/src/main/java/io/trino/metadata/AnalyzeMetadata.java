@@ -17,24 +17,11 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 
 import static java.util.Objects.requireNonNull;
 
-public class AnalyzeMetadata
+public record AnalyzeMetadata(TableStatisticsMetadata statisticsMetadata, TableHandle tableHandle)
 {
-    private final TableStatisticsMetadata statisticsMetadata;
-    private final TableHandle tableHandle;
-
-    public AnalyzeMetadata(TableStatisticsMetadata statisticsMetadata, TableHandle tableHandle)
+    public AnalyzeMetadata
     {
-        this.statisticsMetadata = requireNonNull(statisticsMetadata, "statisticsMetadata is null");
-        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-    }
-
-    public TableStatisticsMetadata getStatisticsMetadata()
-    {
-        return statisticsMetadata;
-    }
-
-    public TableHandle getTableHandle()
-    {
-        return tableHandle;
+        requireNonNull(statisticsMetadata, "statisticsMetadata is null");
+        requireNonNull(tableHandle, "tableHandle is null");
     }
 }

@@ -19,7 +19,6 @@ import com.google.common.reflect.ClassPath;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.log.Logger;
 import io.minio.BucketExistsArgs;
 import io.minio.CloseableIterator;
@@ -31,15 +30,16 @@ import io.minio.MakeBucketArgs;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.Result;
+import io.minio.http.HttpUtils;
 import io.minio.messages.Event;
 import io.minio.messages.NotificationRecords;
+import okhttp3.OkHttpClient;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
@@ -47,10 +47,14 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.minio.messages.EventType.OBJECT_ACCESSED_ANY;
 import static io.minio.messages.EventType.OBJECT_CREATED_ANY;
 import static io.minio.messages.EventType.OBJECT_REMOVED_ANY;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.regex.Matcher.quoteReplacement;
 
 public class MinioClient
@@ -64,8 +68,9 @@ public class MinioClient
 
     private static final Set<String> createdBuckets = Sets.newConcurrentHashSet();
 
+    private final OkHttpClient httpClient;
     private final io.minio.MinioClient client;
-    private final ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(32));
+    private final ListeningExecutorService executor = listeningDecorator(newFixedThreadPool(32, daemonThreadsNamed("minio-client-%s")));
 
     private static final String[] ALL_MINIO_EVENTS = new String[] {
             OBJECT_CREATED_ANY.toString(),
@@ -80,7 +85,13 @@ public class MinioClient
 
     public MinioClient(String endpoint, String accessKey, String secretKey)
     {
+        // This is Minio default HTTP client creation code with timeout values copied from MinioClient.builder()
+        long fiveMinutes = MINUTES.toMillis(5);
+        httpClient = HttpUtils.newDefaultHttpClient(fiveMinutes, fiveMinutes, fiveMinutes);
         client = io.minio.MinioClient.builder()
+                // Pass explicit HTTP client instance to MinioClient builder. This seems the only way
+                // to be able to close the client properly later on.
+                .httpClient(httpClient)
                 .endpoint(endpoint)
                 .credentials(accessKey, secretKey)
                 .build();
@@ -244,6 +255,8 @@ public class MinioClient
     @Override
     public void close()
     {
+        httpClient.dispatcher().executorService().shutdown();
+        httpClient.connectionPool().evictAll();
         executor.shutdownNow();
     }
 

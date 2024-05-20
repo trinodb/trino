@@ -80,24 +80,14 @@ public class DateAdd
 
     private static long add(long picos, Slice unit, long value)
     {
-        long delta = value;
         String unitString = unit.toStringAscii().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                delta = (delta % MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND;
-                break;
-            case "second":
-                delta = (delta % SECONDS_PER_DAY) * PICOSECONDS_PER_SECOND;
-                break;
-            case "minute":
-                delta = (delta % MINUTES_PER_DAY) * PICOSECONDS_PER_MINUTE;
-                break;
-            case "hour":
-                delta = (delta % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
-                break;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        long delta = switch (unitString) {
+            case "millisecond" -> (value % MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND;
+            case "second" -> (value % SECONDS_PER_DAY) * PICOSECONDS_PER_SECOND;
+            case "minute" -> (value % MINUTES_PER_DAY) * PICOSECONDS_PER_MINUTE;
+            case "hour" -> (value % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        };
         return TimeOperators.add(picos, delta);
     }
 }

@@ -1371,18 +1371,16 @@ public final class SqlFormatter
         @Override
         protected Void visitShowCreate(ShowCreate node, Integer indent)
         {
-            if (node.getType() == ShowCreate.Type.TABLE) {
-                builder.append("SHOW CREATE TABLE ")
-                        .append(formatName(node.getName()));
-            }
-            else if (node.getType() == ShowCreate.Type.VIEW) {
-                builder.append("SHOW CREATE VIEW ")
-                        .append(formatName(node.getName()));
-            }
-            else if (node.getType() == ShowCreate.Type.MATERIALIZED_VIEW) {
-                builder.append("SHOW CREATE MATERIALIZED VIEW ")
-                        .append(formatName(node.getName()));
-            }
+            builder.append("SHOW CREATE ")
+                    .append(switch (node.getType()) {
+                        case SCHEMA -> "SCHEMA";
+                        case TABLE -> "TABLE";
+                        case VIEW -> "VIEW";
+                        case MATERIALIZED_VIEW -> "MATERIALIZED VIEW";
+                        case FUNCTION -> "FUNCTION";
+                    })
+                    .append(" ")
+                    .append(formatName(node.getName()));
             return null;
         }
 
@@ -1630,31 +1628,18 @@ public final class SqlFormatter
             return null;
         }
 
-        private String formatPropertiesMultiLine(List<Property> properties)
+        private static String formatPropertiesMultiLine(List<Property> properties)
         {
             if (properties.isEmpty()) {
                 return "";
             }
 
-            String propertyList = properties.stream()
-                    .map(element -> INDENT +
-                            formatName(element.getName()) + " = " +
-                            (element.isSetToDefault() ? "DEFAULT" : formatExpression(element.getNonDefaultValue())))
-                    .collect(joining(",\n"));
-
-            return "\nWITH (\n" + propertyList + "\n)";
+            return properties.stream()
+                    .map(property -> INDENT + formatProperty(property))
+                    .collect(joining(",\n", "\nWITH (\n", "\n)"));
         }
 
-        private String formatPropertiesSingleLine(List<Property> properties)
-        {
-            if (properties.isEmpty()) {
-                return "";
-            }
-
-            return " WITH ( " + joinProperties(properties) + " )";
-        }
-
-        private String formatColumnDefinition(ColumnDefinition column)
+        private static String formatColumnDefinition(ColumnDefinition column)
         {
             StringBuilder builder = new StringBuilder()
                     .append(formatName(column.getName()))
@@ -1665,7 +1650,11 @@ public final class SqlFormatter
             column.getComment().ifPresent(comment -> builder
                     .append(" COMMENT ")
                     .append(formatStringLiteral(comment)));
-            builder.append(formatPropertiesSingleLine(column.getProperties()));
+            if (!column.getProperties().isEmpty()) {
+                builder.append(" WITH (")
+                        .append(joinProperties(column.getProperties()))
+                        .append(")");
+            }
             return builder.toString();
         }
 
@@ -1730,12 +1719,17 @@ public final class SqlFormatter
             return null;
         }
 
-        private String joinProperties(List<Property> properties)
+        private static String joinProperties(List<Property> properties)
         {
             return properties.stream()
-                    .map(element -> formatName(element.getName()) + " = " +
-                            (element.isSetToDefault() ? "DEFAULT" : formatExpression(element.getNonDefaultValue())))
+                    .map(Formatter::formatProperty)
                     .collect(joining(", "));
+        }
+
+        private static String formatProperty(Property property)
+        {
+            return formatName(property.getName()) + " = " +
+                    (property.isSetToDefault() ? "DEFAULT" : formatExpression(property.getNonDefaultValue()));
         }
 
         @Override

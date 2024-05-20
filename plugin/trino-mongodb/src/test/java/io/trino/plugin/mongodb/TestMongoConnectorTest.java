@@ -52,7 +52,6 @@ import java.util.Set;
 import static com.mongodb.client.model.CollationCaseFirst.LOWER;
 import static com.mongodb.client.model.CollationStrength.PRIMARY;
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -76,7 +75,9 @@ public class TestMongoConnectorTest
     {
         server = new MongoServer();
         client = createMongoClient(server);
-        return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return MongoQueryRunner.builder(server)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @BeforeAll
@@ -99,16 +100,16 @@ public class TestMongoConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_FIELD,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DROP_FIELD,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_RENAME_FIELD,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_SET_FIELD_TYPE,
-                    SUPPORTS_TRUNCATE,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DROP_FIELD,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_RENAME_FIELD,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_SET_FIELD_TYPE,
+                 SUPPORTS_TRUNCATE,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -144,6 +145,17 @@ public class TestMongoConnectorTest
         assertExplain(
                 "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
                 "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
+    }
+
+    @Test
+    @Override // Override because the failure message is different
+    public void testSelectVersionOfNonExistentTable()
+    {
+        String tableName = "foo_" + randomNameSuffix();
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))
+                .failure().hasMessage("This connector does not support versioned tables");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'version1'"))
+                .failure().hasMessage("This connector does not support versioned tables");
     }
 
     @Override
@@ -691,9 +703,8 @@ public class TestMongoConnectorTest
                 .append("x", new DBRef("test_db", "test_collection", 1));
         client.getDatabase("test").getCollection(tableName).insertOne(document);
 
-        // TODO Fix MongoPageSource to throw TrinoException
         assertThat(query("SELECT * FROM test." + tableName))
-                .nonTrinoExceptionFailure().hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
+                .failure().hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
 
         assertUpdate("DROP TABLE test." + tableName);
     }

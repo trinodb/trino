@@ -42,6 +42,7 @@ public class TestInternalFieldConflict
             throws Exception
     {
         TestingKafka testingKafka = closeAfterClass(TestingKafka.create());
+        testingKafka.start();
         topicWithDefaultPrefixes = new SchemaTableName("default", "test_" + randomNameSuffix());
         topicWithCustomPrefixes = new SchemaTableName("default", "test_" + randomNameSuffix());
         return KafkaQueryRunner.builder(testingKafka)
@@ -54,7 +55,7 @@ public class TestInternalFieldConflict
                                 topicWithCustomPrefixes,
                                 createOneFieldDescription("unpredictable_prefix_key", createVarcharType(15)),
                                 ImmutableList.of(createOneFieldDescription("custkey", BIGINT), createOneFieldDescription("acctbal", DOUBLE)))))
-                .setExtraKafkaProperties(ImmutableMap.of("kafka.internal-column-prefix", "unpredictable_prefix_"))
+                .addConnectorProperties(ImmutableMap.of("kafka.internal-column-prefix", "unpredictable_prefix_"))
                 .build();
     }
 

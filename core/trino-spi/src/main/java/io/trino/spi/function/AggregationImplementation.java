@@ -26,36 +26,31 @@ import static java.util.Objects.requireNonNull;
 public class AggregationImplementation
 {
     private final MethodHandle inputFunction;
-    private final Optional<MethodHandle> removeInputFunction;
     private final Optional<MethodHandle> combineFunction;
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
     private final List<Class<?>> lambdaInterfaces;
+    private final Optional<Class<? extends WindowAccumulator>> windowAccumulator;
 
     private AggregationImplementation(
             MethodHandle inputFunction,
-            Optional<MethodHandle> removeInputFunction,
             Optional<MethodHandle> combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
-            List<Class<?>> lambdaInterfaces)
+            List<Class<?>> lambdaInterfaces,
+            Optional<Class<? extends WindowAccumulator>> windowAccumulator)
     {
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
-        this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
         this.lambdaInterfaces = List.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
+        this.windowAccumulator = windowAccumulator;
     }
 
     public MethodHandle getInputFunction()
     {
         return inputFunction;
-    }
-
-    public Optional<MethodHandle> getRemoveInputFunction()
-    {
-        return removeInputFunction;
     }
 
     public Optional<MethodHandle> getCombineFunction()
@@ -76,6 +71,11 @@ public class AggregationImplementation
     public List<Class<?>> getLambdaInterfaces()
     {
         return lambdaInterfaces;
+    }
+
+    public Optional<Class<? extends WindowAccumulator>> getWindowAccumulator()
+    {
+        return windowAccumulator;
     }
 
     public static class AccumulatorStateDescriptor<T extends AccumulatorState>
@@ -150,23 +150,17 @@ public class AggregationImplementation
     public static class Builder
     {
         private MethodHandle inputFunction;
-        private Optional<MethodHandle> removeInputFunction = Optional.empty();
         private Optional<MethodHandle> combineFunction = Optional.empty();
         private MethodHandle outputFunction;
         private List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors = new ArrayList<>();
         private List<Class<?>> lambdaInterfaces = List.of();
+        private Optional<Class<? extends WindowAccumulator>> windowAccumulator = Optional.empty();
 
         private Builder() {}
 
         public Builder inputFunction(MethodHandle inputFunction)
         {
             this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
-            return this;
-        }
-
-        public Builder removeInputFunction(MethodHandle removeInputFunction)
-        {
-            this.removeInputFunction = Optional.of(requireNonNull(removeInputFunction, "removeInputFunction is null"));
             return this;
         }
 
@@ -211,15 +205,21 @@ public class AggregationImplementation
             return this;
         }
 
+        public Builder windowAccumulator(Class<? extends WindowAccumulator> windowAccumulator)
+        {
+            this.windowAccumulator = Optional.of(requireNonNull(windowAccumulator, "windowAccumulator is null"));
+            return this;
+        }
+
         public AggregationImplementation build()
         {
             return new AggregationImplementation(
                     inputFunction,
-                    removeInputFunction,
                     combineFunction,
                     outputFunction,
                     accumulatorStateDescriptors,
-                    lambdaInterfaces);
+                    lambdaInterfaces,
+                    windowAccumulator);
         }
     }
 }

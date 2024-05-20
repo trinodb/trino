@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
@@ -53,17 +54,17 @@ public class TestSetColumnTypeTask
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .isEqualTo(ImmutableList.of(new ColumnMetadata("test", BIGINT)));
 
         // Change the column type to integer from bigint
         getFutureValue(executeSetColumnType(asQualifiedName(tableName), QualifiedName.of("test"), toSqlType(INTEGER), false));
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .isEqualTo(ImmutableList.of(new ColumnMetadata("test", INTEGER)));
 
         // Specify the same column type
         getFutureValue(executeSetColumnType(asQualifiedName(tableName), QualifiedName.of("test"), toSqlType(INTEGER), false));
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .isEqualTo(ImmutableList.of(new ColumnMetadata("test", INTEGER)));
     }
 
@@ -102,7 +103,7 @@ public class TestSetColumnTypeTask
     public void testSetDataTypeOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetColumnType(asQualifiedName(viewName), QualifiedName.of("test"), toSqlType(INTEGER), false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -148,7 +149,7 @@ public class TestSetColumnTypeTask
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT), new RowType.Field(Optional.of("a"), BIGINT)), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .isEqualTo(ImmutableList.of(new ColumnMetadata("col", RowType.rowType(
                         new RowType.Field(Optional.of("a"), BIGINT), new RowType.Field(Optional.of("a"), BIGINT)))));
 

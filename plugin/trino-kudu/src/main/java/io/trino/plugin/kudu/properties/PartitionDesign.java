@@ -42,7 +42,7 @@ public class PartitionDesign
 
     public boolean hasPartitions()
     {
-        return hash != null && !hash.isEmpty() && !hash.get(0).getColumns().isEmpty()
-                || range != null && !range.getColumns().isEmpty();
+        return hash != null && !hash.isEmpty() && !hash.get(0).columns().isEmpty()
+                || range != null && !range.columns().isEmpty();
     }
 }

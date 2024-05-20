@@ -457,7 +457,7 @@ public class RcFileReader
         try {
             close();
         }
-        catch (IOException ignored) {
+        catch (IOException _) {
         }
     }
 

@@ -15,6 +15,7 @@ package io.trino.filesystem.azure;
 
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
+import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.file.datalake.DataLakeFileSystemClient;
 import com.azure.storage.file.datalake.DataLakeServiceClient;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
@@ -60,6 +61,7 @@ public abstract class AbstractTestAzureFileSystem
     private String containerName;
     private Location rootLocation;
     private BlobContainerClient blobContainerClient;
+    private AzureFileSystemFactory fileSystemFactory;
     private TrinoFileSystem fileSystem;
 
     protected void initializeWithAccessKey(String account, String accountKey, AccountKind accountKind)
@@ -99,10 +101,11 @@ public abstract class AbstractTestAzureFileSystem
             checkState(!isHierarchicalNamespaceEnabled, "Expected hierarchical namespaces to not be enabled for storage account %s and container %s with account kind %s".formatted(account, containerName, accountKind));
         }
 
-        fileSystem = new AzureFileSystemFactory(
+        fileSystemFactory = new AzureFileSystemFactory(
                 OpenTelemetry.noop(),
                 azureAuth,
-                new AzureFileSystemConfig()).create(ConnectorIdentity.ofUser("test"));
+                new AzureFileSystemConfig());
+        fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
 
         cleanupFiles();
     }
@@ -123,6 +126,10 @@ public abstract class AbstractTestAzureFileSystem
     void tearDown()
     {
         azureAuth = null;
+        if (fileSystemFactory != null) {
+            fileSystemFactory.destroy();
+            fileSystemFactory = null;
+        }
         fileSystem = null;
         if (blobContainerClient != null) {
             blobContainerClient.deleteIfExists();
@@ -185,7 +192,7 @@ public abstract class AbstractTestAzureFileSystem
     @Override
     protected final void verifyFileSystemIsEmpty()
     {
-        assertThat(blobContainerClient.listBlobs()).isEmpty();
+        assertThat(blobContainerClient.listBlobs()).map(BlobItem::getName).isEmpty();
     }
 
     @Override

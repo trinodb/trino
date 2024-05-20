@@ -13,58 +13,50 @@
  */
 package io.trino.plugin.hive;
 
-import com.amazonaws.services.s3.AmazonS3;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.util.CanIgnoreReturnValue;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 
 public class S3Assert
 {
-    private final AmazonS3 s3;
-    private final String path;
+    private static final Pattern S3_LOCATION_PATTERN = Pattern.compile("s3://(?<bucket>[^/]+)/(?<key>.+)");
+
+    private final S3Client s3;
     private final String bucket;
     private final String key;
 
-    public S3Assert(AmazonS3 s3, String path)
-    {
-        this(
-                s3,
-                path,
-                regexpExtract(path, "s3://([^/]+)/(.+)", 1),
-                regexpExtract(path, "s3://([^/]+)/(.+)", 2));
-    }
-
-    public S3Assert(AmazonS3 s3, String path, String bucket, String key)
+    private S3Assert(S3Client s3, String path)
     {
         this.s3 = requireNonNull(s3, "s3 is null");
-        this.path = requireNonNull(path, "path is null");
-        this.bucket = requireNonNull(bucket, "bucket is null");
-        this.key = requireNonNull(key, "key is null");
+        requireNonNull(path, "path is null");
+        Matcher matcher = S3_LOCATION_PATTERN.matcher(path);
+        checkArgument(matcher.matches(), "Invalid S3 location: %s", path);
+        this.bucket = matcher.group("bucket");
+        this.key = matcher.group("key");
     }
 
-    public static AssertProvider<S3Assert> s3Path(AmazonS3 s3, String path)
+    public static AssertProvider<S3Assert> s3Path(S3Client s3, String path)
     {
         return () -> new S3Assert(s3, path);
-    }
-
-    private static String regexpExtract(String input, String regex, int group)
-    {
-        Matcher matcher = Pattern.compile(regex).matcher(input);
-        verify(matcher.matches(), "Does not match [%s]: [%s]", matcher.pattern(), input);
-        return matcher.group(group);
     }
 
     @CanIgnoreReturnValue
     public S3Assert exists()
     {
-        assertThat(s3.doesObjectExist(bucket, key)).as("Existence of %s", path)
-                .isTrue();
+        try {
+            s3.headObject(request -> request.bucket(bucket).key(key));
+        }
+        catch (NoSuchKeyException _) {
+            fail("Specified Object bucket=[%s] key=[%s] does not exist", bucket, key);
+        }
         return this;
     }
 }

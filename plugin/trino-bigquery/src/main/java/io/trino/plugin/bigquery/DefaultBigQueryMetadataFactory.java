@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 
-import static io.trino.plugin.bigquery.BigQueryConnectorModule.ForBigQuery;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultBigQueryMetadataFactory
@@ -25,18 +24,24 @@ public class DefaultBigQueryMetadataFactory
     private final BigQueryClientFactory bigQueryClient;
     private final ListeningExecutorService executorService;
     private final BigQueryTypeManager typeManager;
+    private final boolean isLegacyMetadataListing;
 
     @Inject
-    public DefaultBigQueryMetadataFactory(BigQueryClientFactory bigQueryClient, BigQueryTypeManager typeManager, @ForBigQuery ListeningExecutorService executorService)
+    public DefaultBigQueryMetadataFactory(
+            BigQueryClientFactory bigQueryClient,
+            BigQueryTypeManager typeManager,
+            ListeningExecutorService executorService,
+            BigQueryConfig config)
     {
         this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
+        this.isLegacyMetadataListing = config.isLegacyMetadataListing();
     }
 
     @Override
     public BigQueryMetadata create(BigQueryTransactionHandle transaction)
     {
-        return new BigQueryMetadata(bigQueryClient, typeManager, executorService);
+        return new BigQueryMetadata(bigQueryClient, typeManager, executorService, isLegacyMetadataListing);
     }
 }

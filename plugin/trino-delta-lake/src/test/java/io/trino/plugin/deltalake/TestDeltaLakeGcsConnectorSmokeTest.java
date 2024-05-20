@@ -23,12 +23,9 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
-import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
-import io.trino.hdfs.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.QueryRunner;
-import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -48,9 +45,9 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -79,8 +76,8 @@ public class TestDeltaLakeGcsConnectorSmokeTest
 
     public TestDeltaLakeGcsConnectorSmokeTest()
     {
-        this.gcpStorageBucket = requireNonNull(System.getProperty("testing.gcp-storage-bucket"), "GCP storage bucket is null");
-        this.gcpCredentialKey = requireNonNull(System.getProperty("testing.gcp-credentials-key"), "GCP credential key is null");
+        this.gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
+        this.gcpCredentialKey = requiredNonEmptySystemProperty("testing.gcp-credentials-key");
     }
 
     @Override
@@ -92,9 +89,6 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             this.gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
             gcpCredentialsFile.toFile().deleteOnExit();
             Files.write(gcpCredentialsFile, jsonKeyBytes);
-            HiveGcsConfig gcsConfig = new HiveGcsConfig().setJsonKey(gcpCredentials);
-            Configuration configuration = new Configuration(false);
-            new GoogleGcsConfigurationInitializer(gcsConfig).initializeConfiguration(configuration);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -183,7 +177,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             throw new UncheckedIOException(e);
         }
 
-        queryRunner.execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, table, getLocationForTable(bucketName, table)));
+        queryRunner.execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", table, getLocationForTable(bucketName, table)));
     }
 
     @Override

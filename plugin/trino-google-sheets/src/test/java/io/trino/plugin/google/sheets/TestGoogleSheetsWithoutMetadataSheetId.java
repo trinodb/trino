@@ -28,7 +28,7 @@ public class TestGoogleSheetsWithoutMetadataSheetId
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createSheetsQueryRunner(ImmutableMap.of(), ImmutableMap.of("gsheets.read-timeout", "1m"));
+        return createSheetsQueryRunner(ImmutableMap.of("gsheets.read-timeout", "1m"));
     }
 
     @Test

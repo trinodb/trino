@@ -14,11 +14,11 @@
 package io.trino.parquet.predicate;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
 import org.junit.jupiter.api.Test;
@@ -121,7 +121,7 @@ public class TestPredicateUtils
         assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV2(RLE_DICTIONARY, PLAIN))).isFalse();
     }
 
-    private ColumnChunkMetaData createColumnMetaDataV2(Encoding... dataEncodings)
+    private ColumnChunkMetadata createColumnMetaDataV2(Encoding... dataEncodings)
     {
         EncodingStats encodingStats = new EncodingStats.Builder()
                 .withV2Pages()
@@ -130,12 +130,12 @@ public class TestPredicateUtils
 
         PrimitiveType type = Types.optional(BINARY).named("");
         Statistics<?> stats = Statistics.createStats(type);
-        return ColumnChunkMetaData.get(fromDotString("column"), type, UNCOMPRESSED, encodingStats, encodingStats.getDataEncodings(), stats, 0, 0, 1, 1, 1);
+        return ColumnChunkMetadata.get(fromDotString("column"), type, UNCOMPRESSED, encodingStats, encodingStats.getDataEncodings(), stats, 0, 0, 1, 1, 1);
     }
 
     @SuppressWarnings("deprecation")
-    private ColumnChunkMetaData createColumnMetaDataV1(Set<Encoding> encodings)
+    private ColumnChunkMetadata createColumnMetaDataV1(Set<Encoding> encodings)
     {
-        return ColumnChunkMetaData.get(fromDotString("column"), BINARY, UNCOMPRESSED, encodings, new BinaryStatistics(), 0, 0, 1, 1, 1);
+        return ColumnChunkMetadata.get(fromDotString("column"), BINARY, UNCOMPRESSED, encodings, new BinaryStatistics(), 0, 0, 1, 1, 1);
     }
 }

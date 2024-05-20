@@ -52,7 +52,7 @@ public class TestPruneSpatialJoinChildrenColumns
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     Symbol r = p.symbol("r", DOUBLE);
-                    Symbol unused = p.symbol("unused");
+                    Symbol unused = p.symbol("unused", BIGINT);
                     return p.spatialJoin(
                             SpatialJoinNode.Type.INNER,
                             p.values(a, unused),

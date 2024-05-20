@@ -265,7 +265,7 @@ public class StreamingAggregationOperator
 
             Page groupByPage = page.getColumns(groupByChannels);
             if (currentGroup != null) {
-                if (!pagesHashStrategy.rowNotDistinctFromRow(0, currentGroup.getColumns(groupByChannels), 0, groupByPage)) {
+                if (!pagesHashStrategy.rowIdenticalToRow(0, currentGroup.getColumns(groupByChannels), 0, groupByPage)) {
                     // page starts with new group, so flush it
                     evaluateAndFlushGroup(currentGroup, 0);
                 }
@@ -325,7 +325,7 @@ public class StreamingAggregationOperator
         private int findNextGroupStart(int startPosition, Page page)
         {
             for (int i = startPosition + 1; i < page.getPositionCount(); i++) {
-                if (!pagesHashStrategy.rowNotDistinctFromRow(startPosition, page, i, page)) {
+                if (!pagesHashStrategy.rowIdenticalToRow(startPosition, page, i, page)) {
                     return i;
                 }
             }

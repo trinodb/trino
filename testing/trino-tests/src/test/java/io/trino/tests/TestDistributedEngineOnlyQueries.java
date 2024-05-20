@@ -13,15 +13,13 @@
  */
 package io.trino.tests;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.plugin.memory.MemoryQueryRunner;
 import io.trino.testing.AbstractDistributedEngineOnlyQueries;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 
 public class TestDistributedEngineOnlyQueries
         extends AbstractDistributedEngineOnlyQueries
@@ -30,9 +28,11 @@ public class TestDistributedEngineOnlyQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = createMemoryQueryRunner(ImmutableMap.of(), TpchTable.getTables());
-        queryRunner.getCoordinator().getSessionPropertyManager().addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+        QueryRunner queryRunner = MemoryQueryRunner.builder()
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
         try {
+            queryRunner.getCoordinator().getSessionPropertyManager().addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
             queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                     .withSessionProperties(TEST_CATALOG_PROPERTIES)
                     .build()));

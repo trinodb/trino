@@ -29,20 +29,33 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class SingleStoreQueryRunner
+public final class SingleStoreQueryRunner
 {
     private SingleStoreQueryRunner() {}
 
     private static final String TPCH_SCHEMA = "tpch";
 
+    // TODO convert to builder
     public static QueryRunner createSingleStoreQueryRunner(
             TestingSingleStoreServer server,
-            Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).setExtraProperties(extraProperties).build();
+        return createSingleStoreQueryRunner(server, ImmutableMap.of(), connectorProperties, tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createSingleStoreQueryRunner(
+            TestingSingleStoreServer server,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+                .setCoordinatorProperties(coordinatorProperties)
+                .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -58,7 +71,7 @@ public class SingleStoreQueryRunner
             queryRunner.installPlugin(new SingleStorePlugin());
             queryRunner.createCatalog("singlestore", "singlestore", connectorProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
 
             return queryRunner;
         }

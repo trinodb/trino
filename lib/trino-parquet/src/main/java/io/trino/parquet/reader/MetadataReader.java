@@ -20,6 +20,10 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.metadata.FileMetadata;
+import io.trino.parquet.metadata.ParquetMetadata;
 import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.ColumnChunk;
@@ -30,16 +34,11 @@ import org.apache.parquet.format.KeyValue;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SchemaElement;
 import org.apache.parquet.format.Statistics;
-import org.apache.parquet.format.Type;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
-import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
 
@@ -61,6 +60,7 @@ import static io.trino.parquet.ParquetMetadataConverter.convertEncodingStats;
 import static io.trino.parquet.ParquetMetadataConverter.fromParquetStatistics;
 import static io.trino.parquet.ParquetMetadataConverter.getEncoding;
 import static io.trino.parquet.ParquetMetadataConverter.getLogicalTypeAnnotation;
+import static io.trino.parquet.ParquetMetadataConverter.getPrimitive;
 import static io.trino.parquet.ParquetMetadataConverter.toColumnIndexReference;
 import static io.trino.parquet.ParquetMetadataConverter.toOffsetIndexReference;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
@@ -130,11 +130,11 @@ public final class MetadataReader
         validateParquet(!schema.isEmpty(), dataSourceId, "Schema is empty");
 
         MessageType messageType = readParquetSchema(schema);
-        List<BlockMetaData> blocks = new ArrayList<>();
+        List<BlockMetadata> blocks = new ArrayList<>();
         List<RowGroup> rowGroups = fileMetaData.getRow_groups();
         if (rowGroups != null) {
             for (RowGroup rowGroup : rowGroups) {
-                BlockMetaData blockMetaData = new BlockMetaData();
+                BlockMetadata blockMetaData = new BlockMetadata();
                 blockMetaData.setRowCount(rowGroup.getNum_rows());
                 blockMetaData.setTotalByteSize(rowGroup.getTotal_byte_size());
                 List<ColumnChunk> columns = rowGroup.getColumns();
@@ -152,7 +152,7 @@ public final class MetadataReader
                             .toArray(String[]::new);
                     ColumnPath columnPath = ColumnPath.get(path);
                     PrimitiveType primitiveType = messageType.getType(columnPath.toArray()).asPrimitiveType();
-                    ColumnChunkMetaData column = ColumnChunkMetaData.get(
+                    ColumnChunkMetadata column = ColumnChunkMetadata.get(
                             columnPath,
                             primitiveType,
                             CompressionCodecName.fromParquet(metaData.codec),
@@ -181,7 +181,7 @@ public final class MetadataReader
                 keyValueMetaData.put(keyValue.key, keyValue.value);
             }
         }
-        org.apache.parquet.hadoop.metadata.FileMetaData parquetFileMetadata = new org.apache.parquet.hadoop.metadata.FileMetaData(
+        FileMetadata parquetFileMetadata = new FileMetadata(
                 messageType,
                 keyValueMetaData,
                 fileMetaData.getCreated_by());
@@ -207,7 +207,7 @@ public final class MetadataReader
                 readTypeSchema((Types.GroupBuilder<?>) typeBuilder, schemaIterator, element.num_children);
             }
             else {
-                Types.PrimitiveBuilder<?> primitiveBuilder = builder.primitive(getTypeName(element.type), Repetition.valueOf(element.repetition_type.name()));
+                Types.PrimitiveBuilder<?> primitiveBuilder = builder.primitive(getPrimitive(element.type), Repetition.valueOf(element.repetition_type.name()));
                 if (element.isSetType_length()) {
                     primitiveBuilder.length(element.type_length);
                 }
@@ -361,30 +361,7 @@ public final class MetadataReader
         return Collections.unmodifiableSet(columnEncodings);
     }
 
-    private static PrimitiveTypeName getTypeName(Type type)
-    {
-        switch (type) {
-            case BYTE_ARRAY:
-                return PrimitiveTypeName.BINARY;
-            case INT64:
-                return PrimitiveTypeName.INT64;
-            case INT32:
-                return PrimitiveTypeName.INT32;
-            case BOOLEAN:
-                return PrimitiveTypeName.BOOLEAN;
-            case FLOAT:
-                return PrimitiveTypeName.FLOAT;
-            case DOUBLE:
-                return PrimitiveTypeName.DOUBLE;
-            case INT96:
-                return PrimitiveTypeName.INT96;
-            case FIXED_LEN_BYTE_ARRAY:
-                return PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
-        }
-        throw new IllegalArgumentException("Unknown type " + type);
-    }
-
-    private static void validateFileMetadata(ParquetDataSourceId dataSourceId, org.apache.parquet.hadoop.metadata.FileMetaData fileMetaData, Optional<ParquetWriteValidation> parquetWriteValidation)
+    private static void validateFileMetadata(ParquetDataSourceId dataSourceId, FileMetadata fileMetaData, Optional<ParquetWriteValidation> parquetWriteValidation)
             throws ParquetCorruptionException
     {
         if (parquetWriteValidation.isEmpty()) {

@@ -13,76 +13,23 @@
  */
 package io.trino.plugin.memory;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTableHandle;
 
-import java.util.Objects;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
-public final class MemoryTableHandle
+public record MemoryTableHandle(
+        long id,
+        OptionalLong limit,
+        OptionalDouble sampleRatio)
         implements ConnectorTableHandle
 {
-    private final long id;
-    private final OptionalLong limit;
-    private final OptionalDouble sampleRatio;
-
-    public MemoryTableHandle(long id)
+    public MemoryTableHandle
     {
-        this(id, OptionalLong.empty(), OptionalDouble.empty());
-    }
-
-    @JsonCreator
-    public MemoryTableHandle(
-            @JsonProperty("id") long id,
-            @JsonProperty("limit") OptionalLong limit,
-            @JsonProperty("sampleRatio") OptionalDouble sampleRatio)
-    {
-        this.id = id;
-        this.limit = requireNonNull(limit, "limit is null");
-        this.sampleRatio = requireNonNull(sampleRatio, "sampleRatio is null");
-    }
-
-    @JsonProperty
-    public long getId()
-    {
-        return id;
-    }
-
-    @JsonProperty
-    public OptionalLong getLimit()
-    {
-        return limit;
-    }
-
-    @JsonProperty
-    public OptionalDouble getSampleRatio()
-    {
-        return sampleRatio;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        MemoryTableHandle that = (MemoryTableHandle) o;
-        return id == that.id &&
-                limit.equals(that.limit) &&
-                sampleRatio.equals(that.sampleRatio);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(id, limit, sampleRatio);
+        requireNonNull(limit, "limit is null");
+        requireNonNull(sampleRatio, "sampleRatio is null");
     }
 
     @Override

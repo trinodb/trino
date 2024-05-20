@@ -173,7 +173,7 @@ public class FormWebUiAuthenticationFilter
         try {
             builder.uri(new URI(null, null, null, path, null));
         }
-        catch (URISyntaxException ignored) {
+        catch (URISyntaxException _) {
         }
 
         return builder.build();
@@ -221,7 +221,7 @@ public class FormWebUiAuthenticationFilter
             try {
                 redirectLocation = new URI(redirectPath);
             }
-            catch (URISyntaxException ignored) {
+            catch (URISyntaxException _) {
             }
         }
 
@@ -271,17 +271,17 @@ public class FormWebUiAuthenticationFilter
     {
         return newJwtBuilder()
                 .signWith(hmac)
-                .setSubject(username)
-                .setExpiration(Date.from(ZonedDateTime.now().plusNanos(sessionTimeoutNanos).toInstant()))
-                .setAudience(TRINO_UI_AUDIENCE)
+                .subject(username)
+                .expiration(Date.from(ZonedDateTime.now().plusNanos(sessionTimeoutNanos).toInstant()))
+                .audience().add(TRINO_UI_AUDIENCE).and()
                 .compact();
     }
 
     private String parseJwt(String jwt)
     {
         return jwtParser
-                .parseClaimsJws(jwt)
-                .getBody()
+                .parseSignedClaims(jwt)
+                .getPayload()
                 .getSubject();
     }
 

@@ -31,6 +31,7 @@ import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.TimestampType;
@@ -38,7 +39,6 @@ import io.trino.sql.gen.IsolatedClass;
 import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.reflect.Constructor;
 import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
@@ -123,18 +123,12 @@ public class TestAccumulatorCompiler
         assertThat(accumulatorFactory).isNotNull();
 
         // compile window aggregation
-        Constructor<? extends WindowAccumulator> actual = AccumulatorCompiler.generateWindowAccumulatorClass(signature, implementation, functionNullability);
+        var actual = AccumulatorCompiler.generateWindowAccumulatorClass(signature, implementation, functionNullability);
         assertThat(actual).isNotNull();
-        WindowAccumulator windowAccumulator;
-        try {
-            windowAccumulator = actual.newInstance(ImmutableList.of());
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
+        WindowAccumulator windowAccumulator = actual.apply(ImmutableList.of());
         // call the functions to ensure that the code does not reference the wrong state
         windowAccumulator.addInput(new TestWindowIndex(), 0, 5);
-        windowAccumulator.evaluateFinal(new LongArrayBlockBuilder(null, 1));
+        windowAccumulator.output(new LongArrayBlockBuilder(null, 1));
 
         TestingAggregationFunction aggregationFunction = new TestingAggregationFunction(
                 ImmutableList.of(TIMESTAMP_PICOS),

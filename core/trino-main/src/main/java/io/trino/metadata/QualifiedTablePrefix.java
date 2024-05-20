@@ -117,9 +117,9 @@ public class QualifiedTablePrefix
 
     public boolean matches(QualifiedObjectName objectName)
     {
-        return Objects.equals(catalogName, objectName.getCatalogName())
-                && schemaName.map(schema -> Objects.equals(schema, objectName.getSchemaName())).orElse(true)
-                && tableName.map(table -> Objects.equals(table, objectName.getObjectName())).orElse(true);
+        return Objects.equals(catalogName, objectName.catalogName())
+                && schemaName.map(schema -> Objects.equals(schema, objectName.schemaName())).orElse(true)
+                && tableName.map(table -> Objects.equals(table, objectName.objectName())).orElse(true);
     }
 
     @Override

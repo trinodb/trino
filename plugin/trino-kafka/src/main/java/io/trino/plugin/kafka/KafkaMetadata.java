@@ -93,13 +93,13 @@ public class KafkaMetadata
                 .map(kafkaTopicDescription -> new KafkaTableHandle(
                         schemaTableName.getSchemaName(),
                         schemaTableName.getTableName(),
-                        kafkaTopicDescription.getTopicName(),
-                        getDataFormat(kafkaTopicDescription.getKey()),
-                        getDataFormat(kafkaTopicDescription.getMessage()),
-                        kafkaTopicDescription.getKey().flatMap(KafkaTopicFieldGroup::getDataSchema),
-                        kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema),
-                        kafkaTopicDescription.getKey().flatMap(KafkaTopicFieldGroup::getSubject),
-                        kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getSubject),
+                        kafkaTopicDescription.topicName(),
+                        getDataFormat(kafkaTopicDescription.key()),
+                        getDataFormat(kafkaTopicDescription.message()),
+                        kafkaTopicDescription.key().flatMap(KafkaTopicFieldGroup::dataSchema),
+                        kafkaTopicDescription.message().flatMap(KafkaTopicFieldGroup::dataSchema),
+                        kafkaTopicDescription.key().flatMap(KafkaTopicFieldGroup::subject),
+                        kafkaTopicDescription.message().flatMap(KafkaTopicFieldGroup::subject),
                         getColumnHandles(session, schemaTableName).values().stream()
                                 .map(KafkaColumnHandle.class::cast)
                                 .collect(toImmutableList()),
@@ -109,13 +109,13 @@ public class KafkaMetadata
 
     private static String getDataFormat(Optional<KafkaTopicFieldGroup> fieldGroup)
     {
-        return fieldGroup.map(KafkaTopicFieldGroup::getDataFormat).orElse(DummyRowDecoder.NAME);
+        return fieldGroup.map(KafkaTopicFieldGroup::dataFormat).orElse(DummyRowDecoder.NAME);
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(session, ((KafkaTableHandle) tableHandle).toSchemaTableName());
+        return getTableMetadata(session, ((KafkaTableHandle) tableHandle).schemaTableName());
     }
 
     @Override
@@ -129,22 +129,22 @@ public class KafkaMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getColumnHandles(session, ((KafkaTableHandle) tableHandle).toSchemaTableName());
+        return getColumnHandles(session, ((KafkaTableHandle) tableHandle).schemaTableName());
     }
 
     private Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, SchemaTableName schemaTableName)
     {
         KafkaTopicDescription kafkaTopicDescription = getRequiredTopicDescription(session, schemaTableName);
 
-        Stream<KafkaColumnHandle> keyColumnHandles = kafkaTopicDescription.getKey().stream()
-                .map(KafkaTopicFieldGroup::getFields)
+        Stream<KafkaColumnHandle> keyColumnHandles = kafkaTopicDescription.key().stream()
+                .map(KafkaTopicFieldGroup::fields)
                 .flatMap(Collection::stream)
-                .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.getColumnHandle(true));
+                .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.columnHandle(true));
 
-        Stream<KafkaColumnHandle> messageColumnHandles = kafkaTopicDescription.getMessage().stream()
-                .map(KafkaTopicFieldGroup::getFields)
+        Stream<KafkaColumnHandle> messageColumnHandles = kafkaTopicDescription.message().stream()
+                .map(KafkaTopicFieldGroup::fields)
                 .flatMap(Collection::stream)
-                .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.getColumnHandle(false));
+                .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.columnHandle(false));
 
         List<KafkaColumnHandle> topicColumnHandles = concat(keyColumnHandles, messageColumnHandles)
                 .collect(toImmutableList());
@@ -204,20 +204,20 @@ public class KafkaMetadata
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
 
-        table.getKey().ifPresent(key -> {
-            List<KafkaTopicFieldDescription> fields = key.getFields();
+        table.key().ifPresent(key -> {
+            List<KafkaTopicFieldDescription> fields = key.fields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata());
+                    builder.add(fieldDescription.columnMetadata());
                 }
             }
         });
 
-        table.getMessage().ifPresent(message -> {
-            List<KafkaTopicFieldDescription> fields = message.getFields();
+        table.message().ifPresent(message -> {
+            List<KafkaTopicFieldDescription> fields = message.fields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata());
+                    builder.add(fieldDescription.columnMetadata());
                 }
             }
         });
@@ -233,23 +233,23 @@ public class KafkaMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         KafkaTableHandle handle = (KafkaTableHandle) table;
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = handle.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }
 
         handle = new KafkaTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getTopicName(),
-                handle.getKeyDataFormat(),
-                handle.getMessageDataFormat(),
-                handle.getKeyDataSchemaLocation(),
-                handle.getMessageDataSchemaLocation(),
-                handle.getKeySubject(),
-                handle.getMessageSubject(),
-                handle.getColumns(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.topicName(),
+                handle.keyDataFormat(),
+                handle.messageDataFormat(),
+                handle.keyDataSchemaLocation(),
+                handle.messageDataSchemaLocation(),
+                handle.keySubject(),
+                handle.messageSubject(),
+                handle.columns(),
                 newDomain);
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), constraint.getExpression(), false));
@@ -273,22 +273,22 @@ public class KafkaMetadata
         }
         // TODO: support transactional inserts https://github.com/trinodb/trino/issues/4303
         KafkaTableHandle table = (KafkaTableHandle) tableHandle;
-        List<KafkaColumnHandle> actualColumns = table.getColumns().stream()
+        List<KafkaColumnHandle> actualColumns = table.columns().stream()
                 .filter(columnHandle -> !columnHandle.isInternal() && !columnHandle.isHidden())
                 .collect(toImmutableList());
 
         checkArgument(columns.equals(actualColumns), "Unexpected columns!\nexpected: %s\ngot: %s", actualColumns, columns);
 
         return new KafkaTableHandle(
-                table.getSchemaName(),
-                table.getTableName(),
-                table.getTopicName(),
-                table.getKeyDataFormat(),
-                table.getMessageDataFormat(),
-                table.getKeyDataSchemaLocation(),
-                table.getMessageDataSchemaLocation(),
-                table.getKeySubject(),
-                table.getMessageSubject(),
+                table.schemaName(),
+                table.tableName(),
+                table.topicName(),
+                table.keyDataFormat(),
+                table.messageDataFormat(),
+                table.keyDataSchemaLocation(),
+                table.messageDataSchemaLocation(),
+                table.keySubject(),
+                table.messageSubject(),
                 actualColumns,
                 TupleDomain.none());
     }

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.thrift.integration;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestIndexedQueries;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -27,7 +26,7 @@ public class TestThriftDistributedQueriesIndexed
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createThriftQueryRunner(2, true, ImmutableMap.of());
+        return createThriftQueryRunner(2, true);
     }
 
     @Test

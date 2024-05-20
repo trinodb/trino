@@ -112,10 +112,10 @@ public class PinotLegacyDataFetcher
         long startTimeNanos = System.nanoTime();
         try {
             queryPinot().forEachRemaining(dataTableWithSize -> {
-                checkExceptions(dataTableWithSize.getDataTable(), split, query);
-                rowCountChecker.checkTooManyRows(dataTableWithSize.getDataTable());
+                checkExceptions(dataTableWithSize.dataTable(), split, query);
+                rowCountChecker.checkTooManyRows(dataTableWithSize.dataTable());
                 dataTableList.add(dataTableWithSize);
-                estimatedMemoryUsageInBytes += dataTableWithSize.getEstimatedSizeInBytes();
+                estimatedMemoryUsageInBytes += dataTableWithSize.estimatedSizeInBytes();
             });
 
             isPinotDataFetched = true;
@@ -129,7 +129,7 @@ public class PinotLegacyDataFetcher
     public PinotDataTableWithSize getNextDataTable()
     {
         PinotDataTableWithSize dataTableWithSize = dataTableList.pop();
-        estimatedMemoryUsageInBytes -= dataTableWithSize.getEstimatedSizeInBytes();
+        estimatedMemoryUsageInBytes -= dataTableWithSize.estimatedSizeInBytes();
         return dataTableWithSize;
     }
 
@@ -281,17 +281,12 @@ public class PinotLegacyDataFetcher
         private long getEstimatedColumnSizeInBytes(DataSchema.ColumnDataType dataType)
         {
             if (dataType.isNumber()) {
-                switch (dataType) {
-                    case LONG:
-                        return Long.BYTES;
-                    case FLOAT:
-                        return Float.BYTES;
-                    case DOUBLE:
-                        return Double.BYTES;
-                    case INT:
-                    default:
-                        return Integer.BYTES;
-                }
+                return switch (dataType) {
+                    case LONG -> Long.BYTES;
+                    case FLOAT -> Float.BYTES;
+                    case DOUBLE -> Double.BYTES;
+                    default -> Integer.BYTES;
+                };
             }
             return estimatedNonNumericColumnSize;
         }

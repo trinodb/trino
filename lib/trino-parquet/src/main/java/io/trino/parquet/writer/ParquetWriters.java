@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.writer;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.writer.valuewriter.BigintValueWriter;
 import io.trino.parquet.writer.valuewriter.BinaryValueWriter;
@@ -45,6 +46,8 @@ import io.trino.spi.type.VarcharType;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -58,9 +61,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -83,122 +88,11 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 final class ParquetWriters
 {
+    static final int BLOOM_FILTER_EXPECTED_ENTRIES = 100_000;
+
     private ParquetWriters() {}
 
-    static List<ColumnWriter> getColumnWriters(
-            MessageType messageType,
-            Map<List<String>, Type> trinoTypes,
-            ParquetProperties parquetProperties,
-            CompressionCodec compressionCodec,
-            int pageValueCountLimit,
-            Optional<DateTimeZone> parquetTimeZone)
-    {
-        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(parquetProperties);
-        WriteBuilder writeBuilder = new WriteBuilder(messageType, trinoTypes, parquetProperties, valuesWriterFactory, compressionCodec, pageValueCountLimit, parquetTimeZone);
-        ParquetTypeVisitor.visit(messageType, writeBuilder);
-        return writeBuilder.build();
-    }
-
-    private static class WriteBuilder
-            extends ParquetTypeVisitor<ColumnWriter>
-    {
-        private final MessageType type;
-        private final Map<List<String>, Type> trinoTypes;
-        private final ParquetProperties parquetProperties;
-        private final TrinoValuesWriterFactory valuesWriterFactory;
-        private final CompressionCodec compressionCodec;
-        private final int pageValueCountLimit;
-        private final Optional<DateTimeZone> parquetTimeZone;
-        private final ImmutableList.Builder<ColumnWriter> builder = ImmutableList.builder();
-
-        WriteBuilder(
-                MessageType messageType,
-                Map<List<String>, Type> trinoTypes,
-                ParquetProperties parquetProperties,
-                TrinoValuesWriterFactory valuesWriterFactory,
-                CompressionCodec compressionCodec,
-                int pageValueCountLimit,
-                Optional<DateTimeZone> parquetTimeZone)
-        {
-            this.type = requireNonNull(messageType, "messageType is null");
-            this.trinoTypes = requireNonNull(trinoTypes, "trinoTypes is null");
-            this.parquetProperties = requireNonNull(parquetProperties, "parquetProperties is null");
-            this.valuesWriterFactory = requireNonNull(valuesWriterFactory, "valuesWriterFactory is null");
-            this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
-            this.pageValueCountLimit = pageValueCountLimit;
-            this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
-        }
-
-        List<ColumnWriter> build()
-        {
-            return builder.build();
-        }
-
-        @Override
-        public ColumnWriter message(MessageType message, List<ColumnWriter> fields)
-        {
-            builder.addAll(fields);
-            return super.message(message, fields);
-        }
-
-        @Override
-        public ColumnWriter struct(GroupType struct, List<ColumnWriter> fields)
-        {
-            String[] path = currentPath();
-            int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
-            return new StructColumnWriter(ImmutableList.copyOf(fields), fieldDefinitionLevel);
-        }
-
-        @Override
-        public ColumnWriter list(GroupType array, ColumnWriter element)
-        {
-            String[] path = currentPath();
-            int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
-            int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
-            return new ArrayColumnWriter(element, fieldDefinitionLevel, fieldRepetitionLevel);
-        }
-
-        @Override
-        public ColumnWriter map(GroupType map, ColumnWriter key, ColumnWriter value)
-        {
-            String[] path = currentPath();
-            int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
-            int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
-            return new MapColumnWriter(key, value, fieldDefinitionLevel, fieldRepetitionLevel);
-        }
-
-        @Override
-        public ColumnWriter primitive(PrimitiveType primitive)
-        {
-            String[] path = currentPath();
-            int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
-            int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
-            ColumnDescriptor columnDescriptor = new ColumnDescriptor(path, primitive, fieldRepetitionLevel, fieldDefinitionLevel);
-            Type trinoType = requireNonNull(trinoTypes.get(ImmutableList.copyOf(path)), "Trino type is null");
-            return new PrimitiveColumnWriter(
-                    columnDescriptor,
-                    getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor), trinoType, columnDescriptor.getPrimitiveType(), parquetTimeZone),
-                    parquetProperties.newDefinitionLevelWriter(columnDescriptor),
-                    parquetProperties.newRepetitionLevelWriter(columnDescriptor),
-                    compressionCodec,
-                    parquetProperties.getPageSizeThreshold(),
-                    pageValueCountLimit);
-        }
-
-        private String[] currentPath()
-        {
-            String[] path = new String[fieldNames.size()];
-            if (!fieldNames.isEmpty()) {
-                Iterator<String> iter = fieldNames.descendingIterator();
-                for (int i = 0; iter.hasNext(); i += 1) {
-                    path[i] = iter.next();
-                }
-            }
-            return path;
-        }
-    }
-
-    private static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, Optional<DateTimeZone> parquetTimeZone)
+    static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, Optional<DateTimeZone> parquetTimeZone)
     {
         if (BOOLEAN.equals(type)) {
             return new BooleanValueWriter(valuesWriter, parquetType);
@@ -267,6 +161,148 @@ final class ParquetWriters
             return new UuidValueWriter(valuesWriter, parquetType);
         }
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
+    }
+
+    static List<ColumnWriter> getColumnWriters(
+            MessageType messageType,
+            Map<List<String>, Type> trinoTypes,
+            ParquetProperties parquetProperties,
+            CompressionCodec compressionCodec,
+            ParquetWriterOptions writerOptions,
+            Optional<DateTimeZone> parquetTimeZone)
+    {
+        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(parquetProperties);
+        WriteBuilder writeBuilder = new WriteBuilder(
+                messageType,
+                trinoTypes,
+                parquetProperties,
+                valuesWriterFactory,
+                compressionCodec,
+                writerOptions,
+                parquetTimeZone);
+        ParquetTypeVisitor.visit(messageType, writeBuilder);
+        return writeBuilder.build();
+    }
+
+    private static class WriteBuilder
+            extends ParquetTypeVisitor<ColumnWriter>
+    {
+        private final MessageType type;
+        private final Map<List<String>, Type> trinoTypes;
+        private final ParquetProperties parquetProperties;
+        private final TrinoValuesWriterFactory valuesWriterFactory;
+        private final CompressionCodec compressionCodec;
+        private final int pageValueCountLimit;
+        private final Set<String> bloomFilterColumns;
+        private final Optional<DateTimeZone> parquetTimeZone;
+        private final ImmutableList.Builder<ColumnWriter> builder = ImmutableList.builder();
+        private final int maxBloomFilterSize;
+        private final double bloomFilterFpp;
+
+        WriteBuilder(
+                MessageType messageType,
+                Map<List<String>, Type> trinoTypes,
+                ParquetProperties parquetProperties,
+                TrinoValuesWriterFactory valuesWriterFactory,
+                CompressionCodec compressionCodec,
+                ParquetWriterOptions writerOptions,
+                Optional<DateTimeZone> parquetTimeZone)
+        {
+            this.type = requireNonNull(messageType, "messageType is null");
+            this.trinoTypes = requireNonNull(trinoTypes, "trinoTypes is null");
+            this.parquetProperties = requireNonNull(parquetProperties, "parquetProperties is null");
+            this.valuesWriterFactory = requireNonNull(valuesWriterFactory, "valuesWriterFactory is null");
+            this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+            this.pageValueCountLimit = requireNonNull(writerOptions, "writerOptions is null").getMaxPageValueCount();
+            this.maxBloomFilterSize = writerOptions.getMaxBloomFilterSize();
+            this.bloomFilterColumns = requireNonNull(writerOptions.getBloomFilterColumns(), "bloomFilterColumns is null");
+            this.bloomFilterFpp = writerOptions.getBLoomFilterFpp();
+            this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
+        }
+
+        List<ColumnWriter> build()
+        {
+            return builder.build();
+        }
+
+        @Override
+        public ColumnWriter message(MessageType message, List<ColumnWriter> fields)
+        {
+            builder.addAll(fields);
+            return super.message(message, fields);
+        }
+
+        @Override
+        public ColumnWriter struct(GroupType struct, List<ColumnWriter> fields)
+        {
+            String[] path = currentPath();
+            int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
+            return new StructColumnWriter(ImmutableList.copyOf(fields), fieldDefinitionLevel);
+        }
+
+        @Override
+        public ColumnWriter list(GroupType array, ColumnWriter element)
+        {
+            String[] path = currentPath();
+            int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
+            int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
+            return new ArrayColumnWriter(element, fieldDefinitionLevel, fieldRepetitionLevel);
+        }
+
+        @Override
+        public ColumnWriter map(GroupType map, ColumnWriter key, ColumnWriter value)
+        {
+            String[] path = currentPath();
+            int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
+            int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
+            return new MapColumnWriter(key, value, fieldDefinitionLevel, fieldRepetitionLevel);
+        }
+
+        @Override
+        public ColumnWriter primitive(PrimitiveType primitive)
+        {
+            String[] path = currentPath();
+            int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
+            int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
+            ColumnDescriptor columnDescriptor = new ColumnDescriptor(path, primitive, fieldRepetitionLevel, fieldDefinitionLevel);
+            Type trinoType = requireNonNull(trinoTypes.get(ImmutableList.copyOf(path)), "Trino type is null");
+            Optional<BloomFilter> bloomFilter = createBloomFilter(bloomFilterColumns, maxBloomFilterSize, bloomFilterFpp, columnDescriptor, trinoType);
+            return new PrimitiveColumnWriter(
+                    columnDescriptor,
+                    getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor, bloomFilter), trinoType, columnDescriptor.getPrimitiveType(), parquetTimeZone),
+                    parquetProperties.newDefinitionLevelWriter(columnDescriptor),
+                    parquetProperties.newRepetitionLevelWriter(columnDescriptor),
+                    compressionCodec,
+                    parquetProperties.getPageSizeThreshold(),
+                    pageValueCountLimit,
+                    bloomFilter);
+        }
+
+        private String[] currentPath()
+        {
+            String[] path = new String[fieldNames.size()];
+            if (!fieldNames.isEmpty()) {
+                Iterator<String> iter = fieldNames.descendingIterator();
+                for (int i = 0; iter.hasNext(); i += 1) {
+                    path[i] = iter.next();
+                }
+            }
+            return path;
+        }
+
+        private static Optional<BloomFilter> createBloomFilter(Set<String> bloomFilterColumns, int maxBloomFilterSize, double bloomFilterFpp, ColumnDescriptor columnDescriptor, Type colummType)
+        {
+            if (!SUPPORTED_BLOOM_FILTER_TYPES.contains(colummType)) {
+                return Optional.empty();
+            }
+            // TODO: Enable use of AdaptiveBlockSplitBloomFilter once parquet-mr 1.14.0 is released
+            String dotPath = Joiner.on('.').join(columnDescriptor.getPath());
+            if (bloomFilterColumns.contains(dotPath)) {
+                int optimalNumOfBits = BlockSplitBloomFilter.optimalNumOfBits(BLOOM_FILTER_EXPECTED_ENTRIES, bloomFilterFpp);
+                return Optional.of(new BlockSplitBloomFilter(optimalNumOfBits / 8, maxBloomFilterSize));
+            }
+            return Optional.empty();
+        }
     }
 
     private static <T> void verifyParquetType(Type type, PrimitiveType parquetType, Class<T> annotationType, Predicate<T> predicate)

@@ -65,6 +65,7 @@ import io.trino.plugin.base.util.LoggingInvocationHandler;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport;
 import io.trino.spi.connector.RelationType;
+import jakarta.annotation.Nullable;
 import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -76,11 +77,12 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
@@ -103,6 +105,9 @@ public class ThriftHiveMetastoreClient
         implements ThriftMetastoreClient
 {
     private static final Logger log = Logger.get(ThriftHiveMetastoreClient.class);
+    private static final char CATALOG_DB_THRIFT_NAME_MARKER = '@';
+    private static final String CATALOG_DB_SEPARATOR = "#";
+    private static final String DB_EMPTY_MARKER = "!";
 
     private final TransportSupplier transportSupplier;
     private TTransport transport;
@@ -110,16 +115,18 @@ public class ThriftHiveMetastoreClient
     private final String hostname;
 
     private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics;
-    private final AtomicInteger chosenGetTableMetaAlternative;
+    private final boolean metastoreSupportsTableMeta;
     private final AtomicInteger chosenGetTableAlternative;
     private final AtomicInteger chosenAlterTransactionalTableAlternative;
     private final AtomicInteger chosenAlterPartitionsAlternative;
+    private final Optional<String> catalogName;
 
     public ThriftHiveMetastoreClient(
             TransportSupplier transportSupplier,
             String hostname,
+            Optional<String> catalogName,
             MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
-            AtomicInteger chosenGetTableMetaAlternative,
+            boolean metastoreSupportsTableMeta,
             AtomicInteger chosenGetTableAlternative,
             AtomicInteger chosenAlterTransactionalTableAlternative,
             AtomicInteger chosenAlterPartitionsAlternative)
@@ -128,10 +135,11 @@ public class ThriftHiveMetastoreClient
         this.transportSupplier = requireNonNull(transportSupplier, "transportSupplier is null");
         this.hostname = requireNonNull(hostname, "hostname is null");
         this.metastoreSupportsDateStatistics = requireNonNull(metastoreSupportsDateStatistics, "metastoreSupportsDateStatistics is null");
-        this.chosenGetTableMetaAlternative = requireNonNull(chosenGetTableMetaAlternative, "chosenGetTableMetaAlternative is null");
+        this.metastoreSupportsTableMeta = metastoreSupportsTableMeta;
         this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
         this.chosenAlterTransactionalTableAlternative = requireNonNull(chosenAlterTransactionalTableAlternative, "chosenAlterTransactionalTableAlternative is null");
         this.chosenAlterPartitionsAlternative = requireNonNull(chosenAlterPartitionsAlternative, "chosenAlterPartitionsAlternative is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
 
         connect();
     }
@@ -162,6 +170,9 @@ public class ThriftHiveMetastoreClient
     public List<String> getAllDatabases()
             throws TException
     {
+        if (catalogName.isPresent()) {
+            return client.getDatabases(prependCatalogToDbName(catalogName, null));
+        }
         return client.getAllDatabases();
     }
 
@@ -169,79 +180,80 @@ public class ThriftHiveMetastoreClient
     public Database getDatabase(String dbName)
             throws TException
     {
-        return client.getDatabase(dbName);
+        return client.getDatabase(prependCatalogToDbName(catalogName, dbName));
     }
 
     @Override
     public List<TableMeta> getTableMeta(String databaseName)
             throws TException
     {
-        return alternativeCall(
-                exception -> !(exception instanceof MetaException),
-                chosenGetTableMetaAlternative,
-                () -> {
-                    if (databaseName.indexOf('*') >= 0 || databaseName.indexOf('|') >= 0) {
-                        // in this case we replace any pipes with a glob and then filter the output
-                        return client.getTableMeta(databaseName.replace('|', '*'), "*", ImmutableList.of()).stream()
-                                .filter(tableMeta -> tableMeta.getDbName().equals(databaseName))
-                                .collect(toImmutableList());
-                    }
-                    return client.getTableMeta(databaseName, "*", ImmutableList.of());
-                },
-                () -> {
-                    // TODO: remove this once Unity adds support for getTableMeta
-                    Map<String, TableMeta> tables = new HashMap<>();
-                    client.getTables(databaseName, ".*").forEach(name -> tables.put(name, new TableMeta(databaseName, name, RelationType.TABLE.toString())));
-                    client.getTablesByType(databaseName, ".*", VIRTUAL_VIEW.name()).forEach(name -> {
-                        TableMeta tableMeta = new TableMeta(databaseName, name, VIRTUAL_VIEW.name());
-                        // This makes all views look like a Trino view, so that they are not filtered out during SHOW VIEWS
-                        tableMeta.setComments(PRESTO_VIEW_COMMENT);
-                        tables.put(name, tableMeta);
-                    });
-                    return ImmutableList.copyOf(tables.values());
-                });
+        // TODO: remove this once Unity adds support for getTableMeta
+        if (!metastoreSupportsTableMeta) {
+            String catalogDatabaseName = prependCatalogToDbName(catalogName, databaseName);
+            Map<String, TableMeta> tables = new HashMap<>();
+            client.getTables(catalogDatabaseName, ".*").forEach(name -> tables.put(name, new TableMeta(databaseName, name, RelationType.TABLE.toString())));
+            client.getTablesByType(catalogDatabaseName, ".*", VIRTUAL_VIEW.name()).forEach(name -> {
+                TableMeta tableMeta = new TableMeta(databaseName, name, VIRTUAL_VIEW.name());
+                // This makes all views look like a Trino view, so that they are not filtered out during SHOW VIEWS
+                tableMeta.setComments(PRESTO_VIEW_COMMENT);
+                tables.put(name, tableMeta);
+            });
+            return ImmutableList.copyOf(tables.values());
+        }
+
+        if (databaseName.indexOf('*') >= 0 || databaseName.indexOf('|') >= 0) {
+            // in this case we replace any pipes with a glob and then filter the output
+            return client.getTableMeta(prependCatalogToDbName(catalogName, databaseName.replace('|', '*')), "*", ImmutableList.of()).stream()
+                    .filter(tableMeta -> tableMeta.getDbName().equals(databaseName))
+                    .collect(toImmutableList());
+        }
+        return client.getTableMeta(prependCatalogToDbName(catalogName, databaseName), "*", ImmutableList.of());
     }
 
     @Override
     public void createDatabase(Database database)
             throws TException
     {
-        client.createDatabase(database);
+        client.createDatabase(catalogName.isEmpty()
+                ? database
+                : database.deepCopy().setCatalogName(catalogName.orElseThrow()));
     }
 
     @Override
     public void dropDatabase(String databaseName, boolean deleteData, boolean cascade)
             throws TException
     {
-        client.dropDatabase(databaseName, deleteData, cascade);
+        client.dropDatabase(prependCatalogToDbName(catalogName, databaseName), deleteData, cascade);
     }
 
     @Override
     public void alterDatabase(String databaseName, Database database)
             throws TException
     {
-        client.alterDatabase(databaseName, database);
+        client.alterDatabase(prependCatalogToDbName(catalogName, databaseName), database);
     }
 
     @Override
     public void createTable(Table table)
             throws TException
     {
-        client.createTable(table);
+        client.createTable(catalogName.isEmpty()
+                ? table
+                : table.deepCopy().setCatName(catalogName.orElseThrow()));
     }
 
     @Override
     public void dropTable(String databaseName, String name, boolean deleteData)
             throws TException
     {
-        client.dropTable(databaseName, name, deleteData);
+        client.dropTable(prependCatalogToDbName(catalogName, databaseName), name, deleteData);
     }
 
     @Override
     public void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
             throws TException
     {
-        client.alterTableWithEnvironmentContext(databaseName, tableName, newTable, context);
+        client.alterTableWithEnvironmentContext(prependCatalogToDbName(catalogName, databaseName), tableName, newTable, context);
     }
 
     @Override
@@ -253,17 +265,18 @@ public class ThriftHiveMetastoreClient
                 chosenGetTableAlternative,
                 () -> {
                     GetTableRequest request = new GetTableRequest(databaseName, tableName);
+                    catalogName.ifPresent(request::setCatName);
                     request.setCapabilities(new ClientCapabilities(ImmutableList.of(ClientCapability.INSERT_ONLY_TABLES)));
                     return client.getTableReq(request).getTable();
                 },
-                () -> client.getTable(databaseName, tableName));
+                () -> client.getTable(prependCatalogToDbName(catalogName, databaseName), tableName));
     }
 
     @Override
     public List<FieldSchema> getFields(String databaseName, String tableName)
             throws TException
     {
-        return client.getFields(databaseName, tableName);
+        return client.getFields(prependCatalogToDbName(catalogName, databaseName), tableName);
     }
 
     @Override
@@ -271,6 +284,7 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         TableStatsRequest tableStatsRequest = new TableStatsRequest(databaseName, tableName, columnNames);
+        catalogName.ifPresent(tableStatsRequest::setCatName);
         return client.getTableStatisticsReq(tableStatsRequest).getTableStats();
     }
 
@@ -283,6 +297,7 @@ public class ThriftHiveMetastoreClient
                 statistics,
                 stats -> {
                     ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(true, databaseName, tableName);
+                    catalogName.ifPresent(statisticsDescription::setCatName);
                     ColumnStatistics request = new ColumnStatistics(statisticsDescription, stats);
                     client.updateTableColumnStatistics(request);
                 });
@@ -292,7 +307,7 @@ public class ThriftHiveMetastoreClient
     public void deleteTableColumnStatistics(String databaseName, String tableName, String columnName)
             throws TException
     {
-        client.deleteTableColumnStatistics(databaseName, tableName, columnName);
+        client.deleteTableColumnStatistics(prependCatalogToDbName(catalogName, databaseName), tableName, columnName);
     }
 
     @Override
@@ -300,6 +315,7 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         PartitionsStatsRequest partitionsStatsRequest = new PartitionsStatsRequest(databaseName, tableName, columnNames, partitionNames);
+        catalogName.ifPresent(partitionsStatsRequest::setCatName);
         return client.getPartitionsStatisticsReq(partitionsStatsRequest).getPartStats();
     }
 
@@ -312,6 +328,7 @@ public class ThriftHiveMetastoreClient
                 statistics,
                 stats -> {
                     ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(false, databaseName, tableName);
+                    catalogName.ifPresent(statisticsDescription::setCatName);
                     statisticsDescription.setPartName(partitionName);
                     ColumnStatistics request = new ColumnStatistics(statisticsDescription, stats);
                     client.updatePartitionColumnStatistics(request);
@@ -322,7 +339,7 @@ public class ThriftHiveMetastoreClient
     public void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
             throws TException
     {
-        client.deletePartitionColumnStatistics(databaseName, tableName, partitionName, columnName);
+        client.deletePartitionColumnStatistics(prependCatalogToDbName(catalogName, databaseName), tableName, partitionName, columnName);
     }
 
     private void setColumnStatistics(String objectName, List<ColumnStatisticsObj> statistics, UnaryCall<List<ColumnStatisticsObj>> saveColumnStatistics)
@@ -377,49 +394,55 @@ public class ThriftHiveMetastoreClient
     public List<String> getPartitionNames(String databaseName, String tableName)
             throws TException
     {
-        return client.getPartitionNames(databaseName, tableName, (short) -1);
+        return client.getPartitionNames(prependCatalogToDbName(catalogName, databaseName), tableName, (short) -1);
     }
 
     @Override
     public List<String> getPartitionNamesFiltered(String databaseName, String tableName, List<String> partitionValues)
             throws TException
     {
-        return client.getPartitionNamesPs(databaseName, tableName, partitionValues, (short) -1);
+        return client.getPartitionNamesPs(prependCatalogToDbName(catalogName, databaseName), tableName, partitionValues, (short) -1);
     }
 
     @Override
     public int addPartitions(List<Partition> newPartitions)
             throws TException
     {
-        return client.addPartitions(newPartitions);
+        if (catalogName.isEmpty()) {
+            return client.addPartitions(newPartitions);
+        }
+
+        return client.addPartitions(newPartitions.stream()
+                .map(partition -> partition.deepCopy().setCatName(catalogName.orElseThrow()))
+                .collect(toImmutableList()));
     }
 
     @Override
     public boolean dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
             throws TException
     {
-        return client.dropPartition(databaseName, tableName, partitionValues, deleteData);
+        return client.dropPartition(prependCatalogToDbName(catalogName, databaseName), tableName, partitionValues, deleteData);
     }
 
     @Override
     public void alterPartition(String databaseName, String tableName, Partition partition)
             throws TException
     {
-        client.alterPartition(databaseName, tableName, partition);
+        client.alterPartition(prependCatalogToDbName(catalogName, databaseName), tableName, partition);
     }
 
     @Override
     public Partition getPartition(String databaseName, String tableName, List<String> partitionValues)
             throws TException
     {
-        return client.getPartition(databaseName, tableName, partitionValues);
+        return client.getPartition(prependCatalogToDbName(catalogName, databaseName), tableName, partitionValues);
     }
 
     @Override
     public List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
             throws TException
     {
-        return client.getPartitionsByNames(databaseName, tableName, partitionNames);
+        return client.getPartitionsByNames(prependCatalogToDbName(catalogName, databaseName), tableName, partitionNames);
     }
 
     @Override
@@ -433,7 +456,11 @@ public class ThriftHiveMetastoreClient
     public List<HiveObjectPrivilege> listPrivileges(String principalName, PrincipalType principalType, HiveObjectRef hiveObjectRef)
             throws TException
     {
-        return client.listPrivileges(principalName, principalType, hiveObjectRef);
+        HiveObjectRef hiveObjectRefParam = catalogName.isEmpty()
+                ? hiveObjectRef
+                : hiveObjectRef.deepCopy().setCatName(catalogName.orElseThrow());
+
+        return client.listPrivileges(principalName, principalType, hiveObjectRefParam);
     }
 
     @Override
@@ -662,12 +689,13 @@ public class ThriftHiveMetastoreClient
                 chosenAlterPartitionsAlternative,
                 () -> {
                     AlterPartitionsRequest request = new AlterPartitionsRequest(dbName, tableName, partitions);
+                    catalogName.ifPresent(request::setCatName);
                     request.setWriteId(writeId);
                     client.alterPartitionsReq(request);
                     return null;
                 },
                 () -> {
-                    client.alterPartitionsWithEnvironmentContext(dbName, tableName, partitions, new EnvironmentContext());
+                    client.alterPartitionsWithEnvironmentContext(prependCatalogToDbName(catalogName, dbName), tableName, partitions, new EnvironmentContext());
                     return null;
                 });
     }
@@ -693,6 +721,7 @@ public class ThriftHiveMetastoreClient
                     table.setWriteId(writeId);
                     checkArgument(writeId >= table.getWriteId(), "The writeId supplied %s should be greater than or equal to the table writeId %s", writeId, table.getWriteId());
                     AlterTableRequest request = new AlterTableRequest(table.getDbName(), table.getTableName(), table);
+                    catalogName.ifPresent(request::setCatName);
                     request.setValidWriteIdList(getValidWriteIds(ImmutableList.of(format("%s.%s", table.getDbName(), table.getTableName())), transactionId));
                     request.setWriteId(writeId);
                     request.setEnvironmentContext(environmentContext);
@@ -710,35 +739,37 @@ public class ThriftHiveMetastoreClient
     public Function getFunction(String databaseName, String functionName)
             throws TException
     {
-        return client.getFunction(databaseName, functionName);
+        return client.getFunction(prependCatalogToDbName(catalogName, databaseName), functionName);
     }
 
     @Override
     public Collection<String> getFunctions(String databaseName, String functionNamePattern)
             throws TException
     {
-        return client.getFunctions(databaseName, functionNamePattern);
+        return client.getFunctions(prependCatalogToDbName(catalogName, databaseName), functionNamePattern);
     }
 
     @Override
     public void createFunction(Function function)
             throws TException
     {
-        client.createFunction(function);
+        client.createFunction(catalogName.isEmpty()
+                ? function
+                : function.deepCopy().setCatName(catalogName.orElseThrow()));
     }
 
     @Override
     public void alterFunction(Function function)
             throws TException
     {
-        client.alterFunction(function.getDbName(), function.getFunctionName(), function);
+        client.alterFunction(prependCatalogToDbName(catalogName, function.getDbName()), function.getFunctionName(), function);
     }
 
     @Override
     public void dropFunction(String databaseName, String functionName)
             throws TException
     {
-        client.dropFunction(databaseName, functionName);
+        client.dropFunction(prependCatalogToDbName(catalogName, databaseName), functionName);
     }
 
     // Method needs to be final for @SafeVarargs to work
@@ -786,7 +817,8 @@ public class ThriftHiveMetastoreClient
         }
 
         verifyNotNull(firstException);
-        propagateIfPossible(firstException, TException.class);
+        throwIfInstanceOf(firstException, TException.class);
+        throwIfUnchecked(firstException);
         throw propagate(firstException);
     }
 
@@ -843,5 +875,34 @@ public class ThriftHiveMetastoreClient
     {
         TTransport createTransport()
                 throws TTransportException;
+    }
+
+    /**
+     * To construct a pattern using database and catalog name that Hive Thrift Server.
+     * Based on the Hive's <a href="https://github.com/apache/hive/blob/master/standalone-metastore/metastore-common/src/main/java/org/apache/hadoop/hive/metastore/utils/MetaStoreUtils.java">implementation</a>.
+     *
+     * @param catalogName hive catalog name
+     * @param databaseName database name
+     * @return string pattern that Hive Thrift Server understands
+     */
+    private static String prependCatalogToDbName(Optional<String> catalogName, @Nullable String databaseName)
+    {
+        if (catalogName.isEmpty()) {
+            return databaseName;
+        }
+
+        StringBuilder catalogDatabaseName = new StringBuilder()
+                .append(CATALOG_DB_THRIFT_NAME_MARKER)
+                .append(catalogName.orElseThrow())
+                .append(CATALOG_DB_SEPARATOR);
+        if (databaseName != null) {
+            if (databaseName.isEmpty()) {
+                catalogDatabaseName.append(DB_EMPTY_MARKER);
+            }
+            else {
+                catalogDatabaseName.append(databaseName);
+            }
+        }
+        return catalogDatabaseName.toString();
     }
 }

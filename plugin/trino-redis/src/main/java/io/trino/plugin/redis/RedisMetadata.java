@@ -102,22 +102,22 @@ public class RedisMetadata
         // check if keys are supplied in a zset
         // via the table description doc
         String keyName = null;
-        if (table.getKey() != null) {
-            keyName = table.getKey().getName();
+        if (table.key() != null) {
+            keyName = table.key().name();
         }
 
         return new RedisTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
-                getDataFormat(table.getKey()),
-                getDataFormat(table.getValue()),
+                getDataFormat(table.key()),
+                getDataFormat(table.value()),
                 keyName,
                 TupleDomain.all());
     }
 
     private static String getDataFormat(RedisTableFieldGroup fieldGroup)
     {
-        return (fieldGroup == null) ? DummyRowDecoder.NAME : fieldGroup.getDataFormat();
+        return (fieldGroup == null) ? DummyRowDecoder.NAME : fieldGroup.dataFormat();
     }
 
     @Override
@@ -157,23 +157,23 @@ public class RedisMetadata
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
 
         int index = 0;
-        RedisTableFieldGroup key = redisTableDescription.getKey();
+        RedisTableFieldGroup key = redisTableDescription.key();
         if (key != null) {
-            List<RedisTableFieldDescription> fields = key.getFields();
+            List<RedisTableFieldDescription> fields = key.fields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(true, index));
+                    columnHandles.put(field.name(), field.columnHandle(true, index));
                     index++;
                 }
             }
         }
 
-        RedisTableFieldGroup value = redisTableDescription.getValue();
+        RedisTableFieldGroup value = redisTableDescription.value();
         if (value != null) {
-            List<RedisTableFieldDescription> fields = value.getFields();
+            List<RedisTableFieldDescription> fields = value.fields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(false, index));
+                    columnHandles.put(field.name(), field.columnHandle(false, index));
                     index++;
                 }
             }
@@ -191,7 +191,7 @@ public class RedisMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         RedisTableHandle handle = (RedisTableHandle) table;
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = handle.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         TupleDomain<ColumnHandle> remainingFilter;
         if (newDomain.isNone()) {
@@ -205,7 +205,7 @@ public class RedisMetadata
 
             // Currently, only Redis key of string type supports pushdown.
             // Key pushdown is not supported when multiple key fields are defined in the table definition file.
-            if (toRedisDataType(handle.getKeyDataFormat()) != RedisDataType.STRING) {
+            if (toRedisDataType(handle.keyDataFormat()) != RedisDataType.STRING) {
                 unsupported = domains;
             }
             else if (getUserDefinedKeySize(session, handle) > 1) {
@@ -233,11 +233,11 @@ public class RedisMetadata
         }
 
         handle = new RedisTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getKeyDataFormat(),
-                handle.getValueDataFormat(),
-                handle.getKeyName(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.keyDataFormat(),
+                handle.valueDataFormat(),
+                handle.keyName(),
                 newDomain);
 
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
@@ -290,8 +290,8 @@ public class RedisMetadata
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
 
-        appendFields(builder, table.getKey());
-        appendFields(builder, table.getValue());
+        appendFields(builder, table.key());
+        appendFields(builder, table.value());
 
         for (RedisInternalFieldDescription fieldDescription : RedisInternalFieldDescription.values()) {
             builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
@@ -303,10 +303,10 @@ public class RedisMetadata
     private static void appendFields(ImmutableList.Builder<ColumnMetadata> builder, RedisTableFieldGroup group)
     {
         if (group != null) {
-            List<RedisTableFieldDescription> fields = group.getFields();
+            List<RedisTableFieldDescription> fields = group.fields();
             if (fields != null) {
                 for (RedisTableFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata());
+                    builder.add(fieldDescription.columnMetadata());
                 }
             }
         }

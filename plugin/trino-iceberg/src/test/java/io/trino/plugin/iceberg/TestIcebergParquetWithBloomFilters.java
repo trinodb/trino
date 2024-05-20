@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -23,7 +24,6 @@ import io.trino.testing.QueryRunner;
 import java.nio.file.Path;
 import java.util.List;
 
-import static io.trino.plugin.hive.parquet.TestHiveParquetWithBloomFilters.writeParquetFileWithBloomFilter;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 
@@ -35,7 +35,7 @@ public class TestIcebergParquetWithBloomFilters
             throws Exception
     {
         QueryRunner queryRunner = IcebergQueryRunner.builder().build();
-        dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
 
         // create hive catalog
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
@@ -53,12 +53,7 @@ public class TestIcebergParquetWithBloomFilters
         String tableName = "parquet_with_bloom_filters_" + randomNameSuffix();
         CatalogSchemaTableName hiveCatalogSchemaTableName = new CatalogSchemaTableName("hive", new SchemaTableName("tpch", tableName));
         CatalogSchemaTableName icebergCatalogSchemaTableName = new CatalogSchemaTableName("iceberg", new SchemaTableName("tpch", tableName));
-        assertUpdate(format("CREATE TABLE %s (%s INT) WITH (format = 'PARQUET')", hiveCatalogSchemaTableName, columnName));
-
-        // directly write data to the managed table
-        Path tableLocation = Path.of("%s/tpch/%s".formatted(dataDirectory, tableName));
-        Path fileLocation = tableLocation.resolve("bloomFilterFile.parquet");
-        writeParquetFileWithBloomFilter(fileLocation.toFile(), columnName, testValues);
+        assertUpdate(format("CREATE TABLE %s WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['%s']) AS SELECT * FROM (VALUES %s) t(%s)", hiveCatalogSchemaTableName, columnName, Joiner.on(", ").join(testValues), columnName), testValues.size());
 
         // migrate the hive table to the iceberg table
         assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "', 'false')");

@@ -64,7 +64,7 @@ public class RewriteLikeWithCaseSensitivity
         ConnectorExpression capturedValue = captures.get(LIKE_VALUE);
         if (capturedValue instanceof Variable variable) {
             JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(variable.getName());
-            Optional<CaseSensitivity> caseSensitivity = columnHandle.getJdbcTypeHandle().getCaseSensitivity();
+            Optional<CaseSensitivity> caseSensitivity = columnHandle.getJdbcTypeHandle().caseSensitivity();
             if (caseSensitivity.orElse(CASE_INSENSITIVE) == CASE_INSENSITIVE) {
                 return Optional.empty();
             }

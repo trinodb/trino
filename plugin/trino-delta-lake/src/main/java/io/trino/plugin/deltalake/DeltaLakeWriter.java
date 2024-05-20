@@ -19,6 +19,9 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.filesystem.Location;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
@@ -42,9 +45,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.FileMetaData;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -199,9 +199,9 @@ public final class DeltaLakeWriter
     {
         ParquetMetadata parquetMetadata = MetadataReader.createParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()));
 
-        ImmutableMultimap.Builder<String, ColumnChunkMetaData> metadataForColumn = ImmutableMultimap.builder();
-        for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
-            for (ColumnChunkMetaData columnChunkMetaData : blockMetaData.getColumns()) {
+        ImmutableMultimap.Builder<String, ColumnChunkMetadata> metadataForColumn = ImmutableMultimap.builder();
+        for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {
+            for (ColumnChunkMetadata columnChunkMetaData : blockMetaData.getColumns()) {
                 if (columnChunkMetaData.getPath().size() != 1) {
                     continue; // Only base column stats are supported
                 }
@@ -214,7 +214,7 @@ public final class DeltaLakeWriter
     }
 
     @VisibleForTesting
-    static DeltaLakeJsonFileStatistics mergeStats(Multimap<String, ColumnChunkMetaData> metadataForColumn, Map</* lowercase */ String, Type> typeForColumn, long rowCount)
+    static DeltaLakeJsonFileStatistics mergeStats(Multimap<String, ColumnChunkMetadata> metadataForColumn, Map</* lowercase */ String, Type> typeForColumn, long rowCount)
     {
         Map<String, Optional<Statistics<?>>> statsForColumn = metadataForColumn.keySet().stream()
                 .collect(toImmutableMap(identity(), key -> mergeMetadataList(metadataForColumn.get(key))));
@@ -230,14 +230,14 @@ public final class DeltaLakeWriter
                 Optional.of(nullCount));
     }
 
-    private static Optional<Statistics<?>> mergeMetadataList(Collection<ColumnChunkMetaData> metadataList)
+    private static Optional<Statistics<?>> mergeMetadataList(Collection<ColumnChunkMetadata> metadataList)
     {
         if (hasInvalidStatistics(metadataList)) {
             return Optional.empty();
         }
 
         return metadataList.stream()
-                .<Statistics<?>>map(ColumnChunkMetaData::getStatistics)
+                .<Statistics<?>>map(ColumnChunkMetadata::getStatistics)
                 .reduce((statsA, statsB) -> {
                     statsA.mergeStatistics(statsB);
                     return statsA;

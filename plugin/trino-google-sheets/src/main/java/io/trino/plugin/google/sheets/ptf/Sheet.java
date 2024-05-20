@@ -114,7 +114,7 @@ public class Sheet
             List<Descriptor.Field> fields = metadata.getColumnHandles(session, tableHandle).entrySet().stream()
                     .map(entry -> new Descriptor.Field(
                             entry.getKey(),
-                            Optional.of(((SheetsColumnHandle) entry.getValue()).getColumnType())))
+                            Optional.of(((SheetsColumnHandle) entry.getValue()).columnType())))
                     .collect(toImmutableList());
 
             Descriptor returnedType = new Descriptor(fields);

@@ -112,7 +112,7 @@ Only applies for queries with task level retries enabled (`retry-policy=TASK`)
 ## `query.low-memory-killer.delay`
 
 - **Type:** {ref}`prop-type-duration`
-- **Default value:** `5m`
+- **Default value:** `30s`
 
 The amount of time a query is allowed to recover between running out of memory
 and being killed, if `query.low-memory-killer.policy` or
@@ -227,7 +227,7 @@ ensure that each task has a minimum amount of work to perform. Requires
 ## `query.remote-task.max-error-duration`
 
 - **Type:** {ref}`prop-type-duration`
-- **Default value:** `5m`
+- **Default value:** `1m`
 
 Timeout value for remote tasks that fail to communicate with the coordinator. If
 the coordinator is unable to receive updates from a remote task before this

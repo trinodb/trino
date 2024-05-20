@@ -50,17 +50,17 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - Limit (row count = x, tiesResolvingScheme(a,b,c))
  *    - source
- * </pre>
+ * }</pre>
  * Into:
- * <pre>
+ * <pre>{@code
  * - Project (prune rank symbol)
  *    - Filter (rank <= x)
  *       - Window (function: rank, order by a,b,c)
  *          - source
- * </pre>
+ * }</pre>
  */
 public class ImplementLimitWithTies
         implements Rule<LimitNode>

@@ -19,7 +19,7 @@ import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +34,7 @@ public class TestUnionQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build();
+        QueryRunner queryRunner = TpchQueryRunner.builder().build();
         queryRunner.installPlugin(new TpcdsPlugin());
         queryRunner.createCatalog("tpcds", "tpcds", ImmutableMap.of());
         return queryRunner;

@@ -139,7 +139,7 @@ public final class TimestampCoercer
                 long epochMicros = epochSecond * MICROSECONDS_PER_SECOND + roundDiv(roundedNanos, NANOSECONDS_PER_MICROSECOND);
                 toType.writeLong(blockBuilder, epochMicros);
             }
-            catch (DateTimeParseException ignored) {
+            catch (DateTimeParseException _) {
                 // Hive treats invalid String as null instead of propagating exception
                 // In case of bigger tables with all values being invalid, log output will be huge so avoiding log here.
                 blockBuilder.appendNull();
@@ -170,7 +170,7 @@ public final class TimestampCoercer
                 int picosOfMicro = (dateTime.getNano() % NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND;
                 toType.writeObject(blockBuilder, new LongTimestamp(epochMicros, picosOfMicro));
             }
-            catch (DateTimeParseException ignored) {
+            catch (DateTimeParseException _) {
                 // Hive treats invalid String as null instead of propagating exception
                 // In case of bigger tables with all values being invalid, log output will be huge so avoiding log here.
                 blockBuilder.appendNull();

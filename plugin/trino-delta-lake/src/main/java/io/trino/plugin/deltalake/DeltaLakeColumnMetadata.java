@@ -16,91 +16,23 @@ package io.trino.plugin.deltalake;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.OptionalInt;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class DeltaLakeColumnMetadata
+public record DeltaLakeColumnMetadata(ColumnMetadata columnMetadata, String name, OptionalInt fieldId, String physicalName, Type physicalColumnType)
 {
-    private final ColumnMetadata columnMetadata;
-    private final String name;
-    private final OptionalInt fieldId;
-    private final String physicalName;
-    private final Type physicalColumnType;
-
-    public DeltaLakeColumnMetadata(ColumnMetadata columnMetadata, String name, OptionalInt fieldId, String physicalName, Type physicalColumnType)
+    public DeltaLakeColumnMetadata
     {
-        this.columnMetadata = requireNonNull(columnMetadata, "columnMetadata is null");
-        this.name = requireNonNull(name, "name is null");
-        this.fieldId = requireNonNull(fieldId, "fieldId is null");
-        this.physicalName = requireNonNull(physicalName, "physicalName is null");
-        this.physicalColumnType = requireNonNull(physicalColumnType, "physicalColumnType is null");
+        requireNonNull(columnMetadata, "columnMetadata is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(fieldId, "fieldId is null");
+        requireNonNull(physicalName, "physicalName is null");
+        requireNonNull(physicalColumnType, "physicalColumnType is null");
     }
 
-    public ColumnMetadata getColumnMetadata()
-    {
-        return columnMetadata;
-    }
-
-    public OptionalInt getFieldId()
-    {
-        return fieldId;
-    }
-
-    public String getName()
-    {
-        return name;
-    }
-
-    public Type getType()
+    public Type type()
     {
         return columnMetadata.getType();
-    }
-
-    public String getPhysicalName()
-    {
-        return physicalName;
-    }
-
-    public Type getPhysicalColumnType()
-    {
-        return physicalColumnType;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("columnMetadata", columnMetadata)
-                .add("name", name)
-                .add("fieldId", fieldId)
-                .add("physicalName", physicalName)
-                .add("physicalColumnType", physicalColumnType)
-                .toString();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        DeltaLakeColumnMetadata that = (DeltaLakeColumnMetadata) o;
-        return Objects.equals(columnMetadata, that.columnMetadata) &&
-                Objects.equals(name, that.name) &&
-                Objects.equals(fieldId, that.fieldId) &&
-                Objects.equals(physicalName, that.physicalName) &&
-                Objects.equals(physicalColumnType, that.physicalColumnType);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(columnMetadata, name, fieldId, physicalName, physicalColumnType);
     }
 }

@@ -268,7 +268,7 @@ public abstract class BaseJdbcClient
                 PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
             if (metadata == null) {
-                throw new TrinoException(NOT_SUPPORTED, "Query not supported: ResultSetMetaData not available for query: " + preparedQuery.getQuery());
+                throw new TrinoException(NOT_SUPPORTED, "Query not supported: ResultSetMetaData not available for query: " + preparedQuery.query());
             }
             return new JdbcTableHandle(
                     new JdbcQueryRelationHandle(preparedQuery),
@@ -423,7 +423,7 @@ public abstract class BaseJdbcClient
 
     protected Optional<ColumnMapping> getForcedMappingToVarchar(JdbcTypeHandle typeHandle)
     {
-        if (typeHandle.getJdbcTypeName().isPresent() && jdbcTypesMappedToVarchar.contains(typeHandle.getJdbcTypeName().get())) {
+        if (typeHandle.jdbcTypeName().isPresent() && jdbcTypesMappedToVarchar.contains(typeHandle.jdbcTypeName().get())) {
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
@@ -438,7 +438,7 @@ public abstract class BaseJdbcClient
                 (statement, index, value) -> {
                     throw new TrinoException(
                             NOT_SUPPORTED,
-                            "Underlying type that is mapped to VARCHAR is not supported for INSERT: " + typeHandle.getJdbcTypeName().get());
+                            "Underlying type that is mapped to VARCHAR is not supported for INSERT: " + typeHandle.jdbcTypeName().get());
                 },
                 DISABLE_PUSHDOWN));
     }
@@ -1599,9 +1599,9 @@ public abstract class BaseJdbcClient
             return (query, sortItems, limit) -> {
                 String orderBy = sortItems.stream()
                         .map(sortItem -> {
-                            String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                            String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                            return format("%s %s %s", quote.apply(sortItem.getColumn().getColumnName()), ordering, nullsHandling);
+                            String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                            String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                            return format("%s %s %s", quote.apply(sortItem.column().getColumnName()), ordering, nullsHandling);
                         })
                         .collect(joining(", "));
 

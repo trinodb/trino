@@ -82,6 +82,7 @@ import java.util.function.LongConsumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -379,7 +380,7 @@ public class RaptorMetadata
         List<String> bucketAssignments = shardManager.getBucketAssignments(distributionId);
         ConnectorPartitioningHandle partitioning = new RaptorPartitioningHandle(distributionId, bucketAssignments);
 
-        return Optional.of(new ConnectorTableLayout(partitioning, partitionColumns));
+        return Optional.of(new ConnectorTableLayout(partitioning, partitionColumns, false));
     }
 
     private Optional<DistributionInfo> getOrCreateDistribution(Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
@@ -714,6 +715,20 @@ public class RaptorMetadata
         clearRollback();
 
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        RaptorTableHandle table = (RaptorTableHandle) tableHandle;
+        if (table.getPartitioningHandle().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new ConnectorTableLayout(
+                table.getPartitioningHandle().get(),
+                getBucketColumnHandles(table.getTableId()).stream()
+                        .map(RaptorColumnHandle::getColumnName)
+                        .collect(toImmutableList())));
     }
 
     @Override

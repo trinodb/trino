@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.SequencePageBuilder;
-import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
@@ -40,7 +39,6 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
-import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -94,7 +92,6 @@ public class BenchmarkPageProcessor2
     private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
 
     private static final Map<String, Type> TYPE_MAP = ImmutableMap.of("bigint", BIGINT, "varchar", VARCHAR);
-    private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final int POSITIONS = 1024;
 
     private final DriverYieldSignal yieldSignal = new DriverYieldSignal();
@@ -126,7 +123,7 @@ public class BenchmarkPageProcessor2
         }
 
         List<RowExpression> projections = getProjections(type);
-        types = projections.stream().map(RowExpression::getType).collect(toList());
+        types = projections.stream().map(RowExpression::type).collect(toList());
 
         FunctionManager functionManager = createTestingFunctionManager();
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
@@ -192,10 +189,7 @@ public class BenchmarkPageProcessor2
                 expression,
                 sourceLayout,
                 PLANNER_CONTEXT.getMetadata(),
-                PLANNER_CONTEXT.getFunctionManager(),
-                PLANNER_CONTEXT.getTypeManager(),
-                TEST_SESSION,
-                true);
+                PLANNER_CONTEXT.getTypeManager());
     }
 
     private static Page createPage(List<? extends Type> types, boolean dictionary)

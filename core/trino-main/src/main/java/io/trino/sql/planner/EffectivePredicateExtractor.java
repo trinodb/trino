@@ -32,6 +32,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -92,6 +93,11 @@ public class EffectivePredicateExtractor
             entry -> {
                 Reference reference = entry.getKey().toSymbolReference();
                 Expression expression = entry.getValue();
+
+                if (expression instanceof Constant constant && constant.value() == null) {
+                    return new IsNull(reference);
+                }
+
                 // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
                 return new Comparison(EQUAL, reference, expression);
@@ -118,6 +124,7 @@ public class EffectivePredicateExtractor
         private final Metadata metadata;
         private final Session session;
         private final boolean useTableProperties;
+        private final DomainTranslator domainTranslator;
 
         public Visitor(PlannerContext plannerContext, Session session, boolean useTableProperties)
         {
@@ -125,6 +132,7 @@ public class EffectivePredicateExtractor
             this.metadata = plannerContext.getMetadata();
             this.session = requireNonNull(session, "session is null");
             this.useTableProperties = useTableProperties;
+            this.domainTranslator = new DomainTranslator(metadata);
         }
 
         @Override
@@ -156,10 +164,18 @@ public class EffectivePredicateExtractor
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
             DomainTranslator.ExtractionResult underlying = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(underlyingPredicate));
-            DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
 
+            if (underlying.getTupleDomain().isNone()) {
+                // Effective predicate extraction is incorrect in the presence of nulls, which manifests as a NONE domain
+                // In that case, ignore it and combine it into the filter directly
+                // See EffectivePredicateExtractor#ENTRY_TO_EQUALITY
+                // TODO: this should be removed once EffectivePredicate extraction is fixed for null handling
+                return combineConjuncts(underlyingPredicate, node.getPredicate());
+            }
+
+            DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
             return combineConjuncts(
-                    DomainTranslator.toPredicate(underlying.getTupleDomain().intersect(current.getTupleDomain())),
+                    domainTranslator.toPredicate(underlying.getTupleDomain().intersect(current.getTupleDomain())),
                     underlying.getRemainingExpression(),
                     current.getRemainingExpression());
         }
@@ -203,6 +219,7 @@ public class EffectivePredicateExtractor
                     .collect(toImmutableList());
 
             List<Expression> projectionEqualities = nonIdentityAssignments.stream()
+                    .filter(assignment -> assignment.getKey().type().isComparable() || assignment.getKey().type().isOrderable())
                     .filter(assignment -> Sets.intersection(SymbolsExtractor.extractUnique(assignment.getValue()), newlyAssignedSymbols).isEmpty())
                     .map(ENTRY_TO_EQUALITY)
                     .collect(toImmutableList());
@@ -250,7 +267,7 @@ public class EffectivePredicateExtractor
             }
 
             // TODO: replace with metadata.getTableProperties() when table layouts are fully removed
-            return DomainTranslator.toPredicate(predicate.simplify()
+            return domainTranslator.toPredicate(predicate.simplify()
                     .filter((columnHandle, domain) -> assignments.containsKey(columnHandle))
                     .transformKeys(assignments::get));
         }
@@ -358,7 +375,7 @@ public class EffectivePredicateExtractor
                                 hasNull[i] = true;
                             }
                             else {
-                                Type type = node.getOutputSymbols().get(i).getType();
+                                Type type = node.getOutputSymbols().get(i).type();
                                 if (!type.isComparable() && !type.isOrderable()) {
                                     return TRUE;
                                 }
@@ -386,7 +403,7 @@ public class EffectivePredicateExtractor
                     SqlRow sqlRow = (SqlRow) constant.value();
                     int rawIndex = sqlRow.getRawIndex();
                     for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                        Type type = node.getOutputSymbols().get(i).getType();
+                        Type type = node.getOutputSymbols().get(i).type();
                         Block fieldBlock = sqlRow.getRawFieldBlock(i);
                         Object item = readNativeValue(type, fieldBlock, rawIndex);
                         if (item == null) {
@@ -414,7 +431,7 @@ public class EffectivePredicateExtractor
             ImmutableMap.Builder<Symbol, Domain> domains = ImmutableMap.builder();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 Symbol symbol = node.getOutputSymbols().get(i);
-                Type type = symbol.getType();
+                Type type = symbol.type();
                 if (nonDeterministic[i]) {
                     // We can't describe a predicate for this column because at least
                     // one cell is non-deterministic, so skip it.
@@ -442,7 +459,7 @@ public class EffectivePredicateExtractor
             }
 
             // simplify to avoid a large expression if there are many rows in ValuesNode
-            return DomainTranslator.toPredicate(TupleDomain.withColumnDomains(domains.buildOrThrow()).simplify());
+            return domainTranslator.toPredicate(TupleDomain.withColumnDomains(domains.buildOrThrow()).simplify());
         }
 
         private boolean hasNestedNulls(Type type, Object value)

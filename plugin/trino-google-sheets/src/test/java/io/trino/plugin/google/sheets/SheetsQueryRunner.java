@@ -29,19 +29,29 @@ import static io.trino.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class SheetsQueryRunner
+public final class SheetsQueryRunner
 {
-    protected static final String GOOGLE_SHEETS = "gsheets";
-
     private SheetsQueryRunner() {}
 
+    static final String GOOGLE_SHEETS = "gsheets";
+
     public static QueryRunner createSheetsQueryRunner(
-            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties)
+            throws Exception
+    {
+        return createSheetsQueryRunner(
+                ImmutableMap.of(),
+                connectorProperties);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createSheetsQueryRunner(
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
         try {
             // note: additional copy via ImmutableList so that if fails on nulls

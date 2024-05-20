@@ -39,7 +39,6 @@ public class TestDruidLatestConnectorSmokeTest
         return createDruidQueryRunnerTpch(
                 druidServer,
                 ImmutableMap.of(),
-                ImmutableMap.of(),
                 REQUIRED_TPCH_TABLES);
     }
 
@@ -54,11 +53,11 @@ public class TestDruidLatestConnectorSmokeTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_CREATE_SCHEMA,
-                    SUPPORTS_CREATE_TABLE,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_DELETE,
-                    SUPPORTS_INSERT,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_DELETE,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

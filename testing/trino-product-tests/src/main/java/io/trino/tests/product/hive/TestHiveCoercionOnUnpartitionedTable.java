@@ -37,7 +37,15 @@ public class TestHiveCoercionOnUnpartitionedTable
             .setNoData()
             .build();
 
+    private static final HiveTableDefinition HIVE_COERCION_PARQUET = tableDefinitionBuilder("PARQUET")
+            .setNoData()
+            .build();
+
     public static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_ORC = tableDefinitionForTimestampCoercionBuilder("ORC")
+            .setNoData()
+            .build();
+
+    private static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_PARQUET = tableDefinitionForTimestampCoercionBuilder("PARQUET")
             .setNoData()
             .build();
 
@@ -169,6 +177,18 @@ public class TestHiveCoercionOnUnpartitionedTable
         }
     }
 
+    public static final class ParquetRequirements
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return compose(
+                    MutableTableRequirement.builder(HIVE_COERCION_PARQUET).withState(CREATED).build(),
+                    MutableTableRequirement.builder(HIVE_TIMESTAMP_COERCION_PARQUET).withState(CREATED).build());
+        }
+    }
+
     @Requires(OrcRequirements.class)
     @Test(groups = JDBC)
     public void testHiveCoercionOrc()
@@ -181,6 +201,20 @@ public class TestHiveCoercionOnUnpartitionedTable
     public void testHiveCoercionWithDifferentTimestampPrecision()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_ORC);
+    }
+
+    @Requires(ParquetRequirements.class)
+    @Test(groups = JDBC)
+    public void testHiveCoercionParquet()
+    {
+        doTestHiveCoercion(HIVE_COERCION_PARQUET);
+    }
+
+    @Requires(ParquetRequirements.class)
+    @Test(groups = JDBC)
+    public void testHiveCoercionWithDifferentTimestampPrecisionParquet()
+    {
+        doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_PARQUET);
     }
 
     @Override
@@ -219,6 +253,129 @@ public class TestHiveCoercionOnUnpartitionedTable
                 .put(columnContext("orc", "timestamp_row_to_row"), "Cannot read SQL type 'varchar' from ORC stream '.timestamp_row_to_row.timestamp2string' of type TIMESTAMP with attributes {}")
                 .put(columnContext("orc", "timestamp_list_to_list"), "Cannot read SQL type 'varchar' from ORC stream '.timestamp_row_to_row.timestamp2string' of type TIMESTAMP with attributes {}")
                 .put(columnContext("orc", "timestamp_map_to_map"), "Cannot read SQL type 'varchar' from ORC stream '.timestamp_row_to_row.timestamp2string' of type TIMESTAMP with attributes {}")
+                // PARQUET
+                .put(columnContext("parquet", "row_to_row"), "Unsupported Trino column type (varchar) for Parquet column ([row_to_row, bi2vc] optional int64 bi2vc (INTEGER(64,true)))")
+                .put(columnContext("parquet", "list_to_list"), "Unsupported Trino column type (varchar) for Parquet column ([list_to_list, list, element, bi2vc] optional int64 bi2vc (INTEGER(64,true)))")
+                .put(columnContext("parquet", "boolean_to_varchar"), "Unsupported Trino column type (varchar(5)) for Parquet column ([boolean_to_varchar] optional boolean boolean_to_varchar)")
+                .put(columnContext("parquet", "string_to_boolean"), "Unsupported Trino column type (boolean) for Parquet column ([string_to_boolean] optional binary string_to_boolean (STRING))")
+                .put(columnContext("parquet", "special_string_to_boolean"), "Unsupported Trino column type (boolean) for Parquet column ([special_string_to_boolean] optional binary special_string_to_boolean (STRING))")
+                .put(columnContext("parquet", "numeric_string_to_boolean"), "Unsupported Trino column type (boolean) for Parquet column ([numeric_string_to_boolean] optional binary numeric_string_to_boolean (STRING))")
+                .put(columnContext("parquet", "varchar_to_boolean"), "Unsupported Trino column type (boolean) for Parquet column ([varchar_to_boolean] optional binary varchar_to_boolean (STRING))")
+                .put(columnContext("parquet", "tinyint_to_shortdecimal"), "// TODO This coercion is giving incorrect result")
+                .put(columnContext("parquet", "tinyint_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([tinyint_to_longdecimal] optional int32 tinyint_to_longdecimal (INTEGER(8,true)))")
+                .put(columnContext("parquet", "smallint_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([smallint_to_longdecimal] optional int32 smallint_to_longdecimal (INTEGER(16,true)))")
+                .put(columnContext("parquet", "smallint_to_shortdecimal"), "// TODO This coercion is giving incorrect result")
+                .put(columnContext("parquet", "int_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([int_to_longdecimal] optional int32 int_to_longdecimal (INTEGER(32,true)))")
+                .put(columnContext("parquet", "int_to_shortdecimal"), "// TODO This coercion is giving incorrect result")
+                .put(columnContext("parquet", "bigint_to_varchar"), "Unsupported Trino column type (varchar) for Parquet column ([bigint_to_varchar] optional int64 bigint_to_varchar (INTEGER(64,true)))")
+                .put(columnContext("parquet", "bigint_to_shortdecimal"), "Unsupported Trino column type (decimal(10,2)) for Parquet column ([bigint_to_shortdecimal] optional int64 bigint_to_shortdecimal (INTEGER(64,true)))")
+                .put(columnContext("parquet", "bigint_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([bigint_to_longdecimal] optional int64 bigint_to_longdecimal (INTEGER(64,true)))")
+                .put(columnContext("parquet", "double_to_string"), "Unsupported Trino column type (varchar) for Parquet column ([double_to_string] optional double double_to_string)")
+                .put(columnContext("parquet", "double_to_bounded_varchar"), "Unsupported Trino column type (varchar(12)) for Parquet column ([double_to_bounded_varchar] optional double double_to_bounded_varchar)")
+                .put(columnContext("parquet", "double_infinity_to_string"), "Unsupported Trino column type (varchar) for Parquet column ([double_infinity_to_string] optional double double_infinity_to_string)")
+                .put(columnContext("parquet", "longdecimal_to_tinyint"), "Unsupported Trino column type (tinyint) for Parquet column ([longdecimal_to_tinyint] optional fixed_len_byte_array(9) longdecimal_to_tinyint (DECIMAL(20,12)))")
+                .put(columnContext("parquet", "shortdecimal_to_tinyint"), "Unsupported Trino column type (tinyint) for Parquet column ([shortdecimal_to_tinyint] optional fixed_len_byte_array(5) shortdecimal_to_tinyint (DECIMAL(10,2)))")
+                .put(columnContext("parquet", "longdecimal_to_smallint"), "Unsupported Trino column type (smallint) for Parquet column ([longdecimal_to_smallint] optional fixed_len_byte_array(9) longdecimal_to_smallint (DECIMAL(20,12)))")
+                .put(columnContext("parquet", "shortdecimal_to_smallint"), "Unsupported Trino column type (smallint) for Parquet column ([shortdecimal_to_smallint] optional fixed_len_byte_array(5) shortdecimal_to_smallint (DECIMAL(10,2)))")
+                .put(columnContext("parquet", "too_big_shortdecimal_to_smallint"), "Unsupported Trino column type (smallint) for Parquet column ([too_big_shortdecimal_to_smallint] optional fixed_len_byte_array(5) too_big_shortdecimal_to_smallint (DECIMAL(10,2)))")
+                .put(columnContext("parquet", "longdecimal_to_int"), "Unsupported Trino column type (integer) for Parquet column ([longdecimal_to_int] optional fixed_len_byte_array(9) longdecimal_to_int (DECIMAL(20,12)))")
+                .put(columnContext("parquet", "shortdecimal_to_int"), "Unsupported Trino column type (integer) for Parquet column ([shortdecimal_to_int] optional fixed_len_byte_array(5) shortdecimal_to_int (DECIMAL(10,2)))")
+                .put(columnContext("parquet", "longdecimal_to_bigint"), "Unsupported Trino column type (bigint) for Parquet column ([longdecimal_to_bigint] optional fixed_len_byte_array(9) longdecimal_to_bigint (DECIMAL(20,4)))")
+                .put(columnContext("parquet", "shortdecimal_to_bigint"), "Unsupported Trino column type (bigint) for Parquet column ([shortdecimal_to_bigint] optional fixed_len_byte_array(5) shortdecimal_to_bigint (DECIMAL(10,2)))")
+                .put(columnContext("parquet", "short_decimal_to_varchar"), "// TODO This coercion is giving incorrect result")
+                .put(columnContext("parquet", "long_decimal_to_varchar"), "// TODO This coercion is giving incorrect result")
+                .put(columnContext("parquet", "float_to_decimal"), "Unsupported Trino column type (decimal(10,5)) for Parquet column ([float_to_decimal] optional float float_to_decimal)")
+                .put(columnContext("parquet", "double_to_decimal"), "Unsupported Trino column type (decimal(10,5)) for Parquet column ([double_to_decimal] optional double double_to_decimal)")
+                .put(columnContext("parquet", "decimal_to_float"), "Unsupported Trino column type (double) for Parquet column ([decimal_to_float] optional fixed_len_byte_array(5) decimal_to_float (DECIMAL(10,5)))")
+                .put(columnContext("parquet", "decimal_to_double"), "Unsupported Trino column type (double) for Parquet column ([decimal_to_double] optional fixed_len_byte_array(5) decimal_to_double (DECIMAL(10,5)))")
+                .put(columnContext("parquet", "short_decimal_to_bounded_varchar"), "Unsupported Trino column type (varchar(30)) for Parquet column ([short_decimal_to_bounded_varchar] optional fixed_len_byte_array(5) short_decimal_to_bounded_varchar (DECIMAL(10,5)))")
+                .put(columnContext("parquet", "long_decimal_to_bounded_varchar"), "Unsupported Trino column type (varchar(30)) for Parquet column ([long_decimal_to_bounded_varchar] optional fixed_len_byte_array(9) long_decimal_to_bounded_varchar (DECIMAL(20,12)))")
+                .put(columnContext("parquet", "varchar_to_tinyint"), "Unsupported Trino column type (tinyint) for Parquet column ([varchar_to_tinyint] optional binary varchar_to_tinyint (STRING))")
+                .put(columnContext("parquet", "string_to_tinyint"), "Unsupported Trino column type (tinyint) for Parquet column ([string_to_tinyint] optional binary string_to_tinyint (STRING))")
+                .put(columnContext("parquet", "varchar_to_smallint"), "Unsupported Trino column type (smallint) for Parquet column ([varchar_to_smallint] optional binary varchar_to_smallint (STRING))")
+                .put(columnContext("parquet", "string_to_smallint"), "Unsupported Trino column type (smallint) for Parquet column ([string_to_smallint] optional binary string_to_smallint (STRING))")
+                .put(columnContext("parquet", "varchar_to_integer"), "Unsupported Trino column type (integer) for Parquet column ([varchar_to_integer] optional binary varchar_to_integer (STRING))")
+                .put(columnContext("parquet", "string_to_integer"), "Unsupported Trino column type (integer) for Parquet column ([string_to_integer] optional binary string_to_integer (STRING))")
+                .put(columnContext("parquet", "varchar_to_bigint"), "Unsupported Trino column type (bigint) for Parquet column ([varchar_to_bigint] optional binary varchar_to_bigint (STRING))")
+                .put(columnContext("parquet", "string_to_bigint"), "Unsupported Trino column type (bigint) for Parquet column ([string_to_bigint] optional binary string_to_bigint (STRING))")
+                .put(columnContext("parquet", "varchar_to_date"), "Unsupported Trino column type (date) for Parquet column ([varchar_to_date] optional binary varchar_to_date (STRING))")
+                .put(columnContext("parquet", "varchar_to_distant_date"), "Unsupported Trino column type (date) for Parquet column ([varchar_to_distant_date] optional binary varchar_to_distant_date (STRING))")
+                .put(columnContext("parquet", "varchar_to_float"), "Unsupported Trino column type (double) for Parquet column ([varchar_to_float] optional binary varchar_to_float (STRING))")
+                .put(columnContext("parquet", "string_to_float"), "Unsupported Trino column type (double) for Parquet column ([string_to_float] optional binary string_to_float (STRING))")
+                .put(columnContext("parquet", "varchar_to_float_infinity"), "Unsupported Trino column type (double) for Parquet column ([varchar_to_float_infinity] optional binary varchar_to_float_infinity (STRING))")
+                .put(columnContext("parquet", "varchar_to_special_float"), "Unsupported Trino column type (double) for Parquet column ([varchar_to_special_float] optional binary varchar_to_special_float (STRING))")
+                .put(columnContext("parquet", "varchar_to_double"), "Unsupported Trino column type (double) for Parquet column ([varchar_to_double] optional binary varchar_to_double (STRING))")
+                .put(columnContext("parquet", "string_to_double"), "Unsupported Trino column type (double) for Parquet column ([string_to_double] optional binary string_to_double (STRING))")
+                .put(columnContext("parquet", "varchar_to_double_infinity"), "Unsupported Trino column type (double) for Parquet column ([varchar_to_double_infinity] optional binary varchar_to_double_infinity (STRING))")
+                .put(columnContext("parquet", "varchar_to_special_double"), "Unsupported Trino column type (double) for Parquet column ([varchar_to_special_double] optional binary varchar_to_special_double (STRING))")
+                .put(columnContext("parquet", "date_to_string"), "Unsupported Trino column type (varchar) for Parquet column ([date_to_string] optional int32 date_to_string (DATE))")
+                .put(columnContext("parquet", "date_to_bounded_varchar"), "Unsupported Trino column type (varchar(12)) for Parquet column ([date_to_bounded_varchar] optional int32 date_to_bounded_varchar (DATE))")
+                .put(columnContext("parquet", "timestamp_millis_to_date"), "Unsupported Trino column type (date) for Parquet column ([timestamp_millis_to_date] optional int96 timestamp_millis_to_date)")
+                .put(columnContext("parquet", "timestamp_micros_to_date"), "Unsupported Trino column type (date) for Parquet column ([timestamp_micros_to_date] optional int96 timestamp_micros_to_date)")
+                .put(columnContext("parquet", "timestamp_nanos_to_date"), "Unsupported Trino column type (date) for Parquet column ([timestamp_nanos_to_date] optional int96 timestamp_nanos_to_date)")
+                .put(columnContext("parquet", "smaller_varchar_to_timestamp"), "Unsupported Trino column type (timestamp(3)) for Parquet column ([smaller_varchar_to_timestamp] optional binary smaller_varchar_to_timestamp (STRING))")
+                .put(columnContext("parquet", "varchar_to_timestamp"), "Unsupported Trino column type (timestamp(3)) for Parquet column ([varchar_to_timestamp] optional binary varchar_to_timestamp (STRING))")
+                .put(columnContext("parquet", "timestamp_row_to_row"), "Unsupported Trino column type (varchar) for Parquet column ([timestamp_row_to_row, timestamp2string] optional int96 timestamp2string)")
+                .put(columnContext("parquet", "timestamp_list_to_list"), "Unsupported Trino column type (varchar) for Parquet column ([timestamp_list_to_list, list, element, timestamp2string] optional int96 timestamp2string)")
+                .put(columnContext("parquet", "timestamp_map_to_map"), "Unsupported Trino column type (varchar) for Parquet column ([timestamp_map_to_map, key_value, value, timestamp2string] optional int96 timestamp2string)")
+                .put(columnContext("parquet", "string_to_timestamp"), "Unsupported Trino column type (timestamp(3)) for Parquet column ([string_to_timestamp] optional binary string_to_timestamp (STRING))")
+                .put(columnContext("parquet", "timestamp_to_date"), "Unsupported Trino column type (date) for Parquet column ([timestamp_to_date] optional int96 timestamp_to_date))")
+                .buildOrThrow();
+    }
+
+    @Override
+    protected Map<ColumnContext, String> expectedExceptionsWithHiveContext()
+    {
+        return ImmutableMap.<ColumnContext, String>builder()
+                .putAll(super.expectedExceptionsWithHiveContext())
+                .put(columnContext("3.1", "parquet", "string_to_boolean"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.BooleanWritable")
+                .put(columnContext("3.1", "parquet", "special_string_to_boolean"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.BooleanWritable")
+                .put(columnContext("3.1", "parquet", "numeric_string_to_boolean"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.BooleanWritable")
+                .put(columnContext("3.1", "parquet", "varchar_to_boolean"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.BooleanWritable")
+                .put(columnContext("3.1", "parquet", "float_to_decimal"), "org.apache.hadoop.io.FloatWritable cannot be cast to org.apache.hadoop.hive.serde2.io.HiveDecimalWritable")
+                .put(columnContext("3.1", "parquet", "double_to_decimal"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.hive.serde2.io.HiveDecimalWritable")
+                .put(columnContext("3.1", "parquet", "decimal_to_float"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.io.DoubleWritable")
+                .put(columnContext("3.1", "parquet", "decimal_to_double"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.io.DoubleWritable")
+                .put(columnContext("3.1", "parquet", "longdecimal_to_tinyint"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
+                .put(columnContext("3.1", "parquet", "shortdecimal_to_tinyint"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
+                .put(columnContext("3.1", "parquet", "longdecimal_to_smallint"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("3.1", "parquet", "shortdecimal_to_smallint"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("3.1", "parquet", "too_big_shortdecimal_to_smallint"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("3.1", "parquet", "longdecimal_to_int"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("3.1", "parquet", "shortdecimal_to_int"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("3.1", "parquet", "shortdecimal_with_0_scale_to_int"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("3.1", "parquet", "longdecimal_to_bigint"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.io.LongWritable")
+                .put(columnContext("3.1", "parquet", "shortdecimal_to_bigint"), "org.apache.hadoop.hive.serde2.io.HiveDecimalWritable cannot be cast to org.apache.hadoop.io.LongWritable")
+                .put(columnContext("3.1", "parquet", "varchar_to_tinyint"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
+                .put(columnContext("3.1", "parquet", "string_to_tinyint"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
+                .put(columnContext("3.1", "parquet", "varchar_to_smallint"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("3.1", "parquet", "string_to_smallint"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("3.1", "parquet", "varchar_to_integer"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("3.1", "parquet", "string_to_integer"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("3.1", "parquet", "varchar_to_bigint"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.LongWritable")
+                .put(columnContext("3.1", "parquet", "string_to_bigint"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.LongWritable")
+                .put(columnContext("3.1", "parquet", "varchar_to_date"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.DateWritableV2")
+                .put(columnContext("3.1", "parquet", "varchar_to_distant_date"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.DateWritableV2")
+                .put(columnContext("3.1", "parquet", "varchar_to_float"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.DoubleWritable")
+                .put(columnContext("3.1", "parquet", "string_to_float"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.DoubleWritable")
+                .put(columnContext("3.1", "parquet", "varchar_to_float_infinity"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.DoubleWritable")
+                .put(columnContext("3.1", "parquet", "varchar_to_special_float"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.DoubleWritable")
+                .put(columnContext("3.1", "parquet", "varchar_to_double"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.DoubleWritable")
+                .put(columnContext("3.1", "parquet", "string_to_double"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.DoubleWritable")
+                .put(columnContext("3.1", "parquet", "varchar_to_double_infinity"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.DoubleWritable")
+                .put(columnContext("3.1", "parquet", "varchar_to_special_double"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.io.DoubleWritable")
+                .put(columnContext("3.1", "parquet", "date_to_string"), "Cannot inspect org.apache.hadoop.hive.serde2.io.DateWritableV2")
+                .put(columnContext("3.1", "parquet", "date_to_bounded_varchar"), "Cannot inspect org.apache.hadoop.hive.serde2.io.DateWritableV2")
+                .put(columnContext("3.1", "parquet", "timestamp_millis_to_date"), "org.apache.hadoop.hive.serde2.io.TimestampWritableV2 cannot be cast to org.apache.hadoop.hive.serde2.io.DateWritableV2")
+                .put(columnContext("3.1", "parquet", "timestamp_micros_to_date"), "org.apache.hadoop.hive.serde2.io.TimestampWritableV2 cannot be cast to org.apache.hadoop.hive.serde2.io.DateWritableV2")
+                .put(columnContext("3.1", "parquet", "timestamp_nanos_to_date"), "org.apache.hadoop.hive.serde2.io.TimestampWritableV2 cannot be cast to org.apache.hadoop.hive.serde2.io.DateWritableV2")
+                .put(columnContext("3.1", "parquet", "smaller_varchar_to_timestamp"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
+                .put(columnContext("3.1", "parquet", "varchar_to_timestamp"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
+                .put(columnContext("3.1", "parquet", "timestamp_row_to_row"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
+                .put(columnContext("3.1", "parquet", "timestamp_list_to_list"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
+                .put(columnContext("3.1", "parquet", "timestamp_map_to_map"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
+                .put(columnContext("3.1", "parquet", "string_to_timestamp"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
+                .put(columnContext("3.1", "parquet", "timestamp_to_date"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
                 .buildOrThrow();
     }
 }

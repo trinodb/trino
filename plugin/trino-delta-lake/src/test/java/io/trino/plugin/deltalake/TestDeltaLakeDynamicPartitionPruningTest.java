@@ -13,10 +13,8 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseDynamicPartitionPruningTest;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -25,8 +23,6 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.util.List;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -38,13 +34,12 @@ public class TestDeltaLakeDynamicPartitionPruningTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, EXTRA_PROPERTIES, ImmutableMap.of(
-                "delta.dynamic-filtering.wait-timeout", "1h",
-                "delta.enable-non-concurrent-writes", "true"));
-        for (TpchTable<?> table : REQUIRED_TABLES) {
-            queryRunner.execute(format("CREATE TABLE %1$s.tpch.%2$s AS SELECT * FROM tpch.tiny.%2$s", DELTA_CATALOG, table.getTableName()));
-        }
-        return queryRunner;
+        return DeltaLakeQueryRunner.builder()
+                .setExtraProperties(EXTRA_PROPERTIES)
+                .addDeltaProperty("delta.dynamic-filtering.wait-timeout", "1h")
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .setInitialTables(REQUIRED_TABLES)
+                .build();
     }
 
     @Test

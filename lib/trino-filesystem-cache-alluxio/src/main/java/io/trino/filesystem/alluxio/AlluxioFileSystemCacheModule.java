@@ -19,7 +19,7 @@ import com.google.inject.Binder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.filesystem.cache.ConsistentHashingHostAddressProvider;
-import io.trino.filesystem.cache.ConsistentHashingHostAddressProviderConfiguration;
+import io.trino.filesystem.cache.ConsistentHashingHostAddressProviderConfig;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 
 import java.util.Properties;
@@ -43,17 +43,14 @@ public class AlluxioFileSystemCacheModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(AlluxioFileSystemCacheConfig.class);
-        configBinder(binder).bindConfig(ConsistentHashingHostAddressProviderConfiguration.class);
+        configBinder(binder).bindConfig(ConsistentHashingHostAddressProviderConfig.class);
         binder.bind(AlluxioCacheStats.class).in(SINGLETON);
         newExporter(binder).export(AlluxioCacheStats.class).as(generator -> generator.generatedNameOf(AlluxioCacheStats.class));
 
         if (isCoordinator) {
-            binder.bind(TrinoFileSystemCache.class).to(AlluxioCoordinatorFileSystemCache.class).in(SINGLETON);
             newOptionalBinder(binder, CachingHostAddressProvider.class).setBinding().to(ConsistentHashingHostAddressProvider.class).in(SINGLETON);
         }
-        else {
-            binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);
-        }
+        binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);
 
         Properties metricProps = new Properties();
         metricProps.put("sink.jmx.class", "alluxio.metrics.sink.JmxSink");

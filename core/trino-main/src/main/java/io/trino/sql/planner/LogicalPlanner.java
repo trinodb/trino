@@ -239,7 +239,7 @@ public class LogicalPlanner
     public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics)
     {
         PlanNode root;
-        try (var ignored = scopedSpan(plannerContext.getTracer(), "plan")) {
+        try (var _ = scopedSpan(plannerContext.getTracer(), "plan")) {
             root = planStatement(analysis, analysis.getStatement());
         }
 
@@ -254,12 +254,12 @@ public class LogicalPlanner
                     false));
         }
 
-        try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-intermediate")) {
+        try (var _ = scopedSpan(plannerContext.getTracer(), "validate-intermediate")) {
             planSanityChecker.validateIntermediatePlan(root, session, plannerContext, warningCollector);
         }
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
-            try (var ignored = scopedSpan(plannerContext.getTracer(), "optimizer")) {
+            try (var _ = scopedSpan(plannerContext.getTracer(), "optimizer")) {
                 for (PlanOptimizer optimizer : planOptimizers) {
                     root = runOptimizer(root, tableStatsProvider, optimizer);
                 }
@@ -268,7 +268,7 @@ public class LogicalPlanner
 
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-final")) {
+            try (var _ = scopedSpan(plannerContext.getTracer(), "validate-final")) {
                 planSanityChecker.validateFinalPlan(root, session, plannerContext, warningCollector);
             }
         }
@@ -287,7 +287,7 @@ public class LogicalPlanner
         StatsAndCosts statsAndCosts;
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, collectTableStatsProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session);
-        try (var ignored = scopedSpan(plannerContext.getTracer(), "plan-stats")) {
+        try (var _ = scopedSpan(plannerContext.getTracer(), "plan-stats")) {
             statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
         }
         return new Plan(root, statsAndCosts);
@@ -297,7 +297,7 @@ public class LogicalPlanner
     private PlanNode runOptimizer(PlanNode root, TableStatsProvider tableStatsProvider, PlanOptimizer optimizer)
     {
         PlanNode result;
-        try (var ignored = optimizerSpan(optimizer)) {
+        try (var _ = optimizerSpan(optimizer)) {
             result = optimizer.optimize(root, new PlanOptimizer.Context(session, symbolAllocator, idAllocator, warningCollector, planOptimizersStatsCollector, tableStatsProvider, RuntimeInfoProvider.noImplementation()));
         }
         if (result == null) {
@@ -405,8 +405,8 @@ public class LogicalPlanner
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
     {
         AnalyzeMetadata analyzeMetadata = analysis.getAnalyzeMetadata().orElseThrow();
-        TableHandle targetTable = analyzeMetadata.getTableHandle();
-        TableStatisticsMetadata tableStatisticsMetadata = analyzeMetadata.getStatisticsMetadata();
+        TableHandle targetTable = analyzeMetadata.tableHandle();
+        TableStatisticsMetadata tableStatisticsMetadata = analyzeMetadata.statisticsMetadata();
 
         // Plan table scan
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
@@ -414,7 +414,7 @@ public class LogicalPlanner
         ImmutableMap.Builder<Symbol, ColumnHandle> symbolToColumnHandle = ImmutableMap.builder();
         ImmutableMap.Builder<String, Symbol> columnNameToSymbol = ImmutableMap.builder();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable);
-        for (ColumnMetadata column : tableMetadata.getColumns()) {
+        for (ColumnMetadata column : tableMetadata.columns()) {
             Symbol symbol = symbolAllocator.newSymbol(column.getName(), column.getType());
             tableScanOutputs.add(symbol);
             symbolToColumnHandle.put(symbol, columnHandles.get(column.getName()));
@@ -456,7 +456,7 @@ public class LogicalPlanner
 
         List<Symbol> visibleFieldMappings = visibleFields(plan);
 
-        String catalogName = destination.getCatalogName();
+        String catalogName = destination.catalogName();
         CatalogHandle catalogHandle = metadata.getCatalogHandle(session, catalogName)
                 .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, query, "Destination catalog '%s' not found", catalogName));
 
@@ -468,7 +468,7 @@ public class LogicalPlanner
         forEachPair(tableMetadata.getColumns().stream(), visibleFieldMappings.stream(), (column, fieldMapping) -> {
             assignmentsBuilder.put(
                     symbolAllocator.newSymbol(column.getName(), column.getType()),
-                    coerceOrCastToTableType(fieldMapping, column.getType(), fieldMapping.getType()));
+                    coerceOrCastToTableType(fieldMapping, column.getType(), fieldMapping.type()));
             finalColumnsBuilder.add(column);
         });
 
@@ -522,7 +522,7 @@ public class LogicalPlanner
         boolean supportsMissingColumnsOnInsert = metadata.supportsMissingColumnsOnInsert(session, tableHandle);
         ImmutableList.Builder<ColumnMetadata> insertedColumnsBuilder = ImmutableList.builder();
 
-        for (ColumnMetadata column : tableMetadata.getColumns()) {
+        for (ColumnMetadata column : tableMetadata.columns()) {
             if (column.isHidden()) {
                 continue;
             }
@@ -538,7 +538,7 @@ public class LogicalPlanner
             }
             else {
                 Symbol input = visibleFieldMappings.get(index);
-                Type queryType = input.getType();
+                Type queryType = input.type();
 
                 expression = coerceOrCastToTableType(input, tableType, queryType);
             }
@@ -588,7 +588,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.getCatalogHandle(), tableMetadata.getMetadata());
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.catalogHandle(), tableMetadata.metadata());
 
         if (materializedViewRefreshWriterTarget.isPresent()) {
             return createTableWriterPlan(
@@ -969,7 +969,7 @@ public class LogicalPlanner
         PlanNode sourcePlanRoot = sourcePlanBuilder.getRoot();
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-        List<String> columnNames = tableMetadata.getColumns().stream()
+        List<String> columnNames = tableMetadata.columns().stream()
                 .filter(column -> !column.isHidden()) // todo this filter is redundant
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());

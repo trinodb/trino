@@ -7,7 +7,7 @@ or `ConnectorRecordSetProvider`.
 
 :::{note}
 This connector is just an example. It supports a very limited set of data
-types and does not support any advanced functions, like predicacte or other
+types and does not support any advanced functions, like predicate or other
 kind of pushdowns.
 :::
 

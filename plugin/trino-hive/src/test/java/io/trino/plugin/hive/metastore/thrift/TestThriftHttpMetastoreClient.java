@@ -17,9 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.NoSuchObjectException;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.testing.TestingNodeManager;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.http.HttpHeaders;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestThriftHttpMetastoreClient
 {
+    private static final AutoCloseableCloser closer = AutoCloseableCloser.create();
     private static ThriftMetastore delegate;
 
     @BeforeAll
@@ -46,7 +49,14 @@ public class TestThriftHttpMetastoreClient
     {
         File tempDir = Files.createTempDirectory(null).toFile();
         tempDir.deleteOnExit();
-        delegate = testingThriftHiveMetastoreBuilder().metastoreClient(createFakeMetastoreClient()).build();
+        delegate = testingThriftHiveMetastoreBuilder().metastoreClient(createFakeMetastoreClient()).build(closer::register);
+    }
+
+    @AfterAll
+    public static void tearDown()
+            throws Exception
+    {
+        closer.close();
     }
 
     private static ThriftMetastoreClient createFakeMetastoreClient()

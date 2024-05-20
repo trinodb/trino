@@ -33,13 +33,23 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class IgniteQueryRunner
 {
-    private static final String IGNITE_SCHEMA = "public";
-
     private IgniteQueryRunner() {}
+
+    private static final String IGNITE_SCHEMA = "public";
 
     public static QueryRunner createIgniteQueryRunner(
             TestingIgniteServer server,
-            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            List<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createIgniteQueryRunner(server, ImmutableMap.of(), connectorProperties, tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createIgniteQueryRunner(
+            TestingIgniteServer server,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             List<TpchTable<?>> tables)
             throws Exception
@@ -47,7 +57,7 @@ public final class IgniteQueryRunner
         QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());
@@ -59,7 +69,7 @@ public final class IgniteQueryRunner
             queryRunner.installPlugin(new IgnitePlugin());
             queryRunner.createCatalog("ignite", "ignite", connectorProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
             return queryRunner;
         }
         catch (Throwable e) {

@@ -161,10 +161,10 @@ public class HiveWritableTableHandle
             HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty().get();
             BucketingVersion bucketingVersion = getBucketingVersion(table.getParameters());
             return Optional.of(new BucketInfo(
-                    bucketProperty.getBucketedBy(),
+                    bucketProperty.bucketedBy(),
                     bucketingVersion,
-                    bucketProperty.getBucketCount(),
-                    bucketProperty.getSortedBy()));
+                    bucketProperty.bucketCount(),
+                    bucketProperty.sortedBy()));
         }
     }
 }

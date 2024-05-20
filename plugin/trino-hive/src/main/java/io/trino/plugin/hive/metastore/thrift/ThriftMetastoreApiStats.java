@@ -37,7 +37,7 @@ public class ThriftMetastoreApiStats
     public <V> Callable<V> wrap(Callable<V> callable)
     {
         return () -> {
-            try (TimeStat.BlockTimer ignored = time.time()) {
+            try (TimeStat.BlockTimer _ = time.time()) {
                 return callable.call();
             }
             catch (Exception e) {

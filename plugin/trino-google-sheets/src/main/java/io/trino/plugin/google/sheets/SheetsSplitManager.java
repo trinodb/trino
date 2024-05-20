@@ -56,7 +56,7 @@ public class SheetsSplitManager
                 .orElseThrow(() -> tableNotFound(tableHandle));
 
         List<ConnectorSplit> splits = new ArrayList<>();
-        splits.add(new SheetsSplit(table.getValues()));
+        splits.add(new SheetsSplit(table.values()));
         Collections.shuffle(splits);
         return new FixedSplitSource(splits);
     }

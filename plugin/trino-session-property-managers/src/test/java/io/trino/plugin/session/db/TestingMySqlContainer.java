@@ -20,7 +20,7 @@ public class TestingMySqlContainer
 {
     public TestingMySqlContainer()
     {
-        super("mysql:8.0.30");
+        super("mysql:8.0.36");
     }
 
     @Override

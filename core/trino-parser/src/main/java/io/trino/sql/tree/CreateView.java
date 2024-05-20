@@ -121,7 +121,7 @@ public class CreateView
         CreateView o = (CreateView) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
-                && Objects.equals(replace, o.replace)
+                && replace == o.replace
                 && Objects.equals(comment, o.comment)
                 && Objects.equals(security, o.security)
                 && Objects.equals(properties, o.properties);

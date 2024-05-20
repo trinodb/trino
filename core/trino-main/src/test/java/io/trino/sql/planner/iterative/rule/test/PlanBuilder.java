@@ -121,6 +121,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -207,7 +208,7 @@ public class PlanBuilder
 
         public OutputBuilder column(Symbol symbol)
         {
-            return column(symbol, symbol.getName());
+            return column(symbol, symbol.name());
         }
 
         public OutputBuilder column(Symbol symbol, String columnName)
@@ -241,7 +242,7 @@ public class PlanBuilder
     public ValuesNode values(PlanNodeId id, int rows, Symbol... columns)
     {
         List<Expression> row = Arrays.stream(columns)
-                .map(symbol -> new Constant(symbol.getType(), null))
+                .map(symbol -> new Constant(symbol.type(), null))
                 .collect(Collectors.toList());
 
         return values(id, ImmutableList.copyOf(columns), nCopies(rows, row));
@@ -414,7 +415,7 @@ public class PlanBuilder
     public class AggregationBuilder
     {
         private PlanNode source;
-        private final Map<Symbol, Aggregation> assignments = new HashMap<>();
+        private final Map<Symbol, Aggregation> assignments = new LinkedHashMap<>();
         private AggregationNode.GroupingSetDescriptor groupingSets;
         private List<Symbol> preGroupedSymbols = new ArrayList<>();
         private Step step = Step.SINGLE;
@@ -639,7 +640,7 @@ public class PlanBuilder
 
         public TableScanBuilder setAssignmentsForSymbols(List<Symbol> symbols)
         {
-            return setAssignments(symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingColumnHandle(symbol.getName()))));
+            return setAssignments(symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingColumnHandle(symbol.name()))));
         }
 
         public TableScanBuilder setAssignments(Map<Symbol, ColumnHandle> assignments)
@@ -866,7 +867,7 @@ public class PlanBuilder
         return new IndexSourceNode(
                 idAllocator.getNextId(),
                 new IndexHandle(
-                        tableHandle.getCatalogHandle(),
+                        tableHandle.catalogHandle(),
                         TestingConnectorTransactionHandle.INSTANCE,
                         TestingConnectorIndexHandle.INSTANCE),
                 tableHandle,
@@ -1317,9 +1318,9 @@ public class PlanBuilder
     {
         Symbol symbol = new Symbol(type, name);
 
-        Symbol old = symbolsByName.put(symbol.getName(), symbol);
-        if (old != null && !old.getType().equals(type)) {
-            throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old.getType()));
+        Symbol old = symbolsByName.put(symbol.name(), symbol);
+        if (old != null && !old.type().equals(type)) {
+            throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old.type()));
         }
 
         return symbol;

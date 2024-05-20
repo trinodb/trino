@@ -36,9 +36,9 @@ public class AndCodeGenerator
     {
         requireNonNull(specialForm, "specialForm is null");
 
-        checkArgument(specialForm.getArguments().size() >= 2);
+        checkArgument(specialForm.arguments().size() >= 2);
 
-        terms = specialForm.getArguments();
+        terms = specialForm.arguments();
     }
 
     @Override
@@ -62,7 +62,7 @@ public class AndCodeGenerator
 
             ifWasNull.ifTrue()
                     .comment("clear the null flag, pop residual value off stack, and push was null flag on the stack (true)")
-                    .pop(term.getType().getJavaType()) // discard residual value
+                    .pop(term.type().getJavaType()) // discard residual value
                     .pop(boolean.class) // discard the previous "we've seen a null flag"
                     .push(true);
 

@@ -17,11 +17,15 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter;
 import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 
+import java.util.Optional;
+
+import static io.trino.parquet.writer.valuewriter.BloomFilterValuesWriter.createBloomFilterValuesWriter;
 import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
 
 /**
@@ -36,59 +40,59 @@ public class TrinoValuesWriterFactory
         this.parquetProperties = properties;
     }
 
-    public ValuesWriter newValuesWriter(ColumnDescriptor descriptor)
+    public ValuesWriter newValuesWriter(ColumnDescriptor descriptor, Optional<BloomFilter> bloomFilter)
     {
         return switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
             case BOOLEAN -> new BooleanPlainValuesWriter(); // no dictionary encoding for boolean
-            case FIXED_LEN_BYTE_ARRAY -> getFixedLenByteArrayValuesWriter(descriptor);
-            case BINARY -> getBinaryValuesWriter(descriptor);
-            case INT32 -> getInt32ValuesWriter(descriptor);
-            case INT64 -> getInt64ValuesWriter(descriptor);
-            case INT96 -> getInt96ValuesWriter(descriptor);
-            case DOUBLE -> getDoubleValuesWriter(descriptor);
-            case FLOAT -> getFloatValuesWriter(descriptor);
+            case FIXED_LEN_BYTE_ARRAY -> getFixedLenByteArrayValuesWriter(descriptor, bloomFilter);
+            case BINARY -> getBinaryValuesWriter(descriptor, bloomFilter);
+            case INT32 -> getInt32ValuesWriter(descriptor, bloomFilter);
+            case INT64 -> getInt64ValuesWriter(descriptor, bloomFilter);
+            case INT96 -> getInt96ValuesWriter(descriptor, bloomFilter);
+            case DOUBLE -> getDoubleValuesWriter(descriptor, bloomFilter);
+            case FLOAT -> getFloatValuesWriter(descriptor, bloomFilter);
         };
     }
 
-    private ValuesWriter getFixedLenByteArrayValuesWriter(ColumnDescriptor path)
+    private ValuesWriter getFixedLenByteArrayValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
         // dictionary encoding was not enabled in PARQUET 1.0
-        return new FixedLenByteArrayPlainValuesWriter(path.getTypeLength(), parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator());
+        return createBloomFilterValuesWriter(new FixedLenByteArrayPlainValuesWriter(path.getTypeLength(), parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator()), bloomFilter);
     }
 
-    private ValuesWriter getBinaryValuesWriter(ColumnDescriptor path)
+    private ValuesWriter getBinaryValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new PlainValuesWriter(parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator());
+        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new PlainValuesWriter(parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator()), bloomFilter);
         return dictWriterWithFallBack(path, parquetProperties, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
     }
 
-    private ValuesWriter getInt32ValuesWriter(ColumnDescriptor path)
+    private ValuesWriter getInt32ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new PlainValuesWriter(parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator());
+        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new PlainValuesWriter(parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator()), bloomFilter);
         return dictWriterWithFallBack(path, parquetProperties, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
     }
 
-    private ValuesWriter getInt64ValuesWriter(ColumnDescriptor path)
+    private ValuesWriter getInt64ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new PlainValuesWriter(parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator());
+        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new PlainValuesWriter(parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator()), bloomFilter);
         return dictWriterWithFallBack(path, parquetProperties, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
     }
 
-    private ValuesWriter getInt96ValuesWriter(ColumnDescriptor path)
+    private ValuesWriter getInt96ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new FixedLenByteArrayPlainValuesWriter(12, parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator());
+        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new FixedLenByteArrayPlainValuesWriter(12, parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator()), bloomFilter);
         return dictWriterWithFallBack(path, parquetProperties, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
     }
 
-    private ValuesWriter getDoubleValuesWriter(ColumnDescriptor path)
+    private ValuesWriter getDoubleValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new PlainValuesWriter(parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator());
+        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new PlainValuesWriter(parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator()), bloomFilter);
         return dictWriterWithFallBack(path, parquetProperties, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
     }
 
-    private ValuesWriter getFloatValuesWriter(ColumnDescriptor path)
+    private ValuesWriter getFloatValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new PlainValuesWriter(parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator());
+        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new PlainValuesWriter(parquetProperties.getInitialSlabSize(), parquetProperties.getPageSizeThreshold(), parquetProperties.getAllocator()), bloomFilter);
         return dictWriterWithFallBack(path, parquetProperties, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
     }
 

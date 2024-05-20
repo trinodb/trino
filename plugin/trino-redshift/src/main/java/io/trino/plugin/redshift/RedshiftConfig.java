@@ -13,23 +13,12 @@
  */
 package io.trino.plugin.redshift;
 
-import io.airlift.configuration.Config;
 import io.airlift.configuration.DefunctConfig;
 
-@DefunctConfig("redshift.disable-automatic-fetch-size")
+@DefunctConfig({
+        "redshift.disable-automatic-fetch-size",
+        "redshift.use-legacy-type-mapping",
+})
 public class RedshiftConfig
 {
-    private boolean legacyTypeMapping;
-
-    public boolean isLegacyTypeMapping()
-    {
-        return legacyTypeMapping;
-    }
-
-    @Config("redshift.use-legacy-type-mapping")
-    public RedshiftConfig setLegacyTypeMapping(boolean legacyTypeMapping)
-    {
-        this.legacyTypeMapping = legacyTypeMapping;
-        return this;
-    }
 }

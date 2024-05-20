@@ -47,11 +47,19 @@ public final class PhoenixQueryRunner
     {
     }
 
-    public static QueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> extraProperties, List<TpchTable<?>> tables)
+    // TODO convert to builder
+    public static QueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, List<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createPhoenixQueryRunner(server, ImmutableMap.of(), tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> coordinatorProperties, List<TpchTable<?>> tables)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
 
         queryRunner.installPlugin(new TpchPlugin());

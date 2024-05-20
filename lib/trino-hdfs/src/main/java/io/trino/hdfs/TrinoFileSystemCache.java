@@ -52,7 +52,6 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.FileSystem.getFileSystemClass;
-import static org.apache.hadoop.security.UserGroupInformationShim.getSubject;
 
 public class TrinoFileSystemCache
         implements FileSystemCache
@@ -254,7 +253,7 @@ public class TrinoFileSystemCache
         AuthenticationMethod authenticationMethod = userGroupInformation.getAuthenticationMethod();
         return switch (authenticationMethod) {
             case SIMPLE -> ImmutableSet.of();
-            case KERBEROS -> ImmutableSet.copyOf(getSubject(userGroupInformation).getPrivateCredentials());
+            case KERBEROS -> ImmutableSet.copyOf(userGroupInformation.getSubject().getPrivateCredentials());
             case PROXY -> getPrivateCredentials(userGroupInformation.getRealUser());
             default -> throw new IllegalArgumentException("Unsupported authentication method: " + authenticationMethod);
         };

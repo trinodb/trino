@@ -67,7 +67,7 @@ public class LdapAuthenticator
         this.userBindSearchPatterns = ldapAuthenticatorConfig.getUserBindSearchPatterns();
         this.groupAuthorizationSearchPattern = Optional.ofNullable(ldapAuthenticatorConfig.getGroupAuthorizationSearchPattern());
         this.userBaseDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getUserBaseDistinguishedName());
-        this.bindDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getBindDistingushedName());
+        this.bindDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getBindDistinguishedName());
         this.bindPassword = Optional.ofNullable(ldapAuthenticatorConfig.getBindPassword());
 
         checkArgument(
@@ -102,7 +102,7 @@ public class LdapAuthenticator
     @Override
     public Principal createAuthenticatedPrincipal(String user, String password)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             return authenticationCache.getUnchecked(new Credential(user, password));
         }
         catch (UncheckedExecutionException e) {

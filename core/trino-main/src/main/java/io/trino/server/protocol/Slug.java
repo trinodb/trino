@@ -50,8 +50,7 @@ public final class Slug
         return "y" + hmac.newHasher()
                 .putInt(context.ordinal())
                 .putLong(token)
-                .hash()
-                .toString();
+                .hash();
     }
 
     public boolean isValid(Context context, String slug, long token)

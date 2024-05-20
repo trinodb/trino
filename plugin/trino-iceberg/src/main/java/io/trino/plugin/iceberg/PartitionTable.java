@@ -229,7 +229,7 @@ public class PartitionTable
 
                 partitions.computeIfAbsent(
                         structLikeWrapperWithFieldIdToIndex,
-                        ignored -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
+                        _ -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
                         .acceptDataFile(dataFile, fileScanTask.spec());
             }
 
@@ -276,9 +276,9 @@ public class PartitionTable
             });
 
             // add the top level metrics.
-            row.add(icebergStatistics.getRecordCount());
-            row.add(icebergStatistics.getFileCount());
-            row.add(icebergStatistics.getSize());
+            row.add(icebergStatistics.recordCount());
+            row.add(icebergStatistics.fileCount());
+            row.add(icebergStatistics.size());
 
             // add column level metrics
             dataColumnType.ifPresent(dataColumnType -> {
@@ -286,10 +286,10 @@ public class PartitionTable
                     row.add(buildRowValue(dataColumnType, fields -> {
                         for (int i = 0; i < columnMetricTypes.size(); i++) {
                             Integer fieldId = nonPartitionPrimitiveColumns.get(i).fieldId();
-                            Object min = icebergStatistics.getMinValues().get(fieldId);
-                            Object max = icebergStatistics.getMaxValues().get(fieldId);
-                            Long nullCount = icebergStatistics.getNullCounts().get(fieldId);
-                            Long nanCount = icebergStatistics.getNanCounts().get(fieldId);
+                            Object min = icebergStatistics.minValues().get(fieldId);
+                            Object max = icebergStatistics.maxValues().get(fieldId);
+                            Long nullCount = icebergStatistics.nullCounts().get(fieldId);
+                            Long nanCount = icebergStatistics.nanCounts().get(fieldId);
                             if (min == null && max == null && nullCount == null) {
                                 throw new MissingColumnMetricsException();
                             }
@@ -299,7 +299,7 @@ public class PartitionTable
                         }
                     }));
                 }
-                catch (MissingColumnMetricsException ignored) {
+                catch (MissingColumnMetricsException _) {
                     row.add(null);
                 }
             });

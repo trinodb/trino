@@ -13,41 +13,20 @@
  */
 package io.trino.plugin.kafka;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.min;
 
-public class Range
+/**
+ * @param begin inclusive
+ * @param end exclusive
+ */
+public record Range(long begin, long end)
 {
     private static final int INSTANCE_SIZE = instanceSize(Range.class);
-
-    private final long begin; // inclusive
-    private final long end; // exclusive
-
-    @JsonCreator
-    public Range(@JsonProperty long begin, @JsonProperty long end)
-    {
-        this.begin = begin;
-        this.end = end;
-    }
-
-    @JsonProperty
-    public long getBegin()
-    {
-        return begin;
-    }
-
-    @JsonProperty
-    public long getEnd()
-    {
-        return end;
-    }
 
     public List<Range> partition(int partitionSize)
     {
@@ -60,16 +39,7 @@ public class Range
         return partitions.build();
     }
 
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("begin", begin)
-                .add("end", end)
-                .toString();
-    }
-
-    public long getRetainedSizeInBytes()
+    public long retainedSizeInBytes()
     {
         return INSTANCE_SIZE;
     }

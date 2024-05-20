@@ -103,7 +103,7 @@ public class TestShardWriter
                 .row(null, "world", null, Double.POSITIVE_INFINITY, null, arrayBlockOf(BIGINT, 3, null), sqlMapOf(createVarcharType(5), BOOLEAN, "k2", null), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7)))
                 .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), sqlMapOf(createVarcharType(5), BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(new EmptyClassLoader());
                 OrcFileWriter writer = new OrcFileWriter(TESTING_TYPE_MANAGER, columnIds, columnTypes, file)) {
             writer.appendPages(rowPagesBuilder.build());
         }

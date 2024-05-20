@@ -77,7 +77,7 @@ public class ChannelSet
                     type,
                     typeOperators.getReadValueOperator(type, simpleConvention(FLAT_RETURN, BLOCK_POSITION_NOT_NULL)),
                     typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, FLAT)),
-                    typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL)),
+                    typeOperators.getIdenticalOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL)),
                     typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)));
             this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
             this.memoryContext.setBytes(set.getEstimatedSize());

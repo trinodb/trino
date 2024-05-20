@@ -32,6 +32,11 @@ public abstract class IrVisitor<R, C>
         return null;
     }
 
+    protected R visitArray(Array node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitBetween(Between node, C context)
     {
         return visitExpression(node, context);
@@ -73,11 +78,6 @@ public abstract class IrVisitor<R, C>
     }
 
     protected R visitNullIf(NullIf node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitNot(Not node, C context)
     {
         return visitExpression(node, context);
     }

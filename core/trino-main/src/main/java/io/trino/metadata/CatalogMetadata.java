@@ -101,16 +101,11 @@ public class CatalogMetadata
 
     public ConnectorTransactionHandle getTransactionHandleFor(CatalogHandleType catalogHandleType)
     {
-        switch (catalogHandleType) {
-            case NORMAL:
-                return catalogTransaction.getTransactionHandle();
-            case INFORMATION_SCHEMA:
-                return informationSchemaTransaction.getTransactionHandle();
-            case SYSTEM:
-                return systemTransaction.getTransactionHandle();
-            default:
-                throw new IllegalArgumentException("Unknown catalog handle: " + catalogHandleType);
-        }
+        return switch (catalogHandleType) {
+            case NORMAL -> catalogTransaction.getTransactionHandle();
+            case INFORMATION_SCHEMA -> informationSchemaTransaction.getTransactionHandle();
+            case SYSTEM -> systemTransaction.getTransactionHandle();
+        };
     }
 
     public ConnectorTransactionHandle getTransactionHandleFor(CatalogHandle catalogHandle)
@@ -137,7 +132,7 @@ public class CatalogMetadata
 
     public CatalogHandle getCatalogHandle(Session session, QualifiedObjectName table)
     {
-        if (table.getSchemaName().equals(INFORMATION_SCHEMA_NAME)) {
+        if (table.schemaName().equals(INFORMATION_SCHEMA_NAME)) {
             return informationSchemaTransaction.getCatalogHandle();
         }
 

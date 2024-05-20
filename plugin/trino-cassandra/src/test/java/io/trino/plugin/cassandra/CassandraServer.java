@@ -47,7 +47,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectory;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.writeString;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -100,7 +99,7 @@ public class CassandraServer
                 .withLocalDatacenter(dockerContainer.getLocalDatacenter())
                 .withConfigLoader(driverConfigLoaderBuilder.build());
 
-        this.session = new CassandraSession(
+        session = new CassandraSession(
                 CASSANDRA_TYPE_MANAGER,
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
                 cqlSessionBuilder::build,
@@ -127,7 +126,7 @@ public class CassandraServer
 
     public CassandraSession getSession()
     {
-        return requireNonNull(session, "session is null");
+        return session;
     }
 
     public String getHost()

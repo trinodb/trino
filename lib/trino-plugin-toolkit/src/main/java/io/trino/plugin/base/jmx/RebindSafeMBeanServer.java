@@ -74,7 +74,7 @@ public class RebindSafeMBeanServer
                 // try to register the mbean
                 return mbeanServer.registerMBean(object, name);
             }
-            catch (InstanceAlreadyExistsException ignored) {
+            catch (InstanceAlreadyExistsException _) {
             }
 
             try {
@@ -83,7 +83,7 @@ public class RebindSafeMBeanServer
                 log.debug("%s already bound to %s", name, objectInstance);
                 return objectInstance;
             }
-            catch (InstanceNotFoundException ignored) {
+            catch (InstanceNotFoundException _) {
                 // the mbean was removed before we could get the reference
                 // start the whole process over again
             }

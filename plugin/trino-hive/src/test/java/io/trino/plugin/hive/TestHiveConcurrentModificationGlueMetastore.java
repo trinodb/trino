@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.hive;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.ConcurrentModificationException;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
-import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
+import io.trino.plugin.hive.metastore.glue.GlueCache;
+import io.trino.plugin.hive.metastore.glue.GlueContext;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.spi.TrinoException;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -27,20 +26,22 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
+import java.util.EnumSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.reflect.Reflection.newProxy;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingAsyncGlueClient;
+import static io.trino.plugin.hive.metastore.glue.GlueMetastoreModule.createGlueClient;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -69,19 +70,20 @@ public class TestHiveConcurrentModificationGlueMetastore
         QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("data_hive_concurrent");
-        GlueMetastoreStats stats = new GlueMetastoreStats();
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(dataDirectory.toUri().toString());
 
-        AWSGlueAsync glueClient = createTestingAsyncGlueClient(glueConfig, stats);
-        AWSGlueAsync proxiedGlueClient = newProxy(AWSGlueAsync.class, (proxy, method, args) -> {
+        GlueClient glueClient = closeAfterClass(createGlueClient(new GlueHiveMetastoreConfig(), OpenTelemetry.noop()));
+        GlueClient proxiedGlueClient = newProxy(GlueClient.class, (proxy, method, args) -> {
             try {
                 if (method.getName().equals("updateTable")) {
                     updateTableCallsCounter.incrementAndGet();
                     if (failNextGlueUpdateTableCall.get()) {
                         // Simulate concurrent modifications on the table that is about to be dropped
                         failNextGlueUpdateTableCall.set(false);
-                        throw new TrinoException(HIVE_METASTORE_ERROR, new ConcurrentModificationException("Test-simulated metastore concurrent modification exception"));
+                        throw new TrinoException(HIVE_METASTORE_ERROR, ConcurrentModificationException.builder()
+                                .message("Test-simulated metastore concurrent modification exception")
+                                .build());
                     }
                 }
                 return method.invoke(glueClient, args);
@@ -92,13 +94,12 @@ public class TestHiveConcurrentModificationGlueMetastore
         });
 
         metastore = new GlueHiveMetastore(
+                proxiedGlueClient,
+                new GlueContext(glueConfig),
+                GlueCache.NOOP,
                 HDFS_FILE_SYSTEM_FACTORY,
                 glueConfig,
-                directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                proxiedGlueClient,
-                stats,
-                table -> true);
+                EnumSet.allOf(GlueHiveMetastore.TableKind.class));
 
         queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), metastore));
         queryRunner.createCatalog(CATALOG_NAME, "hive");
@@ -141,6 +142,7 @@ public class TestHiveConcurrentModificationGlueMetastore
     {
         if (metastore != null) {
             metastore.dropDatabase(SCHEMA, false);
+            metastore.shutdown();
             deleteRecursively(dataDirectory, ALLOW_INSECURE);
         }
     }

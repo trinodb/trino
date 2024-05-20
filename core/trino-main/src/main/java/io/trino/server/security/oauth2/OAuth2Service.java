@@ -112,9 +112,9 @@ public class OAuth2Service
         Instant challengeExpiration = now().plus(challengeTimeout);
         String state = newJwtBuilder()
                 .signWith(stateHmac)
-                .setAudience(STATE_AUDIENCE_UI)
+                .audience().add(STATE_AUDIENCE_UI).and()
                 .claim(HANDLER_STATE_CLAIM, handlerState.orElse(null))
-                .setExpiration(Date.from(challengeExpiration))
+                .expiration(Date.from(challengeExpiration))
                 .compact();
 
         OAuth2Client.Request request = client.createAuthorizationRequest(state, callbackUri);
@@ -211,8 +211,8 @@ public class OAuth2Service
     {
         try {
             return jwtParser
-                    .parseClaimsJws(state)
-                    .getBody();
+                    .parseSignedClaims(state)
+                    .getPayload();
         }
         catch (RuntimeException e) {
             throw new ChallengeFailedException("State validation failed", e);
@@ -243,17 +243,12 @@ public class OAuth2Service
 
     private static String getOAuth2ErrorMessage(String errorCode)
     {
-        switch (errorCode) {
-            case "access_denied":
-                return "OAuth2 server denied the login";
-            case "unauthorized_client":
-                return "OAuth2 server does not allow request from this Trino server";
-            case "server_error":
-                return "OAuth2 server had a failure";
-            case "temporarily_unavailable":
-                return "OAuth2 server is temporarily unavailable";
-            default:
-                return "OAuth2 unknown error code: " + errorCode;
-        }
+        return switch (errorCode) {
+            case "access_denied" -> "OAuth2 server denied the login";
+            case "unauthorized_client" -> "OAuth2 server does not allow request from this Trino server";
+            case "server_error" -> "OAuth2 server had a failure";
+            case "temporarily_unavailable" -> "OAuth2 server is temporarily unavailable";
+            default -> "OAuth2 unknown error code: " + errorCode;
+        };
     }
 }

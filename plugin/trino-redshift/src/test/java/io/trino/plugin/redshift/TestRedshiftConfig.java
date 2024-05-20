@@ -27,19 +27,16 @@ public class TestRedshiftConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(RedshiftConfig.class)
-                .setLegacyTypeMapping(false));
+        assertRecordedDefaults(recordDefaults(RedshiftConfig.class));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("redshift.use-legacy-type-mapping", "true")
                 .buildOrThrow();
 
-        RedshiftConfig expected = new RedshiftConfig()
-                .setLegacyTypeMapping(true);
+        RedshiftConfig expected = new RedshiftConfig();
 
         assertFullMapping(properties, expected);
     }

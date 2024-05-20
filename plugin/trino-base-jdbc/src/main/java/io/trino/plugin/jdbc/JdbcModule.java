@@ -59,6 +59,7 @@ public class JdbcModule
         tablePropertiesProviderBinder(binder);
 
         newOptionalBinder(binder, JdbcMetadataFactory.class).setDefault().to(DefaultJdbcMetadataFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, TimestampTimeZoneDomain.class).setDefault().toInstance(TimestampTimeZoneDomain.ANY);
         newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class)).setDefault().to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcDynamicFilteringSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorRecordSetProvider.class).setDefault().to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
@@ -105,7 +106,7 @@ public class JdbcModule
         newSetBinder(binder, JdbcQueryEventListener.class);
 
         closingBinder(binder)
-                .registerExecutor(ExecutorService.class, ForRecordCursor.class);
+                .registerExecutor(Key.get(ExecutorService.class, ForRecordCursor.class));
     }
 
     public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)

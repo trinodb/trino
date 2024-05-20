@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.assertions;
 
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
@@ -27,7 +28,6 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.Switch;
@@ -70,6 +70,16 @@ public final class ExpressionVerifier
     public ExpressionVerifier(SymbolAliases symbolAliases)
     {
         this.symbolAliases = requireNonNull(symbolAliases, "symbolAliases is null");
+    }
+
+    @Override
+    protected Boolean visitArray(Array actual, Expression expectedExpression)
+    {
+        if (!(expectedExpression instanceof Array expected)) {
+            return false;
+        }
+
+        return process(actual.elements(), expected.elements());
     }
 
     @Override
@@ -166,16 +176,6 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitNot(Not actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof Not expected)) {
-            return false;
-        }
-
-        return process(actual.value(), expected.value());
-    }
-
-    @Override
     protected Boolean visitLogical(Logical actual, Expression expectedExpression)
     {
         if (!(expectedExpression instanceof Logical expected)) {
@@ -266,7 +266,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return actual.function().getName().equals(expected.function().getName()) &&
+        return actual.function().name().equals(expected.function().name()) &&
                 process(actual.arguments(), expected.arguments());
     }
 

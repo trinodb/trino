@@ -156,7 +156,7 @@ class TestingH2JdbcClient
             return mapping;
         }
 
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
 
@@ -180,14 +180,14 @@ class TestingH2JdbcClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
 
             case Types.VARCHAR:
                 // varchar columns get created as varchar(max_length) in H2
-                if (typeHandle.getRequiredColumnSize() == MAXIMUM_VARCHAR_LENGTH) {
+                if (typeHandle.requiredColumnSize() == MAXIMUM_VARCHAR_LENGTH) {
                     return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
                 }
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
 
             case Types.DATE:
                 return Optional.of(dateColumnMappingUsingSqlDate());
@@ -196,7 +196,7 @@ class TestingH2JdbcClient
                 return Optional.of(timeColumnMapping(TIME_MILLIS));
 
             case Types.TIMESTAMP:
-                TimestampType timestampType = typeHandle.getDecimalDigits()
+                TimestampType timestampType = typeHandle.decimalDigits()
                         .map(TimestampType::createTimestampType)
                         .orElse(TIMESTAMP_MILLIS);
                 return Optional.of(timestampColumnMapping(timestampType));

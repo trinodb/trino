@@ -1462,8 +1462,10 @@ public class TestColumnIndexBuilder
                         .isFalse();
             }
             else {
+                assertThat(value.arrayOffset())
+                        .isEqualTo(0);
                 assertThat(value.array())
-                        .describedAs("Invalid value for page " + i)
+                        .describedAs("Value for page %s", i)
                         .isEqualTo(expectedValue.getBytesUnsafe());
             }
         }

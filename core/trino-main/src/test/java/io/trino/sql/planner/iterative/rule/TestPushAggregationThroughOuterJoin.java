@@ -46,7 +46,6 @@ import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
-import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestPushAggregationThroughOuterJoin
         extends BaseRuleTest
@@ -59,19 +58,19 @@ public class TestPushAggregationThroughOuterJoin
                         .source(
                                 p.join(
                                         LEFT,
-                                        p.values(ImmutableList.of(p.symbol("COL1", DOUBLE)), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)))),
-                                        p.values(p.symbol("COL2", DOUBLE)),
-                                        ImmutableList.of(new EquiJoinClause(p.symbol("COL1", DOUBLE), p.symbol("COL2", DOUBLE))),
-                                        ImmutableList.of(p.symbol("COL1", DOUBLE)),
-                                        ImmutableList.of(p.symbol("COL2", DOUBLE)),
+                                        p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
+                                        p.values(p.symbol("COL2", BIGINT)),
+                                        ImmutableList.of(new EquiJoinClause(p.symbol("COL1", BIGINT), p.symbol("COL2", BIGINT))),
+                                        ImmutableList.of(p.symbol("COL1", BIGINT)),
+                                        ImmutableList.of(p.symbol("COL2", BIGINT)),
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))
-                        .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(DOUBLE, "COL2"))), ImmutableList.of(DOUBLE))
-                        .singleGroupingSet(p.symbol("COL1", DOUBLE))))
+                        .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(BIGINT, "COL2"))), ImmutableList.of(BIGINT))
+                        .singleGroupingSet(p.symbol("COL1", BIGINT))))
                 .matches(
                         project(ImmutableMap.of(
-                                        "COL1", expression(new Reference(DOUBLE, "COL1")),
+                                        "COL1", expression(new Reference(BIGINT, "COL1")),
                                         "COALESCE", expression(new Coalesce(new Reference(DOUBLE, "AVG"), new Reference(DOUBLE, "AVG_NULL")))),
                                 join(INNER, builder -> builder
                                         .left(
@@ -100,20 +99,20 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 RIGHT,
-                                p.values(p.symbol("COL2", DOUBLE)),
-                                p.values(ImmutableList.of(p.symbol("COL1", DOUBLE)), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)))),
-                                ImmutableList.of(new EquiJoinClause(p.symbol("COL2", DOUBLE), p.symbol("COL1", DOUBLE))),
-                                ImmutableList.of(p.symbol("COL2", DOUBLE)),
-                                ImmutableList.of(p.symbol("COL1", DOUBLE)),
+                                p.values(p.symbol("COL2", BIGINT)),
+                                p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
+                                ImmutableList.of(new EquiJoinClause(p.symbol("COL2", BIGINT), p.symbol("COL1", BIGINT))),
+                                ImmutableList.of(p.symbol("COL2", BIGINT)),
+                                ImmutableList.of(p.symbol("COL1", BIGINT)),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(DOUBLE, "COL2"))), ImmutableList.of(DOUBLE))
-                        .singleGroupingSet(p.symbol("COL1", DOUBLE))))
+                        .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(BIGINT, "COL2"))), ImmutableList.of(BIGINT))
+                        .singleGroupingSet(p.symbol("COL1", BIGINT))))
                 .matches(
                         project(ImmutableMap.of(
                                         "COALESCE", expression(new Coalesce(new Reference(DOUBLE, "AVG"), new Reference(DOUBLE, "AVG_NULL"))),
-                                        "COL1", expression(new Reference(DOUBLE, "COL1"))),
+                                        "COL1", expression(new Reference(BIGINT, "COL1"))),
                                 join(INNER, builder -> builder
                                         .left(
                                                 join(RIGHT, leftJoinBuilder -> leftJoinBuilder
@@ -143,23 +142,23 @@ public class TestPushAggregationThroughOuterJoin
                         .source(
                                 p.join(
                                         LEFT,
-                                        p.values(ImmutableList.of(p.symbol("COL1", DOUBLE)), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)))),
-                                        p.values(p.symbol("COL2", DOUBLE), p.symbol("MASK", BOOLEAN)),
-                                        ImmutableList.of(new EquiJoinClause(p.symbol("COL1", DOUBLE), p.symbol("COL2", DOUBLE))),
-                                        ImmutableList.of(p.symbol("COL1", DOUBLE)),
-                                        ImmutableList.of(p.symbol("COL2", DOUBLE), p.symbol("MASK", BOOLEAN)),
+                                        p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
+                                        p.values(p.symbol("COL2", BIGINT), p.symbol("MASK", BOOLEAN)),
+                                        ImmutableList.of(new EquiJoinClause(p.symbol("COL1", BIGINT), p.symbol("COL2", BIGINT))),
+                                        ImmutableList.of(p.symbol("COL1", BIGINT)),
+                                        ImmutableList.of(p.symbol("COL2", BIGINT), p.symbol("MASK", BOOLEAN)),
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))
                         .addAggregation(
                                 p.symbol("AVG", DOUBLE),
-                                PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(DOUBLE, "COL2"))),
-                                ImmutableList.of(DOUBLE),
+                                PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(BIGINT, "COL2"))),
+                                ImmutableList.of(BIGINT),
                                 p.symbol("MASK", BOOLEAN))
-                        .singleGroupingSet(p.symbol("COL1", DOUBLE))))
+                        .singleGroupingSet(p.symbol("COL1", BIGINT))))
                 .matches(
                         project(ImmutableMap.of(
-                                        "COL1", expression(new Reference(DOUBLE, "COL1")),
+                                        "COL1", expression(new Reference(BIGINT, "COL1")),
                                         "COALESCE", expression(new Coalesce(new Reference(DOUBLE, "AVG"), new Reference(DOUBLE, "AVG_NULL")))),
                                 join(INNER, builder -> builder
                                         .left(
@@ -194,19 +193,19 @@ public class TestPushAggregationThroughOuterJoin
                         .source(
                                 p.join(
                                         LEFT,
-                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)))),
-                                        p.values(p.symbol("COL2")),
-                                        ImmutableList.of(new EquiJoinClause(p.symbol("COL1"), p.symbol("COL2"))),
-                                        ImmutableList.of(p.symbol("COL1")),
-                                        ImmutableList.of(p.symbol("COL2")),
+                                        p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
+                                        p.values(p.symbol("COL2", BIGINT)),
+                                        ImmutableList.of(new EquiJoinClause(p.symbol("COL1", BIGINT), p.symbol("COL2", BIGINT))),
+                                        ImmutableList.of(p.symbol("COL1", BIGINT)),
+                                        ImmutableList.of(p.symbol("COL2", BIGINT)),
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))
-                        .addAggregation(p.symbol("COUNT"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
-                        .singleGroupingSet(p.symbol("COL1"))))
+                        .addAggregation(p.symbol("COUNT", BIGINT), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
+                        .singleGroupingSet(p.symbol("COL1", BIGINT))))
                 .matches(
                         project(ImmutableMap.of(
-                                        "COL1", expression(new Reference(DOUBLE, "COL1")),
+                                        "COL1", expression(new Reference(BIGINT, "COL1")),
                                         "COALESCE", expression(new Coalesce(new Reference(BIGINT, "COUNT"), new Reference(BIGINT, "COUNT_NULL")))),
                                 join(INNER, builder -> builder
                                         .left(
@@ -261,16 +260,16 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)), ImmutableList.of(new Constant(INTEGER, 11L)))),
-                                p.values(new Symbol(UNKNOWN, "COL2")),
-                                ImmutableList.of(new EquiJoinClause(new Symbol(UNKNOWN, "COL1"), new Symbol(UNKNOWN, "COL2"))),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)), ImmutableList.of(new Constant(BIGINT, 11L)))),
+                                p.values(new Symbol(BIGINT, "COL2")),
+                                ImmutableList.of(new EquiJoinClause(new Symbol(BIGINT, "COL1"), new Symbol(BIGINT, "COL2"))),
                                 ImmutableList.of(p.symbol("COL1")),
                                 ImmutableList.of(p.symbol("COL2")),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(new Symbol(UNKNOWN, "AVG"), PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(DOUBLE, "COL2"))), ImmutableList.of(DOUBLE))
-                        .singleGroupingSet(new Symbol(UNKNOWN, "COL1"))))
+                        .addAggregation(new Symbol(DOUBLE, "AVG"), PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(BIGINT, "COL2"))), ImmutableList.of(BIGINT))
+                        .singleGroupingSet(new Symbol(BIGINT, "COL1"))))
                 .doesNotFire();
 
         // https://github.com/prestodb/presto/issues/10592
@@ -306,16 +305,16 @@ public class TestPushAggregationThroughOuterJoin
         tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)))),
-                                p.values(new Symbol(UNKNOWN, "COL2"), new Symbol(UNKNOWN, "COL3")),
-                                ImmutableList.of(new EquiJoinClause(new Symbol(UNKNOWN, "COL1"), new Symbol(UNKNOWN, "COL2"))),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
+                                p.values(new Symbol(BIGINT, "COL2"), new Symbol(BIGINT, "COL3")),
+                                ImmutableList.of(new EquiJoinClause(new Symbol(BIGINT, "COL1"), new Symbol(BIGINT, "COL2"))),
                                 ImmutableList.of(p.symbol("COL1")),
                                 ImmutableList.of(p.symbol("COL2")),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(new Symbol(UNKNOWN, "AVG"), PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(DOUBLE, "COL2"))), ImmutableList.of(DOUBLE))
-                        .singleGroupingSet(new Symbol(UNKNOWN, "COL1"), new Symbol(UNKNOWN, "COL3"))))
+                        .addAggregation(new Symbol(DOUBLE, "AVG"), PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(BIGINT, "COL2"))), ImmutableList.of(BIGINT))
+                        .singleGroupingSet(new Symbol(BIGINT, "COL1"), new Symbol(BIGINT, "COL3"))))
                 .doesNotFire();
     }
 
@@ -326,16 +325,16 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)))),
-                                p.values(ImmutableList.of(p.symbol("COL2")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 20L)))),
-                                ImmutableList.of(new EquiJoinClause(new Symbol(UNKNOWN, "COL1"), new Symbol(UNKNOWN, "COL2"))),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
+                                p.values(ImmutableList.of(p.symbol("COL2")), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 20L)))),
+                                ImmutableList.of(new EquiJoinClause(new Symbol(BIGINT, "COL1"), new Symbol(BIGINT, "COL2"))),
                                 ImmutableList.of(p.symbol("COL1")),
                                 ImmutableList.of(p.symbol("COL2")),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(new Symbol(UNKNOWN, "SUM"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(DOUBLE, "COL1"))), ImmutableList.of(DOUBLE))
-                        .singleGroupingSet(new Symbol(UNKNOWN, "COL1"))))
+                        .addAggregation(new Symbol(BIGINT, "SUM"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "COL1"))), ImmutableList.of(BIGINT))
+                        .singleGroupingSet(new Symbol(BIGINT, "COL1"))))
                 .doesNotFire();
     }
 
@@ -346,34 +345,34 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)))),
-                                p.values(ImmutableList.of(p.symbol("COL2"), p.symbol("COL3")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 20L), new Constant(INTEGER, 30L)))),
-                                ImmutableList.of(new EquiJoinClause(new Symbol(UNKNOWN, "COL1"), new Symbol(UNKNOWN, "COL2"))),
-                                ImmutableList.of(new Symbol(UNKNOWN, "COL1")),
-                                ImmutableList.of(new Symbol(UNKNOWN, "COL2")),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
+                                p.values(ImmutableList.of(p.symbol("COL2"), p.symbol("COL3")), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 20L), new Constant(BIGINT, 30L)))),
+                                ImmutableList.of(new EquiJoinClause(new Symbol(BIGINT, "COL1"), new Symbol(BIGINT, "COL2"))),
+                                ImmutableList.of(new Symbol(BIGINT, "COL1")),
+                                ImmutableList.of(new Symbol(BIGINT, "COL2")),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(new Symbol(UNKNOWN, "MIN_BY"), PlanBuilder.aggregation("min_by", ImmutableList.of(new Reference(DOUBLE, "COL2"), new Reference(DOUBLE, "COL1"))), ImmutableList.of(DOUBLE, DOUBLE))
-                        .singleGroupingSet(new Symbol(UNKNOWN, "COL1"))))
+                        .addAggregation(new Symbol(BIGINT, "MIN_BY"), PlanBuilder.aggregation("min_by", ImmutableList.of(new Reference(BIGINT, "COL2"), new Reference(BIGINT, "COL1"))), ImmutableList.of(BIGINT, BIGINT))
+                        .singleGroupingSet(new Symbol(BIGINT, "COL1"))))
                 .doesNotFire();
 
         tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)))),
-                                p.values(ImmutableList.of(p.symbol("COL2"), p.symbol("COL3")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 20L), new Constant(INTEGER, 30L)))),
-                                ImmutableList.of(new EquiJoinClause(new Symbol(UNKNOWN, "COL1"), new Symbol(UNKNOWN, "COL2"))),
-                                ImmutableList.of(new Symbol(UNKNOWN, "COL1")),
-                                ImmutableList.of(new Symbol(UNKNOWN, "COL2")),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
+                                p.values(ImmutableList.of(p.symbol("COL2"), p.symbol("COL3")), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 20L), new Constant(BIGINT, 30L)))),
+                                ImmutableList.of(new EquiJoinClause(new Symbol(BIGINT, "COL1"), new Symbol(BIGINT, "COL2"))),
+                                ImmutableList.of(new Symbol(BIGINT, "COL1")),
+                                ImmutableList.of(new Symbol(BIGINT, "COL2")),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(new Symbol(UNKNOWN, "SUM"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(DOUBLE, "COL2"))), ImmutableList.of(DOUBLE))
-                        .addAggregation(new Symbol(UNKNOWN, "MIN_BY"), PlanBuilder.aggregation("min_by", ImmutableList.of(new Reference(DOUBLE, "COL2"), new Reference(DOUBLE, "COL3"))), ImmutableList.of(DOUBLE, DOUBLE))
-                        .addAggregation(new Symbol(UNKNOWN, "MAX_BY"), PlanBuilder.aggregation("max_by", ImmutableList.of(new Reference(DOUBLE, "COL2"), new Reference(DOUBLE, "COL1"))), ImmutableList.of(DOUBLE, DOUBLE))
-                        .singleGroupingSet(new Symbol(UNKNOWN, "COL1"))))
+                        .addAggregation(new Symbol(BIGINT, "SUM"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "COL2"))), ImmutableList.of(BIGINT))
+                        .addAggregation(new Symbol(BIGINT, "MIN_BY"), PlanBuilder.aggregation("min_by", ImmutableList.of(new Reference(BIGINT, "COL2"), new Reference(BIGINT, "COL3"))), ImmutableList.of(BIGINT, BIGINT))
+                        .addAggregation(new Symbol(BIGINT, "MAX_BY"), PlanBuilder.aggregation("max_by", ImmutableList.of(new Reference(BIGINT, "COL2"), new Reference(BIGINT, "COL1"))), ImmutableList.of(BIGINT, BIGINT))
+                        .singleGroupingSet(new Symbol(BIGINT, "COL1"))))
                 .doesNotFire();
     }
 }

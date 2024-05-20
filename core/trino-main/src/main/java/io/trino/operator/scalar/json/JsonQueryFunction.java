@@ -206,16 +206,11 @@ public class JsonQueryFunction
 
     private static JsonNode handleSpecialCase(long behavior, Supplier<TrinoException> error)
     {
-        switch (EmptyOrErrorBehavior.values()[(int) behavior]) {
-            case NULL:
-                return null;
-            case ERROR:
-                throw error.get();
-            case EMPTY_ARRAY:
-                return EMPTY_ARRAY_RESULT;
-            case EMPTY_OBJECT:
-                return EMPTY_OBJECT_RESULT;
-        }
-        throw new IllegalStateException("unexpected behavior");
+        return switch (EmptyOrErrorBehavior.values()[(int) behavior]) {
+            case NULL -> null;
+            case ERROR -> throw error.get();
+            case EMPTY_ARRAY -> EMPTY_ARRAY_RESULT;
+            case EMPTY_OBJECT -> EMPTY_OBJECT_RESULT;
+        };
     }
 }

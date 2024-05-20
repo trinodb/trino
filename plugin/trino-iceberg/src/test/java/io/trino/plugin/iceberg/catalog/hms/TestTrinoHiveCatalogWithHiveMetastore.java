@@ -25,6 +25,7 @@ import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.hdfs.s3.HiveS3Config;
 import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
@@ -66,13 +67,14 @@ public class TestTrinoHiveCatalogWithHiveMetastore
 {
     private static final String bucketName = "test-hive-catalog-with-hms-" + randomNameSuffix();
 
+    private AutoCloseableCloser closer = AutoCloseableCloser.create();
     // Use MinIO for storage, since HDFS is hard to get working in a unit test
     private HiveMinioDataLake dataLake;
 
     @BeforeAll
     public void setUp()
     {
-        dataLake = new HiveMinioDataLake(bucketName, HIVE3_IMAGE);
+        dataLake = closer.register(new HiveMinioDataLake(bucketName, HIVE3_IMAGE));
         dataLake.start();
     }
 
@@ -80,10 +82,8 @@ public class TestTrinoHiveCatalogWithHiveMetastore
     public void tearDown()
             throws Exception
     {
-        if (dataLake != null) {
-            dataLake.stop();
-            dataLake = null;
-        }
+        dataLake = null;
+        closer.close();
     }
 
     @Override
@@ -108,7 +108,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                         // Read timed out sometimes happens with the default timeout
                         .setReadTimeout(new Duration(1, MINUTES)))
                 .metastoreClient(dataLake.getHiveHadoop().getHiveMetastoreEndpoint())
-                .build();
+                .build(closer::register);
         CachingHiveMetastore metastore = createPerTransactionCache(new BridgingHiveMetastore(thriftMetastore), 1000);
         return new TrinoHiveCatalog(
                 new CatalogName("catalog"),

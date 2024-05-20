@@ -190,17 +190,11 @@ public class PinotPatterns
 
     public static Property<Predicate, ?, String> binaryFunctionPredicateValue()
     {
-        return Property.optionalProperty("binaryFunctionPredicateValue", predicate -> {
-            switch (predicate.getType()) {
-                case REGEXP_LIKE:
-                    return Optional.of(((RegexpLikePredicate) predicate).getValue());
-                case TEXT_MATCH:
-                    return Optional.of(((TextMatchPredicate) predicate).getValue());
-                case JSON_MATCH:
-                    return Optional.of(((JsonMatchPredicate) predicate).getValue());
-                default:
-                    return Optional.empty();
-            }
+        return Property.optionalProperty("binaryFunctionPredicateValue", predicate -> switch (predicate.getType()) {
+            case REGEXP_LIKE -> Optional.of(((RegexpLikePredicate) predicate).getValue());
+            case TEXT_MATCH -> Optional.of(((TextMatchPredicate) predicate).getValue());
+            case JSON_MATCH -> Optional.of(((JsonMatchPredicate) predicate).getValue());
+            default -> Optional.empty();
         });
     }
 

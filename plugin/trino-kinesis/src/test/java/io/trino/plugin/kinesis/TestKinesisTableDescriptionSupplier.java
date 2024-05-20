@@ -14,6 +14,7 @@
 package io.trino.plugin.kinesis;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.trino.plugin.kinesis.util.KinesisTestClientManager;
 import io.trino.plugin.kinesis.util.MockKinesisClient;
 import io.trino.plugin.kinesis.util.TestUtils;
@@ -46,7 +47,7 @@ public class TestKinesisTableDescriptionSupplier
     {
         // Create dependent objects, including the minimal config needed for this test
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("kinesis.table-description-location", "etc/kinesis")
+                .put("kinesis.table-description-location", Resources.getResource("etc/kinesis").getPath())
                 .put("kinesis.default-schema", "kinesis")
                 .put("kinesis.hide-internal-columns", "true")
                 .put("bootstrap.quiet", "true")
@@ -69,11 +70,11 @@ public class TestKinesisTableDescriptionSupplier
         SchemaTableName tblName = new SchemaTableName("prod", "test_table");
         KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
         assertThat(metadata).isNotNull();
-        SchemaTableName tableSchemaName = tableHandle.toSchemaTableName();
+        SchemaTableName tableSchemaName = tableHandle.schemaTableName();
         assertThat(tableSchemaName.getSchemaName()).isEqualTo("prod");
         assertThat(tableSchemaName.getTableName()).isEqualTo("test_table");
-        assertThat(tableHandle.getStreamName()).isEqualTo("test_kinesis_stream");
-        assertThat(tableHandle.getMessageDataFormat()).isEqualTo("json");
+        assertThat(tableHandle.streamName()).isEqualTo("test_kinesis_stream");
+        assertThat(tableHandle.messageDataFormat()).isEqualTo("json");
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(SESSION, tableHandle);
         assertThat(columnHandles.size()).isEqualTo(14);
         assertThat(columnHandles.values().stream().filter(x -> ((KinesisColumnHandle) x).isInternal()).count()).isEqualTo(10);
@@ -92,10 +93,10 @@ public class TestKinesisTableDescriptionSupplier
 
         KinesisTableHandle tblHandle = metadata.getTableHandle(null, tblName);
         assertThat(tblHandle).isNotNull();
-        assertThat(tblHandle.getSchemaName()).isEqualTo("prod");
-        assertThat(tblHandle.getTableName()).isEqualTo("test_table");
-        assertThat(tblHandle.getStreamName()).isEqualTo("test_kinesis_stream");
-        assertThat(tblHandle.getMessageDataFormat()).isEqualTo("json");
+        assertThat(tblHandle.schemaName()).isEqualTo("prod");
+        assertThat(tblHandle.tableName()).isEqualTo("test_table");
+        assertThat(tblHandle.streamName()).isEqualTo("test_kinesis_stream");
+        assertThat(tblHandle.messageDataFormat()).isEqualTo("json");
 
         ConnectorTableMetadata tblMeta = metadata.getTableMetadata(null, tblHandle);
         assertThat(tblMeta).isNotNull();

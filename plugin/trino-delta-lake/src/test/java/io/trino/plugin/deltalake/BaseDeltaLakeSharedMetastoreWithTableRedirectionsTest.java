@@ -95,4 +95,11 @@ public abstract class BaseDeltaLakeSharedMetastoreWithTableRedirectionsTest
         assertThat(query("SELECT * FROM delta_with_redirections." + schema + ".\"delta_table$properties\""))
                 .matches("SELECT * FROM hive_with_redirections." + schema + ".\"delta_table$properties\"");
     }
+
+    @Test
+    public void testPartitionsTable()
+    {
+        assertThat(query("SELECT * FROM delta_with_redirections." + schema + ".\"delta_table$partitions\""))
+                .matches("SELECT * FROM hive_with_redirections." + schema + ".\"delta_table$partitions\"");
+    }
 }

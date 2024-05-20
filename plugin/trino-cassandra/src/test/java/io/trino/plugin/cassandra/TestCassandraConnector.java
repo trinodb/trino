@@ -37,7 +37,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DateType;
@@ -176,9 +175,9 @@ public class TestCassandraConnector
     @Test
     public void testListUnknownSchema()
     {
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual"))).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual"), Optional.empty(), Optional.empty())).isNull();
         assertThat(metadata.listTables(SESSION, Optional.of("totally_invalid_database_name"))).isEqualTo(ImmutableList.of());
-        assertThat(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual"))).isEqualTo(ImmutableMap.of());
+        assertThat(metadata.streamRelationColumns(SESSION, Optional.of("totally_invalid_database_name"), names -> names).hasNext()).isEqualTo(false);
     }
 
     @Test
@@ -290,11 +289,11 @@ public class TestCassandraConnector
                     assertThat(tupleValueBlock.getFieldCount()).isEqualTo(3);
 
                     CassandraColumnHandle tupleColumnHandle = (CassandraColumnHandle) columnHandles.get(columnIndex.get("typetuple"));
-                    List<CassandraType> tupleArgumentTypes = tupleColumnHandle.getCassandraType().getArgumentTypes();
+                    List<CassandraType> tupleArgumentTypes = tupleColumnHandle.cassandraType().argumentTypes();
                     int rawIndex = tupleValueBlock.getRawIndex();
-                    assertThat(tupleArgumentTypes.get(0).getTrinoType().getLong(tupleValueBlock.getRawFieldBlock(0), rawIndex)).isEqualTo(rowNumber);
-                    assertThat(tupleArgumentTypes.get(1).getTrinoType().getSlice(tupleValueBlock.getRawFieldBlock(1), rawIndex).toStringUtf8()).isEqualTo("text-" + rowNumber);
-                    assertThat(tupleArgumentTypes.get(2).getTrinoType().getLong(tupleValueBlock.getRawFieldBlock(2), rawIndex)).isEqualTo(Float.floatToRawIntBits(1.11f * rowNumber));
+                    assertThat(tupleArgumentTypes.get(0).trinoType().getLong(tupleValueBlock.getRawFieldBlock(0), rawIndex)).isEqualTo(rowNumber);
+                    assertThat(tupleArgumentTypes.get(1).trinoType().getSlice(tupleValueBlock.getRawFieldBlock(1), rawIndex).toStringUtf8()).isEqualTo("text-" + rowNumber);
+                    assertThat(tupleArgumentTypes.get(2).trinoType().getLong(tupleValueBlock.getRawFieldBlock(2), rawIndex)).isEqualTo(Float.floatToRawIntBits(1.11f * rowNumber));
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertThat(newCompletedBytes >= completedBytes).isTrue();
@@ -435,7 +434,7 @@ public class TestCassandraConnector
 
     private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
-        ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName);
+        ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName, Optional.empty(), Optional.empty());
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
     }
@@ -454,7 +453,7 @@ public class TestCassandraConnector
         ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
         int i = 0;
         for (ColumnHandle columnHandle : columnHandles) {
-            String name = ((CassandraColumnHandle) columnHandle).getName();
+            String name = ((CassandraColumnHandle) columnHandle).name();
             index.put(name, i);
             i++;
         }

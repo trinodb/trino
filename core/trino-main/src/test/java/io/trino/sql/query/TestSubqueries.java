@@ -105,13 +105,13 @@ public class TestSubqueries
                 "VALUES true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
+                                ImmutableMap.of("AGGRBOOL", aggregationFunction("bool_or", ImmutableList.of("SUBQUERY"))),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
                                                 values("y")),
                                         project(
-                                                ImmutableMap.of("NON_NULL", expression(TRUE)),
+                                                ImmutableMap.of("SUBQUERY", expression(TRUE)),
                                                 values("x"))))));
 
         assertions.assertQueryAndPlan(
@@ -119,13 +119,13 @@ public class TestSubqueries
                 "VALUES false",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
+                                ImmutableMap.of("AGGRBOOL", aggregationFunction("bool_or", ImmutableList.of("SUBQUERY"))),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
                                                 values("y")),
                                         project(
-                                                ImmutableMap.of("NON_NULL", expression(TRUE)),
+                                                ImmutableMap.of("SUBQUERY", expression(TRUE)),
                                                 values("x"))))));
     }
 
@@ -514,14 +514,14 @@ public class TestSubqueries
                 "VALUES false, true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
+                                ImmutableMap.of("AGGRBOOL", aggregationFunction("bool_or", ImmutableList.of("SUBQUERYTRUE"))),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
                                                 values("t2_b")),
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("NON_NULL", expression(TRUE)),
+                                                        ImmutableMap.of("SUBQUERYTRUE", expression(TRUE)),
                                                         anyTree(
                                                                 aggregation(
                                                                         ImmutableMap.of(),
@@ -539,14 +539,14 @@ public class TestSubqueries
                 "VALUES false, true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
+                                ImmutableMap.of("AGGRBOOL", aggregationFunction("bool_or", ImmutableList.of("SUBQUERY"))),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
                                                 values("t2_b")),
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("NON_NULL", expression(TRUE)),
+                                                        ImmutableMap.of("SUBQUERY", expression(TRUE)),
                                                         aggregation(
                                                                 ImmutableMap.of(),
                                                                 FINAL,

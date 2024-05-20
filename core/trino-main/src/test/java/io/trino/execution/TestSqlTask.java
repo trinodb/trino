@@ -144,12 +144,12 @@ public class TestSqlTask
                         .withNoMoreBufferIds(),
                 ImmutableMap.of(),
                 false);
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
-        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION);
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(taskInfo.taskStatus().getVersion()).isEqualTo(STARTING_VERSION);
 
         taskInfo = sqlTask.getTaskInfo();
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
-        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION);
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(taskInfo.taskStatus().getVersion()).isEqualTo(STARTING_VERSION);
 
         taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Span.getInvalid(),
@@ -159,10 +159,10 @@ public class TestSqlTask
                         .withNoMoreBufferIds(),
                 ImmutableMap.of(),
                 false);
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FINISHED);
     }
 
     @Test
@@ -183,8 +183,8 @@ public class TestSqlTask
                 false);
 
         TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FLUSHING);
-        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FLUSHING);
+        assertThat(taskInfo.taskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
 
         // completed future should be returned immediately when old caller's version is used
         assertThat(sqlTask.getTaskInfo(STARTING_VERSION).isDone()).isTrue();
@@ -201,16 +201,16 @@ public class TestSqlTask
 
         // complete the task by calling destroy on it
         TaskInfo info = sqlTask.destroyTaskResults(OUT);
-        assertThat(info.getOutputBuffers().getState()).isEqualTo(BufferState.FINISHED);
+        assertThat(info.outputBuffers().getState()).isEqualTo(BufferState.FINISHED);
 
-        taskInfo = sqlTask.getTaskInfo(info.getTaskStatus().getVersion()).get();
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
+        taskInfo = sqlTask.getTaskInfo(info.taskStatus().getVersion()).get();
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FINISHED);
 
         // completed future should be returned immediately when task is finished
         assertThat(sqlTask.getTaskInfo(STARTING_VERSION + 100).isDone()).isTrue();
 
         taskInfo = sqlTask.getTaskInfo();
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FINISHED);
     }
 
     @Test
@@ -227,30 +227,30 @@ public class TestSqlTask
                         .withNoMoreBufferIds(),
                 ImmutableMap.of(),
                 false);
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
-        assertThat(taskInfo.getStats().getEndTime()).isNull();
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(taskInfo.stats().getEndTime()).isNull();
 
         taskInfo = sqlTask.getTaskInfo();
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
-        assertThat(taskInfo.getStats().getEndTime()).isNull();
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(taskInfo.stats().getEndTime()).isNull();
 
         taskInfo = sqlTask.cancel();
         // This call can race and report either cancelling or cancelled
-        assertThat(taskInfo.getTaskStatus().getState().isTerminatingOrDone()).isTrue();
+        assertThat(taskInfo.taskStatus().getState().isTerminatingOrDone()).isTrue();
         // Task cancellation can race with output buffer state updates, but should transition to cancelled quickly
         int attempts = 1;
-        while (!taskInfo.getTaskStatus().getState().isDone() && attempts < 3) {
-            taskInfo = Futures.getUnchecked(sqlTask.getTaskInfo(taskInfo.getTaskStatus().getVersion()));
+        while (!taskInfo.taskStatus().getState().isDone() && attempts < 3) {
+            taskInfo = Futures.getUnchecked(sqlTask.getTaskInfo(taskInfo.taskStatus().getVersion()));
             attempts++;
         }
-        assertThat(taskInfo.getTaskStatus().getState())
+        assertThat(taskInfo.taskStatus().getState())
                 .describedAs("Failed to see CANCELED after " + attempts + " attempts")
                 .isEqualTo(TaskState.CANCELED);
-        assertThat(taskInfo.getStats().getEndTime()).isNotNull();
+        assertThat(taskInfo.stats().getEndTime()).isNotNull();
 
         taskInfo = sqlTask.getTaskInfo();
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.CANCELED);
-        assertThat(taskInfo.getStats().getEndTime()).isNotNull();
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.CANCELED);
+        assertThat(taskInfo.stats().getEndTime()).isNotNull();
     }
 
     @Test
@@ -271,16 +271,16 @@ public class TestSqlTask
                 false);
 
         TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FLUSHING);
-        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FLUSHING);
+        assertThat(taskInfo.taskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
 
         sqlTask.destroyTaskResults(OUT);
 
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getVersion()).get();
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
+        taskInfo = sqlTask.getTaskInfo(taskInfo.taskStatus().getVersion()).get();
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
-        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
+        assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FINISHED);
     }
 
     @Test
@@ -322,7 +322,7 @@ public class TestSqlTask
         assertThat(bufferResult.isDone()).isFalse();
 
         sqlTask.cancel();
-        assertThat(sqlTask.getTaskInfo().getTaskStatus().getState().isTerminatingOrDone()).isTrue();
+        assertThat(sqlTask.getTaskInfo().taskStatus().getState().isTerminatingOrDone()).isTrue();
 
         // buffer future will complete, the event is async so wait a bit for event to propagate
         bufferResult.get(1, SECONDS);
@@ -344,15 +344,15 @@ public class TestSqlTask
         ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
         assertThat(bufferResult.isDone()).isFalse();
 
-        long taskStatusVersion = sqlTask.getTaskInfo().getTaskStatus().getVersion();
+        long taskStatusVersion = sqlTask.getTaskInfo().taskStatus().getVersion();
         sqlTask.failed(new Exception("test"));
         // This call can race and return either FAILED or FAILING
         TaskInfo taskInfo = sqlTask.getTaskInfo(taskStatusVersion).get();
-        assertThat(taskInfo.getTaskStatus().getState().isTerminatingOrDone()).isTrue();
+        assertThat(taskInfo.taskStatus().getState().isTerminatingOrDone()).isTrue();
 
         // This call should resolve to FAILED if the prior call did not
-        taskStatusVersion = taskInfo.getTaskStatus().getVersion();
-        assertThat(sqlTask.getTaskInfo(taskStatusVersion).get().getTaskStatus().getState()).isEqualTo(TaskState.FAILED);
+        taskStatusVersion = taskInfo.taskStatus().getVersion();
+        assertThat(sqlTask.getTaskInfo(taskStatusVersion).get().taskStatus().getState()).isEqualTo(TaskState.FAILED);
 
         // buffer will not be closed by fail event.  event is async so wait a bit for event to fire
         assertThatThrownBy(() -> bufferResult.get(1, SECONDS))
@@ -415,10 +415,10 @@ public class TestSqlTask
 
         // complete the task by calling destroy on it
         TaskInfo info = sqlTask.destroyTaskResults(OUT);
-        assertThat(info.getOutputBuffers().getState()).isEqualTo(BufferState.FINISHED);
+        assertThat(info.outputBuffers().getState()).isEqualTo(BufferState.FINISHED);
 
         assertEventually(new Duration(10, SECONDS), () -> {
-            TaskStatus status = sqlTask.getTaskStatus(info.getTaskStatus().getVersion()).get();
+            TaskStatus status = sqlTask.getTaskStatus(info.taskStatus().getVersion()).get();
             assertThat(status.getState()).isEqualTo(TaskState.FINISHED);
             assertThat(status.getDynamicFiltersVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION + 1);
         });

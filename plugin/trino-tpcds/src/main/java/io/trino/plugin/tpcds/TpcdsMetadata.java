@@ -102,8 +102,8 @@ public class TpcdsMetadata
     {
         TpcdsTableHandle tpcdsTableHandle = (TpcdsTableHandle) tableHandle;
 
-        Table table = Table.getTable(tpcdsTableHandle.getTableName());
-        String schemaName = scaleFactorSchemaName(tpcdsTableHandle.getScaleFactor());
+        Table table = Table.getTable(tpcdsTableHandle.tableName());
+        String schemaName = scaleFactorSchemaName(tpcdsTableHandle.scaleFactor());
 
         return getTableMetadata(schemaName, table);
     }
@@ -123,8 +123,8 @@ public class TpcdsMetadata
     {
         TpcdsTableHandle tpcdsTableHandle = (TpcdsTableHandle) tableHandle;
 
-        Table table = Table.getTable(tpcdsTableHandle.getTableName());
-        String schemaName = scaleFactorSchemaName(tpcdsTableHandle.getScaleFactor());
+        Table table = Table.getTable(tpcdsTableHandle.tableName());
+        String schemaName = scaleFactorSchemaName(tpcdsTableHandle.scaleFactor());
 
         return tpcdsTableStatisticsFactory.create(schemaName, table, getColumnHandles(session, tableHandle));
     }
@@ -143,7 +143,7 @@ public class TpcdsMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
-        String columnName = ((TpcdsColumnHandle) columnHandle).getColumnName();
+        String columnName = ((TpcdsColumnHandle) columnHandle).columnName();
 
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.getName().equals(columnName)) {
@@ -209,29 +209,21 @@ public class TpcdsMetadata
         try {
             return Double.parseDouble(schemaName.substring(2));
         }
-        catch (Exception ignored) {
+        catch (Exception _) {
             return -1;
         }
     }
 
     public static Type getTrinoType(ColumnType tpcdsType)
     {
-        switch (tpcdsType.getBase()) {
-            case IDENTIFIER:
-                return BigintType.BIGINT;
-            case INTEGER:
-                return IntegerType.INTEGER;
-            case DATE:
-                return DateType.DATE;
-            case DECIMAL:
-                return createDecimalType(tpcdsType.getPrecision().get(), tpcdsType.getScale().get());
-            case CHAR:
-                return createCharType(tpcdsType.getPrecision().get());
-            case VARCHAR:
-                return createVarcharType(tpcdsType.getPrecision().get());
-            case TIME:
-                return TimeType.TIME_MILLIS;
-        }
-        throw new IllegalArgumentException("Unsupported TPC-DS type " + tpcdsType);
+        return switch (tpcdsType.getBase()) {
+            case IDENTIFIER -> BigintType.BIGINT;
+            case INTEGER -> IntegerType.INTEGER;
+            case DATE -> DateType.DATE;
+            case DECIMAL -> createDecimalType(tpcdsType.getPrecision().get(), tpcdsType.getScale().get());
+            case CHAR -> createCharType(tpcdsType.getPrecision().get());
+            case VARCHAR -> createVarcharType(tpcdsType.getPrecision().get());
+            case TIME -> TimeType.TIME_MILLIS;
+        };
     }
 }

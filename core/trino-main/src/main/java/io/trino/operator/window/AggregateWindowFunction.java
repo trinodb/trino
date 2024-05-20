@@ -13,8 +13,8 @@
  */
 package io.trino.operator.window;
 
-import io.trino.operator.aggregation.WindowAccumulator;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowIndex;
 
@@ -64,7 +64,7 @@ class AggregateWindowFunction
             buildNewFrame(frameStart, frameEnd);
         }
 
-        accumulator.evaluateFinal(output);
+        accumulator.output(output);
     }
 
     private void buildNewFrame(int frameStart, int frameEnd)

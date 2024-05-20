@@ -18,6 +18,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.RecordSet;
 
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,9 +45,9 @@ public class IndexSplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return null;
+        return Map.of();
     }
 
     @Override

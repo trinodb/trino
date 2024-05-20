@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -214,9 +215,6 @@ public class ServerMainModule
 
         QueryManagerConfig queryManagerConfig = buildConfigObject(QueryManagerConfig.class);
         RetryPolicy retryPolicy = queryManagerConfig.getRetryPolicy();
-        if (retryPolicy == TASK) {
-            configBinder(binder).bindConfigDefaults(QueryManagerConfig.class, QueryManagerConfig::applyFaultTolerantExecutionDefaults);
-        }
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
         if (retryPolicy == TASK) {
@@ -495,10 +493,9 @@ public class ServerMainModule
         newOptionalBinder(binder, RuleStatsRecorder.class);
 
         // cleanup
-        closingBinder(binder)
-                .registerExecutor(ScheduledExecutorService.class, ForExchange.class)
-                .registerExecutor(ExecutorService.class, ForAsyncHttp.class)
-                .registerExecutor(ScheduledExecutorService.class, ForAsyncHttp.class);
+        closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForExchange.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForAsyncHttp.class));
+        closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForAsyncHttp.class));
     }
 
     private static class RegisterFunctionBundles

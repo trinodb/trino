@@ -47,21 +47,13 @@ public final class ComparisonStatsCalculator
             OptionalDouble literalValue,
             Comparison.Operator operator)
     {
-        switch (operator) {
-            case EQUAL:
-                return estimateExpressionEqualToLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
-            case NOT_EQUAL:
-                return estimateExpressionNotEqualToLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-                return estimateExpressionLessThanLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
-                return estimateExpressionGreaterThanLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
-            case IS_DISTINCT_FROM:
-                return PlanNodeStatsEstimate.unknown();
-        }
-        throw new IllegalArgumentException("Unexpected comparison operator: " + operator);
+        return switch (operator) {
+            case EQUAL -> estimateExpressionEqualToLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
+            case NOT_EQUAL -> estimateExpressionNotEqualToLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
+            case LESS_THAN, LESS_THAN_OR_EQUAL -> estimateExpressionLessThanLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
+            case GREATER_THAN, GREATER_THAN_OR_EQUAL -> estimateExpressionGreaterThanLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
+            case IDENTICAL -> PlanNodeStatsEstimate.unknown();
+        };
     }
 
     private static PlanNodeStatsEstimate estimateExpressionEqualToLiteral(
@@ -162,26 +154,18 @@ public final class ComparisonStatsCalculator
             Optional<Symbol> rightExpressionSymbol,
             Comparison.Operator operator)
     {
-        switch (operator) {
-            case EQUAL:
-                return estimateExpressionEqualToExpression(inputStatistics, leftExpressionStatistics, leftExpressionSymbol, rightExpressionStatistics, rightExpressionSymbol);
-            case NOT_EQUAL:
-                return estimateExpressionNotEqualToExpression(inputStatistics, leftExpressionStatistics, leftExpressionSymbol, rightExpressionStatistics, rightExpressionSymbol);
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
-                return estimateExpressionToExpressionInequality(
-                        operator,
-                        inputStatistics,
-                        leftExpressionStatistics,
-                        leftExpressionSymbol,
-                        rightExpressionStatistics,
-                        rightExpressionSymbol);
-            case IS_DISTINCT_FROM:
-                return PlanNodeStatsEstimate.unknown();
-        }
-        throw new IllegalArgumentException("Unexpected comparison operator: " + operator);
+        return switch (operator) {
+            case EQUAL -> estimateExpressionEqualToExpression(inputStatistics, leftExpressionStatistics, leftExpressionSymbol, rightExpressionStatistics, rightExpressionSymbol);
+            case NOT_EQUAL -> estimateExpressionNotEqualToExpression(inputStatistics, leftExpressionStatistics, leftExpressionSymbol, rightExpressionStatistics, rightExpressionSymbol);
+            case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> estimateExpressionToExpressionInequality(
+                    operator,
+                    inputStatistics,
+                    leftExpressionStatistics,
+                    leftExpressionSymbol,
+                    rightExpressionStatistics,
+                    rightExpressionSymbol);
+            case IDENTICAL -> PlanNodeStatsEstimate.unknown();
+        };
     }
 
     private static PlanNodeStatsEstimate estimateExpressionEqualToExpression(
@@ -275,28 +259,23 @@ public final class ComparisonStatsCalculator
         // We don't know the correlation between NULLs, so we take the max nullsFraction from the expression statistics
         // to make a conservative estimate (nulls are fully correlated) for the NULLs filter factor
         double nullsFilterFactor = 1 - maxExcludeNaN(leftExpressionStatistics.getNullsFraction(), rightExpressionStatistics.getNullsFraction());
-        switch (operator) {
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-                return estimateExpressionLessThanOrEqualToExpression(
-                        inputStatistics,
-                        leftExpressionStatistics,
-                        leftExpressionSymbol,
-                        rightExpressionStatistics,
-                        rightExpressionSymbol,
-                        nullsFilterFactor);
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
-                return estimateExpressionLessThanOrEqualToExpression(
-                        inputStatistics,
-                        rightExpressionStatistics,
-                        rightExpressionSymbol,
-                        leftExpressionStatistics,
-                        leftExpressionSymbol,
-                        nullsFilterFactor);
-            default:
-                throw new IllegalArgumentException("Unsupported inequality operator " + operator);
-        }
+        return switch (operator) {
+            case LESS_THAN, LESS_THAN_OR_EQUAL -> estimateExpressionLessThanOrEqualToExpression(
+                    inputStatistics,
+                    leftExpressionStatistics,
+                    leftExpressionSymbol,
+                    rightExpressionStatistics,
+                    rightExpressionSymbol,
+                    nullsFilterFactor);
+            case GREATER_THAN, GREATER_THAN_OR_EQUAL -> estimateExpressionLessThanOrEqualToExpression(
+                    inputStatistics,
+                    rightExpressionStatistics,
+                    rightExpressionSymbol,
+                    leftExpressionStatistics,
+                    leftExpressionSymbol,
+                    nullsFilterFactor);
+            default -> throw new IllegalArgumentException("Unsupported inequality operator " + operator);
+        };
     }
 
     private static PlanNodeStatsEstimate estimateExpressionLessThanOrEqualToExpression(

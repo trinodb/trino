@@ -42,15 +42,26 @@ public final class MariaDbQueryRunner
 
     private MariaDbQueryRunner() {}
 
+    // TODO convert to builder
     public static QueryRunner createMariaDbQueryRunner(
             TestingMariaDbServer server,
-            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createMariaDbQueryRunner(server, ImmutableMap.of(), connectorProperties, tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createMariaDbQueryRunner(
+            TestingMariaDbServer server,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
@@ -65,7 +76,7 @@ public final class MariaDbQueryRunner
             queryRunner.installPlugin(new MariaDbPlugin());
             queryRunner.createCatalog("mariadb", "mariadb", connectorProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
 
             return queryRunner;
         }

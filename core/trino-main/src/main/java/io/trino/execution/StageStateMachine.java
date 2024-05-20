@@ -298,8 +298,8 @@ public class StageStateMachine
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
         for (TaskInfo taskInfo : taskInfos) {
-            TaskState taskState = taskInfo.getTaskStatus().getState();
-            TaskStats taskStats = taskInfo.getStats();
+            TaskState taskState = taskInfo.taskStatus().getState();
+            TaskStats taskStats = taskInfo.stats();
 
             boolean taskFailedOrFailing = taskState == TaskState.FAILED || taskState == TaskState.FAILING;
 
@@ -491,7 +491,7 @@ public class StageStateMachine
 
         int maxTaskOperatorSummaries = 0;
         for (TaskInfo taskInfo : taskInfos) {
-            TaskState taskState = taskInfo.getTaskStatus().getState();
+            TaskState taskState = taskInfo.taskStatus().getState();
             if (taskState.isDone()) {
                 completedTasks++;
             }
@@ -504,7 +504,7 @@ public class StageStateMachine
                 failedTasks++;
             }
 
-            TaskStats taskStats = taskInfo.getStats();
+            TaskStats taskStats = taskInfo.stats();
 
             totalDrivers += taskStats.getTotalDrivers();
             queuedDrivers += taskStats.getQueuedDrivers();
@@ -544,8 +544,8 @@ public class StageStateMachine
 
             inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
 
-            bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
-            taskInfo.getOutputBuffers().getUtilization().ifPresent(bufferUtilizationHistograms::add);
+            bufferedDataSize += taskInfo.outputBuffers().getTotalBufferedBytes();
+            taskInfo.outputBuffers().getUtilization().ifPresent(bufferUtilizationHistograms::add);
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
 
@@ -712,7 +712,7 @@ public class StageStateMachine
         int taskInfoCount = taskInfos.size();
         LongFunction<List<OperatorStats>> statsListCreator = key -> new ArrayList<>(taskInfoCount);
         for (TaskInfo taskInfo : taskInfos) {
-            for (PipelineStats pipeline : taskInfo.getStats().getPipelines()) {
+            for (PipelineStats pipeline : taskInfo.stats().getPipelines()) {
                 // Place the pipelineId in the high bits of the combinedKey mask
                 long pipelineKeyMask = Integer.toUnsignedLong(pipeline.getPipelineId()) << 32;
                 for (OperatorStats operator : pipeline.getOperatorSummaries()) {

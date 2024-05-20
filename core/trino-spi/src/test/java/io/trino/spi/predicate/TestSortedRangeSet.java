@@ -17,6 +17,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.TestingBlockJsonSerde;
@@ -29,9 +31,12 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.UNKNOWN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -58,6 +63,7 @@ public class TestSortedRangeSet
         assertThat(rangeSet.isNone()).isTrue();
         assertThat(rangeSet.isAll()).isFalse();
         assertThat(rangeSet.isSingleValue()).isFalse();
+        assertThat(rangeSet.isDiscreteSet()).isFalse();
         assertThat(rangeSet.getOrderedRanges().isEmpty()).isTrue();
         assertThat(rangeSet.getRangeCount()).isEqualTo(0);
         assertThat(rangeSet.complement()).isEqualTo(SortedRangeSet.all(BIGINT));
@@ -73,6 +79,7 @@ public class TestSortedRangeSet
         assertThat(rangeSet.isNone()).isFalse();
         assertThat(rangeSet.isAll()).isTrue();
         assertThat(rangeSet.isSingleValue()).isFalse();
+        assertThat(rangeSet.isDiscreteSet()).isFalse();
         assertThat(rangeSet.getRangeCount()).isEqualTo(1);
         assertThat(rangeSet.complement()).isEqualTo(SortedRangeSet.none(BIGINT));
         assertThat(rangeSet.containsValue(0L)).isTrue();
@@ -90,6 +97,7 @@ public class TestSortedRangeSet
         assertThat(rangeSet.isNone()).isFalse();
         assertThat(rangeSet.isAll()).isFalse();
         assertThat(rangeSet.isSingleValue()).isTrue();
+        assertThat(rangeSet.isDiscreteSet()).isTrue();
         assertThat(rangeSet.getOrderedRanges()).isEqualTo(ImmutableList.of(Range.equal(BIGINT, 10L)));
         assertThat(rangeSet.getRangeCount()).isEqualTo(1);
         assertThat(rangeSet.complement()).isEqualTo(complement);
@@ -126,6 +134,7 @@ public class TestSortedRangeSet
         assertThat(rangeSet.isNone()).isFalse();
         assertThat(rangeSet.isAll()).isFalse();
         assertThat(rangeSet.isSingleValue()).isFalse();
+        assertThat(rangeSet.isDiscreteSet()).isFalse();
         assertThat(rangeSet.getOrderedRanges()).isEqualTo(normalizedResult);
         assertThat(rangeSet).isEqualTo(SortedRangeSet.copyOf(BIGINT, normalizedResult));
         assertThat(rangeSet.getRangeCount()).isEqualTo(3);
@@ -163,6 +172,7 @@ public class TestSortedRangeSet
         assertThat(rangeSet.isNone()).isFalse();
         assertThat(rangeSet.isAll()).isFalse();
         assertThat(rangeSet.isSingleValue()).isFalse();
+        assertThat(rangeSet.isDiscreteSet()).isFalse();
         assertThat(rangeSet.getOrderedRanges()).isEqualTo(normalizedResult);
         assertThat(rangeSet).isEqualTo(SortedRangeSet.copyOf(BIGINT, normalizedResult));
         assertThat(rangeSet.getRangeCount()).isEqualTo(3);
@@ -312,13 +322,21 @@ public class TestSortedRangeSet
     private void assertOverlaps(SortedRangeSet first, SortedRangeSet second)
     {
         assertThat(first.overlaps(second)).isTrue();
+        assertThat(first.linearSearchOverlaps(second)).isTrue();
+        assertThat(first.binarySearchOverlaps(second)).isTrue();
         assertThat(second.overlaps(first)).isTrue();
+        assertThat(second.linearSearchOverlaps(first)).isTrue();
+        assertThat(second.binarySearchOverlaps(first)).isTrue();
     }
 
     private void assertDoesNotOverlap(SortedRangeSet first, SortedRangeSet second)
     {
         assertThat(first.overlaps(second)).isFalse();
+        assertThat(first.linearSearchOverlaps(second)).isFalse();
+        assertThat(first.binarySearchOverlaps(second)).isFalse();
         assertThat(second.overlaps(first)).isFalse();
+        assertThat(second.linearSearchOverlaps(first)).isFalse();
+        assertThat(second.binarySearchOverlaps(first)).isFalse();
     }
 
     @Test
@@ -454,29 +472,183 @@ public class TestSortedRangeSet
     @Test
     public void testIntersect()
     {
-        assertThat(SortedRangeSet.none(BIGINT).intersect(
-                SortedRangeSet.none(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertIntersect(
+                SortedRangeSet.none(BIGINT),
+                SortedRangeSet.none(BIGINT),
+                SortedRangeSet.none(BIGINT));
 
-        assertThat(SortedRangeSet.all(BIGINT).intersect(
-                SortedRangeSet.all(BIGINT))).isEqualTo(SortedRangeSet.all(BIGINT));
+        assertIntersect(
+                SortedRangeSet.all(BIGINT),
+                SortedRangeSet.all(BIGINT),
+                SortedRangeSet.all(BIGINT));
 
-        assertThat(SortedRangeSet.none(BIGINT).intersect(
-                SortedRangeSet.all(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertIntersect(
+                SortedRangeSet.none(BIGINT),
+                SortedRangeSet.all(BIGINT),
+                SortedRangeSet.none(BIGINT));
 
-        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L)).intersect(
-                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L)))).isEqualTo(SortedRangeSet.of(Range.equal(BIGINT, 2L)));
+        assertIntersect(
+                SortedRangeSet.of(Range.equal(BIGINT, 1L)),
+                SortedRangeSet.of(Range.equal(BIGINT, 2L)),
+                SortedRangeSet.none(BIGINT));
 
-        assertThat(SortedRangeSet.all(BIGINT).intersect(
-                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L)))).isEqualTo(SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L)));
+        assertIntersect(
+                SortedRangeSet.of(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L)),
+                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L)),
+                SortedRangeSet.of(Range.equal(BIGINT, 2L)));
 
-        assertThat(SortedRangeSet.of(Range.range(BIGINT, 0L, true, 4L, false)).intersect(
-                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.greaterThan(BIGINT, 3L)))).isEqualTo(SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.range(BIGINT, 3L, false, 4L, false)));
+        assertIntersect(
+                SortedRangeSet.all(BIGINT),
+                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L)),
+                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L)));
 
-        assertThat(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)).intersect(
-                SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 0L)))).isEqualTo(SortedRangeSet.of(Range.equal(BIGINT, 0L)));
+        assertIntersect(
+                SortedRangeSet.of(Range.range(BIGINT, 0L, true, 4L, false)),
+                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.greaterThan(BIGINT, 3L)),
+                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.range(BIGINT, 3L, false, 4L, false)));
 
-        assertThat(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, -1L)).intersect(
-                SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 1L)))).isEqualTo(SortedRangeSet.of(Range.range(BIGINT, -1L, true, 1L, true)));
+        assertIntersect(
+                SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)),
+                SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 0L)),
+                SortedRangeSet.of(Range.equal(BIGINT, 0L)));
+
+        assertIntersect(
+                SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, -1L)),
+                SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 1L)),
+                SortedRangeSet.of(Range.range(BIGINT, -1L, true, 1L, true)));
+
+        assertIntersect(
+                SortedRangeSet.of(Range.range(BIGINT, 1L, true, 9L, true), Range.range(BIGINT, 12L, true, 18L, true)),
+                SortedRangeSet.of(Range.range(BIGINT, 7L, true, 15L, true), Range.range(BIGINT, 17L, true, 21L, true)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 7L, true, 9L, true),
+                        Range.range(BIGINT, 12L, true, 15L, true),
+                        Range.range(BIGINT, 17L, true, 18L, true)));
+
+        assertIntersect(
+                SortedRangeSet.of(Range.range(BIGINT, 1L, true, 9L, true), Range.range(BIGINT, 12L, true, 18L, true)),
+                SortedRangeSet.of(BIGINT, 0L, LongStream.rangeClosed(1L, 25L).boxed().toArray()),
+                SortedRangeSet.of(BIGINT, 1L, Stream.concat(LongStream.rangeClosed(2, 9).boxed(), LongStream.rangeClosed(12, 18).boxed()).toArray()));
+
+        assertIntersect(
+                SortedRangeSet.of(Range.range(BIGINT, 2L, false, 9L, false), Range.range(BIGINT, 12L, false, 18L, false)),
+                SortedRangeSet.of(BIGINT, 0L, LongStream.rangeClosed(1L, 25L).boxed().toArray()),
+                SortedRangeSet.of(BIGINT, 3L, Stream.concat(LongStream.rangeClosed(4, 8).boxed(), LongStream.rangeClosed(13, 17).boxed()).toArray()));
+
+        assertIntersect(
+                SortedRangeSet.of(Range.range(BIGINT, 0L, true, 50L, true)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 50L, false, 100L, true),
+                        Range.range(BIGINT, 150L, true, 200L, true)),
+                SortedRangeSet.none(BIGINT));
+
+        assertIntersect(
+                SortedRangeSet.of(Range.range(BIGINT, 50L, true, 100L, true)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 0L, true, 50L, false),
+                        Range.range(BIGINT, 150L, true, 200L, true)),
+                SortedRangeSet.none(BIGINT));
+
+        assertIntersect(
+                SortedRangeSet.of(Range.range(BIGINT, 200L, true, 300L, true)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 0L, true, 50L, true),
+                        Range.range(BIGINT, 150L, true, 200L, false)),
+                SortedRangeSet.none(BIGINT));
+
+        assertIntersect(
+                SortedRangeSet.of(Range.range(BIGINT, 10L, true, 20L, true)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 8L, true, 12L, true),
+                        Range.range(BIGINT, 18L, true, 22L, true)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 10L, true, 12L, true),
+                        Range.range(BIGINT, 18L, true, 20L, true)));
+
+        assertIntersect(
+                SortedRangeSet.of(Range.range(BIGINT, 10L, true, 20L, true)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 12L, true, 18L, true)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 12L, true, 18L, true)));
+
+        assertIntersect(
+                SortedRangeSet.of(Range.range(BIGINT, 10L, true, 20L, true)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 12L, true, 14L, true),
+                        Range.range(BIGINT, 16L, true, 18L, true),
+                        Range.range(BIGINT, 22L, true, 24L, true)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 12L, true, 14L, true),
+                        Range.range(BIGINT, 16L, true, 18L, true)));
+
+        assertIntersect(
+                SortedRangeSet.of(
+                        Range.equal(BIGINT, 1L),
+                        LongStream.range(1L, 5L).mapToObj(l -> Range.range(BIGINT, l * 10, l % 2 == 0, (l + 1) * 10 - 1, l % 2 == 1)).toList().toArray(Range[]::new)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 9L, true, 30L, true),
+                        LongStream.rangeClosed(4L, 10L).mapToObj(l -> Range.range(BIGINT, l * 10, l % 2 == 1, (l + 1) * 10 - 1, l % 2 == 0)).toList().toArray(Range[]::new)),
+                SortedRangeSet.of(
+                        Range.range(BIGINT, 10L, false, 19L, true),
+                        Range.range(BIGINT, 20L, true, 29L, false),
+                        Range.range(BIGINT, 40L, false, 49L, false)));
+
+        // ValueBlock
+        List<Slice> slices = IntStream.rangeClosed(0, 500)
+                .mapToObj(String::valueOf)
+                .map(Slices::utf8Slice)
+                .sorted()
+                .toList();
+        assertIntersect(
+                SortedRangeSet.copyOf(VARCHAR,
+                        Stream.concat(
+                                IntStream.range(0, 2).mapToObj(l -> Range.range(VARCHAR, slices.get(l * 50), l % 2 == 0, slices.get((l + 1) * 50 - 1), l % 2 == 1)),
+                                IntStream.range(3, 5).mapToObj(l -> Range.range(VARCHAR, slices.get(l * 50), l % 2 == 0, slices.get((l + 1) * 50 - 1), l % 2 == 1))).toList()),
+                SortedRangeSet.copyOf(
+                        VARCHAR,
+                        IntStream.rangeClosed(1, 50).mapToObj(l -> Range.range(VARCHAR, slices.get(l * 5), l % 2 == 1, slices.get((l + 1) * 5 - 1), l % 2 == 0)).toList()),
+                SortedRangeSet.copyOf(
+                        VARCHAR,
+                        Stream.concat(
+                                IntStream.rangeClosed(1, 19).mapToObj(l -> Range.range(VARCHAR, slices.get(l * 5), l % 2 == 1, slices.get((l + 1) * 5 - 1), l % 2 == 0)),
+                                IntStream.rangeClosed(30, 49).mapToObj(l -> Range.range(VARCHAR, slices.get(l * 5), l % 2 == 1, slices.get((l + 1) * 5 - 1), l % 2 == 0))).toList()));
+    }
+
+    @Test
+    public void testLinearDiscreteSetIntersect()
+    {
+        SortedRangeSet result = SortedRangeSet.of(BIGINT, 1L, 2L, 10L, 11L, 20L, 21L)
+                .linearDiscreteSetIntersect(SortedRangeSet.of(BIGINT, 1L, 2L, 20L, 21L, 30L));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L, 20L, 21L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.of(BIGINT, 1L, 2L, 10L)
+                .linearDiscreteSetIntersect(SortedRangeSet.of(BIGINT, 1L, 2L, 11L));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.of(BIGINT, 1L, 2L, 10L)
+                .linearDiscreteSetIntersect(SortedRangeSet.of(BIGINT, 42L));
+        assertThat(result).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(result.isDiscreteSet()).isFalse();
+    }
+
+    private void assertIntersect(SortedRangeSet first, SortedRangeSet second, SortedRangeSet result)
+    {
+        assertThat(first.intersect(second)).isEqualTo(result);
+        assertThat(first.linearSearchIntersect(second)).isEqualTo(result);
+        assertThat(first.binarySearchIntersect(second)).isEqualTo(result);
+        assertThat(second.intersect(first)).isEqualTo(result);
+        assertThat(second.linearSearchIntersect(first)).isEqualTo(result);
+        assertThat(second.binarySearchIntersect(first)).isEqualTo(result);
+
+        // force discrete set to be evaluated
+        first.isDiscreteSet();
+        second.isDiscreteSet();
+        assertThat(first.getDiscreteSetMarker()).isNotEqualTo(UNKNOWN);
+        assertThat(second.getDiscreteSetMarker()).isNotEqualTo(UNKNOWN);
+        assertThat(first.intersect(second).isDiscreteSet()).isEqualTo(result.isDiscreteSet());
     }
 
     @Test
@@ -485,6 +657,7 @@ public class TestSortedRangeSet
         assertUnion(SortedRangeSet.none(BIGINT), SortedRangeSet.none(BIGINT), SortedRangeSet.none(BIGINT));
         assertUnion(SortedRangeSet.all(BIGINT), SortedRangeSet.all(BIGINT), SortedRangeSet.all(BIGINT));
         assertUnion(SortedRangeSet.none(BIGINT), SortedRangeSet.all(BIGINT), SortedRangeSet.all(BIGINT));
+        assertUnion(SortedRangeSet.none(BIGINT), SortedRangeSet.of(Range.equal(BIGINT, 2L)), SortedRangeSet.of(Range.equal(BIGINT, 2L)));
 
         assertUnion(
                 SortedRangeSet.of(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)),
@@ -742,6 +915,13 @@ public class TestSortedRangeSet
     {
         assertThat(first.union(second)).isEqualTo(expected);
         assertThat(first.union(ImmutableList.of(first, second))).isEqualTo(expected);
+
+        // force discrete set to be evaluated
+        first.isDiscreteSet();
+        second.isDiscreteSet();
+        assertThat(first.getDiscreteSetMarker()).isNotEqualTo(UNKNOWN);
+        assertThat(second.getDiscreteSetMarker()).isNotEqualTo(UNKNOWN);
+        assertThat(first.union(second).isDiscreteSet()).isEqualTo(expected.isDiscreteSet());
     }
 
     private static SortedRangeSetAssert assertSortedRangeSet(SortedRangeSet sortedRangeSet)

@@ -37,13 +37,21 @@ public final class ScyllaQueryRunner
 
     public static QueryRunner createScyllaQueryRunner(
             TestingScyllaServer server,
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createScyllaQueryRunner(server, Map.of(), tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createScyllaQueryRunner(
+            TestingScyllaServer server,
+            Map<String, String> coordinatorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch"))
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
 
         try {
@@ -51,18 +59,18 @@ public final class ScyllaQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             // note: additional copy via ImmutableList so that if fails on nulls
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("cassandra.contact-points", server.getHost());
-            connectorProperties.putIfAbsent("cassandra.native-protocol-port", Integer.toString(server.getPort()));
-            connectorProperties.putIfAbsent("cassandra.allow-drop-table", "true");
-            connectorProperties.putIfAbsent("cassandra.load-policy.use-dc-aware", "true");
-            connectorProperties.putIfAbsent("cassandra.load-policy.dc-aware.local-dc", "datacenter1");
+            Map<String, String> connectorProperties = new HashMap<>();
+            connectorProperties.put("cassandra.contact-points", server.getHost());
+            connectorProperties.put("cassandra.native-protocol-port", Integer.toString(server.getPort()));
+            connectorProperties.put("cassandra.allow-drop-table", "true");
+            connectorProperties.put("cassandra.load-policy.use-dc-aware", "true");
+            connectorProperties.put("cassandra.load-policy.dc-aware.local-dc", "datacenter1");
 
             queryRunner.installPlugin(new CassandraPlugin());
             queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
 
             createKeyspace(server.getSession(), "tpch");
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession("tpch"), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
             for (TpchTable<?> table : tables) {
                 server.refreshSizeEstimates("tpch", table.getTableName());
             }
@@ -90,7 +98,6 @@ public final class ScyllaQueryRunner
         QueryRunner queryRunner = createScyllaQueryRunner(
                 new TestingScyllaServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
                 TpchTable.getTables());
 
         Logger log = Logger.get(ScyllaQueryRunner.class);

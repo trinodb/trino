@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ContiguousSet;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
@@ -32,8 +31,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -43,7 +40,6 @@ public class TestPredicatePushdown
         extends AbstractTestQueryFramework
 {
     private static final Path RESOURCE_PATH = Path.of("databricks73/pushdown/");
-    private static final String TEST_SCHEMA = "default";
 
     private final String bucketName = "delta-test-pushdown-" + randomNameSuffix();
     /**
@@ -60,14 +56,13 @@ public class TestPredicatePushdown
     {
         hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        return createS3DeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                TEST_SCHEMA,
-                ImmutableMap.of(
-                        "delta.enable-non-concurrent-writes", "true",
-                        "delta.register-table-procedure.enabled", "true"),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop());
+
+        return DeltaLakeQueryRunner.builder()
+                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
+                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .addDeltaProperty("delta.register-table-procedure.enabled", "true")
+                .build();
     }
 
     @Test

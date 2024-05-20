@@ -50,7 +50,6 @@ import io.trino.testing.QueryRunner;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
-import org.assertj.core.api.Condition;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -65,7 +64,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
@@ -77,7 +75,6 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.anyOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -88,18 +85,9 @@ public abstract class BaseIcebergMaterializedViewTest
 
     protected abstract String getStorageMetadataLocation(String materializedViewName);
 
-    @BeforeAll
-    public void setUp()
+    protected static MockConnectorPlugin createMockConnectorPlugin()
     {
-        assertUpdate("CREATE TABLE base_table1(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
-        assertUpdate("INSERT INTO base_table1 VALUES (0, DATE '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')", 3);
-        assertUpdate("INSERT INTO base_table1 VALUES (3, DATE '2019-09-09'), (4, DATE '2019-09-10'), (5, DATE '2019-09-10')", 3);
-
-        assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
-        assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
-
-        QueryRunner queryRunner = getDistributedQueryRunner();
-        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+        return new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withTableFunctions(ImmutableSet.of(new SequenceTableFunction()))
                 .withFunctionProvider(Optional.of(new FunctionProvider()
                 {
@@ -118,8 +106,18 @@ public abstract class BaseIcebergMaterializedViewTest
                     }
                     throw new IllegalArgumentException("This ConnectorTableFunctionHandle is not supported");
                 })
-                .build()));
-        queryRunner.createCatalog("mock", "mock");
+                .build());
+    }
+
+    @BeforeAll
+    public void setUp()
+    {
+        assertUpdate("CREATE TABLE base_table1(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
+        assertUpdate("INSERT INTO base_table1 VALUES (0, DATE '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')", 3);
+        assertUpdate("INSERT INTO base_table1 VALUES (3, DATE '2019-09-09'), (4, DATE '2019-09-10'), (5, DATE '2019-09-10')", 3);
+
+        assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
+        assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
     }
 
     @Test
@@ -179,7 +177,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThatThrownBy(() -> computeActual("CREATE MATERIALIZED VIEW materialized_view_with_property " +
                 "WITH (invalid_property = ARRAY['_date']) AS " +
                 "SELECT _bigint, _date FROM base_table1"))
-                .hasMessage("Catalog 'iceberg' materialized view property 'invalid_property' does not exist");
+                .hasMessage("line 1:64: Catalog 'iceberg' materialized view property 'invalid_property' does not exist");
     }
 
     @Test
@@ -377,10 +375,6 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testDetectStaleness()
     {
-        Session legacySession = Session.builder(getSession())
-                .setSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
-                .build();
-
         // Base tables and materialized views for staleness check
         assertUpdate("CREATE TABLE base_table3(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
         assertUpdate("INSERT INTO base_table3 VALUES (0, DATE '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')", 3);
@@ -403,20 +397,12 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join_part_stale", 3);
 
         assertUpdate("INSERT INTO base_table3 VALUES (3, DATE '2019-09-09'), (4, DATE '2019-09-10'), (5, DATE '2019-09-10')", 3);
-        assertThat(getExplainPlan(legacySession, "SELECT * FROM materialized_view_part_stale", ExplainType.Type.IO))
-                .contains("base_table3");
         assertThat(getExplainPlan("SELECT * FROM materialized_view_part_stale", ExplainType.Type.IO))
                 .doesNotContain("base_table");
 
-        Condition<String> containsTable3 = new Condition<>(p -> p.contains("base_table3"), "base_table3");
-        Condition<String> containsTable4 = new Condition<>(p -> p.contains("base_table4"), "base_table4");
-        assertThat(getExplainPlan(legacySession, "SELECT * FROM materialized_view_join_stale", ExplainType.Type.IO))
-                .is(anyOf(containsTable3, containsTable4));
         assertThat(getExplainPlan("SELECT * FROM materialized_view_join_stale", ExplainType.Type.IO))
                 .doesNotContain("base_table");
 
-        assertThat(getExplainPlan(legacySession, "SELECT * FROM materialized_view_join_part_stale", ExplainType.Type.IO))
-                .is(anyOf(containsTable3, containsTable4));
         assertThat(getExplainPlan("SELECT * FROM materialized_view_join_part_stale", ExplainType.Type.IO))
                 .doesNotContain("base_table");
 
@@ -1041,13 +1027,10 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         private static final int INSTANCE_SIZE = instanceSize(SequenceConnectorSplit.class);
 
-        @JsonIgnore
         @Override
-        public Object getInfo()
+        public Map<String, String> getSplitInfo()
         {
-            return ImmutableMap.builder()
-                    .put("ignored", "ignored")
-                    .buildOrThrow();
+            return ImmutableMap.of();
         }
 
         @JsonIgnore

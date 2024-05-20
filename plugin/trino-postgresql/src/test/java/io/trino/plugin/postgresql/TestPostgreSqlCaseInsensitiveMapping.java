@@ -14,7 +14,6 @@
 package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
@@ -39,15 +38,13 @@ public class TestPostgreSqlCaseInsensitiveMapping
     {
         mappingFile = createRuleBasedIdentifierMappingFile();
         postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
-        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(
-                postgreSqlServer,
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
+        return PostgreSqlQueryRunner.builder(postgreSqlServer)
+                .addConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("case-insensitive-name-matching", "true")
                         .put("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
                         .put("case-insensitive-name-matching.config-file.refresh-period", REFRESH_PERIOD_DURATION.toString())
-                        .buildOrThrow(),
-                ImmutableSet.of());
+                        .buildOrThrow())
+                .build();
     }
 
     @Override

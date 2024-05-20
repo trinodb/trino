@@ -93,7 +93,7 @@ public class TestHiveCoercionOnPartitionedTable
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
     {
-        String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
+        String tableName = format("%s_hive_coercion_partitioned", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
         String floatType = fileFormat.toLowerCase(ENGLISH).contains("parquet") ? "DOUBLE" : "FLOAT";
         String varcharTypeForBooleanCoercion = fileFormat.toLowerCase(ENGLISH).contains("orc") ? "VARCHAR(5)" : "STRING";
         return HiveTableDefinition.builder(tableName)
@@ -197,7 +197,7 @@ public class TestHiveCoercionOnPartitionedTable
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionForTimestampCoercionBuilder(String fileFormat, Optional<String> tablePrefix, Optional<String> rowFormat)
     {
-        String tableName = format("%s_hive_timestamp_coercion", tablePrefix.orElse(fileFormat).toLowerCase(ENGLISH));
+        String tableName = format("%s_hive_timestamp_coercion_partitioned", tablePrefix.orElse(fileFormat).toLowerCase(ENGLISH));
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE TABLE %NAME%(" +

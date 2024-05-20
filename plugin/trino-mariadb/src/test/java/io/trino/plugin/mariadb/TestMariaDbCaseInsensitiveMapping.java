@@ -41,7 +41,6 @@ public class TestMariaDbCaseInsensitiveMapping
         server = closeAfterClass(new TestingMariaDbServer());
         return createMariaDbQueryRunner(
                 server,
-                ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("case-insensitive-name-matching", "true")
                         .put("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())

@@ -63,22 +63,15 @@ public class JsonRowDecoderFactory
             checkArgument(!column.isInternal(), "unexpected internal column '%s'", column.getName());
 
             String dataFormat = Optional.ofNullable(column.getDataFormat()).orElse("");
-            switch (dataFormat) {
-                case "custom-date-time":
-                    return new CustomDateTimeJsonFieldDecoder(column);
-                case "iso8601":
-                    return new ISO8601JsonFieldDecoder(column);
-                case "seconds-since-epoch":
-                    return new SecondsSinceEpochJsonFieldDecoder(column);
-                case "milliseconds-since-epoch":
-                    return new MillisecondsSinceEpochJsonFieldDecoder(column);
-                case "rfc2822":
-                    return new RFC2822JsonFieldDecoder(column);
-                case "":
-                    return new DefaultJsonFieldDecoder(column);
-                default:
-                    throw new IllegalArgumentException(format("unknown data format '%s' used for column '%s'", column.getDataFormat(), column.getName()));
-            }
+            return switch (dataFormat) {
+                case "custom-date-time" -> new CustomDateTimeJsonFieldDecoder(column);
+                case "iso8601" -> new ISO8601JsonFieldDecoder(column);
+                case "seconds-since-epoch" -> new SecondsSinceEpochJsonFieldDecoder(column);
+                case "milliseconds-since-epoch" -> new MillisecondsSinceEpochJsonFieldDecoder(column);
+                case "rfc2822" -> new RFC2822JsonFieldDecoder(column);
+                case "" -> new DefaultJsonFieldDecoder(column);
+                default -> throw new IllegalArgumentException(format("unknown data format '%s' used for column '%s'", column.getDataFormat(), column.getName()));
+            };
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(GENERIC_USER_ERROR, e);

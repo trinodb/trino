@@ -53,7 +53,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 
 import java.time.Instant;
@@ -86,7 +85,6 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
-import static io.trino.SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.server.testing.TestingSystemSessionProperties.TESTING_SESSION_TIME;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
@@ -172,12 +170,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
 import static org.assertj.core.api.InstanceOfAssertFactories.ZONED_DATE_TIME;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 /**
  * Generic test for connectors.
  */
-@TestInstance(PER_CLASS)
 public abstract class BaseConnectorTest
         extends AbstractTestQueries
 {
@@ -1052,10 +1048,10 @@ public abstract class BaseConnectorTest
         assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewWithComment)).contains("COMMENT 'mv_comment'");
         assertThat(query(
                 "SELECT table_name, comment FROM system.metadata.table_comments " +
-                        "WHERE catalog_name = '" + view.getCatalogName() + "' AND " +
-                        "schema_name = '" + view.getSchemaName() + "'"))
+                        "WHERE catalog_name = '" + view.catalogName() + "' AND " +
+                        "schema_name = '" + view.schemaName() + "'"))
                 .skippingTypesCheck()
-                .containsAll("VALUES ('" + view.getObjectName() + "', null), ('" + viewWithComment.getObjectName() + "', 'mv_comment')");
+                .containsAll("VALUES ('" + view.objectName() + "', null), ('" + viewWithComment.objectName() + "', 'mv_comment')");
 
         // reading
         assertThat(query("SELECT * FROM " + view))
@@ -1068,41 +1064,41 @@ public abstract class BaseConnectorTest
         // table listing
         assertThat(query("SHOW TABLES"))
                 .skippingTypesCheck()
-                .containsAll("VALUES '" + view.getObjectName() + "'");
+                .containsAll("VALUES '" + view.objectName() + "'");
         // information_schema.tables without table_name filter so that ConnectorMetadata.listViews is exercised
         assertThat(query(
                 "SELECT table_name, table_type FROM information_schema.tables " +
-                        "WHERE table_schema = '" + view.getSchemaName() + "'"))
+                        "WHERE table_schema = '" + view.schemaName() + "'"))
                 .skippingTypesCheck()
-                .containsAll("VALUES ('" + view.getObjectName() + "', 'BASE TABLE')");
+                .containsAll("VALUES ('" + view.objectName() + "', 'BASE TABLE')");
         // information_schema.tables with table_name filter
         assertQuery(
                 "SELECT table_name, table_type FROM information_schema.tables " +
-                        "WHERE table_schema = '" + view.getSchemaName() + "' and table_name = '" + view.getObjectName() + "'",
-                "VALUES ('" + view.getObjectName() + "', 'BASE TABLE')");
+                        "WHERE table_schema = '" + view.schemaName() + "' and table_name = '" + view.objectName() + "'",
+                "VALUES ('" + view.objectName() + "', 'BASE TABLE')");
 
         // system.jdbc.tables without filter
         assertThat(query("SELECT table_schem, table_name, table_type FROM system.jdbc.tables"))
                 .skippingTypesCheck()
-                .containsAll("VALUES ('" + view.getSchemaName() + "', '" + view.getObjectName() + "', 'TABLE')");
+                .containsAll("VALUES ('" + view.schemaName() + "', '" + view.objectName() + "', 'TABLE')");
 
         // system.jdbc.tables with table prefix filter
         assertQuery(
                 "SELECT table_schem, table_name, table_type " +
                         "FROM system.jdbc.tables " +
-                        "WHERE table_cat = '" + view.getCatalogName() + "' AND " +
-                        "table_schem = '" + view.getSchemaName() + "' AND " +
-                        "table_name = '" + view.getObjectName() + "'",
-                "VALUES ('" + view.getSchemaName() + "', '" + view.getObjectName() + "', 'TABLE')");
+                        "WHERE table_cat = '" + view.catalogName() + "' AND " +
+                        "table_schem = '" + view.schemaName() + "' AND " +
+                        "table_name = '" + view.objectName() + "'",
+                "VALUES ('" + view.schemaName() + "', '" + view.objectName() + "', 'TABLE')");
 
         // column listing
-        assertThat(query("SHOW COLUMNS FROM " + view.getObjectName()))
+        assertThat(query("SHOW COLUMNS FROM " + view.objectName()))
                 .result()
                 .projected("Column") // column types can very between connectors
                 .skippingTypesCheck()
                 .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
-        assertThat(query("DESCRIBE " + view.getObjectName()))
+        assertThat(query("DESCRIBE " + view.objectName()))
                 .result()
                 .projected("Column") // column types can very between connectors
                 .skippingTypesCheck()
@@ -1112,61 +1108,61 @@ public abstract class BaseConnectorTest
         assertThat(query(
                 "SELECT table_name, column_name " +
                         "FROM information_schema.columns " +
-                        "WHERE table_schema = '" + view.getSchemaName() + "'"))
+                        "WHERE table_schema = '" + view.schemaName() + "'"))
                 .skippingTypesCheck()
                 .containsAll(
-                        "SELECT * FROM (VALUES '" + view.getObjectName() + "') " +
+                        "SELECT * FROM (VALUES '" + view.objectName() + "') " +
                                 "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
         // information_schema.columns with table_name filter
         assertThat(query(
                 "SELECT table_name, column_name " +
                         "FROM information_schema.columns " +
-                        "WHERE table_schema = '" + view.getSchemaName() + "' and table_name = '" + view.getObjectName() + "'"))
+                        "WHERE table_schema = '" + view.schemaName() + "' and table_name = '" + view.objectName() + "'"))
                 .skippingTypesCheck()
                 .containsAll(
-                        "SELECT * FROM (VALUES '" + view.getObjectName() + "') " +
+                        "SELECT * FROM (VALUES '" + view.objectName() + "') " +
                                 "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
         // view-specific listings
-        assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + view.getSchemaName() + "'").getOnlyColumnAsSet())
-                .doesNotContain(view.getObjectName());
-        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + view.getSchemaName() + "' AND table_name = '" + view.getObjectName() + "'"))
+        assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + view.schemaName() + "'").getOnlyColumnAsSet())
+                .doesNotContain(view.objectName());
+        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + view.schemaName() + "' AND table_name = '" + view.objectName() + "'"))
                 .returnsEmptyResult();
 
         // materialized view-specific listings
-        assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalog + "' AND schema_name = '" + view.getSchemaName() + "'"))
-                .containsAll("VALUES VARCHAR '" + view.getObjectName() + "'");
+        assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalog + "' AND schema_name = '" + view.schemaName() + "'"))
+                .containsAll("VALUES VARCHAR '" + view.objectName() + "'");
 
         // system.jdbc.columns without filter
         assertThat(query("SELECT table_schem, table_name, column_name FROM system.jdbc.columns"))
                 .skippingTypesCheck()
                 .containsAll(
-                        "SELECT * FROM (VALUES ('" + view.getSchemaName() + "', '" + view.getObjectName() + "')) " +
+                        "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
                                 "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
         // system.jdbc.columns with schema filter
         assertThat(query(
                 "SELECT table_schem, table_name, column_name " +
                         "FROM system.jdbc.columns " +
-                        "WHERE table_schem LIKE '%" + view.getSchemaName() + "%'"))
+                        "WHERE table_schem LIKE '%" + view.schemaName() + "%'"))
                 .skippingTypesCheck()
                 .containsAll(
-                        "SELECT * FROM (VALUES ('" + view.getSchemaName() + "', '" + view.getObjectName() + "')) " +
+                        "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
                                 "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
         // system.jdbc.columns with table filter
         assertThat(query(
                 "SELECT table_schem, table_name, column_name " +
                         "FROM system.jdbc.columns " +
-                        "WHERE table_name LIKE '%" + view.getObjectName() + "%'"))
+                        "WHERE table_name LIKE '%" + view.objectName() + "%'"))
                 .skippingTypesCheck()
                 .containsAll(
-                        "SELECT * FROM (VALUES ('" + view.getSchemaName() + "', '" + view.getObjectName() + "')) " +
+                        "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
                                 "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
         // details
-        assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + view.getObjectName())))
+        assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + view.objectName())))
                 .matches("(?s)" +
                         "CREATE MATERIALIZED VIEW \\Q" + view + "\\E" +
                         ".* AS\n" +
@@ -1179,32 +1175,32 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP MATERIALIZED VIEW " + viewWithComment);
 
         // test filtering materialized views in system metadata table
-        assertThat(query(listMaterializedViewsSql("catalog_name = '" + view.getCatalogName() + "'")))
+        assertThat(query(listMaterializedViewsSql("catalog_name = '" + view.catalogName() + "'")))
                 .skippingTypesCheck()
                 .containsAll(getTestingMaterializedViewsResultRows(view, otherView));
 
         assertThat(query(
                 listMaterializedViewsSql(
-                        "catalog_name = '" + otherView.getCatalogName() + "'",
-                        "schema_name = '" + otherView.getSchemaName() + "'")))
+                        "catalog_name = '" + otherView.catalogName() + "'",
+                        "schema_name = '" + otherView.schemaName() + "'")))
                 .skippingTypesCheck()
                 .containsAll(getTestingMaterializedViewsResultRow(otherView, "sarcastic comment"));
 
         assertThat(query(
                 listMaterializedViewsSql(
-                        "catalog_name = '" + view.getCatalogName() + "'",
-                        "schema_name = '" + view.getSchemaName() + "'",
-                        "name = '" + view.getObjectName() + "'")))
+                        "catalog_name = '" + view.catalogName() + "'",
+                        "schema_name = '" + view.schemaName() + "'",
+                        "name = '" + view.objectName() + "'")))
                 .skippingTypesCheck()
                 .containsAll(getTestingMaterializedViewsResultRow(view, ""));
 
         assertThat(query(
-                listMaterializedViewsSql("schema_name LIKE '%" + view.getSchemaName() + "%'")))
+                listMaterializedViewsSql("schema_name LIKE '%" + view.schemaName() + "%'")))
                 .skippingTypesCheck()
                 .containsAll(getTestingMaterializedViewsResultRow(view, ""));
 
         assertThat(query(
-                listMaterializedViewsSql("name LIKE '%" + view.getObjectName() + "%'")))
+                listMaterializedViewsSql("name LIKE '%" + view.objectName() + "%'")))
                 .skippingTypesCheck()
                 .containsAll(getTestingMaterializedViewsResultRow(view, ""));
 
@@ -1217,9 +1213,9 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP MATERIALIZED VIEW " + view);
         assertUpdate("DROP MATERIALIZED VIEW " + otherView);
 
-        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + view.getObjectName() + "'"));
-        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + otherView.getObjectName() + "'"));
-        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + viewWithComment.getObjectName() + "'"));
+        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + view.objectName() + "'"));
+        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + otherView.objectName() + "'"));
+        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + viewWithComment.objectName() + "'"));
 
         assertUpdate("DROP SCHEMA " + otherSchema);
     }
@@ -1302,9 +1298,6 @@ public abstract class BaseConnectorTest
                 "test_base_table",
                 "AS TABLE region")) {
             Session defaultSession = getSession();
-            Session legacySession = Session.builder(defaultSession)
-                    .setSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
-                    .build();
             Session futureSession = Session.builder(defaultSession)
                     // This gets ignored: .setStart(...)
                     .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
@@ -1328,7 +1321,6 @@ public abstract class BaseConnectorTest
             assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(STALE);
             assertThat(getMaterializedViewLastFreshTime(viewName)).isEmpty();
             assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
-            assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
             assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
 
             ZonedDateTime beforeRefresh = ZonedDateTime.now();
@@ -1348,7 +1340,6 @@ public abstract class BaseConnectorTest
                         .get(ZONED_DATE_TIME).isBetween(beforeRefresh, afterRefresh);
             }
             assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
-            assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
             assertThat(query(futureSession, "TABLE " + viewName))
                     .hasPlan(supportsFresh ? readFromStorageTable : readFromBaseTables)
                     .matches(initialResults);
@@ -1366,9 +1357,6 @@ public abstract class BaseConnectorTest
                             supportsFresh ? beforeModification : beforeRefresh,
                             supportsFresh ? afterModification : afterRefresh);
             assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
-            assertThat(query(legacySession, "TABLE " + viewName))
-                    .hasPlan(supportsFresh ? readFromBaseTables : readFromStorageTable)
-                    .matches(supportsFresh ? updatedResults : initialResults);
             assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(updatedResults);
 
             assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 6);
@@ -1384,7 +1372,6 @@ public abstract class BaseConnectorTest
             }
 
             assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
-            assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
             assertThat(query(futureSession, "TABLE " + viewName))
                     .hasPlan(supportsFresh ? readFromStorageTable : readFromBaseTables)
                     .matches(updatedResults);
@@ -1411,9 +1398,6 @@ public abstract class BaseConnectorTest
         }
 
         Session defaultSession = getSession();
-        Session legacySession = Session.builder(defaultSession)
-                .setSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
-                .build();
         Session futureSession = Session.builder(defaultSession)
                 // This gets ignored: .setStart(...)
                 .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
@@ -1438,7 +1422,6 @@ public abstract class BaseConnectorTest
                     assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(STALE);
                     assertThat(getMaterializedViewLastFreshTime(viewName)).isEmpty();
                     assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
-                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
                     assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
 
                     ZonedDateTime beforeRefresh = ZonedDateTime.now();
@@ -1450,7 +1433,6 @@ public abstract class BaseConnectorTest
                     assertThat(getMaterializedViewLastFreshTime(viewName))
                             .get(ZONED_DATE_TIME).isBetween(beforeRefresh, afterRefresh);
                     assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
-                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
                     assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
 
                     // Change underlying state
@@ -1462,7 +1444,6 @@ public abstract class BaseConnectorTest
                     assertThat(getMaterializedViewLastFreshTime(viewName))
                             .get(ZONED_DATE_TIME).isBetween(beforeRefresh, afterRefresh);
                     assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
-                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
                     assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
 
                     ZonedDateTime beforeSecondRefresh = ZonedDateTime.now();
@@ -1474,7 +1455,6 @@ public abstract class BaseConnectorTest
                     assertThat(getMaterializedViewLastFreshTime(viewName))
                             .get(ZONED_DATE_TIME).isBetween(beforeSecondRefresh, afterSecondRefresh);
                     assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
-                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
                     assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
 
                     assertUpdate("DROP MATERIALIZED VIEW " + viewName);
@@ -1496,9 +1476,6 @@ public abstract class BaseConnectorTest
                 "GROUP BY table_name"; // GROUP BY so that it is easy to distinguish between inlined view and reading materialization
 
         Session defaultSession = getSession();
-        Session legacySession = Session.builder(defaultSession)
-                .setSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
-                .build();
         Session futureSession = Session.builder(defaultSession)
                 // This gets ignored: .setStart(...)
                 .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
@@ -1525,7 +1502,6 @@ public abstract class BaseConnectorTest
                     assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(STALE);
                     assertThat(getMaterializedViewLastFreshTime(viewName)).isEmpty();
                     assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
-                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
                     assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
 
                     ZonedDateTime beforeRefresh = ZonedDateTime.now();
@@ -1537,7 +1513,6 @@ public abstract class BaseConnectorTest
                     assertThat(getMaterializedViewLastFreshTime(viewName))
                             .get(ZONED_DATE_TIME).isBetween(beforeRefresh, afterRefresh);
                     assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
-                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
                     assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
 
                     // Change underlying state
@@ -1549,7 +1524,6 @@ public abstract class BaseConnectorTest
                     assertThat(getMaterializedViewLastFreshTime(viewName))
                             .get(ZONED_DATE_TIME).isBetween(beforeRefresh, afterRefresh);
                     assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
-                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
                     assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(updatedResults);
 
                     ZonedDateTime beforeSecondRefresh = ZonedDateTime.now();
@@ -1561,7 +1535,6 @@ public abstract class BaseConnectorTest
                     assertThat(getMaterializedViewLastFreshTime(viewName))
                             .get(ZONED_DATE_TIME).isBetween(beforeSecondRefresh, afterSecondRefresh);
                     assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
-                    assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
                     assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(updatedResults);
 
                     assertUpdate("DROP MATERIALIZED VIEW " + viewName);
@@ -1840,8 +1813,8 @@ public abstract class BaseConnectorTest
         assertTestingMaterializedViewQuery(schema, renamedMaterializedView);
         // verify new name in the system.metadata.materialized_views
         assertQuery(session, "SELECT catalog_name, schema_name FROM system.metadata.materialized_views WHERE name = '" + renamedMaterializedView + "'",
-                format("VALUES ('%s', '%s')", originalMaterializedView.getCatalogName(), originalMaterializedView.getSchemaName()));
-        assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + originalMaterializedView.getObjectName() + "'"));
+                format("VALUES ('%s', '%s')", originalMaterializedView.catalogName(), originalMaterializedView.schemaName()));
+        assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + originalMaterializedView.objectName() + "'"));
 
         // rename with IF EXISTS on existing materialized view
         String testExistsMaterializedViewName = "test_materialized_view_rename_exists_" + randomNameSuffix();
@@ -1856,15 +1829,15 @@ public abstract class BaseConnectorTest
         String otherSchema = "rename_mv_other_schema_" + randomNameSuffix();
         assertUpdate(createSchemaSql(otherSchema));
         if (hasBehavior(SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS)) {
-            assertUpdate(session, "ALTER MATERIALIZED VIEW " + uppercaseName + " RENAME TO " + otherSchema + "." + originalMaterializedView.getObjectName());
-            assertTestingMaterializedViewQuery(otherSchema, originalMaterializedView.getObjectName());
+            assertUpdate(session, "ALTER MATERIALIZED VIEW " + uppercaseName + " RENAME TO " + otherSchema + "." + originalMaterializedView.objectName());
+            assertTestingMaterializedViewQuery(otherSchema, originalMaterializedView.objectName());
 
-            assertUpdate(session, "DROP MATERIALIZED VIEW " + otherSchema + "." + originalMaterializedView.getObjectName());
+            assertUpdate(session, "DROP MATERIALIZED VIEW " + otherSchema + "." + originalMaterializedView.objectName());
         }
         else {
             assertQueryFails(
                     session,
-                    "ALTER MATERIALIZED VIEW " + uppercaseName + " RENAME TO " + otherSchema + "." + originalMaterializedView.getObjectName(),
+                    "ALTER MATERIALIZED VIEW " + uppercaseName + " RENAME TO " + otherSchema + "." + originalMaterializedView.objectName(),
                     "Materialized View rename across schemas is not supported");
             assertUpdate(session, "DROP MATERIALIZED VIEW " + uppercaseName);
         }
@@ -1875,7 +1848,7 @@ public abstract class BaseConnectorTest
 
         // rename with IF EXISTS on NOT existing materialized view
         assertUpdate(session, "ALTER TABLE IF EXISTS " + originalMaterializedView + " RENAME TO " + renamedMaterializedView);
-        assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + originalMaterializedView.getObjectName() + "'"));
+        assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + originalMaterializedView.objectName() + "'"));
         assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + renamedMaterializedView + "'"));
     }
 
@@ -1898,9 +1871,9 @@ public abstract class BaseConnectorTest
     {
         return format(
                 "VALUES ('%s', '%s', '%s', '%s', 'SELECT *\nFROM\n  nation\n')",
-                materializedView.getCatalogName(),
-                materializedView.getSchemaName(),
-                materializedView.getObjectName(),
+                materializedView.catalogName(),
+                materializedView.schemaName(),
+                materializedView.objectName(),
                 comment);
     }
 
@@ -1913,13 +1886,13 @@ public abstract class BaseConnectorTest
         return format(
                 "VALUES ('%s', '%s', '%s', '', '%s')," +
                         "('%s', '%s', '%s', 'sarcastic comment', '%s')",
-                materializedView.getCatalogName(),
-                materializedView.getSchemaName(),
-                materializedView.getObjectName(),
+                materializedView.catalogName(),
+                materializedView.schemaName(),
+                materializedView.objectName(),
                 viewDefinitionSql,
-                otherMaterializedView.getCatalogName(),
-                otherMaterializedView.getSchemaName(),
-                otherMaterializedView.getObjectName(),
+                otherMaterializedView.catalogName(),
+                otherMaterializedView.schemaName(),
+                otherMaterializedView.objectName(),
                 viewDefinitionSql);
     }
 
@@ -4390,7 +4363,7 @@ public abstract class BaseConnectorTest
                 });
                 commit = true;
             }
-            catch (RollbackException ignored) {
+            catch (RollbackException _) {
                 // failure accepted, transaction rolled back
                 commit = false;
             }
@@ -5414,6 +5387,7 @@ public abstract class BaseConnectorTest
                 .add("a\\backslash`")
                 .add("adigit0")
                 .add("0startwithdigit")
+                .add("カラム")
                 .build();
     }
 
@@ -5718,6 +5692,66 @@ public abstract class BaseConnectorTest
                 .add(new DataMappingTestSetup("char(1)", "'B'", "'a'"))
                 .add(new DataMappingTestSetup("varchar(1)", "'B'", "'a'"))
                 .build();
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneCastToDatePredicate()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        TestTable table;
+        try {
+            table = new TestTable(
+                    getQueryRunner()::execute,
+                    "timestamptz_to_date",
+                    // These to timestamps are same local time, but different point in times and also different date at UTC time zone
+                    """
+                            (i, t) AS VALUES
+                                ('UTC', TIMESTAMP '2005-09-10 00:12:34.000 UTC'),
+                                ('Warsaw', TIMESTAMP '2005-09-10 00:12:34.000 Europe/Warsaw'),
+                                ('Los Angeles', TIMESTAMP '2005-09-10 00:12:34.000 America/Los_Angeles')""");
+        }
+        catch (QueryFailedException e) {
+            verifyUnsupportedTypeException(e, "timestamp(3) with time zone");
+            return;
+        }
+        try (table) {
+            assertThat(query("SELECT i FROM " + table.getName() + " WHERE CAST(t AS date) = DATE '2005-09-10'"))
+                    .hasCorrectResultsRegardlessOfPushdown()
+                    // Number of matched rows depends on whether the connector preserves the time zone information, or point in time only
+                    .skippingTypesCheck()
+                    .containsAll("VALUES 'UTC', 'Los Angeles'");
+        }
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneCastToTimestampPredicate()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        TestTable table;
+        try {
+            table = new TestTable(
+                    getQueryRunner()::execute,
+                    "timestamptz_to_ts",
+                    // These to timestamps are same local time, but different point in times
+                    """
+                            (i, t) AS VALUES
+                                ('UTC', TIMESTAMP '2005-09-10 13:00:00.000 UTC'),
+                                ('Warsaw', TIMESTAMP '2005-09-10 13:00:00.000 Europe/Warsaw'),
+                                ('Los Angeles', TIMESTAMP '2005-09-10 13:00:00.000 America/Los_Angeles')""");
+        }
+        catch (QueryFailedException e) {
+            verifyUnsupportedTypeException(e, "timestamp(3) with time zone");
+            return;
+        }
+        try (table) {
+            assertThat(query("SELECT i FROM " + table.getName() + " WHERE CAST(t AS timestamp(0)) = TIMESTAMP '2005-09-10 13:00:00'"))
+                    .hasCorrectResultsRegardlessOfPushdown()
+                    // Number of matched rows depends on whether the connector preserves the time zone information, or point in time only
+                    .skippingTypesCheck()
+                    .containsAll("VALUES 'UTC'");
+        }
     }
 
     /**
@@ -6329,14 +6363,22 @@ public abstract class BaseConnectorTest
                 " USING (VALUES ('ALGERIA', 'AFRICA')) s(nation_name, region_name)\n" +
                 " ON (t.nation_name = s.nation_name)\n" +
                 " WHEN MATCHED THEN UPDATE SET region_name = NULL"))
-                .hasMessage("Assigning NULL to non-null MERGE target table column region_name");
+                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
 
         // Show that inserting using a null value fails
         assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t\n", targetTable) +
                 " USING (VALUES ('IMAGINARIA', 'AFRICA')) s(nation_name, region_name)\n" +
                 " ON (t.nation_name = s.nation_name)\n" +
                 " WHEN NOT MATCHED THEN INSERT (nation_name, region_name) VALUES ('IMAGINARIA', NULL)"))
-                .hasMessage("Assigning NULL to non-null MERGE target table column region_name");
+                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
+
+        // Show that inserting using an implicit null value fails
+        assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t\n", targetTable) +
+                " USING (VALUES ('IMAGINARIA', 'AFRICA')) s(nation_name, region_name)\n" +
+                " ON (t.nation_name = s.nation_name)\n" +
+                // The region_name is implicitly assigned null
+                " WHEN NOT MATCHED THEN INSERT (nation_name) VALUES ('IMAGINARIA')"))
+                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
 
         // Show that if the updated value is provided by a function unpredicatably computing null,
         // the merge fails
@@ -6344,7 +6386,7 @@ public abstract class BaseConnectorTest
                 " USING (VALUES ('ALGERIA', 'AFRICA')) s(nation_name, region_name)\n" +
                 " ON (t.nation_name = s.nation_name)\n" +
                 " WHEN MATCHED THEN UPDATE SET region_name = CAST(TRY(5/0) AS VARCHAR)"))
-                .hasMessage("Assigning NULL to non-null MERGE target table column region_name");
+                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
 
         assertUpdate("DROP TABLE " + targetTable);
     }
@@ -6427,6 +6469,8 @@ public abstract class BaseConnectorTest
         String name2 = "test_" + randomNameSuffix();
         String name3 = "test_" + randomNameSuffix();
 
+        assertQueryFails("SHOW CREATE FUNCTION " + name, "line 1:1: Function not found");
+
         assertUpdate("CREATE FUNCTION " + name + "(x integer) RETURNS bigint COMMENT 't42' RETURN x * 42");
 
         assertQuery("SELECT " + name + "(99)", "SELECT 4158");
@@ -6441,6 +6485,21 @@ public abstract class BaseConnectorTest
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "double", "double", "scalar", true, "t88")
                         .build());
+
+        String integerFunctionSql = """
+                CREATE FUNCTION %s(x integer)
+                RETURNS bigint
+                COMMENT 't42'
+                RETURN (x * 42)
+                """.strip().formatted(name);
+        String doubleFunctionSql = """
+                CREATE FUNCTION %s(x double)
+                RETURNS double
+                COMMENT 't88'
+                RETURN (x * DECIMAL '8.8')
+                """.strip().formatted(name);
+        assertThat(computeActual("SHOW CREATE FUNCTION " + name).getOnlyColumnAsSet())
+                .containsExactlyInAnyOrder(integerFunctionSql, doubleFunctionSql);
 
         assertQuery("SELECT " + name + "(99)", "SELECT 4158");
         assertQuery("SELECT " + name + "(2.9)", "SELECT 25.52");
@@ -6462,6 +6521,14 @@ public abstract class BaseConnectorTest
                         .row(name, "double", "double", "scalar", true, "t88")
                         .row(name2, "varchar", "varchar", "scalar", true, "")
                         .build());
+
+        String bigintFunctionSql = """
+                CREATE FUNCTION %s(x bigint)
+                RETURNS bigint
+                RETURN (x * 23)
+                """.strip().formatted(name);
+        assertThat(computeActual("SHOW CREATE FUNCTION " + name).getOnlyColumnAsSet())
+                .containsExactlyInAnyOrder(integerFunctionSql, doubleFunctionSql, bigintFunctionSql);
 
         assertQuery("SELECT " + name + "(99)", "SELECT 4158");
         assertQuery("SELECT " + name + "(cast(99 as bigint))", "SELECT 2277");
@@ -6489,6 +6556,14 @@ public abstract class BaseConnectorTest
                         .row(name2, "varchar", "varchar", "scalar", true, "")
                         .row(name3, "double", "", "scalar", false, "")
                         .build());
+
+        assertThat(computeActual("SHOW CREATE FUNCTION " + name3).getOnlyValue())
+                .isEqualTo("""
+                        CREATE FUNCTION %s()
+                        RETURNS double
+                        NOT DETERMINISTIC
+                        RETURN random()
+                        """.strip().formatted(name3));
 
         assertQueryFails("DROP FUNCTION " + name + "(varchar)", "line 1:1: Function not found");
         assertUpdate("DROP FUNCTION " + name + "(z bigint)");
@@ -6525,7 +6600,8 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE FUNCTION " + recursive1 + "(x integer) RETURNS integer RETURN x");
         assertUpdate("CREATE FUNCTION " + recursive2 + "(x integer) RETURNS integer RETURN " + recursive1 + "(x)");
         assertUpdate("CREATE OR REPLACE FUNCTION " + recursive1 + "(x integer) RETURNS integer RETURN " + recursive2 + "(x)");
-        assertQueryFails("SELECT " + recursive1 + "(42)", "line 3:8: Recursive language functions are not supported: " + recursive1 + "\\(integer\\):integer");
+        assertQueryFails("SELECT " + recursive1 + "(42)", "Recursive language functions are not supported: " + recursive1 + "\\(integer\\):integer");
+        assertQueryFails("SELECT " + recursive2 + "(42)", "Recursive language functions are not supported: " + recursive2 + "\\(integer\\):integer");
         assertUpdate("DROP FUNCTION " + recursive1 + "(integer)");
         assertUpdate("DROP FUNCTION " + recursive2 + "(integer)");
     }

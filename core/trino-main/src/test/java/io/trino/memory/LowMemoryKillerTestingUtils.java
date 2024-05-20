@@ -57,7 +57,7 @@ public final class LowMemoryKillerTestingUtils
                 if (bytes == 0) {
                     continue;
                 }
-                nodeReservations.computeIfAbsent(node, ignored -> new NodeReservation()).add(queryId, bytes);
+                nodeReservations.computeIfAbsent(node, _ -> new NodeReservation()).add(queryId, bytes);
             }
         }
 

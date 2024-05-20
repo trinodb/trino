@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
@@ -32,11 +33,11 @@ import io.trino.spi.function.table.ScalarArgument;
 import io.trino.spi.function.table.ScalarArgumentSpecification;
 import io.trino.spi.function.table.TableFunctionAnalysis;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
+import org.apache.iceberg.util.SnapshotUtil;
 
 import java.util.List;
 import java.util.Map;
@@ -58,14 +59,21 @@ import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.G
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class TableChangesFunction
         extends AbstractConnectorTableFunction
 {
+    private static final Logger log = Logger.get(TableChangesFunction.class);
+
     private static final String FUNCTION_NAME = "table_changes";
+    @Deprecated
     private static final String SCHEMA_VAR_NAME = "SCHEMA";
+    private static final String SCHEMA_NAME_VAR_NAME = "SCHEMA_NAME";
+    @Deprecated
     private static final String TABLE_VAR_NAME = "TABLE";
+    private static final String TABLE_NAME_VAR_NAME = "TABLE_NAME";
     private static final String START_SNAPSHOT_VAR_NAME = "START_SNAPSHOT_ID";
     private static final String END_SNAPSHOT_VAR_NAME = "END_SNAPSHOT_ID";
 
@@ -81,11 +89,13 @@ public class TableChangesFunction
                 ImmutableList.of(
                         ScalarArgumentSpecification.builder()
                                 .name(SCHEMA_VAR_NAME)
-                                .type(VarcharType.createUnboundedVarcharType())
+                                .type(VARCHAR)
+                                .defaultValue(null)
                                 .build(),
                         ScalarArgumentSpecification.builder()
                                 .name(TABLE_VAR_NAME)
-                                .type(VarcharType.createUnboundedVarcharType())
+                                .type(VARCHAR)
+                                .defaultValue(null)
                                 .build(),
                         ScalarArgumentSpecification.builder()
                                 .name(START_SNAPSHOT_VAR_NAME)
@@ -94,6 +104,16 @@ public class TableChangesFunction
                         ScalarArgumentSpecification.builder()
                                 .name(END_SNAPSHOT_VAR_NAME)
                                 .type(BIGINT)
+                                .build(),
+                        ScalarArgumentSpecification.builder()
+                                .name(SCHEMA_NAME_VAR_NAME)
+                                .type(VARCHAR)
+                                .defaultValue(null)
+                                .build(),
+                        ScalarArgumentSpecification.builder()
+                                .name(TABLE_NAME_VAR_NAME)
+                                .type(VARCHAR)
+                                .defaultValue(null)
                                 .build()),
                 GENERIC_TABLE);
 
@@ -104,8 +124,9 @@ public class TableChangesFunction
     @Override
     public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments, ConnectorAccessControl accessControl)
     {
-        String schema = ((Slice) checkNonNull(((ScalarArgument) arguments.get(SCHEMA_VAR_NAME)).getValue())).toStringUtf8();
-        String table = ((Slice) checkNonNull(((ScalarArgument) arguments.get(TABLE_VAR_NAME)).getValue())).toStringUtf8();
+        String schema = getSchemaName(arguments);
+        String table = getTableName(arguments);
+
         long startSnapshotId = (long) checkNonNull(((ScalarArgument) arguments.get(START_SNAPSHOT_VAR_NAME)).getValue());
         long endSnapshotId = (long) checkNonNull(((ScalarArgument) arguments.get(END_SNAPSHOT_VAR_NAME)).getValue());
 
@@ -115,6 +136,9 @@ public class TableChangesFunction
 
         checkSnapshotExists(icebergTable, startSnapshotId);
         checkSnapshotExists(icebergTable, endSnapshotId);
+        if (!SnapshotUtil.isParentAncestorOf(icebergTable, endSnapshotId, startSnapshotId)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Starting snapshot (exclusive) %s is not a parent ancestor of end snapshot %s".formatted(startSnapshotId, endSnapshotId));
+        }
 
         ImmutableList.Builder<Descriptor.Field> columns = ImmutableList.builder();
         Schema tableSchema = icebergTable.schemas().get(icebergTable.snapshot(endSnapshotId).schemaId());
@@ -122,7 +146,7 @@ public class TableChangesFunction
                 .map(column -> new Descriptor.Field(column.name(), Optional.of(toTrinoType(column.type(), typeManager))))
                 .forEach(columns::add);
 
-        columns.add(new Descriptor.Field(DATA_CHANGE_TYPE_NAME, Optional.of(VarcharType.createUnboundedVarcharType())));
+        columns.add(new Descriptor.Field(DATA_CHANGE_TYPE_NAME, Optional.of(VARCHAR)));
         columns.add(new Descriptor.Field(DATA_CHANGE_VERSION_NAME, Optional.of(BIGINT)));
         columns.add(new Descriptor.Field(DATA_CHANGE_TIMESTAMP_NAME, Optional.of(TIMESTAMP_TZ_MILLIS)));
         columns.add(new Descriptor.Field(DATA_CHANGE_ORDINAL_NAME, Optional.of(INTEGER)));
@@ -131,9 +155,9 @@ public class TableChangesFunction
         IcebergUtil.getColumns(tableSchema, typeManager).forEach(columnHandlesBuilder::add);
         columnHandlesBuilder.add(new IcebergColumnHandle(
                 new ColumnIdentity(DATA_CHANGE_TYPE_ID, DATA_CHANGE_TYPE_NAME, PRIMITIVE, ImmutableList.of()),
-                VarcharType.createUnboundedVarcharType(),
+                VARCHAR,
                 ImmutableList.of(),
-                VarcharType.createUnboundedVarcharType(),
+                VARCHAR,
                 false,
                 Optional.empty()));
         columnHandlesBuilder.add(new IcebergColumnHandle(
@@ -173,6 +197,45 @@ public class TableChangesFunction
                         startSnapshotId,
                         endSnapshotId))
                 .build();
+    }
+
+    private static String getSchemaName(Map<String, Argument> arguments)
+    {
+        if (argumentExists(arguments, SCHEMA_VAR_NAME) && argumentExists(arguments, SCHEMA_NAME_VAR_NAME)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot use both " + SCHEMA_VAR_NAME + " and " + SCHEMA_NAME_VAR_NAME + " arguments");
+        }
+        if (argumentExists(arguments, SCHEMA_VAR_NAME)) {
+            log.warn("%s argument is deprecated. Use %s instead.", SCHEMA_VAR_NAME, SCHEMA_NAME_VAR_NAME);
+            return ((Slice) checkNonNull(((ScalarArgument) arguments.get(SCHEMA_VAR_NAME)).getValue())).toStringUtf8();
+        }
+        if (argumentExists(arguments, SCHEMA_NAME_VAR_NAME)) {
+            return ((Slice) checkNonNull(((ScalarArgument) arguments.get(SCHEMA_NAME_VAR_NAME)).getValue())).toStringUtf8();
+        }
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, SCHEMA_NAME_VAR_NAME + " argument not found");
+    }
+
+    private static String getTableName(Map<String, Argument> arguments)
+    {
+        if (argumentExists(arguments, TABLE_VAR_NAME) && argumentExists(arguments, TABLE_NAME_VAR_NAME)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot use both " + TABLE_VAR_NAME + " and " + TABLE_NAME_VAR_NAME + " arguments");
+        }
+        if (argumentExists(arguments, TABLE_VAR_NAME)) {
+            log.warn("%s argument is deprecated. Use %s instead.", TABLE_VAR_NAME, TABLE_NAME_VAR_NAME);
+            return ((Slice) checkNonNull(((ScalarArgument) arguments.get(TABLE_VAR_NAME)).getValue())).toStringUtf8();
+        }
+        if (argumentExists(arguments, TABLE_NAME_VAR_NAME)) {
+            return ((Slice) checkNonNull(((ScalarArgument) arguments.get(TABLE_NAME_VAR_NAME)).getValue())).toStringUtf8();
+        }
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, TABLE_NAME_VAR_NAME + " argument not found");
+    }
+
+    private static boolean argumentExists(Map<String, Argument> arguments, String key)
+    {
+        Argument argument = arguments.get(key);
+        if (argument instanceof ScalarArgument scalarArgument) {
+            return !scalarArgument.getNullableValue().isNull();
+        }
+        throw new IllegalArgumentException("Unsupported argument type: " + argument);
     }
 
     private static Object checkNonNull(Object argumentValue)

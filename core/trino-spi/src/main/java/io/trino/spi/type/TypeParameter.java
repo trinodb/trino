@@ -50,23 +50,20 @@ public class TypeParameter
 
     public static TypeParameter of(TypeSignatureParameter parameter, TypeManager typeManager)
     {
-        switch (parameter.getKind()) {
-            case TYPE: {
+        return switch (parameter.getKind()) {
+            case TYPE -> {
                 Type type = typeManager.getType(parameter.getTypeSignature());
-                return of(type);
+                yield of(type);
             }
-            case LONG:
-                return of(parameter.getLongLiteral());
-            case NAMED_TYPE: {
+            case LONG -> of(parameter.getLongLiteral());
+            case NAMED_TYPE -> {
                 Type type = typeManager.getType(parameter.getNamedTypeSignature().getTypeSignature());
-                return of(new NamedType(
+                yield of(new NamedType(
                         parameter.getNamedTypeSignature().getFieldName(),
                         type));
             }
-            case VARIABLE:
-                return of(parameter.getVariable());
-        }
-        throw new UnsupportedOperationException(format("Unsupported parameter [%s]", parameter));
+            case VARIABLE -> of(parameter.getVariable());
+        };
     }
 
     public ParameterKind getKind()

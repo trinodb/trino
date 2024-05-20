@@ -13,46 +13,17 @@
  */
 package io.trino.sql.relational;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
-
-import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class VariableReferenceExpression
-        extends RowExpression
+public record VariableReferenceExpression(String name, Type type)
+        implements RowExpression
 {
-    private final String name;
-    private final Type type;
-
-    @JsonCreator
-    public VariableReferenceExpression(
-            @JsonProperty String name,
-            @JsonProperty Type type)
+    public VariableReferenceExpression
     {
-        this.name = requireNonNull(name, "name is null");
-        this.type = requireNonNull(type, "type is null");
-    }
-
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    @Override
-    public Type getType()
-    {
-        return type;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name, type);
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
     }
 
     @Override
@@ -65,18 +36,5 @@ public final class VariableReferenceExpression
     public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitVariableReference(this, context);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        VariableReferenceExpression other = (VariableReferenceExpression) obj;
-        return Objects.equals(this.name, other.name) && Objects.equals(this.type, other.type);
     }
 }

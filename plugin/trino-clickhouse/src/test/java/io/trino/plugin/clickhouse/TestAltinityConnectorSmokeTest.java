@@ -15,11 +15,9 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.ALTINITY_DEFAULT_IMAGE;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestAltinityConnectorSmokeTest
         extends BaseClickHouseConnectorSmokeTest
@@ -30,17 +28,7 @@ public class TestAltinityConnectorSmokeTest
     {
         return createClickHouseQueryRunner(
                 closeAfterClass(new TestingClickHouseServer(ALTINITY_DEFAULT_IMAGE)),
-                ImmutableMap.of(),
                 ImmutableMap.of("clickhouse.map-string-as-varchar", "true"), // To handle string types in TPCH tables as varchar instead of varbinary
                 REQUIRED_TPCH_TABLES);
-    }
-
-    @Test
-    @Override
-    public void testRenameSchema()
-    {
-        // Override because RENAME DATABASE statement isn't supported in Altinity 20.8
-        assertThatThrownBy(super::testRenameSchema)
-                .hasMessageContaining("RENAME DATABASE is not supported");
     }
 }

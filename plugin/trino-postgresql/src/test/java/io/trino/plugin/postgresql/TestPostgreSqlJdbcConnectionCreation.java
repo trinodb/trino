@@ -38,10 +38,10 @@ import java.util.Properties;
 
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createSession;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.util.Objects.requireNonNull;
@@ -97,7 +97,10 @@ public class TestPostgreSqlJdbcConnectionCreation
             ConnectionCountingConnectionFactory connectionCountingConnectionFactory)
             throws Exception
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
+                        .setCatalog("postgresql")
+                        .setSchema("tpch")
+                        .build())
                 // to make sure we always open connections in the same way
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .build();
@@ -111,7 +114,7 @@ public class TestPostgreSqlJdbcConnectionCreation
                     "connection-url", server.getJdbcUrl(),
                     "connection-user", server.getUser(),
                     "connection-password", server.getPassword()));
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
             return queryRunner;
         }
         catch (Throwable e) {

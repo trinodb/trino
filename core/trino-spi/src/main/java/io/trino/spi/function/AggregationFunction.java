@@ -40,4 +40,6 @@ public @interface AggregationFunction
     boolean hidden() default false;
 
     String[] alias() default {};
+
+    Class<? extends WindowAccumulator> windowAccumulator() default WindowAccumulator.class;
 }

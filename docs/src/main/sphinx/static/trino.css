@@ -85,12 +85,13 @@ pre.literal-block {
     }
 }
 
-.o-tooltip--left:after {
-    font-size: 0.6rem;
-}
-
 .copybtn:hover {
     cursor: copy;
+}
+
+button.copybtn {
+    opacity: 0.4;
+    font-size: 0.6rem;
 }
 
 .connector-logo {

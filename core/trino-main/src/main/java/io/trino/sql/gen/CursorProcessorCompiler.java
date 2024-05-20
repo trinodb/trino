@@ -288,7 +288,7 @@ public class CursorProcessorCompiler
                 .getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
                 .append(compiler.compile(projection, scope))
-                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
+                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.type()))
                 .ret();
     }
 
@@ -299,8 +299,8 @@ public class CursorProcessorCompiler
             @Override
             public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
             {
-                int field = node.getField();
-                Type type = node.getType();
+                int field = node.field();
+                Type type = node.type();
                 Variable wasNullVariable = scope.getVariable("wasNull");
 
                 Class<?> javaType = type.getJavaType();

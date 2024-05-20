@@ -18,6 +18,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheLoader.InvalidCacheLoadException;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -89,6 +90,9 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
 import static io.trino.plugin.hive.metastore.PartitionFilter.partitionFilter;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.ObjectType.OTHER;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.ObjectType.PARTITION;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.ObjectType.STATS;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -107,8 +111,14 @@ public final class CachingHiveMetastore
         DISABLED
     }
 
+    public enum ObjectType {
+        PARTITION,
+        STATS,
+        OTHER,
+    }
+
     private final HiveMetastore delegate;
-    private final boolean cacheMissing;
+    private final Set<ObjectType> cacheMissing;
     private final LoadingCache<String, Optional<Database>> databaseCache;
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
@@ -126,7 +136,7 @@ public final class CachingHiveMetastore
     {
         return new CachingHiveMetastore(
                 delegate,
-                true,
+                ImmutableSet.copyOf(ObjectType.values()),
                 new CacheFactory(maximumSize),
                 new CacheFactory(maximumSize),
                 new CacheFactory(maximumSize),
@@ -141,8 +151,8 @@ public final class CachingHiveMetastore
             Executor refreshExecutor,
             long maximumSize,
             StatsRecording statsRecording,
-            boolean cacheMissing,
-            boolean partitionCacheEnabled)
+            boolean partitionCacheEnabled,
+            Set<ObjectType> cacheMissing)
     {
         // refresh executor is only required when the refresh interval is set, but the executor is
         // always set, so it is simpler to just enforce that
@@ -183,7 +193,7 @@ public final class CachingHiveMetastore
 
     private CachingHiveMetastore(
             HiveMetastore delegate,
-            boolean cacheMissing,
+            Set<ObjectType> cacheMissing,
             CacheFactory cacheFactory,
             CacheFactory partitionCacheFactory,
             CacheFactory statsCacheFactory,
@@ -192,13 +202,13 @@ public final class CachingHiveMetastore
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cacheMissing = cacheMissing;
 
-        databaseNamesCache = cacheFactory.buildCache(ignored -> loadAllDatabases());
+        databaseNamesCache = cacheFactory.buildCache(_ -> loadAllDatabases());
         databaseCache = cacheFactory.buildCache(this::loadDatabase);
         tablesCacheNew = cacheFactory.buildCache(this::loadTablesNew);
         tableColumnStatisticsCache = statsCacheFactory.buildCache(this::refreshTableColumnStatistics);
         tableCache = cacheFactory.buildCache(this::loadTable);
         tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.database(), key.table(), key.owner(), key.principal()));
-        rolesCache = cacheFactory.buildCache(ignored -> loadRoles());
+        rolesCache = cacheFactory.buildCache(_ -> loadRoles());
         roleGrantsCache = cacheFactory.buildCache(this::loadRoleGrants);
         configValuesCache = cacheFactory.buildCache(this::loadConfigValue);
 
@@ -261,14 +271,14 @@ public final class CachingHiveMetastore
         }
     }
 
-    private <K, V> Optional<V> getOptional(LoadingCache<K, Optional<V>> cache, K key)
+    private <K, V> Optional<V> getOptional(ObjectType objectType, LoadingCache<K, Optional<V>> cache, K key)
     {
         try {
             Optional<V> value = cache.getIfPresent(key);
             @SuppressWarnings("OptionalAssignedToNull")
             boolean valueIsPresent = value != null;
             if (valueIsPresent) {
-                if (value.isPresent() || cacheMissing) {
+                if (value.isPresent() || cacheMissing.contains(objectType)) {
                     return value;
                 }
                 cache.invalidate(key);
@@ -396,7 +406,7 @@ public final class CachingHiveMetastore
     @Override
     public Optional<Database> getDatabase(String databaseName)
     {
-        return getOptional(databaseCache, databaseName);
+        return getOptional(OTHER, databaseCache, databaseName);
     }
 
     private Optional<Database> loadDatabase(String databaseName)
@@ -418,7 +428,7 @@ public final class CachingHiveMetastore
     @Override
     public Optional<Table> getTable(String databaseName, String tableName)
     {
-        return getOptional(tableCache, hiveTableName(databaseName, tableName));
+        return getOptional(OTHER, tableCache, hiveTableName(databaseName, tableName));
     }
 
     private Optional<Table> loadTable(HiveTableName hiveTableName)
@@ -481,7 +491,7 @@ public final class CachingHiveMetastore
         requireNonNull(newStats, "newStats is null");
         ImmutableMap.Builder<String, HiveColumnStatistics> columnStatisticsBuilder = ImmutableMap.builder();
         // Populate empty statistics for all requested columns to cache absence of column statistics for future requests.
-        if (cacheMissing) {
+        if (cacheMissing.contains(STATS)) {
             columnStatisticsBuilder.putAll(Iterables.transform(
                     dataColumns,
                     column -> new AbstractMap.SimpleEntry<>(column, HiveColumnStatistics.empty())));
@@ -741,7 +751,7 @@ public final class CachingHiveMetastore
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
-        return getOptional(partitionFilterCache, partitionFilter(databaseName, tableName, columnNames, partitionKeysFilter));
+        return getOptional(PARTITION, partitionFilterCache, partitionFilter(databaseName, tableName, columnNames, partitionKeysFilter));
     }
 
     private Optional<List<String>> loadPartitionNamesByFilter(PartitionFilter partitionFilter)
@@ -949,7 +959,7 @@ public final class CachingHiveMetastore
     @Override
     public Optional<String> getConfigValue(String name)
     {
-        return getOptional(configValuesCache, name);
+        return getOptional(OTHER, configValuesCache, name);
     }
 
     private Optional<String> loadConfigValue(String name)

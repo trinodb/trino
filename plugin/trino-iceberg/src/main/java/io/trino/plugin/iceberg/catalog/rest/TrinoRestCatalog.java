@@ -129,6 +129,9 @@ public class TrinoRestCatalog
         catch (NoSuchNamespaceException e) {
             throw new SchemaNotFoundException(namespace);
         }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to drop namespace: %s", namespace), e);
+        }
     }
 
     @Override
@@ -192,6 +195,9 @@ public class TrinoRestCatalog
             }
             catch (NoSuchNamespaceException e) {
                 // Namespace may have been deleted during listing
+            }
+            catch (RESTException e) {
+                throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to list tables from namespace: %s", restNamespace), e);
             }
         }
         return tables.build();
@@ -346,9 +352,6 @@ public class TrinoRestCatalog
         String databaseLocation = (String) properties.get(IcebergSchemaProperties.LOCATION_PROPERTY);
         checkArgument(databaseLocation != null, "location must be set for %s", schemaTableName.getSchemaName());
 
-        if (databaseLocation.endsWith("/")) {
-            return databaseLocation + tableName;
-        }
         return appendPath(databaseLocation, tableName);
     }
 
@@ -495,11 +498,11 @@ public class TrinoRestCatalog
                         .buildOrThrow();
 
                 String subjectJwt = new DefaultJwtBuilder()
-                        .setSubject(session.getUser())
-                        .setIssuer(trinoVersion)
-                        .setIssuedAt(new Date())
-                        .addClaims(claims)
-                        .serializeToJsonWith(new JacksonSerializer<>())
+                        .subject(session.getUser())
+                        .issuer(trinoVersion)
+                        .issuedAt(new Date())
+                        .claims(claims)
+                        .json(new JacksonSerializer<>())
                         .compact();
 
                 Map<String, String> credentials = ImmutableMap.<String, String>builder()

@@ -163,7 +163,6 @@ public final class SystemSessionProperties
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
-    public static final String LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD = "legacy_materialized_view_grace_period";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
     public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_PERIOD = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_growth_period";
     public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_FACTOR = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_growth_factor";
@@ -823,11 +822,6 @@ public final class SystemSessionProperties
                                         format("%s must be greater than or equal to 1.0", RETRY_DELAY_SCALE_FACTOR));
                             }
                         },
-                        false),
-                booleanProperty(
-                        LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD,
-                        "Enable legacy handling of stale materialized views",
-                        featuresConfig.isLegacyMaterializedViewGracePeriod(),
                         false),
                 booleanProperty(
                         HIDE_INACCESSIBLE_COLUMNS,
@@ -1684,12 +1678,6 @@ public final class SystemSessionProperties
     public static double getRetryDelayScaleFactor(Session session)
     {
         return session.getSystemProperty(RETRY_DELAY_SCALE_FACTOR, Double.class);
-    }
-
-    @Deprecated
-    public static boolean isLegacyMaterializedViewGracePeriod(Session session)
-    {
-        return session.getSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, Boolean.class);
     }
 
     public static boolean isHideInaccessibleColumns(Session session)

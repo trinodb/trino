@@ -203,30 +203,35 @@ public class BenchmarkPageProcessor
         return new SpecialForm(
                 Form.AND,
                 BOOLEAN,
-                new CallExpression(
-                        functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR)),
-                        ImmutableList.of(constant(MIN_SHIP_DATE, VARCHAR), field(SHIP_DATE, VARCHAR))),
-                new SpecialForm(
-                        Form.AND,
-                        BOOLEAN,
-                        new CallExpression(
-                                functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(VARCHAR, VARCHAR)),
-                                ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MAX_SHIP_DATE, VARCHAR))),
-                        new SpecialForm(
-                                Form.AND,
-                                BOOLEAN,
+                ImmutableList.of(
+                    new CallExpression(
+                            functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR)),
+                            ImmutableList.of(constant(MIN_SHIP_DATE, VARCHAR), field(SHIP_DATE, VARCHAR))),
+                    new SpecialForm(
+                            Form.AND,
+                            BOOLEAN,
+                            ImmutableList.of(
                                 new CallExpression(
-                                        functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                                        ImmutableList.of(constant(0.05, DOUBLE), field(DISCOUNT, DOUBLE))),
+                                        functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(VARCHAR, VARCHAR)),
+                                        ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MAX_SHIP_DATE, VARCHAR))),
                                 new SpecialForm(
                                         Form.AND,
                                         BOOLEAN,
-                                        new CallExpression(
-                                                functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                                                ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.07, DOUBLE))),
-                                        new CallExpression(
-                                                functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
-                                                ImmutableList.of(field(QUANTITY, DOUBLE), constant(24.0, DOUBLE)))))));
+                                        ImmutableList.of(
+                                            new CallExpression(
+                                                    functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                                    ImmutableList.of(constant(0.05, DOUBLE), field(DISCOUNT, DOUBLE))),
+                                            new SpecialForm(
+                                                    Form.AND,
+                                                    BOOLEAN,
+                                                    ImmutableList.of(
+                                                        new CallExpression(
+                                                                functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                                                ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.07, DOUBLE))),
+                                                        new CallExpression(
+                                                                functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
+                                                                ImmutableList.of(field(QUANTITY, DOUBLE), constant(24.0, DOUBLE)))), ImmutableList.of())), ImmutableList.of())), ImmutableList.of())),
+                ImmutableList.of());
     }
 
     private static RowExpression createProjectExpression(TestingFunctionResolution functionResolution)

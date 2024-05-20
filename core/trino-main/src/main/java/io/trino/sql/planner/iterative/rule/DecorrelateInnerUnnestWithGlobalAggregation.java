@@ -19,9 +19,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Not;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -51,6 +51,7 @@ import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.rewriteWithMasks;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
@@ -75,7 +76,7 @@ import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
  * in subquery are supported.
  * <p>
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - CorrelatedJoin (LEFT or INNER) on true, correlation(c1, c2)
  *      - Input (a, c1, c2)
  *      - Aggregation
@@ -90,9 +91,9 @@ import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
  *                          g <- unnest(c1)
  *                          u <- unnest(c2)
  *                          replicate: ()
- * </pre>
+ * }</pre>
  * Into:
- * <pre>
+ * <pre>{@code
  * - Projection (restrict outputs)
  *      - Aggregation
  *           group by (a, c1, c2, unique)
@@ -110,7 +111,7 @@ import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
  *                               replicate: (a, c1, c2, unique)
  *                               - AssignUniqueId unique
  *                                    - Input (a, c1, c2)
- * </pre>
+ * }</pre>
  */
 public class DecorrelateInnerUnnestWithGlobalAggregation
         implements Rule<CorrelatedJoinNode>
@@ -119,6 +120,13 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
             .with(nonEmpty(correlation()))
             .with(filter().equalTo(TRUE))
             .matching(node -> node.getType() == JoinType.INNER || node.getType() == JoinType.LEFT);
+
+    private final Metadata metadata;
+
+    public DecorrelateInnerUnnestWithGlobalAggregation(Metadata metadata)
+    {
+        this.metadata = metadata;
+    }
 
     @Override
     public Pattern<CorrelatedJoinNode> getPattern()
@@ -193,7 +201,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                 rewrittenUnnest,
                 Assignments.builder()
                         .putIdentities(rewrittenUnnest.getOutputSymbols())
-                        .put(mask, new Not(new IsNull(ordinalitySymbol.toSymbolReference())))
+                        .put(mask, not(metadata, new IsNull(ordinalitySymbol.toSymbolReference())))
                         .build());
 
         // restore all projections, grouped aggregations and global aggregations from the subquery

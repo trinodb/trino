@@ -138,14 +138,14 @@ public class SetOperationNodeTranslator
         Assignments.Builder assignments = Assignments.builder();
         // add existing intersect symbols to projection
         for (Map.Entry<Symbol, Reference> entry : projections.entrySet()) {
-            Symbol symbol = symbolAllocator.newSymbol(entry.getKey().getName(), entry.getKey().getType());
+            Symbol symbol = symbolAllocator.newSymbol(entry.getKey().name(), entry.getKey().type());
             assignments.put(symbol, entry.getValue());
         }
 
         // add extra marker fields to the projection
         for (int i = 0; i < markers.size(); ++i) {
             Expression expression = (i == markerIndex) ? TRUE : new Constant(BOOLEAN, null);
-            assignments.put(symbolAllocator.newSymbol(markers.get(i).getName(), BOOLEAN), expression);
+            assignments.put(symbolAllocator.newSymbol(markers.get(i).name(), BOOLEAN), expression);
         }
 
         return new ProjectNode(idAllocator.getNextId(), source, assignments.build());

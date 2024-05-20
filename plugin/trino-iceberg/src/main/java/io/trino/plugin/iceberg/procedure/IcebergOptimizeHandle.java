@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -26,111 +24,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class IcebergOptimizeHandle
-        extends IcebergProcedureHandle
+public record IcebergOptimizeHandle(
+        Optional<Long> snapshotId,
+        String schemaAsJson,
+        String partitionSpecAsJson,
+        List<IcebergColumnHandle> tableColumns,
+        List<TrinoSortField> sortOrder,
+        IcebergFileFormat fileFormat,
+        Map<String, String> tableStorageProperties,
+        DataSize maxScannedFileSize,
+        boolean retriesEnabled)
+        implements IcebergProcedureHandle
 {
-    private final Optional<Long> snapshotId;
-    private final String schemaAsJson;
-    private final String partitionSpecAsJson;
-    private final List<IcebergColumnHandle> tableColumns;
-    private final List<TrinoSortField> sortOrder;
-    private final IcebergFileFormat fileFormat;
-    private final Map<String, String> tableStorageProperties;
-    private final DataSize maxScannedFileSize;
-    private final boolean retriesEnabled;
-
-    @JsonCreator
-    public IcebergOptimizeHandle(
-            Optional<Long> snapshotId,
-            String schemaAsJson,
-            String partitionSpecAsJson,
-            List<IcebergColumnHandle> tableColumns,
-            List<TrinoSortField> sortOrder,
-            IcebergFileFormat fileFormat,
-            Map<String, String> tableStorageProperties,
-            DataSize maxScannedFileSize,
-            boolean retriesEnabled)
+    public IcebergOptimizeHandle
     {
-        this.snapshotId = snapshotId;
-        this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
-        this.partitionSpecAsJson = requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
-        this.tableColumns = ImmutableList.copyOf(requireNonNull(tableColumns, "tableColumns is null"));
-        this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
-        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        this.tableStorageProperties = ImmutableMap.copyOf(requireNonNull(tableStorageProperties, "tableStorageProperties is null"));
-        this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
-        this.retriesEnabled = retriesEnabled;
-    }
-
-    @JsonProperty
-    public Optional<Long> getSnapshotId()
-    {
-        return snapshotId;
-    }
-
-    @JsonProperty
-    public String getSchemaAsJson()
-    {
-        return schemaAsJson;
-    }
-
-    @JsonProperty
-    public String getPartitionSpecAsJson()
-    {
-        return partitionSpecAsJson;
-    }
-
-    @JsonProperty
-    public List<IcebergColumnHandle> getTableColumns()
-    {
-        return tableColumns;
-    }
-
-    @JsonProperty
-    public List<TrinoSortField> getSortOrder()
-    {
-        return sortOrder;
-    }
-
-    @JsonProperty
-    public IcebergFileFormat getFileFormat()
-    {
-        return fileFormat;
-    }
-
-    @JsonProperty
-    public Map<String, String> getTableStorageProperties()
-    {
-        return tableStorageProperties;
-    }
-
-    @JsonProperty
-    public DataSize getMaxScannedFileSize()
-    {
-        return maxScannedFileSize;
-    }
-
-    @JsonProperty
-    public boolean isRetriesEnabled()
-    {
-        return retriesEnabled;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("snapshotId", snapshotId)
-                .add("schemaAsJson", schemaAsJson)
-                .add("partitionSpecAsJson", partitionSpecAsJson)
-                .add("tableColumns", tableColumns)
-                .add("fileFormat", fileFormat)
-                .add("tableStorageProperties", tableStorageProperties)
-                .add("maxScannedFileSize", maxScannedFileSize)
-                .add("retriesEnabled", retriesEnabled)
-                .toString();
+        requireNonNull(snapshotId, "snapshotId is null");
+        requireNonNull(schemaAsJson, "schemaAsJson is null");
+        requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
+        tableColumns = ImmutableList.copyOf(requireNonNull(tableColumns, "tableColumns is null"));
+        sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
+        requireNonNull(fileFormat, "fileFormat is null");
+        tableStorageProperties = ImmutableMap.copyOf(requireNonNull(tableStorageProperties, "tableStorageProperties is null"));
+        requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
     }
 }

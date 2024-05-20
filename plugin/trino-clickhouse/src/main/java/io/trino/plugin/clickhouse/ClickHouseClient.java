@@ -571,7 +571,7 @@ public class ClickHouseClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        String jdbcTypeName = typeHandle.getJdbcTypeName()
+        String jdbcTypeName = typeHandle.jdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
@@ -594,9 +594,8 @@ public class ClickHouseClient
                         longDecimalReadFunction(UINT64_TYPE, UNNECESSARY),
                         uInt64WriteFunction(getClickHouseServerVersion(session))));
             case IPv4:
-                return Optional.of(ipAddressColumnMapping("IPv4StringToNum(?)"));
             case IPv6:
-                return Optional.of(ipAddressColumnMapping("IPv6StringToNum(?)"));
+                return Optional.of(ipAddressColumnMapping(column.getOriginalTypeName()));
             case Enum8:
             case Enum16:
                 return Optional.of(ColumnMapping.sliceMapping(
@@ -623,7 +622,7 @@ public class ClickHouseClient
                 // no-op
         }
 
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.TINYINT:
                 return Optional.of(tinyintColumnMapping());
 
@@ -648,8 +647,8 @@ public class ClickHouseClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.DECIMAL:
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
-                int precision = typeHandle.getRequiredColumnSize();
+                int decimalDigits = typeHandle.requiredDecimalDigits();
+                int precision = typeHandle.requiredColumnSize();
 
                 ColumnMapping decimalColumnMapping;
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
@@ -672,7 +671,7 @@ public class ClickHouseClient
             case Types.TIMESTAMP:
                 if (columnDataType == ClickHouseDataType.DateTime) {
                     // ClickHouse DateTime does not have sub-second precision
-                    verify(typeHandle.getRequiredDecimalDigits() == 0, "Expected 0 as timestamp precision, but got %s", typeHandle.getRequiredDecimalDigits());
+                    verify(typeHandle.requiredDecimalDigits() == 0, "Expected 0 as timestamp precision, but got %s", typeHandle.requiredDecimalDigits());
                     return Optional.of(ColumnMapping.longMapping(
                             TIMESTAMP_SECONDS,
                             timestampReadFunction(TIMESTAMP_SECONDS),
@@ -684,7 +683,7 @@ public class ClickHouseClient
             case Types.TIMESTAMP_WITH_TIMEZONE:
                 if (columnDataType == ClickHouseDataType.DateTime) {
                     // ClickHouse DateTime does not have sub-second precision
-                    verify(typeHandle.getRequiredDecimalDigits() == 0, "Expected 0 as timestamp with time zone precision, but got %s", typeHandle.getRequiredDecimalDigits());
+                    verify(typeHandle.requiredDecimalDigits() == 0, "Expected 0 as timestamp with time zone precision, but got %s", typeHandle.requiredDecimalDigits());
                     return Optional.of(ColumnMapping.longMapping(
                             TIMESTAMP_TZ_SECONDS,
                             shortTimestampWithTimeZoneReadFunction(),
@@ -879,7 +878,7 @@ public class ClickHouseClient
         };
     }
 
-    private ColumnMapping ipAddressColumnMapping(String writeBindExpression)
+    private ColumnMapping ipAddressColumnMapping(String clickhouseType)
     {
         return ColumnMapping.sliceMapping(
                 ipAddressType,
@@ -903,17 +902,17 @@ public class ClickHouseClient
 
                     return wrappedBuffer(bytes);
                 },
-                ipAddressWriteFunction(writeBindExpression));
+                ipAddressWriteFunction(clickhouseType));
     }
 
-    private static SliceWriteFunction ipAddressWriteFunction(String bindExpression)
+    private static SliceWriteFunction ipAddressWriteFunction(String clickhouseType)
     {
         return new SliceWriteFunction()
         {
             @Override
             public String getBindExpression()
             {
-                return bindExpression;
+                return format("CAST(? AS %s)", clickhouseType);
             }
 
             @Override

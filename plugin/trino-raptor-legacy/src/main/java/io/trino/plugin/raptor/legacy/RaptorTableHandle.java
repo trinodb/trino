@@ -154,7 +154,7 @@ public final class RaptorTableHandle
         RaptorTableHandle other = (RaptorTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
-                Objects.equals(this.tableId, other.tableId) &&
+                this.tableId == other.tableId &&
                 Objects.equals(this.distributionId, other.distributionId) &&
                 Objects.equals(this.distributionName, other.distributionName) &&
                 Objects.equals(this.bucketCount, other.bucketCount) &&

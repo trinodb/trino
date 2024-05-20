@@ -26,6 +26,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.hadoop.io.Text;
 import org.intellij.lang.annotations.Language;
 
@@ -53,11 +54,18 @@ public final class AccumuloQueryRunner
 
     private AccumuloQueryRunner() {}
 
-    public static synchronized QueryRunner createAccumuloQueryRunner(Map<String, String> extraProperties)
+    public static synchronized QueryRunner createAccumuloQueryRunner()
+            throws Exception
+    {
+        return createAccumuloQueryRunner(ImmutableMap.of());
+    }
+
+    // TODO convert to builder
+    private static synchronized QueryRunner createAccumuloQueryRunner(Map<String, String> coordinatorProperties)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
 
         queryRunner.installPlugin(new TpchPlugin());
@@ -79,7 +87,9 @@ public final class AccumuloQueryRunner
         if (!tpchLoaded) {
             queryRunner.execute("CREATE SCHEMA accumulo.tpch");
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
-            server.getClient().tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
+            try (AccumuloClient client = server.createClient()) {
+                client.tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
+            }
             tpchLoaded = true;
         }
 
@@ -152,7 +162,6 @@ public final class AccumuloQueryRunner
             throws Exception
     {
         QueryRunner queryRunner = createAccumuloQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
-        Thread.sleep(10);
         Logger log = Logger.get(AccumuloQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

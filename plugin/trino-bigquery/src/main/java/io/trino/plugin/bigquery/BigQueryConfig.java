@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigHidden;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.trino.plugin.base.logging.SessionInterpolatedValues;
@@ -39,15 +40,16 @@ public class BigQueryConfig
 {
     public static final int DEFAULT_MAX_READ_ROWS_RETRIES = 3;
     public static final String VIEWS_ENABLED = "bigquery.views-enabled";
-    public static final String EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED = "bigquery.experimental.arrow-serialization.enabled";
+    public static final String ARROW_SERIALIZATION_ENABLED = "bigquery.arrow-serialization.enabled";
 
     private Optional<String> projectId = Optional.empty();
     private Optional<String> parentProjectId = Optional.empty();
     private Optional<Integer> parallelism = Optional.empty();
     private boolean viewsEnabled;
-    private boolean arrowSerializationEnabled;
+    private boolean arrowSerializationEnabled = true;
     private Duration viewExpireDuration = new Duration(24, HOURS);
     private boolean skipViewMaterialization;
+    private boolean viewMaterializationWithFilter;
     private Optional<String> viewMaterializationProject = Optional.empty();
     private Optional<String> viewMaterializationDataset = Optional.empty();
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
@@ -55,6 +57,8 @@ public class BigQueryConfig
     private Duration viewsCacheTtl = new Duration(15, MINUTES);
     private Duration serviceCacheTtl = new Duration(3, MINUTES);
     private Duration metadataCacheTtl = new Duration(0, MILLISECONDS);
+    @Deprecated
+    private boolean isLegacyMetadataListing;
     private boolean queryResultsCacheEnabled;
     private String queryLabelName;
     private String queryLabelFormat;
@@ -119,8 +123,9 @@ public class BigQueryConfig
         return arrowSerializationEnabled;
     }
 
-    @Config(EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED)
-    @ConfigDescription("Enables experimental Arrow serialization while reading data")
+    @Config(ARROW_SERIALIZATION_ENABLED)
+    @LegacyConfig("bigquery.experimental.arrow-serialization.enabled")
+    @ConfigDescription("Enables Arrow serialization while reading data")
     public BigQueryConfig setArrowSerializationEnabled(boolean arrowSerializationEnabled)
     {
         this.arrowSerializationEnabled = arrowSerializationEnabled;
@@ -150,6 +155,19 @@ public class BigQueryConfig
     public BigQueryConfig setSkipViewMaterialization(boolean skipViewMaterialization)
     {
         this.skipViewMaterialization = skipViewMaterialization;
+        return this;
+    }
+
+    public boolean isViewMaterializationWithFilter()
+    {
+        return viewMaterializationWithFilter;
+    }
+
+    @Config("bigquery.view-materialization-with-filter")
+    @ConfigDescription("Use filter when materializing views")
+    public BigQueryConfig setViewMaterializationWithFilter(boolean viewMaterializationWithFilter)
+    {
+        this.viewMaterializationWithFilter = viewMaterializationWithFilter;
         return this;
     }
 
@@ -252,6 +270,20 @@ public class BigQueryConfig
         return this;
     }
 
+    public boolean isLegacyMetadataListing()
+    {
+        return isLegacyMetadataListing;
+    }
+
+    @Config("bigquery.legacy-metadata-listing")
+    @ConfigHidden
+    @ConfigDescription("Call BigQuery REST API per table when listing metadata")
+    public BigQueryConfig setLegacyMetadataListing(boolean legacyMetadataListing)
+    {
+        isLegacyMetadataListing = legacyMetadataListing;
+        return this;
+    }
+
     public boolean isQueryResultsCacheEnabled()
     {
         return queryResultsCacheEnabled;
@@ -331,6 +363,9 @@ public class BigQueryConfig
 
         if (skipViewMaterialization) {
             checkState(viewsEnabled, "%s config property must be enabled when skipping view materialization", VIEWS_ENABLED);
+        }
+        if (viewMaterializationWithFilter) {
+            checkState(viewsEnabled, "%s config property must be enabled when view materialization with filter is enabled", VIEWS_ENABLED);
         }
     }
 }

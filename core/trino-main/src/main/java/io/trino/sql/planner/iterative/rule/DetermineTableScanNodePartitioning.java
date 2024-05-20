@@ -64,7 +64,7 @@ public class DetermineTableScanNodePartitioning
         }
 
         TablePartitioning partitioning = properties.getTablePartitioning().get();
-        Optional<ConnectorBucketNodeMap> bucketNodeMap = nodePartitioningManager.getConnectorBucketNodeMap(context.getSession(), partitioning.getPartitioningHandle());
+        Optional<ConnectorBucketNodeMap> bucketNodeMap = nodePartitioningManager.getConnectorBucketNodeMap(context.getSession(), partitioning.partitioningHandle());
         if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
             // use connector table scan node partitioning when bucket to node assignments are fixed
             return Result.ofPlanNode(node.withUseConnectorNodePartitioning(true));
@@ -75,7 +75,7 @@ public class DetermineTableScanNodePartitioning
         }
 
         int numberOfBuckets = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount)
-                .orElseGet(() -> nodePartitioningManager.getNodeCount(context.getSession(), partitioning.getPartitioningHandle()));
+                .orElseGet(() -> nodePartitioningManager.getNodeCount(context.getSession(), partitioning.partitioningHandle()));
         int numberOfTasks = max(taskCountEstimator.estimateSourceDistributedTaskCount(context.getSession()), 1);
 
         return Result.ofPlanNode(node

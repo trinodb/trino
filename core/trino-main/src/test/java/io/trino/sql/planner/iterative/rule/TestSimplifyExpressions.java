@@ -26,8 +26,8 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.type.Reals;
 import io.trino.util.DateTimeUtils;
@@ -53,7 +53,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
@@ -77,49 +77,49 @@ public class TestSimplifyExpressions
     public void testPushesDownNegations()
     {
         assertSimplifies(
-                new Not(new Reference(BOOLEAN, "X")),
-                new Not(new Reference(BOOLEAN, "X")));
+                not(new Reference(BOOLEAN, "X")),
+                not(new Reference(BOOLEAN, "X")));
         assertSimplifies(
-                new Not(new Not(new Reference(BOOLEAN, "X"))),
+                not(not(new Reference(BOOLEAN, "X"))),
                 new Reference(BOOLEAN, "X"));
         assertSimplifies(
-                new Not(new Not(new Not(new Reference(BOOLEAN, "X")))),
-                new Not(new Reference(BOOLEAN, "X")));
+                not(not(not(new Reference(BOOLEAN, "X")))),
+                not(new Reference(BOOLEAN, "X")));
         assertSimplifies(
-                new Not(new Not(new Not(new Reference(BOOLEAN, "X")))),
-                new Not(new Reference(BOOLEAN, "X")));
+                not(not(not(new Reference(BOOLEAN, "X")))),
+                not(new Reference(BOOLEAN, "X")));
 
         assertSimplifies(
-                new Not(new Comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
+                not(new Comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
                 new Comparison(LESS_THAN_OR_EQUAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Not(new Comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), new Not(new Not(new Reference(BOOLEAN, "Y"))))),
+                not(new Comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), not(not(new Reference(BOOLEAN, "Y"))))),
                 new Comparison(LESS_THAN_OR_EQUAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), new Not(new Not(new Reference(BOOLEAN, "Y")))),
+                new Comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), not(not(new Reference(BOOLEAN, "Y")))),
                 new Comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Not(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), new Not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"))))))),
-                new Logical(OR, ImmutableList.of(new Not(new Reference(BOOLEAN, "X")), new Not(new Reference(BOOLEAN, "Y")), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"))))));
+                not(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"))))))),
+                new Logical(OR, ImmutableList.of(not(new Reference(BOOLEAN, "X")), not(new Reference(BOOLEAN, "Y")), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"))))));
         assertSimplifies(
-                new Not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), new Not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"))))))),
-                new Logical(AND, ImmutableList.of(new Not(new Reference(BOOLEAN, "X")), new Not(new Reference(BOOLEAN, "Y")), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"))))));
+                not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"))))))),
+                new Logical(AND, ImmutableList.of(not(new Reference(BOOLEAN, "X")), not(new Reference(BOOLEAN, "Y")), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"))))));
         assertSimplifies(
-                new Not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V")))))),
-                new Logical(AND, ImmutableList.of(new Not(new Reference(BOOLEAN, "X")), new Not(new Reference(BOOLEAN, "Y")), new Logical(AND, ImmutableList.of(new Not(new Reference(BOOLEAN, "Z")), new Not(new Reference(BOOLEAN, "V")))))));
+                not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V")))))),
+                new Logical(AND, ImmutableList.of(not(new Reference(BOOLEAN, "X")), not(new Reference(BOOLEAN, "Y")), new Logical(AND, ImmutableList.of(not(new Reference(BOOLEAN, "Z")), not(new Reference(BOOLEAN, "V")))))));
 
         assertSimplifies(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))));
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))));
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))));
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))));
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
     }
 
     @Test
@@ -537,118 +537,118 @@ public class TestSimplifyExpressions
     public void testPushesDownNegationsNumericTypes()
     {
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))),
+                not(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))),
                 new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))),
+                not(new Comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))),
                 new Comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")));
         assertSimplifiesNumericTypes(
-                new Not(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Comparison(GREATER_THAN, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4"))))),
+                not(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Comparison(GREATER_THAN, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4"))))),
                 new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4")))));
         assertSimplifiesNumericTypes(
-                new Not(new Not(new Not(new Logical(OR, ImmutableList.of(new Not(new Not(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), new Not(new Comparison(GREATER_THAN, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4")))))))),
+                not(not(not(new Logical(OR, ImmutableList.of(not(not(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), not(new Comparison(GREATER_THAN, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4")))))))),
                 new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Comparison(GREATER_THAN, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4")))));
         assertSimplifiesNumericTypes(
-                new Not(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), new Not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))))),
-                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Logical(OR, ImmutableList.of(new Not(new Reference(BOOLEAN, "B1")), new Not(new Reference(BOOLEAN, "B2")))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))));
+                not(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))))),
+                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Logical(OR, ImmutableList.of(not(new Reference(BOOLEAN, "B1")), not(new Reference(BOOLEAN, "B2")))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))));
+                new Comparison(IDENTICAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")),
+                new Comparison(IDENTICAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")));
 
         /*
          Restricted rewrite for types having NaN
          */
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                not(new Comparison(EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
                 new Comparison(NOT_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(NOT_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                not(new Comparison(NOT_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
                 new Comparison(EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                not(new Comparison(EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
                 new Comparison(NOT_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(NOT_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                not(new Comparison(NOT_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
                 new Comparison(EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                new Comparison(IDENTICAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")),
+                new Comparison(IDENTICAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                new Comparison(IDENTICAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")),
+                new Comparison(IDENTICAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
 
         // DOUBLE: no negation pushdown for inequalities
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                new Not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                new Not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(LESS_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                new Not(new Comparison(LESS_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                not(new Comparison(LESS_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                not(new Comparison(LESS_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                new Not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
 
         // REAL: no negation pushdown for inequalities
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                new Not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                new Not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                new Not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                new Not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
 
         // Multiple negations
         assertSimplifiesNumericTypes(
-                new Not(new Not(new Not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))),
-                new Not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                not(not(not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))),
+                not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                new Not(new Not(new Not(new Not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")))))),
+                not(not(not(not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")))))),
                 new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                new Not(new Not(new Not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))),
-                new Not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                not(not(not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))),
+                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                new Not(new Not(new Not(new Not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2")))))),
+                not(not(not(not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2")))))),
                 new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
 
         // Nested comparisons
         assertSimplifiesNumericTypes(
-                new Not(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))),
-                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))));
+                not(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))),
+                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))));
         assertSimplifiesNumericTypes(
-                new Not(new Not(new Not(new Logical(OR, ImmutableList.of(new Not(new Not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2")))), new Not(new Comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))))))),
-                new Logical(AND, ImmutableList.of(new Not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))), new Comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))));
+                not(not(not(new Logical(OR, ImmutableList.of(not(not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2")))), not(new Comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))))))),
+                new Logical(AND, ImmutableList.of(not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))), new Comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))));
         assertSimplifiesNumericTypes(
-                new Not(new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), new Not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))))),
-                new Logical(AND, ImmutableList.of(new Not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))), new Logical(OR, ImmutableList.of(new Not(new Reference(BOOLEAN, "B1")), new Not(new Reference(BOOLEAN, "B2")))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))));
+                not(new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))))),
+                new Logical(AND, ImmutableList.of(not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))), new Logical(OR, ImmutableList.of(not(new Reference(BOOLEAN, "B1")), not(new Reference(BOOLEAN, "B2")))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))));
         assertSimplifiesNumericTypes(
-                new Not(new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")), new Comparison(LESS_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), new Logical(AND, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))))),
-                new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), new Logical(OR, ImmutableList.of(new Logical(OR, ImmutableList.of(new Not(new Reference(BOOLEAN, "B1")), new Not(new Reference(BOOLEAN, "B2")))), new Not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))))));
+                not(new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")), new Comparison(LESS_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), new Logical(AND, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))))),
+                new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), new Logical(OR, ImmutableList.of(new Logical(OR, ImmutableList.of(not(new Reference(BOOLEAN, "B1")), not(new Reference(BOOLEAN, "B2")))), not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))))));
         assertSimplifiesNumericTypes(
-                ifExpression(new Not(new Comparison(LESS_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))), new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")),
+                ifExpression(not(new Comparison(LESS_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))), new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")),
                 ifExpression(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
 
         // Symbol of type having NaN on either side of comparison
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Constant(DOUBLE, 1.0))),
-                new Not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Constant(DOUBLE, 1.0))));
+                not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Constant(DOUBLE, 1.0))),
+                not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Constant(DOUBLE, 1.0))));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(GREATER_THAN, new Constant(DOUBLE, 1.0), new Reference(DOUBLE, "D2"))),
-                new Not(new Comparison(GREATER_THAN, new Constant(DOUBLE, 1.0), new Reference(DOUBLE, "D2"))));
+                not(new Comparison(GREATER_THAN, new Constant(DOUBLE, 1.0), new Reference(DOUBLE, "D2"))),
+                not(new Comparison(GREATER_THAN, new Constant(DOUBLE, 1.0), new Reference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1L)))),
-                new Not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1L)))));
+                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1L)))),
+                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1L)))));
         assertSimplifiesNumericTypes(
-                new Not(new Comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))),
-                new Not(new Comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))));
+                not(new Comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))),
+                not(new Comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))));
     }
 
     private static void assertSimplifiesNumericTypes(Expression expression, Expression expected)
@@ -680,7 +680,12 @@ public class TestSimplifyExpressions
         {
             // the `expected` Cast expression comes out of the AstBuilder with the `typeOnly` flag set to false.
             // always set the `typeOnly` flag to false so that it does not break the comparison.
-            return new Cast(node.expression(), node.type(), node.safe());
+            return new Cast(node.expression(), node.type());
         }
+    }
+
+    private static Expression not(Expression value)
+    {
+        return IrExpressions.not(FUNCTIONS.getMetadata(), value);
     }
 }

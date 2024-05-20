@@ -17,6 +17,16 @@ public abstract class DefaultTraversalVisitor<C>
         extends IrVisitor<Void, C>
 {
     @Override
+    protected Void visitArray(Array node, C context)
+    {
+        for (Expression element : node.elements()) {
+            process(element, context);
+        }
+
+        return null;
+    }
+
+    @Override
     protected Void visitCast(Cast node, C context)
     {
         process(node.expression(), context);
@@ -112,13 +122,6 @@ public abstract class DefaultTraversalVisitor<C>
         }
         process(node.function(), context);
 
-        return null;
-    }
-
-    @Override
-    protected Void visitNot(Not node, C context)
-    {
-        process(node.value(), context);
         return null;
     }
 

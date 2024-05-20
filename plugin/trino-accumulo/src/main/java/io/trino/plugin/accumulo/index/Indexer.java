@@ -65,6 +65,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
@@ -86,7 +88,6 @@ import static java.util.Objects.requireNonNull;
  * table to improve index lookup times.
  * <p>
  * Sample usage of an indexer:
- * <p>
  * <pre>
  * <code>
  * Indexer indexer = new Indexer(connector, userAuths, table, writerConf);
@@ -254,7 +255,9 @@ public class Indexer
     private void addIndexMutation(ByteBuffer row, ByteBuffer family, ColumnVisibility visibility, byte[] qualifier)
     {
         // Create the mutation and add it to the batch writer
+        checkArgument(row.arrayOffset() == 0, "Unexpected row buffer offset: %s", row.arrayOffset());
         Mutation indexMutation = new Mutation(row.array());
+        checkArgument(family.arrayOffset() == 0, "Unexpected family buffer offset: %s", family.arrayOffset());
         indexMutation.put(family.array(), qualifier, visibility, EMPTY_BYTES);
         try {
             indexWriter.addMutation(indexMutation);
@@ -327,7 +330,9 @@ public class Indexer
             // Qualifier: CARDINALITY_CQ
             // Visibility: Inherited from indexed Mutation
             // Value: Cardinality
+            checkState(entry.getKey().row.arrayOffset() == 0, "Unexpected row buffer offset: %s", entry.getKey().row.arrayOffset());
             Mutation mut = new Mutation(entry.getKey().row.array());
+            checkState(entry.getKey().family.arrayOffset() == 0, "Unexpected family buffer offset: %s", entry.getKey().family.arrayOffset());
             mut.put(entry.getKey().family.array(), CARDINALITY_CQ, entry.getKey().visibility, ENCODER.encode(entry.getValue().get()));
 
             // Add to our list of mutations
@@ -505,6 +510,8 @@ public class Indexer
         {
             requireNonNull(row, "row is null");
             requireNonNull(family, "family is null");
+            checkArgument(row.arrayOffset() == 0, "Unexpected row buffer offset: %s", row.arrayOffset());
+            checkArgument(family.arrayOffset() == 0, "Unexpected family buffer offset: %s", family.arrayOffset());
             this.row = row;
             this.family = family;
             this.visibility = EMPTY_VISIBILITY;
@@ -515,6 +522,8 @@ public class Indexer
             requireNonNull(row, "row is null");
             requireNonNull(family, "family is null");
             requireNonNull(visibility, "visibility is null");
+            checkArgument(row.arrayOffset() == 0, "Unexpected row buffer offset: %s", row.arrayOffset());
+            checkArgument(family.arrayOffset() == 0, "Unexpected family buffer offset: %s", family.arrayOffset());
             this.row = row;
             this.family = family;
             this.visibility = visibility.getExpression() != null ? visibility : EMPTY_VISIBILITY;
@@ -547,7 +556,9 @@ public class Indexer
         {
             return toStringHelper(this)
                     .add("row", new String(row.array(), UTF_8))
-                    .add("family", new String(row.array(), UTF_8))
+                    .add("rowOffset", row.arrayOffset())
+                    .add("family", new String(family.array(), UTF_8))
+                    .add("familyOffset", family.arrayOffset())
                     .add("visibility", visibility.toString())
                     .toString();
         }

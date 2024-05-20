@@ -37,12 +37,13 @@ To use Iceberg, you need:
 
 - Access to a {ref}`Hive metastore service (HMS) <hive-thrift-metastore>`, an
   {ref}`AWS Glue catalog <iceberg-glue-catalog>`, a {ref}`JDBC catalog
-  <iceberg-jdbc-catalog>`, a {ref}`REST catalog <iceberg-rest-catalog>`, or a
-  {ref}`Nessie server <iceberg-nessie-catalog>`.
+  <iceberg-jdbc-catalog>`, a {ref}`REST catalog <iceberg-rest-catalog>`,
+  a {ref}`Nessie server <iceberg-nessie-catalog>`, or a
+  {ref}`Snowflake catalog <iceberg-snowflake-catalog>`.
 
-- Data files stored in the file formats {ref}`ORC <hive-orc-configuration>` or
-  {ref}`Parquet <hive-parquet-configuration>` (default) on a [supported file
-  system](iceberg-file-system-configuration).
+- Data files stored in the file formats
+  [Parquet](hive-parquet-configuration)(default), [ORC](hive-orc-configuration),
+  or Avro on a [supported file system](iceberg-file-system-configuration).
 
 ## General configuration
 
@@ -157,10 +158,6 @@ implementation is used:
     materialized view definition. When the `storage_schema` materialized view
     property is specified, it takes precedence over this catalog property.
   - Empty
-* - `iceberg.materialized-views.hide-storage-table`
-  - Hide the information about the storage table backing the materialized view
-    in the metastore.
-  - `true`
 * - `iceberg.register-table-procedure.enabled`
   - Enable to allow user to call `register_table` procedure.
   - `false`
@@ -306,7 +303,7 @@ No other types are supported.
 
 The Iceberg connector supports Kerberos authentication for the Hive metastore
 and HDFS and is configured using the same parameters as the Hive connector. Find
-more information in the [](/connector/hive-security) section.
+more information in the [](/object-storage/file-system-hdfs) section.
 
 (iceberg-authorization)=
 ### Authorization
@@ -579,15 +576,15 @@ The {ref}`sql-schema-table-management` functionality includes support for:
 #### Schema evolution
 
 Iceberg supports schema evolution, with safe column add, drop, reorder, and
-rename operations, including in nested structures. 
+rename operations, including in nested structures.
 
 Iceberg supports updating column types only for widening operations:
- 
+
 - `INTEGER` to `BIGINT`
 - `REAL` to `DOUBLE`
 - `DECIMAL(p,s)` to `DECIMAL(p2,s)` when `p2` > `p` (scale cannot change)
 
-Partitioning can also be changed and the connector can still query data 
+Partitioning can also be changed and the connector can still query data
 created before the partitioning change.
 
 (iceberg-alter-table-execute)=
@@ -705,6 +702,12 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Optionally specifies table partitioning. If a table is partitioned by
     columns `c1` and `c2`, the partitioning property is `partitioning =
     ARRAY['c1', 'c2']`.
+* - `sorted_by`
+  - The sort order to be applied during writes to the content of
+    each file written to the table. If the table files are sorted by columns
+    `c1` and `c2`, the sort order property is `sorted_by = ARRAY['c1', 'c2']`.
+    The sort order applies to the contents written within each output file
+    independently and not the entire dataset.
 * - `location`
   - Optionally specifies the file system location URI for the table.
 * - `format_version`
@@ -783,6 +786,7 @@ SELECT * FROM "test_table$properties"
 write.format.default   | PARQUET  |
 ```
 
+(iceberg-history-table)=
 ##### `$history` table
 
 The `$history` table provides a log of the metadata changes performed on the
@@ -1345,33 +1349,25 @@ ORDER BY committed_at DESC
 ```
 
 (iceberg-create-or-replace)=
+#### Replace tables
 
-#### Replacing tables
+The connector supports replacing an existing table, as an atomic operation.
+Atomic table replacement creates a new snapshot with the new table definition as
+part of the [table history](#iceberg-history-table).
 
-The connector supports replacing a table as an atomic operation. Atomic table
-replacement creates a new snapshot with the new table definition (see
-{doc}`/sql/create-table` and {doc}`/sql/create-table-as`), but keeps table history.
+To replace a table, use [`CREATE OR REPLACE TABLE`](/sql/create-table) or
+[`CREATE OR REPLACE TABLE AS`](/sql/create-table-as).
 
-The new table after replacement is completely new and separate from the old table.
-Only the name of the table remains identical. Earlier snapshots can be retrieved 
-through Iceberg's [time travel](iceberg-time-travel).
+Earlier snapshots of the table can be queried through [](iceberg-time-travel).
 
-For example a partitioned table `my_table` can be replaced by completely new
-definition.
+In the following example, a table `example_table` can be replaced by a
+completely new definition and data from the source table:
 
-```
-CREATE TABLE my_table (
-    a BIGINT,
-    b DATE,
-    c BIGINT)
-WITH (partitioning = ARRAY['a']);
-
-CREATE OR REPLACE TABLE my_table
+```sql
+CREATE OR REPLACE TABLE example_table
 WITH (sorted_by = ARRAY['a'])
-AS SELECT * from another_table;
+AS SELECT * FROM another_table;
 ```
-
-Earlier snapshots can be retrieved through Iceberg's [time travel](iceberg-time-travel).
 
 (iceberg-time-travel)=
 
@@ -1402,7 +1398,7 @@ FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09
 The connector allows to create a new snapshot through Iceberg's [replace table](iceberg-create-or-replace).
 
 ```
-CREATE OR REPLACE TABLE example.testdb.customer_orders AS 
+CREATE OR REPLACE TABLE example.testdb.customer_orders AS
 SELECT *
 FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna'
 ```
@@ -1525,6 +1521,129 @@ the definition and the storage table.
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
 processing. Read and write operations are both supported with any retry policy.
+
+## Table functions
+
+The connector supports the table functions described in the following sections.
+
+### table_changes
+
+Allows reading row-level changes between two versions of an Iceberg table.
+The following query shows an example of displaying the changes of the `t1`
+table in the `default` schema in the current catalog.
+All changes between the start and end snapshots are returned.
+
+```sql
+SELECT
+  *
+FROM
+  TABLE(
+    system.table_changes(
+      schema_name => 'default',
+      table_name => 't1',
+      start_snapshot_id => 6541165659943306573,
+      end_snapshot_id => 6745790645714043599
+    )
+  );
+```
+
+The function takes the following required parameters:
+
+- `schema_name`
+  : Name of the schema for which the function is called.
+- `table_name`
+  : Name of the table for which the function is called.
+- `start_snapshot_id`
+  : The identifier of the exclusive starting snapshot.
+- `end_snapshot_id`
+  : The identifier of the inclusive end snapshot.
+
+Use the `$snapshots` metadata table to determine the snapshot IDs of the
+table.
+
+The function returns the columns present in the table, and the following values
+for each change:
+
+- `_change_type`
+  : The type of change that occurred. Possible values are `insert` and `delete`.
+- `_change_version_id`
+  : The identifier of the snapshot in which the change occurred.
+- `_change_timestamp`
+  : Timestamp when the snapshot became active.
+- `_change_ordinal`
+  : Order number of the change, useful for sorting the results.
+
+**Example:**
+
+Create a table:
+
+```
+CREATE TABLE test_schema.pages (page_url VARCHAR, domain VARCHAR, views INTEGER);
+```
+
+Insert some data:
+
+```
+INSERT INTO test_schema.pages
+    VALUES
+        ('url1', 'domain1', 1),
+        ('url2', 'domain2', 2),
+        ('url3', 'domain1', 3);
+INSERT INTO test_schema.pages
+    VALUES
+        ('url4', 'domain1', 400),
+        ('url5', 'domain2', 500),
+        ('url6', 'domain3', 2);
+```
+
+Retrieve the snapshot identifiers of the changes performed on the table:
+
+```
+SELECT
+    snapshot_id,
+    parent_id,
+    operation
+FROM test_schema."pages$snapshots";
+```
+
+```text
+     snapshot_id     |      parent_id      | operation
+---------------------+---------------------+-----------
+ 2009020668682716382 |                NULL | append
+ 2135434251890923160 | 2009020668682716382 | append
+ 3108755571950643966 | 2135434251890923160 | append
+(3 rows)
+
+```
+
+Select the changes performed in the previously-mentioned `INSERT` statements:
+
+```
+SELECT
+    *
+FROM
+    TABLE(
+            system.table_changes(
+                    schema_name => 'test_schema',
+                    table_name => 'pages',
+                    start_snapshot_id => 2009020668682716382,
+                    end_snapshot_id => 3108755571950643966
+            )
+    )
+ORDER BY _change_ordinal ASC;
+```
+
+```text
+ page_url | domain  | views | _change_type | _change_version_id  |      _change_timestamp      | _change_ordinal
+----------+---------+-------+--------------+---------------------+-----------------------------+-----------------
+ url1     | domain1 |     1 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url2     | domain2 |     2 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url3     | domain1 |     3 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url4     | domain1 |   400 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
+ url5     | domain2 |   500 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
+ url6     | domain3 |     2 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
+(6 rows)
+```
 
 ## Performance
 

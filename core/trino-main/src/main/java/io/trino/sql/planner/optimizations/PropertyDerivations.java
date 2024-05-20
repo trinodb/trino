@@ -247,7 +247,7 @@ public final class PropertyDerivations
             // If the input is completely pre-partitioned and sorted, then the original input properties will be respected
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
             if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
-                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderBy().size())) {
+                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().orderBy().size())) {
                 return properties;
             }
 
@@ -289,7 +289,7 @@ public final class PropertyDerivations
             // Otherwise, partitioning and sorting will be respected.
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
             if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
-                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderBy().size())) {
+                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().orderBy().size())) {
                 if (node.getRowsPerMatch() == WINDOW ||
                         node.getRowsPerMatch() == ONE ||
                         node.getSkipToPosition() == PAST_LAST) {
@@ -360,7 +360,7 @@ public final class PropertyDerivations
             }
 
             List<Symbol> partitionBy = node.getSpecification()
-                    .map(DataOrganizationSpecification::getPartitionBy)
+                    .map(DataOrganizationSpecification::partitionBy)
                     .orElse(ImmutableList.of());
             if (!partitionBy.isEmpty()) {
                 localProperties.add(new GroupingProperty<>(partitionBy));
@@ -894,12 +894,12 @@ public final class PropertyDerivations
         {
             if (layout.getTablePartitioning().isPresent() && node.isUseConnectorNodePartitioning()) {
                 TablePartitioning tablePartitioning = layout.getTablePartitioning().get();
-                if (assignments.keySet().containsAll(tablePartitioning.getPartitioningColumns())) {
-                    List<Symbol> arguments = tablePartitioning.getPartitioningColumns().stream()
+                if (assignments.keySet().containsAll(tablePartitioning.partitioningColumns())) {
+                    List<Symbol> arguments = tablePartitioning.partitioningColumns().stream()
                             .map(assignments::get)
                             .collect(toImmutableList());
 
-                    return partitionedOn(tablePartitioning.getPartitioningHandle(), arguments);
+                    return partitionedOn(tablePartitioning.partitioningHandle(), arguments);
                 }
             }
             return arbitraryPartition();

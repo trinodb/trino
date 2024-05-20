@@ -35,7 +35,6 @@ import static java.lang.StrictMath.toIntExact;
 
 /**
  * Utility class for decoding INT96 encoded parquet timestamp to timestamp millis in GMT.
- * <p>
  */
 public final class ParquetTimestampUtils
 {
@@ -72,23 +71,21 @@ public final class ParquetTimestampUtils
     public static DecodedTimestamp decodeInt64Timestamp(long timestamp, LogicalTypeAnnotation.TimeUnit precision)
     {
         long toSecondsConversion;
-        long toNanosConversion;
-        switch (precision) {
-            case MILLIS:
+        long toNanosConversion = switch (precision) {
+            case MILLIS -> {
                 toSecondsConversion = MILLISECONDS_PER_SECOND;
-                toNanosConversion = NANOSECONDS_PER_MILLISECOND;
-                break;
-            case MICROS:
+                yield NANOSECONDS_PER_MILLISECOND;
+            }
+            case MICROS -> {
                 toSecondsConversion = MICROSECONDS_PER_SECOND;
-                toNanosConversion = NANOSECONDS_PER_MICROSECOND;
-                break;
-            case NANOS:
+                yield NANOSECONDS_PER_MICROSECOND;
+            }
+            case NANOS -> {
                 toSecondsConversion = NANOSECONDS_PER_SECOND;
-                toNanosConversion = 1;
-                break;
-            default:
-                throw new TrinoException(NOT_SUPPORTED, "Unsupported Parquet timestamp time unit " + precision);
-        }
+                yield 1;
+            }
+            default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Parquet timestamp time unit " + precision);
+        };
         long epochSeconds = floorDiv(timestamp, toSecondsConversion);
         long fractionalSecond = floorMod(timestamp, toSecondsConversion);
         int nanosOfSecond = toIntExact(fractionalSecond * toNanosConversion);

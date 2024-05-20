@@ -30,7 +30,6 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -58,9 +57,10 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -288,7 +288,7 @@ public class TestDynamicFilter
 
     private Expression typeOnlyCast(String symbol, Type asDataType)
     {
-        return new Cast(new Symbol(UNKNOWN, symbol).toSymbolReference(), asDataType, false);
+        return new Cast(new Symbol(UNKNOWN, symbol).toSymbolReference(), asDataType);
     }
 
     @Test
@@ -352,7 +352,7 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS NOT DISTINCT FROM o.orderkey",
                 anyTree(filter(
-                        new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"))),
+                        new Comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                         join(INNER, builder -> builder
                                 .dynamicFilter(ImmutableList.of(new DynamicFilterPattern(new Reference(BIGINT, "O_ORDERKEY"), EQUAL, "L_ORDERKEY", true)))
                                 .left(
@@ -366,7 +366,7 @@ public class TestDynamicFilter
         // Dynamic filter is not supported for IS DISTINCT FROM
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS DISTINCT FROM o.orderkey",
                 anyTree(filter(
-                        new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
+                        not(getPlanTester().getPlannerContext().getMetadata(), new Comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"))),
                         join(INNER, builder -> builder
                                 .left(
                                         tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
@@ -377,7 +377,7 @@ public class TestDynamicFilter
         // extendedprice and totalprice are of DOUBLE type, dynamic filter is not supported with IS NOT DISTINCT FROM clause on DOUBLE or REAL types
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.extendedprice IS NOT DISTINCT FROM o.totalprice",
                 anyTree(filter(
-                        new Not(new Comparison(IS_DISTINCT_FROM, new Reference(DOUBLE, "O_TOTALPRICE"), new Reference(DOUBLE, "L_EXTENDEDPRICE"))),
+                        new Comparison(IDENTICAL, new Reference(DOUBLE, "O_TOTALPRICE"), new Reference(DOUBLE, "L_EXTENDEDPRICE")),
                         join(INNER, builder -> builder
                                 .left(
                                         tableScan("orders", ImmutableMap.of("O_TOTALPRICE", "totalprice")))
@@ -695,7 +695,7 @@ public class TestDynamicFilter
                 "SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM lineitem WHERE linenumber < 0)",
                 anyTree(
                         filter(
-                                new Not(new Reference(BOOLEAN, "S")),
+                                not(getPlanTester().getPlannerContext().getMetadata(), new Reference(BOOLEAN, "S")),
                                 semiJoin("X", "Y", "S", false,
                                         tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                         anyTree(

@@ -38,13 +38,10 @@ public interface TokenRing
     static Optional<TokenRing> createForPartitioner(String partitioner)
     {
         requireNonNull(partitioner, "partitioner is null");
-        switch (partitioner) {
-            case "org.apache.cassandra.dht.Murmur3Partitioner":
-                return Optional.of(Murmur3PartitionerTokenRing.INSTANCE);
-            case "org.apache.cassandra.dht.RandomPartitioner":
-                return Optional.of(RandomPartitionerTokenRing.INSTANCE);
-            default:
-                return Optional.empty();
-        }
+        return switch (partitioner) {
+            case "org.apache.cassandra.dht.Murmur3Partitioner" -> Optional.of(Murmur3PartitionerTokenRing.INSTANCE);
+            case "org.apache.cassandra.dht.RandomPartitioner" -> Optional.of(RandomPartitionerTokenRing.INSTANCE);
+            default -> Optional.empty();
+        };
     }
 }

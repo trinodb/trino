@@ -77,7 +77,7 @@ public class TpchNodePartitioningProvider
     @Override
     public BucketFunction getBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int bucketCount)
     {
-        long totalRows = ((TpchPartitioningHandle) partitioningHandle).getTotalRows();
+        long totalRows = ((TpchPartitioningHandle) partitioningHandle).totalRows();
         long rowsPerBucket = totalRows / bucketCount;
         checkArgument(partitionChannelTypes.equals(ImmutableList.of(BIGINT)), "Expected one BIGINT parameter");
         return new TpchBucketFunction(bucketCount, rowsPerBucket);

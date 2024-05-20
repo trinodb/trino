@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.tpch.TpchTable.getTables;
 
 public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionJoinQueries
         extends AbstractTestFaultTolerantExecutionJoinQueries
@@ -46,8 +45,8 @@ public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionJoinQuerie
                     runner.loadExchangeManager("filesystem", ImmutableMap.of("exchange.base-directories",
                             System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 })
-                .setInitialTables(getTables())
                 .addHiveProperty("hive.dynamic-filtering.wait-timeout", "1h")
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 

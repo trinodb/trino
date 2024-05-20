@@ -149,7 +149,7 @@ public class MultipleDistinctAggregationToMarkDistinct
 
                 Symbol marker = markers.get(inputs);
                 if (marker == null) {
-                    marker = context.getSymbolAllocator().newSymbol(Iterables.getLast(inputs).getName() + "_distinct", BOOLEAN);
+                    marker = context.getSymbolAllocator().newSymbol(Iterables.getLast(inputs).name() + "_distinct", BOOLEAN);
                     markers.put(inputs, marker);
 
                     ImmutableSet.Builder<Symbol> distinctSymbols = ImmutableSet.<Symbol>builder()

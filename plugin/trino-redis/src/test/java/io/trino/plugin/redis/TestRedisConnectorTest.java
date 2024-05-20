@@ -27,6 +27,6 @@ public class TestRedisConnectorTest
             throws Exception
     {
         RedisServer redisServer = closeAfterClass(new RedisServer());
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), ImmutableMap.of(), "string", REQUIRED_TPCH_TABLES);
+        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "string", REQUIRED_TPCH_TABLES);
     }
 }

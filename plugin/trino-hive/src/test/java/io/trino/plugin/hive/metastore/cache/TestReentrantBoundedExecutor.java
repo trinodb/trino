@@ -44,7 +44,7 @@ public class TestReentrantBoundedExecutor
                 try {
                     future.get();
                 }
-                catch (Exception ignored) {
+                catch (Exception _) {
                 }
             });
             future.get();

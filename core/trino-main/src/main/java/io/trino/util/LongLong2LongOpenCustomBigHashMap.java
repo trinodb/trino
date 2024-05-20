@@ -685,12 +685,11 @@ public class LongLong2LongOpenCustomBigHashMap
         return newValue.longValue();
     }
 
-    /*
+    /**
      * Removes all elements from this map.
      *
      * <p>To increase object reuse, this method does not change the table size. If
      * you want to reduce the table size, you must use {@link #trim()}.
-     *
      */
     public void clear()
     {

@@ -53,19 +53,19 @@ import static java.util.Objects.requireNonNull;
  * TODO This rule should be removed as soon as RowNumberNode becomes capable of absorbing pruning projections (i.e. capable of pruning outputs).
  * <p>
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - Filter (rowNumber <= 5 && a > 1)
  *     - Project (a, rowNumber)
  *         - RowNumber (maxRowCountPerPartition = 10)
  *             - source (a, b)
- * </pre>
+ * }</pre>
  * into:
- * <pre>
+ * <pre>{@code
  * - Filter (a > 1)
  *     - Project (a, rowNumber)
  *         - RowNumber (maxRowCountPerPartition = 5)
  *             - source (a, b)
- * </pre>
+ * }</pre>
  */
 public class PushPredicateThroughProjectIntoRowNumber
         implements Rule<FilterNode>
@@ -81,10 +81,12 @@ public class PushPredicateThroughProjectIntoRowNumber
                             .capturedAs(ROW_NUMBER)))));
 
     private final PlannerContext plannerContext;
+    private final DomainTranslator domainTranslator;
 
     public PushPredicateThroughProjectIntoRowNumber(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
     }
 
     @Override
@@ -139,7 +141,7 @@ public class PushPredicateThroughProjectIntoRowNumber
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
-                DomainTranslator.toPredicate(newTupleDomain));
+                domainTranslator.toPredicate(newTupleDomain));
         if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }

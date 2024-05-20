@@ -15,6 +15,8 @@ package io.trino.plugin.snowflake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -53,7 +55,7 @@ public class TestSnowflakeConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createSnowflakeQueryRunner(ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createSnowflakeQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override
@@ -67,13 +69,13 @@ public class TestSnowflakeConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
-                    SUPPORTS_ARRAY,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
-                    SUPPORTS_ROW_TYPE,
-                    SUPPORTS_SET_COLUMN_TYPE -> false;
+                 SUPPORTS_ARRAY,
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_SET_COLUMN_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -111,9 +113,7 @@ public class TestSnowflakeConnectorTest
             return Optional.empty();
         }
         // Error: Failed to insert data: SQL compilation error: error line 1 at position 130
-        if (typeName.equals("time")
-                || typeName.equals("time(6)")
-                || typeName.equals("timestamp(6)")) {
+        if (typeName.equals("timestamp(6)")) {
             return Optional.empty();
         }
         // Error: not equal
@@ -132,16 +132,16 @@ public class TestSnowflakeConnectorTest
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
+        // Override this test because the type of columns "orderkey", "custkey" and "shippriority" should be decimal rather than integer for snowflake case
         return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
+                .row("orderkey", "decimal(19,0)", "", "")
+                .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
                 .row("totalprice", "double", "", "")
                 .row("orderdate", "date", "", "")
                 .row("orderpriority", "varchar(15)", "", "")
                 .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "bigint", "", "")
+                .row("shippriority", "decimal(10,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
     }
@@ -166,17 +166,17 @@ public class TestSnowflakeConnectorTest
     @Override
     public void testShowCreateTable()
     {
-        // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
+        // Override this test because the type of columns "orderkey", "custkey" and "shippriority" should be decimal rather than integer for snowflake case
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo("CREATE TABLE snowflake.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
+                        "   orderkey decimal(19, 0),\n" +
+                        "   custkey decimal(19, 0),\n" +
                         "   orderstatus varchar(1),\n" +
                         "   totalprice double,\n" +
                         "   orderdate date,\n" +
                         "   orderpriority varchar(15),\n" +
                         "   clerk varchar(15),\n" +
-                        "   shippriority bigint,\n" +
+                        "   shippriority decimal(10, 0),\n" +
                         "   comment varchar(79)\n" +
                         ")");
     }
@@ -361,10 +361,46 @@ public class TestSnowflakeConnectorTest
     }
 
     @Test
+    @Override // Override to specify the schema name in WHERE condition because listing tables in all schemas is too slow
+    public void testInformationSchemaFiltering()
+    {
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'tpch' AND table_name = 'orders' LIMIT 1",
+                "SELECT 'orders' table_name");
+        assertQuery(
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'decimal(19,0)' AND table_schema = 'tpch' AND table_name = 'nation' and column_name = 'nationkey' LIMIT 1",
+                "SELECT 'nation' table_name");
+    }
+
+    @Test
     @Disabled
     @Override
     public void testSelectInformationSchemaColumns()
     {
         // TODO https://github.com/trinodb/trino/issues/21157 Enable this test after fixing the timeout issue
+    }
+
+    @Test
+    @Override // Override because for approx_set(nationkey) a ProjectNode is present above the TableScanNode. It's used to project decimals to doubles.
+    public void testAggregationWithUnsupportedResultType()
+    {
+        // TODO array_agg returns array, so it could be supported
+        assertThat(query("SELECT array_agg(nationkey) FROM nation"))
+                .skipResultsCorrectnessCheckForPushdown() // array_agg doesn't have a deterministic order of elements in result array
+                .isNotFullyPushedDown(AggregationNode.class);
+        // histogram returns map, which is not supported
+        assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        // multimap_agg returns multimap, which is not supported
+        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation"))
+                .skipResultsCorrectnessCheckForPushdown() // multimap_agg doesn't have a deterministic order of values for a key
+                .isNotFullyPushedDown(AggregationNode.class);
+        // approx_set returns HyperLogLog, which is not supported
+        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
+    }
+
+    @Override // Override because integers are represented as decimals in Snowflake Connector.
+    protected String sumDistinctAggregationPushdownExpectedResult()
+    {
+        return "VALUES (BIGINT '4', DECIMAL '8')";
     }
 }

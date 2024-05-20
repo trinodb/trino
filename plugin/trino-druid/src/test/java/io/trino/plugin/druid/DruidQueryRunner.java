@@ -50,17 +50,31 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class DruidQueryRunner
+public final class DruidQueryRunner
 {
+    private DruidQueryRunner() {}
+
     private static final Logger log = Logger.get(DruidQueryRunner.class);
 
     private static final String SCHEMA = "druid";
 
-    private DruidQueryRunner() {}
-
     public static QueryRunner createDruidQueryRunnerTpch(
             TestingDruidServer testingDruidServer,
-            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createDruidQueryRunnerTpch(
+                testingDruidServer,
+                ImmutableMap.of(),
+                connectorProperties,
+                tables);
+    }
+
+    // TODO convert to builder
+    private static QueryRunner createDruidQueryRunnerTpch(
+            TestingDruidServer testingDruidServer,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
@@ -68,7 +82,7 @@ public class DruidQueryRunner
         QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
                     .build();
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");

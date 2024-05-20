@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -24,134 +21,50 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static java.util.Objects.requireNonNull;
 
-public class DeltaLakeOutputTableHandle
+public record DeltaLakeOutputTableHandle(
+        String schemaName,
+        String tableName,
+        List<DeltaLakeColumnHandle> inputColumns,
+        String location,
+        Optional<Long> checkpointInterval,
+        boolean external,
+        Optional<String> comment,
+        Optional<Boolean> changeDataFeedEnabled,
+        String schemaString,
+        ColumnMappingMode columnMappingMode,
+        OptionalInt maxColumnId,
+        boolean replace,
+        OptionalLong readVersion,
+        ProtocolEntry protocolEntry)
         implements ConnectorOutputTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
-    private final List<DeltaLakeColumnHandle> inputColumns;
-    private final String location;
-    private final Optional<Long> checkpointInterval;
-    private final boolean external;
-    private final Optional<String> comment;
-    private final Optional<Boolean> changeDataFeedEnabled;
-    private final ColumnMappingMode columnMappingMode;
-    private final OptionalInt maxColumnId;
-    private final String schemaString;
-    private final ProtocolEntry protocolEntry;
-
-    @JsonCreator
-    public DeltaLakeOutputTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("inputColumns") List<DeltaLakeColumnHandle> inputColumns,
-            @JsonProperty("location") String location,
-            @JsonProperty("checkpointInterval") Optional<Long> checkpointInterval,
-            @JsonProperty("external") boolean external,
-            @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("changeDataFeedEnabled") Optional<Boolean> changeDataFeedEnabled,
-            @JsonProperty("schemaString") String schemaString,
-            @JsonProperty("columnMappingMode") ColumnMappingMode columnMappingMode,
-            @JsonProperty("maxColumnId") OptionalInt maxColumnId,
-            @JsonProperty("protocolEntry") ProtocolEntry protocolEntry)
+    public DeltaLakeOutputTableHandle
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.inputColumns = ImmutableList.copyOf(inputColumns);
-        this.location = requireNonNull(location, "location is null");
-        this.checkpointInterval = checkpointInterval;
-        this.external = external;
-        this.comment = requireNonNull(comment, "comment is null");
-        this.changeDataFeedEnabled = requireNonNull(changeDataFeedEnabled, "changeDataFeedEnabled is null");
-        this.schemaString = requireNonNull(schemaString, "schemaString is null");
-        this.columnMappingMode = requireNonNull(columnMappingMode, "columnMappingMode is null");
-        this.maxColumnId = requireNonNull(maxColumnId, "maxColumnId is null");
-        this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
+        inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
+        requireNonNull(location, "location is null");
+        requireNonNull(checkpointInterval, "checkpointInterval is null");
+        requireNonNull(comment, "comment is null");
+        requireNonNull(changeDataFeedEnabled, "changeDataFeedEnabled is null");
+        requireNonNull(schemaString, "schemaString is null");
+        requireNonNull(columnMappingMode, "columnMappingMode is null");
+        requireNonNull(maxColumnId, "maxColumnId is null");
+        requireNonNull(readVersion, "readVersion is null");
+        requireNonNull(protocolEntry, "protocolEntry is null");
     }
 
-    @JsonProperty
-    public String getSchemaName()
+    public List<String> partitionedBy()
     {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public List<DeltaLakeColumnHandle> getInputColumns()
-    {
-        return inputColumns;
-    }
-
-    @JsonProperty
-    public String getLocation()
-    {
-        return location;
-    }
-
-    @JsonIgnore
-    public List<String> getPartitionedBy()
-    {
-        return getInputColumns().stream()
+        return inputColumns().stream()
                 .filter(column -> column.getColumnType() == PARTITION_KEY)
                 .map(DeltaLakeColumnHandle::getColumnName)
                 .collect(toImmutableList());
-    }
-
-    @JsonProperty
-    public Optional<Long> getCheckpointInterval()
-    {
-        return checkpointInterval;
-    }
-
-    @JsonProperty
-    public boolean isExternal()
-    {
-        return external;
-    }
-
-    @JsonProperty
-    public Optional<String> getComment()
-    {
-        return comment;
-    }
-
-    @JsonProperty
-    public Optional<Boolean> getChangeDataFeedEnabled()
-    {
-        return changeDataFeedEnabled;
-    }
-
-    @JsonProperty
-    public String getSchemaString()
-    {
-        return schemaString;
-    }
-
-    @JsonProperty
-    public ColumnMappingMode getColumnMappingMode()
-    {
-        return columnMappingMode;
-    }
-
-    @JsonProperty
-    public OptionalInt getMaxColumnId()
-    {
-        return maxColumnId;
-    }
-
-    @JsonProperty
-    public ProtocolEntry getProtocolEntry()
-    {
-        return protocolEntry;
     }
 }

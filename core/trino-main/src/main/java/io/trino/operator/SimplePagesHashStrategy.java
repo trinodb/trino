@@ -22,7 +22,7 @@ import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionComparison;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
@@ -49,7 +49,7 @@ public class SimplePagesHashStrategy
     private final Optional<Integer> sortChannel;
     private final List<BlockPositionEqual> equalOperators;
     private final List<BlockPositionHashCode> hashCodeOperators;
-    private final List<BlockPositionIsDistinctFrom> isDistinctFromOperators;
+    private final List<BlockPositionIsIdentical> identicalOperators;
 
     public SimplePagesHashStrategy(
             List<Type> types,
@@ -85,9 +85,9 @@ public class SimplePagesHashStrategy
                 .map(types::get)
                 .map(blockTypeOperators::getHashCodeOperator)
                 .collect(toImmutableList());
-        this.isDistinctFromOperators = hashChannels.stream()
+        this.identicalOperators = hashChannels.stream()
                 .map(types::get)
-                .map(blockTypeOperators::getDistinctFromOperator)
+                .map(blockTypeOperators::getIdenticalOperator)
                 .collect(toImmutableList());
     }
 
@@ -159,12 +159,12 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public boolean rowNotDistinctFromRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
+    public boolean rowIdenticalToRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             Block leftBlock = leftPage.getBlock(i);
             Block rightBlock = rightPage.getBlock(i);
-            if (isDistinctFromOperators.get(i).isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
+            if (!identicalOperators.get(i).isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
@@ -185,12 +185,12 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public boolean positionNotDistinctFromRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage)
+    public boolean positionIdenticalToRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             Block leftBlock = channels.get(hashChannels.get(i)).get(leftBlockIndex);
             Block rightBlock = rightPage.getBlock(i);
-            if (isDistinctFromOperators.get(i).isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
+            if (!identicalOperators.get(i).isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
@@ -212,14 +212,14 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public boolean positionNotDistinctFromRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightChannels)
+    public boolean positionIdenticalToRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightChannels)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             int hashChannel = hashChannels.get(i);
             Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
             Block rightBlock = page.getBlock(rightChannels[i]);
-            BlockPositionIsDistinctFrom isDistinctFromOperator = isDistinctFromOperators.get(i);
-            if (isDistinctFromOperator.isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
+            BlockPositionIsIdentical identical = identicalOperators.get(i);
+            if (!identical.isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
@@ -241,13 +241,13 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public boolean positionNotDistinctFromPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition)
+    public boolean positionIdenticalToPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             List<Block> channel = channels.get(hashChannels.get(i));
             Block leftBlock = channel.get(leftBlockIndex);
             Block rightBlock = channel.get(rightBlockIndex);
-            if (isDistinctFromOperators.get(i).isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
+            if (!identicalOperators.get(i).isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }

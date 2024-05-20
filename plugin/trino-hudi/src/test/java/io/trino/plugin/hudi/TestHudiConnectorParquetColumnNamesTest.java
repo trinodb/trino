@@ -26,6 +26,6 @@ public class TestHudiConnectorParquetColumnNamesTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createHudiQueryRunner(ImmutableMap.of(), ImmutableMap.of("hudi.parquet.use-column-names", "false"), new ResourceHudiTablesInitializer());
+        return createHudiQueryRunner(ImmutableMap.of("hudi.parquet.use-column-names", "false"), new ResourceHudiTablesInitializer());
     }
 }

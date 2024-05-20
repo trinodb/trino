@@ -98,7 +98,7 @@ public class Except
         Except o = (Except) obj;
         return Objects.equals(left, o.left) &&
                 Objects.equals(right, o.right) &&
-                Objects.equals(isDistinct(), o.isDistinct());
+                isDistinct() == o.isDistinct();
     }
 
     @Override

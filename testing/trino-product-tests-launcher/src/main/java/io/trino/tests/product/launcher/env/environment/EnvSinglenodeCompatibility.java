@@ -68,11 +68,13 @@ public class EnvSinglenodeCompatibility
 
     private void configureCompatibilityTestContainer(Environment.Builder builder, Config config)
     {
+        boolean java22 = config.getCompatibilityTestVersion() >= 447;
+        String jvmConfig = java22 ? "conf/presto/etc/jvm.config" : "conf/presto/etc/jvm-pre-jdk22.config";
         String dockerImage = config.getCompatibilityTestDockerImage();
         String containerConfigDir = getConfigurationDirectory(dockerImage);
         DockerContainer container = new DockerContainer(dockerImage, COMPATIBILTY_TEST_CONTAINER_NAME)
                 .withExposedLogPaths("/var/trino/var/log", "/var/log/container-health.log")
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), containerConfigDir + "jvm.config")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath(jvmConfig)), containerConfigDir + "jvm.config")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getConfigFileFor(dockerImage))), containerConfigDir + "config.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getHiveConfigFor(dockerImage))), containerConfigDir + "catalog/hive.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath("iceberg.properties")), containerConfigDir + "catalog/iceberg.properties")
@@ -141,12 +143,20 @@ public class EnvSinglenodeCompatibility
 
     private static class Config
     {
+        private static final String TEST_DOCKER_VERSION = "testVersion";
         private static final String TEST_DOCKER_IMAGE = "testDockerImage";
+        private final int compatibilityTestVersion;
         private final String compatibilityTestDockerImage;
 
         public Config(Map<String, String> extraOptions)
         {
+            this.compatibilityTestVersion = parseInt(requireNonNull(extraOptions.get(TEST_DOCKER_VERSION), () -> format("Required extra option %s is null", TEST_DOCKER_VERSION)));
             this.compatibilityTestDockerImage = requireNonNull(extraOptions.get(TEST_DOCKER_IMAGE), () -> format("Required extra option %s is null", TEST_DOCKER_IMAGE));
+        }
+
+        public int getCompatibilityTestVersion()
+        {
+            return compatibilityTestVersion;
         }
 
         public String getCompatibilityTestDockerImage()

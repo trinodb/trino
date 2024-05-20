@@ -151,7 +151,7 @@ public class TestLdapAuthenticator
                     new LdapAuthenticatorConfig()
                             .setUserBaseDistinguishedName(organization.getDistinguishedName())
                             .setGroupAuthorizationSearchPattern("(&(objectClass=inetOrgPerson))")
-                            .setBindDistingushedName("cn=admin,dc=trino,dc=testldap,dc=com")
+                            .setBindDistinguishedName("cn=admin,dc=trino,dc=testldap,dc=com")
                             .setBindPassword("invalid-password"));
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
@@ -173,7 +173,7 @@ public class TestLdapAuthenticator
                     new LdapAuthenticatorConfig()
                             .setUserBaseDistinguishedName(organization.getDistinguishedName())
                             .setGroupAuthorizationSearchPattern(format("(&(objectClass=inetOrgPerson)(memberof=%s))", group.getDistinguishedName()))
-                            .setBindDistingushedName("cn=admin,dc=trino,dc=testldap,dc=com")
+                            .setBindDistinguishedName("cn=admin,dc=trino,dc=testldap,dc=com")
                             .setBindPassword("admin"));
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown_user", "invalid"))

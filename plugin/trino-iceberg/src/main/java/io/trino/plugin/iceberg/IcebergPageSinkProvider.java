@@ -121,27 +121,27 @@ public class IcebergPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorPageSinkId pageSinkId)
     {
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
-        switch (executeHandle.getProcedureId()) {
+        switch (executeHandle.procedureId()) {
             case OPTIMIZE:
-                IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.getProcedureHandle();
-                Schema schema = SchemaParser.fromJson(optimizeHandle.getSchemaAsJson());
-                PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, optimizeHandle.getPartitionSpecAsJson());
-                LocationProvider locationProvider = getLocationProvider(executeHandle.getSchemaTableName(),
-                        executeHandle.getTableLocation(), optimizeHandle.getTableStorageProperties());
+                IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.procedureHandle();
+                Schema schema = SchemaParser.fromJson(optimizeHandle.schemaAsJson());
+                PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, optimizeHandle.partitionSpecAsJson());
+                LocationProvider locationProvider = getLocationProvider(executeHandle.schemaTableName(),
+                        executeHandle.tableLocation(), optimizeHandle.tableStorageProperties());
                 return new IcebergPageSink(
                         schema,
                         partitionSpec,
                         locationProvider,
                         fileWriterFactory,
                         pageIndexerFactory,
-                        fileSystemFactory.create(session.getIdentity(), executeHandle.getFileIoProperties()),
-                        optimizeHandle.getTableColumns(),
+                        fileSystemFactory.create(session.getIdentity(), executeHandle.fileIoProperties()),
+                        optimizeHandle.tableColumns(),
                         jsonCodec,
                         session,
-                        optimizeHandle.getFileFormat(),
-                        optimizeHandle.getTableStorageProperties(),
+                        optimizeHandle.fileFormat(),
+                        optimizeHandle.tableStorageProperties(),
                         maxOpenPartitions,
-                        optimizeHandle.getSortOrder(),
+                        optimizeHandle.sortOrder(),
                         sortingFileWriterBufferSize,
                         sortingFileWriterMaxOpenFiles,
                         typeManager,
@@ -151,7 +151,7 @@ public class IcebergPageSinkProvider
             case REMOVE_ORPHAN_FILES:
                 // handled via ConnectorMetadata.executeTableExecute
         }
-        throw new IllegalArgumentException("Unknown procedure: " + executeHandle.getProcedureId());
+        throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());
     }
 
     @Override

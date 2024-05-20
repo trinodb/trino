@@ -107,8 +107,8 @@ public class TaskSystemTable
     {
         Builder table = InMemoryRecordSet.builder(TASK_TABLE);
         for (TaskInfo taskInfo : taskManager.getAllTaskInfo()) {
-            TaskStats stats = taskInfo.getStats();
-            TaskStatus taskStatus = taskInfo.getTaskStatus();
+            TaskStats stats = taskInfo.stats();
+            TaskStatus taskStatus = taskInfo.taskStatus();
             table.addRow(
                     nodeId,
 
@@ -140,7 +140,7 @@ public class TaskSystemTable
 
                     toTimestampWithTimeZoneMillis(stats.getCreateTime()),
                     toTimestampWithTimeZoneMillis(stats.getFirstStartTime()),
-                    toTimestampWithTimeZoneMillis(taskInfo.getLastHeartbeat()),
+                    toTimestampWithTimeZoneMillis(taskInfo.lastHeartbeat()),
                     toTimestampWithTimeZoneMillis(stats.getEndTime()));
         }
         return table.build().cursor();

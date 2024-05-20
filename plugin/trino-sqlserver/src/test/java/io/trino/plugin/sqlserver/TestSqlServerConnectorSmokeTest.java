@@ -13,10 +13,7 @@
  */
 package io.trino.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-
-import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 
 public class TestSqlServerConnectorSmokeTest
         extends BaseSqlServerConnectorSmokeTest
@@ -26,10 +23,8 @@ public class TestSqlServerConnectorSmokeTest
             throws Exception
     {
         TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer());
-        return createSqlServerQueryRunner(
-                sqlServer,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                REQUIRED_TPCH_TABLES);
+        return SqlServerQueryRunner.builder(sqlServer)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 }

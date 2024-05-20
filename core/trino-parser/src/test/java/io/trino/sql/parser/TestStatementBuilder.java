@@ -314,6 +314,12 @@ public class TestStatementBuilder
         printStatement("show role grants");
         printStatement("show role grants from foo");
 
+        printStatement("show create schema abc");
+        printStatement("show create table abc");
+        printStatement("show create view abc");
+        printStatement("show create materialized view abc");
+        printStatement("show create function abc");
+
         printStatement("prepare p from select * from (select * from T) \"A B\"");
 
         printStatement("SELECT * FROM table1 WHERE a >= ALL (VALUES 2, 3, 4)");

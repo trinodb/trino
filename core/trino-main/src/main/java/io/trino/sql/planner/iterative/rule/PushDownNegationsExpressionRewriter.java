@@ -13,23 +13,26 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Comparison.Operator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.combinePredicates;
@@ -48,33 +51,40 @@ public final class PushDownNegationsExpressionRewriter
             extends ExpressionRewriter<Void>
     {
         @Override
-        public Expression rewriteNot(Not node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteCall(Call node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (node.value() instanceof Logical child) {
-                List<Expression> predicates = extractPredicates(child);
-                List<Expression> negatedPredicates = predicates.stream().map(predicate -> treeRewriter.rewrite((Expression) new Not(predicate), context)).collect(toImmutableList());
-                return combinePredicates(child.operator().flip(), negatedPredicates);
-            }
-            if (node.value() instanceof Comparison child && child.operator() != IS_DISTINCT_FROM) {
-                Operator operator = child.operator();
-                Expression left = child.left();
-                Expression right = child.right();
-                Type leftType = left.type();
-                Type rightType = right.type();
-                if ((typeHasNaN(leftType) || typeHasNaN(rightType)) && (
-                        operator == GREATER_THAN_OR_EQUAL ||
-                                operator == GREATER_THAN ||
-                                operator == LESS_THAN_OR_EQUAL ||
-                                operator == LESS_THAN)) {
-                    return new Not(new Comparison(operator, treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context)));
+            if (node.function().name().equals(builtinFunctionName("$not"))) {
+                ResolvedFunction function = node.function();
+                Expression argument = node.arguments().getFirst();
+
+                if (argument instanceof Logical child) {
+                    List<Expression> predicates = extractPredicates(child);
+                    List<Expression> negatedPredicates = predicates.stream().map(predicate -> treeRewriter.rewrite((Expression) new Call(function, ImmutableList.of(predicate)), context)).collect(toImmutableList());
+                    return combinePredicates(child.operator().flip(), negatedPredicates);
                 }
-                return new Comparison(operator.negate(), treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context));
-            }
-            if (node.value() instanceof Not child) {
-                return treeRewriter.rewrite(child.value(), context);
+                if (argument instanceof Comparison child && child.operator() != IDENTICAL) {
+                    Operator operator = child.operator();
+                    Expression left = child.left();
+                    Expression right = child.right();
+                    Type leftType = left.type();
+                    Type rightType = right.type();
+                    if ((typeHasNaN(leftType) || typeHasNaN(rightType)) && (
+                            operator == GREATER_THAN_OR_EQUAL ||
+                                    operator == GREATER_THAN ||
+                                    operator == LESS_THAN_OR_EQUAL ||
+                                    operator == LESS_THAN)) {
+                        return new Call(function, ImmutableList.of(new Comparison(operator, treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context))));
+                    }
+                    return new Comparison(operator.negate(), treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context));
+                }
+                if (argument instanceof Call child && child.function().name().equals(builtinFunctionName("$not"))) {
+                    return treeRewriter.rewrite(child.arguments().getFirst(), context);
+                }
+
+                return new Call(function, ImmutableList.of(treeRewriter.rewrite(argument, context)));
             }
 
-            return new Not(treeRewriter.rewrite(node.value(), context));
+            return node;
         }
 
         private boolean typeHasNaN(Type type)

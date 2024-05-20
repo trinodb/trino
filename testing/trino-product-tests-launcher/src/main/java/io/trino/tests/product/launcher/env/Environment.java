@@ -640,7 +640,7 @@ public final class Environment
         private static Consumer<OutputFrame> writeContainerLogs(DockerContainer container, Path path)
         {
             Path containerLogFile = path.resolve(container.getLogicalName() + "/container.log");
-            log.info("Writing container %s logs to %s", container, containerLogFile);
+            log.debug("Writing container %s logs to %s", container, containerLogFile);
 
             try {
                 ensurePathExists(containerLogFile.getParent());

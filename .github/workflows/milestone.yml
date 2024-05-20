@@ -15,6 +15,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        timeout-minutes: 10
+        with:
+          java-version: 22
       - name: Get milestone from pom.xml
         run: |
           .github/bin/retry ./mvnw -v

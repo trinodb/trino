@@ -62,7 +62,7 @@ public class AsyncQueue<T>
     }
 
     /**
-     * Returns <tt>true</tt> if all future attempts to retrieve elements from this queue
+     * Returns {@code true} if all future attempts to retrieve elements from this queue
      * are guaranteed to return empty.
      */
     public synchronized boolean isFinished()
@@ -193,7 +193,7 @@ public class AsyncQueue<T>
             else {
                 borrowedListFuture = Futures.transform(
                         notEmptySignal,
-                        ignored -> {
+                        _ -> {
                             synchronized (this) {
                                 List<T> batch = getBatch(maxSize);
                                 if (!batch.isEmpty()) {

@@ -34,7 +34,7 @@ public class SingleHistogramState
     private final MethodHandle readFlat;
     private final MethodHandle writeFlat;
     private final MethodHandle hashFlat;
-    private final MethodHandle distinctFlatBlock;
+    private final MethodHandle identicalFlatBlock;
     private final MethodHandle hashBlock;
     private TypedHistogram typedHistogram;
     private SqlMap tempSerializedState;
@@ -44,14 +44,14 @@ public class SingleHistogramState
             MethodHandle readFlat,
             MethodHandle writeFlat,
             MethodHandle hashFlat,
-            MethodHandle distinctFlatBlock,
+            MethodHandle identicalFlatBlock,
             MethodHandle hashBlock)
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
         this.readFlat = requireNonNull(readFlat, "readFlat is null");
         this.writeFlat = requireNonNull(writeFlat, "writeFlat is null");
         this.hashFlat = requireNonNull(hashFlat, "hashFlat is null");
-        this.distinctFlatBlock = requireNonNull(distinctFlatBlock, "distinctFlatBlock is null");
+        this.identicalFlatBlock = requireNonNull(identicalFlatBlock, "identicalFlatBlock is null");
         this.hashBlock = requireNonNull(hashBlock, "hashBlock is null");
     }
 
@@ -59,7 +59,7 @@ public class SingleHistogramState
     public void add(ValueBlock block, int position, long count)
     {
         if (typedHistogram == null) {
-            typedHistogram = new TypedHistogram(keyType, readFlat, writeFlat, hashFlat, distinctFlatBlock, hashBlock, false);
+            typedHistogram = new TypedHistogram(keyType, readFlat, writeFlat, hashFlat, identicalFlatBlock, hashBlock, false);
         }
         typedHistogram.add(0, block, position, count);
     }

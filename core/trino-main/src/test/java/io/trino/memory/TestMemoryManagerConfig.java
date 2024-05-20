@@ -27,7 +27,6 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestMemoryManagerConfig
@@ -47,7 +46,7 @@ public class TestMemoryManagerConfig
                 .setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize.of(20, GIGABYTE))
                 .setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES)
                 .setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES)
-                .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES)));
+                .setKillOnOutOfMemoryDelay(new Duration(30, SECONDS)));
     }
 
     @Test

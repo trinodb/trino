@@ -164,7 +164,7 @@ public final class S3HiveQueryRunner
                     testingThriftHiveMetastoreBuilder()
                             .metastoreClient(hiveMetastoreEndpoint, thriftMetastoreTimeout)
                             .thriftMetastoreConfig(thriftMetastoreConfig)
-                            .build()));
+                            .build(distributedQueryRunner::registerResource)));
             setInitialSchemasLocationBase("s3a://" + bucketName); // cannot use s3:// as Hive metastore is not configured to accept it
             return super.build();
         }
@@ -177,7 +177,7 @@ public final class S3HiveQueryRunner
         hiveMinioDataLake.start();
 
         QueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
-                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
                 .setSkipTimezoneSetup(true)
                 .setInitialTables(TpchTable.getTables())

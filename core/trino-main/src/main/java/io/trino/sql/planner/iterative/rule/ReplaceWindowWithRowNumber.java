@@ -42,7 +42,7 @@ public class ReplaceWindowWithRowNumber
                     if (window.getWindowFunctions().size() != 1) {
                         return false;
                     }
-                    BoundSignature signature = getOnlyElement(window.getWindowFunctions().values()).getResolvedFunction().getSignature();
+                    BoundSignature signature = getOnlyElement(window.getWindowFunctions().values()).getResolvedFunction().signature();
                     return signature.getArgumentTypes().isEmpty() && signature.getName().equals(ROW_NUMBER_NAME);
                 })
                 .matching(window -> window.getOrderingScheme().isEmpty());

@@ -51,7 +51,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.RelationPlanner.PatternRecognitionComponents;
@@ -152,6 +151,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
@@ -341,7 +341,7 @@ class QueryPlanner
         List<NodeAndMappings> recursionStepsToUnion = recursionSteps.build();
 
         List<Symbol> unionOutputSymbols = anchorPlan.getFieldMappings().stream()
-                .map(symbol -> symbolAllocator.newSymbol("expanded_" + symbol.getName(), symbol.getType()))
+                .map(symbol -> symbolAllocator.newSymbol("expanded_" + symbol.name(), symbol.type()))
                 .collect(toImmutableList());
 
         ImmutableListMultimap.Builder<Symbol, Symbol> unionSymbolMapping = ImmutableListMultimap.builder();
@@ -521,7 +521,7 @@ class QueryPlanner
         TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, handle);
         ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
         ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
-        tableMetadata.getMetadata().getColumns().stream()
+        tableMetadata.metadata().getColumns().stream()
                 .filter(column -> !column.isHidden())
                 .forEach(columnMetadata -> {
                     typeBuilder.add(columnMetadata.getType());
@@ -543,13 +543,13 @@ class QueryPlanner
                 assignmentsBuilder.putIdentity(symbol);
             }
             else {
-                assignmentsBuilder.put(symbol, new Constant(symbol.getType(), null));
+                assignmentsBuilder.put(symbol, new Constant(symbol.type(), null));
             }
         }
         List<Symbol> columnSymbols = columnSymbolsBuilder.build();
         Symbol operationSymbol = symbolAllocator.newSymbol("operation", TINYINT);
         assignmentsBuilder.put(operationSymbol, new Constant(TINYINT, (long) DELETE_OPERATION_NUMBER));
-        Symbol projectedRowIdSymbol = symbolAllocator.newSymbol(rowIdSymbol.getName(), rowIdType);
+        Symbol projectedRowIdSymbol = symbolAllocator.newSymbol(rowIdSymbol.name(), rowIdType);
         assignmentsBuilder.put(projectedRowIdSymbol, rowIdSymbol.toSymbolReference());
         assignmentsBuilder.put(symbolAllocator.newSymbol("insert_from_update", TINYINT), new Constant(TINYINT, 0L));
         Assignments assignments = assignmentsBuilder.build();
@@ -569,7 +569,7 @@ class QueryPlanner
                 new MergeTarget(
                         handle,
                         Optional.empty(),
-                        tableMetadata.getTable(),
+                        tableMetadata.table(),
                         paradigmAndTypes),
                 projectNode.getOutputSymbols(),
                 partitioningScheme,
@@ -802,21 +802,28 @@ class QueryPlanner
                     if (nonNullableColumnHandles.contains(dataColumnHandle)) {
                         ColumnSchema columnSchema = dataColumnSchemas.get(fieldNumber);
                         String columnName = columnSchema.getName();
-                        rewritten = new Coalesce(rewritten, new Cast(failFunction(metadata, INVALID_ARGUMENTS, "Assigning NULL to non-null MERGE target table column " + columnName), columnSchema.getType()));
+                        rewritten = new Coalesce(rewritten, new Cast(failFunction(metadata, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), columnSchema.getType()));
                     }
                     rowBuilder.add(rewritten);
                     assignments.put(field, rewritten);
                 }
                 else {
-                    rowBuilder.add(field.toSymbolReference());
-                    assignments.putIdentity(field);
+                    Expression expression = field.toSymbolReference();
+                    if (mergeCase instanceof MergeInsert && nonNullableColumnHandles.contains(dataColumnHandle)) {
+                        ColumnSchema columnSchema = dataColumnSchemas.get(fieldNumber);
+                        String columnName = columnSchema.getName();
+                        expression = new Coalesce(expression, new Cast(failFunction(metadata, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), columnSchema.getType()));
+                    }
+
+                    rowBuilder.add(expression);
+                    assignments.put(field, expression);
                 }
             }
 
             // Build the match condition for the MERGE case
 
             // Add a boolean column which is true if a target table row was matched
-            rowBuilder.add(new Not(new IsNull(presentColumn.toSymbolReference())));
+            rowBuilder.add(not(metadata, new IsNull(presentColumn.toSymbolReference())));
 
             // Add the operation number
             rowBuilder.add(new Constant(TINYINT, (long) getMergeCaseOperationNumber(mergeCase)));
@@ -855,7 +862,7 @@ class QueryPlanner
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
         dataColumnSchemas.forEach(columnSchema ->
                 rowBuilder.add(new Constant(columnSchema.getType(), null)));
-        rowBuilder.add(new Not(new IsNull(presentColumn.toSymbolReference())));
+        rowBuilder.add(not(metadata, new IsNull(presentColumn.toSymbolReference())));
         // The operation number
         rowBuilder.add(new Constant(TINYINT, -1L));
         // The case number
@@ -898,8 +905,8 @@ class QueryPlanner
         // Raise an error if unique_id symbol is non-null and the unique_id/case_number combination was not distinct
         Expression filter = ifExpression(
                 Logical.and(
-                        new Not(isDistinctSymbol.toSymbolReference()),
-                        new Not(new IsNull(uniqueIdSymbol.toSymbolReference()))),
+                        not(metadata, isDistinctSymbol.toSymbolReference()),
+                        not(metadata, new IsNull(uniqueIdSymbol.toSymbolReference()))),
                 new Cast(
                         failFunction(metadata, MERGE_TARGET_ROW_MULTIPLE_MATCHES, "One MERGE target table row matched more than one source row"),
                         BOOLEAN),
@@ -1144,7 +1151,7 @@ class QueryPlanner
         Symbol[] fields = new Symbol[subPlan.getTranslations().getFieldSymbols().size()];
         for (FieldId field : groupingSetAnalysis.getAllFields()) {
             Symbol input = subPlan.getTranslations().getFieldSymbols().get(field.getFieldIndex());
-            Symbol output = symbolAllocator.newSymbol(input.getName() + "_gid", input.getType());
+            Symbol output = symbolAllocator.newSymbol(input.name() + "_gid", input.type());
             fields[field.getFieldIndex()] = output;
             groupingSetMappings.put(output, input);
         }
@@ -1518,7 +1525,7 @@ class QueryPlanner
 
         // First, append filter to validate offset values. They mustn't be negative or null.
         Symbol offsetSymbol = coercions.get(frameOffset.get());
-        Expression zeroOffset = zeroOfType(offsetSymbol.getType());
+        Expression zeroOffset = zeroOfType(offsetSymbol.type());
         Expression predicate = ifExpression(
                 new Comparison(
                         GREATER_THAN_OR_EQUAL,
@@ -1546,10 +1553,7 @@ class QueryPlanner
                 sortKeyCoercedForFrameBoundCalculation = alreadyCoerced;
             }
             else {
-                Expression cast = new Cast(
-                        coercions.get(sortKey).toSymbolReference(),
-                        expectedType,
-                        false);
+                Expression cast = new Cast(coercions.get(sortKey).toSymbolReference(), expectedType);
                 sortKeyCoercedForFrameBoundCalculation = symbolAllocator.newSymbol(cast);
                 sortKeyCoercions.put(expectedType, sortKeyCoercedForFrameBoundCalculation);
                 subPlan = subPlan.withNewRoot(new ProjectNode(
@@ -1589,10 +1593,7 @@ class QueryPlanner
                 sortKeyCoercedForFrameBoundComparison = Optional.of(alreadyCoerced);
             }
             else {
-                Expression cast = new Cast(
-                        coercions.get(sortKey).toSymbolReference(),
-                        expectedType,
-                        false);
+                Expression cast = new Cast(coercions.get(sortKey).toSymbolReference(), expectedType);
                 Symbol castSymbol = symbolAllocator.newSymbol(cast);
                 sortKeyCoercions.put(expectedType, castSymbol);
                 subPlan = subPlan.withNewRoot(new ProjectNode(
@@ -1616,7 +1617,7 @@ class QueryPlanner
         }
 
         Symbol offsetSymbol = frameOffset.get();
-        Type offsetType = offsetSymbol.getType();
+        Type offsetType = offsetSymbol.type();
 
         // Append filter to validate offset values. They mustn't be negative or null.
         Expression zeroOffset = zeroOfType(offsetType);
@@ -1657,10 +1658,7 @@ class QueryPlanner
             }
         }
         else {
-            offsetToBigint = new Cast(
-                    offsetSymbol.toSymbolReference(),
-                    BIGINT,
-                    false);
+            offsetToBigint = new Cast(offsetSymbol.toSymbolReference(), BIGINT);
         }
 
         Symbol coercedOffsetSymbol = symbolAllocator.newSymbol(offsetToBigint);
@@ -2043,10 +2041,7 @@ class QueryPlanner
                 if (coercion != null) {
                     Symbol symbol = symbolAllocator.newSymbol("expr", coercion);
 
-                    assignments.put(symbol, new Cast(
-                            subPlan.rewrite(expression),
-                            coercion,
-                            false));
+                    assignments.put(symbol, new Cast(subPlan.rewrite(expression), coercion));
 
                     mappings.put(NodeRef.of(expression), symbol);
                 }
@@ -2072,7 +2067,7 @@ class QueryPlanner
             return rewritten;
         }
 
-        return new Cast(rewritten, coercion, false);
+        return new Cast(rewritten, coercion);
     }
 
     public static NodeAndMappings coerce(RelationPlan plan, List<Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
@@ -2086,8 +2081,8 @@ class QueryPlanner
             Symbol input = visibleFields.get(i);
             Type type = types.get(i);
 
-            if (!input.getType().equals(type)) {
-                Symbol coerced = symbolAllocator.newSymbol(input.getName(), type);
+            if (!input.type().equals(type)) {
+                Symbol coerced = symbolAllocator.newSymbol(input.name(), type);
                 assignments.put(coerced, new Cast(input.toSymbolReference(), type));
                 mappings.add(coerced);
             }

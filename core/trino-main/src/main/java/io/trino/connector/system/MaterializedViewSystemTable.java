@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.FullConnectorSession;
@@ -45,6 +46,7 @@ import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.getMaterializedViews;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
+import static io.trino.metadata.MetadataListing.listMaterializedViews;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -70,6 +72,8 @@ public class MaterializedViewSystemTable
             .column("comment", createUnboundedVarcharType())
             .column("definition", createUnboundedVarcharType())
             .build();
+
+    private static final Set<String> LISTING_ONLY_COLUMNS = ImmutableSet.of("catalog_name", "schema_name", "name");
 
     private final Metadata metadata;
     private final AccessControl accessControl;
@@ -117,6 +121,7 @@ public class MaterializedViewSystemTable
         }
 
         Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
+        boolean needNameOnly = LISTING_ONLY_COLUMNS.containsAll(requiredColumnNames);
         boolean needFreshness = requiredColumnNames.contains("freshness") || requiredColumnNames.contains("last_fresh_time");
 
         listCatalogNames(session, metadata, accessControl, catalogDomain).forEach(catalogName -> {
@@ -128,19 +133,35 @@ public class MaterializedViewSystemTable
                     if (isImpossibleObjectName(schemaName)) {
                         continue;
                     }
-                    addMaterializedViewForCatalog(session, displayTable, tablePrefix(catalogName, Optional.of(schemaName), tableFilter), needFreshness);
+                    addMaterializedViewForCatalog(session, displayTable, tablePrefix(catalogName, Optional.of(schemaName), tableFilter), needNameOnly, needFreshness);
                 }
             }
             else {
-                addMaterializedViewForCatalog(session, displayTable, tablePrefix(catalogName, Optional.empty(), tableFilter), needFreshness);
+                addMaterializedViewForCatalog(session, displayTable, tablePrefix(catalogName, Optional.empty(), tableFilter), needNameOnly, needFreshness);
             }
         });
 
         return displayTable.build().cursor();
     }
 
-    private void addMaterializedViewForCatalog(Session session, InMemoryRecordSet.Builder displayTable, QualifiedTablePrefix tablePrefix, boolean needFreshness)
+    private void addMaterializedViewForCatalog(Session session, InMemoryRecordSet.Builder displayTable, QualifiedTablePrefix tablePrefix, boolean needNameOnly, boolean needFreshness)
     {
+        if (needNameOnly) {
+            listMaterializedViews(session, metadata, accessControl, tablePrefix).forEach(name ->
+                    displayTable.addRow(createMaterializedViewRow(
+                            tablePrefix.getCatalogName(),
+                            name.getSchemaName(),
+                            name.getTableName(),
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null)));
+            return;
+        }
+
         getMaterializedViews(session, metadata, accessControl, tablePrefix).forEach((tableName, definition) -> {
             QualifiedObjectName name = new QualifiedObjectName(tablePrefix.getCatalogName(), tableName.getSchemaName(), tableName.getTableName());
             Optional<MaterializedViewFreshness> freshness = Optional.empty();
@@ -156,9 +177,9 @@ public class MaterializedViewSystemTable
             }
 
             displayTable.addRow(createMaterializedViewRow(
-                    name.getCatalogName(),
-                    name.getSchemaName(),
-                    name.getObjectName(),
+                    name.catalogName(),
+                    name.schemaName(),
+                    name.objectName(),
                     definition.getStorageTable()
                             .map(CatalogSchemaTableName::getCatalogName)
                             .orElse(""),

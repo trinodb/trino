@@ -103,7 +103,7 @@ public class DropColumnTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot drop hidden column");
         }
         if (fieldPath.isEmpty()) {
-            if (metadata.getTableMetadata(session, tableHandle).getColumns().stream()
+            if (metadata.getTableMetadata(session, tableHandle).columns().stream()
                     .filter(info -> !info.isHidden()).count() <= 1) {
                 throw semanticException(NOT_SUPPORTED, statement, "Cannot drop the only column in a table");
             }

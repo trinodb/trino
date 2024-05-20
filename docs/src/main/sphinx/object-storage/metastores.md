@@ -41,7 +41,7 @@ are also available. They are discussed later in this topic.
     object storage itself. A small amount of metadata, however, still requires
     the use of a metastore. In the Iceberg ecosystem, these smaller metastores
     are called Iceberg metadata catalogs, or just catalogs. The examples in each
-    subsection depict the contents of a Trino catalog file that uses the the
+    subsection depict the contents of a Trino catalog file that uses the
     Iceberg connector to configures different Iceberg metadata catalogs.
 
     You must set this property in all Iceberg catalog property files. Valid
@@ -75,7 +75,6 @@ are also available. They are discussed later in this topic.
 :::
 
 (hive-thrift-metastore)=
-
 ## Thrift metastore configuration properties
 
 In order to use a Hive Thrift metastore, you must configure the metastore with
@@ -183,6 +182,13 @@ properties:
 * - `hive.metastore.thrift.txn-lock-max-wait`
   - Maximum time to wait to acquire hive transaction lock.
   - `10m`
+* - `hive.metastore.thrift.catalog-name`
+  - The term "Hive metastore catalog name" refers to the abstraction concept
+    within Hive, enabling various systems to connect to distinct, independent
+    catalogs stored in the metastore. By default, the catalog name in Hive
+    metastore is set to "hive." When this configuration property is left empty,
+    the default catalog of the Hive metastore will be accessed.
+  -
 :::
 
 Use the following configuration properties for HTTP client transport mode, so
@@ -213,6 +219,7 @@ when the `hive.metastore.uri` uses the `http://` or `https://` protocol.
     header values for Unity catalog.
 :::
 
+(hive-thrift-metastore-authentication)=
 ### Thrift metastore authentication
 
 In a Kerberized Hadoop cluster, Trino connects to the Hive metastore Thrift
@@ -316,11 +323,9 @@ property, and verifies that the identity of the metastore matches
 When using `KERBEROS` Metastore authentication with impersonation, the
 principal specified by the `hive.metastore.client.principal` property must be
 allowed to impersonate the current Trino user, as discussed in the section
-{ref}`configuring-hadoop-impersonation`.
+[](hdfs-security-impersonation).
 
 Keytab files must be distributed to every node in the Trino cluster.
-
-{ref}`Additional information about Keytab Files.<hive-security-additional-keytab>`
 
 (hive-glue-metastore)=
 
@@ -496,8 +501,9 @@ The REST catalog does not support [view management](sql-view-management) or
 ### JDBC catalog
 
 The Iceberg JDBC catalog is supported for the Iceberg connector.  At a minimum,
-`iceberg.jdbc-catalog.driver-class`, `iceberg.jdbc-catalog.connection-url`
-and `iceberg.jdbc-catalog.catalog-name` must be configured. When using any
+`iceberg.jdbc-catalog.driver-class`, `iceberg.jdbc-catalog.connection-url`,
+`iceberg.jdbc-catalog.default-warehouse-dir`, and
+`iceberg.jdbc-catalog.catalog-name` must be configured. When using any
 database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
 directory.
 
@@ -506,17 +512,13 @@ The JDBC catalog may have compatibility issues if Iceberg introduces breaking
 changes in the future. Consider the {ref}`REST catalog
 <iceberg-rest-catalog>` as an alternative solution.
 
-The JDBC catalog requires the metadata tables to already exist. 
+The JDBC catalog requires the metadata tables to already exist.
 Refer to [Iceberg repository](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/jdbc/JdbcUtil.java)
 for creating those tables.
 :::
 
-At a minimum, `iceberg.jdbc-catalog.driver-class`,
-`iceberg.jdbc-catalog.connection-url`, and
-`iceberg.jdbc-catalog.catalog-name` must be configured. When using any
-database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
-directory. The following example shows a minimal catalog configuration using an
-Iceberg REST metadata catalog:
+The following example shows a minimal catalog configuration using an
+Iceberg JDBC metadata catalog:
 
 ```text
 connector.name=iceberg
@@ -580,6 +582,42 @@ iceberg.nessie-catalog.default-warehouse-dir=/tmp
 
 The Nessie catalog does not support [view management](sql-view-management) or
 [materialized view management](sql-materialized-view-management).
+
+(iceberg-snowflake-catalog)=
+
+### Snowflake catalog
+
+In order to use a Snowflake catalog, configure the catalog type with
+`iceberg.catalog.type=snowflake` and provide further details with the following
+properties:
+
+:::{list-table} Snowflake catalog configuration properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `iceberg.snowflake-catalog.account-uri`
+  - Snowflake JDBC account URI (required). Example:
+    `jdbc:snowflake://example123456789.snowflakecomputing.com`
+* - `iceberg.snowflake-catalog.user`
+  - Snowflake user (required).
+* - `iceberg.snowflake-catalog.password`
+  - Snowflake password (required).
+* - `iceberg.snowflake-catalog.database`
+  - Snowflake database name (required).
+* - `iceberg.snowflake-catalog.role`
+  - Snowflake role name
+:::
+
+```text
+connector.name=iceberg
+iceberg.catalog.type=snowflake
+iceberg.snowflake-catalog.account-uri=jdbc:snowflake://example1234567890.snowflakecomputing.com
+iceberg.snowflake-catalog.user=user
+iceberg.snowflake-catalog.password=secret
+iceberg.snowflake-catalog.database=db
+```
 
 (partition-projection)=
 

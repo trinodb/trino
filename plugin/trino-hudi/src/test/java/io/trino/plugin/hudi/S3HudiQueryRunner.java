@@ -42,15 +42,30 @@ public final class S3HudiQueryRunner
 
     private S3HudiQueryRunner() {}
 
+    // TODO convert to builder, merge with HudiQueryRunner
     public static QueryRunner create(
-            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            HudiTablesInitializer dataLoader,
+            HiveMinioDataLake hiveMinioDataLake)
+            throws Exception
+    {
+        return create(
+                ImmutableMap.of(),
+                connectorProperties,
+                dataLoader,
+                hiveMinioDataLake);
+    }
+
+    // TODO convert to builder, merge with HudiQueryRunner
+    private static QueryRunner create(
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             HudiTablesInitializer dataLoader,
             HiveMinioDataLake hiveMinioDataLake)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
         queryRunner.installPlugin(new TestingHudiPlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hudi_data")));
         queryRunner.createCatalog(

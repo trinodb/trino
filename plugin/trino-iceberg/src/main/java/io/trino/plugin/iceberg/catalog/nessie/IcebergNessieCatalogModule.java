@@ -27,6 +27,7 @@ import org.projectnessie.client.api.NessieApiV1;
 import org.projectnessie.client.auth.BearerAuthenticationProvider;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.lang.Math.toIntExact;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -41,6 +42,7 @@ public class IcebergNessieCatalogModule
         newExporter(binder).export(IcebergTableOperationsProvider.class).withGeneratedName();
         binder.bind(TrinoCatalogFactory.class).to(TrinoNessieCatalogFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TrinoCatalogFactory.class).withGeneratedName();
+        closingBinder(binder).registerCloseable(NessieIcebergClient.class);
     }
 
     @Provides
