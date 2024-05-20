@@ -62,6 +62,14 @@ class TestingValuesWriter
         values.add(v);
     }
 
+    @Override
+    public void writeRepeatInteger(int value, int valueRepetitions)
+    {
+        for (int i = 0; i < valueRepetitions; i++) {
+            values.add(value);
+        }
+    }
+
     List<Integer> getWrittenValues()
     {
         return values;

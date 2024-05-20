@@ -84,9 +84,7 @@ public class DefLevelWriterProviders
                     checkValidPosition(offset, positionsCount, block.getPositionCount());
                     int nonNullsCount = 0;
                     if (!block.mayHaveNull()) {
-                        for (int position = offset; position < offset + positionsCount; position++) {
-                            encoder.writeInteger(maxDefinitionLevel);
-                        }
+                        encoder.writeRepeatInteger(maxDefinitionLevel, positionsCount);
                         nonNullsCount = positionsCount;
                     }
                     else {
