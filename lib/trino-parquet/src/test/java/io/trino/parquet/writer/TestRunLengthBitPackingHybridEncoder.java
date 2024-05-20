@@ -17,6 +17,8 @@ import io.trino.parquet.writer.valuewriter.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.column.values.bitpacking.BytePacker;
 import org.apache.parquet.column.values.bitpacking.Packer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
@@ -30,17 +32,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRunLengthBitPackingHybridEncoder
 {
-    @Test
-    public void testRLEOnly()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testRLEOnly(boolean useWriteRepeated)
             throws Exception
     {
         RunLengthBitPackingHybridEncoder encoder = getRunLengthBitPackingHybridEncoder();
-        for (int i = 0; i < 100; i++) {
-            encoder.writeInt(4);
-        }
-        for (int i = 0; i < 100; i++) {
-            encoder.writeInt(5);
-        }
+        writeRepeatedValue(encoder, 4, 100, useWriteRepeated);
+        writeRepeatedValue(encoder, 5, 100, useWriteRepeated);
 
         ByteArrayInputStream is = new ByteArrayInputStream(encoder.toBytes().toByteArray());
 
@@ -58,8 +57,9 @@ public class TestRunLengthBitPackingHybridEncoder
         assertThat(is.read()).isEqualTo(-1);
     }
 
-    @Test
-    public void testRepeatedZeros()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testRepeatedZeros(boolean useWriteRepeated)
             throws Exception
     {
         // previousValue is initialized to 0
@@ -67,9 +67,7 @@ public class TestRunLengthBitPackingHybridEncoder
         // of the stream don't trip up the repeat count
 
         RunLengthBitPackingHybridEncoder encoder = getRunLengthBitPackingHybridEncoder();
-        for (int i = 0; i < 10; i++) {
-            encoder.writeInt(0);
-        }
+        writeRepeatedValue(encoder, 0, 10, useWriteRepeated);
 
         ByteArrayInputStream is = new ByteArrayInputStream(encoder.toBytes().toByteArray());
 
@@ -82,14 +80,13 @@ public class TestRunLengthBitPackingHybridEncoder
         assertThat(is.read()).isEqualTo(-1);
     }
 
-    @Test
-    public void testBitWidthZero()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testBitWidthZero(boolean useWriteRepeated)
             throws Exception
     {
         RunLengthBitPackingHybridEncoder encoder = getRunLengthBitPackingHybridEncoder(0, 64);
-        for (int i = 0; i < 10; i++) {
-            encoder.writeInt(0);
-        }
+        writeRepeatedValue(encoder, 0, 10, useWriteRepeated);
 
         ByteArrayInputStream is = new ByteArrayInputStream(encoder.toBytes().toByteArray());
 
@@ -158,8 +155,9 @@ public class TestRunLengthBitPackingHybridEncoder
         assertThat(is.read()).isEqualTo(-1);
     }
 
-    @Test
-    public void testTransitionFromBitPackingToRle()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testTransitionFromBitPackingToRle(boolean useWriteRepeated)
             throws Exception
     {
         RunLengthBitPackingHybridEncoder encoder = getRunLengthBitPackingHybridEncoder();
@@ -172,14 +170,10 @@ public class TestRunLengthBitPackingHybridEncoder
         encoder.writeInt(0);
 
         // three repeated values, that ought to be bit-packed as well
-        encoder.writeInt(2);
-        encoder.writeInt(2);
-        encoder.writeInt(2);
+        writeRepeatedValue(encoder, 2, 3, useWriteRepeated);
 
         // lots more repeated values, that should be rle-encoded
-        for (int i = 0; i < 100; i++) {
-            encoder.writeInt(2);
-        }
+        writeRepeatedValue(encoder, 2, 100, useWriteRepeated);
 
         ByteArrayInputStream is = new ByteArrayInputStream(encoder.toBytes().toByteArray());
 
@@ -219,35 +213,28 @@ public class TestRunLengthBitPackingHybridEncoder
         assertThat(is.read()).isEqualTo(-1);
     }
 
-    @Test
-    public void testSwitchingModes()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testSwitchingModes(boolean useWriteRepeated)
             throws Exception
     {
         RunLengthBitPackingHybridEncoder encoder = getRunLengthBitPackingHybridEncoder(9, 1000);
 
         // rle first
-        for (int i = 0; i < 25; i++) {
-            encoder.writeInt(17);
-        }
+        writeRepeatedValue(encoder, 17, 25, useWriteRepeated);
 
         // bit-packing
-        for (int i = 0; i < 7; i++) {
-            encoder.writeInt(7);
-        }
+        writeRepeatedValue(encoder, 7, 7, useWriteRepeated);
 
         encoder.writeInt(8);
         encoder.writeInt(9);
         encoder.writeInt(10);
 
         // bit-packing followed by rle
-        for (int i = 0; i < 25; i++) {
-            encoder.writeInt(6);
-        }
+        writeRepeatedValue(encoder, 6, 25, useWriteRepeated);
 
         // followed by a different rle
-        for (int i = 0; i < 8; i++) {
-            encoder.writeInt(5);
-        }
+        writeRepeatedValue(encoder, 5, 8, useWriteRepeated);
 
         ByteArrayInputStream is = new ByteArrayInputStream(encoder.toBytes().toByteArray());
 
@@ -317,5 +304,18 @@ public class TestRunLengthBitPackingHybridEncoder
     private static RunLengthBitPackingHybridEncoder getRunLengthBitPackingHybridEncoder(int bitWidth, int maxCapacityHint)
     {
         return new RunLengthBitPackingHybridEncoder(bitWidth, maxCapacityHint);
+    }
+
+    private static void writeRepeatedValue(RunLengthBitPackingHybridEncoder encoder, int value, int repetitions, boolean useWriteRepeated)
+            throws Exception
+    {
+        if (useWriteRepeated) {
+            encoder.writeRepeatedInteger(value, repetitions);
+        }
+        else {
+            for (int i = 0; i < repetitions; i++) {
+                encoder.writeInt(value);
+            }
+        }
     }
 }

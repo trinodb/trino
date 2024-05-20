@@ -80,9 +80,7 @@ public class RepLevelWriterProviders
                 public void writeRepetitionLevels(int parentLevel, int positionsCount)
                 {
                     checkValidPosition(offset, positionsCount, block.getPositionCount());
-                    for (int i = 0; i < positionsCount; i++) {
-                        encoder.writeInteger(parentLevel);
-                    }
+                    encoder.writeRepeatInteger(parentLevel, positionsCount);
                     offset += positionsCount;
                 }
             };
