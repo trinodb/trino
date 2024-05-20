@@ -84,6 +84,7 @@ import static java.util.stream.Collectors.joining;
 public class BigQueryClient
 {
     private static final Logger log = Logger.get(BigQueryClient.class);
+    private static final int PAGE_SIZE = 100;
 
     static final Set<TableDefinition.Type> TABLE_TYPES = ImmutableSet.of(TABLE, VIEW, MATERIALIZED_VIEW, EXTERNAL, SNAPSHOT);
 
@@ -253,7 +254,7 @@ public class BigQueryClient
     private List<DatasetId> listDatasetIdsFromBigQuery(String projectId)
     {
         // BigQuery.listDatasets returns partial information on each dataset. See javadoc for more details.
-        return stream(bigQuery.listDatasets(projectId).iterateAll())
+        return stream(bigQuery.listDatasets(projectId, BigQuery.DatasetListOption.pageSize(PAGE_SIZE)).iterateAll())
                 .map(Dataset::getDatasetId)
                 .collect(toImmutableList());
     }
@@ -263,7 +264,7 @@ public class BigQueryClient
         // BigQuery.listTables returns partial information on each table. See javadoc for more details.
         Iterable<Table> allTables;
         try {
-            allTables = bigQuery.listTables(remoteDatasetId).iterateAll();
+            allTables = bigQuery.listTables(remoteDatasetId, BigQuery.TableListOption.pageSize(PAGE_SIZE)).iterateAll();
         }
         catch (BigQueryException e) {
             throw new TrinoException(BIGQUERY_LISTING_TABLE_ERROR, "Failed to retrieve tables from BigQuery", e);
