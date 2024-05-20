@@ -17,7 +17,6 @@ import io.trino.parquet.writer.valuewriter.BloomFilterValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryFallbackValuesWriter;
 import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
 import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter;
@@ -35,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
-import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.schema.Types.required;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -128,9 +126,7 @@ public class TestTrinoValuesWriterFactory
     private void testValueWriter(PrimitiveTypeName typeName, Class<? extends ValuesWriter> expectedValueWriterClass)
     {
         ColumnDescriptor mockPath = createColumnDescriptor(typeName);
-        TrinoValuesWriterFactory factory = new TrinoValuesWriterFactory(ParquetProperties.builder()
-                .withWriterVersion(PARQUET_1_0)
-                .build());
+        TrinoValuesWriterFactory factory = new TrinoValuesWriterFactory(1024, 1024);
         ValuesWriter writer = factory.newValuesWriter(mockPath, Optional.empty());
 
         validateWriterType(writer, expectedValueWriterClass);
@@ -139,9 +135,7 @@ public class TestTrinoValuesWriterFactory
     private void testValueWriter(PrimitiveTypeName typeName, Class<? extends ValuesWriter> initialValueWriterClass, Class<? extends ValuesWriter> fallbackValueWriterClass)
     {
         ColumnDescriptor mockPath = createColumnDescriptor(typeName);
-        TrinoValuesWriterFactory factory = new TrinoValuesWriterFactory(ParquetProperties.builder()
-                .withWriterVersion(PARQUET_1_0)
-                .build());
+        TrinoValuesWriterFactory factory = new TrinoValuesWriterFactory(1024, 1024);
         ValuesWriter writer = factory.newValuesWriter(mockPath, Optional.empty());
 
         validateFallbackWriter(writer, initialValueWriterClass, fallbackValueWriterClass);
@@ -150,9 +144,7 @@ public class TestTrinoValuesWriterFactory
     private void testValueWriterBloomFilter(PrimitiveTypeName typeName, Class<? extends ValuesWriter> initialValueWriterClass, Class<? extends ValuesWriter> fallbackValueWriterClass)
     {
         ColumnDescriptor mockPath = createColumnDescriptor(typeName);
-        TrinoValuesWriterFactory factory = new TrinoValuesWriterFactory(ParquetProperties.builder()
-                .withWriterVersion(PARQUET_1_0)
-                .build());
+        TrinoValuesWriterFactory factory = new TrinoValuesWriterFactory(1024, 1024);
         ValuesWriter writer = factory.newValuesWriter(mockPath, Optional.of(new BlockSplitBloomFilter(1024, 1024)));
 
         validateFallbackWriterBloomFilter(writer, initialValueWriterClass, fallbackValueWriterClass);
