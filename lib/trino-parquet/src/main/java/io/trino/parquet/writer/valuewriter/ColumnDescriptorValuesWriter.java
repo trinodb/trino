@@ -30,6 +30,12 @@ public interface ColumnDescriptorValuesWriter
     void writeInteger(int value);
 
     /**
+     * @param value the value to encode
+     * @param valueRepetitions number of times the input value is repeated in the input stream
+     */
+    void writeRepeatInteger(int value, int valueRepetitions);
+
+    /**
      * used to decide if we want to work to the next page
      *
      * @return the size of the currently buffered data (in bytes)
