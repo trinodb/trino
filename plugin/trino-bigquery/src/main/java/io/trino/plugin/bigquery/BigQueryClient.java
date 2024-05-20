@@ -123,6 +123,11 @@ public class BigQueryClient
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
     {
+        return toRemoteDataset(projectId, datasetName, listDatasetIds(projectId));
+    }
+
+    public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName, List<DatasetId> datasetIds)
+    {
         requireNonNull(projectId, "projectId is null");
         requireNonNull(datasetName, "datasetName is null");
         verify(datasetName.codePoints().noneMatch(Character::isUpperCase), "Expected schema name from internal metadata to be lowercase: %s", datasetName);
@@ -131,7 +136,7 @@ public class BigQueryClient
         }
 
         Map<String, Optional<RemoteDatabaseObject>> mapping = new HashMap<>();
-        for (DatasetId datasetId : listDatasetIds(projectId)) {
+        for (DatasetId datasetId : datasetIds) {
             mapping.merge(
                     datasetId.getDataset().toLowerCase(ENGLISH),
                     Optional.of(RemoteDatabaseObject.of(datasetId.getDataset())),
@@ -240,7 +245,7 @@ public class BigQueryClient
         return datasetId.getDataset();
     }
 
-    public Iterable<DatasetId> listDatasetIds(String projectId)
+    public List<DatasetId> listDatasetIds(String projectId)
     {
         try {
             return remoteDatasetIdCache.get(projectId);
