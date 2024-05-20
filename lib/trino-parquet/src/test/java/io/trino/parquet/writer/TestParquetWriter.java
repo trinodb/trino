@@ -43,6 +43,7 @@ import io.trino.spi.type.Type;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.Util;
@@ -313,7 +314,8 @@ public class TestParquetWriter
                         .setMaxPageSize(DataSize.ofBytes(1024))
                         .build(),
                 types,
-                columnNames);
+                columnNames,
+                CompressionCodec.SNAPPY);
         List<io.trino.spi.Page> inputPages = generateInputPages(types, 1000, 100);
 
         long previousRetainedBytes = 0;
