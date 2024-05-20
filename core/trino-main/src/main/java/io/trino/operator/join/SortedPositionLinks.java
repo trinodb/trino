@@ -331,11 +331,5 @@ public final class SortedPositionLinks
 
             return pagesHashStrategy.compareSortChannelPositions(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
         }
-
-        @Override
-        public int compare(Integer leftPosition, Integer rightPosition)
-        {
-            return compare(leftPosition.intValue(), rightPosition.intValue());
-        }
     }
 }
