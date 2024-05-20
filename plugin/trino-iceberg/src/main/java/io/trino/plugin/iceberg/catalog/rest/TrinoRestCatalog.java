@@ -129,6 +129,9 @@ public class TrinoRestCatalog
         catch (NoSuchNamespaceException e) {
             throw new SchemaNotFoundException(namespace);
         }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to drop namespace: %s", namespace), e);
+        }
     }
 
     @Override
