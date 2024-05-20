@@ -23,9 +23,10 @@ import io.trino.server.ui.OAuthIdTokenCookie;
 import io.trino.server.ui.OAuthWebUiCookie;
 import jakarta.ws.rs.core.Response;
 
+import javax.crypto.SecretKey;
+
 import java.io.IOException;
 import java.net.URI;
-import java.security.Key;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -69,7 +70,7 @@ public class OAuth2Service
     private final String failureHtml;
 
     private final TemporalAmount challengeTimeout;
-    private final Key stateHmac;
+    private final SecretKey stateHmac;
     private final JwtParser jwtParser;
 
     private final OAuth2TokenHandler tokenHandler;
@@ -96,7 +97,7 @@ public class OAuth2Service
                 .map(key -> sha256().hashString(key, UTF_8).asBytes())
                 .orElseGet(() -> secureRandomBytes(32)));
         this.jwtParser = newJwtParserBuilder()
-                .setSigningKey(stateHmac)
+                .verifyWith(stateHmac)
                 .requireAudience(STATE_AUDIENCE_UI)
                 .build();
 

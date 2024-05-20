@@ -26,7 +26,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.server.security.jwt.JwkService;
-import io.trino.server.security.jwt.JwkSigningKeyResolver;
+import io.trino.server.security.jwt.JwkSigningKeyLocator;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiModule;
@@ -374,7 +374,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                 .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath());
         try (JettyHttpClient httpClient = new JettyHttpClient(httpClientConfig)) {
             return newJwtParserBuilder()
-                    .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
+                    .keyLocator(new JwkSigningKeyLocator(new JwkService(
                             URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
                             httpClient)))
                     .build()

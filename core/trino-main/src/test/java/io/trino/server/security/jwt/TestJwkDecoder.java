@@ -18,7 +18,7 @@ import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwsHeader;
-import io.jsonwebtoken.SigningKeyResolver;
+import io.jsonwebtoken.LocatorAdapter;
 import io.trino.server.security.jwt.JwkDecoder.JwkEcPublicKey;
 import io.trino.server.security.jwt.JwkDecoder.JwkRsaPublicKey;
 import org.junit.jupiter.api.Test;
@@ -196,21 +196,10 @@ public class TestJwkDecoder
                 .compact();
 
         Jws<Claims> claimsJws = newJwtParserBuilder()
-                .setSigningKeyResolver(new SigningKeyResolver()
+                .keyLocator(new LocatorAdapter<>()
                 {
                     @Override
-                    public Key resolveSigningKey(JwsHeader header, Claims claims)
-                    {
-                        return getKey(header);
-                    }
-
-                    @Override
-                    public Key resolveSigningKey(JwsHeader header, byte[] plaintext)
-                    {
-                        return getKey(header);
-                    }
-
-                    private Key getKey(JwsHeader header)
+                    protected Key locate(JwsHeader header)
                     {
                         String keyId = header.getKeyId();
                         assertThat(keyId).isEqualTo("test-rsa");
@@ -332,21 +321,10 @@ public class TestJwkDecoder
                 .compact();
 
         Jws<Claims> claimsJws = newJwtParserBuilder()
-                .setSigningKeyResolver(new SigningKeyResolver()
+                .keyLocator(new LocatorAdapter<>()
                 {
                     @Override
-                    public Key resolveSigningKey(JwsHeader header, Claims claims)
-                    {
-                        return getKey(header);
-                    }
-
-                    @Override
-                    public Key resolveSigningKey(JwsHeader header, byte[] plaintext)
-                    {
-                        return getKey(header);
-                    }
-
-                    private Key getKey(JwsHeader header)
+                    protected Key locate(JwsHeader header)
                     {
                         String keyId = header.getKeyId();
                         assertThat(keyId).isEqualTo(keyName);

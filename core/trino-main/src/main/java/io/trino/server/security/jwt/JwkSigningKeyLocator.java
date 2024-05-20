@@ -13,40 +13,39 @@
  */
 package io.trino.server.security.jwt;
 
-import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Header;
+import io.jsonwebtoken.JweHeader;
 import io.jsonwebtoken.JwsHeader;
-import io.jsonwebtoken.SigningKeyResolver;
+import io.jsonwebtoken.Locator;
+import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.SecurityException;
 
 import java.security.Key;
 
 import static java.util.Objects.requireNonNull;
 
-public class JwkSigningKeyResolver
-        implements SigningKeyResolver
+public class JwkSigningKeyLocator
+        implements Locator<Key>
 {
     private final JwkService keys;
 
-    public JwkSigningKeyResolver(JwkService keys)
+    public JwkSigningKeyLocator(JwkService keys)
     {
         this.keys = requireNonNull(keys, "keys is null");
     }
 
     @Override
-    public Key resolveSigningKey(JwsHeader header, Claims claims)
+    public Key locate(Header header)
     {
-        return getKey(header);
+        return switch (header) {
+            case JwsHeader jwsHeader -> getKey(jwsHeader.getKeyId());
+            case JweHeader jweHeader -> getKey(jweHeader.getKeyId());
+            default -> throw new UnsupportedJwtException("Cannot locate key for header: %s".formatted(header.getType()));
+        };
     }
 
-    @Override
-    public Key resolveSigningKey(JwsHeader header, byte[] plaintext)
+    private Key getKey(String keyId)
     {
-        return getKey(header);
-    }
-
-    private Key getKey(JwsHeader header)
-    {
-        String keyId = header.getKeyId();
         if (keyId == null) {
             throw new SecurityException("Key ID is required");
         }
