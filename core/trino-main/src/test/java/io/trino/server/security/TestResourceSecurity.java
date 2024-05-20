@@ -1040,7 +1040,7 @@ public class TestResourceSecurity
         private final String issuer = "http://example.com/";
         private final String clientId = "clientID";
         private final Date tokenExpiration = Date.from(ZonedDateTime.now().plusMinutes(5).toInstant());
-        private final JwtParser jwtParser = newJwtParserBuilder().setSigningKey(JWK_PUBLIC_KEY).build();
+        private final JwtParser jwtParser = newJwtParserBuilder().verifyWith(JWK_PUBLIC_KEY).build();
         private final Optional<String> principalField;
         private final TestingHttpServer jwkServer;
         private final String accessToken;

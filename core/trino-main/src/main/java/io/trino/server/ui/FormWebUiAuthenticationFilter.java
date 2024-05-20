@@ -29,6 +29,8 @@ import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriInfo;
 
+import javax.crypto.SecretKey;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.Key;
@@ -87,10 +89,10 @@ public class FormWebUiAuthenticationFilter
             hmacBytes = new byte[32];
             new SecureRandom().nextBytes(hmacBytes);
         }
-        Key hmac = hmacShaKeyFor(hmacBytes);
+        SecretKey hmac = hmacShaKeyFor(hmacBytes);
 
         this.jwtParser = newJwtParserBuilder()
-                .setSigningKey(hmac)
+                .verifyWith(hmac)
                 .requireAudience(TRINO_UI_AUDIENCE)
                 .build();
 
