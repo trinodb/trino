@@ -27,8 +27,12 @@ import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+
+import static java.util.Objects.requireNonNull;
 
 public class PrometheusConnectorConfig
 {
@@ -41,7 +45,11 @@ public class PrometheusConnectorConfig
     private File bearerTokenFile;
     private String user;
     private String password;
+    private final Map<String, String> additionalHeaders = new HashMap<>();
     private boolean caseInsensitiveNameMatching;
+
+    public PrometheusConnectorConfig() {
+    }
 
     @NotNull
     public URI getPrometheusURI()
@@ -149,6 +157,27 @@ public class PrometheusConnectorConfig
     public PrometheusConnectorConfig setPassword(String password)
     {
         this.password = password;
+        return this;
+    }
+
+    public Optional<Map<String, String>> getAdditionalHeaders()
+    {
+        return Optional.of(additionalHeaders);
+    }
+
+    @Config("prometheus.http.additional.headers")
+    @ConfigDescription("Additional headers to be sent with the HTTP request to Prometheus")
+    public PrometheusConnectorConfig setAdditionalHeaders(String additionalHeaders)
+    {
+        requireNonNull(additionalHeaders, "additionalHeaders is null");
+        String[] headerPairs = additionalHeaders.split(",");
+        for (String headerPair : headerPairs){
+                String[] headerParts = headerPair.split("=");
+                if (headerParts.length != 2) {
+                    throw new IllegalArgumentException("Invalid header format: " + headerPair);
+                }
+                this.additionalHeaders.putIfAbsent(headerParts[0], headerParts[1]);
+        }
         return this;
     }
 

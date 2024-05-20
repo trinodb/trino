@@ -41,18 +41,19 @@ prometheus.read-timeout=10s
 
 The following configuration properties are available:
 
-| Property name                               | Description                                                                                  |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `prometheus.uri`                            | Where to find Prometheus coordinator host                                                    |
-| `prometheus.query.chunk.size.duration`      | The duration of each query to Prometheus                                                     |
-| `prometheus.max.query.range.duration`       | Width of overall query to Prometheus, will be divided into query-chunk-size-duration queries |
-| `prometheus.cache.ttl`                      | How long values from this config file are cached                                             |
-| `prometheus.auth.user`                      | Username for basic authentication                                                            |
-| `prometheus.auth.password`                  | Password for basic authentication                                                            |
-| `prometheus.auth.http.header.name`          | Name of the header to use for authorization                                                  |
-| `prometheus.bearer.token.file`              | File holding bearer token if needed for access to Prometheus                                 |
-| `prometheus.read-timeout`                   | How much time a query to Prometheus has before timing out                                    |
-| `prometheus.case-insensitive-name-matching` | Match Prometheus metric names case insensitively. Defaults to `false`                        |
+| Property name                               | Description                                                                                   |
+| ------------------------------------------- |-----------------------------------------------------------------------------------------------|
+| `prometheus.uri`                            | Where to find Prometheus coordinator host                                                     |
+| `prometheus.query.chunk.size.duration`      | The duration of each query to Prometheus                                                      |
+| `prometheus.max.query.range.duration`       | Width of overall query to Prometheus, will be divided into query-chunk-size-duration queries  |
+| `prometheus.cache.ttl`                      | How long values from this config file are cached                                              |
+| `prometheus.auth.user`                      | Username for basic authentication                                                             |
+| `prometheus.auth.password`                  | Password for basic authentication                                                             |
+| `prometheus.auth.http.header.name`          | Name of the header to use for authorization                                                   |
+| `prometheus.bearer.token.file`              | File holding bearer token if needed for access to Prometheus                                  |
+| `prometheus.read-timeout`                   | How much time a query to Prometheus has before timing out                                     |
+| `prometheus.case-insensitive-name-matching` | Match Prometheus metric names case insensitively. Defaults to `false`                         |
+| `prometheus.http.additional.headers`        | Additional headers to include in HTTP requests to Prometheus                                  |
 
 ## Not exhausting your Trino available heap
 

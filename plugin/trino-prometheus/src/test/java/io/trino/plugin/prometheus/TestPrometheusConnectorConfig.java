@@ -42,6 +42,7 @@ public class TestPrometheusConnectorConfig
                 .setCacheDuration(new Duration(30, SECONDS))
                 .setBearerTokenFile(null)
                 .setHttpAuthHeaderName(HttpHeaders.AUTHORIZATION)
+                .setAdditionalHeaders("X-Origin=default,X-Scope=internal")
                 .setUser(null)
                 .setPassword(null)
                 .setReadTimeout(new Duration(10, SECONDS))
@@ -62,6 +63,7 @@ public class TestPrometheusConnectorConfig
                 .put("prometheus.auth.password", "password")
                 .put("prometheus.read-timeout", "30s")
                 .put("prometheus.case-insensitive-name-matching", "true")
+                .put("prometheus.http.additional.headers", "X-Origin=default,X-Scope=internal")
                 .buildOrThrow();
 
         URI uri = URI.create("file://test.json");
@@ -76,7 +78,7 @@ public class TestPrometheusConnectorConfig
         expected.setPassword("password");
         expected.setReadTimeout(new Duration(30, SECONDS));
         expected.setCaseInsensitiveNameMatching(true);
-
+        expected.setAdditionalHeaders("X-Origin=default,X-Scope=internal");
         assertFullMapping(properties, expected);
     }
 
