@@ -37,6 +37,9 @@ public class DevNullValuesWriter
     public void writeInteger(int v) {}
 
     @Override
+    public void writeRepeatInteger(int value, int valueRepetitions) {}
+
+    @Override
     public BytesInput getBytes()
     {
         return BytesInput.empty();

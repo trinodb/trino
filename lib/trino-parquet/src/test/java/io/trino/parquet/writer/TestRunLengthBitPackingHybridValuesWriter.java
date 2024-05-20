@@ -21,6 +21,7 @@ import io.trino.parquet.writer.valuewriter.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.bytes.BytesInput;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,18 +33,17 @@ public class TestRunLengthBitPackingHybridValuesWriter
             throws Exception
     {
         for (int i = 0; i <= 32; i++) {
-            verifyRoundTrip(i);
+            verifyRoundTrip(i, false);
+            verifyRoundTrip(i, true);
         }
     }
 
-    private static void verifyRoundTrip(int bitWidth)
+    private static void verifyRoundTrip(int bitWidth, boolean useWriteRepeated)
             throws Exception
     {
         RunLengthBitPackingHybridEncoder encoder = new RunLengthBitPackingHybridEncoder(bitWidth, 64000);
         List<Integer> expected = generateInputValues(bitWidth);
-        for (int value : expected) {
-            encoder.writeInt(value);
-        }
+        writeInput(expected, encoder, useWriteRepeated);
         BytesInput encodedBytes = encoder.toBytes();
         SimpleSliceInputStream input = new SimpleSliceInputStream(Slices.wrappedBuffer(encodedBytes.toByteArray()));
 
@@ -76,5 +76,31 @@ public class TestRunLengthBitPackingHybridValuesWriter
             builder.add((int) (17 % modValue));
         }
         return builder.build();
+    }
+
+    private static void writeInput(List<Integer> input, RunLengthBitPackingHybridEncoder encoder, boolean useWriteRepeated)
+            throws IOException
+    {
+        if (useWriteRepeated) {
+            int previous = input.getFirst();
+            int runLength = 1;
+            for (int i = 1; i < input.size(); i++) {
+                int current = input.get(i);
+                if (previous != current) {
+                    encoder.writeRepeatedInteger(previous, runLength);
+                    previous = current;
+                    runLength = 1;
+                }
+                else {
+                    runLength++;
+                }
+            }
+            encoder.writeRepeatedInteger(previous, runLength);
+        }
+        else {
+            for (int value : input) {
+                encoder.writeInt(value);
+            }
+        }
     }
 }

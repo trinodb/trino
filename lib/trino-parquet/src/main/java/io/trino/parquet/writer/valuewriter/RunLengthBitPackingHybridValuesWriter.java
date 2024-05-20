@@ -44,6 +44,17 @@ public class RunLengthBitPackingHybridValuesWriter
     }
 
     @Override
+    public void writeRepeatInteger(int value, int valueRepetitions)
+    {
+        try {
+            encoder.writeRepeatedInteger(value, valueRepetitions);
+        }
+        catch (IOException e) {
+            throw new ParquetEncodingException(e);
+        }
+    }
+
+    @Override
     public long getBufferedSize()
     {
         return encoder.getBufferedSize();

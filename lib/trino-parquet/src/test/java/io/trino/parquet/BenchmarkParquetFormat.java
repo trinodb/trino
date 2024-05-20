@@ -100,8 +100,6 @@ public class BenchmarkParquetFormat
             throws IOException
     {
         data = dataSet.createTestData();
-        targetDir.mkdirs();
-        writeData(new File(targetDir, UUID.randomUUID().toString()));
     }
 
     @TearDown

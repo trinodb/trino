@@ -133,42 +133,62 @@ public class RunLengthBitPackingHybridEncoder
     public void writeInt(int value)
             throws IOException
     {
-        if (value == previousValue) {
-            // keep track of how many times we've seen this value
-            // consecutively
-            ++repeatCount;
+        writeRepeatedInteger(value, 1);
+    }
 
+    public void writeRepeatedInteger(int value, int valueRepetitions)
+            throws IOException
+    {
+        if (value == previousValue) {
+            // keep track of how many times we've seen this value consecutively
+            repeatCount += valueRepetitions;
             if (repeatCount >= 8) {
                 // we've seen this at least 8 times, we're
                 // certainly going to write an rle-run,
                 // so just keep on counting repeats for now
                 return;
             }
+            // We have not seen enough repeats to justify an rle-run yet,
+            // so buffer this value in case we decide to write a bit-packed-run
+            addToBuffer(value, valueRepetitions);
+            return;
         }
-        else {
-            // This is a new value, check if it signals the end of
-            // an rle-run
-            if (repeatCount >= 8) {
-                // it does! write an rle-run
-                writeRleRun();
+
+        // This is a new value, check if it signals the end of an rle-run
+        if (repeatCount >= 8) {
+            // it does! write an rle-run
+            writeRleRun();
+        }
+
+        // start tracking this value for repeats
+        previousValue = value;
+
+        // Check if we have sufficient repetitions to start an RLE run after filling non-empty buffer
+        int minBitPackedCount = (8 - numBufferedValues) % 8;
+        if (valueRepetitions - minBitPackedCount >= 8) {
+            addToBuffer(value, minBitPackedCount);
+            // record repetitions count for new value
+            repeatCount = valueRepetitions - minBitPackedCount;
+            return;
+        }
+        // We have not seen enough repeats to justify an rle-run yet
+        // Values which go towards filling existing buffer
+        addToBuffer(value, valueRepetitions);
+        // record repetitions count for new value
+        repeatCount = Math.min(valueRepetitions, numBufferedValues);
+    }
+
+    private void addToBuffer(int value, int repetitions)
+            throws IOException
+    {
+        for (int i = 0; i < repetitions; i++) {
+            bufferedValues[numBufferedValues++] = value;
+            if (numBufferedValues == 8) {
+                // we've encountered less than 8 repeated values, so
+                // either start a new bit-packed-run or append to the
+                // current bit-packed-run
+                writeOrAppendBitPackedRun();
             }
-
-            // this is a new value so we've only seen it once
-            repeatCount = 1;
-            // start tracking this value for repeats
-            previousValue = value;
-        }
-
-        // We have not seen enough repeats to justify an rle-run yet,
-        // so buffer this value in case we decide to write a bit-packed-run
-        bufferedValues[numBufferedValues] = value;
-        ++numBufferedValues;
-
-        if (numBufferedValues == 8) {
-            // we've encountered less than 8 repeated values, so
-            // either start a new bit-packed-run or append to the
-            // current bit-packed-run
-            writeOrAppendBitPackedRun();
         }
     }
 
