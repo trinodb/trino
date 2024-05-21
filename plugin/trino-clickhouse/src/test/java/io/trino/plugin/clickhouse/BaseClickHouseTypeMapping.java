@@ -442,7 +442,7 @@ public abstract class BaseClickHouseTypeMapping
     @Test
     public void testClickHouseChar()
     {
-        // ClickHouse char is FixedString, which is arbitrary bytes
+        // ClickHouse char is String, which is arbitrary bytes
         textAsBinaryRoundTripTest("char(255)")
                 // plain
                 .addRoundTrip("char(10)", "'text_a'", VARBINARY, "to_utf8('text_a')")
