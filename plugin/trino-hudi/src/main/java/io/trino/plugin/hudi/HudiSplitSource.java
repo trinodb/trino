@@ -23,15 +23,16 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hive.util.ThrottledAsyncQueue;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
-import io.trino.plugin.hudi.query.HudiReadOptimizedDirectoryLister;
+import io.trino.plugin.hudi.query.HudiSnapshotDirectoryLister;
 import io.trino.plugin.hudi.split.HudiBackgroundSplitLoader;
 import io.trino.plugin.hudi.split.HudiSplitWeightProvider;
 import io.trino.plugin.hudi.split.SizeBasedSplitWeightProvider;
-import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.timeline.HoodieInstant;
 
 import java.util.List;
 import java.util.Map;
@@ -49,6 +50,7 @@ import static io.trino.plugin.hudi.HudiSessionProperties.getMinimumAssignedSplit
 import static io.trino.plugin.hudi.HudiSessionProperties.getSplitGeneratorParallelism;
 import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.isIgnoreAbsentPartitions;
+import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataTableEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
 import static java.util.stream.Collectors.toList;
@@ -73,17 +75,26 @@ public class HudiSplitSource
             int maxOutstandingSplits,
             List<String> partitions)
     {
-        HudiTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
+        boolean enableMetadataTable = isHudiMetadataTableEnabled(session);
+        HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
+        String latestCommitTime = metaClient.getActiveTimeline()
+                .getCommitsTimeline()
+                .filterCompletedInstants()
+                .lastInstant()
+                .map(HoodieInstant::getTimestamp)
+                .orElseThrow(() -> new TrinoException(HudiErrorCode.HUDI_NO_VALID_COMMIT, "Table has no valid commits"));
         List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
                 .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
 
-        HudiDirectoryLister hudiDirectoryLister = new HudiReadOptimizedDirectoryLister(
+        HudiDirectoryLister hudiDirectoryLister = new HudiSnapshotDirectoryLister(
                 tableHandle,
                 metaClient,
+                enableMetadataTable,
                 metastore,
                 table,
                 partitionColumnHandles,
                 partitions,
+                latestCommitTime,
                 !tableHandle.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session));
 
         this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
@@ -95,6 +106,7 @@ public class HudiSplitSource
                 new BoundedExecutor(executor, getSplitGeneratorParallelism(session)),
                 createSplitWeightProvider(session),
                 partitions,
+                latestCommitTime,
                 throwable -> {
                     trinoException.compareAndSet(null, new TrinoException(HUDI_CANNOT_OPEN_SPLIT,
                             "Failed to generate splits for " + table.getSchemaTableName(), throwable));

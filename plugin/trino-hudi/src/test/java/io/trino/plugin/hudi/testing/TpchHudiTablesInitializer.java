@@ -53,12 +53,12 @@ import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecord;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.marker.MarkerType;
+import org.apache.hudi.common.table.timeline.HoodieActiveTimeline;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.config.HoodieArchivalConfig;
 import org.apache.hudi.config.HoodieIndexConfig;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.index.HoodieIndex;
-import org.apache.hudi.storage.StorageConfiguration;
 import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 import org.intellij.lang.annotations.Language;
 
@@ -165,7 +165,7 @@ public class TpchHudiTablesInitializer
                     .map(MaterializedRow::getFields)
                     .map(recordConverter::toRecord)
                     .collect(Collectors.toList());
-            String timestamp = "0";
+            String timestamp = HoodieActiveTimeline.createNewInstantTime();
             writeClient.startCommitWithTime(timestamp);
             writeClient.insert(records, timestamp);
         }
@@ -211,7 +211,7 @@ public class TpchHudiTablesInitializer
     private static HoodieJavaWriteClient<HoodieAvroPayload> createWriteClient(TpchTable<?> table, HdfsEnvironment hdfsEnvironment, Path tablePath)
     {
         Schema schema = createAvroSchema(table);
-        StorageConfiguration<?> conf = new HadoopStorageConfiguration(hdfsEnvironment.getConfiguration(CONTEXT, tablePath));
+        Configuration conf = hdfsEnvironment.getConfiguration(CONTEXT, tablePath);
 
         try {
             HoodieTableMetaClient.newTableBuilder()
@@ -221,7 +221,7 @@ public class TpchHudiTablesInitializer
                     .setBootstrapIndexClass(NoOpBootstrapIndex.class.getName())
                     .setPayloadClassName(HoodieAvroPayload.class.getName())
                     .setRecordKeyFields(FIELD_UUID)
-                    .initTable(conf, tablePath.toString());
+                    .initTable(new HadoopStorageConfiguration(conf), tablePath.toString());
         }
         catch (IOException e) {
             throw new RuntimeException("Could not init table " + table.getTableName(), e);
@@ -241,9 +241,9 @@ public class TpchHudiTablesInitializer
                 .withMarkersType(MarkerType.DIRECT.name())
                 // Disabling Hudi metadata table (MDT) in tests as the support of
                 // reading MDT is broken after removal of Hudi dependencies from compile time
-                .withMetadataConfig(HoodieMetadataConfig.newBuilder().enable(false).build())
+                .withMetadataConfig(HoodieMetadataConfig.newBuilder().enable(true).build())
                 .build();
-        return new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(conf), cfg);
+        return new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(new HadoopStorageConfiguration(conf)), cfg);
     }
 
     private static RecordConverter createRecordConverter(TpchTable<?> table)
