@@ -50,6 +50,7 @@ public record DistributionSnapshot(long total, double min, double max, double p0
         return new OperatorStats(
                 operatorStats.getStageId(),
                 operatorStats.getPipelineId(),
+                operatorStats.getAlternativeId(),
                 operatorStats.getOperatorId(),
                 operatorStats.getPlanNodeId(),
                 operatorStats.getOperatorType(),

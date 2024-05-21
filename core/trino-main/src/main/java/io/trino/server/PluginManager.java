@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogStoreManager;
 import io.trino.eventlistener.EventListenerManager;
@@ -36,6 +37,7 @@ import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.spi.Plugin;
 import io.trino.spi.block.BlockEncoding;
+import io.trino.spi.cache.CacheManagerFactory;
 import io.trino.spi.catalog.CatalogStoreFactory;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorFactory;
@@ -92,6 +94,7 @@ public class PluginManager
     private final GroupProviderManager groupProviderManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final SpoolingManagerRegistry spoolingManagerRegistry;
+    private final CacheManagerRegistry cacheManagerRegistry;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
@@ -116,7 +119,8 @@ public class PluginManager
             BlockEncodingManager blockEncodingManager,
             HandleResolver handleResolver,
             ExchangeManagerRegistry exchangeManagerRegistry,
-            SpoolingManagerRegistry spoolingManagerRegistry)
+            SpoolingManagerRegistry spoolingManagerRegistry,
+            CacheManagerRegistry cacheManagerRegistry)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.catalogStoreManager = requireNonNull(catalogStoreManager, "catalogStoreManager is null");
@@ -135,6 +139,7 @@ public class PluginManager
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.spoolingManagerRegistry = requireNonNull(spoolingManagerRegistry, "spoolingManagerRegistry is null");
+        this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
     }
 
     @Override
@@ -276,6 +281,10 @@ public class PluginManager
         for (SpoolingManagerFactory spoolingManagerFactory : plugin.getSpoolingManagerFactories()) {
             log.info("Registering spooling manager %s", spoolingManagerFactory.getName());
             spoolingManagerRegistry.addSpoolingManagerFactory(spoolingManagerFactory);
+        }
+        for (CacheManagerFactory cacheManagerFactory : plugin.getCacheManagerFactories()) {
+            log.info("Registering cache manager %s", cacheManagerFactory.getName());
+            cacheManagerRegistry.addCacheManagerFactory(cacheManagerFactory);
         }
     }
 

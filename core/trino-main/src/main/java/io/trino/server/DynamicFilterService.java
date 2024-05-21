@@ -52,6 +52,7 @@ import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import org.roaringbitmap.RoaringBitmap;
@@ -95,6 +96,7 @@ import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.predicate.Domain.union;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.DynamicFilters.extractSourceSymbols;
+import static io.trino.sql.ir.IrUtils.extractDisjuncts;
 import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -418,8 +420,21 @@ public class DynamicFilterService
     {
         // dynamic filters which are consumed by the given stage but produced by a different stage
         return ImmutableSet.copyOf(difference(
-                getConsumedDynamicFilters(plan.getRoot()),
+                union(getConsumedDynamicFilters(plan.getRoot()), getCacheDynamicFilters(plan.getRoot())),
                 getProducedDynamicFilters(plan.getRoot())));
+    }
+
+    @VisibleForTesting
+    static Set<DynamicFilterId> getCacheDynamicFilters(PlanNode planNode)
+    {
+        return PlanNodeSearcher.searchFrom(planNode)
+                .whereIsInstanceOfAny(LoadCachedDataPlanNode.class)
+                .findAll().stream()
+                .map(LoadCachedDataPlanNode.class::cast)
+                .flatMap(node -> extractDisjuncts(node.getDynamicFilterDisjuncts()).stream())
+                .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream())
+                .map(DynamicFilters.Descriptor::getId)
+                .collect(toImmutableSet());
     }
 
     @VisibleForTesting

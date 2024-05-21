@@ -13,6 +13,7 @@
  */
 package io.trino.split;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
@@ -52,10 +53,11 @@ public class PageSourceManager
         return new PageSourceProviderInstance(provider.createPageSourceProvider());
     }
 
-    private record PageSourceProviderInstance(ConnectorPageSourceProvider pageSourceProvider)
+    @VisibleForTesting
+    public record PageSourceProviderInstance(ConnectorPageSourceProvider pageSourceProvider)
             implements PageSourceProvider
     {
-        private PageSourceProviderInstance
+        public PageSourceProviderInstance
         {
             requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         }

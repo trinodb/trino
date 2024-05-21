@@ -29,6 +29,9 @@ import io.trino.connector.MockConnectorFactory.ListRoleGrants;
 import io.trino.spi.Page;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
+import io.trino.spi.cache.CacheColumnId;
+import io.trino.spi.cache.CacheTableId;
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -193,6 +196,9 @@ public class MockConnector
     private final List<PropertyMetadata<?>> sessionProperties;
     private final Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources;
     private final OptionalInt maxWriterTasks;
+    private final Function<ConnectorTableHandle, Optional<CacheTableId>> getCacheTableId;
+    private final Function<ColumnHandle, Optional<CacheColumnId>> getCacheColumnId;
+    private final Function<ConnectorTableHandle, ConnectorTableHandle> getCanonicalTableHandle;
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
     private final WriterScalingOptions writerScalingOptions;
     private final Supplier<Set<ConnectorCapabilities>> capabilities;
@@ -247,6 +253,9 @@ public class MockConnector
             Supplier<List<PropertyMetadata<?>>> columnProperties,
             Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources,
             OptionalInt maxWriterTasks,
+            Function<ConnectorTableHandle, Optional<CacheTableId>> getCacheTableId,
+            Function<ColumnHandle, Optional<CacheColumnId>> getCacheColumnId,
+            Function<ConnectorTableHandle, ConnectorTableHandle> getCanonicalTableHandle,
             BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute,
             WriterScalingOptions writerScalingOptions,
             Supplier<Set<ConnectorCapabilities>> capabilities,
@@ -300,6 +309,9 @@ public class MockConnector
         this.columnProperties = requireNonNull(columnProperties, "columnProperties is null");
         this.tableFunctionSplitsSources = requireNonNull(tableFunctionSplitsSources, "tableFunctionSplitsSources is null");
         this.maxWriterTasks = requireNonNull(maxWriterTasks, "maxWriterTasks is null");
+        this.getCacheTableId = requireNonNull(getCacheTableId, "getCacheTableId is null");
+        this.getCacheColumnId = requireNonNull(getCacheColumnId, "getCacheColumnId is null");
+        this.getCanonicalTableHandle = requireNonNull(getCanonicalTableHandle, "getCanonicalTableHandle is null");
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
         this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
         this.capabilities = requireNonNull(capabilities, "capabilities is null");
@@ -359,6 +371,12 @@ public class MockConnector
                 return requireNonNull(splits, "missing ConnectorSplitSource for table function handle " + functionHandle.getClass().getSimpleName());
             }
         };
+    }
+
+    @Override
+    public ConnectorCacheMetadata getCacheMetadata()
+    {
+        return new MockCacheMetadata();
     }
 
     @Override
@@ -715,7 +733,8 @@ public class MockConnector
                 ConnectorMaterializedViewDefinition definition,
                 Map<String, Object> properties,
                 boolean replace,
-                boolean ignoreExisting) {}
+                boolean ignoreExisting)
+        {}
 
         @Override
         public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
@@ -1023,6 +1042,28 @@ public class MockConnector
         private MockConnectorAccessControl getMockAccessControl()
         {
             return (MockConnectorAccessControl) getAccessControl();
+        }
+    }
+
+    private class MockCacheMetadata
+            implements ConnectorCacheMetadata
+    {
+        @Override
+        public Optional<CacheTableId> getCacheTableId(ConnectorTableHandle tableHandle)
+        {
+            return getCacheTableId.apply(tableHandle);
+        }
+
+        @Override
+        public Optional<CacheColumnId> getCacheColumnId(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+        {
+            return getCacheColumnId.apply(columnHandle);
+        }
+
+        @Override
+        public ConnectorTableHandle getCanonicalTableHandle(ConnectorTableHandle tableHandle)
+        {
+            return getCanonicalTableHandle.apply(tableHandle);
         }
     }
 

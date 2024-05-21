@@ -243,7 +243,7 @@ public class OperatorContext
 
     public void setPipelineOperatorMetrics(Metrics metrics)
     {
-        getDriverContext().getPipelineContext().setPipelineOperatorMetrics(operatorId, metrics);
+        getDriverContext().getPipelineContext().setPipelineOperatorMetrics(operatorId, driverContext.getAlternativeId(), metrics);
     }
 
     Optional<ListenableFuture<Void>> getFinishedFuture()
@@ -530,6 +530,7 @@ public class OperatorContext
         return new OperatorStats(
                 driverContext.getTaskId().getStageId().getId(),
                 driverContext.getPipelineContext().getPipelineId(),
+                driverContext.getAlternativeId(),
                 operatorId,
                 planNodeId,
                 operatorType,

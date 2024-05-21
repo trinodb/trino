@@ -18,14 +18,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
+import io.trino.cache.CommonPlanAdaptation;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
@@ -38,6 +41,8 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.CacheDataPlanNode;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -52,6 +57,7 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
@@ -91,7 +97,9 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
+import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
+import static io.trino.sql.ir.IrUtils.extractDisjuncts;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
@@ -136,6 +144,57 @@ public final class PlanMatchPattern
     public static PlanMatchPattern anyNot(Class<? extends PlanNode> excludeNodeClass, PlanMatchPattern... sources)
     {
         return any(sources).with(new NotPlanNodeMatcher(excludeNodeClass));
+    }
+
+    public static PlanMatchPattern chooseAlternativeNode(PlanMatchPattern... sources)
+    {
+        return node(ChooseAlternativeNode.class, sources);
+    }
+
+    public static PlanMatchPattern cacheDataPlanNode(PlanMatchPattern source)
+    {
+        return node(CacheDataPlanNode.class, source);
+    }
+
+    public static PlanMatchPattern loadCachedDataPlanNode(CommonPlanAdaptation.PlanSignatureWithPredicate signature, String... outputSymbolAliases)
+    {
+        return loadCachedDataPlanNode(signature, Optional.empty(), dynamicFilters -> true, outputSymbolAliases);
+    }
+
+    public static PlanMatchPattern loadCachedDataPlanNode(CommonPlanAdaptation.PlanSignatureWithPredicate signature, Map<CacheColumnId, ColumnHandle> commonColumnHandles, String... outputSymbolAliases)
+    {
+        return loadCachedDataPlanNode(signature, Optional.of(commonColumnHandles), dynamicFilters -> true, outputSymbolAliases);
+    }
+
+    public static PlanMatchPattern loadCachedDataPlanNode(CommonPlanAdaptation.PlanSignatureWithPredicate signature, Predicate<List<List<DynamicFilters.Descriptor>>> dynamicFiltersPredicate, String... outputSymbolAliases)
+    {
+        return loadCachedDataPlanNode(signature, Optional.empty(), dynamicFiltersPredicate, outputSymbolAliases);
+    }
+
+    public static PlanMatchPattern loadCachedDataPlanNode(CommonPlanAdaptation.PlanSignatureWithPredicate signature, Map<CacheColumnId, ColumnHandle> commonColumnHandles, Predicate<List<List<DynamicFilters.Descriptor>>> dynamicFiltersPredicate, String... outputSymbolAliases)
+    {
+        return loadCachedDataPlanNode(signature, Optional.of(commonColumnHandles), dynamicFiltersPredicate, outputSymbolAliases);
+    }
+
+    private static PlanMatchPattern loadCachedDataPlanNode(CommonPlanAdaptation.PlanSignatureWithPredicate signature, Optional<Map<CacheColumnId, ColumnHandle>> commonColumnHandles, Predicate<List<List<DynamicFilters.Descriptor>>> dynamicFiltersPredicate, String... outputSymbolAliases)
+    {
+        PlanMatchPattern result = node(LoadCachedDataPlanNode.class);
+        for (int i = 0; i < outputSymbolAliases.length; i++) {
+            String outputSymbol = outputSymbolAliases[i];
+            int index = i;
+            result.withAlias(outputSymbol, (node, session, metadata, symbolAliases) -> {
+                List<Symbol> outputSymbols = node.getOutputSymbols();
+                checkState(index < outputSymbols.size(), "outputSymbolAliases size is more than LoadCachedDataPlanNode output symbols");
+                return Optional.ofNullable(outputSymbols.get(index));
+            });
+        }
+        result.with(LoadCachedDataPlanNode.class, node -> node.getPlanSignature().equals(signature));
+        result.with(LoadCachedDataPlanNode.class, node -> commonColumnHandles.map(handles -> node.getCommonColumnHandles().equals(handles)).orElse(true));
+        result.with(LoadCachedDataPlanNode.class, node -> dynamicFiltersPredicate.test(
+                extractDisjuncts(node.getDynamicFilterDisjuncts()).stream()
+                        .map(expression -> extractDynamicFilters(expression).getDynamicConjuncts())
+                        .collect(toImmutableList())));
+        return result;
     }
 
     public static PlanMatchPattern adaptivePlan(PlanMatchPattern initialPlan, PlanMatchPattern currentPlan)

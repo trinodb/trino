@@ -46,7 +46,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        Path cacheDirectory = Files.createTempDirectory("cache");
+        Path cacheDirectory = Files.createTempDirectory("deltalake-cache");
         closeAfterClass(() -> deleteRecursively(cacheDirectory, ALLOW_INSECURE));
 
         return DeltaLakeQueryRunner.builder()

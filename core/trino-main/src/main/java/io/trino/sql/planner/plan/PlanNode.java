@@ -63,6 +63,8 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = TableExecuteNode.class, name = "tableExecute"),
         @JsonSubTypes.Type(value = TableFinishNode.class, name = "tableCommit"),
         @JsonSubTypes.Type(value = ChooseAlternativeNode.class, name = "chooseAlternative"),
+        @JsonSubTypes.Type(value = CacheDataPlanNode.class, name = "cacheData"),
+        @JsonSubTypes.Type(value = LoadCachedDataPlanNode.class, name = "loadCachedData"),
         @JsonSubTypes.Type(value = TableFunctionNode.class, name = "tableFunction"),
         @JsonSubTypes.Type(value = TableFunctionProcessorNode.class, name = "tableFunctionProcessor"),
         @JsonSubTypes.Type(value = TableScanNode.class, name = "tableScan"),

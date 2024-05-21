@@ -219,7 +219,6 @@ export function getChildren(nodeInfo: any): any {
     switch (nodeInfo['@type']) {
         case 'aggregation':
         case 'assignUniqueId':
-        case 'cacheData':
         case 'delete':
         case 'distinctLimit':
         case 'dynamicFilterSource':
@@ -244,6 +243,7 @@ export function getChildren(nodeInfo: any): any {
         case 'topNRanking':
         case 'unnest':
         case 'window':
+        case 'cacheData':
             return [nodeInfo.source]
         case 'join':
             return [nodeInfo.left, nodeInfo.right]
@@ -256,15 +256,16 @@ export function getChildren(nodeInfo: any): any {
         case 'exchange':
         case 'intersect':
         case 'union':
+        case 'chooseAlternative':
             return nodeInfo.sources
         case 'indexSource':
-        case 'loadCachedData':
         case 'refreshMaterializedView':
         case 'remoteSource':
         case 'tableDelete':
         case 'tableScan':
         case 'tableUpdate':
         case 'values':
+        case 'loadCachedData':
             break
         default:
             console.log('NOTE: Unhandled PlanNode: ' + nodeInfo['@type'])

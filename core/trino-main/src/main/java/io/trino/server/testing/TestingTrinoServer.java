@@ -44,6 +44,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.trino.Session;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.cache.CacheManagerModule;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.cache.CacheMetadata;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
@@ -216,6 +218,7 @@ public class TestingTrinoServer
     private final FailureInjector failureInjector;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final SpoolingManagerRegistry spoolingManagerRegistry;
+    private final CacheManagerRegistry cacheManagerRegistry;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -309,6 +312,7 @@ public class TestingTrinoServer
                 .add(new CatalogManagerModule())
                 .add(new TransactionManagerModule())
                 .add(new ServerMainModule(VERSION))
+                .add(new CacheManagerModule())
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
@@ -431,6 +435,8 @@ public class TestingTrinoServer
         failureInjector = injector.getInstance(FailureInjector.class);
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
         spoolingManagerRegistry = injector.getInstance(SpoolingManagerRegistry.class);
+        cacheManagerRegistry = injector.getInstance(CacheManagerRegistry.class);
+        cacheManagerRegistry.loadCacheManager();
 
         systemAccessControlConfiguration.ifPresentOrElse(
                 configuration -> {
@@ -525,6 +531,11 @@ public class TestingTrinoServer
     public void loadSpoolingManager(String name, Map<String, String> properties)
     {
         spoolingManagerRegistry.loadSpoolingManager(name, properties);
+    }
+
+    public CacheManagerRegistry getCacheManagerRegistry()
+    {
+        return cacheManagerRegistry;
     }
 
     /**
@@ -686,10 +697,19 @@ public class TestingTrinoServer
 
     public Connector getConnector(String catalogName)
     {
+        return getConnector(getCatalogHandle(catalogName));
+    }
+
+    public CatalogHandle getCatalogHandle(String catalogName)
+    {
         checkState(coordinator, "not a coordinator");
-        CatalogHandle catalogHandle = catalogManager.orElseThrow().getCatalog(new CatalogName(catalogName))
+        return catalogManager.orElseThrow().getCatalog(new CatalogName(catalogName))
                 .orElseThrow(() -> new IllegalArgumentException("Catalog '%s' not found".formatted(catalogName)))
                 .getCatalogHandle();
+    }
+
+    public Connector getConnector(CatalogHandle catalogHandle)
+    {
         return injector.getInstance(ConnectorServicesProvider.class)
                 .getConnectorServices(catalogHandle)
                 .getConnector();

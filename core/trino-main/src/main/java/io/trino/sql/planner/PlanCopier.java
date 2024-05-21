@@ -18,6 +18,7 @@ import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.CacheDataPlanNode;
 import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -28,6 +29,7 @@ import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -222,6 +224,18 @@ public final class PlanCopier
         {
             List<PlanNode> alternatives = node.getSources().stream().map(context::rewrite).collect(toImmutableList());
             return new ChooseAlternativeNode(idAllocator.getNextId(), alternatives, node.getOriginalTableScan());
+        }
+
+        @Override
+        public PlanNode visitCacheDataPlanNode(CacheDataPlanNode node, RewriteContext<Void> context)
+        {
+            return new CacheDataPlanNode(idAllocator.getNextId(), context.rewrite(node.getSource()));
+        }
+
+        @Override
+        public PlanNode visitLoadCachedDataPlanNode(LoadCachedDataPlanNode node, RewriteContext<Void> context)
+        {
+            return new LoadCachedDataPlanNode(idAllocator.getNextId(), node.getPlanSignature(), node.getDynamicFilterDisjuncts(), node.getCommonColumnHandles(), node.getOutputSymbols());
         }
 
         @Override

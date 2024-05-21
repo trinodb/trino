@@ -385,18 +385,23 @@ class StageOperatorGraph extends React.Component {
         )
     }
 
+    // returns map from pipelineId to map from alternativeId to the sinkOperator
     computeOperatorGraphs(planNode, operatorMap) {
         const sources = getChildren(planNode)
 
         const sourceResults = new Map()
         sources.forEach((source) => {
             const sourceResult = this.computeOperatorGraphs(source, operatorMap)
-            sourceResult.forEach((operator, pipelineId) => {
-                if (sourceResults.has(pipelineId)) {
-                    console.error('Multiple sources for ', planNode['@type'], ' had the same pipeline ID')
-                    return sourceResults
+            sourceResult.forEach((alternatives, pipelineId) => {
+                if (!sourceResults.has(pipelineId)) {
+                    sourceResults.set(pipelineId, new Map())
                 }
-                sourceResults.set(pipelineId, operator)
+
+                const mergedAlternatives = sourceResults.get(pipelineId)
+
+                alternatives.forEach(function (operator, alternativeId) {
+                    mergedAlternatives.set(alternativeId, operator)
+                })
             })
         })
 
@@ -408,40 +413,57 @@ class StageOperatorGraph extends React.Component {
         const pipelineOperators = new Map()
         nodeOperators.forEach((operator) => {
             if (!pipelineOperators.has(operator.pipelineId)) {
-                pipelineOperators.set(operator.pipelineId, [])
+                pipelineOperators.set(operator.pipelineId, new Map())
             }
-            pipelineOperators.get(operator.pipelineId).push(operator)
+            const pipeline = pipelineOperators.get(operator.pipelineId)
+            if (!pipeline.has(operator.alternativeId)) {
+                pipeline.set(operator.alternativeId, [])
+            }
+            pipeline.get(operator.alternativeId).push(operator)
         })
 
         const result = new Map()
-        pipelineOperators.forEach((pipelineOperators, pipelineId) => {
-            // sort deep-copied operators in this pipeline from source to sink
-            const linkedOperators = pipelineOperators
-                .map((a) => Object.assign({}, a))
-                .sort((a, b) => a.operatorId - b.operatorId)
-            const sinkOperator = linkedOperators[linkedOperators.length - 1]
-            const sourceOperator = linkedOperators[0]
+        pipelineOperators.forEach((alternatives, pipelineId) => {
+            const sourceAlternatives = sourceResults.get(pipelineId)
 
-            if (sourceResults.has(pipelineId)) {
-                const pipelineChildResult = sourceResults.get(pipelineId)
-                if (pipelineChildResult) {
-                    sourceOperator.child = pipelineChildResult
+            const linkedAlternatives = new Map()
+            alternatives.forEach((pipelineOperators, alternativeId) => {
+                // sort deep-copied operators in this pipeline from source to sink
+                const linkedOperators = pipelineOperators
+                    .map((a) => Object.assign({}, a))
+                    .sort((a, b) => a.operatorId - b.operatorId)
+                const sinkOperator = linkedOperators[linkedOperators.length - 1]
+                const sourceOperator = linkedOperators[0]
+
+                if (sourceAlternatives && sourceAlternatives.has(alternativeId)) {
+                    const pipelineChildResult = sourceAlternatives.get(alternativeId)
+                    if (pipelineChildResult) {
+                        sourceOperator.child = pipelineChildResult
+                    }
                 }
-            }
 
-            // chain operators at this level
-            let currentOperator = sourceOperator
-            linkedOperators.slice(1).forEach((source) => {
-                source.child = currentOperator
-                currentOperator = source
+                // chain operators at this level
+                let currentOperator = sourceOperator
+                linkedOperators.slice(1).forEach((source) => {
+                    source.child = currentOperator
+                    currentOperator = source
+                })
+
+                linkedAlternatives.set(alternativeId, sinkOperator)
             })
-
-            result.set(pipelineId, sinkOperator)
+            result.set(pipelineId, linkedAlternatives)
         })
 
-        sourceResults.forEach((operator, pipelineId) => {
+        sourceResults.forEach((sourceAlternatives, pipelineId) => {
             if (!result.has(pipelineId)) {
-                result.set(pipelineId, operator)
+                result.set(pipelineId, sourceAlternatives)
+            } else {
+                const alternatives = result.get(pipelineId)
+                sourceAlternatives.forEach((operator, alternativeId) => {
+                    if (!alternatives.has(alternativeId)) {
+                        alternatives.set(alternativeId, operator)
+                    }
+                })
             }
         })
 
@@ -462,7 +484,8 @@ class StageOperatorGraph extends React.Component {
     }
 
     computeD3StageOperatorGraph(graph, operator, sink, pipelineNode) {
-        const operatorNodeId = 'operator-' + operator.pipelineId + '-' + operator.operatorId
+        const operatorNodeId =
+            'operator-' + operator.pipelineId + '-' + operator.alternativeId + '-' + operator.operatorId
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
         const html = ReactDOMServer.renderToString(
@@ -498,7 +521,7 @@ class StageOperatorGraph extends React.Component {
         const operatorGraphs = this.computeOperatorGraphs(stage.plan.root, operatorMap)
 
         const graph = initializeGraph()
-        operatorGraphs.forEach((operator, pipelineId) => {
+        operatorGraphs.forEach((alternatives, pipelineId) => {
             const pipelineNodeId = 'pipeline-' + pipelineId
             graph.setNode(pipelineNodeId, {
                 label: 'Pipeline ' + pipelineId + ' ',
@@ -506,7 +529,24 @@ class StageOperatorGraph extends React.Component {
                 style: 'fill: #2b2b2b',
                 labelStyle: 'fill: #fff',
             })
-            this.computeD3StageOperatorGraph(graph, operator, null, pipelineNodeId)
+            if (alternatives.size === 1) {
+                this.computeD3StageOperatorGraph(graph, alternatives.get(0), null, pipelineNodeId)
+            } else {
+                const sortedAlternatives = Array.from(alternatives).sort((a, b) => a[0] - b[0])
+                sortedAlternatives.forEach((entry) => {
+                    const alternativeId = entry[0]
+                    const operator = entry[1]
+                    const alternativeNodeId = 'alternative-' + alternativeId + '-' + pipelineId
+                    graph.setNode(alternativeNodeId, {
+                        label: 'Alternative ' + alternativeId + ' ',
+                        clusterLabelPos: 'top',
+                        style: 'fill: #262626',
+                        labelStyle: 'fill: #fff',
+                    })
+                    this.computeD3StageOperatorGraph(graph, operator, null, alternativeNodeId)
+                    graph.setParent(alternativeNodeId, pipelineNodeId)
+                })
+            }
         })
 
         $('#operator-canvas').html('')

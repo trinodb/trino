@@ -254,6 +254,16 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitCacheDataPlanNode(CacheDataPlanNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitLoadCachedDataPlanNode(LoadCachedDataPlanNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitTableFunction(TableFunctionNode node, C context)
     {
         return visitPlan(node, context);
