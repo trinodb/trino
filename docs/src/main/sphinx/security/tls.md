@@ -18,7 +18,6 @@ connections from outside of the Trino cluster to its coordinator.
 See the {doc}`Glossary </glossary>` to clarify unfamiliar terms.
 
 (tls-version-and-ciphers)=
-
 ## Supported standards
 
 When configured to use TLS, the Trino server responds to client connections
@@ -81,7 +80,6 @@ To configure Trino with TLS support, consider two alternative paths:
   coordinator's configuration.
 
 (https-load-balancer)=
-
 ## Use a load balancer to terminate TLS/HTTPS
 
 Your site or cloud environment may already have a {ref}`load balancer <glossLB>`
@@ -111,7 +109,6 @@ This completes any necessary configuration for using HTTPS with a load balancer.
 Client tools can access Trino with the URL exposed by the load balancer.
 
 (https-secure-directly)=
-
 ## Secure Trino directly
 
 Instead of the preferred mechanism of using an {ref}`external load balancer
@@ -179,7 +176,6 @@ information on inspection, contact the group or vendor who provided it for a
 replacement.
 
 (cert-placement)=
-
 ### Place the certificate file
 
 There are no location requirements for a certificate file as long as:
@@ -193,7 +189,6 @@ this location can require you to keep track of the certificate file, and move it
 to a new `etc` directory when you upgrade your Trino version.
 
 (configure-https)=
-
 ### Configure the coordinator
 
 On the coordinator, add the following lines to the {ref}`config properties file
@@ -245,7 +240,6 @@ http-server.authentication.allow-insecure-over-http=true
 ```
 
 (verify-tls)=
-
 ### Verify configuration
 
 To verify TLS/HTTPS configuration, log in to the {doc}`Web UI
@@ -279,7 +273,6 @@ Splits: 1 total, 1 done (100.00%)
 ```
 
 (self-signed-limits)=
-
 ## Limitations of self-signed certificates
 
 It is possible to generate a self-signed certificate with the `openssl`,

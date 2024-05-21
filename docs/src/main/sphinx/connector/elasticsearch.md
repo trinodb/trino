@@ -223,7 +223,6 @@ according to the following table:
 No other types are supported.
 
 (elasticsearch-array-types)=
-
 ### Array types
 
 Fields in Elasticsearch can contain [zero or more

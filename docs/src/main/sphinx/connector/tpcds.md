@@ -57,14 +57,12 @@ alias for scale factor `0.01`, which is a very small data set useful for
 testing.
 
 (tpcds-type-mapping)=
-
 ## Type mapping
 
 Trino supports all data types used within the TPCDS schemas so no mapping is
 required.
 
 (tpcds-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and

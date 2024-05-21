@@ -1,7 +1,6 @@
 # Mathematical functions and operators
 
 (mathematical-operators)=
-
 ## Mathematical operators
 
 | Operator | Description                                     |

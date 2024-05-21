@@ -661,7 +661,6 @@ WITH (
 ```
 
 (accumulo-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Accumulo each support types that the other does not, this
@@ -761,7 +760,6 @@ mapping types following this table:
 No other types are supported
 
 (accumulo-sql-support)=
-
 ## SQL support
 
 The connector provides read and write access to data and metadata in

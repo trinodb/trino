@@ -134,7 +134,6 @@ following this table:
 No other types are supported.
 
 (google-sheets-sql-support)=
-
 ## SQL support
 
 In addition to the {ref}`globally available <sql-globally-available>` and {ref}`read operation <sql-read-operations>` statements,
@@ -147,7 +146,6 @@ this connector supports the following features:
 The connector provides specific {doc}`/functions/table` to access Google Sheets.
 
 (google-sheets-sheet-function)=
-
 ### `sheet(id, range) -> table`
 
 The `sheet` function allows you to query a Google Sheet directly without

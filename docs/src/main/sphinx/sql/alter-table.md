@@ -31,7 +31,6 @@ The optional `IF NOT EXISTS` clause causes the error to be suppressed if the
 column already exists.
 
 (alter-table-set-properties)=
-
 ### SET PROPERTIES
 
 The `ALTER TABLE SET PROPERTIES`  statement followed by a number of
@@ -46,7 +45,6 @@ Support for `ALTER TABLE SET PROPERTIES` varies between
 connectors, as not all connectors support modifying table properties.
 
 (alter-table-execute)=
-
 ### EXECUTE
 
 The `ALTER TABLE EXECUTE` statement followed by a `command` and

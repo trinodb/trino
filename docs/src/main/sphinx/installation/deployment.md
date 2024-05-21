@@ -1,11 +1,9 @@
 # Deploying Trino
 
 (requirements)=
-
 ## Requirements
 
 (requirements-linux)=
-
 ### Linux operating system
 
 - 64-bit required
@@ -32,7 +30,6 @@
 % These values are used in core/trino-server-rpm/src/main/resources/dist/etc/init.d/trino
 
 (requirements-java)=
-
 ### Java runtime environment
 
 Trino requires a 64-bit version of Java 22, with a minimum required version of 22.0.0.
@@ -45,7 +42,6 @@ against that distribution. Eclipse Temurin is also the JDK used by the [Trino
 Docker image](https://hub.docker.com/r/trinodb/trino).
 
 (requirements-python)=
-
 ### Python
 
 - version 2.6.x, 2.7.x, or 3.x
@@ -82,7 +78,6 @@ This holds the following configuration:
   in the respective connector documentation.
 
 (node-properties)=
-
 ### Node properties
 
 The node properties file, `etc/node.properties`, contains configuration
@@ -115,7 +110,6 @@ The above properties are described below:
   logs and other data here.
 
 (jvm-config)=
-
 ### JVM config
 
 The JVM config file, `etc/jvm.config`, contains a list of command line
@@ -178,7 +172,6 @@ temporary directory by adding `-Djava.io.tmpdir=/path/to/other/tmpdir` to the
 list of JVM options.
 
 (config-properties)=
-
 ### Config properties
 
 The config properties file, `etc/config.properties`, contains the
@@ -251,7 +244,6 @@ properties for topics such as {doc}`/admin/properties-general`,
 {doc}`/admin/properties-web-interface`, and others.
 
 (log-levels)=
-
 ### Log levels
 
 The optional log levels file, `etc/log.properties`, allows setting the
@@ -271,7 +263,6 @@ thus the above example does not actually change anything.
 There are four levels: `DEBUG`, `INFO`, `WARN` and `ERROR`.
 
 (catalog-properties)=
-
 ### Catalog properties
 
 Trino accesses data via *connectors*, which are mounted in catalogs.
@@ -293,7 +284,6 @@ connector.name=jmx
 See {doc}`/connector` for more information about configuring connectors.
 
 (running-trino)=
-
 ## Running Trino
 
 The installation provides a `bin/launcher` script, which requires Python in

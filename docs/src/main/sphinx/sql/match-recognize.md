@@ -84,7 +84,6 @@ ordered data set. For example, sorting the input by `orderdate` allows for
 matching on a trend of changes over time.
 
 (row-pattern-measures)=
-
 ## Row pattern measures
 
 The `MEASURES` clause allows to specify what information is retrieved from a
@@ -120,7 +119,6 @@ input columns (depending on {ref}`ROWS PER MATCH<rows-per-match>` clause) are
 the output of the pattern recognition.
 
 (rows-per-match)=
-
 ## Rows per match
 
 This clause can be used to specify the quantity of output rows. There are two
@@ -178,7 +176,6 @@ recognition is expected to pass all input rows, and it is not certain whether
 the pattern allows an empty match.
 
 (after-match-skip)=
-
 ## After match skip
 
 The `AFTER MATCH SKIP` clause specifies where pattern matching resumes after
@@ -228,7 +225,6 @@ UNMATCHED ROWS` with `AFTER MATCH SKIP PAST LAST ROW` is the only
 configuration that guarantees exactly one output row for each input row.
 
 (row-pattern-syntax)=
-
 ## Row pattern syntax
 
 Row pattern is a form of a regular expression with some syntactical extensions
@@ -272,7 +268,6 @@ components is matched. In case when multiple components can be matched, the
 leftmost matching component is chosen.
 
 (permute-function)=
-
 ### permutation
 
 ```text
@@ -311,7 +306,6 @@ $
 ```
 
 (exclusion-syntax)=
-
 ### exclusion syntax
 
 ```text
@@ -390,7 +384,6 @@ With `{3, 5}?`, 3 repetitions are most desired. Similarly, `?` prefers 1
 repetition, while `??` prefers 0 repetitions.
 
 (row-pattern-union-variables)=
-
 ## Row pattern union variables
 
 As explained in {ref}`row-pattern-syntax`, primary pattern variables are the
@@ -416,7 +409,6 @@ failure if `A` or `B` is not present in the match. `AFTER MATCH SKIP TO
 LAST U` does not fail.
 
 (row-pattern-variable-definitions)=
-
 ## Row pattern variable definitions
 
 The `DEFINE` clause is where row pattern primary variables are defined. Each
@@ -454,7 +446,6 @@ expressions in the `MEASURES` clause. Details are explained in
 {ref}`pattern-recognition-expressions`.
 
 (pattern-recognition-expressions)=
-
 ## Row pattern recognition expressions
 
 Expressions in {ref}`MEASURES<row-pattern-measures>` and
@@ -486,7 +477,6 @@ It is forbidden to prefix a column name with a table name in the pattern
 recognition context.
 
 (classifier-function)=
-
 ### classifier function
 
 ```sql
@@ -505,7 +495,6 @@ union variable as the argument. It allows you to determine which variable from
 the subset actually matched.
 
 (match-number-function)=
-
 ### match_number function
 
 ```sql
@@ -517,7 +506,6 @@ partition, starting from `1`. Empty matches are assigned sequential numbers
 as well as non-empty matches. The return type is `bigint`.
 
 (logical-navigation-functions)=
-
 ### logical navigation functions
 
 ```sql
@@ -546,7 +534,6 @@ by default these functions navigate to the first or last row of interest. If
 specified, the second argument must be a non-negative integer number.
 
 (physical-navigation-functions)=
-
 ### physical navigation functions
 
 ```sql
@@ -735,7 +722,6 @@ count(U.*) /* count rows matched to pattern variables from subset U */
 ```
 
 (running-and-final)=
-
 ### `RUNNING` and `FINAL` semantics
 
 During pattern matching in a sequence of rows, one row after another is
@@ -777,7 +763,6 @@ the position of the final row in the match. Therefore, `running` and
 `final` semantics are the same.
 
 (empty-matches-and-unmatched-rows)=
-
 ## Evaluating expressions in empty matches and unmatched rows
 
 An empty match occurs when the row pattern is successfully matched, but no

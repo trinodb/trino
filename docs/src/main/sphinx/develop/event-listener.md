@@ -46,7 +46,6 @@ custom-property2=custom-value2
 ```
 
 (multiple-listeners)=
-
 ## Multiple event listeners
 
 Trino supports multiple instances of the same or different event listeners.

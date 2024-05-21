@@ -22,7 +22,6 @@ To connect to SingleStore, you need:
   3306 is the default port.
 
 (singlestore-configuration)=
-
 ## Configuration
 
 To configure the SingleStore connector, create a catalog properties file in
@@ -48,7 +47,6 @@ use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
 (singlestore-tls)=
-
 ### Connection security
 
 If you have TLS configured with a globally-trusted certificate installed on your
@@ -126,7 +124,6 @@ If you used a different name for your catalog properties file, use
 that catalog name instead of `example` in the above examples.
 
 (singlestore-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Singlestore each support types that the other does not, this
@@ -306,7 +303,6 @@ this table:
 No other types are supported.
 
 (singlestore-decimal-handling)=
-
 ```{include} decimal-type-handling.fragment
 ```
 
@@ -314,7 +310,6 @@ No other types are supported.
 ```
 
 (singlestore-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in
@@ -348,7 +343,6 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (singlestore-pushdown)=
-
 ### Pushdown
 
 The connector supports pushdown for a number of operations:

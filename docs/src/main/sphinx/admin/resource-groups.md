@@ -137,7 +137,6 @@ are reflected automatically for incoming queries.
 - `subGroups` (optional): list of sub-groups.
 
 (scheduleweight-example)=
-
 ### Scheduling weight example
 
 Schedule weighting is a method of assigning a priority to a resource. Sub-groups

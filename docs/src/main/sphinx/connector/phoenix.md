@@ -98,7 +98,6 @@ If you used a different name for your catalog properties file, use
 that catalog name instead of `example` in the above examples.
 
 (phoenix-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Phoenix each support types that the other does not, this
@@ -265,7 +264,6 @@ Use them in the same way as above: in the `WITH` clause of the `CREATE TABLE` st
 | `bloomfilter`         | `NONE`        | Bloomfilter to use. Valid values are `NONE` (default), `ROW`, or `ROWCOL`.                                             |
 
 (phoenix-sql-support)=
-
 ## SQL support
 
 The connector provides read and write access to data and metadata in

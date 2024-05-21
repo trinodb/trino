@@ -3,7 +3,6 @@
 The glossary contains a list of key Trino terms and definitions.
 
 (glosscatalog)=
-
 Catalog
 
 : Catalogs define and name a configuration for connecting to a data source,
@@ -13,7 +12,6 @@ Catalog
   {ref}`trino-concept-catalog`.
 
 (glosscert)=
-
 Certificate
 
 : A public key [certificate](https://wikipedia.org/wiki/Public_key_certificate) issued by a {ref}`CA
@@ -21,7 +19,6 @@ Certificate
   server's private keys. Certificate format is specified in the [X.509](https://wikipedia.org/wiki/X.509) standard.
 
 (glossca)=
-
 Certificate Authority (CA)
 
 : A trusted organization that signs and issues certificates. Its signatures
@@ -35,7 +32,6 @@ Cluster
   see {ref}`trino-concept-cluster`.
 
 (glossconnector)=
-
 Connector
 
 : Translates data from a data source into Trino schemas, tables, columns,
@@ -54,7 +50,6 @@ Container
   in the Kubernetes documentation.
 
 (glossdatasource)=
-
 Data source
 
 : A system from which data is retrieved - for example, PostgreSQL or Iceberg
@@ -63,7 +58,6 @@ Data source
   {ref}`trino-concept-data-sources` for more information.
 
 (glossdatavirtualization)=
-
 Data virtualization
 
 : [Data virtualization](https://wikipedia.org/wiki/Data_virtualization) is a
@@ -73,7 +67,6 @@ Data virtualization
   presenting the data.
 
 (glossgzip)=
-
 gzip
 
 : [gzip](https://wikipedia.org/wiki/Gzip) is a compression format and
@@ -83,7 +76,6 @@ gzip
   files is `.gz`.
 
 (glosshdfs)=
-
 HDFS
 
 : [Hadoop Distributed Filesystem (HDFS)](https://wikipedia.org/wiki/Apache_Hadoop#HDFS) is a scalable {ref}`open
@@ -92,7 +84,6 @@ HDFS
   [Hadoop ecosystem](https://wikipedia.org/wiki/Apache_Hadoop).
 
 (glossjks)=
-
 Java KeyStore (JKS)
 
 : The system of public key cryptography supported as one part of the Java
@@ -109,7 +100,6 @@ Key
   network traffic.
 
 (glosslb)=
-
 Load Balancer (LB)
 
 : Software or a hardware device that sits on a network edge and accepts
@@ -118,7 +108,6 @@ Load Balancer (LB)
   networked services.
 
 (glossobjectstorage)=
-
 Object storage
 
 : [Object storage](https://en.wikipedia.org/wiki/Object_storage) is a file
@@ -132,7 +121,6 @@ Object storage
   - {ref}`HDFS <glossHDFS>`
 
 (glossopensource)=
-
 Open-source
 
 : Typically refers to [open-source software](https://wikipedia.org/wiki/Open-source_software). which is software that
@@ -142,7 +130,6 @@ Open-source
   by a community of contributors from all across the globe.
 
 (glosspem)=
-
 PEM file format
 
 : A format for storing and sending cryptographic keys and certificates. PEM
@@ -151,7 +138,6 @@ PEM file format
   to a CA vendor's intermediate CA.
 
 (glosspkcs12)=
-
 PKCS #12
 
 : A binary archive used to store keys and certificates or certificate chains
@@ -160,7 +146,6 @@ PKCS #12
   alternative to {ref}`PEM <glossPEM>`.
 
 (glossplugin)=
-
 Plugin
 
 : A bundle of code implementing the Trino {doc}`Service Provider Interface
@@ -182,14 +167,12 @@ Query federation
   translating different data sources to {ref}`SQL <glossSQL>` tables.
 
 (glossssl)=
-
 Secure Sockets Layer (SSL)
 
 : Now superseded by {ref}`TLS <glossTLS>`, but still recognized as the term
   for what TLS does.
 
 (glosssql)=
-
 Structured Query Language (SQL)
 
 : The standard language used with relational databases. For more information,
@@ -203,7 +186,6 @@ Tarball
   <glossGzip>` compression.
 
 (glosstls)=
-
 Transport Layer Security (TLS)
 
 : [TLS](https://wikipedia.org/wiki/Transport_Layer_Security) is a security

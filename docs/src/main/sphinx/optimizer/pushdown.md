@@ -17,7 +17,6 @@ Support for pushdown is specific to each connector and the relevant underlying
 database or storage system.
 
 (predicate-pushdown)=
-
 ## Predicate pushdown
 
 Predicate pushdown optimizes row-based filtering. It uses the inferred filter,
@@ -30,7 +29,6 @@ for the query does not include a `ScanFilterProject` operation for that
 clause.
 
 (projection-pushdown)=
-
 ## Projection pushdown
 
 Projection pushdown optimizes column-based filtering. It uses the columns
@@ -43,7 +41,6 @@ If projection pushdown is succesful, the `EXPLAIN` plan for the query only
 accesses the relevant columns in the `Layout` of the `TableScan` operation.
 
 (dereference-pushdown)=
-
 ## Dereference pushdown
 
 Projection pushdown and dereference pushdown limit access to relevant columns,
@@ -58,7 +55,6 @@ result in significant savings in the amount of data read from the storage
 system.
 
 (aggregation-pushdown)=
-
 ## Aggregation pushdown
 
 Aggregation pushdown can take place provided the following conditions are satisfied:
@@ -178,7 +174,6 @@ Aggregation pushdown does not support a number of more complex statements:
 - {ref}`aggregations with filter <aggregate-function-filtering-during-aggregation>`
 
 (join-pushdown)=
-
 ## Join pushdown
 
 Join pushdown allows the connector to delegate the table join operation to the
@@ -233,7 +228,6 @@ increase the row count compared to the size of the input to the join. This
 may impact performance.
 
 (limit-pushdown)=
-
 ## Limit pushdown
 
 A {ref}`limit-clause` reduces the number of returned records for a statement.
@@ -249,7 +243,6 @@ Queries include sections such as `LIMIT N` or `FETCH FIRST N ROWS`.
 Implementation and support is connector-specific since different data sources have varying capabilities.
 
 (topn-pushdown)=
-
 ## Top-N pushdown
 
 The combination of a {ref}`limit-clause` with an {ref}`order-by-clause` creates
