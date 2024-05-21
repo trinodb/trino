@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.Field;
-import com.google.cloud.bigquery.InsertAllRequest;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.QueryParameterValue;
 import com.google.cloud.bigquery.Schema;
@@ -26,6 +26,12 @@ import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.ViewDefinition;
+import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
+import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
+import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
+import com.google.cloud.bigquery.storage.v1.TableName;
+import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -77,6 +83,7 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import org.json.JSONArray;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -95,12 +102,14 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.cloud.bigquery.StandardSQLTypeName.INT64;
+import static com.google.cloud.bigquery.storage.v1.WriteStream.Type.COMMITTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_BAD_WRITE;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_TABLE_ERROR;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_OPERATION;
@@ -129,6 +138,7 @@ public class BigQueryMetadata
     private static final String VIEW_DEFINITION_SYSTEM_TABLE_SUFFIX = "$view_definition";
 
     private final BigQueryClientFactory bigQueryClientFactory;
+    private final BigQueryWriteClientFactory writeClientFactory;
     private final BigQueryTypeManager typeManager;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
     private final ListeningExecutorService executorService;
@@ -136,11 +146,13 @@ public class BigQueryMetadata
 
     public BigQueryMetadata(
             BigQueryClientFactory bigQueryClientFactory,
+            BigQueryWriteClientFactory writeClientFactory,
             BigQueryTypeManager typeManager,
             ListeningExecutorService executorService,
             boolean isLegacyMetadataListing)
     {
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
+        this.writeClientFactory = requireNonNull(writeClientFactory, "writeClientFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.isLegacyMetadataListing = isLegacyMetadataListing;
@@ -674,9 +686,7 @@ public class BigQueryMetadata
             createTable(client, pageSinkTable.projectId(), pageSinkTable.datasetName(), pageSinkTable.tableName(), ImmutableList.of(typeManager.toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, null)), Optional.empty());
             closer.register(() -> bigQueryClientFactory.create(session).dropTable(pageSinkTable.toTableId()));
 
-            InsertAllRequest.Builder batch = InsertAllRequest.newBuilder(pageSinkTable.toTableId());
-            fragments.forEach(slice -> batch.addRow(ImmutableMap.of(pageSinkIdColumnName, slice.getLong(0))));
-            client.insert(batch.build());
+            insertIntoSinkTable(session, pageSinkTable, pageSinkIdColumnName, fragments);
 
             String columns = columnNames.stream().map(BigQueryUtil::quote).collect(Collectors.joining(", "));
 
@@ -702,6 +712,29 @@ public class BigQueryMetadata
         }
 
         return Optional.empty();
+    }
+
+    private void insertIntoSinkTable(ConnectorSession session, RemoteTableName pageSinkTable, String pageSinkIdColumnName, Collection<Slice> fragments)
+    {
+        try (BigQueryWriteClient writeClient = writeClientFactory.create(session)) {
+            CreateWriteStreamRequest createWriteStreamRequest = CreateWriteStreamRequest.newBuilder()
+                    .setParent(TableName.of(pageSinkTable.projectId(), pageSinkTable.datasetName(), pageSinkTable.tableName()).toString())
+                    .setWriteStream(WriteStream.newBuilder().setType(COMMITTED).build())
+                    .build();
+            WriteStream stream = writeClient.createWriteStream(createWriteStreamRequest);
+            JSONArray batch = new JSONArray();
+            fragments.forEach(slice -> batch.put(ImmutableMap.of(pageSinkIdColumnName, slice.getLong(0))));
+            try (JsonStreamWriter writer = JsonStreamWriter.newBuilder(stream.getName(), stream.getTableSchema(), writeClient).build()) {
+                ApiFuture<AppendRowsResponse> future = writer.append(batch);
+                AppendRowsResponse response = future.get();
+                if (response.hasError()) {
+                    throw new TrinoException(BIGQUERY_BAD_WRITE, format("Response has error: %s", response.getError().getMessage()));
+                }
+            }
+            catch (Exception e) {
+                throw new TrinoException(BIGQUERY_BAD_WRITE, "Failed to insert rows", e);
+            }
+        }
     }
 
     @Override
