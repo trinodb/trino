@@ -1,7 +1,6 @@
 # Comparison functions and operators
 
 (comparison-operators)=
-
 ## Comparison operators
 
 :::{list-table}
@@ -27,7 +26,6 @@
 :::
 
 (range-operator)=
-
 ## Range operator: BETWEEN
 
 The `BETWEEN` operator tests if a value is within a specified range.
@@ -82,7 +80,6 @@ BETWEEN` must be the same type.  For example, Trino will produce an
 error if you ask it if John is between 2.3 and 35.2.
 
 (is-null-operator)=
-
 ## IS NULL and IS NOT NULL
 
 The `IS NULL` and `IS NOT NULL` operators test whether a value
@@ -101,7 +98,6 @@ SELECT 3.0 IS NULL; -- false
 ```
 
 (is-distinct-operator)=
-
 ## IS DISTINCT FROM and IS NOT DISTINCT FROM
 
 In SQL a `NULL` value signifies an unknown value, so any comparison
@@ -155,7 +151,6 @@ Returns the smallest of the provided values.
 :::
 
 (quantified-comparison-predicates)=
-
 ## Quantified comparison predicates: ALL, ANY and SOME
 
 The `ALL`, `ANY` and `SOME` quantifiers can be used together with comparison operators in the
@@ -201,7 +196,6 @@ Here are the meanings of some quantifier and comparison operator combinations:
 `ANY` and `SOME` have the same meaning and can be used interchangeably.
 
 (like-operator)=
-
 ## Pattern comparison: LIKE
 
 The `LIKE` operator can be used to compare values with a pattern:
@@ -256,7 +250,6 @@ If you want to match for the chosen escape character, you simply escape itself.
 For example, you can use `\\` to match for `\`.
 
 (in-operator)=
-
 ## Row comparison: IN
 
 The `IN` operator can be used in a `WHERE` clause to compare column values with 

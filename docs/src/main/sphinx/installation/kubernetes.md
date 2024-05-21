@@ -36,7 +36,6 @@ up.
   installed on the machine managing the Kubernetes deployment.
 
 (running-trino-using-helm)=
-
 ## Running Trino using Helm
 
 Run the following commands from the system with `helm` and `kubectl`
@@ -151,7 +150,6 @@ single physical host to avoid contention for resources.
 :::
 
 (executing-queries)=
-
 ## Executing queries
 
 The pods running the Trino containers are all running on a private network
@@ -220,7 +218,6 @@ Trino configuration, JVM, and various {doc}`catalog properties </connector>` are
 configured in Trino before updating the values.
 
 (creating-your-own-yaml)=
-
 ### Creating your own YAML configuration
 
 When you use your own YAML Kubernetes configuration, you only override the values you specify.
@@ -268,7 +265,6 @@ Reference [the full list of properties](https://trinodb.github.io/charts/charts/
 that can be overridden in the Helm chart.
 
 (kubernetes-configuration-best-practices)=
-
 :::{note}
 Although `example.yaml` is used to refer to the Kubernetes configuration
 file in this document, you should use clear naming guidelines for the cluster
@@ -301,7 +297,6 @@ This adds both `lakehouse` and `rdbms` catalogs to the Kubernetes deployment
 configuration.
 
 (running-a-local-kubernetes-cluster-with-kind)=
-
 ## Running a local Kubernetes cluster with kind
 
 For local deployments, you can use

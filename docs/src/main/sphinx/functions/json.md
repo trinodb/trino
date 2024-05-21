@@ -19,7 +19,6 @@ Trino also supports two functions for generating JSON data --
 {ref}`json_array<json-array>`, and {ref}`json_object<json-object>`.
 
 (json-path-language)=
-
 ## JSON path language
 
 The JSON path language is a special language, used exclusively by certain SQL
@@ -30,7 +29,6 @@ generally follow the semantics of SQL. The JSON path language is case-sensitive
 for keywords and identifiers.
 
 (json-path-syntax-and-semantics)=
-
 ### JSON path syntax and semantics
 
 JSON path expressions are recursive structures. Although the name "path"
@@ -216,7 +214,6 @@ sub-sequences from all JSON objects are concatenated in the same order in which
 the JSON objects appear in the input sequence.
 
 (json-descendant-member-accessor)=
-
 #### descendant member accessor
 
 Returns the values associated with the specified key in all JSON objects on all
@@ -428,7 +425,6 @@ mode is `unknown`. The result in the lax mode depends on whether the `true`
 comparison or the error was found first.
 
 (json-comparison-rules)=
-
 ##### Comparison rules
 
 Null values in the context of comparison behave different than SQL null:
@@ -580,7 +576,6 @@ The SQL standard describes the `datetime()` JSON path item method and the
 `like_regex()` JSON path predicate. Trino does not support them.
 
 (json-path-modes)=
-
 ### JSON path modes
 
 The JSON path expression can be evaluated in two modes: strict and lax. In the
@@ -655,7 +650,6 @@ method, the item `"a"` causes type mismatch.
 ```
 
 (json-exists)=
-
 ## json_exists
 
 The `json_exists` function determines whether a JSON value satisfies a JSON
@@ -777,7 +771,6 @@ FROM customers
 | 103 | NULL              |
 
 (json-query)=
-
 ## json_query
 
 The `json_query` function extracts a JSON value from a JSON value.
@@ -979,7 +972,6 @@ to the `ON ERROR` clause are:
 - Output conversion errors
 
 (json-value)=
-
 ## json_value
 
 The `json_value` function extracts a scalar SQL value from a JSON value.
@@ -1147,7 +1139,6 @@ FROM customers
 | 103 | 'missing' |
 
 (json-array)=
-
 ## json_array
 
 The `json_array` function creates a JSON array containing given elements.
@@ -1261,7 +1252,6 @@ SELECT json_array(true, 1 RETURNING VARBINARY FORMAT JSON ENCODING UTF32)
 ```
 
 (json-object)=
-
 ## json_object
 
 The `json_object` function creates a JSON object containing given key-value pairs.

@@ -12,7 +12,6 @@ In the case of serializable formats, only specific
 - CSV - `org.apache.hadoop.hive.serde2.OpenCSVSerde`
 
 (hive-orc-configuration)=
-
 ## ORC format configuration properties
 
 The following properties are used to configure the read and write operations
@@ -43,7 +42,6 @@ with ORC files performed by supported object storage connectors:
 :::
 
 (hive-parquet-configuration)=
-
 ## Parquet format configuration properties
 
 The following properties are used to configure the read and write operations

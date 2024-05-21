@@ -67,7 +67,6 @@ SELECT * FROM example.pg_catalog.pg_namespace;
 ```
 
 (postgresql-tls)=
-
 ### Connection security
 
 If you have TLS configured with a globally-trusted certificate installed on your
@@ -120,7 +119,6 @@ catalog named `sales` using the configured connector.
 ```
 
 (postgresql-type-mapping)=
-
 ## Type mapping
 
 Because Trino and PostgreSQL each support types that the other does not, this
@@ -282,12 +280,10 @@ this table:
 No other types are supported.
 
 (postgresql-decimal-type-handling)=
-
 ```{include} decimal-type-handling.fragment
 ```
 
 (postgresql-array-type-handling)=
-
 ### Array type handling
 
 The PostgreSQL array implementation does not support fixed dimensions whereas Trino
@@ -337,7 +333,6 @@ If you used a different name for your catalog properties file, use
 that catalog name instead of `example` in the above examples.
 
 (postgresql-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in
@@ -364,7 +359,6 @@ statements, the connector supports the following features:
 ```
 
 (postgresql-fte-support)=
-
 ## Fault-tolerant execution support
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
@@ -376,7 +370,6 @@ The connector provides specific {doc}`table functions </functions/table>` to
 access PostgreSQL.
 
 (postgresql-query-function)=
-
 ### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
@@ -447,7 +440,6 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (postgresql-table-statistics)=
-
 ### Table statistics
 
 The PostgreSQL connector can use {doc}`table and column statistics
@@ -467,7 +459,6 @@ ANALYZE table_schema.table_name;
 Refer to PostgreSQL documentation for additional `ANALYZE` options.
 
 (postgresql-pushdown)=
-
 ### Pushdown
 
 The connector supports pushdown for a number of operations:

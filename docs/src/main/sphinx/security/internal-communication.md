@@ -29,7 +29,6 @@ openssl rand 512 | base64
 ```
 
 (verify-secrets)=
-
 ### Verify configuration
 
 To verify shared secret configuration:
@@ -49,7 +48,6 @@ To verify shared secret configuration:
    configured with your shared secret.
 
 (internal-tls)=
-
 ## Configure internal TLS
 
 You can optionally add an extra layer of security by configuring the cluster to

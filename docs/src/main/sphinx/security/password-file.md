@@ -79,7 +79,6 @@ htpasswd -B -C 10 password.db test
 ```
 
 (verify-authentication)=
-
 ### Verify configuration
 
 To verify password file authentication, log in to the {doc}`Web UI

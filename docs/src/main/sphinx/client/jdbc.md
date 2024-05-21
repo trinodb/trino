@@ -86,7 +86,6 @@ classname is required.
 :::
 
 (jdbc-java-connection)=
-
 ## Connection parameters
 
 The driver supports various parameters that may be set as URL parameters,
@@ -112,7 +111,6 @@ while others are specified using properties. However, the same parameter
 may not be specified using both methods.
 
 (jdbc-parameter-reference)=
-
 ## Parameter reference
 
 :::{list-table}

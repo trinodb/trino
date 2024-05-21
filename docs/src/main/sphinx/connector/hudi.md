@@ -180,7 +180,6 @@ table displays a support matrix of tables types and query types for the connecto
 :::
 
 (hudi-metadata-tables)=
-
 #### Metadata tables
 
 The connector exposes a metadata table for each Hudi table.

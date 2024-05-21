@@ -147,7 +147,6 @@ SELECT * FROM example.web.clicks;
 ```
 
 (oracle-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Oracle each support types that the other does not, this
@@ -400,7 +399,6 @@ fails. This is also true for the equivalent `VARCHAR` types.
 :::
 
 (oracle-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in
@@ -428,7 +426,6 @@ supports the following statements:
 ```
 
 (oracle-fte-support)=
-
 ## Fault-tolerant execution support
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
@@ -440,7 +437,6 @@ The connector provides specific {doc}`table functions </functions/table>` to
 access Oracle.
 
 (oracle-query-function)=
-
 ### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
@@ -520,7 +516,6 @@ oracle.synonyms.enabled=true
 ```
 
 (oracle-pushdown)=
-
 ### Pushdown
 
 The connector supports pushdown for a number of operations:
@@ -560,7 +555,6 @@ with the following functions:
 ```
 
 (oracle-predicate-pushdown)=
-
 #### Predicate pushdown support
 
 The connector does not support pushdown of any predicates on columns that use

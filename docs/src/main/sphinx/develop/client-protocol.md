@@ -120,7 +120,6 @@ These `QueryResults` data members may be useful in tracking down problems:
 :::
 
 (client-request-headers)=
-
 ## Client request headers
 
 This table lists all supported client request headers. Many of the headers can

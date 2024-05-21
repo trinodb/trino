@@ -85,7 +85,6 @@ Find further related properties in [](/admin/properties), specifically in
 [](/admin/properties-resource-management) and [](/admin/properties-exchange).
 
 (fte-retry-policy)=
-
 ## Retry policy
 
 The `retry-policy` configuration property designates whether Trino retries
@@ -376,7 +375,6 @@ fault-tolerant execution:
 :::
 
 (fte-exchange-manager)=
-
 ## Exchange manager
 
 Exchange spooling is responsible for storing and managing spooled data for
@@ -519,7 +517,6 @@ lifecycle rule to automatically expire abandoned objects in the event of a node
 crash.
 
 (fte-exchange-aws-s3)=
-
 #### AWS S3
 
 The following example `exchange-manager.properties` configuration specifies an
@@ -547,7 +544,6 @@ exchange.base-directories=s3://exchange-spooling-bucket-1,s3://exchange-spooling
 ```
 
 (fte-exchange-azure-blob)=
-
 #### Azure Blob Storage
 
 The following example `exchange-manager.properties` configuration specifies an
@@ -562,7 +558,6 @@ exchange.azure.connection-string=connection-string
 ```
 
 (fte-exchange-gcs)=
-
 #### Google Cloud Storage
 
 To enable exchange spooling on GCS in Trino, change the request endpoint to the
@@ -588,7 +583,6 @@ exchange.gcs.json-key-file-path=/path/to/gcs_keyfile.json
 ```
 
 (fte-exchange-hdfs)=
-
 #### HDFS
 
 The following `exchange-manager.properties` configuration example specifies HDFS
@@ -601,7 +595,6 @@ hdfs.config.resources=/usr/lib/hadoop/etc/hadoop/core-site.xml
 ```
 
 (fte-exchange-local-filesystem)=
-
 #### Local filesystem storage
 
 The following example `exchange-manager.properties` configuration specifies a

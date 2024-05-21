@@ -39,13 +39,11 @@ allowed values and syntax. Additional limitations apply on a per-property basis,
 and disallowed values result in a validation error.
 
 (prop-type-boolean)=
-
 ### `boolean`
 
 The properties of type `boolean` support two values, `true` or `false`.
 
 (prop-type-data-size)=
-
 ### `data size`
 
 The properties of type `data size` support values that describe an amount of
@@ -64,7 +62,6 @@ The `data size` type supports the following units:
 - `PB`: Petabytes
 
 (prop-type-double)=
-
 ### `double`
 
 The properties of type `double` support numerical values including decimals,
@@ -72,7 +69,6 @@ such as `1.6`. `double` type values can be negative, if supported by the
 specific property.
 
 (prop-type-duration)=
-
 ### `duration`
 
 The properties of type `duration` support values describing an
@@ -97,7 +93,6 @@ These are handled as a fractional value of the specified unit. For example, the
 value `1.5m` equals one and a half minutes, or 90 seconds.
 
 (prop-type-integer)=
-
 ### `integer`
 
 The properties of type `integer` support whole numeric values, such as `5`
@@ -108,7 +103,6 @@ are not supported.
 Some `integer` type properties enforce their own minimum and maximum values.
 
 (prop-type-string)=
-
 ### `string`
 
 The properties of type `string` support a set of values that consist of a
