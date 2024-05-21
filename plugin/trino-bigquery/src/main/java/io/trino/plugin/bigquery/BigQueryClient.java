@@ -283,6 +283,7 @@ public class BigQueryClient
     public void createSchema(DatasetInfo datasetInfo)
     {
         bigQuery.create(datasetInfo);
+        remoteDatasetIdCache.invalidate(datasetInfo.getDatasetId().getProject());
     }
 
     public void dropSchema(DatasetId datasetId, boolean cascade)
@@ -293,6 +294,7 @@ public class BigQueryClient
         else {
             bigQuery.delete(datasetId);
         }
+        remoteDatasetIdCache.invalidate(datasetId.getProject());
     }
 
     public void createTable(TableInfo tableInfo)
