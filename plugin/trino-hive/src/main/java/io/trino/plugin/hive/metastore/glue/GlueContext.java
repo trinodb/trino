@@ -68,75 +68,31 @@ public class GlueContext
 
     private static void setCatalogId(AwsRequest.Builder request, String catalogId)
     {
-        if (request instanceof GetDatabasesRequest.Builder builder) {
-            builder.catalogId(catalogId);
+        switch (request) {
+            case GetDatabasesRequest.Builder builder -> builder.catalogId(catalogId);
+            case GetDatabaseRequest.Builder builder -> builder.catalogId(catalogId);
+            case CreateDatabaseRequest.Builder builder -> builder.catalogId(catalogId);
+            case UpdateDatabaseRequest.Builder builder -> builder.catalogId(catalogId);
+            case DeleteDatabaseRequest.Builder builder -> builder.catalogId(catalogId);
+            case GetTablesRequest.Builder builder -> builder.catalogId(catalogId);
+            case GetTableRequest.Builder builder -> builder.catalogId(catalogId);
+            case CreateTableRequest.Builder builder -> builder.catalogId(catalogId);
+            case UpdateTableRequest.Builder builder -> builder.catalogId(catalogId);
+            case DeleteTableRequest.Builder builder -> builder.catalogId(catalogId);
+            case GetPartitionsRequest.Builder builder -> builder.catalogId(catalogId);
+            case GetPartitionRequest.Builder builder -> builder.catalogId(catalogId);
+            case UpdatePartitionRequest.Builder builder -> builder.catalogId(catalogId);
+            case DeletePartitionRequest.Builder builder -> builder.catalogId(catalogId);
+            case BatchGetPartitionRequest.Builder builder -> builder.catalogId(catalogId);
+            case BatchCreatePartitionRequest.Builder builder -> builder.catalogId(catalogId);
+            case BatchUpdatePartitionRequest.Builder builder -> builder.catalogId(catalogId);
+            case GetColumnStatisticsForTableRequest.Builder builder -> builder.catalogId(catalogId);
+            case UpdateColumnStatisticsForTableRequest.Builder builder -> builder.catalogId(catalogId);
+            case DeleteColumnStatisticsForTableRequest.Builder builder -> builder.catalogId(catalogId);
+            case GetColumnStatisticsForPartitionRequest.Builder builder -> builder.catalogId(catalogId);
+            case UpdateColumnStatisticsForPartitionRequest.Builder builder -> builder.catalogId(catalogId);
+            case DeleteColumnStatisticsForPartitionRequest.Builder builder -> builder.catalogId(catalogId);
+            default -> throw new IllegalArgumentException("Unsupported request: " + request);
         }
-        if (request instanceof GetDatabaseRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof CreateDatabaseRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof UpdateDatabaseRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof DeleteDatabaseRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof GetTablesRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof GetTableRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof CreateTableRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof UpdateTableRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof DeleteTableRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof GetPartitionsRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof GetPartitionRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof UpdatePartitionRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof DeletePartitionRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof BatchGetPartitionRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof BatchCreatePartitionRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof BatchUpdatePartitionRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof GetColumnStatisticsForTableRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof UpdateColumnStatisticsForTableRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof DeleteColumnStatisticsForTableRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof GetColumnStatisticsForPartitionRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof UpdateColumnStatisticsForPartitionRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        if (request instanceof DeleteColumnStatisticsForPartitionRequest.Builder builder) {
-            builder.catalogId(catalogId);
-        }
-        throw new IllegalArgumentException("Unsupported request: " + request);
     }
 }

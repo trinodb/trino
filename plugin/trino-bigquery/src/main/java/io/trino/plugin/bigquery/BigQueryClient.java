@@ -20,6 +20,7 @@ import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.Job;
+import com.google.cloud.bigquery.JobException;
 import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.JobStatistics;
 import com.google.cloud.bigquery.JobStatistics.QueryStatistics;
@@ -59,6 +60,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -66,6 +68,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_AMBIGUOUS_OBJECT_NAME;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_INVALID_STATEMENT;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_TABLE_ERROR;
@@ -204,7 +207,13 @@ public class BigQueryClient
 
     public Optional<TableInfo> getTable(TableId remoteTableId)
     {
-        return Optional.ofNullable(bigQuery.getTable(remoteTableId));
+        try {
+            return Optional.ofNullable(bigQuery.getTable(remoteTableId));
+        }
+        catch (BigQueryException e) {
+            // getTable method throws an exception in some situations, e.g. wild card tables
+            return Optional.empty();
+        }
     }
 
     public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<String> requiredColumns, Optional<String> filter)
@@ -337,6 +346,9 @@ public class BigQueryClient
                 .build();
         try {
             return bigQuery.query(jobWithQueryLabel);
+        }
+        catch (BigQueryException | JobException e) {
+            throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, "Failed to run the query: " + firstNonNull(e.getMessage(), e), e);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
