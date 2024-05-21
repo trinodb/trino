@@ -1515,7 +1515,10 @@ public class IcebergMetadata
         }
 
         RewriteFiles rewriteFiles = transaction.newRewrite();
-        rewriteFiles.rewriteFiles(scannedDataFiles, fullyAppliedDeleteFiles, newFiles, ImmutableSet.of());
+        scannedDataFiles.forEach(rewriteFiles::deleteFile);
+        fullyAppliedDeleteFiles.forEach(rewriteFiles::deleteFile);
+        newFiles.forEach(rewriteFiles::addFile);
+
         // Table.snapshot method returns null if there is no matching snapshot
         Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.snapshotId().get()), "snapshot is null");
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
