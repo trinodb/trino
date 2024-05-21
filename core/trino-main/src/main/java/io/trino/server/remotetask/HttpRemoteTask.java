@@ -64,6 +64,7 @@ import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
 import io.trino.server.FailTaskRequest;
 import io.trino.server.TaskUpdateRequest;
+import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
@@ -139,6 +140,7 @@ public final class HttpRemoteTask
     private final Session session;
     private final Span stageSpan;
     private final String nodeId;
+    private final HostAddress nodeAddress;
     private final AtomicBoolean speculative;
     private final PlanFragment planFragment;
 
@@ -259,6 +261,7 @@ public final class HttpRemoteTask
             this.session = session;
             this.stageSpan = stageSpan;
             this.nodeId = node.getNodeIdentifier();
+            this.nodeAddress = node.getHostAndPort();
             this.speculative = new AtomicBoolean(speculative);
             this.planFragment = planFragment;
             this.outputBuffers.set(outputBuffers);
@@ -278,7 +281,9 @@ public final class HttpRemoteTask
             this.stats = stats;
 
             for (Entry<PlanNodeId, Split> entry : initialSplits.entries()) {
-                ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), entry.getValue());
+                Split split = entry.getValue();
+                split = split.withSplitAddressEnforced(split.getAddresses().contains(nodeAddress));
+                ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), split);
                 pendingSplits.put(entry.getKey(), scheduledSplit);
             }
             maxUnacknowledgedSplits = getMaxUnacknowledgedSplitsPerTask(session);
@@ -449,6 +454,7 @@ public final class HttpRemoteTask
             int added = 0;
             long addedWeight = 0;
             for (Split split : splits) {
+                split = split.withSplitAddressEnforced(split.getAddresses().contains(nodeAddress));
                 if (pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), sourceId, split))) {
                     if (isPartitionedSource) {
                         added++;

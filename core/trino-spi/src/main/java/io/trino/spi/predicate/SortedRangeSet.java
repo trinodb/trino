@@ -444,6 +444,30 @@ public final class SortedRangeSet
         return getRangeView(lowRangeIndex).overlaps(valueRange);
     }
 
+    public SortedRangeSet normalize()
+    {
+        switch (sortedRanges) {
+            case ValueBlock _ -> {
+                return this;
+            }
+            case DictionaryBlock dictionary -> {
+                // unwrap dictionary block
+                int[] positions = new int[dictionary.getPositionCount()];
+                for (int position = 0; position < positions.length; position++) {
+                    positions[position] = dictionary.getUnderlyingValuePosition(position);
+                }
+                return new SortedRangeSet(type, inclusive, dictionary.getUnderlyingValueBlock().copyPositions(positions, 0, positions.length), discreteSetMarker);
+            }
+            case RunLengthEncodedBlock rleBlock -> {
+                // unwrap RLE block
+                int[] positions = new int[rleBlock.getPositionCount()];
+                Arrays.fill(positions, 0);
+                return new SortedRangeSet(type, inclusive, rleBlock.getUnderlyingValueBlock().copyPositions(positions, 0, positions.length), discreteSetMarker);
+            }
+            case LazyBlock _ -> throw new IllegalArgumentException("Did not expect LazyBlock");
+        }
+    }
+
     public Range getSpan()
     {
         if (isNone()) {

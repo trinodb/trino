@@ -39,6 +39,7 @@ public class TestOperatorStats
     public static final OperatorStats EXPECTED = new OperatorStats(
             0,
             1,
+            51,
             41,
             new PlanNodeId("test"),
             "test",
@@ -87,6 +88,7 @@ public class TestOperatorStats
     public static final OperatorStats MERGEABLE = new OperatorStats(
             0,
             1,
+            0,
             41,
             new PlanNodeId("test"),
             "test",

@@ -45,6 +45,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.github.ishugaliy</groupId>
+            <artifactId>allgood-consistent-hash</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.github.oshi</groupId>
             <artifactId>oshi-core</artifactId>
         </dependency>
@@ -278,6 +284,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-matching</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-memory-cache</artifactId>
         </dependency>
 
         <dependency>

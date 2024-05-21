@@ -38,6 +38,7 @@ public class OperatorStats
 {
     private final int stageId;
     private final int pipelineId;
+    private final int alternativeId;
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final String operatorType;
@@ -92,6 +93,7 @@ public class OperatorStats
     public OperatorStats(
             @JsonProperty("stageId") int stageId,
             @JsonProperty("pipelineId") int pipelineId,
+            @JsonProperty("alternativeId") int alternativeId,
             @JsonProperty("operatorId") int operatorId,
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("operatorType") String operatorType,
@@ -144,6 +146,7 @@ public class OperatorStats
     {
         this.stageId = stageId;
         this.pipelineId = pipelineId;
+        this.alternativeId = alternativeId;
 
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
@@ -209,6 +212,12 @@ public class OperatorStats
     public int getPipelineId()
     {
         return pipelineId;
+    }
+
+    @JsonProperty
+    public int getAlternativeId()
+    {
+        return alternativeId;
     }
 
     @JsonProperty
@@ -488,8 +497,9 @@ public class OperatorStats
         ImmutableList.Builder<OperatorInfo> operatorInfos = ImmutableList.builder();
         for (OperatorStats operator : operators) {
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
+            checkArgument(operator.getPipelineId() == pipelineId, "Expected pipelineId to be %s but was %s", pipelineId, operator.getPipelineId());
+            checkArgument(operator.getAlternativeId() == alternativeId, "Expected alternativeId to be %s but was %s", alternativeId, operator.getAlternativeId());
             checkArgument(operator.getOperatorType().equals(operatorType), "Expected operatorType to be %s but was %s", operatorType, operator.getOperatorType());
-
             totalDrivers += operator.totalDrivers;
 
             addInputCalls += operator.getAddInputCalls();
@@ -546,6 +556,7 @@ public class OperatorStats
         return new OperatorStats(
                 stageId,
                 pipelineId,
+                alternativeId,
                 operatorId,
                 planNodeId,
                 operatorType,
@@ -624,6 +635,7 @@ public class OperatorStats
         return new OperatorStats(
                 stageId,
                 pipelineId,
+                alternativeId,
                 operatorId,
                 planNodeId,
                 operatorType,

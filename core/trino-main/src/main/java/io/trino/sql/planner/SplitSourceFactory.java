@@ -17,8 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
+import io.trino.cache.CacheSplitSource;
+import io.trino.cache.ConnectorAwareAddressProvider;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.metadata.TableHandle;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.ColumnHandle;
@@ -45,6 +49,7 @@ import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -81,7 +86,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.cache.CacheCommonSubqueries.getLoadCachedDataPlanNode;
+import static io.trino.cache.CacheCommonSubqueries.isCacheChooseAlternativeNode;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.ir.IrUtils.filterConjuncts;
@@ -94,13 +102,25 @@ public class SplitSourceFactory
     private final SplitManager splitManager;
     private final PlannerContext plannerContext;
     private final DynamicFilterService dynamicFilterService;
+    private final ConnectorAwareAddressProvider connectorAwareAddressProvider;
+    private final NodeInfo nodeInfo;
+    private final boolean schedulerIncludeCoordinator;
 
     @Inject
-    public SplitSourceFactory(SplitManager splitManager, PlannerContext plannerContext, DynamicFilterService dynamicFilterService)
+    public SplitSourceFactory(
+            SplitManager splitManager,
+            PlannerContext plannerContext,
+            DynamicFilterService dynamicFilterService,
+            ConnectorAwareAddressProvider connectorAwareAddressProvider,
+            NodeInfo nodeInfo,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.plannerContext = requireNonNull(plannerContext, "metadata is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        this.connectorAwareAddressProvider = requireNonNull(connectorAwareAddressProvider, "connectorAwareAddressProvider is null");
+        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
+        this.schedulerIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
     }
 
     public Map<PlanNodeId, SplitSource> createSplitSources(Session session, Span stageSpan, PlanFragment fragment)
@@ -163,6 +183,11 @@ public class SplitSourceFactory
 
         private SplitSource createSplitSource(TableHandle table, Map<Symbol, ColumnHandle> assignments, Optional<Expression> filterPredicate)
         {
+            return createSplitSource(table, assignments, filterPredicate, false);
+        }
+
+        private SplitSource createSplitSource(TableHandle table, Map<Symbol, ColumnHandle> assignments, Optional<Expression> filterPredicate, boolean preferDeterministicSplits)
+        {
             List<DynamicFilters.Descriptor> dynamicFilters = filterPredicate
                     .map(DynamicFilters::extractDynamicFilters)
                     .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
@@ -186,6 +211,7 @@ public class SplitSourceFactory
                     stageSpan,
                     table,
                     dynamicFilter,
+                    preferDeterministicSplits,
                     constraint);
         }
 
@@ -328,14 +354,26 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitChooseAlternativeNode(ChooseAlternativeNode node, Void context)
         {
+            checkArgument(isCacheChooseAlternativeNode(node));
+
+            TableHandle originalTableHandle = node.getOriginalTableScan().tableHandle();
             SplitSource splitSource = createSplitSource(
-                    node.getOriginalTableScan().tableHandle(),
+                    originalTableHandle,
                     node.getOriginalTableScan().assignments(),
-                    node.getOriginalTableScan().filterPredicate());
+                    node.getOriginalTableScan().filterPredicate(),
+                    true);
+            LoadCachedDataPlanNode loadCachedDataNode = getLoadCachedDataPlanNode(node);
+            CacheSplitSource cacheSplitSource = new CacheSplitSource(
+                    loadCachedDataNode.getPlanSignature().signature(),
+                    splitManager.getConnectorSplitManager(originalTableHandle),
+                    splitSource,
+                    connectorAwareAddressProvider,
+                    nodeInfo,
+                    schedulerIncludeCoordinator);
 
-            splitSources.add(splitSource);
+            splitSources.add(cacheSplitSource);
 
-            return ImmutableMap.of(node.getId(), splitSource);
+            return ImmutableMap.of(node.getId(), cacheSplitSource);
         }
 
         @Override

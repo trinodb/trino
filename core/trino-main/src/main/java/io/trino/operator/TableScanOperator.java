@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.cache.CacheDriverContext.getDynamicFilter;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
@@ -93,7 +94,7 @@ public class TableScanOperator
                     pageSourceProvider,
                     table,
                     columns,
-                    dynamicFilter);
+                    getDynamicFilter(operatorContext, dynamicFilter));
         }
 
         @Override

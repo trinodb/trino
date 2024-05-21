@@ -22,6 +22,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.cache.CacheCommonSubqueries;
+import io.trino.cache.CacheController;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
@@ -128,11 +130,13 @@ import static com.google.common.collect.Streams.forEachPair;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.isCacheEnabled;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -182,6 +186,8 @@ public class LogicalPlanner
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final boolean cacheEnabled;
+    private final CacheCommonSubqueries cacheCommonSubqueries;
     private final WarningCollector warningCollector;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
     private final CachingTableStatsProvider tableStatsProvider;
@@ -221,6 +227,13 @@ public class LogicalPlanner
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, plannerContext, session);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.cacheEnabled = isCacheEnabled(session);
+        this.cacheCommonSubqueries = new CacheCommonSubqueries(
+                new CacheController(),
+                plannerContext,
+                session,
+                idAllocator,
+                symbolAllocator);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         this.tableStatsProvider = requireNonNull(tableStatsProvider, "tableStatsProvider is null");
@@ -270,6 +283,20 @@ public class LogicalPlanner
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
             try (var _ = scopedSpan(plannerContext.getTracer(), "validate-final")) {
                 planSanityChecker.validateFinalPlan(root, session, plannerContext, warningCollector);
+            }
+        }
+
+        if (cacheEnabled) {
+            try (var ignored = scopedSpan(plannerContext.getTracer(), "cache-subqueries")) {
+                root = cacheCommonSubqueries.cacheSubqueries(root);
+                if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
+                    try (var span = scopedSpan(plannerContext.getTracer(), "validate-alternatives")) {
+                        planSanityChecker.validatePlanWithAlternatives(root, session, plannerContext, warningCollector);
+                    }
+                }
+            }
+            catch (Throwable t) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "SUBQUERY CACHE: planning exception", t);
             }
         }
 

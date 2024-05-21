@@ -16,6 +16,8 @@ package io.trino.connector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.cache.CacheColumnId;
+import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -145,6 +147,9 @@ public class MockConnectorFactory
     private final ListRoleGrants roleGrants;
     private final Optional<ConnectorAccessControl> accessControl;
     private final OptionalInt maxWriterTasks;
+    private final Function<ConnectorTableHandle, Optional<CacheTableId>> getCacheTableId;
+    private final Function<ColumnHandle, Optional<CacheColumnId>> getCacheColumnId;
+    private final Function<ConnectorTableHandle, ConnectorTableHandle> getCanonicalTableHandle;
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
 
     private final WriterScalingOptions writerScalingOptions;
@@ -200,6 +205,9 @@ public class MockConnectorFactory
             boolean allowMissingColumnsOnInsert,
             Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources,
             OptionalInt maxWriterTasks,
+            Function<ConnectorTableHandle, Optional<CacheTableId>> getCacheTableId,
+            Function<ColumnHandle, Optional<CacheColumnId>> getCacheColumnId,
+            Function<ConnectorTableHandle, ConnectorTableHandle> getCanonicalTableHandle,
             BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute,
             WriterScalingOptions writerScalingOptions,
             Supplier<Set<ConnectorCapabilities>> capabilities)
@@ -253,6 +261,9 @@ public class MockConnectorFactory
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
         this.tableFunctionSplitsSources = requireNonNull(tableFunctionSplitsSources, "tableFunctionSplitsSources is null");
         this.maxWriterTasks = maxWriterTasks;
+        this.getCacheTableId = requireNonNull(getCacheTableId, "getCacheTableId is null");
+        this.getCacheColumnId = requireNonNull(getCacheColumnId, "getCacheColumnId is null");
+        this.getCanonicalTableHandle = requireNonNull(getCanonicalTableHandle, "getCacheColumnId is null");
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
         this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
         this.capabilities = requireNonNull(capabilities, "capabilities is null");
@@ -316,6 +327,9 @@ public class MockConnectorFactory
                 columnProperties,
                 tableFunctionSplitsSources,
                 maxWriterTasks,
+                getCacheTableId,
+                getCacheColumnId,
+                getCanonicalTableHandle,
                 getLayoutForTableExecute,
                 writerScalingOptions,
                 capabilities);
@@ -471,6 +485,9 @@ public class MockConnectorFactory
         private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
         private boolean allowMissingColumnsOnInsert;
         private OptionalInt maxWriterTasks = OptionalInt.empty();
+        private Function<ConnectorTableHandle, Optional<CacheTableId>> getCacheTableId = handle -> Optional.empty();
+        private Function<ColumnHandle, Optional<CacheColumnId>> getCacheColumnId = handle -> Optional.empty();
+        private Function<ConnectorTableHandle, ConnectorTableHandle> getCanonicalTableHandle = Function.identity();
         private BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute = (session, handle) -> Optional.empty();
         private WriterScalingOptions writerScalingOptions = WriterScalingOptions.DISABLED;
         private Supplier<Set<ConnectorCapabilities>> capabilities = ImmutableSet::of;
@@ -815,6 +832,24 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withGetCacheTableId(Function<ConnectorTableHandle, Optional<CacheTableId>> getCacheTableId)
+        {
+            this.getCacheTableId = requireNonNull(getCacheTableId, "getCacheTableId is null");
+            return this;
+        }
+
+        public Builder withGetCacheColumnId(Function<ColumnHandle, Optional<CacheColumnId>> getCacheColumnId)
+        {
+            this.getCacheColumnId = requireNonNull(getCacheColumnId, "getCacheColumnId is null");
+            return this;
+        }
+
+        public Builder withGetCanonicalTableHandle(Function<ConnectorTableHandle, ConnectorTableHandle> getCanonicalTableHandle)
+        {
+            this.getCanonicalTableHandle = requireNonNull(getCanonicalTableHandle, "getCanonicalTableHandle is null");
+            return this;
+        }
+
         public Builder withAllowMissingColumnsOnInsert(boolean allowMissingColumnsOnInsert)
         {
             this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
@@ -889,6 +924,9 @@ public class MockConnectorFactory
                     allowMissingColumnsOnInsert,
                     tableFunctionSplitsSources,
                     maxWriterTasks,
+                    getCacheTableId,
+                    getCacheColumnId,
+                    getCanonicalTableHandle,
                     getLayoutForTableExecute,
                     writerScalingOptions,
                     capabilities);

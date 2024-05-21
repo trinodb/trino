@@ -525,6 +525,7 @@ public class OperatorContext
         return new OperatorStats(
                 driverContext.getTaskId().getStageId().getId(),
                 driverContext.getPipelineContext().getPipelineId(),
+                driverContext.getAlternativeId().orElse(0),
                 operatorId,
                 planNodeId,
                 operatorType,
