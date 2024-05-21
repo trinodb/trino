@@ -137,6 +137,7 @@ public class GlueMetastoreModule
             glue.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
                             .roleArn(config.getIamRole().get())
+                            .roleSessionName("trino-session")
                             .externalId(config.getExternalId().orElse(null)))
                     .stsClient(sts.build())
                     .asyncCredentialUpdateEnabled(true)
