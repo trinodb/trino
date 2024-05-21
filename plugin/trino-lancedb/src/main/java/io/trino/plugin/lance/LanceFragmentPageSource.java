@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.lance;
 
-import com.google.common.base.Preconditions;
 import com.lancedb.lance.Dataset;
 import com.lancedb.lance.DatasetFragment;
 import com.lancedb.lance.ipc.LanceScanner;
@@ -24,6 +23,8 @@ import org.apache.arrow.memory.BufferAllocator;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkState;
+
 public class LanceFragmentPageSource
         extends LanceBasePageSource
 {
@@ -33,7 +34,7 @@ public class LanceFragmentPageSource
     public LanceFragmentPageSource(LanceReader lanceReader, LanceTableHandle tableHandle, List<Integer> fragments, int maxReadRowsRetries)
     {
         super(lanceReader, tableHandle, maxReadRowsRetries);
-        Preconditions.checkState(fragments.size() == 1, "only one fragment is allowed, found: " + fragments.size());
+        checkState(fragments.size() == 1, "only one fragment is allowed, found: " + fragments.size());
         this.fragmentId = fragments.getFirst();
     }
 

@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
@@ -68,10 +67,11 @@ public class LanceMetadata
     public LanceTableHandle getTableHandle(ConnectorSession session, SchemaTableName name,
             Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
-        Path tablePath = lanceReader.getTablePath(name);
+        Path tablePath = lanceReader.getTablePath(session, name);
         if (tablePath != null) {
             return new LanceTableHandle(name.getSchemaName(), name.getTableName(), tablePath.toUri().toString());
-        } else {
+        }
+        else {
             return null;
         }
     }

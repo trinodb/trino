@@ -40,9 +40,9 @@ public class TestLanceMetadata
 {
     private static final String TEST_DB_PATH = "file://" + Resources.getResource(TestLanceMetadata.class, "/example_db/").getPath();
     private static final LanceTableHandle TEST_TABLE_1_HANDLE = new LanceTableHandle("default", "test_table1",
-            TEST_DB_PATH + "test_table1/");
+            TEST_DB_PATH + "test_table1.lance/");
     private static final LanceTableHandle TEST_TABLE_2_HANDLE = new LanceTableHandle("default", "test_table2",
-            TEST_DB_PATH + "test_table2/");
+            TEST_DB_PATH + "test_table2.lance/");
 
     private static final ArrowType INT64_TYPE = new ArrowType.Int(64, true);
     private LanceMetadata metadata;

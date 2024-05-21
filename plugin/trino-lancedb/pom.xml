@@ -17,6 +17,10 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -31,6 +35,14 @@
         <dependency>
             <groupId>com.lancedb</groupId>
             <artifactId>lance-core</artifactId>
+            <!-- TODO: fix it once official release is out -->
+            <version>0.1-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.lancedb</groupId>
+            <artifactId>lancedb-core</artifactId>
+            <!-- TODO: fix it once official release is out -->
             <version>0.1-SNAPSHOT</version>
         </dependency>
 
@@ -65,6 +77,12 @@
         </dependency>
 
         <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+
+        <!-- other dependencies -->
+        <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-core</artifactId>
         </dependency>
@@ -72,13 +90,6 @@
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
-        </dependency>
-
-        <!-- other dependnecies -->
-
-        <dependency>
-            <groupId>jakarta.validation</groupId>
-            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -168,24 +179,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.confluent</groupId>
-            <artifactId>kafka-avro-serializer</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.zookeeper</groupId>
-                    <artifactId>zookeeper</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.confluent</groupId>
-            <artifactId>kafka-schema-serializer</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -282,16 +275,6 @@
         </dependency>
     </dependencies>
 
-    <repositories>
-        <repository>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <id>confluent</id>
-            <url>https://packages.confluent.io/maven/</url>
-        </repository>
-    </repositories>
-
     <build>
         <plugins>
             <plugin>
@@ -372,6 +355,42 @@
                         <dependency>
                             <groupId>org.slf4j</groupId>
                             <artifactId>slf4j-jdk14</artifactId>
+                        </dependency>
+                    </ignoredDependencies>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredDependencies>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-c-data</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-dataset</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-format</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-memory-core</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-memory-netty-buffer-patch</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-memory-netty</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-vector</artifactId>
                         </dependency>
                     </ignoredDependencies>
                 </configuration>
