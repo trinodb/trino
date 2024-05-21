@@ -21,7 +21,6 @@ Enable writer scaling by dynamically increasing the number of writer tasks on
 the cluster.
 
 (prop-task-scale-writers)=
-
 ## `task.scale-writers.enabled`
 
 - **Type:** {ref}`prop-type-boolean`

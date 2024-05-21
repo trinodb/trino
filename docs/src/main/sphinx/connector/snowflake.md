@@ -211,7 +211,6 @@ No other types are supported.
 ```
 
 (snowflake-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in

@@ -8,7 +8,6 @@ HTTP or HTTPS, using the corresponding port number specified in the coordinator
 The Web UI can be disabled entirely with the `web-ui.enabled` property.
 
 (web-ui-authentication)=
-
 ## Authentication
 
 The Web UI requires users to authenticate. If Trino is not configured to require
@@ -50,7 +49,6 @@ The following Web UI authentication types are also supported:
 For these authentication types, the username is defined by {doc}`/security/user-mapping`.
 
 (web-ui-overview)=
-
 ## User interface overview
 
 The main page has a list of queries along with information like unique query ID, query text,

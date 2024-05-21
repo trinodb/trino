@@ -275,7 +275,6 @@ Complete list of [MariaDB data types](https://mariadb.com/kb/en/data-types/).
 ```
 
 (mariadb-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in
@@ -306,7 +305,6 @@ The connector provides specific {doc}`table functions </functions/table>` to
 access MariaDB.
 
 (mariadb-query-function)=
-
 ### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
@@ -368,7 +366,6 @@ Refer to [MariaDB documentation](https://mariadb.com/kb/en/analyze-table/) for
 additional information.
 
 (mariadb-pushdown)=
-
 ### Pushdown
 
 The connector supports pushdown for a number of operations:

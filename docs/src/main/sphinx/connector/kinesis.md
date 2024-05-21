@@ -228,7 +228,6 @@ and if it is a more complex type (JSON array or JSON object) then the JSON itsel
 There is no limit on field descriptions for either key or message.
 
 (kinesis-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Kinesis each support types that the other does not, this
@@ -268,7 +267,6 @@ used, which does not expose any columns.
 ```
 
 (kinesis-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and

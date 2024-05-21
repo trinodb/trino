@@ -19,7 +19,6 @@ security/inspect-jks
 ```
 
 (security-authentication)=
-
 ## Authentication
 
 ```{toctree}

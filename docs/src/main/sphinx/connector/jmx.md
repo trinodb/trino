@@ -129,7 +129,6 @@ SELECT "timestamp", "uptime" FROM example.history."java.lang:type=runtime";
 ```
 
 (jmx-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and

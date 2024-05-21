@@ -56,7 +56,6 @@ the string.
 :::
 
 (function-reverse-varbinary)=
-
 :::{function} reverse(binary) -> varbinary
 :noindex: true
 

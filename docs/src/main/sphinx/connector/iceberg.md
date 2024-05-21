@@ -452,7 +452,6 @@ CALL examplecatalog.system.example_procedure()
 ```
 
 (iceberg-register-table)=
-
 #### Register table
 
 The connector can register existing Iceberg tables with the catalog.
@@ -479,7 +478,6 @@ default. The procedure is enabled only when
 `iceberg.register-table-procedure.enabled` is set to `true`.
 
 (iceberg-unregister-table)=
-
 #### Unregister table
 
 The connector can unregister existing Iceberg tables from the catalog.
@@ -529,14 +527,12 @@ exception if subdirectories are found. Set the value to `true` to migrate
 nested directories, or `false` to ignore them.
 
 (iceberg-data-management)=
-
 ### Data management
 
 The {ref}`sql-data-management` functionality includes support for `INSERT`,
 `UPDATE`, `DELETE`, and `MERGE` statements.
 
 (iceberg-delete)=
-
 #### Deletion by partition
 
 For partitioned tables, the Iceberg connector supports the deletion of entire
@@ -559,7 +555,6 @@ Tables using v2 of the Iceberg specification support deletion of individual rows
 by writing position delete files.
 
 (iceberg-schema-table-management)=
-
 ### Schema and table management
 
 The {ref}`sql-schema-table-management` functionality includes support for:
@@ -588,7 +583,6 @@ Partitioning can also be changed and the connector can still query data
 created before the partitioning change.
 
 (iceberg-alter-table-execute)=
-
 #### ALTER TABLE EXECUTE
 
 The connector supports the following commands for use with {ref}`ALTER TABLE
@@ -637,7 +631,6 @@ than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
 
 (drop-extended-stats)=
-
 ##### drop_extended_stats
 
 The `drop_extended_stats` command removes all extended statistics information
@@ -650,7 +643,6 @@ ALTER TABLE test_table EXECUTE drop_extended_stats
 ```
 
 (iceberg-alter-table-set-properties)=
-
 #### ALTER TABLE SET PROPERTIES
 
 The connector supports modifying the properties on existing tables using
@@ -680,7 +672,6 @@ The current values of a table's properties can be shown using {doc}`SHOW CREATE
 TABLE </sql/show-create-table>`.
 
 (iceberg-table-properties)=
-
 ##### Table properties
 
 Table properties supply or set metadata for the underlying tables. This is key
@@ -755,7 +746,6 @@ WITH (
 ```
 
 (iceberg-metadata-tables)=
-
 #### Metadata tables
 
 The connector exposes several metadata tables for each Iceberg table. These
@@ -1178,7 +1168,6 @@ The output of the query has the following columns:
 :::
 
 (iceberg-metadata-columns)=
-
 #### Metadata columns
 
 In addition to the defined columns, the Iceberg connector automatically exposes
@@ -1224,7 +1213,6 @@ different location than the table's corresponding base directory on the object
 store is not supported.
 
 (iceberg-comment)=
-
 #### COMMENT
 
 The Iceberg connector supports setting comments on the following objects:
@@ -1244,7 +1232,6 @@ The connector supports the command {doc}`COMMENT </sql/comment>` for setting
 comments on existing entities.
 
 (iceberg-tables)=
-
 #### Partitioned tables
 
 Iceberg supports partitioning by specifying transforms over the table columns. A
@@ -1370,7 +1357,6 @@ AS SELECT * FROM another_table;
 ```
 
 (iceberg-time-travel)=
-
 ##### Time travel queries
 
 The connector offers the ability to query historical data. This allows you to
@@ -1516,7 +1502,6 @@ Dropping a materialized view with {doc}`/sql/drop-materialized-view` removes
 the definition and the storage table.
 
 (iceberg-fte-support)=
-
 ## Fault-tolerant execution support
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
@@ -1658,7 +1643,6 @@ catalog configuration property, or the corresponding
 `extended_statistics_enabled` session property.
 
 (iceberg-analyze)=
-
 #### Updating table statistics
 
 If your queries are complex and include joining large data sets, running
@@ -1687,7 +1671,6 @@ dropped using the {ref}`drop_extended_stats <drop-extended-stats>` command
 before re-analyzing.
 
 (iceberg-table-redirection)=
-
 ### Table redirection
 
 ```{include} table-redirection.fragment

@@ -9,7 +9,6 @@ Trino uses its own S3 filesystem for the URI prefixes
 `s3://`, `s3n://` and  `s3a://`.
 
 (hive-s3-configuration)=
-
 ## S3 configuration properties
 
 :::{list-table}
@@ -117,7 +116,6 @@ Trino uses its own S3 filesystem for the URI prefixes
 :::
 
 (hive-s3-credentials)=
-
 ## S3 credentials
 
 If you are running Trino on Amazon EC2, using EMR or another facility,
@@ -148,7 +146,6 @@ IAM role-based credentials (using `STSAssumeRoleSessionCredentialsProvider`),
 or credentials for a specific use case (e.g., bucket/user specific credentials).
 
 (hive-s3-security-mapping)=
-
 ## S3 security mapping
 
 Trino supports flexible security mapping for S3, allowing for separate
@@ -276,7 +273,6 @@ Example JSON configuration:
 | `hive.s3.security-mapping.colon-replacement`          | The character or characters to be used in place of the colon (`:`) character when specifying an IAM role name as an extra credential. Any instances of this replacement value in the extra credential value will be converted to a colon. Choose a value that is not used in any of your IAM ARNs. |
 
 (hive-s3-tuning-configuration)=
-
 ## Tuning properties
 
 The following tuning properties affect the behavior of the client
@@ -298,7 +294,6 @@ object associated with the `AmazonS3Client`.
 | `hive.s3.multipart.min-part-size` | Minimum multi-part upload part size.                                                              | `5 MB`                     |
 
 (hive-s3-data-encryption)=
-
 ## S3 data encryption
 
 Trino supports reading and writing encrypted data in S3 using both

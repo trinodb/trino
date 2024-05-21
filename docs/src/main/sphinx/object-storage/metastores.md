@@ -10,7 +10,6 @@ partition projection metadata or implement first class support for Avro tables.
 These requirements are discussed later in this topic.
 
 (general-metastore-properties)=
-
 ## General metastore configuration properties
 
 The following table describes general metastore configuration properties, most
@@ -328,7 +327,6 @@ allowed to impersonate the current Trino user, as discussed in the section
 Keytab files must be distributed to every node in the Trino cluster.
 
 (hive-glue-metastore)=
-
 ## AWS Glue catalog configuration properties
 
 In order to use an AWS Glue catalog, you must configure your catalog file as
@@ -417,7 +415,6 @@ properties:
 :::
 
 (iceberg-glue-catalog)=
-
 ### Iceberg-specific Glue catalog configuration properties
 
 When using the Glue catalog, the Iceberg connector supports the same
@@ -450,7 +447,6 @@ Iceberg-specific REST, Nessie or JDBC metadata catalogs, as discussed in this
 section.
 
 (iceberg-rest-catalog)=
-
 ### REST catalog
 
 In order to use the Iceberg REST catalog, configure the catalog type
@@ -497,7 +493,6 @@ The REST catalog does not support [view management](sql-view-management) or
 [materialized view management](sql-materialized-view-management).
 
 (iceberg-jdbc-catalog)=
-
 ### JDBC catalog
 
 The Iceberg JDBC catalog is supported for the Iceberg connector.  At a minimum,
@@ -535,7 +530,6 @@ The JDBC catalog does not support [view management](sql-view-management) or
 [materialized view management](sql-materialized-view-management).
 
 (iceberg-nessie-catalog)=
-
 ### Nessie catalog
 
 In order to use a Nessie catalog, configure the catalog type with
@@ -584,7 +578,6 @@ The Nessie catalog does not support [view management](sql-view-management) or
 [materialized view management](sql-materialized-view-management).
 
 (iceberg-snowflake-catalog)=
-
 ### Snowflake catalog
 
 In order to use a Snowflake catalog, configure the catalog type with
@@ -620,7 +613,6 @@ iceberg.snowflake-catalog.database=db
 ```
 
 (partition-projection)=
-
 ## Access tables with Athena partition projection metadata
 
 [Partition projection](https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html)

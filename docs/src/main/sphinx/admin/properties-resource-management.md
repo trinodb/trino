@@ -1,7 +1,6 @@
 # Resource management properties
 
 (prop-resource-query-max-cpu-time)=
-
 ## `query.max-cpu-time`
 
 - **Type:** {ref}`prop-type-duration`
@@ -11,7 +10,6 @@ This is the max amount of CPU time that a query can use across the entire
 cluster. Queries that exceed this limit are killed.
 
 (prop-resource-query-max-memory-per-node)=
-
 ## `query.max-memory-per-node`
 
 - **Type:** {ref}`prop-type-data-size`
@@ -35,7 +33,6 @@ Does not apply for queries with task level retries enabled (`retry-policy=TASK`)
 :::
 
 (prop-resource-query-max-memory)=
-
 ## `query.max-memory`
 
 - **Type:** {ref}`prop-type-data-size`
@@ -58,7 +55,6 @@ Does not apply for queries with task level retries enabled (`retry-policy=TASK`)
 :::
 
 (prop-resource-query-max-total-memory)=
-
 ## `query.max-total-memory`
 
 - **Type:** {ref}`prop-type-data-size`
@@ -79,7 +75,6 @@ Does not apply for queries with task level retries enabled (`retry-policy=TASK`)
 :::
 
 (prop-resource-memory-heap-headroom-per-node)=
-
 ## `memory.heap-headroom-per-node`
 
 - **Type:** {ref}`prop-type-data-size`
@@ -95,7 +90,6 @@ maximum heap size in the JVM on the node. See {ref}`jvm-config`.
 :::
 
 (prop-resource-exchange-deduplication-buffer-size)=
-
 ## `exchange.deduplication-buffer-size`
 
 - **Type:** {ref}`prop-type-data-size`

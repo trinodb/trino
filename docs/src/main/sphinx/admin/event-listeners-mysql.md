@@ -24,7 +24,6 @@ You need to perform the following steps:
   Port 3306 is the default port.
 
 (mysql-event-listener-configuration)=
-
 ## Configuration
 
 To configure the MySQL event listener plugin, create an event listener properties
