@@ -635,6 +635,7 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestGlueHiveMetastore.java</exclude>
+                                <exclude>**/TestHiveGlueMetastoreAccessOperations.java</exclude>
                                 <exclude>**/TestHiveS3AndGlueMetastoreTest.java</exclude>
                                 <exclude>**/TestHiveConcurrentModificationGlueMetastore.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
@@ -693,6 +694,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestGlueHiveMetastore.java</include>
+                                <include>**/TestHiveGlueMetastoreAccessOperations.java</include>
                                 <include>**/TestHiveS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestHiveConcurrentModificationGlueMetastore.java</include>
                             </includes>
