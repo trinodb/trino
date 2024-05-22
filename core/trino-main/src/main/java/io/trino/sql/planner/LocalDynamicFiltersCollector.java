@@ -61,14 +61,7 @@ public class LocalDynamicFiltersCollector
     // Called during JoinNode planning (no need to be synchronized as local planning is single threaded)
     public void register(Set<DynamicFilterId> filterIds)
     {
-        filterIds.forEach(filterId -> verify(
-                futures.put(filterId, SettableFuture.create()) == null,
-                "LocalDynamicFiltersCollector: duplicate filter %s", filterId));
-    }
-
-    public Set<DynamicFilterId> getRegisteredDynamicFilterIds()
-    {
-        return futures.keySet();
+        filterIds.forEach(filterId -> futures.putIfAbsent(filterId, SettableFuture.create()));
     }
 
     // Used during execution (after build-side dynamic filter collection is over).
