@@ -17,9 +17,9 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-record PartitionName(List<String> partitionValues)
+public record PartitionName(List<String> partitionValues)
 {
-    PartitionName
+    public PartitionName
     {
         requireNonNull(partitionValues, "partitionValues is null");
     }

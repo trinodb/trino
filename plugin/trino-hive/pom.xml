@@ -634,7 +634,9 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
+                                <exclude>**/TestCachedHiveGlueMetastore.java</exclude>
                                 <exclude>**/TestGlueHiveMetastore.java</exclude>
+                                <exclude>**/TestGlueHiveMetastoreQueries.java</exclude>
                                 <exclude>**/TestHiveGlueMetastoreAccessOperations.java</exclude>
                                 <exclude>**/TestHiveS3AndGlueMetastoreTest.java</exclude>
                                 <exclude>**/TestHiveConcurrentModificationGlueMetastore.java</exclude>
@@ -693,7 +695,9 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
+                                <include>**/TestCachedHiveGlueMetastore.java</include>
                                 <include>**/TestGlueHiveMetastore.java</include>
+                                <include>**/TestGlueHiveMetastoreQueries.java</include>
                                 <include>**/TestHiveGlueMetastoreAccessOperations.java</include>
                                 <include>**/TestHiveS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestHiveConcurrentModificationGlueMetastore.java</include>

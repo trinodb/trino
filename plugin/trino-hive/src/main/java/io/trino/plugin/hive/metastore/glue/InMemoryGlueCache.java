@@ -294,6 +294,25 @@ class InMemoryGlueCache
         allFunctionsCache.invalidate(databaseName);
     }
 
+    @Override
+    public void flushCache()
+    {
+        databaseInvalidationCounter.incrementAndGet();
+        tableInvalidationCounter.incrementAndGet();
+        partitionInvalidationCounter.incrementAndGet();
+
+        databaseNamesCache.invalidateAll();
+        databaseCache.invalidateAll();
+        tableNamesCache.invalidateAll();
+        tableCache.invalidateAll();
+        tableColumnStatsCache.invalidateAll();
+        partitionNamesCache.invalidateAll();
+        partitionCache.invalidateAll();
+        partitionColumnStatsCache.invalidateAll();
+        allFunctionsCache.invalidateAll();
+        functionCache.invalidateAll();
+    }
+
     @Managed
     @Nested
     public CacheStatsMBean getDatabaseNamesCacheStats()
