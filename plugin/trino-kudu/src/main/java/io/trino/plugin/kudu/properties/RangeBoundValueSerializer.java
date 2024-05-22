@@ -33,7 +33,7 @@ public class RangeBoundValueSerializer
         }
         else {
             if (value.getValues().size() == 1) {
-                writeValue(value.getValues().get(0), gen);
+                writeValue(value.getValues().getFirst(), gen);
             }
             else {
                 gen.writeStartArray();
