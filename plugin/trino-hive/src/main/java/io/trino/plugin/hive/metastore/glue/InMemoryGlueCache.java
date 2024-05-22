@@ -49,6 +49,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static io.trino.cache.CacheUtils.invalidateAllIf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class InMemoryGlueCache
@@ -124,16 +125,8 @@ class InMemoryGlueCache
                 invalidatePartition(partitionKey);
             }
         }
-        for (PartitionNamesKey partitionNamesKey : partitionNamesCache.asMap().keySet()) {
-            if (partitionNamesKey.databaseName().equals(databaseName)) {
-                partitionNamesCache.invalidate(partitionNamesKey);
-            }
-        }
-        for (FunctionKey functionKey : functionCache.asMap().keySet()) {
-            if (functionKey.databaseName().equals(databaseName)) {
-                functionCache.invalidate(functionKey);
-            }
-        }
+        invalidateAllIf(partitionNamesCache, partitionNamesKey -> partitionNamesKey.databaseName().equals(databaseName));
+        invalidateAllIf(functionCache, functionKey -> functionKey.databaseName().equals(databaseName));
         allFunctionsCache.invalidate(databaseName);
     }
 
@@ -214,11 +207,7 @@ class InMemoryGlueCache
 
     private void invalidatePartitionNames(String databaseName, String tableName)
     {
-        for (PartitionNamesKey partitionNamesKey : partitionNamesCache.asMap().keySet()) {
-            if (partitionNamesKey.databaseName().equals(databaseName) && partitionNamesKey.tableName().equals(tableName)) {
-                partitionNamesCache.invalidate(partitionNamesKey);
-            }
-        }
+        invalidateAllIf(partitionNamesCache, partitionNamesKey -> partitionNamesKey.databaseName().equals(databaseName) && partitionNamesKey.tableName().equals(tableName));
     }
 
     @Override
