@@ -25,8 +25,8 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.google.api.client.util.Preconditions.checkArgument;
 import static com.google.cloud.storage.Blob.BlobSourceOption.shouldReturnRawInputStream;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class GcsUtils

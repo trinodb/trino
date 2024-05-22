@@ -40,10 +40,10 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static com.google.api.client.util.Preconditions.checkState;
 import static com.google.cloud.storage.Storage.BlobListOption.currentDirectory;
 import static com.google.cloud.storage.Storage.BlobListOption.matchGlob;
 import static com.google.cloud.storage.Storage.BlobListOption.pageSize;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.partition;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.filesystem.gcs.GcsUtils.getBlob;
