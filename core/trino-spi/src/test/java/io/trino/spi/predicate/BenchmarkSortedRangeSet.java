@@ -181,6 +181,12 @@ public class BenchmarkSortedRangeSet
     }
 
     @Benchmark
+    public List<ValueSet> linearUnionDiscreteOnLarge(Data data)
+    {
+        return benchmarkIntersectionSingle(data.largeDiscreteSortedRangeSet, SortedRangeSet::linearDiscreteSetUnion);
+    }
+
+    @Benchmark
     public List<ValueSet> binaryIntersectRangeOnLarge(Data data)
     {
         return benchmarkIntersectionSingle(data.largeRangeSortedRangeSet, SortedRangeSet::binarySearchIntersect);
@@ -363,6 +369,7 @@ public class BenchmarkSortedRangeSet
 
         unionSmall(data);
         unionLarge(data);
+        linearUnionDiscreteOnLarge(data);
 
         overlapsSmall(data);
         overlapsLarge(data);
