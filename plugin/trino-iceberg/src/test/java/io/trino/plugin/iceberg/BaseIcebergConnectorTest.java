@@ -3236,6 +3236,7 @@ public abstract class BaseIcebergConnectorTest
                 "CAST('206caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)",
                 "CAST('906caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)",
                 "CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
+        testBucketTransformForType("VARBINARY", "x'04'", "x'21'", "x'02'");
     }
 
     protected void testBucketTransformForType(
