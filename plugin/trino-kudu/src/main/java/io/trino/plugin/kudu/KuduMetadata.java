@@ -39,8 +39,10 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.expression.ConnectorExpression;
@@ -58,13 +60,16 @@ import org.apache.kudu.client.PartitionSchema.HashBucketSchema;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -72,6 +77,8 @@ import static io.trino.plugin.kudu.KuduColumnHandle.ROW_ID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
+import static io.trino.spi.connector.SaveMode.IGNORE;
+import static io.trino.spi.connector.SaveMode.REPLACE;
 import static java.util.Objects.requireNonNull;
 
 public class KuduMetadata
@@ -98,9 +105,13 @@ public class KuduMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
-        requireNonNull(prefix, "prefix is null");
+        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new)
+                .orElseGet(SchemaTablePrefix::new);
 
         List<SchemaTableName> tables;
         if (prefix.getTable().isEmpty()) {
@@ -110,15 +121,17 @@ public class KuduMetadata
             tables = ImmutableList.of(prefix.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
         for (SchemaTableName tableName : tables) {
             KuduTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
             if (tableHandle != null) {
                 KuduTable table = tableHandle.getTable(clientSession);
-                columns.put(tableName, getColumnsMetadata(table.getSchema()));
+                relationColumns.put(tableName, RelationColumnsMetadata.forTable(tableName, getColumnsMetadata(table.getSchema())));
             }
         }
-        return columns.buildOrThrow();
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
+                .iterator();
     }
 
     private ColumnMetadata getColumnMetadata(ColumnSchema column)
@@ -256,12 +269,15 @@ public class KuduMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
+        if (saveMode == REPLACE) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
+        }
         if (tableMetadata.getColumns().stream().anyMatch(column -> column.getComment() != null)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
         }
-        clientSession.createTable(tableMetadata, ignoreExisting);
+        clientSession.createTable(tableMetadata, saveMode == IGNORE);
     }
 
     @Override
@@ -341,11 +357,16 @@ public class KuduMetadata
             ConnectorSession session,
             ConnectorTableMetadata tableMetadata,
             Optional<ConnectorTableLayout> layout,
-            RetryMode retryMode)
+            RetryMode retryMode,
+            boolean replace)
     {
         if (retryMode != NO_RETRIES) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
         }
+        if (replace) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
+        }
+
         PartitionDesign design = KuduTableProperties.getPartitionDesign(tableMetadata.getProperties());
         boolean generateUUID = !design.hasPartitions();
         ConnectorTableMetadata finalTableMetadata = tableMetadata;
