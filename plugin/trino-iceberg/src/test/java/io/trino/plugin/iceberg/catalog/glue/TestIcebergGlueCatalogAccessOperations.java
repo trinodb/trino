@@ -32,8 +32,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +43,8 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
@@ -94,16 +96,17 @@ public class TestIcebergGlueCatalogAccessOperations
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        File tmp = Files.createTempDirectory("test_iceberg").toFile();
+        Path warehouseDir = Files.createTempDirectory("test_iceberg");
+        closeAfterClass(() -> deleteRecursively(warehouseDir, ALLOW_INSECURE));
         QueryRunner queryRunner = DistributedQueryRunner.builder(testSession)
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(tmp.toPath()));
+        queryRunner.installPlugin(new TestingIcebergPlugin(warehouseDir));
         queryRunner.createCatalog("iceberg", "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "glue",
-                        "hive.metastore.glue.default-warehouse-dir", tmp.getAbsolutePath()));
+                        "hive.metastore.glue.default-warehouse-dir", warehouseDir.toAbsolutePath().toString()));
 
         queryRunner.execute("CREATE SCHEMA " + testSchema);
 
