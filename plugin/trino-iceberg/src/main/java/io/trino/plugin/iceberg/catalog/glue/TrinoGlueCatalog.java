@@ -1472,6 +1472,9 @@ public class TrinoGlueCatalog
                 catch (EntityNotFoundException e) {
                     throw new TableNotFoundException(tableName, e);
                 }
+                catch (AmazonServiceException e) {
+                    throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
+                }
             });
         }
         catch (UncheckedExecutionException e) {
