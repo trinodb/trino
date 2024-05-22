@@ -183,7 +183,7 @@ public class BigQueryMetadata
 
         // filter out all the ambiguous schemas to prevent failures if anyone tries to access the listed schemas
 
-        return remoteSchemaNames.map(remoteSchema -> client.toRemoteDataset(projectId, remoteSchema.toLowerCase(ENGLISH), datasetIds))
+        return remoteSchemaNames.map(remoteSchema -> client.toRemoteDataset(projectId, remoteSchema.toLowerCase(ENGLISH), () -> datasetIds))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .filter(dataset -> !dataset.isAmbiguous())
