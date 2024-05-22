@@ -68,6 +68,7 @@ public final class TestingPlannerContext
     public static class Builder
     {
         private Metadata metadata;
+        private CacheMetadata cacheMetadata;
         private TransactionManager transactionManager;
         private final List<Type> types = new ArrayList<>();
         private final List<ParametricType> parametricTypes = new ArrayList<>();
@@ -80,6 +81,13 @@ public final class TestingPlannerContext
             checkState(this.metadata == null, "metadata already set");
             checkState(this.transactionManager == null, "transactionManager already set");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            return this;
+        }
+
+        public Builder withCacheMetadata(CacheMetadata cacheMetadata)
+        {
+            checkState(this.cacheMetadata == null, "cacheMetadata already set");
+            this.cacheMetadata = requireNonNull(cacheMetadata, "cacheMetadata is null");
             return this;
         }
 
@@ -149,7 +157,10 @@ public final class TestingPlannerContext
                     new JsonQueryFunction(functionManager, metadata, typeManager)));
             typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
 
-            CacheMetadata cacheMetadata = new CacheMetadata(catalogHandle -> Optional.empty());
+            CacheMetadata cacheMetadata = this.cacheMetadata;
+            if (cacheMetadata == null) {
+                cacheMetadata = new CacheMetadata(catalogHandle -> Optional.empty());
+            }
             return new PlannerContext(
                     metadata,
                     cacheMetadata,
