@@ -978,7 +978,7 @@ public class GlueHiveMetastore
                 .map(HivePartitionManager::extractPartitionValues)
                 .map(PartitionName::new)
                 .collect(toImmutableList());
-        return stats.getGetPartitionByName().call(() -> getPartitionsByNames(table.getDatabaseName(), table.getTableName(), names)).entrySet().stream()
+        return getPartitionsByNames(table.getDatabaseName(), table.getTableName(), names).entrySet().stream()
                 .collect(toImmutableMap(entry -> makePartitionName(table.getPartitionColumns(), entry.getKey().partitionValues()), Entry::getValue));
     }
 

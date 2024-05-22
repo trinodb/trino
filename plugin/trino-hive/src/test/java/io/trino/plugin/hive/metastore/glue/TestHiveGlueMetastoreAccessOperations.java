@@ -46,7 +46,6 @@ import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.DELETE_COL
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_COLUMN_STATISTICS_FOR_TABLE;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_PARTITIONS;
-import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_PARTITION_BY_NAME;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_PARTITION_NAMES;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_TABLES;
@@ -207,7 +206,6 @@ public class TestHiveGlueMetastoreAccessOperations
                             .add(GET_PARTITIONS)
                             // TODO this is a bulk call, it should suffice to do it once
                             .addCopies(GET_PARTITION_NAMES, 5)
-                            .add(GET_PARTITION_BY_NAME)
                             .build());
         }
         finally {
