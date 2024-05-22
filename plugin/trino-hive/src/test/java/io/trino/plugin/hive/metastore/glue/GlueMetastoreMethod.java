@@ -37,7 +37,6 @@ public enum GlueMetastoreMethod
     GET_DATABASE(GlueMetastoreStats::getGetDatabase),
     GET_DATABASES(GlueMetastoreStats::getGetDatabases),
     GET_PARTITION(GlueMetastoreStats::getGetPartition),
-    GET_PARTITION_BY_NAME(GlueMetastoreStats::getGetPartitionByName),
     GET_PARTITION_NAMES(GlueMetastoreStats::getGetPartitionNames),
     GET_PARTITIONS(GlueMetastoreStats::getGetPartitions),
     GET_TABLE(GlueMetastoreStats::getGetTable),

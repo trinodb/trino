@@ -863,7 +863,7 @@ public class GlueHiveMetastore
     @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
     {
-        return stats.getGetPartitionByName().call(() -> getPartitionsByNamesInternal(table, partitionNames));
+        return getPartitionsByNamesInternal(table, partitionNames);
     }
 
     private Map<String, Optional<Partition>> getPartitionsByNamesInternal(Table table, Collection<String> partitionNames)
