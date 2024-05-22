@@ -70,6 +70,10 @@ public class IrExpressions
     // TODO: record "safety" (can the cast fail at runtime) in Cast node
     private static boolean mayFail(PlannerContext plannerContext, Cast cast)
     {
+        if (mayFail(plannerContext, cast.expression())) {
+            return true;
+        }
+
         TypeCoercion coercions = new TypeCoercion(plannerContext.getTypeManager()::getType);
         if (coercions.canCoerce(cast.expression().type(), cast.type())) {
             return false;
