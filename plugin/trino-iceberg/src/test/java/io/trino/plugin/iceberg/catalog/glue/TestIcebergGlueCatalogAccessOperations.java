@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.common.collect.HashMultiset;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.airlift.log.Logger;
@@ -22,8 +21,9 @@ import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.IcebergConnector;
+import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.plugin.iceberg.TableType;
-import io.trino.plugin.iceberg.TestingIcebergPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -32,8 +32,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.io.File;
-import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +62,6 @@ import static io.trino.plugin.iceberg.catalog.glue.TestIcebergGlueCatalogAccessO
 import static io.trino.plugin.iceberg.catalog.glue.TestIcebergGlueCatalogAccessOperations.FileType.fromFilePath;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,10 +80,6 @@ public class TestIcebergGlueCatalogAccessOperations
 
     private static final int MAX_PREFIXES_COUNT = 5;
     private final String testSchema = "test_schema_" + randomNameSuffix();
-    private final Session testSession = testSessionBuilder()
-            .setCatalog("iceberg")
-            .setSchema(testSchema)
-            .build();
 
     private GlueMetastoreStats glueStats;
 
@@ -94,21 +87,13 @@ public class TestIcebergGlueCatalogAccessOperations
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        File tmp = Files.createTempDirectory("test_iceberg").toFile();
-        QueryRunner queryRunner = DistributedQueryRunner.builder(testSession)
+        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder(testSchema)
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
+                .addIcebergProperty("iceberg.catalog.type", "glue")
+                .addIcebergProperty("hive.metastore.glue.default-warehouse-dir", "local:///glue")
+                .setSchemaInitializer(SchemaInitializer.builder().withSchemaName(testSchema).build())
                 .build();
-
-        queryRunner.installPlugin(new TestingIcebergPlugin(tmp.toPath()));
-        queryRunner.createCatalog("iceberg", "iceberg",
-                ImmutableMap.of(
-                        "iceberg.catalog.type", "glue",
-                        "hive.metastore.glue.default-warehouse-dir", tmp.getAbsolutePath()));
-
-        queryRunner.execute("CREATE SCHEMA " + testSchema);
-
         glueStats = ((IcebergConnector) queryRunner.getCoordinator().getConnector("iceberg")).getInjector().getInstance(GlueMetastoreStats.class);
-
         return queryRunner;
     }
 
