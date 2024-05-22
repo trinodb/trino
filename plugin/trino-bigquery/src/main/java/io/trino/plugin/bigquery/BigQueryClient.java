@@ -124,10 +124,10 @@ public class BigQueryClient
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
     {
-        return toRemoteDataset(projectId, datasetName, listDatasetIds(projectId));
+        return toRemoteDataset(projectId, datasetName, () -> listDatasetIds(projectId));
     }
 
-    public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName, List<DatasetId> datasetIds)
+    public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName, Supplier<List<DatasetId>> datasetIds)
     {
         requireNonNull(projectId, "projectId is null");
         requireNonNull(datasetName, "datasetName is null");
@@ -137,7 +137,7 @@ public class BigQueryClient
         }
 
         Map<String, Optional<RemoteDatabaseObject>> mapping = new HashMap<>();
-        for (DatasetId datasetId : datasetIds) {
+        for (DatasetId datasetId : datasetIds.get()) {
             mapping.merge(
                     datasetId.getDataset().toLowerCase(ENGLISH),
                     Optional.of(RemoteDatabaseObject.of(datasetId.getDataset())),
