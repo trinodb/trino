@@ -185,6 +185,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.TopologicalOrderSubPlanVisitor.sortPlanInTopologicalOrder;
 import static io.trino.tracing.TrinoAttributes.FAILURE_MESSAGE;
 import static io.trino.util.Failures.toFailure;
+import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
@@ -2369,14 +2370,10 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             long finishTime = System.currentTimeMillis();
             long nonSpeculativeSwitchTime = this.nonSpeculativeSwitchTime.orElse(finishTime);
-
-            double speculativeExecutionFraction = ((double) nonSpeculativeSwitchTime - (double) startTime) / ((double) finishTime - (double) startTime);
-            if (Double.isFinite(speculativeExecutionFraction)) {
-                stageExecutionStats.recordStageSpeculativeExecutionFraction(speculativeExecutionFraction);
-            }
-            else {
-                stageExecutionStats.recordStageSpeculativeExecutionFraction(1.0);
-            }
+            stageExecutionStats.recordStageSpeculativeExecutionFraction(clamp(
+                    ((double) nonSpeculativeSwitchTime - startTime) / (finishTime - startTime),
+                    0.0,
+                    1.0));
         }
 
         private void updateOutputSize(SpoolingOutputStats.Snapshot taskOutputStats)
