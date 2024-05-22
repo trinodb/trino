@@ -26,15 +26,16 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.expression.ArrayFieldDereference;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.expression.Variable;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SymbolReference;
 
@@ -42,7 +43,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
@@ -51,7 +51,9 @@ import static io.trino.SystemSessionProperties.enablePushSubscriptLambdaIntoScan
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.PartialTranslator.extractPartialTranslations;
+import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractSubscriptLambdas;
 import static io.trino.sql.planner.iterative.rule.DereferencePushdown.getSymbolReferences;
+import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
@@ -59,28 +61,24 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 /**
- * This rule will try to retrieve subscript expressions within lambda function and generate subfields into table scan
- * The rule is purposely being very narrow for a few reasons:
- * 1. Waiting on decision to accept Subfield to replace list of dereference names that currently being used
- * 2. This serves as a starting point to push lambda expression into table scan, and push lambda expression through other operators in the future
- * 3. The PruneUnnestMappings has NOT been accepted yet, which this rule is relying on, there is risk that this need to be rewritten
+ * This rule is similar as PushSubscriptLambdaIntoTableScan, but handles the case where filter node
+ * is above table scan after predicate pushdown rules
  *
  * TODO: Remove lambda expression after subfields are pushed down
  */
-public class PushSubscriptLambdaIntoTableScan
+public class PushSubscriptLambdaThroughFilterIntoTableScan
         implements Rule<ProjectNode>
 {
-    private static final Logger LOG = Logger.get(PushSubscriptLambdaIntoTableScan.class);
-    private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
-    private static final Pattern<ProjectNode> PATTERN = project().with(source().matching(
-            tableScan().capturedAs(TABLE_SCAN)));
+    private static final Logger LOG = Logger.get(PushSubscriptLambdaThroughFilterIntoTableScan.class);
+    private static final Capture<FilterNode> filter = newCapture();
+    private static final Capture<TableScanNode> tablescan = newCapture();
 
     private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
     private final LiteralEncoder literalEncoder;
     private final ScalarStatsCalculator scalarStatsCalculator;
 
-    public PushSubscriptLambdaIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
+    public PushSubscriptLambdaThroughFilterIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
     {
         this.plannerContext = plannerContext;
         this.typeAnalyzer = typeAnalyzer;
@@ -91,7 +89,9 @@ public class PushSubscriptLambdaIntoTableScan
     @Override
     public Pattern<ProjectNode> getPattern()
     {
-        return PATTERN;
+        return project()
+                .with(source().matching(filter().capturedAs(filter)
+                        .with(source().matching((tableScan().capturedAs(tablescan))))));
     }
 
     @Override
@@ -104,15 +104,31 @@ public class PushSubscriptLambdaIntoTableScan
     @Override
     public Result apply(ProjectNode project, Captures captures, Context context)
     {
-        TableScanNode tableScan = captures.get(TABLE_SCAN);
+        FilterNode filterNode = captures.get(filter);
+        TableScanNode tableScanNode = captures.get(tablescan);
+
+        Map<FunctionCall, SymbolReference> subscriptLambdas = extractSubscriptLambdas(project.getAssignments().getExpressions());
+
+        if (subscriptLambdas.isEmpty()) {
+            return Result.empty();
+        }
+
+        // If filter has same reference as subscript input, skip for safe for now
+        List<SymbolReference> filterSymbolReferences = getSymbolReferences(filterNode.getPredicate());
+        subscriptLambdas = subscriptLambdas.entrySet().stream()
+                .filter(e -> !filterSymbolReferences.contains(e.getValue()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        if (subscriptLambdas.isEmpty()) {
+            return Result.empty();
+        }
 
         Session session = context.getSession();
-
         // Extract only ArrayFieldDereference expressions from projection expressions, other expressions have been applied
-        Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = project.getAssignments().getMap().entrySet().stream()
+        Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = subscriptLambdas.entrySet().stream()
                 .flatMap(expression ->
                         extractPartialTranslations(
-                                expression.getValue(),
+                                expression.getKey(),
                                 session,
                                 typeAnalyzer,
                                 context.getSymbolAllocator().getTypes(),
@@ -124,34 +140,15 @@ public class PushSubscriptLambdaIntoTableScan
             return Result.empty();
         }
 
-        Map<String, Symbol> inputVariableMappings = tableScan.getAssignments().keySet().stream()
+        Map<String, Symbol> inputVariableMappings = tableScanNode.getAssignments().keySet().stream()
                 .collect(toImmutableMap(Symbol::getName, identity()));
         Map<String, ColumnHandle> assignments = inputVariableMappings.entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> tableScan.getAssignments().get(entry.getValue())));
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> tableScanNode.getAssignments().get(entry.getValue())));
 
-        // Because we will not replace any symbol references but prune the data, we want to make sure same table scan symbol
-        // is not used anywhere else just to be safe, we will revisit this once we need to expand the scope of this optimization.
-        // As a result, only support limited cases now which symbol reference has to be uniquely referenced
-        List<Expression> expressions = ImmutableList.copyOf(project.getAssignments().getExpressions());
-        Map<String, Long> symbolReferenceNamesCount = expressions.stream()
-                .flatMap(expression -> getSymbolReferences(expression).stream())
-                .map(SymbolReference::getName)
-                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
-
-        partialTranslations = partialTranslations.entrySet().stream().filter(entry -> {
-            ArrayFieldDereference arrayFieldDereference = (ArrayFieldDereference) entry.getValue();
-            return arrayFieldDereference.getTarget() instanceof Variable variable
-                    && symbolReferenceNamesCount.get(variable.getName()) == 1;
-        }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-        if (partialTranslations.isEmpty()) {
-            return Result.empty();
-        }
-
-        // At this point, only Hive connector understands how to deal with ArrayFieldDereference expression
+        // Apply projections handled by connectors
         Optional<ProjectionApplicationResult<TableHandle>> result =
                 plannerContext.getMetadata().applyProjection(session,
-                        tableScan.getTable(),
+                        tableScanNode.getTable(),
                         ImmutableList.copyOf(partialTranslations.values()),
                         assignments);
 
@@ -165,25 +162,28 @@ public class PushSubscriptLambdaIntoTableScan
         }
 
         verify(assignments.size() == newTableAssignments.size(),
-                "Assignments size mis-match after PushSubscriptLambdaIntoTableScan: %d instead of %d",
+                "Assignments size mis-match after PushSubscriptLambdaThroughFilterIntoTableScan: %d instead of %d",
                 newTableAssignments.size(),
                 assignments.size());
 
-        LOG.info("PushSubscriptLambdaIntoTableScan is effectively triggered on %d expressions", partialTranslations.size());
+        LOG.info("PushSubscriptLambdaThroughFilterIntoTableScan is effectively triggered on %d expressions", partialTranslations.size());
 
         // Only update tableHandle and TableScan assignments which have new columnHandles
         return Result.ofPlanNode(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
-                        new TableScanNode(
-                                tableScan.getId(),
-                                result.get().getHandle(),
-                                tableScan.getOutputSymbols(),
-                                newTableAssignments,
-                                tableScan.getEnforcedConstraint(),
-                                tableScan.getStatistics(),
-                                tableScan.isUpdateTarget(),
-                                tableScan.getUseConnectorNodePartitioning()),
+                        new FilterNode(
+                                context.getIdAllocator().getNextId(),
+                                new TableScanNode(
+                                        tableScanNode.getId(),
+                                        result.get().getHandle(),
+                                        tableScanNode.getOutputSymbols(),
+                                        newTableAssignments,
+                                        tableScanNode.getEnforcedConstraint(),
+                                        tableScanNode.getStatistics(),
+                                        tableScanNode.isUpdateTarget(),
+                                        tableScanNode.getUseConnectorNodePartitioning()),
+                                filterNode.getPredicate()),
                         project.getAssignments()));
     }
 }

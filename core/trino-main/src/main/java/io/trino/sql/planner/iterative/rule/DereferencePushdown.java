@@ -15,22 +15,29 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.SymbolsExtractor.extractAll;
 
@@ -134,5 +141,115 @@ class DereferencePushdown
 
         verify(current instanceof SymbolReference);
         return false;
+    }
+
+    // Common methods for subscript lambda pushdown
+    /**
+     * Extract the sub-expressions of type subscript lambda {@link FunctionCall} from the {@param expression}
+     */
+    public static Map<FunctionCall, SymbolReference> extractSubscriptLambdas(Collection<Expression> expressions)
+    {
+        List<Map<Expression, SymbolReference>> symbolReferencesAndSubscriptLambdas =
+                expressions.stream()
+                        .map(expression -> getSymbolReferencesAndSubscriptLambdas(expression))
+                        .collect(toImmutableList());
+
+        Set<SymbolReference> symbolReferences =
+                symbolReferencesAndSubscriptLambdas.stream()
+                        .flatMap(m -> m.keySet().stream())
+                        .filter(SymbolReference.class::isInstance)
+                        .map(SymbolReference.class::cast)
+                        .collect(Collectors.toSet());
+
+        // Returns the subscript expression and its target input expression
+        Map<FunctionCall, SymbolReference> subscriptLambdas =
+                symbolReferencesAndSubscriptLambdas.stream()
+                        .flatMap(m -> m.entrySet().stream())
+                        .filter(e -> e.getKey() instanceof FunctionCall && !symbolReferences.contains(e.getValue()))
+                        .collect(Collectors.toMap(e -> (FunctionCall) e.getKey(), e -> e.getValue()));
+
+        return subscriptLambdas;
+    }
+
+    /**
+     * Extract the sub-expressions of type {@link SymbolReference} and subscript lambda {@link FunctionCall} from the {@param expression}
+     */
+    private static Map<Expression, SymbolReference> getSymbolReferencesAndSubscriptLambdas(Expression expression)
+    {
+        Map<Expression, SymbolReference> symbolMappings = new HashMap<>();
+
+        new DefaultExpressionTraversalVisitor<Map<Expression, SymbolReference>>()
+        {
+            @Override
+            protected Void visitSymbolReference(SymbolReference node, Map<Expression, SymbolReference> context)
+            {
+                context.put(node, node);
+                return null;
+            }
+
+            @Override
+            protected Void visitFunctionCall(FunctionCall node, Map<Expression, SymbolReference> context)
+            {
+                Optional<SymbolReference> inputExpression = getSubscriptLambdaInputExpression(node);
+                if (inputExpression.isPresent()) {
+                    context.put(node, inputExpression.get());
+                }
+
+                return null;
+            }
+        }.process(expression, symbolMappings);
+
+        return symbolMappings;
+    }
+
+    /**
+     * Extract the sub-expressions of type {@link SymbolReference} from the {@param expression}
+     */
+    public static List<SymbolReference> getSymbolReferences(Expression expression)
+    {
+        ImmutableList.Builder<SymbolReference> builder = ImmutableList.builder();
+
+        new DefaultExpressionTraversalVisitor<ImmutableList.Builder<SymbolReference>>()
+        {
+            @Override
+            protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<SymbolReference> context)
+            {
+                context.add(node);
+                return null;
+            }
+        }.process(expression, builder);
+
+        return builder.build();
+    }
+
+    /**
+     * Common pattern matching util function to look for subscript lambda function
+     */
+    public static Optional<SymbolReference> getSubscriptLambdaInputExpression(Expression expression)
+    {
+        if (expression instanceof FunctionCall functionCall) {
+            String functionName = ResolvedFunction.extractFunctionName(functionCall.getName());
+
+            if ("transform".equals(functionName)) {
+                List<Expression> allNodeArgument = functionCall.getArguments();
+                // at this point, SubscriptExpression should already been replaced with reference expression,
+                // if not, it means its referenced by other expressions. we only care about SymbolReference at this moment
+                List<SymbolReference> inputExpressions = allNodeArgument.stream()
+                        .filter(SymbolReference.class::isInstance)
+                        .map(SymbolReference.class::cast)
+                        .collect(toImmutableList());
+                List<LambdaExpression> lambdaExpressions = allNodeArgument.stream().filter(e -> e instanceof LambdaExpression lambda
+                                && lambda.getArguments().size() == 1
+                                && lambda.getArguments().get(0).getName().getValue().contains("transformarray$element"))
+                        .map(LambdaExpression.class::cast)
+                        .collect(toImmutableList());
+                if (inputExpressions.size() == 1 && lambdaExpressions.size() == 1 &&
+                        lambdaExpressions.get(0).getBody() instanceof Row row &&
+                        row.getItems().stream().allMatch(SubscriptExpression.class::isInstance)) {
+                    return Optional.of(inputExpressions.get(0));
+                }
+            }
+        }
+        return Optional.empty();
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -47,6 +48,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.subfield.Subfield;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
@@ -57,6 +59,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
 
@@ -330,6 +333,10 @@ public class ParquetPageSourceFactory
             return baseColumnType;
         }
 
+        // If subfields is not empty, it is the source of truth instead because it will contain all prefixes from the root
+        // If subfields are only created through PushSubscriptLambdaIntoTableScan rule, so disable the rule will automatically
+        // skip below logic if anything goes wrong
+        // TODO: This part of logic can be consolidated if OSS accepts Subfield
         if (useParquetColumnNames && !column.getHiveColumnProjectionInfo().get().getSubfields().isEmpty()) {
             try {
                 MessageType combinedPrunedTypes = null;
@@ -342,11 +349,10 @@ public class ParquetPageSourceFactory
                         combinedPrunedTypes = combinedPrunedTypes.union(prunedType);
                     }
                 }
-                return Optional.ofNullable(combinedPrunedTypes) // Should never be null since subfields is non-empty.
+                return Optional.of(combinedPrunedTypes) // Should never be null since subfields is non-empty.
                         .map(type -> getParquetTypeByName(column.getName(), type));
             }
             catch (Exception e) {
-                log.warn("Failed to prune parquet schema with dereference names. Fall back to scan full schema", e);
                 return baseColumnType;
             }
         }
@@ -547,7 +553,7 @@ public class ParquetPageSourceFactory
         return Optional.of(typeBuilder.build());
     }
 
-    // Below are direct copy from Presto to minimize testings needed, no further change was done
+    // Below are directly refernced from Presto to minimize testings needed, no further change was done
     private static MessageType pruneRootTypeForSubfield(MessageType rootType, Subfield subfield)
     {
         org.apache.parquet.schema.Type columnType = getParquetTypeByName(subfield.getRootName(), rootType);
@@ -568,7 +574,6 @@ public class ParquetPageSourceFactory
             String singleLineColumnTypeString = (columnType == null) ?
                     "Unknown" :
                     columnType.toString().replaceAll("[\\r\\n]+", "");
-            log.warn(e, "Unable to prune type: %s with path: %s", singleLineColumnTypeString, pathElements);
             return columnType;
         }
     }
@@ -604,8 +609,6 @@ public class ParquetPageSourceFactory
             }
 
             if (originalType == OriginalType.LIST) {
-                // Backwards compatibility cases from:
-                // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
                 if (firstFieldType.getFields().size() > 1
                         || firstFieldType.getName().equals("array")
                         || firstFieldType.getName().equals(type.getName() + "_tuple")) {

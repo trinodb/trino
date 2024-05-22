@@ -1075,7 +1075,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         ENABLE_PUSH_SUBSCRIPT_LAMBDA_INTO_SCAN,
                         "Enable Push Subscript Lambda Into Scan feature",
-                        true,
+                        false,
                         false));
     }
 

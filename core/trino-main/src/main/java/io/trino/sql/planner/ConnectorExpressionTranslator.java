@@ -23,6 +23,7 @@ import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.expression.ArrayFieldDereference;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -49,6 +50,7 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
@@ -59,6 +61,7 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.JoniRegexp;
@@ -675,7 +678,7 @@ public final class ConnectorExpressionTranslator
                 return translateLike(node);
             }
 
-            // Very narrow case that only try to extract a particular type of lambda expression
+            // Very narrow case that only tries to extract a particular type of lambda expression
             // TODO: Expand the scope
             if ("transform".equals(functionName)) {
                 List<Expression> allNodeArgument = node.getArguments();

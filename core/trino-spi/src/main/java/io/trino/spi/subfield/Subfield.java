@@ -24,10 +24,10 @@ import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-// Picked from Presto
+// Class to represent subfield. Direct referenced from Presto
 public class Subfield
 {
-    public interface PathElement
+    public sealed interface PathElement permits AllSubscripts, NoSubfield, NestedField, LongSubscript, StringSubscript
     {
         boolean isSubscript();
     }

@@ -42,9 +42,11 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static io.trino.SystemSessionProperties.enablePushSubscriptLambdaIntoScan;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static io.trino.sql.planner.iterative.rule.DereferencePushdown.getSubscriptLambdaInputExpression;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static java.util.Objects.requireNonNull;
@@ -174,6 +176,7 @@ public class InlineProjections
         //      b. appear only once across all expressions
         //      c. are not identity projections
         // which come from the child, as opposed to an enclosing scope.
+        boolean enablePushSubscriptLambdaIntoScan = enablePushSubscriptLambdaIntoScan(session);
 
         Set<Symbol> childOutputSet = ImmutableSet.copyOf(child.getOutputSymbols());
 
@@ -210,6 +213,13 @@ public class InlineProjections
                         }
                     }
 
+                    return true;
+                })
+                .filter(entry -> {
+                    if (enablePushSubscriptLambdaIntoScan) {
+                        // skip subscript lambdas, otherwise, inlining can cause conflicts with PushdownDereferences
+                        return getSubscriptLambdaInputExpression(child.getAssignments().get(entry.getKey())).isEmpty();
+                    }
                     return true;
                 })
                 .map(Map.Entry::getKey)

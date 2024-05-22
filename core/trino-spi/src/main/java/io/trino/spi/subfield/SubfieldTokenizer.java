@@ -23,7 +23,7 @@ import static java.lang.Character.isLetterOrDigit;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-// Picked from Presto
+// Class to translate subfield. Direct referenced from Presto
 public class SubfieldTokenizer
         implements Iterator<Subfield.PathElement>
 {

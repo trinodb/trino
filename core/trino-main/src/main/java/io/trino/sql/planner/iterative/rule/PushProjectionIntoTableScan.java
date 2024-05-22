@@ -27,6 +27,7 @@ import io.trino.metadata.TableProperties.TablePartitioning;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.expression.ArrayFieldDereference;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;

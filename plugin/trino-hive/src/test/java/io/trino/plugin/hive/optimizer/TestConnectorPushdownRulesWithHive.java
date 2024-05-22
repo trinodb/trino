@@ -30,22 +30,34 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
+import io.trino.spi.subfield.Subfield;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushSubscriptLambdaIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushSubscriptLambdaThroughFilterIntoTableScan;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
+import io.trino.type.FunctionType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -57,6 +69,7 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.SystemSessionProperties.ENABLE_PUSH_SUBSCRIPT_LAMBDA_INTO_SCAN;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
@@ -65,6 +78,7 @@ import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.creat
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -76,6 +90,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 
 public class TestConnectorPushdownRulesWithHive
         extends BaseRuleTest
@@ -91,6 +106,23 @@ public class TestConnectorPushdownRulesWithHive
     private static final Session HIVE_SESSION = testSessionBuilder()
             .setCatalog(TEST_CATALOG_NAME)
             .setSchema(SCHEMA_NAME)
+            .setSystemProperty(ENABLE_PUSH_SUBSCRIPT_LAMBDA_INTO_SCAN, "true")
+            .build();
+
+    private static final Type PRUNED_ROW_TYPE = RowType.from(asList(field("a", BIGINT)));
+    private static final Type ARRAY_PRUNED_ROW_TYPE = new ArrayType(PRUNED_ROW_TYPE);
+    private static final Type ARRAY_ROW_TYPE = new ArrayType(ROW_TYPE);
+    private static final Type ROW_ARRAY_ROW_TYPE = RowType.from(asList(field("array", ARRAY_ROW_TYPE)));
+    private static final FunctionCall subscriptfunctionCall = FunctionCallBuilder.resolve(HIVE_SESSION, PLANNER_CONTEXT.getMetadata())
+            .setName(QualifiedName.of("transform"))
+            .addArgument(ARRAY_ROW_TYPE, new SymbolReference("array_of_struct"))
+            .addArgument(new FunctionType(singletonList(ROW_TYPE), PRUNED_ROW_TYPE),
+                    new LambdaExpression(ImmutableList.of(
+                            new LambdaArgumentDeclaration(
+                                    new Identifier("transformarray$element"))),
+                            new Row(ImmutableList.of(new SubscriptExpression(
+                                    new SymbolReference("transformarray$element"),
+                                    new LongLiteral("1"))))))
             .build();
 
     @Override
@@ -353,6 +385,498 @@ public class TestConnectorPushdownRulesWithHive
                                 hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
                                 TupleDomain.all(),
                                 ImmutableMap.of("struct_of_bigint#a", partialColumn::equals))));
+
+        metastore.dropTable(SCHEMA_NAME, tableName, true);
+    }
+
+    @Test
+    public void testDereferenceInSubscriptLambdaPushdown()
+    {
+        String tableName = "array_projection_test";
+        PushSubscriptLambdaIntoTableScan pushSubscriptLambdaIntoTableScan =
+                new PushSubscriptLambdaIntoTableScan(
+                        tester().getPlannerContext(),
+                        tester().getTypeAnalyzer(),
+                        new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
+
+        tester().getQueryRunner().execute(format(
+                "CREATE TABLE  %s (array_of_struct) AS " +
+                        "SELECT cast(ARRAY[ROW(1, 2), ROW(3, 4)] as ARRAY(ROW(a bigint, b bigint))) as array_of_struct",
+                tableName));
+
+        HiveColumnHandle partialColumn = new HiveColumnHandle(
+                "array_of_struct",
+                0,
+                toHiveType(ARRAY_ROW_TYPE),
+                ARRAY_ROW_TYPE,
+                Optional.of(new HiveColumnProjectionInfo(
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        toHiveType(ARRAY_ROW_TYPE),
+                        ARRAY_ROW_TYPE,
+                        ImmutableList.of(new Subfield("array_of_struct",
+                                ImmutableList.of(Subfield.AllSubscripts.getInstance(),
+                                        new Subfield.NestedField("a")))))),
+                REGULAR,
+                Optional.empty());
+
+        HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName,
+                ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false));
+
+        HiveColumnHandle fullColumn = partialColumn.getBaseColumn();
+
+        // Base symbol referenced by other assignments, skip the optimization
+        tester().assertThat(pushSubscriptLambdaIntoTableScan)
+                .on(p ->
+                        p.project(
+                                Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE),
+                                        subscriptfunctionCall,
+                                        p.symbol("array_of_struct", ARRAY_ROW_TYPE),
+                                        p.symbol("array_of_struct", ARRAY_ROW_TYPE).toSymbolReference()),
+                                p.tableScan(
+                                        table,
+                                        ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE)),
+                                        ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), fullColumn))))
+                .doesNotFire();
+
+        // No subscript lambda exists, skip the optimization
+        tester().assertThat(pushSubscriptLambdaIntoTableScan)
+                .on(p ->
+                        p.project(
+                                Assignments.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE),
+                                        p.symbol("array_of_struct", ARRAY_ROW_TYPE).toSymbolReference()),
+                                p.tableScan(
+                                        table,
+                                        ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE)),
+                                        ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), fullColumn))))
+                .doesNotFire();
+
+        // Transform input argument is not symbol reference, skip the optimization
+        FunctionCall nestedSubscriptfunctionCall = FunctionCallBuilder.resolve(HIVE_SESSION, PLANNER_CONTEXT.getMetadata())
+                .setName(QualifiedName.of("transform"))
+                .addArgument(ARRAY_ROW_TYPE, new SubscriptExpression(new SymbolReference("struct_of_array_of_struct"),
+                        new LongLiteral("1")))
+                .addArgument(new FunctionType(singletonList(ROW_TYPE), PRUNED_ROW_TYPE),
+                        new LambdaExpression(ImmutableList.of(
+                                new LambdaArgumentDeclaration(
+                                        new Identifier("transformarray$element"))),
+                                new Row(ImmutableList.of(new SubscriptExpression(
+                                        new SymbolReference("transformarray$element"),
+                                        new LongLiteral("1"))))))
+                .build();
+
+        tester().assertThat(pushSubscriptLambdaIntoTableScan)
+                .on(p ->
+                        p.project(
+                                Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE),
+                                        nestedSubscriptfunctionCall),
+                                p.tableScan(
+                                        table,
+                                        ImmutableList.of(p.symbol("struct_of_array_of_struct", ROW_ARRAY_ROW_TYPE)),
+                                        ImmutableMap.of(p.symbol("struct_of_array_of_struct", ROW_ARRAY_ROW_TYPE), fullColumn))))
+                .doesNotFire();
+
+        // Functions other than transform() will not trigger the optimization
+        tester().assertThat(pushSubscriptLambdaIntoTableScan)
+                .on(p ->
+                        p.project(
+                                Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE),
+                                        PlanBuilder.expression("trim_array(array_of_struct, 1)")),
+                                p.tableScan(
+                                        table,
+                                        ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE)),
+                                        ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), fullColumn))))
+                .doesNotFire();
+
+        // If already applied and same subfields generated, will not re-apply
+        tester().assertThat(pushSubscriptLambdaIntoTableScan)
+                .on(p ->
+                        p.project(
+                                Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE), subscriptfunctionCall),
+                                p.tableScan(
+                                        table,
+                                        ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE)),
+                                        ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), partialColumn))))
+                .doesNotFire();
+
+        // Overwrite the existing subfields with latest
+        HiveColumnHandle previousColumnHandle = new HiveColumnHandle(
+                "array_of_struct",
+                0,
+                toHiveType(ARRAY_ROW_TYPE),
+                ARRAY_ROW_TYPE,
+                Optional.of(new HiveColumnProjectionInfo(
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        toHiveType(ARRAY_ROW_TYPE),
+                        ARRAY_ROW_TYPE,
+                        ImmutableList.of(new Subfield("array_of_struct",
+                                ImmutableList.of(Subfield.AllSubscripts.getInstance(),
+                                        new Subfield.NestedField("previous")))))),
+                REGULAR,
+                Optional.empty());
+
+        tester().assertThat(pushSubscriptLambdaIntoTableScan)
+                .on(p ->
+                        p.project(
+                                Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE), subscriptfunctionCall),
+                                p.tableScan(
+                                        table,
+                                        ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE)),
+                                        ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), previousColumnHandle))))
+                .matches(
+                        project(
+                                ImmutableMap.of("nested_array_transformed", expression(subscriptfunctionCall)),
+                                tableScan(
+                                        hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
+                                        TupleDomain.all(),
+                                        ImmutableMap.of("array_of_struct", partialColumn::equals))));
+
+        // Subfields are added based on the subscript lambda
+        tester().assertThat(pushSubscriptLambdaIntoTableScan)
+                .on(p ->
+                        p.project(
+                                Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE), subscriptfunctionCall),
+                                p.tableScan(
+                                        table,
+                                        ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE)),
+                                        ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), fullColumn))))
+                .matches(
+                        project(
+                                ImmutableMap.of("nested_array_transformed", expression(subscriptfunctionCall)),
+                                tableScan(
+                                        hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
+                                        TupleDomain.all(),
+                                        ImmutableMap.of("array_of_struct", partialColumn::equals))));
+
+        // Subfields are added based on the subscript lambda, and extends the existing prefix
+        HiveColumnHandle nestedColumn = new HiveColumnHandle(
+                "struct_of_array_of_struct",
+                0,
+                toHiveType(ROW_ARRAY_ROW_TYPE),
+                ROW_ARRAY_ROW_TYPE,
+                Optional.of(new HiveColumnProjectionInfo(
+                        ImmutableList.of(0),
+                        ImmutableList.of("array"),
+                        toHiveType(ARRAY_ROW_TYPE),
+                        ARRAY_ROW_TYPE,
+                        ImmutableList.of())),
+                REGULAR,
+                Optional.empty());
+
+        HiveColumnHandle nestedPartialColumn = new HiveColumnHandle(
+                "struct_of_array_of_struct",
+                0,
+                toHiveType(ROW_ARRAY_ROW_TYPE),
+                ROW_ARRAY_ROW_TYPE,
+                Optional.of(new HiveColumnProjectionInfo(
+                        ImmutableList.of(0),
+                        ImmutableList.of("array"),
+                        toHiveType(ARRAY_ROW_TYPE),
+                        ARRAY_ROW_TYPE,
+                        ImmutableList.of(new Subfield("struct_of_array_of_struct",
+                                ImmutableList.of(new Subfield.NestedField("array"),
+                                        Subfield.AllSubscripts.getInstance(),
+                                        new Subfield.NestedField("a")))))),
+                REGULAR,
+                Optional.empty());
+
+        FunctionCall subscriptfunctionCallOnStructField = FunctionCallBuilder.resolve(HIVE_SESSION, PLANNER_CONTEXT.getMetadata())
+                .setName(QualifiedName.of("transform"))
+                .addArgument(ARRAY_ROW_TYPE, new SymbolReference("array_of_struct"))
+                .addArgument(new FunctionType(singletonList(ROW_TYPE), PRUNED_ROW_TYPE),
+                        new LambdaExpression(ImmutableList.of(
+                                new LambdaArgumentDeclaration(
+                                        new Identifier("transformarray$element"))),
+                                new Row(ImmutableList.of(new SubscriptExpression(
+                                        new SymbolReference("transformarray$element"),
+                                        new LongLiteral("1"))))))
+                .build();
+
+        tester().assertThat(pushSubscriptLambdaIntoTableScan)
+                .on(p ->
+                        p.project(
+                                Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE), subscriptfunctionCallOnStructField),
+                                p.tableScan(
+                                        table,
+                                        ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE)),
+                                        ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), nestedColumn))))
+                .matches(
+                        project(
+                                ImmutableMap.of("nested_array_transformed", expression(subscriptfunctionCallOnStructField)),
+                                tableScan(
+                                        hiveTable.withProjectedColumns(ImmutableSet.of(nestedPartialColumn))::equals,
+                                        TupleDomain.all(),
+                                        ImmutableMap.of("array_of_struct", nestedPartialColumn::equals))));
+
+        metastore.dropTable(SCHEMA_NAME, tableName, true);
+    }
+
+    @Test
+    public void testDereferenceInSubscriptLambdaPushdownThroughFilter()
+    {
+        String tableName = "array_projection_test";
+        PushSubscriptLambdaThroughFilterIntoTableScan pushSubscriptLambdaThroughFilterIntoTableScan =
+                new PushSubscriptLambdaThroughFilterIntoTableScan(
+                        tester().getPlannerContext(),
+                        tester().getTypeAnalyzer(),
+                        new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
+
+        tester().getQueryRunner().execute(format(
+                "CREATE TABLE  %s (array_of_struct) AS " +
+                        "SELECT cast(ARRAY[ROW(1, 2), ROW(3, 4)] as ARRAY(ROW(a bigint, b bigint))) as array_of_struct",
+                tableName));
+
+        HiveColumnHandle partialColumn = new HiveColumnHandle(
+                "array_of_struct",
+                0,
+                toHiveType(ARRAY_ROW_TYPE),
+                ARRAY_ROW_TYPE,
+                Optional.of(new HiveColumnProjectionInfo(
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        toHiveType(ARRAY_ROW_TYPE),
+                        ARRAY_ROW_TYPE,
+                        ImmutableList.of(new Subfield("array_of_struct",
+                                ImmutableList.of(Subfield.AllSubscripts.getInstance(),
+                                        new Subfield.NestedField("a")))))),
+                REGULAR,
+                Optional.empty());
+
+        HiveColumnHandle bigIntColumn = new HiveColumnHandle(
+                "e",
+                0,
+                toHiveType(BIGINT),
+                BIGINT,
+                Optional.empty(),
+                REGULAR,
+                Optional.empty());
+
+        HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName,
+                ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false));
+
+        HiveColumnHandle fullColumn = partialColumn.getBaseColumn();
+
+        // Base symbol referenced by other assignments, skip the optimization
+        tester().assertThat(pushSubscriptLambdaThroughFilterIntoTableScan)
+                .on(p -> {
+                    Symbol e = p.symbol("e", BIGINT);
+                    return p.project(
+                            Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE),
+                                    subscriptfunctionCall,
+                                    p.symbol("array_of_struct", ARRAY_ROW_TYPE),
+                                    p.symbol("array_of_struct", ARRAY_ROW_TYPE).toSymbolReference()),
+                            p.filter(PlanBuilder.expression("e > 0"),
+                                    p.tableScan(
+                                            table,
+                                            ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), e),
+                                            ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), fullColumn,
+                                                    e, bigIntColumn))));
+                })
+                .doesNotFire();
+
+        // No subscript lambda exists, skip the optimization
+        tester().assertThat(pushSubscriptLambdaThroughFilterIntoTableScan)
+                .on(p -> {
+                    Symbol e = p.symbol("e", BIGINT);
+                    return p.project(
+                            Assignments.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE),
+                                    p.symbol("array_of_struct", ARRAY_ROW_TYPE).toSymbolReference()),
+                            p.filter(PlanBuilder.expression("e > 0"),
+                                    p.tableScan(
+                                            table,
+                                            ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), e),
+                                            ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), fullColumn,
+                                                    e, bigIntColumn))));
+                })
+                .doesNotFire();
+
+        // Transform input argument is not symbol reference, skip the optimization
+        FunctionCall nestedSubscriptfunctionCall = FunctionCallBuilder.resolve(HIVE_SESSION, PLANNER_CONTEXT.getMetadata())
+                .setName(QualifiedName.of("transform"))
+                .addArgument(ARRAY_ROW_TYPE, new SubscriptExpression(new SymbolReference("struct_of_array_of_struct"),
+                        new LongLiteral("1")))
+                .addArgument(new FunctionType(singletonList(ROW_TYPE), PRUNED_ROW_TYPE),
+                        new LambdaExpression(ImmutableList.of(
+                                new LambdaArgumentDeclaration(
+                                        new Identifier("transformarray$element"))),
+                                new Row(ImmutableList.of(new SubscriptExpression(
+                                        new SymbolReference("transformarray$element"),
+                                        new LongLiteral("1"))))))
+                .build();
+
+        tester().assertThat(pushSubscriptLambdaThroughFilterIntoTableScan)
+                .on(p -> {
+                    Symbol e = p.symbol("e", BIGINT);
+                    return p.project(
+                            Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE),
+                                    nestedSubscriptfunctionCall),
+                            p.filter(PlanBuilder.expression("e > 0"),
+                                    p.tableScan(
+                                            table,
+                                            ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), e),
+                                            ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), fullColumn,
+                                                    e, bigIntColumn))));
+                })
+                .doesNotFire();
+
+        // Functions other than transform() will not trigger the optimization
+        tester().assertThat(pushSubscriptLambdaThroughFilterIntoTableScan)
+                .on(p -> {
+                    Symbol e = p.symbol("e", BIGINT);
+                    return p.project(
+                            Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE),
+                                    PlanBuilder.expression("trim_array(array_of_struct, 1)")),
+                            p.filter(PlanBuilder.expression("e > 0"),
+                                    p.tableScan(
+                                            table,
+                                            ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), e),
+                                            ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), fullColumn,
+                                                    e, bigIntColumn))));
+                })
+                .doesNotFire();
+
+        // If already applied and same subfields generated, will not re-apply
+        tester().assertThat(pushSubscriptLambdaThroughFilterIntoTableScan)
+                .on(p -> {
+                    Symbol e = p.symbol("e", BIGINT);
+                    return p.project(
+                            Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE), subscriptfunctionCall),
+                            p.filter(PlanBuilder.expression("e > 0"),
+                                    p.tableScan(
+                                            table,
+                                            ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), e),
+                                            ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), partialColumn,
+                                                    e, bigIntColumn))));
+                })
+                .doesNotFire();
+
+        // Overwrite the existing subfields with latest
+        HiveColumnHandle previousColumnHandle = new HiveColumnHandle(
+                "array_of_struct",
+                0,
+                toHiveType(ARRAY_ROW_TYPE),
+                ARRAY_ROW_TYPE,
+                Optional.of(new HiveColumnProjectionInfo(
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        toHiveType(ARRAY_ROW_TYPE),
+                        ARRAY_ROW_TYPE,
+                        ImmutableList.of(new Subfield("array_of_struct",
+                                ImmutableList.of(Subfield.AllSubscripts.getInstance(),
+                                        new Subfield.NestedField("previous")))))),
+                REGULAR,
+                Optional.empty());
+
+        tester().assertThat(pushSubscriptLambdaThroughFilterIntoTableScan)
+                .on(p -> {
+                    Symbol e = p.symbol("e", BIGINT);
+                    return p.project(
+                            Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE), subscriptfunctionCall),
+                            p.filter(PlanBuilder.expression("e > 0"),
+                                    p.tableScan(
+                                            table,
+                                            ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), e),
+                                            ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), previousColumnHandle,
+                                                    e, bigIntColumn))));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("nested_array_transformed", expression(subscriptfunctionCall)),
+                                filter("e > 0",
+                                        tableScan(
+                                                hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn, bigIntColumn))::equals,
+                                                TupleDomain.all(),
+                                                ImmutableMap.of("array_of_struct", partialColumn::equals, "e", bigIntColumn::equals)))));
+
+        // Subfields are added based on the subscript lambda
+        tester().assertThat(pushSubscriptLambdaThroughFilterIntoTableScan)
+                .on(p -> {
+                    Symbol e = p.symbol("e", BIGINT);
+                    return p.project(
+                            Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE), subscriptfunctionCall),
+                            p.filter(PlanBuilder.expression("e > 0"),
+                                    p.tableScan(
+                                            table,
+                                            ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), e),
+                                            ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), fullColumn,
+                                                    e, bigIntColumn))));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("nested_array_transformed", expression(subscriptfunctionCall)),
+                                filter("e > 0",
+                                        tableScan(
+                                                hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn, bigIntColumn))::equals,
+                                                TupleDomain.all(),
+                                                ImmutableMap.of("array_of_struct", partialColumn::equals, "e", bigIntColumn::equals)))));
+
+        // Subfields are added based on the subscript lambda, and extends the existing prefix
+        HiveColumnHandle nestedColumn = new HiveColumnHandle(
+                "struct_of_array_of_struct",
+                0,
+                toHiveType(ROW_ARRAY_ROW_TYPE),
+                ROW_ARRAY_ROW_TYPE,
+                Optional.of(new HiveColumnProjectionInfo(
+                        ImmutableList.of(0),
+                        ImmutableList.of("array"),
+                        toHiveType(ARRAY_ROW_TYPE),
+                        ARRAY_ROW_TYPE,
+                        ImmutableList.of())),
+                REGULAR,
+                Optional.empty());
+
+        HiveColumnHandle nestedPartialColumn = new HiveColumnHandle(
+                "struct_of_array_of_struct",
+                0,
+                toHiveType(ROW_ARRAY_ROW_TYPE),
+                ROW_ARRAY_ROW_TYPE,
+                Optional.of(new HiveColumnProjectionInfo(
+                        ImmutableList.of(0),
+                        ImmutableList.of("array"),
+                        toHiveType(ARRAY_ROW_TYPE),
+                        ARRAY_ROW_TYPE,
+                        ImmutableList.of(new Subfield("struct_of_array_of_struct",
+                                ImmutableList.of(new Subfield.NestedField("array"),
+                                        Subfield.AllSubscripts.getInstance(),
+                                        new Subfield.NestedField("a")))))),
+                REGULAR,
+                Optional.empty());
+
+        FunctionCall subscriptfunctionCallOnStructField = FunctionCallBuilder.resolve(HIVE_SESSION, PLANNER_CONTEXT.getMetadata())
+                .setName(QualifiedName.of("transform"))
+                .addArgument(ARRAY_ROW_TYPE, new SymbolReference("array_of_struct"))
+                .addArgument(new FunctionType(singletonList(ROW_TYPE), PRUNED_ROW_TYPE),
+                        new LambdaExpression(ImmutableList.of(
+                                new LambdaArgumentDeclaration(
+                                        new Identifier("transformarray$element"))),
+                                new Row(ImmutableList.of(new SubscriptExpression(
+                                        new SymbolReference("transformarray$element"),
+                                        new LongLiteral("1"))))))
+                .build();
+
+        tester().assertThat(pushSubscriptLambdaThroughFilterIntoTableScan)
+                .on(p -> {
+                    Symbol e = p.symbol("e", BIGINT);
+                    return p.project(
+                            Assignments.of(p.symbol("nested_array_transformed", ARRAY_PRUNED_ROW_TYPE), subscriptfunctionCallOnStructField),
+                            p.filter(PlanBuilder.expression("e > 0"),
+                                    p.tableScan(
+                                            table,
+                                            ImmutableList.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), e),
+                                            ImmutableMap.of(p.symbol("array_of_struct", ARRAY_ROW_TYPE), nestedColumn,
+                                                    e, bigIntColumn))));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("nested_array_transformed", expression(subscriptfunctionCallOnStructField)),
+                                filter("e > 0",
+                                        tableScan(
+                                                hiveTable.withProjectedColumns(ImmutableSet.of(nestedPartialColumn, bigIntColumn))::equals,
+                                                TupleDomain.all(),
+                                                ImmutableMap.of("array_of_struct", nestedPartialColumn::equals, "e", bigIntColumn::equals)))));
 
         metastore.dropTable(SCHEMA_NAME, tableName, true);
     }

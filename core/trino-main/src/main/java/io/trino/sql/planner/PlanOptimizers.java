@@ -149,6 +149,8 @@ import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopN;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopNRanking;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughWindow;
 import io.trino.sql.planner.iterative.rule.PushDownProjectionsFromPatternRecognition;
+import io.trino.sql.planner.iterative.rule.PushDownSubscriptLambdaThroughFilter;
+import io.trino.sql.planner.iterative.rule.PushDownSubscriptLambdaThroughProject;
 import io.trino.sql.planner.iterative.rule.PushFilterThroughCountAggregation;
 import io.trino.sql.planner.iterative.rule.PushInequalityFilterExpressionBelowJoinRuleSet;
 import io.trino.sql.planner.iterative.rule.PushJoinIntoTableScan;
@@ -171,6 +173,8 @@ import io.trino.sql.planner.iterative.rule.PushProjectionThroughExchange;
 import io.trino.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import io.trino.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
 import io.trino.sql.planner.iterative.rule.PushSampleIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushSubscriptLambdaIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushSubscriptLambdaThroughFilterIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushTableWriteThroughUnion;
 import io.trino.sql.planner.iterative.rule.PushTopNIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushTopNThroughOuterJoin;
@@ -341,7 +345,9 @@ public class PlanOptimizers
                 new PushDownDereferencesThroughWindow(typeAnalyzer),
                 new PushDownDereferencesThroughTopN(typeAnalyzer),
                 new PushDownDereferencesThroughRowNumber(typeAnalyzer),
-                new PushDownDereferencesThroughTopNRanking(typeAnalyzer));
+                new PushDownDereferencesThroughTopNRanking(typeAnalyzer),
+                new PushDownSubscriptLambdaThroughProject(typeAnalyzer),
+                new PushDownSubscriptLambdaThroughFilter(typeAnalyzer));
 
         Set<Rule<?>> limitPushdownRules = ImmutableSet.of(
                 new PushLimitThroughOffset(),
@@ -947,13 +953,15 @@ public class PlanOptimizers
                         new PushPartialAggregationThroughExchange(plannerContext),
                         new PruneJoinColumns(),
                         new PruneJoinChildrenColumns())));
-        // This rule currently does not touch query plans, but only add subfields if necessary. Trigger at the near end
+        // This rule does not touch query plans, but only add subfields if necessary. Trigger at the near end
+        // Keeping this as iterative as it could be combined with PushProjectionIntoTableScan in the future
         builder.add(new IterativeOptimizer(
                 plannerContext,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.of(new PushSubscriptLambdaIntoTableScan(plannerContext, typeAnalyzer, scalarStatsCalculator))));
+                ImmutableSet.of(new PushSubscriptLambdaIntoTableScan(plannerContext, typeAnalyzer, scalarStatsCalculator),
+                        new PushSubscriptLambdaThroughFilterIntoTableScan(plannerContext, typeAnalyzer, scalarStatsCalculator))));
         builder.add(new IterativeOptimizer(
                 plannerContext,
                 ruleStats,

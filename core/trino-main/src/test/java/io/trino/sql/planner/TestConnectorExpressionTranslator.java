@@ -13,10 +13,12 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.expression.ArrayFieldDereference;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -35,21 +37,26 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Row;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.type.FunctionType;
 import io.trino.type.LikeFunctions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -92,6 +99,7 @@ import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
 
 public class TestConnectorExpressionTranslator
@@ -101,6 +109,9 @@ public class TestConnectorExpressionTranslator
     private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
     private static final VarcharType VARCHAR_TYPE = createVarcharType(25);
     private static final ArrayType VARCHAR_ARRAY_TYPE = new ArrayType(VARCHAR_TYPE);
+    private static final ArrayType ARRAY_ROW_TYPE = new ArrayType(ROW_TYPE);
+    private static final Type PRUNED_ROW_TYPE = rowType(field("int_symbol_1", INTEGER));
+    private static final ArrayType ARRAY_PRUNED_ROW_TYPE = new ArrayType(PRUNED_ROW_TYPE);
 
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
 
@@ -110,6 +121,7 @@ public class TestConnectorExpressionTranslator
             .put(new Symbol("row_symbol_1"), ROW_TYPE)
             .put(new Symbol("varchar_symbol_1"), VARCHAR_TYPE)
             .put(new Symbol("boolean_symbol_1"), BOOLEAN)
+            .put(new Symbol("array_row_symbol_1"), ARRAY_ROW_TYPE)
             .buildOrThrow();
 
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(symbols);
@@ -490,6 +502,79 @@ public class TestConnectorExpressionTranslator
                         new SymbolReference("varchar_symbol_1"),
                         new InListExpression(List.of(new SymbolReference("varchar_symbol_1"), new NullLiteral()))),
                 Optional.empty());
+    }
+
+    @Test
+    public void testTranslateSubscriptsInLambda()
+    {
+        transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .readOnly()
+                .execute(TEST_SESSION, transactionSession -> {
+                    // Element name not matched, no ArrayFieldDereference expression translated
+                    assertTranslationToConnectorExpression(
+                            transactionSession,
+                            FunctionCallBuilder.resolve(transactionSession, PLANNER_CONTEXT.getMetadata())
+                                    .setName(QualifiedName.of("transform"))
+                                    .addArgument(ARRAY_ROW_TYPE, new SymbolReference("array_row_symbol_1"))
+                                    .addArgument(new FunctionType(singletonList(ROW_TYPE), PRUNED_ROW_TYPE),
+                                            new LambdaExpression(ImmutableList.of(
+                                                    new LambdaArgumentDeclaration(
+                                                            new Identifier("transformmap$element"))),
+                                                    new Row(ImmutableList.of(new SubscriptExpression(
+                                                            new SymbolReference("transformmap$element"),
+                                                            new LongLiteral("1"))))))
+                                    .build(),
+                            Optional.empty());
+
+                    // Base case, returns proper ArrayFieldDereference expression
+                    ArrayFieldDereference translated = new ArrayFieldDereference(ARRAY_PRUNED_ROW_TYPE,
+                            new Variable("array_row_symbol_1", ARRAY_ROW_TYPE),
+                            List.of(new FieldDereference(
+                                    INTEGER,
+                                    new Variable("transformarray$element", ROW_TYPE),
+                                    0)));
+
+                    assertTranslationToConnectorExpression(
+                            transactionSession,
+                            FunctionCallBuilder.resolve(transactionSession, PLANNER_CONTEXT.getMetadata())
+                                    .setName(QualifiedName.of("transform"))
+                                    .addArgument(ARRAY_ROW_TYPE, new SymbolReference("array_row_symbol_1"))
+                                    .addArgument(new FunctionType(singletonList(ROW_TYPE), PRUNED_ROW_TYPE),
+                                            new LambdaExpression(ImmutableList.of(
+                                                    new LambdaArgumentDeclaration(
+                                                            new Identifier("transformarray$element"))),
+                                                    new Row(ImmutableList.of(new SubscriptExpression(
+                                                            new SymbolReference("transformarray$element"),
+                                                            new LongLiteral("1"))))))
+                                    .build(),
+                            Optional.of(translated));
+
+                    // Multiple subscript expressions available, multiple FieldReferences within ArrayFieldDereference translated
+                    assertTranslationToConnectorExpression(
+                            transactionSession,
+                            FunctionCallBuilder.resolve(transactionSession, PLANNER_CONTEXT.getMetadata())
+                                    .setName(QualifiedName.of("transform"))
+                                    .addArgument(ARRAY_ROW_TYPE, new SymbolReference("array_row_symbol_1"))
+                                    .addArgument(new FunctionType(singletonList(ROW_TYPE), ROW_TYPE),
+                                            new LambdaExpression(ImmutableList.of(
+                                                    new LambdaArgumentDeclaration(
+                                                            new Identifier("transformarray$element"))),
+                                                    new Row(ImmutableList.of(new SubscriptExpression(
+                                                                    new SymbolReference("transformarray$element"),
+                                                                    new LongLiteral("1")),
+                                                            new SubscriptExpression(
+                                                                    new SymbolReference("transformarray$element"),
+                                                                    new LongLiteral("2"))))))
+                                    .build(),
+                            Optional.of(new ArrayFieldDereference(ARRAY_ROW_TYPE,
+                                    new Variable("array_row_symbol_1", ARRAY_ROW_TYPE),
+                                    List.of(new FieldDereference(
+                                                    INTEGER,
+                                                    new Variable("transformarray$element", ROW_TYPE), 0),
+                                            new FieldDereference(
+                                                    createVarcharType(5),
+                                                    new Variable("transformarray$element", ROW_TYPE), 1)))));
+                });
     }
 
     private void assertTranslationRoundTrips(Expression expression, ConnectorExpression connectorExpression)
