@@ -54,6 +54,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.util.Executors.executeUntilFailure;
@@ -214,7 +215,9 @@ public class StaticCatalogManager
     public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
     {
         CatalogConnector catalogConnector = catalogs.get(catalogHandle.getCatalogName());
-        checkArgument(catalogConnector != null, "No catalog '%s'", catalogHandle.getCatalogName());
+        if (catalogConnector == null) {
+            throw new TrinoException(CATALOG_NOT_FOUND, "No catalog '%s'".formatted(catalogHandle.getCatalogName()));
+        }
         return catalogConnector.getMaterializedConnector(catalogHandle.getType());
     }
 
