@@ -77,8 +77,6 @@ public class InformationSchemaMetadata
     private static final InformationSchemaColumnHandle CATALOG_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_catalog");
     private static final InformationSchemaColumnHandle SCHEMA_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_schema");
     private static final InformationSchemaColumnHandle TABLE_NAME_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_name");
-    private static final InformationSchemaColumnHandle ROLE_NAME_COLUMN_HANDLE = new InformationSchemaColumnHandle("role_name");
-    private static final InformationSchemaColumnHandle GRANTEE_COLUMN_HANDLE = new InformationSchemaColumnHandle("grantee");
 
     private final String catalogName;
     private final Metadata metadata;
@@ -368,16 +366,6 @@ public class InformationSchemaMetadata
     private Map<ColumnHandle, NullableValue> schemaAsFixedValues(String schema)
     {
         return ImmutableMap.of(SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(schema)));
-    }
-
-    private Map<ColumnHandle, NullableValue> roleAsFixedValues(String schema)
-    {
-        return ImmutableMap.of(ROLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(schema)));
-    }
-
-    private Map<ColumnHandle, NullableValue> granteeAsFixedValues(String schema)
-    {
-        return ImmutableMap.of(GRANTEE_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(schema)));
     }
 
     private Map<ColumnHandle, NullableValue> asFixedValues(QualifiedObjectName objectName)
