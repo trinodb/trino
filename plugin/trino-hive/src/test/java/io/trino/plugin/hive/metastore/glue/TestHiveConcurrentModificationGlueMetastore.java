@@ -11,14 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.plugin.hive.metastore.glue;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
-import io.trino.plugin.hive.metastore.glue.GlueCache;
-import io.trino.plugin.hive.metastore.glue.GlueContext;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
+import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.spi.TrinoException;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
