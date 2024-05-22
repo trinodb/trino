@@ -513,7 +513,7 @@ public class IcebergPageSink
             return timestampTzToMicros(getTimestampTz(block, position));
         }
         if (type instanceof VarbinaryType varbinaryType) {
-            return varbinaryType.getSlice(block, position).getBytes();
+            return varbinaryType.getSlice(block, position).toByteBuffer();
         }
         if (type instanceof VarcharType varcharType) {
             return varcharType.getSlice(block, position).toStringUtf8();
