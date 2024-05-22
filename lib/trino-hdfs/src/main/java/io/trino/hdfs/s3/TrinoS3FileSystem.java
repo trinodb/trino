@@ -30,6 +30,7 @@ import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.auth.Signer;
 import com.amazonaws.auth.SignerFactory;
+import com.amazonaws.auth.WebIdentityTokenCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
@@ -192,6 +193,7 @@ public class TrinoS3FileSystem
 {
     public static final String S3_USER_AGENT_PREFIX = "trino.s3.user-agent-prefix";
     public static final String S3_CREDENTIALS_PROVIDER = "trino.s3.credentials-provider";
+    public static final String S3_USE_WEB_IDENTITY_TOKEN_CREDENTIALS_PROVIDER = "trino.s3.use-web-identity-token-credentials-provider";
     public static final String S3_SSE_TYPE = "trino.s3.sse.type";
     public static final String S3_SSE_ENABLED = "trino.s3.sse.enabled";
     public static final String S3_SSE_KMS_KEY_ID = "trino.s3.sse.kms-key-id";
@@ -1146,6 +1148,10 @@ public class TrinoS3FileSystem
         Optional<AWSCredentials> credentials = getEmbeddedAwsCredentials(uri);
         if (credentials.isPresent()) {
             return new AWSStaticCredentialsProvider(credentials.get());
+        }
+
+        if (conf.getBoolean(S3_USE_WEB_IDENTITY_TOKEN_CREDENTIALS_PROVIDER, false)) {
+            return new WebIdentityTokenCredentialsProvider();
         }
 
         // a custom credential provider is also used alone

@@ -128,6 +128,12 @@ setting AWS access and secret keys in the `hive.s3.aws-access-key`
 and `hive.s3.aws-secret-key` settings, and also allows EC2 to automatically
 rotate credentials on a regular basis without any additional work on your part.
 
+If you are running Trino on Amazon EKS, and authenticate using a Kubernetes
+service account, you can set the
+`trino.s3.use-web-identity-token-credentials-provider` to `true`, so Trino does
+not try using different credential providers from the default credential
+provider chain.
+
 ## Custom S3 credentials provider
 
 You can configure a custom S3 credentials provider by setting the configuration
