@@ -11,13 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore;
+package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;

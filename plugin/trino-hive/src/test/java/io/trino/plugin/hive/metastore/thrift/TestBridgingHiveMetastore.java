@@ -11,16 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore;
+package io.trino.plugin.hive.metastore.thrift;
 
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.trino.plugin.hive.metastore.thrift.MetastoreClientAdapterProvider;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
+import io.trino.plugin.hive.metastore.AbstractTestHiveMetastore;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
