@@ -294,7 +294,6 @@ public class PreAggregateCaseAggregations
                             Type aggregationInputType = getOnlyElement(key.getFunction().signature().getArgumentTypes());
                             if (!preProjectionType.equals(aggregationInputType)) {
                                 preProjection = new Cast(preProjection, aggregationInputType);
-                                preProjectionType = aggregationInputType;
                             }
 
                             // Wrap the preProjection with IF to retain the conditional nature on the CASE aggregation(s) during pre-aggregation
