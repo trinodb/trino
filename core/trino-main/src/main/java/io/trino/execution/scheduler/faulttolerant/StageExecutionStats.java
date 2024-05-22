@@ -48,10 +48,15 @@ public class StageExecutionStats
         updateSourceOutputEstimationKindCounter("finished", sourcesCount);
     }
 
-    @Managed
     public void recordStageSpeculativeExecutionFraction(double fractionSpentSpeculative)
     {
         speculativeExecutionFractionDistribution.add((long) (fractionSpentSpeculative * EXECUTION_FRACTION_RESCALE_FACTOR));
+    }
+
+    @Managed
+    public DistributionStat getSpeculativeExecutionFraction()
+    {
+        return speculativeExecutionFractionDistribution;
     }
 
     private void updateSourceOutputEstimationKindCounter(String outputEstimationKind, int sourcesCount)
