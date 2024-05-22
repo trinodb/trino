@@ -178,7 +178,7 @@ public class KuduClientSession
                         .boxed().collect(toList());
                 for (ColumnHandle column : desiredColumns.get()) {
                     KuduColumnHandle k = (KuduColumnHandle) column;
-                    int index = k.getOrdinalPosition();
+                    int index = k.ordinalPosition();
                     if (index >= primaryKeyColumnCount) {
                         columnIndexes.add(index);
                     }
@@ -194,7 +194,7 @@ public class KuduClientSession
         else {
             if (desiredColumns.isPresent()) {
                 columnIndexes = desiredColumns.get().stream()
-                        .map(handle -> ((KuduColumnHandle) handle).getOrdinalPosition())
+                        .map(handle -> ((KuduColumnHandle) handle).ordinalPosition())
                         .collect(toImmutableList());
             }
             else {
@@ -503,7 +503,7 @@ public class KuduClientSession
 
         Schema schema = table.getSchema();
         constraintSummary.getDomains().orElseThrow().forEach((columnHandle, domain) -> {
-            int position = ((KuduColumnHandle) columnHandle).getOrdinalPosition();
+            int position = ((KuduColumnHandle) columnHandle).ordinalPosition();
             ColumnSchema columnSchema = schema.getColumnByIndex(position);
             verify(!domain.isNone(), "Domain is none");
             if (domain.isAll()) {
