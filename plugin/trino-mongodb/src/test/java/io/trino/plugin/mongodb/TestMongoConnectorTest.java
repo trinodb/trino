@@ -1744,6 +1744,38 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    public void testDBRefLikeDocumentWithTrinoLikeFieldNames()
+    {
+        String objectId = "test_id";
+        String expectedValue = "varchar 'test_id'";
+        String tableName = "test_dbref_like_document_" + randomNameSuffix();
+
+        // DbRef-like document but with field names as they're used in Trino
+        Document dbRefLikeDocument = new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                .append("creator", new Document()
+                        .append("collectionName", "doc_creators")
+                        .append("id", objectId)
+                        .append("databaseName", "doc_test"));
+        client.getDatabase("test").getCollection(tableName).insertOne(dbRefLikeDocument);
+
+        assertThat(query("SELECT * FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES "
+                        + " row(row('doc_creators', " + expectedValue + ", 'doc_test'))");
+
+        assertThat(query("SELECT creator.id FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " + "(%1$s)".formatted(expectedValue));
+
+        assertThat(query("SELECT creator.collectionname, creator.id, creator.databasename FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " + "('doc_creators', %1$s, 'doc_test')".formatted(expectedValue));
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
     public void testPredicateOnDBRefField()
     {
         testPredicateOnDBRefField(true, "true");
