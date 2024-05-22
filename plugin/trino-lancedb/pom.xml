@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>446-SNAPSHOT</version>
+        <version>449-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -321,6 +322,34 @@
                             <artifactId>validation-api</artifactId>
                         </dependency>
                         <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-c-data</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-dataset</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-format</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-memory-core</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-memory-netty-buffer-patch</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-memory-netty</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.arrow</groupId>
+                            <artifactId>arrow-vector</artifactId>
+                        </dependency>
+                        <dependency>
                             <groupId>org.apache.helix</groupId>
                             <artifactId>helix-common</artifactId>
                         </dependency>
@@ -355,42 +384,6 @@
                         <dependency>
                             <groupId>org.slf4j</groupId>
                             <artifactId>slf4j-jdk14</artifactId>
-                        </dependency>
-                    </ignoredDependencies>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.basepom.maven</groupId>
-                <artifactId>duplicate-finder-maven-plugin</artifactId>
-                <configuration>
-                    <ignoredDependencies>
-                        <dependency>
-                            <groupId>org.apache.arrow</groupId>
-                            <artifactId>arrow-c-data</artifactId>
-                        </dependency>
-                        <dependency>
-                            <groupId>org.apache.arrow</groupId>
-                            <artifactId>arrow-dataset</artifactId>
-                        </dependency>
-                        <dependency>
-                            <groupId>org.apache.arrow</groupId>
-                            <artifactId>arrow-format</artifactId>
-                        </dependency>
-                        <dependency>
-                            <groupId>org.apache.arrow</groupId>
-                            <artifactId>arrow-memory-core</artifactId>
-                        </dependency>
-                        <dependency>
-                            <groupId>org.apache.arrow</groupId>
-                            <artifactId>arrow-memory-netty-buffer-patch</artifactId>
-                        </dependency>
-                        <dependency>
-                            <groupId>org.apache.arrow</groupId>
-                            <artifactId>arrow-memory-netty</artifactId>
-                        </dependency>
-                        <dependency>
-                            <groupId>org.apache.arrow</groupId>
-                            <artifactId>arrow-vector</artifactId>
                         </dependency>
                     </ignoredDependencies>
                 </configuration>
