@@ -18,6 +18,8 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.plugin.hive.HiveErrorCode;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.hive.metastore.glue.GlueCache;
+import io.trino.plugin.hive.metastore.glue.PartitionName;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -70,11 +72,13 @@ public class FlushMetadataCacheProcedure
     }
 
     private final Optional<CachingHiveMetastore> cachingHiveMetastore;
+    private final Optional<GlueCache> glueCache;
 
     @Inject
-    public FlushMetadataCacheProcedure(Optional<CachingHiveMetastore> cachingHiveMetastore)
+    public FlushMetadataCacheProcedure(Optional<CachingHiveMetastore> cachingHiveMetastore, Optional<GlueCache> glueCache)
     {
         this.cachingHiveMetastore = requireNonNull(cachingHiveMetastore, "cachingHiveMetastore is null");
+        this.glueCache = requireNonNull(glueCache, "glueCache is null");
     }
 
     @Override
@@ -109,22 +113,28 @@ public class FlushMetadataCacheProcedure
 
     private void doFlushMetadataCache(Optional<String> schemaName, Optional<String> tableName, List<String> partitionColumns, List<String> partitionValues)
     {
-        CachingHiveMetastore cachingHiveMetastore = this.cachingHiveMetastore
-                .orElseThrow(() -> new TrinoException(HiveErrorCode.HIVE_METASTORE_ERROR, "Cannot flush, metastore cache is not enabled"));
+        if (cachingHiveMetastore.isEmpty() && glueCache.isEmpty()) {
+            // TODO this currently does not work. CachingHiveMetastore is always bound for metastores other than Glue, even when caching is disabled,
+            //  so for consistency we do not discern between GlueCache NOOP and real.
+            throw new TrinoException(HiveErrorCode.HIVE_METASTORE_ERROR, "Cannot flush, metastore cache is not enabled");
+        }
 
         checkState(
                 partitionColumns.size() == partitionValues.size(),
                 "Parameters partition_column and partition_value should have same length");
 
         if (schemaName.isEmpty() && tableName.isEmpty() && partitionColumns.isEmpty()) {
-            cachingHiveMetastore.flushCache();
+            cachingHiveMetastore.ifPresent(CachingHiveMetastore::flushCache);
+            glueCache.ifPresent(GlueCache::flushCache);
         }
         else if (schemaName.isPresent() && tableName.isPresent()) {
             if (!partitionColumns.isEmpty()) {
-                cachingHiveMetastore.flushPartitionCache(schemaName.get(), tableName.get(), partitionColumns, partitionValues);
+                cachingHiveMetastore.ifPresent(cachingHiveMetastore -> cachingHiveMetastore.flushPartitionCache(schemaName.get(), tableName.get(), partitionColumns, partitionValues));
+                glueCache.ifPresent(glueCache -> glueCache.invalidatePartition(schemaName.get(), tableName.get(), new PartitionName(partitionValues)));
             }
             else {
-                cachingHiveMetastore.invalidateTable(schemaName.get(), tableName.get());
+                cachingHiveMetastore.ifPresent(cachingHiveMetastore -> cachingHiveMetastore.invalidateTable(schemaName.get(), tableName.get()));
+                glueCache.ifPresent(glueCache -> glueCache.invalidateTable(schemaName.get(), tableName.get(), true));
             }
         }
         else {

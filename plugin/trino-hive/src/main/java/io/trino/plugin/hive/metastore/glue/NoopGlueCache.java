@@ -119,4 +119,7 @@ class NoopGlueCache
 
     @Override
     public void invalidateFunction(String databaseName, String functionName) {}
+
+    @Override
+    public void flushCache() {}
 }
