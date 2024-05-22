@@ -309,7 +309,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
-import static com.google.common.collect.Sets.difference;
 import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniqueRowsRatioThreshold;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.trino.SystemSessionProperties.getDynamicRowFilterSelectivityThreshold;
@@ -785,10 +784,7 @@ public class LocalExecutionPlanner
             Set<DynamicFilterId> consumedFilterIds = dynamicFilters.stream()
                     .map(DynamicFilters.Descriptor::getId)
                     .collect(toImmutableSet());
-            LocalDynamicFiltersCollector dynamicFiltersCollector = getDynamicFiltersCollector();
-            // Don't repeat registration of node-local filters or those already registered by another scan (e.g. co-located joins)
-            dynamicFiltersCollector.register(
-                    difference(consumedFilterIds, dynamicFiltersCollector.getRegisteredDynamicFilterIds()));
+            getDynamicFiltersCollector().register(consumedFilterIds);
         }
 
         private TaskContext getTaskContext()
