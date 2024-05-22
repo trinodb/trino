@@ -2388,6 +2388,12 @@
                                     <include>org.yaml:snakeyaml:2.+</include>
                                 </includes>
                             </bannedDependencies>
+                            <RestrictImports>
+                                <bannedImports>
+                                    <bannedImport>com.google.api.client.util.Preconditions</bannedImport>
+                                    <bannedImport>com.google.api.client.util.Preconditions.*</bannedImport>
+                                </bannedImports>
+                            </RestrictImports>
                             <requireProfileIdsExist />
                             <requirePropertyDiverges>
                                 <property>project.description</property>
