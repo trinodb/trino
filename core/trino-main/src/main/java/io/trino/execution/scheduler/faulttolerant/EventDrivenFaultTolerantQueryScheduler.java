@@ -1923,7 +1923,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private boolean taskDescriptorLoadingActive;
         private boolean exchangeClosed;
 
-        private final long startTime = System.nanoTime();
+        private final long startTime;
         private OptionalLong nonSpeculativeSwitchTime;
 
         private MemoryRequirements initialMemoryRequirements;
@@ -1957,7 +1957,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.schedulingPriority = schedulingPriority;
             this.eager = eager;
             this.speculative = speculative;
-            this.nonSpeculativeSwitchTime = speculative ? OptionalLong.empty() : OptionalLong.of(System.nanoTime());
+            this.startTime = System.nanoTime();
+            this.nonSpeculativeSwitchTime = speculative ? OptionalLong.empty() : OptionalLong.of(startTime);
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             outputDataSize = new long[sinkPartitioningScheme.getPartitionCount()];
             sinkOutputSelectorBuilder = ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchange.getId()));
