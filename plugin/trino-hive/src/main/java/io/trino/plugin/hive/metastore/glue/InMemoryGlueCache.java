@@ -54,10 +54,15 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 class InMemoryGlueCache
         implements GlueCache
 {
-    private enum Global { GLOBAL }
+    private enum Global
+    {
+        GLOBAL
+    }
 
     private record PartitionKey(String databaseName, String tableName, PartitionName partitionName) {}
+
     private record PartitionNamesKey(String databaseName, String tableName, String glueFilterExpression) {}
+
     private record FunctionKey(String databaseName, String functionName) {}
 
     private final LoadingCache<Global, ValueHolder<List<String>>> databaseNamesCache;
