@@ -296,7 +296,7 @@ public class TestIcebergGlueCatalogAccessOperations
             assertGlueMetastoreApiInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
                             .addCopies(GET_TABLE, 4)
-                            .addCopies(UPDATE_TABLE, 1)
+                            .add(UPDATE_TABLE)
                             .build());
         }
         finally {
@@ -426,7 +426,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SHOW STATS FOR (SELECT * FROM test_show_stats_with_filter where age >= 2)",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 1)
+                            .add(GET_TABLE)
                             .build());
         }
         finally {
@@ -443,7 +443,7 @@ public class TestIcebergGlueCatalogAccessOperations
             // select from $history
             assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$history\"",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 1)
+                            .add(GET_TABLE)
                             .build());
 
             // select from $metadata_log_entries
@@ -455,37 +455,37 @@ public class TestIcebergGlueCatalogAccessOperations
             // select from $snapshots
             assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$snapshots\"",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 1)
+                            .add(GET_TABLE)
                             .build());
 
             // select from $manifests
             assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$manifests\"",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 1)
+                            .add(GET_TABLE)
                             .build());
 
             // select from $partitions
             assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$partitions\"",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 1)
+                            .add(GET_TABLE)
                             .build());
 
             // select from $files
             assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$files\"",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 1)
+                            .add(GET_TABLE)
                             .build());
 
             // select from $properties
             assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$properties\"",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 1)
+                            .add(GET_TABLE)
                             .build());
 
             // select from $refs
             assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$refs\"",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 1)
+                            .add(GET_TABLE)
                             .build());
 
             assertQueryFails("SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
@@ -611,7 +611,7 @@ public class TestIcebergGlueCatalogAccessOperations
                             session,
                             "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments%'",
                             ImmutableMultiset.<GlueMetastoreMethod>builder()
-                                    .addCopies(GET_TABLES, 1)
+                                    .add(GET_TABLES)
                                     .build(),
                             ImmutableMultiset.of());
                 }
@@ -621,10 +621,10 @@ public class TestIcebergGlueCatalogAccessOperations
                         session,
                         "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name = 'test_select_s_m_t_comments0'",
                         ImmutableMultiset.<GlueMetastoreMethod>builder()
-                                .addCopies(GET_TABLE, 1)
+                                .add(GET_TABLE)
                                 .build(),
                         ImmutableMultiset.<FileOperation>builder()
-                                .addCopies(new FileOperation(METADATA_JSON, "InputFile.newStream"), 1)
+                                .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                                 .build());
             }
             finally {
