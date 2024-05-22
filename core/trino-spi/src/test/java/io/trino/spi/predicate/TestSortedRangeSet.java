@@ -733,6 +733,45 @@ public class TestSortedRangeSet
     }
 
     @Test
+    public void testLinearDiscreteSetUnion()
+    {
+        SortedRangeSet result = SortedRangeSet.of(BIGINT, 1L, 2L, 3L, 10L, 20L, 30L)
+                .linearDiscreteSetUnion(SortedRangeSet.of(BIGINT, 100L, 101L, 102L, 103L));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L, 3L, 10L, 20L, 30L, 100L, 101L, 102L, 103L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.of(BIGINT, 100L, 101L, 102L, 103L)
+                .linearDiscreteSetUnion(SortedRangeSet.of(BIGINT, 1L, 2L, 3L, 10L, 20L, 30L));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L, 3L, 10L, 20L, 30L, 100L, 101L, 102L, 103L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.of(BIGINT, 1L, 3L, 5L, 7L, 9L)
+                .linearDiscreteSetUnion(SortedRangeSet.of(BIGINT, 2L, 4L, 6L, 8L, 10L));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.of(BIGINT, 1L)
+                .linearDiscreteSetUnion(SortedRangeSet.of(BIGINT, 2L, 4L, 6L, 8L, 10L));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L, 4L, 6L, 8L, 10L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.of(BIGINT, 1L, 3L, 5L, 7L, 9L)
+                .linearDiscreteSetUnion(SortedRangeSet.of(BIGINT, 2L));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L, 3L, 5L, 7L, 9L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.of(BIGINT, 1L, 2L, 3L, 5L, 7L)
+                .linearDiscreteSetUnion(SortedRangeSet.of(BIGINT, 2L, 3L, 5L));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L, 3L, 5L, 7L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.of(BIGINT, 1L, 2L, 10L, 11L, 20L, 21L)
+                .linearDiscreteSetUnion(SortedRangeSet.of(BIGINT, 1L, 2L, 12L, 20L, 21L, 30L));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L, 10L, 11L, 12L, 20L, 21L, 30L));
+        assertThat(result.isDiscreteSet()).isTrue();
+    }
+
+    @Test
     public void testSubtract()
     {
         assertThat(SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.all(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
