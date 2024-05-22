@@ -197,7 +197,7 @@ public class KuduMetadata
         KuduTableHandle tableHandle = (KuduTableHandle) connectorTableHandle;
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         Schema schema = clientSession.getTableSchema(tableHandle);
-        forAllColumnHandles(schema, column -> columnHandles.put(column.getName(), column));
+        forAllColumnHandles(schema, column -> columnHandles.put(column.name(), column));
         return columnHandles.buildOrThrow();
     }
 
@@ -223,7 +223,7 @@ public class KuduMetadata
                     .setHidden(true)
                     .build();
         }
-        return kuduColumnHandle.getColumnMetadata();
+        return kuduColumnHandle.columnMetadata();
     }
 
     @Override
@@ -306,7 +306,7 @@ public class KuduMetadata
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
         KuduColumnHandle kuduColumnHandle = (KuduColumnHandle) column;
-        clientSession.dropColumn(kuduTableHandle.getSchemaTableName(), kuduColumnHandle.getName());
+        clientSession.dropColumn(kuduTableHandle.getSchemaTableName(), kuduColumnHandle.name());
     }
 
     @Override
@@ -314,7 +314,7 @@ public class KuduMetadata
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
         KuduColumnHandle kuduColumnHandle = (KuduColumnHandle) source;
-        clientSession.renameColumn(kuduTableHandle.getSchemaTableName(), kuduColumnHandle.getName(), target);
+        clientSession.renameColumn(kuduTableHandle.getSchemaTableName(), kuduColumnHandle.name(), target);
     }
 
     @Override
@@ -535,7 +535,7 @@ public class KuduMetadata
         ImmutableList.Builder<Assignment> assignmentList = ImmutableList.builder();
         assignments.forEach((name, column) -> {
             desiredColumns.add(column);
-            assignmentList.add(new Assignment(name, column, ((KuduColumnHandle) column).getType()));
+            assignmentList.add(new Assignment(name, column, ((KuduColumnHandle) column).type()));
         });
 
         handle = new KuduTableHandle(
