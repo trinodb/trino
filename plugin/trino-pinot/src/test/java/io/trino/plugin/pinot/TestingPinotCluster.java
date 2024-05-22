@@ -65,7 +65,7 @@ import static org.testcontainers.utility.DockerImageName.parse;
 public class TestingPinotCluster
         implements Closeable
 {
-    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:1.0.0";
+    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:1.1.0";
     public static final String PINOT_PREVIOUS_IMAGE_NAME = "apachepinot/pinot:0.12.1";
 
     private static final String ZOOKEEPER_INTERNAL_HOST = "zookeeper";

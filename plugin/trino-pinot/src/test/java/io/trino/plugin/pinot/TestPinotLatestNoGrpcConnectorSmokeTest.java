@@ -13,11 +13,9 @@
  */
 package io.trino.plugin.pinot;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
-import static org.junit.jupiter.api.Assumptions.abort;
 
 @Isolated
 public class TestPinotLatestNoGrpcConnectorSmokeTest
@@ -41,6 +39,7 @@ public class TestPinotLatestNoGrpcConnectorSmokeTest
         return false;
     }
 
+    /*
     @Test
     @Override
     public void testPassthroughQueriesWithAliases()
@@ -61,4 +60,5 @@ public class TestPinotLatestNoGrpcConnectorSmokeTest
     {
         abort("Broken :( Elon help!");
     }
+     */
 }
