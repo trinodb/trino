@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore;
+package io.trino.plugin.hive.metastore.glue;
 
 import io.trino.plugin.base.util.AutoCloseableCloser;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
+import io.trino.plugin.hive.metastore.AbstractTestHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import org.junit.jupiter.api.AfterAll;
 
 import java.io.IOException;
