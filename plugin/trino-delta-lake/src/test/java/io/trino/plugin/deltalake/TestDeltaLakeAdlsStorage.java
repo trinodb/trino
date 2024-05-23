@@ -22,7 +22,6 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Network;
 
 import java.nio.file.Files;
@@ -41,9 +40,7 @@ import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.UUID.randomUUID;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
 public class TestDeltaLakeAdlsStorage
         extends AbstractTestQueryFramework
 {

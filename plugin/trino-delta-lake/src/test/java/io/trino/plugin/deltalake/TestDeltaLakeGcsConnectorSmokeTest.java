@@ -27,8 +27,6 @@ import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -49,8 +47,6 @@ import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.regex.Matcher.quoteReplacement;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testcontainers.containers.Network.newNetwork;
 
 /**
@@ -59,8 +55,6 @@ import static org.testcontainers.containers.Network.newNetwork;
  * - gcp-credentials-key: A base64 encoded copy of the JSON authentication file for the service account used to connect to GCP.
  *   For example, `cat service-account-key.json | base64`
  */
-@TestInstance(PER_CLASS)
-@Execution(SAME_THREAD)
 public class TestDeltaLakeGcsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {

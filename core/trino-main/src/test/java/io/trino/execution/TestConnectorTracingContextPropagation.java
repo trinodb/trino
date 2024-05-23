@@ -21,16 +21,13 @@ import io.trino.connector.MockConnectorPlugin;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
 public class TestConnectorTracingContextPropagation
 {
     private static final String CATALOG_NAME = "test_catalog";

@@ -23,7 +23,6 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -35,12 +34,10 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 /**
  * Tests querying views on a schema which has a mix of Hive and Delta Lake tables.
  */
-@TestInstance(PER_CLASS)
 public abstract class BaseDeltaLakeSharedMetastoreViewsTest
         extends AbstractTestQueryFramework
 {
