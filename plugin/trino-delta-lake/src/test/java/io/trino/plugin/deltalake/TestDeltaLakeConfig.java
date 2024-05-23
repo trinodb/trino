@@ -33,7 +33,6 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeConfig
 {
@@ -103,7 +102,7 @@ public class TestDeltaLakeConfig
                 .put("delta.compression-codec", "GZIP")
                 .put("delta.per-transaction-metastore-cache-maximum-size", "500")
                 .put("delta.delete-schema-locations-fallback", "true")
-                .put("delta.metastore.store-table-metadata-enabled", "false")
+                .put("delta.metastore.store-table-metadata", "false")
                 .put("delta.metastore.store-table-metadata-threads", "1")
                 .put("delta.metastore.store-table-metadata-interval", "10m")
                 .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
@@ -151,25 +150,5 @@ public class TestDeltaLakeConfig
                 .setQueryPartitionFilterRequired(true);
 
         assertFullMapping(properties, expected);
-    }
-
-    @Test
-    public void testInvalidConfig()
-    {
-        assertThatThrownBy(() -> new DeltaLakeConfig()
-                .setStoreTableMetadataEnabled(false)
-                .setStoreTableMetadataThreads(1)
-                .setStoreTableMetadataInterval(Duration.ZERO)
-                .validate())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("delta.metastore.store-table-metadata-threads must be empty when delta.metastore.store-table-metadata-enabled is disabled");
-
-        assertThatThrownBy(() -> new DeltaLakeConfig()
-                .setStoreTableMetadataEnabled(false)
-                .setStoreTableMetadataThreads(0)
-                .setStoreTableMetadataInterval(new Duration(10, SECONDS))
-                .validate())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("delta.metastore.store-table-metadata-interval must be empty when delta.metastore.store-table-metadata-enabled is disabled");
     }
 }

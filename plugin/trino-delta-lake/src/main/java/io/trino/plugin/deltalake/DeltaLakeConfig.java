@@ -22,7 +22,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.trino.plugin.hive.HiveCompressionCodec;
-import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -30,11 +29,9 @@ import jakarta.validation.constraints.NotNull;
 import org.joda.time.DateTimeZone;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -79,7 +76,7 @@ public class DeltaLakeConfig
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean storeTableMetadataEnabled = true;
-    private OptionalInt storeTableMetadataThreads = OptionalInt.of(5);
+    private int storeTableMetadataThreads = 5;
     private Duration storeTableMetadataInterval = new Duration(10, SECONDS);
     private boolean deleteSchemaLocationsFallback;
     private String parquetTimeZone = TimeZone.getDefault().getID();
@@ -389,26 +386,25 @@ public class DeltaLakeConfig
         return storeTableMetadataEnabled;
     }
 
-    @Config("delta.metastore.store-table-metadata-enabled")
-    @ConfigDescription("Store table definition to metastore")
+    @Config("delta.metastore.store-table-metadata")
+    @ConfigDescription("Store table definition in metastore")
     public DeltaLakeConfig setStoreTableMetadataEnabled(boolean storeTableMetadataEnabled)
     {
         this.storeTableMetadataEnabled = storeTableMetadataEnabled;
         return this;
     }
 
-    @NotNull
     @Min(0) // Allow 0 to use the same thread for testing purpose
-    public OptionalInt getStoreTableMetadataThreads()
+    public int getStoreTableMetadataThreads()
     {
         return storeTableMetadataThreads;
     }
 
     @Config("delta.metastore.store-table-metadata-threads")
     @ConfigDescription("Number of threads used for internal task store table metadata in metastore")
-    public DeltaLakeConfig setStoreTableMetadataThreads(Integer storeTableMetadataThreads)
+    public DeltaLakeConfig setStoreTableMetadataThreads(int storeTableMetadataThreads)
     {
-        this.storeTableMetadataThreads = OptionalInt.of(storeTableMetadataThreads);
+        this.storeTableMetadataThreads = storeTableMetadataThreads;
         return this;
     }
 
@@ -419,7 +415,7 @@ public class DeltaLakeConfig
     }
 
     @Config("delta.metastore.store-table-metadata-interval")
-    @ConfigDescription("How often to store table metadata to metastore")
+    @ConfigDescription("How often to store table metadata in metastore")
     public DeltaLakeConfig setStoreTableMetadataInterval(Duration storeTableMetadataInterval)
     {
         this.storeTableMetadataInterval = storeTableMetadataInterval;
@@ -537,16 +533,5 @@ public class DeltaLakeConfig
     {
         this.queryPartitionFilterRequired = queryPartitionFilterRequired;
         return this;
-    }
-
-    @PostConstruct
-    public void validate()
-    {
-        if (!storeTableMetadataEnabled) {
-            checkState(
-                    storeTableMetadataThreads.isEmpty() || storeTableMetadataThreads.getAsInt() == 0,
-                    "delta.metastore.store-table-metadata-threads must be empty when delta.metastore.store-table-metadata-enabled is disabled");
-            checkState(storeTableMetadataInterval.isZero(), "delta.metastore.store-table-metadata-interval must be empty when delta.metastore.store-table-metadata-enabled is disabled");
-        }
     }
 }

@@ -37,7 +37,6 @@ import jakarta.annotation.PreDestroy;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -69,7 +68,7 @@ public class DeltaLakeTableMetadataScheduler
     private final HiveMetastoreFactory hiveMetastoreFactory;
     private final TypeManager typeManager;
     private final int tableParameterLengthLimit;
-    private final OptionalInt storeTableMetadataThreads;
+    private final int storeTableMetadataThreads;
     private final Duration storeTableMetadataInterval;
     private final Map<SchemaTableName, UpdateInfo> updateInfos = new ConcurrentHashMap<>();
     private final boolean enabled;
@@ -103,8 +102,7 @@ public class DeltaLakeTableMetadataScheduler
     public void start()
     {
         if (enabled) {
-            int threads = storeTableMetadataThreads.orElse(0);
-            executor = threads == 0 ? newDirectExecutorService() : newFixedThreadPool(threads, threadsNamed("store-table-metadata-%s"));
+            executor = storeTableMetadataThreads == 0 ? newDirectExecutorService() : newFixedThreadPool(storeTableMetadataThreads, threadsNamed("store-table-metadata-%s"));
             scheduler = newSingleThreadScheduledExecutor(daemonThreadsNamed("store-table-metadata"));
             scheduler.scheduleWithFixedDelay(this::process, 0, storeTableMetadataInterval.toMillis(), MILLISECONDS);
         }
