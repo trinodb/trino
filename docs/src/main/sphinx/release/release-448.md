@@ -18,6 +18,11 @@
 * Add support for caching Glue metadata. ({issue}`20657`)
 * Update Glue to V2 REST interface. The old implementation can be temporarily
   restored by setting the `hive.metastore` configuration property to `glue-v1`. ({issue}`20657`)
+  * {{breaking}} The new implementation does not support and ignores the following
+    configuration properties: `hive.metastore-refresh-interval`,
+    `hive.metastore-refresh-max-threads`, `hive.metastore-cache.cache-partitions`,
+    `hive.metastore-cache.cache-missing`, `hive.metastore-cache.cache-missing-partitions`,
+    `hive.metastore-cache.cache-missing-stats`.
 * Improve performance of reading from Parquet files. ({issue}`21465`)
 
 ## Hive connector
@@ -27,6 +32,11 @@
 * Add support for caching Glue metadata. ({issue}`20657`)
 * Update Glue to V2 REST interface. The old implementation can be temporarily
   restored by setting the `hive.metastore` configuration property to `glue-v1`. ({issue}`20657`)
+  * {{breaking}} The new implementation does not support and ignores the following
+    configuration properties: `hive.metastore-refresh-interval`,
+    `hive.metastore-refresh-max-threads`, `hive.metastore-cache.cache-partitions`,
+    `hive.metastore-cache.cache-missing`, `hive.metastore-cache.cache-missing-partitions`,
+    `hive.metastore-cache.cache-missing-stats`.
 * Improve performance of reading from Parquet files. ({issue}`21465`)
 * Fix potential failure when reading ORC files larger than 2GB. ({issue}`21587`)
 
@@ -34,6 +44,13 @@
 
 * Improve performance of reading from Parquet files. ({issue}`21465`)
 * Fix potential failure when reading ORC files larger than 2GB. ({issue}`21587`)
+* Update Glue to V2 REST interface. The old implementation can be temporarily
+  restored by setting the `hive.metastore` configuration property to `glue-v1`. ({issue}`20657`)
+  * {{breaking}} The new implementation does not support and ignores the following
+    configuration properties: `hive.metastore-refresh-interval`,
+    `hive.metastore-refresh-max-threads`, `hive.metastore-cache.cache-partitions`,
+    `hive.metastore-cache.cache-missing`, `hive.metastore-cache.cache-missing-partitions`,
+    `hive.metastore-cache.cache-missing-stats`.
 
 ## Iceberg connector
 
