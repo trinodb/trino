@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@SuppressWarnings("deprecation")
 public class ClassLoaderSafeSchemaRegistryClient
         implements SchemaRegistryClient
 {
