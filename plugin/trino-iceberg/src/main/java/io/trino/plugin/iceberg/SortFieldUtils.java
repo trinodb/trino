@@ -19,8 +19,11 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.SortOrderBuilder;
-import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Type.NestedType;
+import org.apache.iceberg.types.Types.NestedField;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -29,7 +32,6 @@ import java.util.regex.Pattern;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.PartitionFields.fromIdentifierToColumn;
 import static io.trino.plugin.iceberg.PartitionFields.quotedName;
@@ -60,9 +62,8 @@ public final class SortFieldUtils
             throw new TrinoException(INVALID_TABLE_PROPERTY, "Invalid " + SORTED_BY_PROPERTY + " definition", e);
         }
 
-        Set<Integer> baseColumnFieldIds = schema.columns().stream()
-                .map(Types.NestedField::fieldId)
-                .collect(toImmutableSet());
+        Set<Integer> baseColumnFieldIds = collectColumnFieldIds(schema);
+
         for (SortField field : sortOrder.fields()) {
             if (!baseColumnFieldIds.contains(field.sourceId())) {
                 throw new TrinoException(COLUMN_NOT_FOUND, "Column not found: " + schema.findColumnName(field.sourceId()));
@@ -70,6 +71,26 @@ public final class SortFieldUtils
         }
 
         return sortOrder;
+    }
+
+    private static Set<Integer> collectColumnFieldIds(Schema schema)
+    {
+        Set<Integer> ids = new HashSet<Integer>();
+        schema.columns().forEach(column -> addNestedField(ids, column));
+        return ids;
+    }
+
+    private static void addNestedField(Set<Integer> baseColumnFieldIds, NestedField field)
+    {
+        baseColumnFieldIds.add(field.fieldId());
+
+        Type type = field.type();
+        if (type.isNestedType()) {
+            NestedType nestedType = type.asNestedType();
+            for (NestedField nestedField : nestedType.fields()) {
+                addNestedField(baseColumnFieldIds, nestedField);
+            }
+        }
     }
 
     public static void parseSortFields(SortOrderBuilder<?> sortOrderBuilder, List<String> fields)
