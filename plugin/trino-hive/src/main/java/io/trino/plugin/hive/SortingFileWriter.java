@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -26,6 +27,7 @@ import io.trino.plugin.hive.util.TempFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -48,6 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static java.lang.Math.min;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -63,6 +66,7 @@ public final class SortingFileWriter
     private final Location tempFilePrefix;
     private final int maxOpenTempFiles;
     private final List<Type> types;
+    private final List<Type> sortTypes;
     private final List<Integer> sortFields;
     private final List<SortOrder> sortOrders;
     private final FileWriter outputWriter;
@@ -70,6 +74,9 @@ public final class SortingFileWriter
     private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::size));
     private final AtomicLong nextFileId = new AtomicLong();
     private final TypeOperators typeOperators;
+    private final List<List<Integer>> nestedSortPaths;
+    private final int originalChannelCount;
+    private final int[] keepChannels;
 
     private boolean flushed;
     private long tempFilesWrittenBytes;
@@ -84,7 +91,8 @@ public final class SortingFileWriter
             List<Integer> sortFields,
             List<SortOrder> sortOrders,
             PageSorter pageSorter,
-            TypeOperators typeOperators)
+            TypeOperators typeOperators,
+            List<List<Integer>> nestedSortPaths)
     {
         checkArgument(maxOpenTempFiles >= 2, "maxOpenTempFiles must be at least two");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
@@ -94,8 +102,23 @@ public final class SortingFileWriter
         this.sortFields = ImmutableList.copyOf(requireNonNull(sortFields, "sortFields is null"));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         this.outputWriter = requireNonNull(outputWriter, "outputWriter is null");
-        this.sortBuffer = new SortBuffer(maxMemory, types, sortFields, sortOrders, pageSorter);
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.nestedSortPaths = ImmutableList.copyOf(nestedSortPaths);
+        this.originalChannelCount = types.size();
+        this.keepChannels = nestedSortPaths.isEmpty() ? new int[0] : IntStream.range(0, types.size()).toArray();
+
+        ImmutableList.Builder<Type> sortTypesBuilder = ImmutableList.builder();
+        sortTypesBuilder.addAll(types);
+        for (List<Integer> path : nestedSortPaths) {
+            Type type = types.get(path.getFirst());
+            for (int i = 1; i < path.size(); i++) {
+                type = type.getTypeParameters().get(path.get(i));
+            }
+            sortTypesBuilder.add(type);
+        }
+        this.sortTypes = sortTypesBuilder.build();
+
+        this.sortBuffer = new SortBuffer(maxMemory, sortTypes, sortFields, sortOrders, pageSorter);
     }
 
     @Override
@@ -120,10 +143,12 @@ public final class SortingFileWriter
     @Override
     public void appendRows(Page page)
     {
-        if (!sortBuffer.canAdd(page)) {
+        long retainedSizeInBytes = page.getRetainedSizeInBytes();
+        Page sortPage = expandPage(page);
+        if (!sortBuffer.canAdd(sortPage)) {
             flushToTempFile();
         }
-        sortBuffer.add(page);
+        sortBuffer.add(sortPage, retainedSizeInBytes);
     }
 
     @Override
@@ -135,7 +160,7 @@ public final class SortingFileWriter
         if (!sortBuffer.isEmpty()) {
             // skip temporary files entirely if the total output size is small
             if (tempFiles.isEmpty()) {
-                sortBuffer.flushTo(outputWriter::appendRows);
+                sortBuffer.flushTo(page -> outputWriter.appendRows(stripPage(page)));
                 outputWriter.commit();
                 return rollbackAction;
             }
@@ -193,7 +218,7 @@ public final class SortingFileWriter
 
     private void flushToTempFile()
     {
-        writeTempFile(writer -> sortBuffer.flushTo(writer::writePage));
+        writeTempFile(writer -> sortBuffer.flushTo(page -> writer.writePage(stripPage(page))));
     }
 
     // TODO: change connector SPI to make this resumable and have memory tracking
@@ -225,11 +250,11 @@ public final class SortingFileWriter
             for (TempFile tempFile : files) {
                 TempFileReader reader = new TempFileReader(types, fileSystem, tempFile.location());
                 closer.register(reader);
-                iterators.add(reader);
+                iterators.add(Iterators.transform(reader, this::expandPage));
             }
 
-            new MergingPageIterator(iterators, types, sortFields, sortOrders, typeOperators)
-                    .forEachRemaining(consumer);
+            new MergingPageIterator(iterators, sortTypes, sortFields, sortOrders, typeOperators)
+                    .forEachRemaining(page -> consumer.accept(stripPage(page)));
 
             for (TempFile tempFile : files) {
                 fileSystem.deleteFile(tempFile.location());
@@ -254,6 +279,34 @@ public final class SortingFileWriter
             cleanupFile(fileSystem, tempFile);
             throw new TrinoException(HIVE_WRITER_DATA_ERROR, "Failed to write temporary file: " + tempFile, e);
         }
+    }
+
+    private Page expandPage(Page page)
+    {
+        if (nestedSortPaths.isEmpty()) {
+            return page;
+        }
+        Block[] blocks = new Block[originalChannelCount + nestedSortPaths.size()];
+        for (int i = 0; i < originalChannelCount; i++) {
+            blocks[i] = page.getBlock(i);
+        }
+        for (int i = 0; i < nestedSortPaths.size(); i++) {
+            List<Integer> path = nestedSortPaths.get(i);
+            Block block = page.getBlock(path.getFirst());
+            for (int depth = 1; depth < path.size(); depth++) {
+                block = getRowFieldsFromBlock(block).get(path.get(depth));
+            }
+            blocks[originalChannelCount + i] = block;
+        }
+        return new Page(page.getPositionCount(), blocks);
+    }
+
+    private Page stripPage(Page page)
+    {
+        if (nestedSortPaths.isEmpty()) {
+            return page;
+        }
+        return page.getColumns(keepChannels);
     }
 
     private static void cleanupFile(TrinoFileSystem fileSystem, Location location)
