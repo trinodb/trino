@@ -54,6 +54,6 @@ public class JdbcDriverIT
 
     public static boolean isExpectedFile(String filename)
     {
-        return MANIFEST_FILES.contains(filename) || filename.startsWith("io/trino/jdbc");
+        return MANIFEST_FILES.contains(filename) || filename.startsWith("io/trino");
     }
 }

@@ -399,10 +399,6 @@
                             <shadeSourcesContent>true</shadeSourcesContent>
                             <relocations>
                                 <relocation>
-                                    <pattern>io.trino.client</pattern>
-                                    <shadedPattern>${shadeBase}.client</shadedPattern>
-                                </relocation>
-                                <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>
                                     <shadedPattern>${shadeBase}.jackson</shadedPattern>
                                 </relocation>
