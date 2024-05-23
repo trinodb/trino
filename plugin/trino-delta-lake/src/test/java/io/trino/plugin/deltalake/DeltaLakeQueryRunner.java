@@ -208,6 +208,7 @@ public final class DeltaLakeQueryRunner
             // Please set Delta Lake connector properties via VM options. e.g. -Dhive.metastore=glue -D..
             QueryRunner queryRunner = builder()
                     .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addDeltaProperty("hive.metastore", System.getProperty("hive.metastore"))
                     .build();
 
             Logger log = Logger.get(DeltaLakeExternalQueryRunnerMain.class);
