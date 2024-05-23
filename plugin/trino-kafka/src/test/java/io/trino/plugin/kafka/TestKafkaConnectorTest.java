@@ -428,7 +428,7 @@ public class TestKafkaConnectorTest
     {
         // Override because the base test uses CREATE TABLE statement that is unsupported in Kafka connector
         assertThat(query("INSERT INTO " + TABLE_INSERT_ARRAY + " (a) VALUES (ARRAY[null])"))
-                .nonTrinoExceptionFailure().hasMessage("Unsupported column type 'array(double)' for column 'a'");
+                .failure().hasMessage("Unsupported column type 'array(double)' for column 'a'");
         abort("not supported");
     }
 
