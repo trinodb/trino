@@ -44,8 +44,8 @@ import java.util.Map;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
-import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
-import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
+import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
+import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
