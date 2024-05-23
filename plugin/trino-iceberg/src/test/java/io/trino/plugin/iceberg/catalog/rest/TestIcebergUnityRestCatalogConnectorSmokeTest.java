@@ -423,6 +423,13 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testSortedByNestedField()
+    {
+        testFailsDueToReadOnlyCatalog(super::testSortedByNestedField);
+    }
+
+    @Test
+    @Override
     public void testFileSortingWithLargerTable()
     {
         testFailsDueToReadOnlyCatalog(super::testFileSortingWithLargerTable);

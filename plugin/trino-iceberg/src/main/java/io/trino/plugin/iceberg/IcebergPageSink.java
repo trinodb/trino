@@ -145,7 +145,8 @@ public class IcebergPageSink
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
     private final List<Type> columnTypes;
-    private final List<Integer> sortColumnIndexes;
+    // Per sort field: index path from root struct to the leaf field (e.g. [1, 0] for top.nested)
+    private final List<List<Integer>> sortIndexPaths;
     private final List<SortOrder> sortOrders;
     // Maps column index to top-level types that contain geometry
     private final Map<Integer, org.apache.iceberg.types.Type> columnsWithGeometry;
@@ -224,22 +225,22 @@ public class IcebergPageSink
                 .orElseGet(() -> Location.of(locationProvider.newDataLocation("trino-tmp-files")));
 
         if (sortedWritingEnabled) {
-            ImmutableList.Builder<Integer> sortColumnIndexes = ImmutableList.builder();
+            ImmutableList.Builder<List<Integer>> sortIndexPaths = ImmutableList.builder();
             ImmutableList.Builder<SortOrder> sortOrders = ImmutableList.builder();
             for (TrinoSortField sortField : sortFields) {
-                Types.NestedField column = outputSchema.findField(sortField.sourceColumnId());
-                if (column == null) {
+                if (outputSchema.findField(sortField.sourceColumnId()) == null) {
                     throw new TrinoException(ICEBERG_INVALID_METADATA, "Unable to find sort field source column in the table schema: " + sortField);
                 }
-                sortColumnIndexes.add(outputSchema.columns().indexOf(column));
+                List<Integer> nestedFieldIds = getNestedFieldIds(outputSchema.asStruct(), sortField.sourceColumnId());
+                sortIndexPaths.add(getIndexPathToField(outputSchema.asStruct(), nestedFieldIds));
                 sortOrders.add(sortField.sortOrder());
             }
-            this.sortColumnIndexes = sortColumnIndexes.build();
+            this.sortIndexPaths = sortIndexPaths.build();
             this.sortOrders = sortOrders.build();
             this.sortOrderId = sortOrderId;
         }
         else {
-            this.sortColumnIndexes = ImmutableList.of();
+            this.sortIndexPaths = ImmutableList.of();
             this.sortOrders = ImmutableList.of();
             this.sortOrderId = org.apache.iceberg.SortOrder.unsorted().orderId();
         }
@@ -537,7 +538,7 @@ public class IcebergPageSink
                         sortingFileWriterBufferSize,
                         sortingFileWriterMaxOpenFiles,
                         columnTypes,
-                        sortColumnIndexes,
+                        sortIndexPaths,
                         sortOrders,
                         pageSorter,
                         typeManager.getTypeOperators());

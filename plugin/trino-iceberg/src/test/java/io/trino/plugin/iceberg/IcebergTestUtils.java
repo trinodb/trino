@@ -52,18 +52,24 @@ import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
-import org.apache.parquet.format.SchemaElement;
+import org.apache.parquet.io.ColumnIO;
+import org.apache.parquet.io.GroupColumnIO;
+import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.PrimitiveType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -73,12 +79,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
+import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
@@ -133,9 +142,13 @@ public final class IcebergTestUtils
         OrcReaderOptions readerOptions = new OrcReaderOptions();
         try (OrcDataSource dataSource = dataSourceSupplier.get()) {
             OrcReader orcReader = OrcReader.createOrcReader(dataSource, readerOptions).orElseThrow();
-            OrcColumn sortColumn = orcReader.getRootColumn().getNestedColumns().stream()
-                    .filter(column -> column.getColumnName().equals(sortColumnName))
-                    .collect(onlyElement());
+            String[] pathParts = sortColumnName.split("\\.");
+            OrcColumn sortColumn = orcReader.getRootColumn();
+            for (String part : pathParts) {
+                sortColumn = sortColumn.getNestedColumns().stream()
+                        .filter(column -> column.getColumnName().equals(part))
+                        .collect(onlyElement());
+            }
             Type sortColumnType = getType(sortColumn.getColumnType().getOrcTypeKind());
             try (OrcRecordReader recordReader = orcReader.createRecordReader(
                     List.of(sortColumn),
@@ -178,21 +191,39 @@ public final class IcebergTestUtils
     {
         try (TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
-            SchemaElement sortColumn = parquetMetadata.getParquetMetadata().getSchema()
-                    .stream()
-                    .filter(column -> column.getName().equals(sortColumnName))
-                    .collect(onlyElement());
-            Type sortColumnType = getType(sortColumn.getType());
+            MessageType fileSchema = parquetMetadata.getFileMetaData().getSchema();
+            MessageColumnIO messageColumnIO = getColumnIO(fileSchema, fileSchema);
+
+            String[] pathParts = sortColumnName.split("\\.");
+            ColumnIO columnIO = messageColumnIO;
+            for (String part : pathParts) {
+                columnIO = lookupColumnByName((GroupColumnIO) columnIO, part);
+                checkState(columnIO != null, "Column not found in Parquet schema: %s (while resolving %s)", part, sortColumnName);
+            }
+            Type leafType = getType(columnIO.getType().asPrimitiveType().getPrimitiveTypeName());
+
+            // Build a nested RowType wrapping the leaf from the inside out,
+            // e.g. "row_t.name" → RowType(field("name", VARCHAR)), read column "row_t"
+            Type columnType = leafType;
+            for (int i = pathParts.length - 2; i >= 0; i--) {
+                columnType = RowType.rowType(RowType.field(pathParts[i + 1], columnType));
+            }
+            String topLevelColumnName = pathParts[0];
+
             try (ParquetReader parquetReader = ParquetTestUtils.createParquetReader(
                     dataSource,
                     parquetMetadata,
-                    List.of(sortColumnType),
-                    List.of(sortColumnName))) {
+                    List.of(columnType),
+                    List.of(topLevelColumnName))) {
                 Comparable<Object> previousMax = null;
                 for (SourcePage page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
                     Block block = page.getBlock(0);
+                    // Drill into nested RowBlocks to reach the leaf
+                    for (int i = 1; i < pathParts.length; i++) {
+                        block = ((RowBlock) block).getFieldBlock(0);
+                    }
                     for (int position = 0; position < block.getPositionCount(); position++) {
-                        Comparable<Object> current = (Comparable<Object>) readNativeValue(sortColumnType, block, position);
+                        Comparable<Object> current = (Comparable<Object>) readNativeValue(leafType, block, position);
                         if (previousMax != null && previousMax.compareTo(current) > 0) {
                             return false;
                         }
@@ -207,11 +238,11 @@ public final class IcebergTestUtils
         }
     }
 
-    private static Type getType(org.apache.parquet.format.Type parquetType)
+    private static Type getType(PrimitiveType.PrimitiveTypeName primitiveTypeName)
     {
-        return switch (parquetType) {
-            case org.apache.parquet.format.Type.BYTE_ARRAY -> VARCHAR;
-            default -> throw new IllegalArgumentException("Unsupported parquet type: " + parquetType);
+        return switch (primitiveTypeName) {
+            case BINARY -> VARCHAR;
+            default -> throw new IllegalArgumentException("Unsupported parquet primitive type: " + primitiveTypeName);
         };
     }
 
