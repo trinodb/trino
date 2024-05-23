@@ -15,13 +15,10 @@ package io.trino.plugin.deltalake;
 
 import io.trino.testing.AbstractTestQueryFramework;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
 public abstract class BaseDeltaLakeSharedMetastoreWithTableRedirectionsTest
         extends AbstractTestQueryFramework
 {
