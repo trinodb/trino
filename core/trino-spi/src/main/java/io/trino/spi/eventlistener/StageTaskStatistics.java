@@ -31,6 +31,7 @@ public class StageTaskStatistics
     private final LongDistribution cpuTimeDistribution;
     private final LongDistribution scheduledTimeDistribution;
     private final LongDistribution peakMemoryReservationDistribution;
+    private final LongDistribution estimatedMemoryReservationDistribution;
 
     // processing metrics
     private final LongDistribution rawInputDataSizeDistribution;
@@ -65,6 +66,7 @@ public class StageTaskStatistics
             @JsonProperty("cpuTimeDistribution") LongDistribution cpuTimeDistribution,
             @JsonProperty("scheduledTimeDistribution") LongDistribution scheduledTimeDistribution,
             @JsonProperty("peakMemoryReservationDistribution") LongDistribution peakMemoryReservationDistribution,
+            @JsonProperty("estimatedMemoryReservationDistribution") LongDistribution estimatedMemoryReservationDistribution,
             @JsonProperty("rawInputDataSizeDistribution") LongDistribution rawInputDataSizeDistribution,
             @JsonProperty("rawInputPositionsDistribution") LongDistribution rawInputPositionsDistribution,
             @JsonProperty("processedInputDataSizeDistribution") LongDistribution processedInputDataSizeDistribution,
@@ -90,6 +92,7 @@ public class StageTaskStatistics
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.scheduledTimeDistribution = requireNonNull(scheduledTimeDistribution, "scheduledTimeDistribution is null");
         this.peakMemoryReservationDistribution = requireNonNull(peakMemoryReservationDistribution, "peakMemoryReservationDistribution is null");
+        this.estimatedMemoryReservationDistribution = requireNonNull(estimatedMemoryReservationDistribution, "estimatedMemoryReservationDistribution is null");
         this.rawInputDataSizeDistribution = requireNonNull(rawInputDataSizeDistribution, "rawInputDataSizeDistribution is null");
         this.rawInputPositionsDistribution = requireNonNull(rawInputPositionsDistribution, "rawInputPositionsDistribution is null");
         this.processedInputDataSizeDistribution = requireNonNull(processedInputDataSizeDistribution, "processedInputDataSizeDistribution is null");
@@ -139,6 +142,12 @@ public class StageTaskStatistics
     public LongDistribution getPeakMemoryReservationDistribution()
     {
         return peakMemoryReservationDistribution;
+    }
+
+    @JsonProperty
+    public LongDistribution getEstimatedMemoryReservationDistribution()
+    {
+        return estimatedMemoryReservationDistribution;
     }
 
     @JsonProperty
