@@ -1194,6 +1194,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-jdbc</artifactId>
+                <version>${project.version}</version>
+                <classifier>non-shaded</classifier>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-jmx</artifactId>
                 <version>${project.version}</version>
             </dependency>
