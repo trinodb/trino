@@ -315,7 +315,7 @@ the catalog properties file. This property must be one of the following values:
 (hive-sql-standard-based-authorization)=
 ### SQL standard based authorization
 
-When `sql-standard` security is enabled, Trino enforces the same SQLuyrity
+When `sql-standard` security is enabled, Trino enforces the same SQL
 standard-based authorization as Hive does.
 
 Since Trino's `ROLE` syntax support matches the SQL standard, and
