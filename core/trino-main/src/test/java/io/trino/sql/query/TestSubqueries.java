@@ -318,8 +318,7 @@ public class TestSubqueries
                                         aggregation(ImmutableMap.of(), FINAL,
                                                 anyTree(
                                                         aggregation(ImmutableMap.of(), PARTIAL,
-                                                                anyTree(
-                                                                        values("a")))))))));
+                                                                values("a"))))))));
 
         assertThat(assertions.query(
                 "SELECT (SELECT count(*) FROM (VALUES 1, 1, 3) t(a) WHERE t.a=t2.b LIMIT 1) FROM (VALUES 1) t2(b)"))
@@ -336,8 +335,7 @@ public class TestSubqueries
                                         aggregation(ImmutableMap.of(), FINAL,
                                                 anyTree(
                                                         aggregation(ImmutableMap.of(), PARTIAL,
-                                                                anyTree(
-                                                                        values("u_x", "u_cid")))))))));
+                                                                values("u_cid"))))))));
 
         assertThat(assertions.query(
                 "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b ORDER BY a FETCH FIRST ROW WITH TIES) FROM (VALUES 1) t2(b)"))
@@ -488,8 +486,7 @@ public class TestSubqueries
                                         aggregation(ImmutableMap.of(), FINAL,
                                                 anyTree(
                                                         aggregation(ImmutableMap.of(), PARTIAL,
-                                                                anyTree(
-                                                                        values("a")))))))));
+                                                                values("a"))))))));
 
         assertions.assertQueryAndPlan(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES (1, 2), (1, 2), (null, null), (3, 3)) t(a, b) WHERE t.a=t2.b GROUP BY t.a, t.b) FROM (VALUES 1, 2) t2(b)",
@@ -506,8 +503,7 @@ public class TestSubqueries
                                                                         aggregation(ImmutableMap.of(), FINAL,
                                                                                 anyTree(
                                                                                         aggregation(ImmutableMap.of(), PARTIAL,
-                                                                                                anyTree(
-                                                                                                        values("t_a", "t_b")))))))))))));
+                                                                                                values("t_a", "t_b"))))))))))));
 
         assertions.assertQueryAndPlan(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES (1, 2), (1, 2), (null, null), (3, 3)) t(a, b) WHERE t.a<t2.b GROUP BY t.a, t.b) FROM (VALUES 1, 2) t2(b)",
@@ -568,8 +564,7 @@ public class TestSubqueries
                                                                         aggregation(ImmutableMap.of(), FINAL,
                                                                                 anyTree(
                                                                                         aggregation(ImmutableMap.of(), PARTIAL,
-                                                                                                anyTree(
-                                                                                                        values("t_a", "t_b")))))))))))));
+                                                                                                values("t_a", "t_b"))))))))))));
 
         assertions.assertQueryAndPlan(
                 "SELECT EXISTS(SELECT * FROM (VALUES 1, 1, 2, 3) t(a) WHERE t.a=t2.b GROUP BY t.a HAVING count(*) > 1) FROM (VALUES 1, 2) t2(b)",
@@ -582,8 +577,7 @@ public class TestSubqueries
                                         aggregation(ImmutableMap.of(), FINAL,
                                                 anyTree(
                                                         aggregation(ImmutableMap.of(), PARTIAL,
-                                                                anyTree(
-                                                                        values("a")))))))));
+                                                                values("a"))))))));
 
         assertThat(assertions.query(
                 "SELECT EXISTS(SELECT * FROM (SELECT t.a FROM (VALUES (1, 1), (1, 1), (1, 2), (1, 2), (3, 3)) t(a, b) WHERE t.b=t2.b GROUP BY t.a HAVING count(*) > 1) t WHERE t.a=t2.b)" +
@@ -601,8 +595,7 @@ public class TestSubqueries
                                         aggregation(ImmutableMap.of(), FINAL,
                                                 anyTree(
                                                         aggregation(ImmutableMap.of(), PARTIAL,
-                                                                anyTree(
-                                                                        values("a")))))))));
+                                                                values("a"))))))));
     }
 
     @Test

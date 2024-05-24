@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.LongTimestamp;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -303,6 +305,9 @@ public class TestUnwrapYearInComparison
         // ensure the optimization works when the terms of the comparison are reversed
         // vs the canonical <expr> <op> <literal> form
         assertPlan("SELECT * FROM (VALUES DATE '2022-01-01') t(a) WHERE 2022 = year(a)",
+                Session.builder(getPlanTester().getDefaultSession())
+                        .setSystemProperty(PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT, "0")
+                        .build(),
                 output(
                         filter(
                                 new Between(new Reference(DATE, "A"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))),

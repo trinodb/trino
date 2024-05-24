@@ -187,15 +187,14 @@ public class TestPartialTopNWithPresortedInput
     public void testWithConstantProperty()
     {
         assertDistributedPlan("SELECT * FROM (VALUES (1), (1)) AS t (id) WHERE id = 1 ORDER BY 1 LIMIT 1", output(
-                        topN(1, ImmutableList.of(sort("id", ASCENDING, LAST)), FINAL,
-                                exchange(LOCAL, GATHER, ImmutableList.of(),
-                                        limit(1, ImmutableList.of(), true, ImmutableList.of("id"),
-                                                anyTree(
-                                                        values(
-                                                                ImmutableList.of("id"),
-                                                                ImmutableList.of(
-                                                                        ImmutableList.of(new Constant(INTEGER, 1L)),
-                                                                        ImmutableList.of(new Constant(INTEGER, 1L))))))))));
+                topN(1, ImmutableList.of(sort("id", ASCENDING, LAST)), FINAL,
+                        exchange(LOCAL, GATHER, ImmutableList.of(),
+                                anyTree(
+                                        values(
+                                                ImmutableList.of("id"),
+                                                ImmutableList.of(
+                                                        ImmutableList.of(new Constant(INTEGER, 1L)),
+                                                        ImmutableList.of(new Constant(INTEGER, 1L)))))))));
     }
 
     @Test

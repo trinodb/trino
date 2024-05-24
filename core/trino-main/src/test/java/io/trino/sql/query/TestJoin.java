@@ -255,27 +255,29 @@ public class TestJoin
     public void testOutputDuplicatesInsensitiveJoin()
     {
         assertions.assertQueryAndPlan(
-                "SELECT t.x, count(*) FROM (VALUES 1, 2) t(x) JOIN (VALUES 2, 2) u(x) ON t.x = u.x GROUP BY t.x",
-                "VALUES (2, BIGINT '2')",
+                "SELECT t.x, count(*) FROM (VALUES random(), 2) t(x) JOIN (VALUES -random(), 2, 2) u(x) ON t.x = u.x GROUP BY t.x",
+                "VALUES (DOUBLE '2', BIGINT '2')",
                 anyTree(
                         aggregation(
                                 ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 join(INNER, builder -> builder
-                                        .left(anyTree(values("y")))
-                                        .right(values()))
+                                        .ignoreEquiCriteria()
+                                        .left(anyTree(values("t_x")))
+                                        .right(anyTree(values("u_x"))))
                                         .with(JoinNode.class, not(JoinNode::isMaySkipOutputDuplicates)))));
 
         assertions.assertQueryAndPlan(
-                "SELECT t.x FROM (VALUES 1, 2) t(x) JOIN (VALUES 2, 2) u(x) ON t.x = u.x GROUP BY t.x",
-                "VALUES 2",
+                "SELECT t.x FROM (VALUES random(), 2) t(x) JOIN (VALUES -random(), 2, 2) u(x) ON t.x = u.x GROUP BY t.x",
+                "VALUES DOUBLE '2'",
                 anyTree(
                         aggregation(
                                 ImmutableMap.of(),
                                 FINAL,
                                 anyTree(
                                         join(INNER, builder -> builder
-                                                .left(anyTree(values("y")))
-                                                .right(values()))
+                                                .ignoreEquiCriteria()
+                                                .left(anyTree(values("t_x")))
+                                                .right(anyTree(values("u_x"))))
                                                 .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)))));
     }
 
