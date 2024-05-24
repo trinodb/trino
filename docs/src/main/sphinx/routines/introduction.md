@@ -66,6 +66,8 @@ In this scenario, the following commands can be used:
 * [](/sql/create-function) to create and store a routine.
 * [](/sql/drop-function) to remove a routine.
 * [](/sql/show-functions) to display a list of routines in a catalog.
+* [](/sql/show-create-function) to show the source code of the routine that
+  creates the specified function.
 
 Catalog routines must use a name that combines the catalog name and schema name
 with the routine name, such as `example.default.power` for the `power` routine

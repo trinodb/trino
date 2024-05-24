@@ -80,6 +80,29 @@ SQL routine invocation works without the full path:
 SELECT answer() + 5; -- 47
 ```
 
+You can show SQL catalog routines stored in a specific catalog and schema. The
+following example lists all routines in the `default` schema of the `example`
+catalog:
+
+```sql
+SHOW FUNCTIONS FROM example.default;
+```
+
+Of the functions returned, find all that match a character pattern. This example
+returns results with a name beginning with `ans`:
+
+```sql
+SHOW FUNCTIONS like 'ans%';
+```
+
+Show the SQL statement that created the function. In this example the function
+is `answer`. To ensure all routines with the same name and different parameters
+are returned, parenthesis `()` are excluded.
+
+```sql
+SHOW CREATE FUNCTION answer;
+```
+
 ## Declaration examples
 
 The result of calling the routine `answer()` is always identical, so you can
