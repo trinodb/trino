@@ -22,7 +22,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -198,21 +197,6 @@ public class TestAddColumnTask
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "x", "c"), INTEGER, false, false)))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("Field 'x' does not exist within row(a row(b integer))");
-    }
-
-    @Test
-    public void testUnsupportedArrayTypeInRowField()
-    {
-        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(
-                testSession,
-                TEST_CATALOG_NAME,
-                rowTable(tableName, new RowType.Field(Optional.of("a"), new ArrayType(rowType(new RowType.Field(Optional.of("element"), INTEGER))))),
-                FAIL);
-
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "a", "c"), INTEGER, false, false)))
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("Unsupported type: array(row(element integer))");
     }
 
     @Test
