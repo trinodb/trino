@@ -23,7 +23,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.pinot.PinotQueryRunner.createPinotQueryRunner;
-import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,7 +36,7 @@ public class TestPinotConnectorTest
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false, PINOT_LATEST_IMAGE_NAME));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false));
         pinot.start();
 
         return createPinotQueryRunner(
@@ -152,15 +151,15 @@ public class TestPinotConnectorTest
                 .isEqualTo("""
                         CREATE TABLE pinot.default.orders (
                            clerk varchar,
-                           orderkey bigint,
-                           orderstatus varchar,
-                           updated_at_seconds bigint,
-                           custkey bigint,
-                           totalprice double,
                            comment varchar,
+                           custkey bigint,
                            orderdate date,
+                           orderkey bigint,
                            orderpriority varchar,
-                           shippriority integer
+                           orderstatus varchar,
+                           shippriority integer,
+                           totalprice double,
+                           updated_at_seconds bigint
                         )""");
     }
 

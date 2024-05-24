@@ -11,7 +11,7 @@ The Pinot connector allows Trino to query data stored in
 
 To connect to Pinot, you need:
 
-- Pinot 0.11.0 or higher.
+- Pinot 1.1.0 or higher.
 - Network access from the Trino coordinator and workers to the Pinot controller
   nodes. Port 8098 is the default port.
 

@@ -77,7 +77,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.trino.plugin.pinot.PinotQueryRunner.createPinotQueryRunner;
-import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_PREVIOUS_IMAGE_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
@@ -129,18 +128,13 @@ public abstract class BasePinotConnectorSmokeTest
         return true;
     }
 
-    protected String getPinotImageName()
-    {
-        return PINOT_PREVIOUS_IMAGE_NAME;
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), isSecured(), getPinotImageName()));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), isSecured()));
         pinot.start();
 
         createAndPopulateAllTypesTopic(kafka, pinot);
@@ -933,10 +927,10 @@ public abstract class BasePinotConnectorSmokeTest
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
                 .isEqualTo(
                         "CREATE TABLE %s.%s.region (\n" +
-                                "   regionkey bigint,\n" +
-                                "   updated_at_seconds bigint,\n" +
+                                "   comment varchar,\n" +
                                 "   name varchar,\n" +
-                                "   comment varchar\n" +
+                                "   regionkey bigint,\n" +
+                                "   updated_at_seconds bigint\n" +
                                 ")",
                         getSession().getCatalog().orElseThrow(),
                         getSession().getSchema().orElseThrow());
@@ -958,7 +952,7 @@ public abstract class BasePinotConnectorSmokeTest
     {
         // TODO https://github.com/trinodb/trino/issues/14045 Fix ORDER BY ... LIMIT query
         assertQueryFails("SELECT regionkey FROM nation ORDER BY name LIMIT 3",
-                format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"regionkey\", \"name\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
+                format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"name\", \"regionkey\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
     @Test
@@ -967,7 +961,7 @@ public abstract class BasePinotConnectorSmokeTest
     {
         // TODO https://github.com/trinodb/trino/issues/14046 Fix JOIN query
         assertQueryFails("SELECT n.name, r.name FROM nation n JOIN region r on n.regionkey = r.regionkey",
-                format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"regionkey\", \"name\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
+                format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"name\", \"regionkey\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
     @Test
@@ -2068,19 +2062,16 @@ public abstract class BasePinotConnectorSmokeTest
         assertThat(query("SELECT bool_col, COUNT(long_col) FROM \"SELECT bool_col, long_col FROM " + ALL_TYPES_TABLE + "\" GROUP BY bool_col"))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
-        // Ensure that count(<column name>) is not pushed down even if the query contains a matching grouping column
-        assertThatExceptionOfType(RuntimeException.class)
-                // TODO verify the failure is TrinoException (eg. asserThat(query(....)).failure()...)
-                .isThrownBy(() -> computeActual("SELECT COUNT(long_col) FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE + " GROUP BY long_col\""))
-                .withRootCauseInstanceOf(RuntimeException.class)
-                .withMessage("Operation not supported for DISTINCT aggregation function");
+        // Ensure that count(<column name>) is pushed down even if the query contains a matching grouping column
+        assertThat(query("SELECT COUNT(long_col) FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE + " GROUP BY long_col\""))
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         // Ensure that count(<column name>) with grouping columns is not pushed down even if the query contains a matching grouping column
         assertThatExceptionOfType(RuntimeException.class)
                 // TODO verify the failure is TrinoException (eg. asserThat(query(....)).failure()...)
                 .isThrownBy(() -> computeActual("SELECT bool_col, COUNT(long_col) FROM \"SELECT bool_col, long_col FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col, long_col\""))
                 .withRootCauseInstanceOf(RuntimeException.class)
-                .withMessage("Operation not supported for DISTINCT aggregation function");
+                .withMessageContaining("'bool_col' must be an aggregate expression or appear in GROUP BY clause");
 
         // Verify that count(<column name>) is pushed down only when it matches a COUNT(DISTINCT <column name>) query
         assertThat(query("""
