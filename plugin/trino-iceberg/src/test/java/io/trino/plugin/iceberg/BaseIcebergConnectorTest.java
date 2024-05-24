@@ -4950,7 +4950,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT a.b FROM " + tableName, "VALUES NULL");
         assertUpdate("DROP TABLE " + tableName);
 
-        // Very changing subfield ordering does not revive dropped data
+        // Verify changing subfield ordering does not revive dropped data
         assertUpdate("CREATE TABLE " + tableName + " (dummy BIGINT, a ROW(b BIGINT, c VARCHAR), d BIGINT) with (partitioning = ARRAY['d'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, 'abc'), 3)", 1);
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
