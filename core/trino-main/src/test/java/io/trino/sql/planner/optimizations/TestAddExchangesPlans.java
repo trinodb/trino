@@ -57,6 +57,7 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
+import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
 import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.USE_COST_BASED_PARTITIONING;
@@ -376,6 +377,7 @@ public class TestAddExchangesPlans
         // ==> Projection is planned with multiple distribution and gathering exchange is added on top of Projection.
         assertPlan(
                 "SELECT b, row_number() OVER () FROM (VALUES (1, 2)) t(a, b) WHERE a < 10",
+                disablePushFilterIntoValues(),
                 any(
                         rowNumber(
                                 pattern -> pattern
@@ -420,6 +422,7 @@ public class TestAddExchangesPlans
         // ==> Projection is planned with multiple distribution (no exchange added below). Hash partitioning exchange is added on top of Projection.
         assertPlan(
                 "SELECT row_number() OVER (PARTITION BY b) FROM (VALUES (1, 2)) t(a,b) WHERE a < 10",
+                disablePushFilterIntoValues(),
                 anyTree(
                         rowNumber(
                                 pattern -> pattern
@@ -464,6 +467,7 @@ public class TestAddExchangesPlans
         // ==> Projection is planned with multiple distribution (no exchange added)
         assertPlan(
                 "SELECT count(b) FROM (VALUES (1, 2)) t(a,b) WHERE a < 10",
+                disablePushFilterIntoValues(),
                 anyTree(
                         aggregation(
                                 ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of("b"))),
@@ -1242,6 +1246,13 @@ public class TestAddExchangesPlans
     {
         return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
+                .build();
+    }
+
+    private Session disablePushFilterIntoValues()
+    {
+        return Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT, "0")
                 .build();
     }
 }

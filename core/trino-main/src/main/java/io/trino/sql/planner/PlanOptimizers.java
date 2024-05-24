@@ -150,6 +150,7 @@ import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopN;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopNRanking;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughWindow;
 import io.trino.sql.planner.iterative.rule.PushDownProjectionsFromPatternRecognition;
+import io.trino.sql.planner.iterative.rule.PushFilterIntoValues;
 import io.trino.sql.planner.iterative.rule.PushFilterThroughBoolOrAggregation;
 import io.trino.sql.planner.iterative.rule.PushFilterThroughCountAggregation;
 import io.trino.sql.planner.iterative.rule.PushInequalityFilterExpressionBelowJoinRuleSet;
@@ -591,6 +592,8 @@ public class PlanOptimizers
                                 new RemoveEmptyUnionBranches(),
                                 new EvaluateEmptyIntersect(),
                                 new RemoveEmptyExceptBranches(),
+                                new PushFilterIntoValues(plannerContext), // must run after de-correlation
+                                new ReplaceJoinOverConstantWithProject(),
                                 new TransformFilteringSemiJoinToInnerJoin())), // must run after PredicatePushDown
                 new IterativeOptimizer(
                         plannerContext,
@@ -716,6 +719,8 @@ public class PlanOptimizers
                                 new PushdownLimitIntoWindow(),
                                 new PushdownFilterIntoRowNumber(plannerContext),
                                 new PushdownFilterIntoWindow(plannerContext),
+                                new PushFilterIntoValues(plannerContext),
+                                new ReplaceJoinOverConstantWithProject(),
                                 new ReplaceWindowWithRowNumber(metadata))),
                 new IterativeOptimizer(
                         plannerContext,
@@ -816,6 +821,8 @@ public class PlanOptimizers
                         .add(new RemoveRedundantIdentityProjections())
                         .addAll(new ExtractSpatialJoins(plannerContext, splitManager, pageSourceManager).rules())
                         .add(new InlineProjections())
+                        .add(new PushFilterIntoValues(plannerContext))
+                        .add(new ReplaceJoinOverConstantWithProject())
                         .build()));
 
         builder.add(new IterativeOptimizer(
@@ -915,6 +922,8 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
+                        .add(new PushFilterIntoValues(plannerContext))
+                        .add(new ReplaceJoinOverConstantWithProject())
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext))
                         .build()));
         builder.add(pushProjectionIntoTableScanOptimizer);
@@ -936,6 +945,8 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                         .add(new PushPredicateIntoTableScan(plannerContext, false))
+                        .add(new PushFilterIntoValues(plannerContext))
+                        .add(new ReplaceJoinOverConstantWithProject())
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext))
                         .build()));
         // Remove unsupported dynamic filters introduced by PredicatePushdown. Also, cleanup dynamic filters removed by
