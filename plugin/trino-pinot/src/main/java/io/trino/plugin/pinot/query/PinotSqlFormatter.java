@@ -624,7 +624,7 @@ public class PinotSqlFormatter
                     .map(expressionContext -> formatExpression(expressionContext, context))
                     .collect(toImmutableList());
             checkState(arguments.size() >= 2, "Unexpected expression '%s'", object);
-            StringBuilder builder = new StringBuilder("CASE ");
+            StringBuilder builder = new StringBuilder("CASE");
 
             for (int index = 0; index < arguments.size() / 2; index++) {
                 builder.append(" WHEN ")

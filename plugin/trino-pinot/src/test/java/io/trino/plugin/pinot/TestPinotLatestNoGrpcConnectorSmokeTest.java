@@ -38,27 +38,4 @@ public class TestPinotLatestNoGrpcConnectorSmokeTest
     {
         return false;
     }
-
-    /*
-    @Test
-    @Override
-    public void testPassthroughQueriesWithAliases()
-    {
-        abort("Broken :( Elon help!");
-    }
-
-    @Test
-    @Override
-    public void testPassthroughQueriesWithPushdowns()
-    {
-        abort("Broken :( Elon help!");
-    }
-
-    @Test
-    @Override
-    public void testTransformFunctions()
-    {
-        abort("Broken :( Elon help!");
-    }
-     */
 }
