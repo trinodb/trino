@@ -30,7 +30,6 @@ import java.util.Set;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.plugin.pinot.PinotTpchTables.createTpchTables;
-import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
@@ -93,7 +92,7 @@ public final class PinotQueryRunner
     {
         TestingKafka kafka = TestingKafka.createWithSchemaRegistry();
         kafka.start();
-        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false, PINOT_LATEST_IMAGE_NAME);
+        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false);
         pinot.start();
         QueryRunner queryRunner = createPinotQueryRunner(
                 kafka,

@@ -15,8 +15,6 @@ package io.trino.plugin.pinot;
 
 import org.junit.jupiter.api.parallel.Isolated;
 
-import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
-
 @Isolated
 public class TestPinotLatestNoGrpcConnectorSmokeTest
         extends BasePinotConnectorSmokeTest
@@ -25,12 +23,6 @@ public class TestPinotLatestNoGrpcConnectorSmokeTest
     protected boolean isSecured()
     {
         return false;
-    }
-
-    @Override
-    protected String getPinotImageName()
-    {
-        return PINOT_LATEST_IMAGE_NAME;
     }
 
     @Override
