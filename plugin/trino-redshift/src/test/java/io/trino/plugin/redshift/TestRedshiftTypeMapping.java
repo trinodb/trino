@@ -831,7 +831,7 @@ public class TestRedshiftTypeMapping
                             .collect(joining("), (", "VALUES (", ")")));
         }
         finally {
-            getTrinoExecutor().execute("DROP TABLE IF EXISTS " + tableName);
+            getTrinoExecutor().execute("DROP TABLE " + tableName);
         }
     }
 
