@@ -300,15 +300,11 @@ public class ServerIT
         return builder.buildOrThrow();
     }
 
-    private static class QueryRunner
+    private record QueryRunner(String host, int port)
     {
-        private final String host;
-        private final int port;
-
-        private QueryRunner(String host, int port)
+        private QueryRunner
         {
-            this.host = requireNonNull(host, "host is null");
-            this.port = port;
+            requireNonNull(host, "host is null");
         }
 
         public Set<List<String>> execute(String sql)
