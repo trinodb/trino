@@ -30,7 +30,7 @@ class IntColumnChunkMetadata
     private final int valueCount;
     private final int totalSize;
     private final int totalUncompressedSize;
-    private final Statistics statistics;
+    private final Statistics<?> statistics;
 
     IntColumnChunkMetadata(
             ColumnPath path,
@@ -38,7 +38,7 @@ class IntColumnChunkMetadata
             CompressionCodecName codec,
             EncodingStats encodingStats,
             Set<Encoding> encodings,
-            Statistics statistics,
+            Statistics<?> statistics,
             long firstDataPage,
             long dictionaryPageOffset,
             long valueCount,
@@ -98,7 +98,7 @@ class IntColumnChunkMetadata
     }
 
     @Override
-    public Statistics getStatistics()
+    public Statistics<?> getStatistics()
     {
         return statistics;
     }
