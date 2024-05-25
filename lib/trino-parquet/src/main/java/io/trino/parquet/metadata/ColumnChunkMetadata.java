@@ -55,7 +55,7 @@ public abstract class ColumnChunkMetadata
             PrimitiveTypeName type,
             CompressionCodecName codec,
             Set<Encoding> encodings,
-            Statistics statistics,
+            Statistics<?> statistics,
             long firstDataPage,
             long dictionaryPageOffset,
             long valueCount,
@@ -74,7 +74,7 @@ public abstract class ColumnChunkMetadata
             CompressionCodecName codec,
             EncodingStats encodingStats,
             Set<Encoding> encodings,
-            Statistics statistics,
+            Statistics<?> statistics,
             long firstDataPage,
             long dictionaryPageOffset,
             long valueCount,
@@ -91,7 +91,7 @@ public abstract class ColumnChunkMetadata
             CompressionCodecName codec,
             EncodingStats encodingStats,
             Set<Encoding> encodings,
-            Statistics statistics,
+            Statistics<?> statistics,
             long firstDataPage,
             long dictionaryPageOffset,
             long valueCount,
@@ -186,7 +186,7 @@ public abstract class ColumnChunkMetadata
     public PrimitiveTypeName getType()
     {
         decryptIfNeeded();
-        return properties.getType();
+        return properties.getPrimitiveType().getPrimitiveTypeName();
     }
 
     public PrimitiveType getPrimitiveType()
@@ -205,7 +205,7 @@ public abstract class ColumnChunkMetadata
 
     public abstract long getTotalSize();
 
-    public abstract Statistics getStatistics();
+    public abstract Statistics<?> getStatistics();
 
     public IndexReference getColumnIndexReference()
     {
