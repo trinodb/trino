@@ -54,10 +54,10 @@ import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 
-@Execution(SAME_THREAD)
+@Execution(CONCURRENT)
 public class ServerIT
 {
     private static final DockerImageName BASE_IMAGE = DockerImageName.parse("registry.access.redhat.com/ubi9/ubi-minimal:latest");
