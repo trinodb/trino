@@ -208,6 +208,7 @@ public class ServerIT
 
             Map<String, String> rpmMetadata = getRpmMetadata(container, rpm);
             assertThat(rpmMetadata).extractingByKey("Name").isEqualTo("trino-server-rpm");
+            assertThat(rpmMetadata).extractingByKey("Build Host").isEqualTo("localhost");
             assertThat(rpmMetadata).extractingByKey("Epoch").isEqualTo("0");
             assertThat(rpmMetadata).extractingByKey("Release").isEqualTo("1");
             assertThat(rpmMetadata).extractingByKey("Version").isEqualTo(getProjectVersion());
