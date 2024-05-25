@@ -67,7 +67,7 @@ public final class AtopPageSourceProvider
 
         for (ColumnHandle column : columns) {
             AtopColumnHandle atopColumnHandle = (AtopColumnHandle) column;
-            AtopColumn atopColumn = tableHandle.getTable().getColumn(atopColumnHandle.getName());
+            AtopColumn atopColumn = tableHandle.getTable().getColumn(atopColumnHandle.name());
             atopColumns.add(atopColumn);
             types.add(typeManager.getType(atopColumn.getType()));
         }

@@ -141,7 +141,7 @@ public class AtopMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        String columnName = ((AtopColumnHandle) columnHandle).getName();
+        String columnName = ((AtopColumnHandle) columnHandle).name();
 
         for (ColumnMetadata column : getTableMetadata(session, tableHandle).getColumns()) {
             if (column.getName().equals(columnName)) {
