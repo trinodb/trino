@@ -93,10 +93,10 @@ public class AtopMetadata
     {
         AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (AtopColumn column : atopTableHandle.getTable().getColumns()) {
+        for (AtopColumn column : atopTableHandle.table().getColumns()) {
             columns.add(new ColumnMetadata(column.getName(), typeManager.getType(column.getType())));
         }
-        SchemaTableName schemaTableName = new SchemaTableName(atopTableHandle.getSchema(), atopTableHandle.getTable().getName());
+        SchemaTableName schemaTableName = new SchemaTableName(atopTableHandle.schema(), atopTableHandle.table().getName());
         return new ConnectorTableMetadata(schemaTableName, columns.build());
     }
 
@@ -121,7 +121,7 @@ public class AtopMetadata
     {
         AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (AtopColumn column : atopTableHandle.getTable().getColumns()) {
+        for (AtopColumn column : atopTableHandle.table().getColumns()) {
             columnHandles.put(column.getName(), new AtopColumnHandle(column.getName()));
         }
         return columnHandles.buildOrThrow();
@@ -150,7 +150,7 @@ public class AtopMetadata
         }
 
         AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
-        SchemaTableName tableName = new SchemaTableName(atopTableHandle.getSchema(), atopTableHandle.getTable().getName());
+        SchemaTableName tableName = new SchemaTableName(atopTableHandle.schema(), atopTableHandle.table().getName());
         throw new ColumnNotFoundException(tableName, columnName);
     }
 
@@ -161,8 +161,8 @@ public class AtopMetadata
 
         Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
 
-        Domain oldEndTimeDomain = handle.getEndTimeConstraint();
-        Domain oldStartTimeDomain = handle.getStartTimeConstraint();
+        Domain oldEndTimeDomain = handle.endTimeConstraint();
+        Domain oldStartTimeDomain = handle.startTimeConstraint();
         Domain newEndTimeDomain = oldEndTimeDomain;
         Domain newStartTimeDomain = oldStartTimeDomain;
 
@@ -178,8 +178,8 @@ public class AtopMetadata
         }
 
         handle = new AtopTableHandle(
-                handle.getSchema(),
-                handle.getTable(),
+                handle.schema(),
+                handle.table(),
                 newStartTimeDomain,
                 newEndTimeDomain);
 
