@@ -73,10 +73,10 @@ public class AccumuloTable
         // Extract the ColumnMetadata from the handles for faster access
         ImmutableList.Builder<ColumnMetadata> columnMetadataBuilder = ImmutableList.builder();
         for (AccumuloColumnHandle column : this.columns) {
-            columnMetadataBuilder.add(column.getColumnMetadata());
-            indexed |= column.isIndexed();
-            if (column.getName().equals(this.rowId)) {
-                rowIdOrdinal = Optional.of(column.getOrdinal());
+            columnMetadataBuilder.add(column.columnMetadata());
+            indexed |= column.indexed();
+            if (column.name().equals(this.rowId)) {
+                rowIdOrdinal = Optional.of(column.ordinal());
             }
         }
 

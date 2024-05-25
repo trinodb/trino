@@ -383,10 +383,10 @@ public class AccumuloMetadataManager
                 // We already validated this earlier, so it'll exist
                 AccumuloColumnHandle handle = table.getColumns()
                         .stream()
-                        .filter(x -> x.getName().equals(col))
+                        .filter(x -> x.name().equals(col))
                         .collect(Collectors.toList())
                         .get(0);
-                familyBuilder.add(new Text(handle.getFamily().get()));
+                familyBuilder.add(new Text(handle.family().get()));
             }
 
             localityGroupsBuilder.put(g.getKey(), familyBuilder.build());
@@ -609,23 +609,23 @@ public class AccumuloMetadataManager
 
     public void renameColumn(AccumuloTable table, String source, String target)
     {
-        if (table.getColumns().stream().noneMatch(columnHandle -> columnHandle.getName().equalsIgnoreCase(source))) {
+        if (table.getColumns().stream().noneMatch(columnHandle -> columnHandle.name().equalsIgnoreCase(source))) {
             throw new TrinoException(NOT_FOUND, format("Failed to find source column %s to rename to %s", source, target));
         }
 
         // Copy existing column list, replacing the old column name with the new
         ImmutableList.Builder<AccumuloColumnHandle> newColumnList = ImmutableList.builder();
         for (AccumuloColumnHandle columnHandle : table.getColumns()) {
-            if (columnHandle.getName().equalsIgnoreCase(source)) {
+            if (columnHandle.name().equalsIgnoreCase(source)) {
                 newColumnList.add(new AccumuloColumnHandle(
                         target,
-                        columnHandle.getFamily(),
-                        columnHandle.getQualifier(),
-                        columnHandle.getType(),
-                        columnHandle.getOrdinal(),
-                        columnHandle.getExtraInfo(),
-                        columnHandle.getComment(),
-                        columnHandle.isIndexed()));
+                        columnHandle.family(),
+                        columnHandle.qualifier(),
+                        columnHandle.type(),
+                        columnHandle.ordinal(),
+                        columnHandle.extraInfo(),
+                        columnHandle.comment(),
+                        columnHandle.indexed()));
             }
             else {
                 newColumnList.add(columnHandle);

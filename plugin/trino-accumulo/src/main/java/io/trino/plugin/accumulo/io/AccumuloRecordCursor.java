@@ -111,17 +111,17 @@ public class AccumuloRecordCursor
             fieldToColumnName = new String[columnHandles.size()];
             for (int i = 0; i < columnHandles.size(); ++i) {
                 AccumuloColumnHandle columnHandle = columnHandles.get(i);
-                fieldToColumnName[i] = columnHandle.getName();
+                fieldToColumnName[i] = columnHandle.name();
 
                 // Make sure to skip the row ID!
-                if (!columnHandle.getName().equals(rowIdName)) {
+                if (!columnHandle.name().equals(rowIdName)) {
                     // Set the mapping of Trino column name to the family/qualifier
-                    this.serializer.setMapping(columnHandle.getName(), columnHandle.getFamily().get(), columnHandle.getQualifier().get());
+                    this.serializer.setMapping(columnHandle.name(), columnHandle.family().get(), columnHandle.qualifier().get());
 
                     // Set our scanner to fetch this family/qualifier column
                     // This will help us prune which data we receive from Accumulo
-                    family.set(columnHandle.getFamily().get());
-                    qualifier.set(columnHandle.getQualifier().get());
+                    family.set(columnHandle.family().get());
+                    qualifier.set(columnHandle.qualifier().get());
                     this.scanner.fetchColumn(family, qualifier);
                 }
             }
@@ -149,7 +149,7 @@ public class AccumuloRecordCursor
     public Type getType(int field)
     {
         checkArgument(field >= 0 && field < columnHandles.size(), "Invalid field index");
-        return columnHandles.get(field).getType();
+        return columnHandles.get(field).type();
     }
 
     @Override
@@ -269,7 +269,7 @@ public class AccumuloRecordCursor
      */
     private boolean retrieveOnlyRowIds(String rowIdName)
     {
-        return columnHandles.isEmpty() || (columnHandles.size() == 1 && columnHandles.get(0).getName().equals(rowIdName));
+        return columnHandles.isEmpty() || (columnHandles.size() == 1 && columnHandles.get(0).name().equals(rowIdName));
     }
 
     /**

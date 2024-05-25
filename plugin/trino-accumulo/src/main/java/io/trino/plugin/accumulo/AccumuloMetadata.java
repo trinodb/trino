@@ -315,7 +315,7 @@ public class AccumuloMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (AccumuloColumnHandle column : table.getColumns()) {
-            columnHandles.put(column.getName(), column);
+            columnHandles.put(column.name(), column);
         }
         return columnHandles.buildOrThrow();
     }
@@ -323,7 +323,7 @@ public class AccumuloMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return ((AccumuloColumnHandle) columnHandle).getColumnMetadata();
+        return ((AccumuloColumnHandle) columnHandle).columnMetadata();
     }
 
     @Override
@@ -336,7 +336,7 @@ public class AccumuloMetadata
             throw new TableNotFoundException(new SchemaTableName(handle.getSchema(), handle.getTable()));
         }
 
-        metadataManager.renameColumn(table, columnHandle.getName(), target);
+        metadataManager.renameColumn(table, columnHandle.name(), target);
     }
 
     @Override
