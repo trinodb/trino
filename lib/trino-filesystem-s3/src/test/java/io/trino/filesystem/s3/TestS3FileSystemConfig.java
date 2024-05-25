@@ -54,7 +54,7 @@ public class TestS3FileSystemConfig
                 .setSseKmsKeyId(null)
                 .setStreamingPartSize(DataSize.of(16, MEGABYTE))
                 .setRequesterPays(false)
-                .setMaxConnections(null)
+                .setMaxConnections(1024)
                 .setConnectionTtl(null)
                 .setConnectionMaxIdleTime(null)
                 .setSocketConnectTimeout(null)
