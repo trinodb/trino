@@ -79,8 +79,8 @@ public class AccumuloSplitManager
         ImmutableList.Builder<ConnectorSplit> cSplits = ImmutableList.builder();
         for (TabletSplitMetadata splitMetadata : tabletSplits) {
             AccumuloSplit split = new AccumuloSplit(
-                    splitMetadata.getRanges().stream().map(SerializedRange::serialize).collect(Collectors.toList()),
-                    splitMetadata.getHostPort());
+                    splitMetadata.ranges().stream().map(SerializedRange::serialize).collect(Collectors.toList()),
+                    splitMetadata.hostPort());
             cSplits.add(split);
         }
 
