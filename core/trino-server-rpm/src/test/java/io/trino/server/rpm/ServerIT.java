@@ -118,7 +118,6 @@ public class ServerIT
         }
     }
 
-
     private void testUninstall(String temurinReleaseName, String javaHome)
             throws Exception
     {
