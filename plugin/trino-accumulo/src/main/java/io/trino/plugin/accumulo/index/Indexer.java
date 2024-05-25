@@ -156,16 +156,16 @@ public class Indexer
 
         // Initialize metadata
         table.getColumns().forEach(columnHandle -> {
-            if (columnHandle.isIndexed()) {
+            if (columnHandle.indexed()) {
                 // Wrap the column family and qualifier for this column and add it to
                 // collection of indexed columns
-                ByteBuffer family = wrap(columnHandle.getFamily().get().getBytes(UTF_8));
-                ByteBuffer qualifier = wrap(columnHandle.getQualifier().get().getBytes(UTF_8));
+                ByteBuffer family = wrap(columnHandle.family().get().getBytes(UTF_8));
+                ByteBuffer qualifier = wrap(columnHandle.qualifier().get().getBytes(UTF_8));
                 indexColumnsBuilder.put(family, qualifier);
 
                 // Create a mapping for this column's Trino type, again creating a new one for the
                 // family if necessary
-                indexColumnTypesBuilder.put(family, qualifier, columnHandle.getType());
+                indexColumnTypesBuilder.put(family, qualifier, columnHandle.type());
             }
         });
 
@@ -411,9 +411,9 @@ public class Indexer
     {
         Map<String, Set<Text>> groups = new HashMap<>();
         // For each indexed column
-        for (AccumuloColumnHandle columnHandle : table.getColumns().stream().filter(AccumuloColumnHandle::isIndexed).collect(Collectors.toList())) {
+        for (AccumuloColumnHandle columnHandle : table.getColumns().stream().filter(AccumuloColumnHandle::indexed).collect(Collectors.toList())) {
             // Create a Text version of the index column family
-            Text indexColumnFamily = new Text(getIndexColumnFamily(columnHandle.getFamily().get().getBytes(UTF_8), columnHandle.getQualifier().get().getBytes(UTF_8)).array());
+            Text indexColumnFamily = new Text(getIndexColumnFamily(columnHandle.family().get().getBytes(UTF_8), columnHandle.qualifier().get().getBytes(UTF_8)).array());
 
             // Add this to the locality groups,
             // it is a 1:1 mapping of locality group to column families
