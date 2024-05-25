@@ -359,14 +359,6 @@ public class ServerIT
             return this;
         }
 
-        public PathInfoAssert isNotOwnerExecutable()
-        {
-            if (actual.permissions.contains(OWNER_EXECUTE)) {
-                failWithMessage("Expected %s not to be executable", actual.path);
-            }
-            return this;
-        }
-
         public PathInfoAssert linksTo(String target)
         {
             if (actual.link.isEmpty()) {
