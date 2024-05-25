@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -22,7 +21,6 @@ import io.trino.testing.kafka.TestingKafka;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.pinot.PinotQueryRunner.createPinotQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,11 +37,12 @@ public class TestPinotConnectorTest
         TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false));
         pinot.start();
 
-        return createPinotQueryRunner(
-                kafka,
-                pinot,
-                ImmutableMap.of("pinot.grpc.enabled", "true"),
-                REQUIRED_TPCH_TABLES);
+        return PinotQueryRunner.builder()
+                .setKafka(kafka)
+                .setPinot(pinot)
+                .addPinotProperty("pinot.grpc.enabled", "true")
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override
