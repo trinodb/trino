@@ -247,7 +247,7 @@ public class ZooKeeperMetadataManager
 
     public void createViewMetadata(AccumuloView view)
     {
-        SchemaTableName tableName = view.getSchemaTableName();
+        SchemaTableName tableName = view.schemaTableName();
         String viewPath = getTablePath(tableName);
         try {
             if (curator.checkExists().forPath(viewPath) != null) {

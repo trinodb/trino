@@ -191,7 +191,7 @@ public class AccumuloMetadata
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.ofNullable(metadataManager.getView(viewName))
-                .map(view -> VIEW_CODEC.fromJson(view.getData()));
+                .map(view -> VIEW_CODEC.fromJson(view.data()));
     }
 
     @Override
