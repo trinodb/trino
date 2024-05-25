@@ -310,19 +310,19 @@ public class ServerIT
         public Set<List<String>> execute(String sql)
         {
             try (Connection connection = getConnection(format("jdbc:trino://%s:%s", host, port), "test", null);
-                    Statement statement = connection.createStatement()) {
-                try (ResultSet resultSet = statement.executeQuery(sql)) {
-                    ImmutableSet.Builder<List<String>> rows = ImmutableSet.builder();
-                    int columnCount = resultSet.getMetaData().getColumnCount();
-                    while (resultSet.next()) {
-                        ImmutableList.Builder<String> row = ImmutableList.builder();
-                        for (int column = 1; column <= columnCount; column++) {
-                            row.add(resultSet.getString(column));
-                        }
-                        rows.add(row.build());
+                 Statement statement = connection.createStatement();
+                 ResultSet resultSet = statement.executeQuery(sql))
+            {
+                ImmutableSet.Builder<List<String>> rows = ImmutableSet.builder();
+                int columnCount = resultSet.getMetaData().getColumnCount();
+                while (resultSet.next()) {
+                    ImmutableList.Builder<String> row = ImmutableList.builder();
+                    for (int column = 1; column <= columnCount; column++) {
+                        row.add(resultSet.getString(column));
                     }
-                    return rows.build();
+                    rows.add(row.build());
                 }
+                return rows.build();
             }
             catch (SQLException e) {
                 throw new RuntimeException(e);
