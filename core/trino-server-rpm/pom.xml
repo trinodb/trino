@@ -177,6 +177,7 @@
                             <version>${project.version}</version>
                             <outputFileName>trino-server-rpm-${project.version}.noarch.rpm</outputFileName>
                             <release>1</release>
+                            <evalHostname>false</evalHostname>
                             <forceRelease>true</forceRelease>
                             <description>Trino Server RPM Package.</description>
                             <epoch>0</epoch>
