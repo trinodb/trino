@@ -416,6 +416,12 @@
             <groupId>io.airlift</groupId>
             <artifactId>jaxrs-testing</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.hamcrest</groupId>
+                    <artifactId>hamcrest</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
