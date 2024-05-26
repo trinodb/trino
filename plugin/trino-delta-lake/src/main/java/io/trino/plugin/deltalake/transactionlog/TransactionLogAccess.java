@@ -90,7 +90,6 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.read
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
@@ -504,17 +503,6 @@ public class TransactionLogAccess
                 tableSnapshot,
                 PROTOCOL,
                 entryStream -> entryStream.map(DeltaLakeTransactionLogEntry::getProtocol).filter(Objects::nonNull),
-                fileSystemFactory.create(session),
-                fileFormatDataSourceStats);
-    }
-
-    public Stream<CommitInfoEntry> getCommitInfoEntries(ConnectorSession session, TableSnapshot tableSnapshot)
-    {
-        return getEntries(
-                session,
-                tableSnapshot,
-                COMMIT,
-                entryStream -> entryStream.map(DeltaLakeTransactionLogEntry::getCommitInfo).filter(Objects::nonNull),
                 fileSystemFactory.create(session),
                 fileFormatDataSourceStats);
     }
