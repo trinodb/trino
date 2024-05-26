@@ -24,7 +24,6 @@ import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
-import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
@@ -333,26 +332,6 @@ public class TestTransactionLogAccess
         try (Stream<RemoveFileEntry> removeEntries = transactionLogAccess.getRemoveEntries(SESSION, tableSnapshot)) {
             Set<RemoveFileEntry> removedEntries = removeEntries.collect(Collectors.toSet());
             assertThat(removedEntries).isEqualTo(EXPECTED_REMOVE_ENTRIES);
-        }
-    }
-
-    @Test
-    public void testGetCommitInfoEntries()
-            throws Exception
-    {
-        setupTransactionLogAccessFromResources("person", "databricks73/person");
-        try (Stream<CommitInfoEntry> commitInfoEntries = transactionLogAccess.getCommitInfoEntries(SESSION, tableSnapshot)) {
-            Set<CommitInfoEntry> entrySet = commitInfoEntries.collect(Collectors.toSet());
-            assertThat(entrySet).isEqualTo(ImmutableSet.of(
-                    new CommitInfoEntry(11, 1579190200860L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
-                            ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
-                            "0116-154224-guppy476", 10L, "WriteSerializable", Optional.of(true)),
-                    new CommitInfoEntry(12, 1579190206644L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
-                            ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
-                            "0116-154224-guppy476", 11L, "WriteSerializable", Optional.of(true)),
-                    new CommitInfoEntry(13, 1579190210571L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
-                            ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
-                            "0116-154224-guppy476", 12L, "WriteSerializable", Optional.of(true))));
         }
     }
 
