@@ -389,6 +389,34 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testVacuumProtocolCheck()
+    {
+        String tableName = "test_vacuum_protocol_check_" + randomNameSuffix();
+        String directoryName = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(a INT, b INT)" +
+                "USING DELTA " +
+                "LOCATION '" + ("s3://" + bucketName + "/" + directoryName) + "'" +
+                "TBLPROPERTIES('delta.feature.vacuumProtocolCheck'='supported')");
+        try {
+            onDelta().executeQuery("INSERT INTO " + tableName + " VALUES (1, 10)");
+            onDelta().executeQuery("UPDATE " + tableName + " SET a = 2");
+
+            onTrino().executeQuery("SET SESSION delta.vacuum_min_retention = '0s'");
+            onTrino().executeQuery("CALL delta.system.vacuum('default', '" + tableName + "', '0s')");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(2, 10));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(2, 10));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testVacuumUnsupportedWriterVersion()
     {
         skipTestUnlessUnsupportedWriterVersionExists();
