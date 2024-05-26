@@ -3205,8 +3205,7 @@ public abstract class BaseConnectorTest
 
     protected void verifySetFieldTypeFailurePermissible(Throwable e)
     {
-        throw new AssertionError("Unexpe" +
-                "cted set field type failure", e);
+        throw new AssertionError("Unexpected set field type failure", e);
     }
 
     protected String getColumnType(String tableName, String columnName)
