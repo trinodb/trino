@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
 import io.airlift.concurrent.Threads;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpVersion;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.log.Logger;
@@ -130,7 +131,7 @@ public final class JwkService
     private Map<String, PublicKey> fetchKeys()
             throws RuntimeException
     {
-        Request request = prepareGet().setUri(address).build();
+        Request request = prepareGet().setUri(address).setVersion(HttpVersion.HTTP_1_1).build();
         StringResponse response;
         try {
             response = httpClient.execute(request, createStringResponseHandler());

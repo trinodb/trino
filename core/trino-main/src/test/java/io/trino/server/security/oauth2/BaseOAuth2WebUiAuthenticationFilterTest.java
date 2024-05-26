@@ -371,7 +371,8 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
     protected Jws<Claims> parseJwsClaims(String claimsJws)
     {
         HttpClientConfig httpClientConfig = new HttpClientConfig()
-                .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath());
+                .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath())
+                .setHttp2Enabled(false);
         try (JettyHttpClient httpClient = new JettyHttpClient(httpClientConfig)) {
             return newJwtParserBuilder()
                     .keyLocator(new JwkSigningKeyLocator(new JwkService(

@@ -81,6 +81,7 @@ public class PinotModule
         binder.bind(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("pinot", ForPinot.class)
                 .withConfigDefaults(cfg -> {
+                    cfg.setHttp2Enabled(false);
                     cfg.setIdleTimeout(new Duration(300, SECONDS));
                     cfg.setConnectTimeout(new Duration(300, SECONDS));
                     cfg.setRequestTimeout(new Duration(300, SECONDS));

@@ -70,6 +70,7 @@ public class HiveS3Module
             binder.bind(S3SecurityMappingsProvider.class).to(UriBasedS3SecurityMappingsProvider.class).in(Scopes.SINGLETON);
             httpClientBinder(binder).bindHttpClient("s3SecurityMapping", ForS3SecurityMapping.class)
                     .withConfigDefaults(config -> config
+                            .setHttp2Enabled(false)
                             .setRequestTimeout(Duration.succinctDuration(10, TimeUnit.SECONDS))
                             .setSelectorCount(1)
                             .setMinThreads(1));

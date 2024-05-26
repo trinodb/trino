@@ -77,7 +77,8 @@ public class OpaAccessControlFactory
                     jsonCodecBinder(binder).bindJsonCodec(OpaColumnMaskQueryResult.class);
                     httpClient.ifPresentOrElse(
                             client -> binder.bind(Key.get(HttpClient.class, ForOpa.class)).toInstance(client),
-                            () -> httpClientBinder(binder).bindHttpClient("opa", ForOpa.class));
+                            () -> httpClientBinder(binder).bindHttpClient("opa", ForOpa.class)
+                                    .withConfigDefaults(httpConfig -> httpConfig.setHttp2Enabled(false)));
                     context.ifPresentOrElse(
                             actualContext -> binder.bind(OpaPluginContext.class).toInstance(new OpaPluginContext(actualContext.getVersion())),
                             () -> binder.bind(OpaPluginContext.class).toInstance(new OpaPluginContext("UNKNOWN")));

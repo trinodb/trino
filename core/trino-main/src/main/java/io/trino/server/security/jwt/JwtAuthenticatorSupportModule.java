@@ -55,7 +55,9 @@ public class JwtAuthenticatorSupportModule
         @Override
         public void configure(Binder binder)
         {
-            httpClientBinder(binder).bindHttpClient("jwk", ForJwt.class);
+            httpClientBinder(binder)
+                    .bindHttpClient("jwk", ForJwt.class)
+                    .withConfigDefaults(httpConfig -> httpConfig.setHttp2Enabled(false));
         }
 
         @Provides

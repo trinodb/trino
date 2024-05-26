@@ -55,6 +55,7 @@ public class OAuth2ServiceModule
         httpClientBinder(binder)
                 .bindHttpClient("oauth2-jwk", ForOAuth2.class)
                 .withConfigDefaults(clientConfig -> clientConfig
+                        .setHttp2Enabled(false)
                         .setRequestBufferSize(DataSize.of(32, KILOBYTE))
                         .setResponseBufferSize(DataSize.of(32, KILOBYTE)));
     }

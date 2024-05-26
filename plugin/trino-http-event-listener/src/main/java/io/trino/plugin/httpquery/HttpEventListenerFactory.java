@@ -47,7 +47,9 @@ public class HttpEventListenerFactory
                     jsonCodecBinder(binder).bindJsonCodec(QueryCreatedEvent.class);
                     jsonCodecBinder(binder).bindJsonCodec(SplitCompletedEvent.class);
                     configBinder(binder).bindConfig(HttpEventListenerConfig.class);
-                    httpClientBinder(binder).bindHttpClient("http-event-listener", ForHttpEventListener.class);
+                    httpClientBinder(binder)
+                            .bindHttpClient("http-event-listener", ForHttpEventListener.class)
+                            .withConfigDefaults(clientConfig -> clientConfig.setHttp2Enabled(false));
                     binder.bind(HttpEventListener.class).in(Scopes.SINGLETON);
                 });
 
