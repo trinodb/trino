@@ -27,6 +27,7 @@ import java.lang.management.ManagementFactory;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -193,13 +194,19 @@ final class TrinoSystemRequirements
     private static Optional<String> getJvmConfigurationFlag(String flag)
     {
         Pattern pattern = Pattern.compile("-%s=(.*)".formatted(quote(flag)), Pattern.DOTALL);
-        return ManagementFactory.getRuntimeMXBean()
-                .getInputArguments()
-                .stream()
-                .map(pattern::matcher)
-                .filter(Matcher::matches)
-                .map(matcher -> matcher.group(1))
-                .findFirst();
+        Optional<String> matched = Optional.empty();
+        List<String> matching = new ArrayList<>(1);
+        for (String argument : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+            Matcher matcher = pattern.matcher(argument);
+            if (matcher.matches()) {
+                matched = Optional.of(matcher.group(1));
+                matching.add(argument);
+            }
+        }
+        if (matching.size() > 1) {
+            failRequirement("Multiple JVM configuration flags matched %s: %s", pattern.pattern(), matching);
+        }
+        return matched;
     }
 
     @FormatMethod
