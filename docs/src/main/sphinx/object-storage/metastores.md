@@ -490,8 +490,10 @@ iceberg.catalog.type=rest
 iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
 ```
 
-The REST catalog does not support [view management](sql-view-management) or
-[materialized view management](sql-materialized-view-management).
+The REST catalog supports [view management](sql-view-management) 
+using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).
+
+The REST catalog does not support [materialized view management](sql-materialized-view-management).
 
 (iceberg-jdbc-catalog)=
 ### JDBC catalog
