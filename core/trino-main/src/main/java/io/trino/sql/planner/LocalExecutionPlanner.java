@@ -416,7 +416,7 @@ public class LocalExecutionPlanner
     private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
-    private final PageSourceManager pageSourceProvider;
+    private final PageSourceManager pageSourceManager;
     private final CacheManagerRegistry cacheManagerRegistry;
     private final JsonCodec<TupleDomain> tupleDomainCodec;
     private final CacheStats cacheStats;
@@ -474,7 +474,7 @@ public class LocalExecutionPlanner
     public LocalExecutionPlanner(
             PlannerContext plannerContext,
             Optional<ExplainAnalyzeContext> explainAnalyzeContext,
-            PageSourceManager pageSourceProvider,
+            PageSourceManager pageSourceManager,
             CacheManagerRegistry cacheManagerRegistry,
             JsonCodec<TupleDomain> tupleDomainCodec,
             CacheStats cacheStats,
@@ -505,7 +505,7 @@ public class LocalExecutionPlanner
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
-        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
         this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
         this.tupleDomainCodec = requireNonNull(tupleDomainCodec, "tupleDomainCodec is null");
         this.cacheStats = requireNonNull(cacheStats, "cacheStats is null");
@@ -756,7 +756,7 @@ public class LocalExecutionPlanner
                                 driverInstanceCount,
                                 alternativeSourceId.orElseThrow(),
                                 taskContext.getSession(),
-                                pageSourceProvider.createPageSourceProvider(cacheContext.getOriginalTableHandle().catalogHandle()),
+                                pageSourceManager.createPageSourceProvider(cacheContext.getOriginalTableHandle().catalogHandle()),
                                 cacheManagerRegistry,
                                 tupleDomainCodec,
                                 cacheContext.getOriginalTableHandle(),
@@ -2195,7 +2195,7 @@ public class LocalExecutionPlanner
                             context.getNextOperatorId(),
                             planNodeId,
                             context.getAlternativeSourceId().orElse(sourceNode.getId()),
-                            pageSourceProvider,
+                            pageSourceManager,
                             cursorProcessor,
                             pageProcessor,
                             table,
@@ -2254,7 +2254,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     planNodeId,
                     context.getAlternativeSourceId().orElse(node.getId()),
-                    pageSourceProvider,
+                    pageSourceManager,
                     node.getTable(),
                     columns,
                     dynamicFilter);
