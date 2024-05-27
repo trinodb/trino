@@ -220,8 +220,8 @@ These properties require some explanation:
   available for the critical task of scheduling, managing and monitoring
   query execution.
 - `http-server.http.port`:
-  Specifies the port for the HTTP server. Trino uses HTTP for all
-  communication, internal and external.
+  Specifies the port for the [HTTP server](/admin/properties-http-server).
+  Trino uses HTTP for all communication, internal and external.
 - `discovery.uri`:
   The Trino coordinator has a discovery service that is used by all the nodes
   to find each other. Every Trino instance registers itself with the discovery
