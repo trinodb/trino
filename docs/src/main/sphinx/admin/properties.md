@@ -15,6 +15,7 @@ properties, refer to the {doc}`connector documentation </connector/>`.
 :titlesonly: true
 
 General <properties-general>
+HTTP server <properties-http-server>
 Resource management <properties-resource-management>
 Query management <properties-query-management>
 Catalog management <properties-catalog>
