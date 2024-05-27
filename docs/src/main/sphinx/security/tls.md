@@ -58,7 +58,7 @@ suites. See the discussion in Java documentation that begins with [Customizing
 the Encryption Algorithm Providers](https://docs.oracle.com/en/java/javase/22/security/java-secure-socket-extension-jsse-reference-guide.html#GUID-316FB978-7588-442E-B829-B4973DB3B584).
 
 :::{note}
-If you manage the coordinator's direct TLS implementatation, monitor the CPU
+If you manage the coordinator's direct TLS implementation, monitor the CPU
 usage on the Trino coordinator after enabling HTTPS. Java prefers the more
 CPU-intensive cipher suites, if you allow it to choose from a big list of
 ciphers. If the CPU usage is unacceptably high after enabling HTTPS, you can
@@ -104,6 +104,9 @@ However, to enable processing of such forwarded headers, the server's
 ```text
 http-server.process-forwarded=true
 ```
+
+More information about HTTP server configuration is available in
+[](/admin/properties-http-server).
 
 This completes any necessary configuration for using HTTPS with a load balancer.
 Client tools can access Trino with the URL exposed by the load balancer.
