@@ -37,6 +37,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.regex.Pattern.quote;
 
@@ -135,7 +136,7 @@ final class TrinoSystemRequirements
         if (Runtime.version().compareTo(Version.parse("22.0.2")) < 0) {
             Optional<String> collectionsKeepPinned = getJvmConfigurationFlag("XX:G1NumCollectionsKeepPinned");
             int requiredValue = 10000000;
-            if (collectionsKeepPinned.isEmpty() || collectionsKeepPinned.map(Integer::parseInt).orElse(0) < requiredValue) {
+            if (collectionsKeepPinned.isEmpty() || parseInt(collectionsKeepPinned.get()) < requiredValue) {
                 failRequirement("Trino requires -XX:+UnlockDiagnosticVMOptions -XX:G1NumCollectionsKeepPinned=%d on Java versions lower than 22.0.2 due to JDK-8329528", requiredValue);
             }
         }
