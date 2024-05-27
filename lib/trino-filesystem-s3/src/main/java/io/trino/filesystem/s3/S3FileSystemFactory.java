@@ -34,6 +34,7 @@ import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.auth.StsWebIdentityTokenFileCredentialsProvider;
 
 import java.net.URI;
 import java.util.Optional;
@@ -72,7 +73,13 @@ public final class S3FileSystemFactory
 
         Optional<StaticCredentialsProvider> staticCredentialsProvider = getStaticCredentialsProvider(config);
 
-        if (config.getIamRole() != null) {
+        if (config.isUseWebIdentityTokenCredentialsProvider()) {
+            s3.credentialsProvider(StsWebIdentityTokenFileCredentialsProvider.builder()
+                    .stsClient(getStsClient(config, staticCredentialsProvider))
+                    .asyncCredentialUpdateEnabled(true)
+                    .build());
+        }
+        else if (config.getIamRole() != null) {
             s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
                             .roleArn(config.getIamRole())

@@ -88,6 +88,7 @@ public class S3FileSystemConfig
     private String stsRegion;
     private S3SseType sseType = S3SseType.NONE;
     private String sseKmsKeyId;
+    private boolean useWebIdentityTokenCredentialsProvider;
     private DataSize streamingPartSize = DataSize.of(16, MEGABYTE);
     private boolean requesterPays;
     private Integer maxConnections;
@@ -291,6 +292,18 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setSseKmsKeyId(String sseKmsKeyId)
     {
         this.sseKmsKeyId = sseKmsKeyId;
+        return this;
+    }
+
+    public boolean isUseWebIdentityTokenCredentialsProvider()
+    {
+        return useWebIdentityTokenCredentialsProvider;
+    }
+
+    @Config("s3.use-web-identity-token-credentials-provider")
+    public S3FileSystemConfig setUseWebIdentityTokenCredentialsProvider(boolean useWebIdentityTokenCredentialsProvider)
+    {
+        this.useWebIdentityTokenCredentialsProvider = useWebIdentityTokenCredentialsProvider;
         return this;
     }
 
