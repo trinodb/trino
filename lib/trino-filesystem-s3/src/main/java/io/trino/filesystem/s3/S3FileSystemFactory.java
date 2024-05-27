@@ -66,29 +66,24 @@ public final class S3FileSystemFactory
                 .retryPolicy(retryPolicy)
                 .build());
 
-        Optional<StaticCredentialsProvider> staticCredentialsProvider = getStaticCredentialsProvider(config);
-        staticCredentialsProvider.ifPresent(s3::credentialsProvider);
-
         Optional.ofNullable(config.getRegion()).map(Region::of).ifPresent(s3::region);
         Optional.ofNullable(config.getEndpoint()).map(URI::create).ifPresent(s3::endpointOverride);
         s3.forcePathStyle(config.isPathStyleAccess());
 
-        if (config.getIamRole() != null) {
-            StsClientBuilder sts = StsClient.builder();
-            Optional.ofNullable(config.getStsEndpoint()).map(URI::create).ifPresent(sts::endpointOverride);
-            Optional.ofNullable(config.getStsRegion())
-                    .or(() -> Optional.ofNullable(config.getRegion()))
-                    .map(Region::of).ifPresent(sts::region);
-            staticCredentialsProvider.ifPresent(sts::credentialsProvider);
+        Optional<StaticCredentialsProvider> staticCredentialsProvider = getStaticCredentialsProvider(config);
 
+        if (config.getIamRole() != null) {
             s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
                             .roleArn(config.getIamRole())
                             .roleSessionName(config.getRoleSessionName())
                             .externalId(config.getExternalId()))
-                    .stsClient(sts.build())
+                    .stsClient(getStsClient(config, staticCredentialsProvider))
                     .asyncCredentialUpdateEnabled(true)
                     .build());
+        }
+        else {
+            staticCredentialsProvider.ifPresent(s3::credentialsProvider);
         }
 
         ApacheHttpClient.Builder httpClient = ApacheHttpClient.builder()
@@ -149,5 +144,16 @@ public final class S3FileSystemFactory
                     AwsBasicCredentials.create(config.getAwsAccessKey(), config.getAwsSecretKey())));
         }
         return Optional.empty();
+    }
+
+    private static StsClient getStsClient(S3FileSystemConfig config, Optional<StaticCredentialsProvider> staticCredentialsProvider)
+    {
+        StsClientBuilder sts = StsClient.builder();
+        Optional.ofNullable(config.getStsEndpoint()).map(URI::create).ifPresent(sts::endpointOverride);
+        Optional.ofNullable(config.getStsRegion())
+                .or(() -> Optional.ofNullable(config.getRegion()))
+                .map(Region::of).ifPresent(sts::region);
+        staticCredentialsProvider.ifPresent(sts::credentialsProvider);
+        return sts.build();
     }
 }
