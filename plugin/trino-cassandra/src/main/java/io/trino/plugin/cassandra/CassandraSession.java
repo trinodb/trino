@@ -214,12 +214,26 @@ public class CassandraSession
         return builder.build();
     }
 
+    public List<CassandraTable> listTables(String caseInsensitiveSchemaName)
+            throws SchemaNotFoundException
+    {
+        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(caseInsensitiveSchemaName);
+        ImmutableList.Builder<CassandraTable> tables = ImmutableList.builder();
+        keyspace.getTables().values().forEach(table -> tables.add(getTable(table)));
+        keyspace.getViews().values().forEach(view -> tables.add(getTable(view)));
+        return tables.build();
+    }
+
     public CassandraTable getTable(SchemaTableName schemaTableName)
             throws TableNotFoundException
     {
         KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
-        RelationMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getTableName());
+        return getTable(getTableMetadata(keyspace, schemaTableName.getTableName()));
+    }
 
+    private CassandraTable getTable(RelationMetadata tableMeta)
+            throws TableNotFoundException
+    {
         List<String> columnNames = new ArrayList<>();
         Collection<ColumnMetadata> columns = tableMeta.getColumns().values();
         checkColumnNames(columns);
