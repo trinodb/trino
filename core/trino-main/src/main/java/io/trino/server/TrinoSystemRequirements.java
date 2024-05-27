@@ -190,13 +190,13 @@ final class TrinoSystemRequirements
         }
     }
 
-    private static Optional<String> getJvmConfigurationFlag(String pattern)
+    private static Optional<String> getJvmConfigurationFlag(String flag)
     {
-        Pattern compiled = Pattern.compile("-%s=(.*)".formatted(quote(pattern)), Pattern.DOTALL);
+        Pattern pattern = Pattern.compile("-%s=(.*)".formatted(quote(flag)), Pattern.DOTALL);
         return ManagementFactory.getRuntimeMXBean()
                 .getInputArguments()
                 .stream()
-                .map(compiled::matcher)
+                .map(pattern::matcher)
                 .filter(Matcher::matches)
                 .map(matcher -> matcher.group(1))
                 .findFirst();
