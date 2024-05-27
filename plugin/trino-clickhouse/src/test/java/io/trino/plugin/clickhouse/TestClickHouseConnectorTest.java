@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
@@ -93,10 +92,10 @@ public class TestClickHouseConnectorTest
             throws Exception
     {
         this.clickhouseServer = closeAfterClass(new TestingClickHouseServer(CLICKHOUSE_LATEST_IMAGE));
-        return createClickHouseQueryRunner(
-                clickhouseServer,
-                ImmutableMap.of("clickhouse.map-string-as-varchar", "true"),
-                REQUIRED_TPCH_TABLES);
+        return ClickHouseQueryRunner.builder(clickhouseServer)
+                .addConnectorProperty("clickhouse.map-string-as-varchar", "true")
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Test
