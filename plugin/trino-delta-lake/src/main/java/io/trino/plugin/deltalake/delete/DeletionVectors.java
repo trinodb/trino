@@ -26,6 +26,8 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.UUID;
+import java.util.zip.CRC32;
+import java.util.zip.Checksum;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -87,8 +89,21 @@ public final class DeletionVectors
                 throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "The size of deletion vector %s expects %s but got %s".formatted(inputFile.location(), expectedSize, actualSize));
             }
             inputStream.readFully(bytes);
+            int checksum = inputStream.readInt();
+            if (calculateChecksum(bytes) != checksum) {
+                throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Checksum mismatch for deletion vector: " + inputFile.location());
+            }
         }
         return bytes;
+    }
+
+    private static int calculateChecksum(byte[] data)
+    {
+        // Delta Lake allows integer overflow intentionally because it's fine from checksum perspective
+        // https://github.com/delta-io/delta/blob/039a29abb4abc72ac5912651679233dc983398d6/spark/src/main/scala/org/apache/spark/sql/delta/storage/dv/DeletionVectorStore.scala#L115
+        Checksum crc = new CRC32();
+        crc.update(data);
+        return (int) crc.getValue();
     }
 
     private static Roaring64NavigableMap deserializeDeletionVectors(byte[] bytes)
