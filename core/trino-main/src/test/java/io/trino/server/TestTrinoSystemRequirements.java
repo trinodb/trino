@@ -15,20 +15,13 @@ package io.trino.server;
 
 import org.junit.jupiter.api.Test;
 
-import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
-import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
+import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
 
 public class TestTrinoSystemRequirements
 {
     @Test
-    public void testVerifyJvmRequirements()
+    public void testVerifySystemRequirements()
     {
-        verifyJvmRequirements();
-    }
-
-    @Test
-    public void testSystemTimeSanityCheck()
-    {
-        verifySystemTimeIsReasonable();
+        verifySystemRequirements();
     }
 }

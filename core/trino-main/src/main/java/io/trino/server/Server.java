@@ -80,8 +80,7 @@ import java.util.Set;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
-import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
-import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
+import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import static java.util.function.Predicate.not;
@@ -101,8 +100,7 @@ public class Server
         Locale.setDefault(Locale.US);
 
         long startTime = System.nanoTime();
-        verifyJvmRequirements();
-        verifySystemTimeIsReasonable();
+        verifySystemRequirements();
 
         Logger log = Logger.get(Server.class);
         log.info("Java version: %s", StandardSystemProperty.JAVA_VERSION.value());
