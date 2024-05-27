@@ -78,6 +78,12 @@ support:
 * - `s3.max-error-retries`
   - Specifies maximum number of retries the client will make on errors.
     Defaults to `10`.
+* - `s3.use-web-identity-token-credentials-provider`
+  - Set to `true` to only use the web identity token credentials provider,
+    instead of the default providers chain. This can be useful when running
+    Trino on Amazon EKS and using [IAM roles for service accounts
+    (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
+    Defaults to `false`.
 :::
 
 ## Authentication
