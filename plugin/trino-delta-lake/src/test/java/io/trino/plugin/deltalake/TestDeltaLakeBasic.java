@@ -621,7 +621,7 @@ public class TestDeltaLakeBasic
                 "SHOW STATS FOR " + tableName,
                 """
                         VALUES
-                        ('x', null, 1.0, 0.1111111111111111, null, null, null),
+                        ('x', null, 1.0, 0.1111111111111111, null, '2023-01-02 03:04:05.123000', '2023-01-02 03:04:05.124000'),
                         (null, null, null, null, 9.0, null, null)
                         """);
 
@@ -726,7 +726,7 @@ public class TestDeltaLakeBasic
                 "SHOW STATS FOR " + tableName,
                 """
                         VALUES
-                        ('x', null, 8.0, 0.1111111111111111, null, null, null),
+                        ('x', null, 8.0, 0.1111111111111111, null, '2023-01-02 03:04:05.123000', '+10000-01-01 00:00:00.000000'),
                         (null, null, null, null, 9.0, null, null)
                         """);
 

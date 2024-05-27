@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
@@ -65,9 +66,12 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCheckpointWriter
@@ -91,6 +95,7 @@ public class TestCheckpointWriter
                 "{\"type\":\"struct\",\"fields\":" +
                         "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"ts_ntz\",\"type\":\"timestamp_ntz\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"str\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_short\",\"type\":\"decimal(5,1)\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_long\",\"type\":\"decimal(25,3)\",\"nullable\":true,\"metadata\":{}}," +
@@ -125,6 +130,7 @@ public class TestCheckpointWriter
                         "\"numRecords\":20," +
                         "\"minValues\":{" +
                         "\"ts\":\"2960-10-31T01:00:00.000Z\"," +
+                        "\"ts_ntz\":\"2020-01-01T01:02:03.123\"," +
                         "\"str\":\"a\"," +
                         "\"dec_short\":10.1," +
                         "\"dec_long\":111111111111.123," +
@@ -139,6 +145,7 @@ public class TestCheckpointWriter
                         "}," +
                         "\"maxValues\":{" +
                         "\"ts\":\"2960-10-31T02:00:00.000Z\"," +
+                        "\"ts_ntz\":\"3000-01-01T01:02:03.123\"," +
                         "\"str\":\"z\"," +
                         "\"dec_short\":20.1," +
                         "\"dec_long\":222222222222.123," +
@@ -219,6 +226,7 @@ public class TestCheckpointWriter
                 "{\"type\":\"struct\",\"fields\":" +
                         "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"ts_ntz\",\"type\":\"timestamp_ntz\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"str\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_short\",\"type\":\"decimal(5,1)\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_long\",\"type\":\"decimal(25,3)\",\"nullable\":true,\"metadata\":{}}," +
@@ -262,6 +270,7 @@ public class TestCheckpointWriter
                         Optional.of(5L),
                         Optional.of(ImmutableMap.<String, Object>builder()
                                 .put("ts", DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 01:00:00"))
+                                .put("ts_ntz", convertToTimestamp("2060-10-31T01:00:00.123"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 101L)
                                 .put("dec_long", Int128.valueOf(111111111111123L))
@@ -276,6 +285,7 @@ public class TestCheckpointWriter
                                 .buildOrThrow()),
                         Optional.of(ImmutableMap.<String, Object>builder()
                                 .put("ts", DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 02:00:00"))
+                                .put("ts_ntz", convertToTimestamp("2060-10-31T02:00:00.123"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 201L)
                                 .put("dec_long", Int128.valueOf(222222222222123L))
@@ -290,6 +300,7 @@ public class TestCheckpointWriter
                                 .buildOrThrow()),
                         Optional.of(ImmutableMap.<String, Object>builder()
                                 .put("ts", 1L)
+                                .put("ts_ntz", 16L)
                                 .put("str", 2L)
                                 .put("dec_short", 3L)
                                 .put("dec_long", 4L)
@@ -338,6 +349,13 @@ public class TestCheckpointWriter
         assertThat(readEntries.metadataEntry()).isEqualTo(entries.metadataEntry());
         assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
         assertThat(readEntries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+    }
+
+    private static long convertToTimestamp(String value)
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse(value);
+        return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
+                + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
     }
 
     @Test
