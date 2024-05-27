@@ -359,7 +359,6 @@ public class TestDeltaLakeSystemTables
     @Test
     public void testPartitionsTableColumnTypes()
     {
-        // TODO: add support for TIMESTAMP column types https://github.com/trinodb/trino/issues/21878
         testPartitionsTableColumnTypes("BOOLEAN", "VALUES (true, 'a'), (false, 'a'), (false, 'b'), (false, 'b')", 4, """
                 VALUES
                 ROW(ROW(CAST(NULL AS BOOLEAN), CAST(NULL AS BOOLEAN), BIGINT '0')),
@@ -412,8 +411,8 @@ public class TestDeltaLakeSystemTables
                 """);
         testPartitionsTableColumnTypes("TIMESTAMP(6)", "VALUES (TIMESTAMP '2001-05-06 12:34:56.123456', 'a'), (TIMESTAMP '2001-05-06 12:34:56.567890', 'a'), (TIMESTAMP '2001-05-06 12:34:56.123456', 'b'), (TIMESTAMP '2001-05-06 12:34:56.123457', 'b')", 4, """
                 VALUES
-                ROW(ROW(CAST(NULL AS TIMESTAMP(6)), CAST(NULL AS TIMESTAMP(6)), BIGINT '0')),
-                ROW(ROW(CAST(NULL AS TIMESTAMP(6)), CAST(NULL AS TIMESTAMP(6)), BIGINT '0'))
+                ROW(ROW(TIMESTAMP '2001-05-06 12:34:56.123000', TIMESTAMP '2001-05-06 12:34:56.568000', BIGINT '0')),
+                ROW(ROW(TIMESTAMP '2001-05-06 12:34:56.123000', TIMESTAMP '2001-05-06 12:34:56.124000', BIGINT '0'))
                 """);
         testPartitionsTableColumnTypes("TIMESTAMP(3) WITH TIME ZONE", "VALUES (TIMESTAMP '2001-05-06 12:34:56.123 UTC', 'a'), (TIMESTAMP '2001-05-06 12:34:56.234 -08:30', 'a'), (TIMESTAMP '2001-05-06 12:34:56.567 GMT-08:30', 'b'), (TIMESTAMP '2001-05-06 12:34:56.789 America/New_York', 'b')", 4, """
                 VALUES
