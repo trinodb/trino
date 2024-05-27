@@ -40,6 +40,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -75,6 +76,7 @@ import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
+import static io.trino.spi.connector.RelationCommentMetadata.forRelation;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static java.lang.String.format;
@@ -242,6 +244,21 @@ public class CassandraMetadata
             }
         }
         return tables.build();
+    }
+
+    @Override
+    public Iterator<RelationCommentMetadata> streamRelationComments(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Map<SchemaTableName, RelationCommentMetadata> relationColumns = new HashMap<>();
+
+        for (SchemaTableName schemaTableName : listTables(session, schemaName)) {
+            // Set empty comments because the connector doesn't support table comments
+            relationColumns.put(schemaTableName, forRelation(schemaTableName, Optional.empty()));
+        }
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
+                .iterator();
     }
 
     @Override
