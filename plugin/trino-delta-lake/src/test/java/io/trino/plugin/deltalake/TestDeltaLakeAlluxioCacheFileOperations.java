@@ -204,6 +204,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.writeCache", "data", 0, 796))
                         .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 5, 34))
                         .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 1, 4))
+                        .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 39, 4))
                         .add(new CacheOperation("Alluxio.readExternal", "deletion_vector", 38, 1))
                         .add(new CacheOperation("Alluxio.readExternal", "deletion_vector", 1, 4))
                         .addCopies(new CacheOperation("Alluxio.writeCache", "deletion_vector", 0, 43), 2)
@@ -217,6 +218,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "data", 0, 796))
                         .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 5, 34))
                         .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 1, 4))
+                        .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 39, 4))
                         .build());
     }
 
