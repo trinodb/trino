@@ -105,6 +105,6 @@ public class TrinoIcebergRestCatalogFactory
             icebergCatalog = icebergCatalogInstance;
         }
 
-        return new TrinoRestCatalog(icebergCatalog, catalogName, sessionType, trinoVersion, typeManager, uniqueTableLocation);
+        return new TrinoRestCatalog(icebergCatalog, catalogName, sessionType, trinoVersion, typeManager, fileSystemFactory, uniqueTableLocation);
     }
 }

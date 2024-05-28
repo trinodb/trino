@@ -64,6 +64,7 @@ import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
+import static io.trino.plugin.iceberg.IcebergUtil.validateCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.plugin.iceberg.catalog.nessie.IcebergNessieUtil.toIdentifier;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -271,6 +272,7 @@ public class TrinoNessieCatalog
             String location,
             Map<String, String> properties)
     {
+        validateCreateTableTransaction(location, fileSystemFactory.create(session.getIdentity()));
         return newCreateTableTransaction(
                 session,
                 schemaTableName,

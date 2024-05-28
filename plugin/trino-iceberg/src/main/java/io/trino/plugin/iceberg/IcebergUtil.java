@@ -725,6 +725,21 @@ public final class IcebergUtil
         return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata));
     }
 
+    public static void validateCreateTableTransaction(String tableLocation, TrinoFileSystem fileSystem)
+    {
+        Location location = Location.of(tableLocation);
+        try {
+            if (fileSystem.listFiles(location).hasNext()) {
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
+                        "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
+                        "to use unique table locations for every table.", location));
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking new table's location: " + location, e);
+        }
+    }
+
     public static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata)
     {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();

@@ -290,6 +290,27 @@ public abstract class AbstractTrinoCatalog
         return createOrReplaceTableTransaction(schemaTableName.toString(), operations, newMetaData);
     }
 
+    @Override
+    public Transaction newMigrateTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
+    {
+        return newCreateTableTransaction(
+                session,
+                schemaTableName,
+                schema,
+                partitionSpec,
+                sortOrder,
+                location,
+                properties,
+                Optional.of(session.getUser()));
+    }
+
     protected String createNewTableName(String baseTableName)
     {
         String tableNameLocationComponent = escapeTableName(baseTableName);

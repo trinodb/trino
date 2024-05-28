@@ -68,6 +68,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
+import static io.trino.plugin.iceberg.IcebergUtil.validateCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -224,6 +225,7 @@ public class TrinoJdbcCatalog
             String location,
             Map<String, String> properties)
     {
+        validateCreateTableTransaction(location, fileSystemFactory.create(session.getIdentity()));
         return newCreateTableTransaction(
                 session,
                 schemaTableName,

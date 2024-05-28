@@ -103,6 +103,7 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
+import static io.trino.plugin.iceberg.IcebergUtil.validateCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
@@ -289,6 +290,7 @@ public class TrinoHiveCatalog
             String location,
             Map<String, String> properties)
     {
+        validateCreateTableTransaction(location, fileSystemFactory.create(session.getIdentity()));
         return newCreateTableTransaction(
                 session,
                 schemaTableName,
@@ -310,6 +312,27 @@ public class TrinoHiveCatalog
             Map<String, String> properties)
     {
         return newCreateOrReplaceTableTransaction(
+                session,
+                schemaTableName,
+                schema,
+                partitionSpec,
+                sortOrder,
+                location,
+                properties,
+                isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser()));
+    }
+
+    @Override
+    public Transaction newMigrateTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
+    {
+        return newCreateTableTransaction(
                 session,
                 schemaTableName,
                 schema,

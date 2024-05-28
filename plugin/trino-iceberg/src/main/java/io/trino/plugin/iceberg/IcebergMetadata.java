@@ -986,19 +986,7 @@ public class IcebergMetadata
                     .orElseGet(() -> catalog.defaultTableLocation(session, tableMetadata.getTable()));
         }
         transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation);
-        Location location = Location.of(transaction.table().location());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
-        try {
-            if (!replace && fileSystem.listFiles(location).hasNext()) {
-                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
-                        "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
-                        "to use unique table locations for every table.", location));
-            }
-            return newWritableTableHandle(tableMetadata.getTable(), transaction.table(), retryMode);
-        }
-        catch (IOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking new table's location: " + location, e);
-        }
+        return newWritableTableHandle(tableMetadata.getTable(), transaction.table(), retryMode);
     }
 
     @Override

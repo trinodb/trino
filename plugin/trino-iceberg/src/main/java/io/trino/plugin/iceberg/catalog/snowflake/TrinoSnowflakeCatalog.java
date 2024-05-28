@@ -224,6 +224,19 @@ public class TrinoSnowflakeCatalog
     }
 
     @Override
+    public Transaction newMigrateTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Snowflake managed Iceberg tables do not support modifications");
+    }
+
+    @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
     {
         throw new TrinoException(NOT_SUPPORTED, "Snowflake managed Iceberg tables do not support modifications");

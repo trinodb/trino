@@ -23,6 +23,7 @@ import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
+import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -84,6 +85,7 @@ import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
+import static io.trino.plugin.iceberg.IcebergUtil.validateCreateTableTransaction;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -99,6 +101,7 @@ public class TrinoRestCatalog
     private final RESTSessionCatalog restSessionCatalog;
     private final CatalogName catalogName;
     private final TypeManager typeManager;
+    private final IcebergFileSystemFactory fileSystemFactory;
     private final SessionType sessionType;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
@@ -113,6 +116,7 @@ public class TrinoRestCatalog
             SessionType sessionType,
             String trinoVersion,
             TypeManager typeManager,
+            IcebergFileSystemFactory fileSystemFactory,
             boolean useUniqueTableLocation)
     {
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
@@ -120,6 +124,7 @@ public class TrinoRestCatalog
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
     }
 
@@ -252,12 +257,14 @@ public class TrinoRestCatalog
             String location,
             Map<String, String> properties)
     {
-        return restSessionCatalog.buildTable(convert(session), toIdentifier(schemaTableName), schema)
+        Transaction transaction = restSessionCatalog.buildTable(convert(session), toIdentifier(schemaTableName), schema)
                 .withPartitionSpec(partitionSpec)
                 .withSortOrder(sortOrder)
                 .withLocation(location)
                 .withProperties(properties)
                 .createTransaction();
+        validateCreateTableTransaction(location, fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties()));
+        return transaction;
     }
 
     @Override
@@ -276,6 +283,24 @@ public class TrinoRestCatalog
                 .withLocation(location)
                 .withProperties(properties)
                 .createOrReplaceTransaction();
+    }
+
+    @Override
+    public Transaction newMigrateTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
+    {
+        return restSessionCatalog.buildTable(convert(session), toIdentifier(schemaTableName), schema)
+                .withPartitionSpec(partitionSpec)
+                .withSortOrder(sortOrder)
+                .withLocation(location)
+                .withProperties(properties)
+                .createTransaction();
     }
 
     @Override

@@ -146,6 +146,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
+import static io.trino.plugin.iceberg.IcebergUtil.validateCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
@@ -713,6 +714,7 @@ public class TrinoGlueCatalog
             String location,
             Map<String, String> properties)
     {
+        validateCreateTableTransaction(location, fileSystemFactory.create(session.getIdentity()));
         return newCreateTableTransaction(
                 session,
                 schemaTableName,

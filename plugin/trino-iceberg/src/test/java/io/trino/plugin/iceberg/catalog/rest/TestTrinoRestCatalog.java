@@ -45,6 +45,7 @@ import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.metastore.TableInfo.ExtendedRelationType.OTHER_VIEW;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ICEBERG_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.NONE;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -72,7 +73,7 @@ public class TestTrinoRestCatalog
 
         restSessionCatalog.initialize(catalogName, ImmutableMap.of());
 
-        return new TrinoRestCatalog(restSessionCatalog, new CatalogName(catalogName), NONE, "test", new TestingTypeManager(), useUniqueTableLocations);
+        return new TrinoRestCatalog(restSessionCatalog, new CatalogName(catalogName), NONE, "test", new TestingTypeManager(), ICEBERG_FILE_SYSTEM_FACTORY, useUniqueTableLocations);
     }
 
     @Test
