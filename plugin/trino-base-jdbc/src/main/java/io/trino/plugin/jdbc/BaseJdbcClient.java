@@ -181,29 +181,9 @@ public abstract class BaseJdbcClient
     @Override
     public List<SchemaTableName> getTableNames(ConnectorSession session, Optional<String> schema)
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            ConnectorIdentity identity = session.getIdentity();
-            Optional<String> remoteSchema = schema.map(schemaName -> identifierMapping.toRemoteSchemaName(getRemoteIdentifiers(connection), identity, schemaName));
-            if (remoteSchema.isPresent() && !filterSchema(remoteSchema.get())) {
-                return ImmutableList.of();
-            }
-
-            try (ResultSet resultSet = getTables(connection, remoteSchema, Optional.empty())) {
-                ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
-                while (resultSet.next()) {
-                    String remoteSchemaFromResultSet = getTableSchemaName(resultSet);
-                    String tableSchema = identifierMapping.fromRemoteSchemaName(remoteSchemaFromResultSet);
-                    String tableName = identifierMapping.fromRemoteTableName(remoteSchemaFromResultSet, resultSet.getString("TABLE_NAME"));
-                    if (filterSchema(tableSchema)) {
-                        list.add(new SchemaTableName(tableSchema, tableName));
-                    }
-                }
-                return list.build();
-            }
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+        return getAllTableComments(session, schema).stream()
+                .map(RelationCommentMetadata::name)
+                .collect(toImmutableList());
     }
 
     @Override
