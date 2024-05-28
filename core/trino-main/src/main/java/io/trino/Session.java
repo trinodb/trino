@@ -52,6 +52,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -91,6 +92,7 @@ public final class Session
     private final Map<String, String> preparedStatements;
     private final ProtocolHeaders protocolHeaders;
     private final Optional<Slice> exchangeEncryptionKey;
+    private final Map<String, String> customTraceAttributes;
 
     public Session(
             QueryId queryId,
@@ -118,7 +120,8 @@ public final class Session
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
             ProtocolHeaders protocolHeaders,
-            Optional<Slice> exchangeEncryptionKey)
+            Optional<Slice> exchangeEncryptionKey,
+            Map<String, String> customTraceAttributes)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.querySpan = requireNonNull(querySpan, "querySpan is null");
@@ -145,6 +148,7 @@ public final class Session
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
         this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
         this.exchangeEncryptionKey = requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
+        this.customTraceAttributes = ImmutableMap.copyOf(requireNonNull(customTraceAttributes, "customTraceAttributes is null"));
 
         requireNonNull(catalogProperties, "catalogProperties is null");
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
@@ -314,6 +318,11 @@ public final class Session
         return exchangeEncryptionKey;
     }
 
+    public Map<String, String> getCustomTraceAttributes()
+    {
+        return customTraceAttributes;
+    }
+
     public SessionPropertyManager getSessionPropertyManager()
     {
         return sessionPropertyManager;
@@ -384,7 +393,8 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders,
-                exchangeEncryptionKey);
+                exchangeEncryptionKey,
+                customTraceAttributes);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
@@ -433,7 +443,8 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders,
-                exchangeEncryptionKey);
+                exchangeEncryptionKey,
+                customTraceAttributes);
     }
 
     public Session withExchangeEncryption(Slice encryptionKey)
@@ -465,7 +476,8 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders,
-                Optional.of(encryptionKey));
+                Optional.of(encryptionKey),
+                customTraceAttributes);
     }
 
     public ConnectorSession toConnectorSession()
@@ -518,13 +530,14 @@ public final class Session
                 catalogProperties,
                 identity.getCatalogRoles(),
                 preparedStatements,
-                protocolHeaders.getProtocolName());
+                protocolHeaders.getProtocolName(),
+                customTraceAttributes);
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
+        ToStringHelper stringHelper = toStringHelper(this)
                 .add("queryId", queryId)
                 .add("querySpan", querySpanString().orElse(null))
                 .add("transactionId", transactionId)
@@ -543,7 +556,12 @@ public final class Session
                 .add("clientTags", clientTags)
                 .add("clientCapabilities", clientCapabilities)
                 .add("resourceEstimates", resourceEstimates)
-                .add("start", start)
+                .add("start", start);
+
+        customTraceAttributes.forEach((key, value) ->
+                stringHelper.add("custom:%s".formatted(key), value));
+
+        return stringHelper
                 .omitNullValues()
                 .toString();
     }
@@ -654,6 +672,7 @@ public final class Session
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
+        private final Map<String, String> customTraceAttributes = new HashMap<>();
         private ProtocolHeaders protocolHeaders = TRINO_HEADERS;
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
@@ -688,7 +707,9 @@ public final class Session
             session.catalogProperties
                     .forEach((catalog, properties) -> catalogSessionProperties.put(catalog, new HashMap<>(properties)));
             this.preparedStatements.putAll(session.preparedStatements);
+            this.customTraceAttributes.putAll(session.customTraceAttributes);
             this.protocolHeaders = session.protocolHeaders;
+            this.customTraceAttributes.putAll(session.customTraceAttributes);
         }
 
         @CanIgnoreReturnValue
@@ -930,6 +951,31 @@ public final class Session
             return this;
         }
 
+        @CanIgnoreReturnValue
+        public SessionBuilder addCustomTraceAttribute(String name, String value)
+        {
+            requireNonNull(name, "name is null");
+            requireNonNull(value, "value is null");
+            checkArgument(!name.isEmpty(), "name is empty");
+            checkArgument(!value.isEmpty(), "value is empty");
+            customTraceAttributes.put(name, value);
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public SessionBuilder addAllCustomTraceAttribute(Map<String, String> customTraceAttributes)
+        {
+            requireNonNull(customTraceAttributes, "customTraceAttributes is null");
+            customTraceAttributes.forEach((name, value) -> {
+                requireNonNull(name, "name is null");
+                requireNonNull(value, "value is null");
+                checkArgument(!name.isEmpty(), "name is empty");
+                checkArgument(!value.isEmpty(), "value is empty");
+            });
+            this.customTraceAttributes.putAll(customTraceAttributes);
+            return this;
+        }
+
         public Session build()
         {
             return new Session(
@@ -958,7 +1004,8 @@ public final class Session
                     sessionPropertyManager,
                     preparedStatements,
                     protocolHeaders,
-                    Optional.empty());
+                    Optional.empty(),
+                    customTraceAttributes);
         }
     }
 

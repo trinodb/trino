@@ -21,6 +21,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.ExtraTraceAttributes;
 import io.trino.Session.ResourceEstimateBuilder;
 import io.trino.client.ProtocolDetectionException;
 import io.trino.client.ProtocolHeaders;
@@ -124,6 +125,11 @@ public class HttpRequestSessionContextFactory
         Set<String> clientCapabilities = parseClientCapabilities(protocolHeaders, headers);
         ResourceEstimates resourceEstimates = parseResourceEstimate(protocolHeaders, headers);
 
+        ImmutableMap.Builder<String, String> customTraceAttributesBuilder = ImmutableMap.builder();
+        if (!clientTags.isEmpty()) {
+            customTraceAttributesBuilder.put(ExtraTraceAttributes.CLIENT_TAGS, ExtraTraceAttributes.sortAndConsolidateForValue(clientTags));
+        }
+
         // parse session properties
         ImmutableMap.Builder<String, String> systemProperties = ImmutableMap.builder();
         Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
@@ -180,7 +186,8 @@ public class HttpRequestSessionContextFactory
                 preparedStatements,
                 transactionId,
                 clientTransactionSupport,
-                clientInfo);
+                clientInfo,
+                customTraceAttributesBuilder.buildOrThrow());
     }
 
     public Identity extractAuthorizedIdentity(HttpServletRequest servletRequest, HttpHeaders httpHeaders)

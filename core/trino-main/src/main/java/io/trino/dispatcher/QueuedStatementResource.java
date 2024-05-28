@@ -23,6 +23,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.client.QueryError;
@@ -330,9 +331,12 @@ public class QueuedStatementResource
             requireNonNull(queryInfoUrlFactory, "queryInfoUrlFactory is null");
             this.queryInfoUrl = queryInfoUrlFactory.getQueryInfoUrl(queryId);
             requireNonNull(tracer, "tracer is null");
-            this.querySpan = tracer.spanBuilder("query")
-                    .setAttribute(TrinoAttributes.QUERY_ID, queryId.toString())
-                    .startSpan();
+
+            SpanBuilder spanBuilder = tracer.spanBuilder("query")
+                    .setAttribute(TrinoAttributes.QUERY_ID, queryId.toString());
+            sessionContext.getCustomTraceAttributes().forEach((key, value) ->
+                    spanBuilder.setAttribute("custom:%s".formatted(key), value));
+            this.querySpan = spanBuilder.startSpan();
         }
 
         public QueryId getQueryId()

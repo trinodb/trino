@@ -632,7 +632,8 @@ public class QueryMonitor
                     running,
                     finishing,
                     queryStartTime,
-                    queryEndTime);
+                    queryEndTime,
+                    queryInfo.getSession().getCustomTraceAttributes());
         }
         catch (Exception e) {
             log.error(e, "Error logging query timeline");
@@ -662,7 +663,8 @@ public class QueryMonitor
                 0,
                 0,
                 queryStartTime,
-                queryEndTime);
+                queryEndTime,
+                queryInfo.getSession().getCustomTraceAttributes());
     }
 
     private static void logQueryTimeline(
@@ -676,10 +678,17 @@ public class QueryMonitor
             long runningMillis,
             long finishingMillis,
             DateTime queryStartTime,
-            DateTime queryEndTime)
+            DateTime queryEndTime,
+            Map<String, String> customTraceAttributes)
     {
-        log.info("TIMELINE: Query %s :: %s%s :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s",
+        String customAttributeSection = customTraceAttributes.entrySet().stream()
+                .map(entry -> "custom:%s %s".formatted(entry.getKey(), entry.getValue()))
+                .collect(Collectors.joining(" :: "));
+        customAttributeSection = customAttributeSection.isEmpty() ? customAttributeSection : " :: %s".formatted(customAttributeSection);
+
+        log.info("TIMELINE: Query %s%s :: %s%s :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s",
                 queryId,
+                customAttributeSection,
                 queryState,
                 errorCode.map(code -> " (%s)".formatted(code.getName())).orElse(""),
                 elapsedMillis,

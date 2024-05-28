@@ -488,7 +488,8 @@ public class PlanTester
                 sessionPropertyManager,
                 defaultSession.getPreparedStatements(),
                 defaultSession.getProtocolHeaders(),
-                defaultSession.getExchangeEncryptionKey());
+                defaultSession.getExchangeEncryptionKey(),
+                defaultSession.getCustomTraceAttributes());
     }
 
     private static SessionPropertyManager createSessionPropertyManager(
