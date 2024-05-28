@@ -69,6 +69,7 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                 SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
@@ -81,7 +82,6 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
