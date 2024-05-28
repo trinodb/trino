@@ -35,6 +35,7 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -192,6 +193,7 @@ import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class ClickHouseClient
         extends BaseJdbcClient
@@ -269,6 +271,40 @@ public class ClickHouseClient
     {
         // TODO: Remove override once https://github.com/trinodb/trino/issues/7100 is resolved. Currently pushdown for textual types is not tested and may lead to incorrect results.
         return preventTextualTypeAggregationPushdown(groupingSets);
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        for (JdbcSortItem sortItem : sortOrder) {
+            Type sortItemType = sortItem.column().getColumnType();
+            checkArgument(!(sortItemType instanceof CharType), "Unexpected char type: %s", sortItem.column().getColumnName());
+            if (sortItemType instanceof VarcharType) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .map(sortItem -> {
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                        return format("%s %s %s", quoted(sortItem.column().getColumnName()), ordering, nullsHandling);
+                    })
+                    .collect(joining(", "));
+            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+        });
+    }
+
+    @Override
+    public boolean isTopNGuaranteed(ConnectorSession session)
+    {
+        return true;
     }
 
     @Override
