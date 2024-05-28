@@ -129,6 +129,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -495,6 +496,18 @@ public class PostgreSqlClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    protected ResultSet getAllTableColumns(Connection connection, Optional<String> remoteSchemaName)
+            throws SQLException
+    {
+        // Delegate to default implementation which always throws, because the operation is not supported for PostgreSQL.
+        // It is here only to carry the following wisdom:
+        // TODO implement for PostgreSQL. PostgreSqlClient overrides getColumns() to support arrays. The default implementation could
+        //  be used for tables without arrays, with a fallback to slower per-table logic for case when there are arrays.
+        //  OR, we could pull columns + array dimension info in one query (not using DatabaseMetaData at all)
+        return super.getAllTableColumns(connection, remoteSchemaName);
     }
 
     private static Map<String, Integer> getArrayColumnDimensions(Connection connection, JdbcTableHandle tableHandle)
@@ -1330,7 +1343,7 @@ public class PostgreSqlClient
             Map<String, String> map = (Map<String, String>) resultSet.getObject(columnIndex);
             BlockBuilder keyBlockBuilder = varcharMapType.getKeyType().createBlockBuilder(null, map.size());
             BlockBuilder valueBlockBuilder = varcharMapType.getValueType().createBlockBuilder(null, map.size());
-            for (Map.Entry<String, String> entry : map.entrySet()) {
+            for (Entry<String, String> entry : map.entrySet()) {
                 if (entry.getKey() == null) {
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "hstore key is null");
                 }
