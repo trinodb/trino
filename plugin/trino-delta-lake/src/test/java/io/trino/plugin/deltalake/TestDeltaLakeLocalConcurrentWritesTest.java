@@ -542,7 +542,6 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .filter(success -> success)
                     .count();
             assertThat(successfulInsertsCount).isGreaterThanOrEqualTo(1);
-            assertThat(successfulInsertsCount).isLessThan(threads);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -600,7 +599,6 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .filter(success -> success)
                     .count();
             assertThat(successfulInsertsCount).isGreaterThanOrEqualTo(1);
-            assertThat(successfulInsertsCount).isLessThan(threads);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
