@@ -274,7 +274,7 @@ public class TaskInfoFetcher
 
         if (newTaskInfo.taskStatus().getState().isDone()) {
             boolean wasSet = spoolingOutputStats.compareAndSet(null, newTaskInfo.outputBuffers().getSpoolingOutputStats().orElse(null));
-            if (retryPolicy == TASK && wasSet && spoolingOutputStats.get() == null) {
+            if (newTaskInfo.taskStatus().getState() == TaskState.FINISHED && retryPolicy == TASK && wasSet && spoolingOutputStats.get() == null) {
                 log.debug("Task %s was updated to null spoolingOutputStats. Future calls to retrieveAndDropSpoolingOutputStats will fail.", taskId);
             }
             newTaskInfo = newTaskInfo.pruneSpoolingOutputStats();
