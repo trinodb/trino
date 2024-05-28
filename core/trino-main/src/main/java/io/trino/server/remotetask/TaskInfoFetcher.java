@@ -272,9 +272,11 @@ public class TaskInfoFetcher
             newTaskInfo = newTaskInfo.withEstimatedMemory(estimatedMemory.get());
         }
 
+        boolean missingSpoolingOutputStats = false;
         if (newTaskInfo.taskStatus().getState().isDone()) {
             boolean wasSet = spoolingOutputStats.compareAndSet(null, newTaskInfo.outputBuffers().getSpoolingOutputStats().orElse(null));
             if (newTaskInfo.taskStatus().getState() == TaskState.FINISHED && retryPolicy == TASK && wasSet && spoolingOutputStats.get() == null) {
+                missingSpoolingOutputStats = true;
                 if (log.isDebugEnabled()) {
                     log.debug("Task %s was updated to null spoolingOutputStats. Future calls to retrieveAndDropSpoolingOutputStats will fail; taskInfo=%s", taskId, taskInfoCodec.toJson(newTaskInfo));
                 }
@@ -296,7 +298,10 @@ public class TaskInfoFetcher
 
         if (updated && newValue.taskStatus().getState().isDone()) {
             taskStatusFetcher.updateTaskStatus(newTaskInfo.taskStatus());
-            finalTaskInfo.compareAndSet(Optional.empty(), Optional.of(newValue));
+            boolean finalTaskInfoUpdated = finalTaskInfo.compareAndSet(Optional.empty(), Optional.of(newValue));
+            if (missingSpoolingOutputStats && finalTaskInfoUpdated) {
+                log.debug("Updated finalTaskInfo for task %s to one with missing spoolingOutputStats", taskId);
+            }
             stop();
         }
     }
