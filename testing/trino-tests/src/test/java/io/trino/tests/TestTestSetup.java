@@ -17,7 +17,6 @@ import io.airlift.log.Logger;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -28,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static java.util.stream.Collectors.joining;
+import static org.assertj.core.api.Assertions.fail;
 
 public class TestTestSetup
 {
@@ -42,7 +42,7 @@ public class TestTestSetup
         Path rootPom = findRepositoryRoot().resolve(ROOT_POM_REPO_PATH);
         List<String> errors = verifyModule(rootPom);
         if (!errors.isEmpty()) {
-            Assertions.fail("Errors: " + errors.stream()
+            fail("Errors: " + errors.stream()
                     .map("\n\t\t%s"::formatted)
                     .collect(joining()));
         }
@@ -51,8 +51,6 @@ public class TestTestSetup
     private List<String> verifyModule(Path pom)
             throws Exception
     {
-        System.out.println("verifying " + pom);
-
         List<String> errors = new ArrayList<>();
         try (InputStream inputStream = Files.newInputStream(pom)) {
             MavenXpp3Reader reader = new MavenXpp3Reader();
