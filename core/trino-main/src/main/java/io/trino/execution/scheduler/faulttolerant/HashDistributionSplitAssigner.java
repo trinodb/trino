@@ -139,7 +139,7 @@ class HashDistributionSplitAssigner
                                 .orElse(ImmutableSet.of());
                         assignment.addPartition(new Partition(
                                 taskPartitionId,
-                                new NodeRequirements(catalogRequirement, hostRequirement)));
+                                new NodeRequirements(catalogRequirement, hostRequirement, hostRequirement.isEmpty())));
                         createdTaskPartitions.add(taskPartitionId);
                     }
                 }

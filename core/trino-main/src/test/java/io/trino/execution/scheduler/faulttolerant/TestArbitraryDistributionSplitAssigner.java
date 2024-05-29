@@ -357,6 +357,17 @@ public class TestArbitraryDistributionSplitAssigner
                         new SplitBatch(PARTITIONED_1, ImmutableList.of(createSplit(6, ImmutableList.of(HOST_1, HOST_2))), true)),
                 2,
                 false);
+        testAssigner(
+                ImmutableSet.of(PARTITIONED_1, PARTITIONED_2),
+                ImmutableSet.of(),
+                ImmutableList.of(
+                        new SplitBatch(PARTITIONED_2, ImmutableList.of(createSplit(1, ImmutableList.of(HOST_1, HOST_2))), true),
+                        new SplitBatch(PARTITIONED_1, ImmutableList.of(createSplit(2), createRemoteAccessibleSplit(3, ImmutableList.of(HOST_3))), false),
+                        new SplitBatch(PARTITIONED_1, ImmutableList.of(createRemoteAccessibleSplit(4, ImmutableList.of(HOST_1, HOST_2))), false),
+                        new SplitBatch(PARTITIONED_1, ImmutableList.of(createSplit(5, ImmutableList.of(HOST_3))), false),
+                        new SplitBatch(PARTITIONED_1, ImmutableList.of(createSplit(6, ImmutableList.of(HOST_1, HOST_2))), true)),
+                2,
+                false);
 
         // single replicated source
         testAssigner(
@@ -659,7 +670,7 @@ public class TestArbitraryDistributionSplitAssigner
         ListMultimap<PlanNodeId, Split> expectedReplicatedSplits = ArrayListMultimap.create();
         Map<Integer, ListMultimap<PlanNodeId, Split>> expectedPartitionedSplits = new HashMap<>();
         Set<PlanNodeId> finishedReplicatedSources = new HashSet<>();
-        Map<Optional<HostAddress>, PartitionAssignment> currentSplitAssignments = new HashMap<>();
+        Map<Map.Entry<Optional<HostAddress>, Boolean>, PartitionAssignment> currentSplitAssignments = new HashMap<>();
         AtomicInteger nextPartitionId = new AtomicInteger();
         for (SplitBatch batch : batches) {
             PlanNodeId planNodeId = batch.getPlanNodeId();
@@ -674,28 +685,25 @@ public class TestArbitraryDistributionSplitAssigner
             }
             else {
                 for (Split split : splits) {
+                    boolean remotelyAccessible = split.isRemotelyAccessible();
                     Optional<HostAddress> hostRequirement = Optional.empty();
-                    if (!split.isRemotelyAccessible()) {
+                    if (!split.getAddresses().isEmpty()) {
                         int splitCount = Integer.MAX_VALUE;
                         for (HostAddress hostAddress : split.getConnectorSplit().getAddresses()) {
-                            PartitionAssignment currentAssignment = currentSplitAssignments.get(Optional.of(hostAddress));
-                            if (currentAssignment == null) {
-                                hostRequirement = Optional.of(hostAddress);
-                                break;
-                            }
-                            if (currentAssignment.getSplits().size() < splitCount) {
-                                splitCount = currentAssignment.getSplits().size();
+                            int currentSplitCount = addUpSplits(hostAddress, currentSplitAssignments);
+                            if (currentSplitCount < splitCount) {
+                                splitCount = currentSplitCount;
                                 hostRequirement = Optional.of(hostAddress);
                             }
                         }
                     }
-                    PartitionAssignment currentAssignment = currentSplitAssignments.get(hostRequirement);
+                    PartitionAssignment currentAssignment = currentSplitAssignments.get(Map.entry(hostRequirement, remotelyAccessible));
                     if (currentAssignment != null && currentAssignment.getSplits().size() + 1 > partitionedSplitsPerPartition) {
                         expectedPartitionedSplits.computeIfAbsent(currentAssignment.getPartitionId(), key -> ArrayListMultimap.create()).putAll(currentAssignment.getSplits());
-                        currentSplitAssignments.remove(hostRequirement);
+                        currentSplitAssignments.remove(Map.entry(hostRequirement, remotelyAccessible));
                     }
                     currentSplitAssignments
-                            .computeIfAbsent(hostRequirement, key -> new PartitionAssignment(nextPartitionId.getAndIncrement()))
+                            .computeIfAbsent(Map.entry(hostRequirement, remotelyAccessible), key -> new PartitionAssignment(nextPartitionId.getAndIncrement()))
                             .getSplits()
                             .put(planNodeId, split);
                 }
@@ -743,6 +751,13 @@ public class TestArbitraryDistributionSplitAssigner
         }
     }
 
+    private static int addUpSplits(HostAddress address, Map<Map.Entry<Optional<HostAddress>, Boolean>, PartitionAssignment> assignments)
+    {
+        PartitionAssignment assignment1 = assignments.get(Map.entry(Optional.of(address), true));
+        PartitionAssignment assignment2 = assignments.get(Map.entry(Optional.of(address), false));
+        return (assignment1 == null ? 0 : assignment1.getSplits().size()) + (assignment2 == null ? 0 : assignment2.getSplits().size());
+    }
+
     private static Split createSplit(int id)
     {
         return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.empty()));
@@ -751,6 +766,18 @@ public class TestArbitraryDistributionSplitAssigner
     private static Split createSplit(int id, List<HostAddress> addresses)
     {
         return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.of(addresses)));
+    }
+
+    private static Split createRemoteAccessibleSplit(int id, List<HostAddress> addresses)
+    {
+        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.of(addresses))
+        {
+            @Override
+            public boolean isRemotelyAccessible()
+            {
+                return true;
+            }
+        });
     }
 
     private static ListMultimap<Integer, Split> createSplitsMultimap(List<Split> splits)
@@ -774,19 +801,22 @@ public class TestArbitraryDistributionSplitAssigner
             assertThat(taskDescriptor.getSplits().getSplits(planNodeId).keySet()).isEqualTo(ImmutableSet.of(SINGLE_SOURCE_PARTITION_ID));
         });
         assertSplitsEqual(taskDescriptor.getSplits().getSplitsFlat(), expectedSplits);
+        NodeRequirements taskNodeRequirements = taskDescriptor.getNodeRequirements();
         Set<HostAddress> hostRequirement = null;
         for (Split split : taskDescriptor.getSplits().getSplitsFlat().values()) {
-            if (!split.isRemotelyAccessible()) {
+            if (!split.getAddresses().isEmpty()) {
                 if (hostRequirement == null) {
                     hostRequirement = ImmutableSet.copyOf(split.getAddresses());
                 }
                 else {
                     hostRequirement = Sets.intersection(hostRequirement, ImmutableSet.copyOf(split.getAddresses()));
                 }
+                // The split's remove-accessible flag should be recorded in NodeRequirements, and we don't mix remote accessible and non-remote accessible splits in the same task.
+                assertThat(taskNodeRequirements.isRemotelyAccessible()).as("%s", split).isEqualTo(split.isRemotelyAccessible());
             }
         }
-        assertThat(taskDescriptor.getNodeRequirements().getCatalogHandle()).isEqualTo(Optional.of(TEST_CATALOG_HANDLE));
-        assertThat(taskDescriptor.getNodeRequirements().getAddresses()).containsAnyElementsOf(hostRequirement == null ? ImmutableSet.of() : hostRequirement);
+        assertThat(taskNodeRequirements.getCatalogHandle()).isEqualTo(Optional.of(TEST_CATALOG_HANDLE));
+        assertThat(taskNodeRequirements.getAddresses()).containsAnyElementsOf(hostRequirement == null ? ImmutableSet.of() : hostRequirement);
     }
 
     private static void assertSplitsEqual(ListMultimap<PlanNodeId, Split> actual, ListMultimap<PlanNodeId, Split> expected)
