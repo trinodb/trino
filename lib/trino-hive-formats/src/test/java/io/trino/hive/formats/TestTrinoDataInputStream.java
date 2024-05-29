@@ -42,7 +42,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SuppressWarnings("resource")
 public class TestTrinoDataInputStream
 {
     private static final int BUFFER_SIZE = 129;

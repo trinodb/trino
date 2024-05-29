@@ -41,7 +41,6 @@ import static io.trino.hdfs.gcs.GcsConfigurationProvider.GCS_OAUTH_KEY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-@SuppressWarnings("deprecation")
 public class GcsStorageFactory
 {
     private static final String APPLICATION_NAME = "Trino";

@@ -265,7 +265,6 @@ public class TrinoFileSystemCache
         return "hdfs".equals(scheme) || "viewfs".equals(scheme);
     }
 
-    @SuppressWarnings("unused")
     private record FileSystemKey(String scheme, String authority, long unique, String realUser, String proxyUser)
     {
         private FileSystemKey

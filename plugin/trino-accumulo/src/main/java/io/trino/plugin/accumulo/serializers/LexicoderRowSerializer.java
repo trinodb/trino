@@ -58,7 +58,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 /**
  * Implementation of {@link AccumuloRowSerializer} that uses Accumulo lexicoders to serialize the values of the Trino columns.
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class LexicoderRowSerializer
         implements AccumuloRowSerializer
 {
