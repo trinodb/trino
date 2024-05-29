@@ -71,19 +71,3 @@ public class TestFlakyTestRetryAnalyzer
         return new Object[][] {{0}, {1}};
     }
 }
-
-@SuppressWarnings("OneTopLevelClass")
-abstract class TestingOverridesTest
-{
-    private static int testRetryingOverriddenTestCount;
-
-    @Test
-    public void testRetryingOverriddenTest()
-    {
-        testRetryingOverriddenTestCount++;
-        if (testRetryingOverriddenTestCount <= ALLOWED_RETRIES_COUNT) {
-            fail("I am trying hard to fail!");
-        }
-        assertThat(testRetryingOverriddenTestCount).isEqualTo(3);
-    }
-}
