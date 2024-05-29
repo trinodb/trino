@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
-import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -42,7 +41,6 @@ public final class TimestampWithTimeZoneOperators
         @SqlType("timestamp(u) with time zone")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
-                @LiteralParameter("p") long precision,
                 @SqlType("timestamp(p) with time zone") long packedEpochMillis,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
@@ -67,11 +65,10 @@ public final class TimestampWithTimeZoneOperators
         @SqlType("timestamp(u) with time zone")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
-                @LiteralParameter("p") long precision,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval,
                 @SqlType("timestamp(p) with time zone") long timestamp)
         {
-            return TimestampPlusIntervalDayToSecond.add(precision, timestamp, interval);
+            return TimestampPlusIntervalDayToSecond.add(timestamp, interval);
         }
 
         @LiteralParameters({"p", "u"})
@@ -164,11 +161,10 @@ public final class TimestampWithTimeZoneOperators
         @SqlType("timestamp(u) with time zone")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long subtract(
-                @LiteralParameter("p") long precision,
                 @SqlType("timestamp(p) with time zone") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return TimestampPlusIntervalDayToSecond.add(precision, timestamp, -interval);
+            return TimestampPlusIntervalDayToSecond.add(timestamp, -interval);
         }
 
         @LiteralParameters({"p", "u"})

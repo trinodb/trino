@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -133,7 +132,6 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static LongTimestamp add(
-                ConnectorSession session,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval,
                 @SqlType("timestamp(p)") LongTimestamp timestamp)
         {
@@ -156,7 +154,6 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static LongTimestamp subtract(
-                ConnectorSession session,
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
