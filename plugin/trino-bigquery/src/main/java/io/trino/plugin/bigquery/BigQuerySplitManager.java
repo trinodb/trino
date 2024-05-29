@@ -183,12 +183,8 @@ public class BigQuerySplitManager
             else {
                 TableInfo tableInfo = client.getTable(remoteTableId)
                         .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTableId.getDataset(), remoteTableId.getTable())));
-                // Note that we cannot use row count from TableInfo because for writes via insertAll/streaming API the number is incorrect until the streaming buffer is flushed
-                // (and there's no mechanism to trigger an on-demand flush). This can lead to incorrect results for queries with empty projections.
                 if (TABLE_TYPES.contains(tableInfo.getDefinition().getType())) {
-                    String sql = client.selectSql(remoteTableId, "COUNT(*)");
-                    TableResult result = client.executeQuery(session, sql);
-                    numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
+                    numberOfRows = tableInfo.getNumRows().longValue();
                 }
                 else {
                     throw new TrinoException(NOT_SUPPORTED, "Unsupported table type: " + tableInfo.getDefinition().getType());
