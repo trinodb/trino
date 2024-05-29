@@ -41,7 +41,7 @@ public final class MongoQueryRunner
 
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("org.mongodb.driver", Level.WARN);
+        logging.setLevel("org.mongodb.driver", Level.OFF);
     }
 
     private static final String TPCH_SCHEMA = "tpch";
