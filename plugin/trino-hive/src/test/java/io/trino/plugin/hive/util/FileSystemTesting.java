@@ -381,7 +381,6 @@ public class FileSystemTesting
 
         @Override
         public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f)
-                throws IOException
         {
             return new RemoteIterator<>()
             {
