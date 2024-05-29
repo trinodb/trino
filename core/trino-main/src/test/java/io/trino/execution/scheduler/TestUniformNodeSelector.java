@@ -13,8 +13,10 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -59,6 +61,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
 @TestInstance(PER_METHOD)
@@ -290,6 +293,44 @@ public class TestUniformNodeSelector
         assertThat(unassignedSplits.size()).isEqualTo(80);
         assertThat(assignments3.get(node1).size()).isEqualTo(40); // 4x max pending
         assertThat(assignments2.containsKey(node2)).isFalse();
+    }
+
+    @Test
+    public void testFailover()
+    {
+        // Node selector without nodeMap memoization, so removing nodes takes effect immediately:
+        nodeSelector = new UniformNodeSelector(
+                nodeManager,
+                nodeTaskMap,
+                false,
+                () -> createNodeMap(TEST_CATALOG_HANDLE),
+                10,
+                2000,
+                1000,
+                2000,
+                NodeSchedulerConfig.SplitsBalancingPolicy.STAGE,
+                true,
+                new UniformNodeSelector.QueueSizeAdjuster(1000, 10000, new TestingTicker()));
+
+        Split rigidSplit = new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(node1.getHostAndPort())));
+        splits.add(rigidSplit);
+        Split flexibleSplit = new Split(TEST_CATALOG_HANDLE, new TestingSplit(true, ImmutableList.of(node1.getHostAndPort())));
+        splits.add(flexibleSplit);
+
+        // Both nodes alive, but both splits prefer node 1.
+        Multimap<InternalNode, Split> assignmentsNode1Alive = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
+        ArrayListMultimap<InternalNode, Split> expected = ArrayListMultimap.create();
+        expected.putAll(node1, splits);
+        org.assertj.guava.api.Assertions.assertThat(assignmentsNode1Alive).hasSameEntriesAs(expected);
+
+        nodeManager.removeNode(node1);
+        // Now the flexible split can fail over to node2, while the rigid split cannot.
+        assertThatThrownBy(() -> nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()))).hasMessage("No nodes available to run query");
+        Multimap<InternalNode, Split> assignmentsNode1Dead =
+                nodeSelector.computeAssignments(ImmutableSet.of(flexibleSplit), ImmutableList.copyOf(taskMap.values())).getAssignments();
+        expected = ArrayListMultimap.create();
+        expected.put(node2, flexibleSplit);
+        org.assertj.guava.api.Assertions.assertThat(assignmentsNode1Dead).hasSameEntriesAs(expected);
     }
 
     private NodeMap createNodeMap(CatalogHandle catalogHandle)

@@ -49,7 +49,7 @@ class SingleDistributionSplitAssigner
         AssignmentResult.Builder assignment = AssignmentResult.builder();
         if (!partitionAdded) {
             partitionAdded = true;
-            assignment.addPartition(new Partition(0, new NodeRequirements(Optional.empty(), hostRequirement)));
+            assignment.addPartition(new Partition(0, new NodeRequirements(Optional.empty(), hostRequirement, hostRequirement.isEmpty())));
             assignment.setNoMorePartitions();
         }
         if (!splits.isEmpty()) {
@@ -83,7 +83,7 @@ class SingleDistributionSplitAssigner
         if (!partitionAdded) {
             partitionAdded = true;
             result
-                    .addPartition(new Partition(0, new NodeRequirements(Optional.empty(), hostRequirement)))
+                    .addPartition(new Partition(0, new NodeRequirements(Optional.empty(), hostRequirement, hostRequirement.isEmpty())))
                     .sealPartition(0)
                     .setNoMorePartitions();
         }
