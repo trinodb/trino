@@ -61,7 +61,7 @@ public final class KafkaQueryRunner
 
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("org.apache.kafka", Level.OFF);
+        logging.setLevel("org.apache.kafka", Level.WARN);
     }
 
     private static final Logger log = Logger.get(KafkaQueryRunner.class);

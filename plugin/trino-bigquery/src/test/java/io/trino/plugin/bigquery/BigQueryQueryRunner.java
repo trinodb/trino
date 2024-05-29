@@ -64,7 +64,7 @@ public final class BigQueryQueryRunner
 
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("com.google.cloud.bigquery.storage", Level.OFF);
+        logging.setLevel("com.google.cloud.bigquery.storage", Level.WARN);
     }
 
     private BigQueryQueryRunner() {}

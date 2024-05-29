@@ -46,9 +46,9 @@ public final class DeltaLakeQueryRunner
 {
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("org.apache.parquet.filter2.compat.FilterCompat", Level.OFF);
-        logging.setLevel("com.amazonaws.util.Base64", Level.OFF);
-        logging.setLevel("com.google.cloud", Level.OFF);
+        logging.setLevel("org.apache.parquet.filter2.compat.FilterCompat", Level.WARN);
+        logging.setLevel("com.amazonaws.util.Base64", Level.WARN);
+        logging.setLevel("com.google.cloud", Level.WARN);
     }
 
     public static final String DELTA_CATALOG = "delta";
