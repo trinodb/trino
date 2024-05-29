@@ -25,6 +25,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.alluxio.AlluxioFileSystemFactory;
 import io.trino.filesystem.alluxio.AlluxioFileSystemModule;
+import io.trino.filesystem.alluxio.RemoteAlluxioFileSystemCacheModule;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
 import io.trino.filesystem.cache.CacheFileSystemFactory;
@@ -112,9 +113,20 @@ public class FileSystemModule
 
         newOptionalBinder(binder, TrinoFileSystemCache.class);
 
-        if (config.isCacheEnabled()) {
-            install(new AlluxioFileSystemCacheModule(nodeManager.getCurrentNode().isCoordinator()));
-        }
+
+            switch (config.getFileSystemCacheType()) {
+                case NO_CACHE:
+                    break;
+                case LOCAL_CACHE:
+                    install(new AlluxioFileSystemCacheModule(nodeManager.getCurrentNode().isCoordinator()));
+                    break;
+                case REMOTE_CACHE:
+                    install(new RemoteAlluxioFileSystemCacheModule(nodeManager.getCurrentNode().isCoordinator()));
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported file system cache type: " + config.getFileSystemCacheType());
+            }
+
     }
 
     @Provides
