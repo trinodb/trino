@@ -51,7 +51,7 @@ public final class ElasticsearchQueryRunner
 
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("org.elasticsearch.client.RestClient", Level.WARN);
+        logging.setLevel("org.elasticsearch.client.RestClient", Level.OFF);
     }
 
     private static final Logger LOG = Logger.get(ElasticsearchQueryRunner.class);
