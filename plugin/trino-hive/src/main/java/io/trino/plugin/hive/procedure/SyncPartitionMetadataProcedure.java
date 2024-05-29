@@ -172,6 +172,9 @@ public class SyncPartitionMetadataProcedure
             if (!isValidPartitionPath(path, column, caseSensitive)) {
                 continue;
             }
+            if (!caseSensitive) {
+                path = path.toLowerCase(ENGLISH);
+            }
             List<String> current = ImmutableList.<String>builder().addAll(partitions).add(path).build();
             result.addAll(doListPartitions(fileSystem, location, partitionColumns, depth - 1, caseSensitive, current));
         }
