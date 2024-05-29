@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public class TestScalarValidation
 {
     @Test
@@ -42,6 +41,8 @@ public class TestScalarValidation
     @ScalarFunction
     public static final class BogusParametricMethodAnnotation
     {
+        private BogusParametricMethodAnnotation() {}
+
         @ScalarFunction
         public static void bad() {}
     }
@@ -68,6 +69,8 @@ public class TestScalarValidation
 
     public static final class MethodMissingReturnAnnotation
     {
+        private MethodMissingReturnAnnotation() {}
+
         @ScalarFunction
         public static void bad() {}
     }
@@ -82,6 +85,8 @@ public class TestScalarValidation
 
     public static final class MethodMissingScalarAnnotation
     {
+        private MethodMissingScalarAnnotation() {}
+
         @SuppressWarnings("unused")
         @SqlType
         public static void bad() {}
@@ -97,6 +102,8 @@ public class TestScalarValidation
 
     public static final class PrimitiveWrapperReturnWithoutNullable
     {
+        private PrimitiveWrapperReturnWithoutNullable() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public static Long bad()
@@ -115,6 +122,8 @@ public class TestScalarValidation
 
     public static final class PrimitiveReturnWithNullable
     {
+        private PrimitiveReturnWithNullable() {}
+
         @ScalarFunction
         @SqlNullable
         @SqlType(StandardTypes.BIGINT)
@@ -134,6 +143,8 @@ public class TestScalarValidation
 
     public static final class PrimitiveWrapperParameterWithoutNullable
     {
+        private PrimitiveWrapperParameterWithoutNullable() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public static long bad(@SqlType(StandardTypes.BOOLEAN) Boolean boxed)
@@ -152,6 +163,8 @@ public class TestScalarValidation
 
     public static final class PrimitiveParameterWithNullable
     {
+        private PrimitiveParameterWithNullable() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public static long bad(@SqlNullable @SqlType(StandardTypes.DOUBLE) double primitive)
@@ -170,6 +183,8 @@ public class TestScalarValidation
 
     public static final class ParameterWithoutType
     {
+        private ParameterWithoutType() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public static long bad(long missing)
@@ -206,6 +221,9 @@ public class TestScalarValidation
 
     public static final class MethodWithLegacyNullable
     {
+        private MethodWithLegacyNullable() {}
+
+        @SuppressWarnings("DataFlowIssue") // IntelliJ notices that @Nullable is not needed, but it is needed for the test
         @ScalarFunction
         @Nullable
         @SqlType(StandardTypes.BIGINT)
@@ -225,6 +243,8 @@ public class TestScalarValidation
 
     public static final class ParameterWithConnectorAndIsNull
     {
+        private ParameterWithConnectorAndIsNull() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public static long bad(ConnectorSession session, @IsNull boolean isNull)
@@ -243,6 +263,8 @@ public class TestScalarValidation
 
     public static final class ParameterWithOnlyIsNull
     {
+        private ParameterWithOnlyIsNull() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public static long bad(@IsNull boolean isNull)
@@ -261,6 +283,8 @@ public class TestScalarValidation
 
     public static final class ParameterWithNonBooleanIsNull
     {
+        private ParameterWithNonBooleanIsNull() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public static long bad(@SqlType(StandardTypes.BIGINT) long value, @IsNull int isNull)
@@ -279,6 +303,8 @@ public class TestScalarValidation
 
     public static final class ParameterWithBoxedPrimitiveIsNull
     {
+        private ParameterWithBoxedPrimitiveIsNull() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public static long bad(@SqlType(StandardTypes.BIGINT) Long value, @IsNull boolean isNull)
@@ -297,6 +323,8 @@ public class TestScalarValidation
 
     public static final class ParameterWithOtherAnnotationsWithIsNull
     {
+        private ParameterWithOtherAnnotationsWithIsNull() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public static long bad(@SqlType(StandardTypes.BIGINT) long value, @IsNull @SqlNullable boolean isNull)
@@ -315,6 +343,8 @@ public class TestScalarValidation
 
     public static final class TypeParameterWithNonUpperCaseAnnotation
     {
+        private TypeParameterWithNonUpperCaseAnnotation() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         @TypeParameter("bad")
@@ -334,6 +364,8 @@ public class TestScalarValidation
 
     public static final class TypeParameterWithLeadingNumbers
     {
+        private TypeParameterWithLeadingNumbers() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         @TypeParameter("1E")
@@ -353,6 +385,8 @@ public class TestScalarValidation
 
     public static final class TypeParameterWithNonPrimitiveAnnotation
     {
+        private TypeParameterWithNonPrimitiveAnnotation() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         @TypeParameter("E")
@@ -370,6 +404,8 @@ public class TestScalarValidation
 
     public static final class ValidTypeParameter
     {
+        private ValidTypeParameter() {}
+
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public static long good1(

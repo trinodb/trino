@@ -75,7 +75,6 @@ import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@SuppressWarnings("FieldNamingConvention")
 @TestInstance(PER_METHOD)
 class TestHttpEventListener
 {

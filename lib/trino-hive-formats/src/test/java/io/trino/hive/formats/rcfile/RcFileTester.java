@@ -113,7 +113,6 @@ import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_C
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SuppressWarnings("StaticPseudoFunctionalStyleMethod")
 public class RcFileTester
 {
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");

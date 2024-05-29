@@ -33,7 +33,6 @@ import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static java.lang.Math.multiplyExact;
 
-@SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public final class TimestampOperators
 {
     private TimestampOperators() {}
@@ -41,6 +40,8 @@ public final class TimestampOperators
     @ScalarOperator(ADD)
     public static final class TimestampPlusIntervalDayToSecond
     {
+        private TimestampPlusIntervalDayToSecond() {}
+
         @LiteralParameters({"p", "u"})
         @SqlType("timestamp(u)")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
@@ -68,6 +69,8 @@ public final class TimestampOperators
     @ScalarOperator(ADD)
     public static final class IntervalDayToSecondPlusTimestamp
     {
+        private IntervalDayToSecondPlusTimestamp() {}
+
         @LiteralParameters({"p", "u"})
         @SqlType("timestamp(u)")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
@@ -92,6 +95,8 @@ public final class TimestampOperators
     @ScalarOperator(ADD)
     public static final class TimestampPlusIntervalYearToMonth
     {
+        private TimestampPlusIntervalYearToMonth() {}
+
         private static final DateTimeField MONTH_OF_YEAR_UTC = ISOChronology.getInstanceUTC().monthOfYear();
 
         @LiteralParameters("p")
@@ -120,6 +125,8 @@ public final class TimestampOperators
     @ScalarOperator(ADD)
     public static final class IntervalYearToMonthPlusTimestamp
     {
+        private IntervalYearToMonthPlusTimestamp() {}
+
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static long add(
@@ -142,6 +149,8 @@ public final class TimestampOperators
     @ScalarOperator(SUBTRACT)
     public static final class TimestampMinusIntervalYearToMonth
     {
+        private TimestampMinusIntervalYearToMonth() {}
+
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static long subtract(
@@ -164,6 +173,8 @@ public final class TimestampOperators
     @ScalarOperator(SUBTRACT)
     public static final class TimestampMinusIntervalDayToSecond
     {
+        private TimestampMinusIntervalDayToSecond() {}
+
         @LiteralParameters({"p", "u"})
         @SqlType("timestamp(u)")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
@@ -188,6 +199,8 @@ public final class TimestampOperators
     @ScalarOperator(SUBTRACT)
     public static final class TimestampMinusTimestamp
     {
+        private TimestampMinusTimestamp() {}
+
         @LiteralParameters("p")
         @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
         public static long subtract(

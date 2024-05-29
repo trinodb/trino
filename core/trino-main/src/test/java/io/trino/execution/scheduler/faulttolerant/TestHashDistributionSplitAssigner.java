@@ -895,7 +895,6 @@ public class TestHashDistributionSplitAssigner
         }
     }
 
-    @SuppressWarnings("unused")
     private record PartitionMapping(Set<Integer> sourcePartitions, int taskPartitionCount)
     {
         private PartitionMapping

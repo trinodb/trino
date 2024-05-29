@@ -68,7 +68,6 @@ import static org.openjdk.jmh.annotations.Mode.AverageTime;
 @Warmup(iterations = 6, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 6, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(AverageTime)
-@SuppressWarnings({"FieldMayBeFinal", "FieldCanBeLocal"})
 public class BenchmarkInCodeGenerator
 {
     @State(Scope.Thread)
@@ -88,6 +87,7 @@ public class BenchmarkInCodeGenerator
 
         private Page inputPage;
         private PageProcessor processor;
+        @SuppressWarnings("FieldCanBeLocal")
         private Type trinoType;
 
         @Setup

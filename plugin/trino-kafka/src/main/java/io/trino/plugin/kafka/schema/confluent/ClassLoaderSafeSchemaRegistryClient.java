@@ -35,7 +35,6 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-@SuppressWarnings("deprecation")
 public class ClassLoaderSafeSchemaRegistryClient
         implements SchemaRegistryClient
 {
@@ -57,6 +56,7 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public int register(String subject, Schema schema)
             throws IOException, RestClientException
     {
@@ -75,6 +75,7 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public int register(String subject, Schema schema, int version, int id)
             throws IOException, RestClientException
     {
@@ -102,6 +103,7 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public Schema getByID(int id)
             throws IOException, RestClientException
     {
@@ -111,6 +113,7 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public Schema getById(int id)
             throws IOException, RestClientException
     {
@@ -263,6 +266,7 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public Schema getBySubjectAndID(String subject, int id)
             throws IOException, RestClientException
     {
@@ -272,6 +276,7 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public Schema getBySubjectAndId(String subject, int id)
             throws IOException, RestClientException
     {
@@ -334,6 +339,7 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public int getVersion(String subject, Schema schema)
             throws IOException, RestClientException
     {
@@ -361,6 +367,7 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public boolean testCompatibility(String subject, Schema schema)
             throws IOException, RestClientException
     {
@@ -442,6 +449,7 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public int getId(String subject, Schema schema)
             throws IOException, RestClientException
     {

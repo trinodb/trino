@@ -179,7 +179,6 @@ public enum HiveStorageFormat
         return (MapTypeInfo) typeInfo;
     }
 
-    @SuppressWarnings("unused")
     private record SerdeAndInputFormat(String serde, String inputFormat) {}
 
     private static final Map<SerdeAndInputFormat, HiveStorageFormat> HIVE_STORAGE_FORMATS = ImmutableMap.<SerdeAndInputFormat, HiveStorageFormat>builder()

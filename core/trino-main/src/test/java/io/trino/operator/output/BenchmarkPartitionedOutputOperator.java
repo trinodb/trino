@@ -134,7 +134,6 @@ public class BenchmarkPartitionedOutputOperator
     }
 
     @State(Scope.Thread)
-    @SuppressWarnings("unused")
     public static class BenchmarkData
     {
         private static final int DEFAULT_POSITION_COUNT = 8192;
@@ -222,8 +221,6 @@ public class BenchmarkPartitionedOutputOperator
 
         @Param({"0", "0.2"})
         private float nullRate = 0.2F;
-
-        private OptionalInt nullChannel;
 
         private List<Type> types;
         private int pageCount;
@@ -345,11 +342,6 @@ public class BenchmarkPartitionedOutputOperator
                 return pageCount;
             }
 
-            public OptionalInt getNullChannel()
-            {
-                return OptionalInt.empty();
-            }
-
             public List<Type> getTypes(int channelCount)
             {
                 return nCopies(channelCount, type);
@@ -415,7 +407,6 @@ public class BenchmarkPartitionedOutputOperator
             types = type.getTypes(channelCount);
             dataPage = type.getPageGenerator().createPage(types, positionCount, nullRate);
             pageCount = type.getPageCount();
-            nullChannel = type.getNullChannel();
             types = ImmutableList.<Type>builder()
                     .addAll(types)
                     .add(BIGINT) // dataPage has pre-computed hash block at the last channel
