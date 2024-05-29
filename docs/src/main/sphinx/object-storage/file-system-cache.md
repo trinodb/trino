@@ -112,14 +112,17 @@ enable and configure caching for the specific catalogs.
     and set the values for `fs.cache.max-sizes` or
     `fs.cache.max-disk-usage-percentages` accordingly.
 * - `fs.cache.max-sizes`
-  - Optional, comma-separated list specifying the maximum [data sizes](prop-type-data-size)
-    for each caching directory.The order of values must correspond to the order of the directories list. 
-    This property cannot be used with `fs.cache.max-disk-usage-percentages`, though one must be set.
+  - Optional, comma-separated list specifying the maximum
+    [data sizes](prop-type-data-size) for each caching directory. The order of values
+    must correspond to the order of the directories list. This property cannot be 
+    used with `fs.cache.max-disk-usage-percentages`, though one must be set.
 * - `fs.cache.max-disk-usage-percentages`
-  - Optional, comma-separated list indicating the maximum percentage values of disk usage for each directory. 
-    Each value must be an integer between 1 and 100. The order of values must be identical to the directories list.
-    If multiple directories share the same disk, ensure that the total percentages for that drive do not exceed 100%.
-    This property cannot be used with `fs.cache.max-sizes`, though one must be set.
+  - Optional, comma-separated list indicating the maximum percentage values of disk
+    usage for each directory. Each value must be an integer between 1 and 100. The
+    order of values must be identical to the directories list. If multiple
+    directories share the same disk, ensure that the total percentages for that drive
+    do not exceed 100%. This property cannot be used with `fs.cache.max-sizes`, though
+    one must be set.
 * - `fs.cache.ttl`
   -  The maximum [duration](prop-type-duration) for objects to remain in the cache
      before eviction. Defaults to `7d`. The minimum value of `0s` means that caching
