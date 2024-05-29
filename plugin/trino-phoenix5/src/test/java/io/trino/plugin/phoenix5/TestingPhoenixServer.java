@@ -65,7 +65,7 @@ public final class TestingPhoenixServer
         securityLogger = java.util.logging.Logger.getLogger("SecurityLogger.org.apache");
         securityLogger.setLevel(Level.SEVERE);
         // to squelch the SecurityLogger,
-        // instantiate logger with config above before config is overridden again in HBase test framework
+        // instantiate logger with config above before config is overridden again in HBase test franework
         org.apache.commons.logging.LogFactory.getLog("SecurityLogger.org.apache.hadoop.hbase.server");
         this.conf.set("hbase.security.logger", "ERROR");
         this.conf.setInt(MASTER_INFO_PORT, -1);
