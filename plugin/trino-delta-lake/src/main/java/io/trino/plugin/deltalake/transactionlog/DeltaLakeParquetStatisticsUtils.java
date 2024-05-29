@@ -70,6 +70,7 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -344,8 +345,8 @@ public final class DeltaLakeParquetStatisticsUtils
             return Optional.of(new String(((BinaryStatistics) statistics).genericGetMin().getBytes(), UTF_8));
         }
 
-        if (type.equals(BOOLEAN)) {
-            // Boolean columns do not collect min/max stats
+        if (type.equals(BOOLEAN) || type.equals(VARBINARY)) {
+            // Boolean and varbinary columns do not collect min/max stats
             return Optional.empty();
         }
 
@@ -424,8 +425,8 @@ public final class DeltaLakeParquetStatisticsUtils
             return Optional.of(new String(((BinaryStatistics) statistics).genericGetMax().getBytes(), UTF_8));
         }
 
-        if (type.equals(BOOLEAN)) {
-            // Boolean columns do not collect min/max stats
+        if (type.equals(BOOLEAN) || type.equals(VARBINARY)) {
+            // Boolean and varbinary columns do not collect min/max stats
             return Optional.empty();
         }
 

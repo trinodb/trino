@@ -359,7 +359,7 @@ public class TestDeltaLakeSystemTables
     @Test
     public void testPartitionsTableColumnTypes()
     {
-        // TODO: add support for BOOLEAN, TIMESTAMP, and VARBINARY column types https://github.com/trinodb/trino/issues/21878
+        // TODO: add support for TIMESTAMP column types https://github.com/trinodb/trino/issues/21878
         testPartitionsTableColumnTypes("BOOLEAN", "VALUES (true, 'a'), (false, 'a'), (false, 'b'), (false, 'b')", 4, """
                 VALUES
                 ROW(ROW(CAST(NULL AS BOOLEAN), CAST(NULL AS BOOLEAN), BIGINT '0')),
