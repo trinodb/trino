@@ -266,7 +266,6 @@ public class TestBufferingSplitSource
         return Futures.transform(future, NextBatchResult::new, directExecutor());
     }
 
-    @SuppressWarnings("UnusedReturnValue")
     private static class NextBatchResult
     {
         private final SplitBatch splitBatch;
@@ -282,6 +281,7 @@ public class TestBufferingSplitSource
             return this;
         }
 
+        @SuppressWarnings("UnusedReturnValue")
         public NextBatchResult assertNoMoreSplits(boolean expectedNoMoreSplits)
         {
             assertThat(expectedNoMoreSplits).isEqualTo(splitBatch.isLastBatch());
