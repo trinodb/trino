@@ -40,7 +40,7 @@ public final class CassandraQueryRunner
 
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("com.datastax.oss.driver.internal", Level.WARN);
+        logging.setLevel("com.datastax.oss.driver.internal", Level.OFF);
     }
 
     public static Builder builder(CassandraServer server)

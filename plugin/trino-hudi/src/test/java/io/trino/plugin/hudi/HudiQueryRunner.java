@@ -38,7 +38,7 @@ public final class HudiQueryRunner
 
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("org.apache.hudi", Level.WARN);
+        logging.setLevel("org.apache.hudi", Level.OFF);
     }
 
     private static final String SCHEMA_NAME = "tests";

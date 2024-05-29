@@ -35,7 +35,7 @@ public final class MariaDbQueryRunner
 {
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("org.mariadb.jdbc", Level.WARN);
+        logging.setLevel("org.mariadb.jdbc", Level.OFF);
     }
 
     private static final String TPCH_SCHEMA = "tpch";

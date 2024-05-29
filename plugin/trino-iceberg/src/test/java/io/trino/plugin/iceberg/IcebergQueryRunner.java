@@ -62,7 +62,7 @@ public final class IcebergQueryRunner
 
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("org.apache.iceberg", Level.WARN);
+        logging.setLevel("org.apache.iceberg", Level.OFF);
     }
 
     public static Builder builder()
