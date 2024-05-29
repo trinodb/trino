@@ -252,12 +252,12 @@ class TestHttpServerEventListener
         }
     }
 
-    private URI getQueryCompletedListUri(int serverPort)
+    private static URI getQueryCompletedListUri(int serverPort)
     {
         return URI.create(String.format("http://localhost:%s/v1/events/completedQueries/list", serverPort));
     }
 
-    private URI getQueryCompletedGetUri(int serverPort, String queryId)
+    private static URI getQueryCompletedGetUri(int serverPort, String queryId)
     {
         return URI.create(String.format("http://localhost:%s/v1/events/completedQueries/get/%s", serverPort, queryId));
     }
