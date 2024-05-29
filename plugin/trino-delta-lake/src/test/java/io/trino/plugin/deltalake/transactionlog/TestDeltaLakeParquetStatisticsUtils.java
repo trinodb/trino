@@ -114,7 +114,7 @@ public class TestDeltaLakeParquetStatisticsUtils
     }
 
     @Test
-    public void testTimestampStatisticsHighPrecision()
+    public void testTimestampWithTimeZoneStatisticsHighPrecision()
     {
         String columnName = "t_timestamp";
         PrimitiveType type = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.INT96, columnName);
@@ -129,7 +129,7 @@ public class TestDeltaLakeParquetStatisticsUtils
     }
 
     @Test
-    public void testTimestampStatisticsMillisPrecision()
+    public void testTimestampWithTimeZoneStatisticsMillisPrecision()
     {
         String columnName = "t_timestamp";
         PrimitiveType type = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.INT96, columnName);
