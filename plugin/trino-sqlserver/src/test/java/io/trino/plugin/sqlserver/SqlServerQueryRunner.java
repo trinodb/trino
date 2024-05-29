@@ -39,7 +39,7 @@ public final class SqlServerQueryRunner
 
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("com.microsoft.sqlserver.jdbc", Level.OFF);
+        logging.setLevel("com.microsoft.sqlserver.jdbc", Level.WARN);
     }
 
     private static final Logger log = Logger.get(SqlServerQueryRunner.class);

@@ -51,7 +51,7 @@ public final class OpenSearchQueryRunner
 
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("org.opensearch.client.RestClient", Level.OFF);
+        logging.setLevel("org.opensearch.client.RestClient", Level.WARN);
     }
 
     private static final Logger LOG = Logger.get(OpenSearchQueryRunner.class);

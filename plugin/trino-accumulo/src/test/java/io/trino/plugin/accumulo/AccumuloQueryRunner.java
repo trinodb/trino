@@ -43,9 +43,9 @@ public final class AccumuloQueryRunner
 {
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("org.apache.accumulo", Level.OFF);
-        logging.setLevel("org.apache.zookeeper", Level.OFF);
-        logging.setLevel("org.apache.curator", Level.OFF);
+        logging.setLevel("org.apache.accumulo", Level.WARN);
+        logging.setLevel("org.apache.zookeeper", Level.WARN);
+        logging.setLevel("org.apache.curator", Level.WARN);
     }
 
     private static final Logger LOG = Logger.get(AccumuloQueryRunner.class);
