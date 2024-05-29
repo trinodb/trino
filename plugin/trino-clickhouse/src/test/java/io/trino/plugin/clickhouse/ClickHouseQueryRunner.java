@@ -37,7 +37,7 @@ public final class ClickHouseQueryRunner
 {
     static {
         Logging logging = Logging.initialize();
-        logging.setLevel("com.clickhouse.jdbc.internal", Level.OFF);
+        logging.setLevel("com.clickhouse.jdbc.internal", Level.WARN);
     }
 
     public static final String TPCH_SCHEMA = "tpch";
