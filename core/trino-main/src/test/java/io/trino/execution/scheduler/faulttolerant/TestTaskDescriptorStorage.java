@@ -203,7 +203,7 @@ public class TestTaskDescriptorStorage
                 SplitsMapping.builder()
                         .addSplit(new PlanNodeId("1"), 1, new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(new TestingExchangeSourceHandle(retainedSize.toBytes())), Optional.empty()))))
                         .build(),
-                new NodeRequirements(catalog, ImmutableSet.of()));
+                new NodeRequirements(catalog, ImmutableSet.of(), true));
     }
 
     private static Optional<String> getCatalogName(TaskDescriptor descriptor)
