@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.hudi;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.trino.Session;
 import io.trino.filesystem.Location;
+import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hudi.testing.HudiTablesInitializer;
@@ -27,6 +27,7 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -43,50 +44,66 @@ public final class HudiQueryRunner
 
     private static final String SCHEMA_NAME = "tests";
 
-    // TODO convert to builder
-    public static QueryRunner createHudiQueryRunner(
-            Map<String, String> connectorProperties,
-            HudiTablesInitializer dataLoader)
-            throws Exception
+    public static Builder builder()
     {
-        return createHudiQueryRunner(ImmutableMap.of(), connectorProperties, dataLoader);
+        return new Builder();
     }
 
-    // TODO convert to builder
-    private static QueryRunner createHudiQueryRunner(
-            Map<String, String> coordinatorProperties,
-            Map<String, String> connectorProperties,
-            HudiTablesInitializer dataLoader)
-            throws Exception
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        QueryRunner queryRunner = DistributedQueryRunner
-                .builder(createSession())
-                .setCoordinatorProperties(coordinatorProperties)
-                .build();
+        private HudiTablesInitializer dataLoader;
+        private final Map<String, String> connectorProperties = new HashMap<>();
 
-        queryRunner.installPlugin(new TestingHudiPlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hudi_data")));
-        queryRunner.createCatalog("hudi", "hudi", connectorProperties);
+        protected Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("hudi")
+                    .setSchema(SCHEMA_NAME)
+                    .build());
+        }
 
-        // Hudi connector does not support creating schema or any other write operations
-        ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
-                .getInstance(HiveMetastoreFactory.class)
-                .createMetastore(Optional.empty())
-                .createDatabase(Database.builder()
-                        .setDatabaseName(SCHEMA_NAME)
-                        .setOwnerName(Optional.of("public"))
-                        .setOwnerType(Optional.of(PrincipalType.ROLE))
-                        .build());
+        @CanIgnoreReturnValue
+        public Builder setDataLoader(HudiTablesInitializer dataLoader)
+        {
+            this.dataLoader = dataLoader;
+            return this;
+        }
 
-        dataLoader.initializeTables(queryRunner, Location.of("local:///"), SCHEMA_NAME);
-        return queryRunner;
-    }
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            this.connectorProperties.put(key, value);
+            return this;
+        }
 
-    private static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("hudi")
-                .setSchema(SCHEMA_NAME)
-                .build();
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TestingHudiPlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hudi_data")));
+                queryRunner.createCatalog("hudi", "hudi", connectorProperties);
+
+                // Hudi connector does not support creating schema or any other write operations
+                ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
+                        .getInstance(HiveMetastoreFactory.class)
+                        .createMetastore(Optional.empty())
+                        .createDatabase(Database.builder()
+                                .setDatabaseName(SCHEMA_NAME)
+                                .setOwnerName(Optional.of("public"))
+                                .setOwnerType(Optional.of(PrincipalType.ROLE))
+                                .build());
+
+                dataLoader.initializeTables(queryRunner, Location.of("local:///"), SCHEMA_NAME);
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                Closables.closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     public static void main(String[] args)
@@ -95,10 +112,10 @@ public final class HudiQueryRunner
         Logging.initialize();
         Logger log = Logger.get(HudiQueryRunner.class);
 
-        QueryRunner queryRunner = createHudiQueryRunner(
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                new ResourceHudiTablesInitializer());
+        QueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .setDataLoader(new ResourceHudiTablesInitializer())
+                .build();
 
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
