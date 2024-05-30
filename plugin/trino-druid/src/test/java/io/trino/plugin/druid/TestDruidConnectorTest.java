@@ -14,7 +14,6 @@
 package io.trino.plugin.druid;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -39,7 +38,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
-import static io.trino.plugin.druid.DruidQueryRunner.createDruidQueryRunnerTpch;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -70,10 +68,9 @@ public class TestDruidConnectorTest
             throws Exception
     {
         druidServer = closeAfterClass(new TestingDruidServer());
-        return createDruidQueryRunnerTpch(
-                druidServer,
-                ImmutableMap.of(),
-                ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER));
+        return DruidQueryRunner.builder(druidServer)
+                .setInitialTables(ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER))
+                .build();
     }
 
     @AfterAll
