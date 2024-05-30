@@ -236,7 +236,10 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getChangeDataFe
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getCheckpointInterval;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
-import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.setTableMetadata;
+import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.containsSchemaString;
+import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.deltaParameters;
+import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.getLastTransactionVersion;
+import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.isSameTransactionVersion;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.convertToDeltaMetastoreTable;
@@ -646,8 +649,8 @@ public class DeltaLakeMetadata
         verifySupportedColumnMapping(getColumnMappingMode(metadataEntry, protocolEntry));
         if (tableMetadataScheduler.canStoreTableMetadata(session, metadataEntry.getSchemaString(), Optional.ofNullable(metadataEntry.getDescription())) &&
                 endVersion.isEmpty() &&
-                !tableMetadataScheduler.isSameTransactionVersion(metastoreTable.get(), tableSnapshot)) {
-            tableUpdateInfos.put(tableName, new UpdateInfo(session.getIdentity(), tableSnapshot.getVersion(), metadataEntry.getSchemaString(), Optional.ofNullable(metadataEntry.getDescription())));
+                !isSameTransactionVersion(metastoreTable.get(), tableSnapshot)) {
+            tableUpdateInfos.put(tableName, new UpdateInfo(session, tableSnapshot.getVersion(), metadataEntry.getSchemaString(), Optional.ofNullable(metadataEntry.getDescription())));
         }
         return new DeltaLakeTableHandle(
                 tableName.getSchemaName(),
@@ -925,9 +928,10 @@ public class DeltaLakeMetadata
 
     private boolean canUseTableParametersInMetastore(ConnectorSession session, TrinoFileSystem fileSystem, Table table, String tableLocation)
     {
-        if (storeTableMetadata(session) && tableMetadataScheduler.containsLastTransactionVersion(table)) {
-            long version = tableMetadataScheduler.getLastTransactionVersion(table);
-            return isLatestVersion(fileSystem, tableLocation, version);
+        if (storeTableMetadata(session)) {
+            return getLastTransactionVersion(table)
+                    .map(version -> isLatestVersion(fileSystem, tableLocation, version))
+                    .orElse(false);
         }
         return false;
     }
@@ -965,7 +969,7 @@ public class DeltaLakeMetadata
                         verifyDeltaLakeTable(table);
 
                         String tableLocation = HiveMetastoreBackedDeltaLakeMetastore.getTableLocation(table);
-                        if (tableMetadataScheduler.containsSchemaString(table) && canUseTableParametersInMetastore(session, fileSystem, table, tableLocation)) {
+                        if (containsSchemaString(table) && canUseTableParametersInMetastore(session, fileSystem, table, tableLocation)) {
                             List<ColumnMetadata> columnsMetadata = tableMetadataScheduler.getColumnsMetadata(table);
                             return Stream.of(TableColumnsMetadata.forTable(tableName, columnsMetadata));
                         }
@@ -1271,7 +1275,7 @@ public class DeltaLakeMetadata
             properties.put("EXTERNAL", "TRUE");
         }
         if (tableMetadataScheduler.canStoreTableMetadata(session, schemaString, tableComment)) {
-            setTableMetadata(properties, version, schemaString, tableComment);
+            properties.putAll(deltaParameters(version, schemaString, tableComment));
         }
         return properties.buildOrThrow();
     }
@@ -2798,7 +2802,7 @@ public class DeltaLakeMetadata
             throw new TrinoException(NOT_SUPPORTED, "Writing with column mapping %s is not supported".formatted(columnMappingMode));
         }
         if (getColumnIdentities(handle.getMetadataEntry(), handle.getProtocolEntry()).values().stream().anyMatch(identity -> identity)) {
-            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with identity columns is not supported");
+            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with session columns is not supported");
         }
         checkUnsupportedWriterFeatures(handle.getProtocolEntry());
     }
@@ -4121,7 +4125,7 @@ public class DeltaLakeMetadata
         if (!tableMetadataScheduler.canStoreTableMetadata(session, schemaString, tableComment)) {
             return;
         }
-        tableUpdateInfos.put(new SchemaTableName(schemaName, tableName), new UpdateInfo(session.getIdentity(), version, schemaString, tableComment));
+        tableUpdateInfos.put(new SchemaTableName(schemaName, tableName), new UpdateInfo(session, version, schemaString, tableComment));
     }
 
     public void commit()

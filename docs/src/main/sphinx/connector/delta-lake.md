@@ -168,9 +168,6 @@ values. Typical usage does not require you to configure them.
 * - `delta.metastore.store-table-metadata-threads`
   - Number of threads used for internal task store table metadata in metastore.
   - `5`
-* - `delta.metastore.store-table-metadata-interval`
-  - How often to store table metadata in metastore.
-  - `10s`
 * - `delta.delete-schema-locations-fallback`
   - Whether schema locations are deleted when Trino can't determine whether they
     contain external files.

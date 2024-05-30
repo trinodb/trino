@@ -16,30 +16,31 @@ package io.trino.plugin.deltalake.metastore;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.TableParameterLengthLimit;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -50,7 +51,6 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.storeTableMet
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMetadata;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -64,31 +64,31 @@ public class DeltaLakeTableMetadataScheduler
 
     private static final String TRINO_LAST_TRANSACTION_VERSION = "trino_last_transaction_version";
     private static final String TRINO_METADATA_SCHEMA_STRING = "trino_metadata_schema_string";
+    private static final int MAX_FAILED_COUNTS = 10;
 
-    private final HiveMetastoreFactory hiveMetastoreFactory;
+    private final DeltaLakeTableOperationsProvider tableOperationsProvider;
     private final TypeManager typeManager;
     private final int tableParameterLengthLimit;
     private final int storeTableMetadataThreads;
-    private final Duration storeTableMetadataInterval;
     private final Map<SchemaTableName, UpdateInfo> updateInfos = new ConcurrentHashMap<>();
     private final boolean enabled;
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduler;
+    private final AtomicInteger failedCounts = new AtomicInteger();
 
     @Inject
     public DeltaLakeTableMetadataScheduler(
-            HiveMetastoreFactory hiveMetastoreFactory,
+            DeltaLakeTableOperationsProvider tableOperationsProvider,
             NodeManager nodeManager,
             TypeManager typeManager,
             @TableParameterLengthLimit int tableParameterLengthLimit,
             DeltaLakeConfig config)
     {
-        this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastoreFactory is null");
+        this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableParameterLengthLimit is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableParameterLengthLimit = tableParameterLengthLimit;
         this.storeTableMetadataThreads = config.getStoreTableMetadataThreads();
-        this.storeTableMetadataInterval = config.getStoreTableMetadataInterval();
         requireNonNull(nodeManager, "nodeManager is null");
         this.enabled = config.isStoreTableMetadataEnabled() && nodeManager.getCurrentNode().isCoordinator();
     }
@@ -104,40 +104,76 @@ public class DeltaLakeTableMetadataScheduler
         if (enabled) {
             executor = storeTableMetadataThreads == 0 ? newDirectExecutorService() : newFixedThreadPool(storeTableMetadataThreads, threadsNamed("store-table-metadata-%s"));
             scheduler = newSingleThreadScheduledExecutor(daemonThreadsNamed("store-table-metadata"));
-            scheduler.scheduleWithFixedDelay(this::process, 0, storeTableMetadataInterval.toMillis(), MILLISECONDS);
+
+            scheduler.scheduleWithFixedDelay(() -> {
+                try {
+                    process();
+                }
+                catch (Throwable e) {
+                    log.warn(e, "Error storing table metadata");
+                }
+                try {
+                    checkFailedTasks();
+                }
+                catch (Throwable e) {
+                    log.warn(e, "Error canceling metadata update tasks");
+                }
+            }, 200, 1000, MILLISECONDS);
         }
     }
 
     @VisibleForTesting
     public void process()
     {
-        Map<SchemaTableName, UpdateInfo> updateTables;
+        List<Callable<Void>> tasks = new ArrayList<>();
         synchronized (this) {
-            updateTables = updateInfos.entrySet().stream()
+            Map<SchemaTableName, UpdateInfo> updateTables = updateInfos.entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, maxBy(comparing(UpdateInfo::version))));
-            updateInfos.clear();
+
+            log.debug("Processing %s table(s): %s", updateTables.size(), updateTables.keySet());
+            for (Map.Entry<SchemaTableName, UpdateInfo> entry : updateTables.entrySet()) {
+                tasks.add(() -> {
+                    updateTable(entry.getKey(), entry.getValue());
+                    return null;
+                });
+            }
+
+            this.updateInfos.clear();
         }
 
-        log.debug("Processing %s table(s): %s", updateTables.size(), updateTables.keySet());
-        for (Map.Entry<SchemaTableName, UpdateInfo> entry : updateTables.entrySet()) {
-            executor.execute(() -> updateTable(entry.getKey(), entry.getValue()));
+        try {
+            executor.invokeAll(tasks).forEach(MoreFutures::getDone);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
         }
     }
 
     private void updateTable(SchemaTableName schemaTableName, UpdateInfo info)
     {
         log.debug("Updating table: '%s'", schemaTableName);
-        HiveMetastore metastore = hiveMetastoreFactory.createMetastore(Optional.of(info.identity));
         try {
-            metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
-                    .ifPresent(table -> {
-                        Table updatedTable = setTableMetadata(table, info.version, info.schemaString, info.tableComment);
-                        metastore.replaceTable(table.getDatabaseName(), table.getTableName(), updatedTable, buildInitialPrivilegeSet(table.getOwner().orElseThrow()));
-                        log.debug("Replaced table: '%s'", schemaTableName);
-                    });
+            tableOperationsProvider.createTableOperations(info.session, schemaTableName)
+                    .commitToExistingTable(info.version, info.schemaString, info.tableComment);
+            log.debug("Replaced table: '%s'", schemaTableName);
+        }
+        catch (TableNotFoundException e) {
+            // Don't increment failedCounts. The table might have been dropped concurrently.
+            log.debug("Table disappeared during metadata updating operation: '%s'", schemaTableName);
         }
         catch (Exception e) {
             log.warn(e, "Failed to store table metadata for '%s'", schemaTableName);
+            // TODO Consider increment only when the exception is permission issue
+            failedCounts.incrementAndGet();
+        }
+    }
+
+    private void checkFailedTasks()
+    {
+        if (failedCounts.get() > MAX_FAILED_COUNTS) {
+            log.warn("Too many failed tasks, stopping the scheduler");
+            stop();
         }
     }
 
@@ -156,25 +192,20 @@ public class DeltaLakeTableMetadataScheduler
         }
     }
 
-    public boolean isSameTransactionVersion(Table table, TableSnapshot snapshot)
+    public static boolean isSameTransactionVersion(Table table, TableSnapshot snapshot)
     {
-        if (!containsLastTransactionVersion(table)) {
-            return false;
-        }
-        return getLastTransactionVersion(table) == snapshot.getVersion();
+        return getLastTransactionVersion(table)
+                .map(version -> version == snapshot.getVersion())
+                .orElse(false);
     }
 
-    public boolean containsLastTransactionVersion(Table table)
+    public static Optional<Long> getLastTransactionVersion(Table table)
     {
-        return table.getParameters().containsKey(TRINO_LAST_TRANSACTION_VERSION);
+        String version = table.getParameters().get(TRINO_LAST_TRANSACTION_VERSION);
+        return version == null ? Optional.empty() : Optional.of(Long.parseLong(version));
     }
 
-    public long getLastTransactionVersion(Table table)
-    {
-        return Long.parseLong(table.getParameters().get(TRINO_LAST_TRANSACTION_VERSION));
-    }
-
-    public boolean containsSchemaString(Table table)
+    public static boolean containsSchemaString(Table table)
     {
         return table.getParameters().containsKey(TRINO_METADATA_SCHEMA_STRING);
     }
@@ -195,32 +226,20 @@ public class DeltaLakeTableMetadataScheduler
                 tableComment.orElse("").length() <= tableParameterLengthLimit;
     }
 
-    private static Table setTableMetadata(Table table, long version, String schemaString, Optional<String> tableComment)
+    public static Map<String, String> deltaParameters(long version, String schemaString, Optional<String> tableComment)
     {
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
-        parameters.putAll(table.getParameters());
-        setTableMetadata(parameters, version, schemaString, tableComment);
-        return Table.builder(table)
-                .setParameters(parameters.buildKeepingLast())
-                .build();
+        tableComment.ifPresent(comment -> parameters.put(TABLE_COMMENT, comment));
+        parameters.put(TRINO_LAST_TRANSACTION_VERSION, Long.toString(version));
+        parameters.put(TRINO_METADATA_SCHEMA_STRING, schemaString);
+        return parameters.buildOrThrow();
     }
 
-    public static void setTableMetadata(
-            ImmutableMap.Builder<String, String> builder,
-            long version,
-            String schemaString,
-            Optional<String> tableComment)
-    {
-        tableComment.ifPresent(comment -> builder.put(TABLE_COMMENT, comment));
-        builder.put(TRINO_LAST_TRANSACTION_VERSION, Long.toString(version));
-        builder.put(TRINO_METADATA_SCHEMA_STRING, schemaString);
-    }
-
-    public record UpdateInfo(ConnectorIdentity identity, long version, String schemaString, Optional<String> tableComment)
+    public record UpdateInfo(ConnectorSession session, long version, String schemaString, Optional<String> tableComment)
     {
         public UpdateInfo
         {
-            requireNonNull(identity, "identity is null");
+            requireNonNull(session, "session is null");
             requireNonNull(schemaString, "schemaString is null");
             requireNonNull(tableComment, "tableComment is null");
         }

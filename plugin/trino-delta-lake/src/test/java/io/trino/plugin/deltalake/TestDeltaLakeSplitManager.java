@@ -24,6 +24,7 @@ import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
+import io.trino.plugin.deltalake.metastore.file.DeltaLakeFileMetastoreTableOperationsProvider;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
@@ -233,7 +234,7 @@ public class TestDeltaLakeSplitManager
                 new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(HDFS_FILE_SYSTEM_FACTORY, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class))),
                 true,
                 new NodeVersion("test_version"),
-                new DeltaLakeTableMetadataScheduler(hiveMetastoreFactory, new TestingNodeManager(), TESTING_TYPE_MANAGER, Integer.MAX_VALUE, new DeltaLakeConfig()));
+                new DeltaLakeTableMetadataScheduler(new DeltaLakeFileMetastoreTableOperationsProvider(hiveMetastoreFactory), new TestingNodeManager(), TESTING_TYPE_MANAGER, Integer.MAX_VALUE, new DeltaLakeConfig()));
 
         ConnectorSession session = testingConnectorSessionWithConfig(deltaLakeConfig);
         DeltaLakeTransactionManager deltaLakeTransactionManager = new DeltaLakeTransactionManager(metadataFactory);

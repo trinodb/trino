@@ -58,7 +58,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
     private HiveMetastore metastore;
-    private DeltaLakeTableMetadataScheduler tableParameterManager;
+    private DeltaLakeTableMetadataScheduler tableParameterScheduler;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -71,7 +71,7 @@ public class TestDeltaLakeMetastoreAccessOperations
 
         metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
-        tableParameterManager = TestingDeltaLakeUtils.getConnectorService(queryRunner, DeltaLakeTableMetadataScheduler.class);
+        tableParameterScheduler = TestingDeltaLakeUtils.getConnectorService(queryRunner, DeltaLakeTableMetadataScheduler.class);
 
         return queryRunner;
     }
@@ -596,8 +596,8 @@ public class TestDeltaLakeMetastoreAccessOperations
     {
         assertUpdate("CALL system.flush_metadata_cache()");
 
-        tableParameterManager.clear();
-        assertMetastoreInvocationsForQuery(getDistributedQueryRunner(), session, query, expectedInvocations, () -> tableParameterManager.process(), asyncInvocations);
+        tableParameterScheduler.clear();
+        assertMetastoreInvocationsForQuery(getDistributedQueryRunner(), session, query, expectedInvocations, () -> tableParameterScheduler.process(), asyncInvocations);
     }
 
     private static Multiset<MetastoreMethod> asyncInvocations(boolean storeTableParameter)
@@ -622,7 +622,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         Multiset<MetastoreMethod> invocations = filterInvocations(spansBeforeAsync);
         assertMultisetsEqual(invocations, expectedInvocations);
 
-        Multiset<MetastoreMethod> invocations2 = filterInvocations(spansAfterAsync.stream().collect(toImmutableList()));
-        assertMultisetsEqual(invocations2, expectedInvocationsAfterAsync);
+        Multiset<MetastoreMethod> asyncInvocations = filterInvocations(spansAfterAsync.stream().collect(toImmutableList()));
+        assertMultisetsEqual(asyncInvocations, expectedInvocationsAfterAsync);
     }
 }
