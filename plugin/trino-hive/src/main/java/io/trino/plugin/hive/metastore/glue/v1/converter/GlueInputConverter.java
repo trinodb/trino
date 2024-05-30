@@ -48,6 +48,8 @@ import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toResourceUris;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
 
 public final class GlueInputConverter
 {
@@ -87,6 +89,24 @@ public final class GlueInputConverter
         table.getViewExpandedText().ifPresent(input::setViewExpandedText);
         comment.ifPresent(input::setDescription);
         return input;
+    }
+
+    public static TableInput convertGlueTableToTableInput(com.amazonaws.services.glue.model.Table glueTable)
+    {
+        return new TableInput()
+                .withName(glueTable.getName())
+                .withDescription(glueTable.getDescription())
+                .withOwner(glueTable.getOwner())
+                .withLastAccessTime(glueTable.getLastAccessTime())
+                .withLastAnalyzedTime(glueTable.getLastAnalyzedTime())
+                .withRetention(glueTable.getRetention())
+                .withStorageDescriptor(glueTable.getStorageDescriptor())
+                .withPartitionKeys(glueTable.getPartitionKeys())
+                .withViewOriginalText(glueTable.getViewOriginalText())
+                .withViewExpandedText(glueTable.getViewExpandedText())
+                .withTableType(getTableTypeNullable(glueTable))
+                .withTargetTable(glueTable.getTargetTable())
+                .withParameters(getTableParameters(glueTable));
     }
 
     public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics)
