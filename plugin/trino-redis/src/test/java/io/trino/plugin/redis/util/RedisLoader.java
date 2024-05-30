@@ -19,14 +19,10 @@ import io.trino.client.Column;
 import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
 import io.trino.server.testing.TestingTrinoServer;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.AbstractTestingTrinoClient;
 import io.trino.testing.ResultsSession;
-import io.trino.util.DateTimeUtils;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
@@ -37,25 +33,16 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.scalar.timestamp.VarcharToTimestampCast.castToShortTimestamp;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.util.DateTimeUtils.parseLegacyTime;
 import static java.util.Objects.requireNonNull;
 
 public class RedisLoader
         extends AbstractTestingTrinoClient<Void>
 {
-    private static final DateTimeFormatter ISO8601_FORMATTER = ISODateTimeFormat.dateTime();
-
     private final JedisPool jedisPool;
     private final String tableName;
     private final String dataFormat;
@@ -80,20 +67,13 @@ public class RedisLoader
     public ResultsSession<Void> getResultSession(Session session)
     {
         requireNonNull(session, "session is null");
-        return new RedisLoadingSession(session);
+        return new RedisLoadingSession();
     }
 
     private class RedisLoadingSession
             implements ResultsSession<Void>
     {
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
-
-        private final TimeZoneKey timeZoneKey;
-
-        private RedisLoadingSession(Session session)
-        {
-            this.timeZoneKey = session.getTimeZoneKey();
-        }
 
         @Override
         public void addResults(QueryStatusInfo statusInfo, QueryData data)
@@ -164,15 +144,6 @@ public class RedisLoader
             }
             if (DATE.equals(type)) {
                 return value;
-            }
-            if (TIME_MILLIS.equals(type)) {
-                return ISO8601_FORMATTER.print(parseLegacyTime(timeZoneKey, (String) value));
-            }
-            if (TIMESTAMP_MILLIS.equals(type)) {
-                return ISO8601_FORMATTER.print(castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), (String) value));
-            }
-            if (TIME_TZ_MILLIS.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
-                return ISO8601_FORMATTER.print(unpackMillisUtc(DateTimeUtils.convertToTimestampWithTimeZone(timeZoneKey, (String) value)));
             }
             throw new AssertionError("unhandled type: " + type);
         }
