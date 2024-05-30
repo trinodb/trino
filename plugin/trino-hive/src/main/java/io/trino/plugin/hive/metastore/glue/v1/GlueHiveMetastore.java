@@ -155,10 +155,10 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParam
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertFunction;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertGlueTableToTableInput;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertPartition;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -510,7 +510,7 @@ public class GlueHiveMetastore
             GetTableRequest getTableRequest = new GetTableRequest().withDatabaseName(databaseName)
                     .withName(tableName);
             GetTableResult glueTable = glueClient.getTable(getTableRequest);
-            TableInput tableInput = convertGlueTableToTableInput(glueTable.getTable(), newTableName);
+            TableInput tableInput = convertGlueTableToTableInput(glueTable.getTable()).withName(newTableName);
             CreateTableRequest createTableRequest = new CreateTableRequest()
                     .withDatabaseName(newDatabaseName)
                     .withTableInput(tableInput);
@@ -531,24 +531,6 @@ public class GlueHiveMetastore
             }
             throw e;
         }
-    }
-
-    private static TableInput convertGlueTableToTableInput(com.amazonaws.services.glue.model.Table glueTable, String newTableName)
-    {
-        return new TableInput()
-                .withName(newTableName)
-                .withDescription(glueTable.getDescription())
-                .withOwner(glueTable.getOwner())
-                .withLastAccessTime(glueTable.getLastAccessTime())
-                .withLastAnalyzedTime(glueTable.getLastAnalyzedTime())
-                .withRetention(glueTable.getRetention())
-                .withStorageDescriptor(glueTable.getStorageDescriptor())
-                .withPartitionKeys(glueTable.getPartitionKeys())
-                .withViewOriginalText(glueTable.getViewOriginalText())
-                .withViewExpandedText(glueTable.getViewExpandedText())
-                .withTableType(getTableTypeNullable(glueTable))
-                .withTargetTable(glueTable.getTargetTable())
-                .withParameters(getTableParameters(glueTable));
     }
 
     @Override
