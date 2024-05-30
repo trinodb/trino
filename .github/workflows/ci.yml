@@ -481,6 +481,7 @@ jobs:
             - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-mongodb }
             - { modules: plugin/trino-mysql }
+            - { modules: plugin/trino-openlineage }
             - { modules: plugin/trino-opensearch }
             - { modules: plugin/trino-oracle }
             - { modules: plugin/trino-phoenix5 }
