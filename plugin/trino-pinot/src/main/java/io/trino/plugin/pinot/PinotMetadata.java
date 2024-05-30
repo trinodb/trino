@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -525,8 +524,7 @@ public class PinotMetadata
         return aggregateColumn;
     }
 
-    @VisibleForTesting
-    public List<ColumnMetadata> getColumnsMetadata(String tableName)
+    private List<ColumnMetadata> getColumnsMetadata(String tableName)
     {
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(tableName);
         return getFromCache(pinotTableColumnCache, pinotTableName).stream()
