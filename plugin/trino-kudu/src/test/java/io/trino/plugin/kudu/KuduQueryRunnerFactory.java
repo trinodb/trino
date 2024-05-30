@@ -14,176 +14,120 @@
 package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.net.HostAndPort;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.trino.Session;
+import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.Session.SessionBuilder;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
 public final class KuduQueryRunnerFactory
 {
     private KuduQueryRunnerFactory() {}
 
-    // TODO convert to builder
-    public static QueryRunner createKuduQueryRunner(TestingKuduServer kuduServer, Session session)
-            throws Exception
+    public static Builder builder(TestingKuduServer kuduServer)
     {
-        QueryRunner runner = null;
-        try {
-            runner = DistributedQueryRunner.builder(session).build();
+        return new Builder(kuduServer);
+    }
 
-            installKuduConnector(kuduServer.getMasterAddress(), runner, session.getSchema().orElse("kudu_smoke_test"), Optional.of(""));
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
+    {
+        private final TestingKuduServer kuduServer;
+        private final Map<String, String> connectorProperties = new HashMap<>();
+        private Optional<String> kuduSchemaEmulationPrefix = Optional.empty();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-            return runner;
+        private Builder(TestingKuduServer kuduServer)
+        {
+            super(testSessionBuilder()
+                    .setCatalog("kudu")
+                    .setSchema("default")
+                    .build());
+            this.kuduServer = requireNonNull(kuduServer, "kuduServer is null");
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, runner);
-            throw e;
+
+        @CanIgnoreReturnValue
+        public Builder setKuduSchemaEmulationPrefix(Optional<String> kuduSchemaEmulationPrefix)
+        {
+            this.kuduSchemaEmulationPrefix = requireNonNull(kuduSchemaEmulationPrefix, "kuduSchemaEmulationPrefix is null");
+            return this;
         }
-    }
 
-    // TODO convert to builder
-    public static QueryRunner createKuduQueryRunner(TestingKuduServer kuduServer, String kuduSchema)
-            throws Exception
-    {
-        QueryRunner runner = null;
-        try {
-            runner = DistributedQueryRunner.builder(createSession(kuduSchema)).build();
-
-            installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, Optional.of(""));
-
-            return runner;
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            this.connectorProperties.put(key, value);
+            return this;
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, runner);
-            throw e;
+
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(List<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(initialTables);
+            return this;
         }
-    }
 
-    // TODO convert to builder
-    public static QueryRunner createKuduQueryRunnerTpch(TestingKuduServer kuduServer, Optional<String> kuduSchemaEmulationPrefix, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createKuduQueryRunnerTpch(kuduServer, kuduSchemaEmulationPrefix, ImmutableList.copyOf(tables));
-    }
-
-    // TODO convert to builder
-    public static QueryRunner createKuduQueryRunnerTpch(TestingKuduServer kuduServer, Optional<String> kuduSchemaEmulationPrefix, Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createKuduQueryRunnerTpch(kuduServer, kuduSchemaEmulationPrefix, ImmutableMap.of(), ImmutableMap.of(), tables);
-    }
-
-    // TODO convert to builder
-    public static QueryRunner createKuduQueryRunnerTpch(
-            TestingKuduServer kuduServer,
-            Optional<String> kuduSchemaEmulationPrefix,
-            Map<String, String> kuduSessionProperties,
-            Map<String, String> extraProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createKuduQueryRunnerTpch(kuduServer, kuduSchemaEmulationPrefix, kuduSessionProperties, extraProperties, ImmutableMap.of(), tables);
-    }
-
-    // TODO convert to builder
-    private static QueryRunner createKuduQueryRunnerTpch(
-            TestingKuduServer kuduServer,
-            Optional<String> kuduSchemaEmulationPrefix,
-            Map<String, String> kuduSessionProperties,
-            Map<String, String> extraProperties,
-            Map<String, String> coordinatorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        QueryRunner runner = null;
-        try {
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
             String kuduSchema = kuduSchemaEmulationPrefix.isPresent() ? "tpch" : "default";
-            runner = DistributedQueryRunner.builder(createSession(kuduSchema, kuduSessionProperties))
-                    .setExtraProperties(extraProperties)
-                    .setCoordinatorProperties(coordinatorProperties)
-                    .build();
+            amendSession(sessionBuilder -> sessionBuilder.setSchema(kuduSchema));
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
 
-            runner.installPlugin(new TpchPlugin());
-            runner.createCatalog("tpch", "tpch");
+                if (kuduSchemaEmulationPrefix.isPresent()) {
+                    addConnectorProperty("kudu.schema-emulation.enabled", "true");
+                    addConnectorProperty("kudu.schema-emulation.prefix", kuduSchemaEmulationPrefix.get());
+                    addConnectorProperty("kudu.client.master-addresses", kuduServer.getMasterAddress().toString());
+                }
+                else {
+                    addConnectorProperty("kudu.schema-emulation.enabled", "false");
+                    addConnectorProperty("kudu.client.master-addresses", kuduServer.getMasterAddress().toString());
+                }
 
-            installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, kuduSchemaEmulationPrefix);
+                queryRunner.installPlugin(new KuduPlugin());
+                queryRunner.createCatalog("kudu", "kudu", connectorProperties);
 
-            copyTpchTables(runner, "tpch", TINY_SCHEMA_NAME, tables);
+                if (kuduSchemaEmulationPrefix.isPresent()) {
+                    queryRunner.execute("DROP SCHEMA IF EXISTS " + kuduSchema);
+                    queryRunner.execute("CREATE SCHEMA " + kuduSchema);
+                }
 
-            return runner;
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                Closables.closeAllSuppress(e, queryRunner);
+                throw e;
+            }
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, runner);
-            throw e;
-        }
-    }
-
-    private static void installKuduConnector(HostAndPort masterAddress, QueryRunner runner, String kuduSchema, Optional<String> kuduSchemaEmulationPrefix)
-    {
-        Map<String, String> properties;
-        if (kuduSchemaEmulationPrefix.isPresent()) {
-            properties = ImmutableMap.of(
-                    "kudu.schema-emulation.enabled", "true",
-                    "kudu.schema-emulation.prefix", kuduSchemaEmulationPrefix.get(),
-                    "kudu.client.master-addresses", masterAddress.toString());
-        }
-        else {
-            properties = ImmutableMap.of(
-                    "kudu.schema-emulation.enabled", "false",
-                    "kudu.client.master-addresses", masterAddress.toString());
-        }
-
-        runner.installPlugin(new KuduPlugin());
-        runner.createCatalog("kudu", "kudu", properties);
-
-        if (kuduSchemaEmulationPrefix.isPresent()) {
-            runner.execute("DROP SCHEMA IF EXISTS " + kuduSchema);
-            runner.execute("CREATE SCHEMA " + kuduSchema);
-        }
-    }
-
-    public static Session createSession(String schema, Map<String, String> kuduSessionProperties)
-    {
-        SessionBuilder builder = testSessionBuilder()
-                .setCatalog("kudu")
-                .setSchema(schema);
-        kuduSessionProperties.forEach((k, v) -> builder.setCatalogSessionProperty("kudu", k, v));
-        return builder.build();
-    }
-
-    public static Session createSession(String schema)
-    {
-        return testSessionBuilder()
-                .setCatalog("kudu")
-                .setSchema(schema)
-                .build();
     }
 
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        QueryRunner queryRunner = createKuduQueryRunnerTpch(
-                new TestingKuduServer(),
-                Optional.empty(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of("http-server.http.port", "8080"),
-                TpchTable.getTables());
+        QueryRunner queryRunner = builder(new TestingKuduServer())
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .setInitialTables(TpchTable.getTables())
+                .build();
+
         Logger log = Logger.get(KuduQueryRunnerFactory.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
