@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -69,24 +70,32 @@ public abstract class BaseMongoFailureRecoveryTest
     @Override
     protected void testDelete()
     {
-        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
-        abort("skipped");
+        // This simple delete on Mongo ends up as a very simple, single-fragment, coordinator-only plan,
+        // which has no ability to recover from errors. This test simply verifies that's still the case.
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
+        String testQuery = "DELETE FROM <table> WHERE orderkey = 1";
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
+
+        assertThatQuery(testQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .isCoordinatorOnly();
     }
 
     @Test
     @Override
     protected void testDeleteWithSubquery()
     {
-        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
-        abort("skipped");
+        // TODO: solve https://github.com/trinodb/trino/issues/22256
+        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support MERGE with retries");
     }
 
     @Test
     @Override
     protected void testMerge()
     {
-        assertThatThrownBy(super::testMerge).hasMessageContaining("This connector does not support modifying table rows");
-        abort("skipped");
+        // TODO: solve https://github.com/trinodb/trino/issues/22256
+        assertThatThrownBy(super::testMerge).hasMessageContaining("This connector does not support MERGE with retries");
     }
 
     @Test
@@ -102,16 +111,16 @@ public abstract class BaseMongoFailureRecoveryTest
     @Override
     protected void testUpdate()
     {
-        assertThatThrownBy(super::testUpdate).hasMessageContaining("This connector does not support modifying table rows");
-        abort("skipped");
+        // TODO: solve https://github.com/trinodb/trino/issues/22256
+        assertThatThrownBy(super::testUpdate).hasMessageContaining("This connector does not support MERGE with retries");
     }
 
     @Test
     @Override
     protected void testUpdateWithSubquery()
     {
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
-        abort("skipped");
+        // TODO: solve https://github.com/trinodb/trino/issues/22256
+        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("This connector does not support MERGE with retries");
     }
 
     @Override

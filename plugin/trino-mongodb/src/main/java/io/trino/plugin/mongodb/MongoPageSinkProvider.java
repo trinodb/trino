@@ -15,6 +15,8 @@ package io.trino.plugin.mongodb;
 
 import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeSink;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
@@ -49,5 +51,20 @@ public class MongoPageSinkProvider
     {
         MongoInsertTableHandle handle = (MongoInsertTableHandle) insertTableHandle;
         return new MongoPageSink(mongoSession, handle.getTemporaryRemoteTableName().orElseGet(handle::remoteTableName), handle.columns(), implicitPrefix, handle.pageSinkIdColumnName(), pageSinkId);
+    }
+
+    @Override
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
+    {
+        MongoMergeTableHandle handle = (MongoMergeTableHandle) mergeHandle;
+        return new MongoMergeSink(
+                mongoSession,
+                handle.getTemporaryRemoteTableName().orElseGet(handle::remoteTableName),
+                handle.columns(),
+                handle.updateCaseColumns(),
+                handle.mergeRowIdColumn(),
+                implicitPrefix,
+                handle.pageSinkIdColumnName(),
+                pageSinkId);
     }
 }
