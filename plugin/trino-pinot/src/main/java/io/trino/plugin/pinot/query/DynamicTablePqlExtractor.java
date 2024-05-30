@@ -43,21 +43,9 @@ public final class DynamicTablePqlExtractor
                         .append(format("'%s'", queryOptions.get(key)))
                         .append(";\n"));
         builder.append("SELECT ");
-        if (!table.projections().isEmpty()) {
-            builder.append(table.projections().stream()
-                    .map(DynamicTablePqlExtractor::formatExpression)
-                    .collect(joining(", ")));
-        }
-
-        if (!table.aggregateColumns().isEmpty()) {
-            // If there are only pushed down aggregate expressions
-            if (!table.projections().isEmpty()) {
-                builder.append(", ");
-            }
-            builder.append(table.aggregateColumns().stream()
-                    .map(DynamicTablePqlExtractor::formatExpression)
-                    .collect(joining(", ")));
-        }
+        builder.append(table.getColumnHandlesForSelect()
+                .map(DynamicTablePqlExtractor::formatExpression)
+                .collect(joining(", ")));
         builder.append(" FROM ");
         builder.append(table.tableName());
         builder.append(table.suffix().orElse(""));

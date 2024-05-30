@@ -15,12 +15,14 @@ package io.trino.plugin.pinot.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import io.trino.plugin.pinot.PinotColumnHandle;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -63,5 +65,10 @@ public record DynamicTable(
     {
         return projections.stream()
                 .anyMatch(PinotColumnHandle::isAggregate);
+    }
+
+    public Stream<PinotColumnHandle> getColumnHandlesForSelect()
+    {
+        return Streams.concat(projections.stream(), aggregateColumns.stream());
     }
 }
