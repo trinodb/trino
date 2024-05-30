@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.kudu;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import io.opentelemetry.api.trace.Span;
@@ -47,7 +46,6 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
@@ -64,14 +62,13 @@ public class TestKuduIntegrationDynamicFilter
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createKuduQueryRunnerTpch(
-                closeAfterClass(new TestingKuduServer()),
-                Optional.of(""),
-                ImmutableMap.of("dynamic_filtering_wait_timeout", "1h"),
-                ImmutableMap.of(
-                        "dynamic-filtering.small.max-distinct-values-per-driver", "100",
-                        "dynamic-filtering.small.range-row-limit-per-driver", "100"),
-                List.of(LINE_ITEM, ORDERS, PART));
+        return KuduQueryRunnerFactory.builder(closeAfterClass(new TestingKuduServer()))
+                .setKuduSchemaEmulationPrefix(Optional.of(""))
+                .addConnectorProperty("kudu.dynamic-filtering.wait-timeout", "1h")
+                .addExtraProperty("dynamic-filtering.small.max-distinct-values-per-driver", "100")
+                .addExtraProperty("dynamic-filtering.small.range-row-limit-per-driver", "100")
+                .setInitialTables(List.of(LINE_ITEM, ORDERS, PART))
+                .build();
     }
 
     @Test
