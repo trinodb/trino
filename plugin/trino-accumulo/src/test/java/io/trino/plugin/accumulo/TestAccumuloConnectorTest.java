@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.regex.Pattern;
 
-import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.util.regex.Pattern.DOTALL;
@@ -50,7 +49,7 @@ public class TestAccumuloConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createAccumuloQueryRunner();
+        return AccumuloQueryRunner.builder().build();
     }
 
     @Override
