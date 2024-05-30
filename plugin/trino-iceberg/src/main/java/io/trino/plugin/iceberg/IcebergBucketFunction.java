@@ -95,7 +95,7 @@ public class IcebergBucketFunction
         return (int) ((hash & Long.MAX_VALUE) % bucketCount);
     }
 
-    private static long hashValue(MethodHandle method, Object value)
+    public static long hashValue(MethodHandle method, Object value)
     {
         if (value == null) {
             return NULL_HASH_CODE;
@@ -114,7 +114,7 @@ public class IcebergBucketFunction
         }
     }
 
-    private static class PartitionColumn
+    public static class PartitionColumn
     {
         private final int sourceChannel;
         private final ValueTransform valueTransform;

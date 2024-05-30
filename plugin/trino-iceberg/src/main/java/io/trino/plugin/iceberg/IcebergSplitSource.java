@@ -138,6 +138,7 @@ public class IcebergSplitSource
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
     private long outputRowsLowerBound;
     private final CachingHostAddressProvider cachingHostAddressProvider;
+    private final Optional<IcebergPartitionBucketFunction> icebergBucketFunction;
 
     public IcebergSplitSource(
             IcebergFileSystemFactory fileSystemFactory,
@@ -187,6 +188,19 @@ public class IcebergSplitSource
                 .collect(toImmutableSet());
         this.fileModifiedTimeDomain = getFileModifiedTimePathDomain(tableHandle.getEnforcedPredicate());
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
+        if (tableHandle.getPartitioningHandle().isPresent()) {
+            BucketedIcebergPartitioningHandle partitioningHandle = (BucketedIcebergPartitioningHandle) tableHandle.getPartitioningHandle().get();
+            this.icebergBucketFunction = Optional.of(new IcebergPartitionBucketFunction(
+                    tableScan.table().schema(),
+                    typeManager,
+                    partitioningHandle.getPartitioning(),
+                    partitioningHandle.getPartitioningColumns(),
+                    tableScan.table().specs().get(partitioningHandle.getSpecId()),
+                    partitioningHandle.getMaxCompatibleBucketCounts()));
+        }
+        else {
+            this.icebergBucketFunction = Optional.empty();
+        }
     }
 
     @Override
@@ -502,6 +516,7 @@ public class IcebergSplitSource
 
     private IcebergSplit toIcebergSplit(FileScanTask task, TupleDomain<IcebergColumnHandle> fileStatisticsDomain)
     {
+        Optional<Integer> bucketId = this.icebergBucketFunction.map(func -> func.getBucket(task.partition(), task.spec().specId()));
         return new IcebergSplit(
                 task.file().path().toString(),
                 task.start(),
@@ -518,6 +533,7 @@ public class IcebergSplitSource
                 fileStatisticsDomain,
                 fileIoProperties,
                 cachingHostAddressProvider.getHosts(task.file().path().toString(), ImmutableList.of()),
-                task.file().dataSequenceNumber());
+                task.file().dataSequenceNumber(),
+                bucketId);
     }
 }
