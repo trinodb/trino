@@ -189,7 +189,7 @@ public class PinotMetadata
         }
         SchemaTableName tableName = new SchemaTableName(pinotTableHandle.getSchemaName(), pinotTableHandle.getTableName());
 
-        return getTableMetadata(tableName);
+        return new ConnectorTableMetadata(tableName, getColumnsMetadata(tableName.getTableName()));
     }
 
     @Override
@@ -554,11 +554,6 @@ public class PinotMetadata
         dynamicTable.aggregateColumns()
                 .forEach(columnHandle -> columnHandlesBuilder.put(columnHandle.getColumnName().toLowerCase(ENGLISH), columnHandle));
         return columnHandlesBuilder.buildOrThrow();
-    }
-
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
-    {
-        return new ConnectorTableMetadata(tableName, getColumnsMetadata(tableName.getTableName()));
     }
 
     private List<PinotColumnHandle> getPinotColumnHandlesForPinotSchema(Schema pinotTableSchema)
