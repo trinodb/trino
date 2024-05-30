@@ -30,8 +30,8 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -42,17 +42,19 @@ import io.trino.spi.predicate.ValueSet;
 import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.redis.RedisSplit.toRedisDataType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.util.Objects.requireNonNull;
+import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -251,28 +253,24 @@ public class RedisMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
-        requireNonNull(prefix, "prefix is null");
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
 
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-
-        List<SchemaTableName> tableNames;
-        if (prefix.getTable().isEmpty()) {
-            tableNames = listTables(session, prefix.getSchema());
-        }
-        else {
-            tableNames = ImmutableList.of(prefix.toSchemaTableName());
-        }
-
-        for (SchemaTableName tableName : tableNames) {
+        for (SchemaTableName tableName : listTables(session, schemaName)) {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
             // table can disappear during listing operation
             if (tableMetadata != null) {
-                columns.put(tableName, tableMetadata.getColumns());
+                relationColumns.put(tableName, forTable(tableName, tableMetadata.getColumns()));
             }
         }
-        return columns.buildOrThrow();
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
+                .iterator();
     }
 
     @Override
