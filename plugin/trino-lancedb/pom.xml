@@ -36,15 +36,13 @@
         <dependency>
             <groupId>com.lancedb</groupId>
             <artifactId>lance-core</artifactId>
-            <!-- TODO: fix it once official release is out -->
-            <version>0.1-SNAPSHOT</version>
+            <version>0.0.3</version>
         </dependency>
 
         <dependency>
             <groupId>com.lancedb</groupId>
             <artifactId>lancedb-core</artifactId>
-            <!-- TODO: fix it once official release is out -->
-            <version>0.1-SNAPSHOT</version>
+            <version>0.0.2</version>
         </dependency>
 
         <dependency>
