@@ -39,8 +39,12 @@ public final class EncryptDecryptFunction {
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType("varchar(16)") Slice key,
             @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice charset) {
-        SymmetricCrypto sm4 = SmUtil.sm4(key.getBytes());
-        return Slices.utf8Slice(sm4.encryptHex(sliceToString(text), sliceToString(charset)));
+        try {
+            SymmetricCrypto sm4 = SmUtil.sm4(key.getBytes());
+            return Slices.utf8Slice(sm4.encryptHex(sliceToString(text), sliceToString(charset)));
+        } catch (Exception e) {
+            throw new RuntimeException("加密失败,检查SM4密钥是否正确.");
+        }
     }
 
     @ScalarFunction("from_sm4")
@@ -50,8 +54,12 @@ public final class EncryptDecryptFunction {
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType("varchar(16)") Slice key,
             @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice charset) {
-        SymmetricCrypto sm4 = SmUtil.sm4(key.getBytes());
-        return Slices.utf8Slice(sm4.decryptStr(sliceToString(text), CharsetUtil.parse(sliceToString(charset))));
+        try {
+            SymmetricCrypto sm4 = SmUtil.sm4(key.getBytes());
+            return Slices.utf8Slice(sm4.decryptStr(sliceToString(text), CharsetUtil.parse(sliceToString(charset))));
+        } catch (Exception e) {
+            throw new RuntimeException("解密失败,检查SM4密钥是否正确.");
+        }
     }
 
 
@@ -61,8 +69,12 @@ public final class EncryptDecryptFunction {
     public static Slice sm2Encrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice hexPublicKey) {
-        SM2 sm2 = SmUtil.sm2(null, sliceToString(hexPublicKey));
-        return Slices.utf8Slice(sm2.encryptBase64(text.getBytes(), KeyType.PublicKey));
+        try {
+            SM2 sm2 = SmUtil.sm2(null, sliceToString(hexPublicKey));
+            return Slices.utf8Slice(sm2.encryptBase64(text.getBytes(), KeyType.PublicKey));
+        } catch (Exception e) {
+            throw new RuntimeException("加密失败,检查SM2公钥是否正确.");
+        }
     }
 
     @ScalarFunction("from_sm2")
@@ -71,8 +83,12 @@ public final class EncryptDecryptFunction {
     public static Slice sm2Decrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice hexPrivateKey) {
-        SM2 sm2 = SmUtil.sm2(sliceToString(hexPrivateKey), null);
-        return Slices.utf8Slice(sm2.decryptStr(sliceToString(text), KeyType.PrivateKey));
+        try {
+            SM2 sm2 = SmUtil.sm2(sliceToString(hexPrivateKey), null);
+            return Slices.utf8Slice(sm2.decryptStr(sliceToString(text), KeyType.PrivateKey));
+        } catch (Exception e) {
+            throw new RuntimeException("解密失败,检查SM2私钥是否正确.");
+        }
     }
 
     @ScalarFunction("rsa")
@@ -81,8 +97,12 @@ public final class EncryptDecryptFunction {
     public static Slice rsaEncrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice publicKey) {
-        RSA rsa = new RSA(null, sliceToString(publicKey));
-        return Slices.utf8Slice(rsa.encryptBase64(sliceToString(text), KeyType.PublicKey));
+        try {
+            RSA rsa = new RSA(null, sliceToString(publicKey));
+            return Slices.utf8Slice(rsa.encryptBase64(sliceToString(text), KeyType.PublicKey));
+        } catch (Exception e) {
+            throw new RuntimeException("加密失败,检查RSA公钥是否正确.");
+        }
     }
 
     @ScalarFunction("from_rsa")
@@ -91,8 +111,12 @@ public final class EncryptDecryptFunction {
     public static Slice rsaDecrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice privateKey) {
-        RSA rsa = new RSA(sliceToString(privateKey), null);
-        return Slices.utf8Slice(rsa.decryptStr(sliceToString(text), KeyType.PrivateKey));
+        try {
+            RSA rsa = new RSA(sliceToString(privateKey), null);
+            return Slices.utf8Slice(rsa.decryptStr(sliceToString(text), KeyType.PrivateKey));
+        } catch (Exception e) {
+            throw new RuntimeException("解密失败,检查RSA私钥是否正确.");
+        }
     }
 
 
@@ -102,8 +126,12 @@ public final class EncryptDecryptFunction {
     public static Slice aesEncrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice key) {
-        AES aes = SecureUtil.aes(key.getBytes());
-        return Slices.utf8Slice(aes.encryptHex(sliceToString(text)));
+        try {
+            AES aes = SecureUtil.aes(key.getBytes());
+            return Slices.utf8Slice(aes.encryptHex(sliceToString(text)));
+        } catch (Exception e) {
+            throw new RuntimeException("加密失败,检查AES密钥是否正确.");
+        }
     }
 
     @ScalarFunction("from_aes")
@@ -112,8 +140,12 @@ public final class EncryptDecryptFunction {
     public static Slice aesDecrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType("varchar(16)") Slice key) {
-        AES aes = SecureUtil.aes(key.getBytes());
-        return Slices.utf8Slice(aes.decryptStr(sliceToString(text), CharsetUtil.CHARSET_UTF_8));
+        try {
+            AES aes = SecureUtil.aes(key.getBytes());
+            return Slices.utf8Slice(aes.decryptStr(sliceToString(text), CharsetUtil.CHARSET_UTF_8));
+        } catch (Exception e) {
+            throw new RuntimeException("解密失败,检查AES密钥是否正确.");
+        }
     }
 
     @ScalarFunction("des")
@@ -122,8 +154,12 @@ public final class EncryptDecryptFunction {
     public static Slice desEncrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice key) {
-        DES des = SecureUtil.des(key.getBytes());
-        return Slices.utf8Slice(des.encryptHex(sliceToString(text)));
+        try {
+            DES des = SecureUtil.des(key.getBytes());
+            return Slices.utf8Slice(des.encryptHex(sliceToString(text)));
+        } catch (Exception e) {
+            throw new RuntimeException("加密失败,检查DES密钥是否正确.");
+        }
     }
 
     @ScalarFunction("from_des")
@@ -132,8 +168,12 @@ public final class EncryptDecryptFunction {
     public static Slice desDecrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType("varchar(16)") Slice key) {
-        DES des = SecureUtil.des(key.getBytes());
-        return Slices.utf8Slice(des.decryptStr(sliceToString(text), CharsetUtil.CHARSET_UTF_8));
+        try {
+            DES des = SecureUtil.des(key.getBytes());
+            return Slices.utf8Slice(des.decryptStr(sliceToString(text), CharsetUtil.CHARSET_UTF_8));
+        } catch (Exception e) {
+            throw new RuntimeException("解密失败,检查DES密钥是否正确.");
+        }
     }
 
 
@@ -143,7 +183,7 @@ public final class EncryptDecryptFunction {
     public static Slice shiftLeft(
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlType(StandardTypes.BIGINT) long offset) {
-        return Slices.utf8Slice(shiftLeft(sliceToString(text),(int) offset));
+        return Slices.utf8Slice(shiftLeft(sliceToString(text), (int) offset));
     }
 
     @ScalarFunction("shift_right")
