@@ -29,6 +29,7 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -46,6 +47,7 @@ import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
@@ -107,6 +109,7 @@ import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
+import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -130,6 +133,7 @@ public class MongoMetadata
     private static final Type TRINO_PAGE_SINK_ID_COLUMN_TYPE = BigintType.BIGINT;
 
     private static final int MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH = 120;
+    private static final String MERGE_ROW_ID_BASE_NAME = "_id";
 
     private final MongoSession mongoSession;
 
@@ -545,9 +549,45 @@ public class MongoMetadata
     }
 
     @Override
+    public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return CHANGE_ONLY_UPDATED_COLUMNS;
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
+        MongoInsertTableHandle insertTableHandle = (MongoInsertTableHandle) beginInsert(session, tableHandle, ImmutableList.of(), retryMode);
+        return new MongoMergeTableHandle(
+                insertTableHandle.remoteTableName(),
+                insertTableHandle.columns(),
+                (MongoColumnHandle) getMergeRowIdColumnHandle(session, tableHandle),
+                table.filter(),
+                table.constraint(),
+                insertTableHandle.temporaryTableName(),
+                insertTableHandle.pageSinkIdColumnName());
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session,
+            ConnectorMergeTableHandle mergeTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        MongoMergeTableHandle tableHandle = (MongoMergeTableHandle) mergeTableHandle;
+        MongoInsertTableHandle insertTableHandle = new MongoInsertTableHandle(tableHandle.remoteTableName(), ImmutableList.copyOf(tableHandle.columns()), tableHandle.temporaryTableName(), tableHandle.pageSinkIdColumnName());
+        finishInsert(session, insertTableHandle, ImmutableList.of(), fragments, computedStatistics);
+    }
+
+    @Override
     public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new MongoColumnHandle("$merge_row_id", ImmutableList.of(), BIGINT, true, false, Optional.empty());
+        Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tableHandle);
+        checkState(columnHandles.containsKey(MERGE_ROW_ID_BASE_NAME), "id column %s not exists", MERGE_ROW_ID_BASE_NAME);
+        Type idColumnType = ((MongoColumnHandle) columnHandles.get(MERGE_ROW_ID_BASE_NAME)).type();
+        return new MongoColumnHandle(MERGE_ROW_ID_BASE_NAME, ImmutableList.of(), idColumnType, true, false, Optional.empty());
     }
 
     @Override
