@@ -15,6 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.pinot.version>1.1.0</dep.pinot.version>
+        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <!-- additional JVM flags required by chronicle-hft which is used by pinot-segment spi -->
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}
             --add-opens=java.base/java.lang.reflect=ALL-UNNAMED</air.test.jvm.additional-arguments>
