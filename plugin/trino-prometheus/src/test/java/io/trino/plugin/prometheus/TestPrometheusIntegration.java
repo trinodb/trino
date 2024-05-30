@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
@@ -26,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.plugin.prometheus.PrometheusQueryRunner.createPrometheusClient;
-import static io.trino.plugin.prometheus.PrometheusQueryRunner.createPrometheusQueryRunner;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,7 +43,7 @@ public class TestPrometheusIntegration
     {
         this.server = closeAfterClass(new PrometheusServer());
         this.client = createPrometheusClient(server);
-        return createPrometheusQueryRunner(server, ImmutableMap.of());
+        return PrometheusQueryRunner.builder(server).build();
     }
 
     @Test
