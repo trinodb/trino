@@ -47,7 +47,6 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPI
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUNDING_MODE;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.trino.plugin.phoenix5.PhoenixQueryRunner.createPhoenixQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -108,7 +107,8 @@ public class TestPhoenixTypeMapping
             throws Exception
     {
         phoenixServer = closeAfterClass(TestingPhoenixServer.getInstance()).get();
-        return createPhoenixQueryRunner(phoenixServer, ImmutableList.of());
+        return PhoenixQueryRunner.builder(phoenixServer)
+                .build();
     }
 
     @Test
