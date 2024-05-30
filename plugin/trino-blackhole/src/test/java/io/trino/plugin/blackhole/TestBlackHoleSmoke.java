@@ -59,7 +59,7 @@ public class TestBlackHoleSmoke
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BlackHoleQueryRunner.createQueryRunner();
+        return BlackHoleQueryRunner.builder().build();
     }
 
     @AfterAll
