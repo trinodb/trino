@@ -49,8 +49,9 @@ import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
@@ -61,6 +62,7 @@ import io.trino.spi.type.Type;
 import org.apache.pinot.spi.data.Schema;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,6 +72,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -82,6 +85,7 @@ import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdown
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -220,18 +224,25 @@ public class PinotMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
-        requireNonNull(prefix, "prefix is null");
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, prefix)) {
-            ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
-            // table can disappear during listing operation
-            if (tableMetadata != null) {
-                columns.put(tableName, tableMetadata.getColumns());
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
+
+        for (SchemaTableName tableName : listTables(session, schemaName)) {
+            try {
+                relationColumns.put(tableName, forTable(tableName, getColumnsMetadata(tableName.getTableName())));
+            }
+            catch (TableNotFoundException e) {
+                // table disappeared during listing operation
             }
         }
-        return columns.buildOrThrow();
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
+                .iterator();
     }
 
     @Override
@@ -558,14 +569,6 @@ public class PinotMetadata
                 .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in PQL
                 .map(columnName -> new PinotColumnHandle(columnName, typeConverter.toTrinoType(pinotTableSchema.getFieldSpecFor(columnName))))
                 .collect(toImmutableList());
-    }
-
-    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        if (prefix.getSchema().isEmpty() || prefix.getTable().isEmpty()) {
-            return listTables(session, Optional.empty());
-        }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchema().get(), prefix.getTable().get()));
     }
 
     private static class CountDistinctContext
