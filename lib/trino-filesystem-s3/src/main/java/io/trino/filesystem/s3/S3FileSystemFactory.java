@@ -38,18 +38,22 @@ import software.amazon.awssdk.services.sts.auth.StsWebIdentityTokenFileCredentia
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryMode;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static java.lang.Math.toIntExact;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public final class S3FileSystemFactory
         implements TrinoFileSystemFactory
 {
     private final S3Client client;
     private final S3Context context;
+    private final ExecutorService uploadExecutor;
 
     @Inject
     public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config)
@@ -122,12 +126,15 @@ public final class S3FileSystemFactory
                 config.getSseKmsKeyId(),
                 Optional.empty(),
                 config.getCannedAcl());
+
+        this.uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
     }
 
     @PreDestroy
     public void destroy()
     {
         client.close();
+        uploadExecutor.shutdownNow();
     }
 
     @Override
@@ -138,10 +145,10 @@ public final class S3FileSystemFactory
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY),
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
-            return new S3FileSystem(client, context.withCredentialsProviderOverride(credentialsProvider));
+            return new S3FileSystem(uploadExecutor, client, context.withCredentialsProviderOverride(credentialsProvider));
         }
 
-        return new S3FileSystem(client, context);
+        return new S3FileSystem(uploadExecutor, client, context);
     }
 
     private static Optional<StaticCredentialsProvider> getStaticCredentialsProvider(S3FileSystemConfig config)
