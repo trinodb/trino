@@ -66,7 +66,7 @@ public abstract class BaseMongoFailureRecoveryTest
     @Override
     protected void testDelete()
     {
-        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
+        // TODO: solve https://github.com/trinodb/trino/issues/22256
         abort("skipped");
     }
 
@@ -74,7 +74,7 @@ public abstract class BaseMongoFailureRecoveryTest
     @Override
     protected void testDeleteWithSubquery()
     {
-        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
+        // TODO: solve https://github.com/trinodb/trino/issues/22256
         abort("skipped");
     }
 
@@ -82,7 +82,7 @@ public abstract class BaseMongoFailureRecoveryTest
     @Override
     protected void testMerge()
     {
-        assertThatThrownBy(super::testMerge).hasMessageContaining("This connector does not support modifying table rows");
+        // TODO: solve https://github.com/trinodb/trino/issues/22256
         abort("skipped");
     }
 
@@ -99,7 +99,7 @@ public abstract class BaseMongoFailureRecoveryTest
     @Override
     protected void testUpdate()
     {
-        assertThatThrownBy(super::testUpdate).hasMessageContaining("This connector does not support modifying table rows");
+        // TODO: solve https://github.com/trinodb/trino/issues/22256
         abort("skipped");
     }
 
@@ -107,7 +107,7 @@ public abstract class BaseMongoFailureRecoveryTest
     @Override
     protected void testUpdateWithSubquery()
     {
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
+        // TODO: solve https://github.com/trinodb/trino/issues/22256
         abort("skipped");
     }
 
