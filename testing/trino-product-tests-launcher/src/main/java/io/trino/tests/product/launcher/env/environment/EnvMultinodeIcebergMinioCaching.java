@@ -24,12 +24,25 @@ import io.trino.tests.product.launcher.env.common.Minio;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.Set;
+
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.common.Minio.MINIO_CONTAINER_NAME;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class EnvMultinodeIcebergMinioCaching
         extends EnvironmentProvider
 {
+    private static final String S3_BUCKET_NAME = "test-bucket";
+
     private final ResourceProvider configDir;
 
     @Inject
@@ -42,6 +55,23 @@ public final class EnvMultinodeIcebergMinioCaching
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
+        builder.configureContainer(TESTS, dockerContainer -> {
+            dockerContainer.withEnv("S3_BUCKET", S3_BUCKET_NAME);
+        });
+
+        // initialize buckets in minio
+        FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
+        Path minioBucketDirectory;
+        try {
+            minioBucketDirectory = Files.createTempDirectory("test-bucket-contents", posixFilePermissions);
+            minioBucketDirectory.toFile().deleteOnExit();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        builder.configureContainer(MINIO_CONTAINER_NAME, container ->
+                container.withCopyFileToContainer(forHostPath(minioBucketDirectory), "/data/" + S3_BUCKET_NAME));
+
         builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg.properties")));
         builder.configureContainers(container -> container.withTmpFs(ImmutableMap.of("/tmp/cache", "rw")));
     }
