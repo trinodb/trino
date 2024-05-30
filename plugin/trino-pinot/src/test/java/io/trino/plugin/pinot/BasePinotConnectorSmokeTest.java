@@ -41,6 +41,7 @@ import org.apache.pinot.common.utils.TarGzCompressionUtils;
 import org.apache.pinot.segment.local.recordtransformer.CompositeTransformer;
 import org.apache.pinot.segment.local.recordtransformer.RecordTransformer;
 import org.apache.pinot.segment.local.segment.creator.RecordReaderSegmentCreationDataSource;
+import org.apache.pinot.segment.local.segment.creator.TransformPipeline;
 import org.apache.pinot.segment.local.segment.creator.impl.SegmentIndexCreationDriverImpl;
 import org.apache.pinot.segment.local.segment.readers.GenericRowRecordReader;
 import org.apache.pinot.segment.spi.creator.SegmentCreationDataSource;
@@ -637,8 +638,8 @@ public abstract class BasePinotConnectorSmokeTest
                         tableName,
                         null,
                         false,
-                        tableConfig.getValidationConfig().getSegmentPushType(),
-                        tableConfig.getValidationConfig().getSegmentPushFrequency(),
+                        "APPEND",
+                        "daily",
                         formatSpec,
                         null));
             }
@@ -659,7 +660,7 @@ public abstract class BasePinotConnectorSmokeTest
                 return record;
             };
             SegmentIndexCreationDriverImpl driver = new SegmentIndexCreationDriverImpl();
-            driver.init(segmentGeneratorConfig, dataSource, recordTransformer, null);
+            driver.init(segmentGeneratorConfig, dataSource, new TransformPipeline(recordTransformer, null));
             driver.build();
             File segmentOutputDirectory = driver.getOutputDirectory();
             File tgzPath = new File(String.join(File.separator, outputDirectory, segmentOutputDirectory.getName() + ".tar.gz"));
