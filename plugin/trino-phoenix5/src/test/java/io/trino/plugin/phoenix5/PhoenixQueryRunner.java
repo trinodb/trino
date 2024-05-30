@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.phoenix5;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -27,6 +29,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -37,6 +40,7 @@ import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.PART_SUPPLIER;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class PhoenixQueryRunner
 {
@@ -47,36 +51,65 @@ public final class PhoenixQueryRunner
     {
     }
 
-    // TODO convert to builder
-    public static QueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, List<TpchTable<?>> tables)
-            throws Exception
+    public static Builder builder(TestingPhoenixServer phoenixServer)
     {
-        return createPhoenixQueryRunner(server, ImmutableMap.of(), tables);
+        return new Builder(phoenixServer)
+                .addConnectorProperty("phoenix.connection-url", phoenixServer.getJdbcUrl())
+                .addConnectorProperty("case-insensitive-name-matching", "true");
     }
 
-    // TODO convert to builder
-    private static QueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> coordinatorProperties, List<TpchTable<?>> tables)
-            throws Exception
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setCoordinatorProperties(coordinatorProperties)
-                .build();
+        private final TestingPhoenixServer phoenixServer;
+        private final Map<String, String> connectorProperties = new HashMap<>();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
+        private Builder(TestingPhoenixServer phoenixServer)
+        {
+            super(testSessionBuilder()
+                    .setCatalog("phoenix")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
+            this.phoenixServer = requireNonNull(phoenixServer, "phoenixServer is null");
+        }
 
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("phoenix.connection-url", server.getJdbcUrl())
-                .put("case-insensitive-name-matching", "true")
-                .buildOrThrow();
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            this.connectorProperties.put(key, value);
+            return this;
+        }
 
-        queryRunner.installPlugin(new PhoenixPlugin());
-        queryRunner.createCatalog("phoenix", "phoenix5", properties);
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(List<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(initialTables);
+            return this;
+        }
 
-        createSchema(server, TPCH_SCHEMA);
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
 
-        return queryRunner;
+                queryRunner.installPlugin(new PhoenixPlugin());
+                queryRunner.createCatalog("phoenix", "phoenix5", connectorProperties);
+
+                createSchema(phoenixServer, TPCH_SCHEMA);
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), initialTables);
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                Closables.closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     private static void createSchema(TestingPhoenixServer phoenixServer, String schema)
@@ -141,10 +174,9 @@ public final class PhoenixQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = createPhoenixQueryRunner(
-                TestingPhoenixServer.getInstance().get(),
-                ImmutableMap.of("http-server.http.port", "8080"),
-                TpchTable.getTables());
+        QueryRunner queryRunner = PhoenixQueryRunner.builder(TestingPhoenixServer.getInstance().get())
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
 
         Logger log = Logger.get(PhoenixQueryRunner.class);
         log.info("======== SERVER STARTED ========");
