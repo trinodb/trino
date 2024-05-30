@@ -22,7 +22,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.offset;
@@ -49,7 +48,7 @@ public class TestKuduIntegrationDecimalColumns
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createKuduQueryRunner(closeAfterClass(new TestingKuduServer()), "decimal");
+        return KuduQueryRunnerFactory.builder(closeAfterClass(new TestingKuduServer())).build();
     }
 
     @AfterAll

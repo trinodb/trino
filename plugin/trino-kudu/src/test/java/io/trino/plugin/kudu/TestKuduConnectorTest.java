@@ -29,7 +29,6 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -51,10 +50,9 @@ public class TestKuduConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createKuduQueryRunnerTpch(
-                closeAfterClass(new TestingKuduServer()),
-                Optional.empty(),
-                REQUIRED_TPCH_TABLES);
+        return KuduQueryRunnerFactory.builder(closeAfterClass(new TestingKuduServer()))
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override

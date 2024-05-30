@@ -19,7 +19,6 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKuduIntegrationHashPartitioning
@@ -29,7 +28,7 @@ public class TestKuduIntegrationHashPartitioning
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createKuduQueryRunner(closeAfterClass(new TestingKuduServer()), "hash");
+        return KuduQueryRunnerFactory.builder(closeAfterClass(new TestingKuduServer())).build();
     }
 
     @Test
