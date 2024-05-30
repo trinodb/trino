@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -44,6 +45,7 @@ public class KafkaSplit
     private final int partitionId;
     private final Range messagesRange;
     private final HostAddress leader;
+    private final OptionalLong limit;
 
     @JsonCreator
     public KafkaSplit(
@@ -54,7 +56,8 @@ public class KafkaSplit
             @JsonProperty("messageDataSchemaContents") Optional<String> messageDataSchemaContents,
             @JsonProperty("partitionId") int partitionId,
             @JsonProperty("messagesRange") Range messagesRange,
-            @JsonProperty("leader") HostAddress leader)
+            @JsonProperty("leader") HostAddress leader,
+            @JsonProperty("limit") OptionalLong limit)
     {
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
@@ -64,6 +67,27 @@ public class KafkaSplit
         this.partitionId = partitionId;
         this.messagesRange = requireNonNull(messagesRange, "messagesRange is null");
         this.leader = requireNonNull(leader, "leader is null");
+        this.limit = requireNonNull(limit, "limit is null");
+    }
+
+    /**
+     * Returns a KafkaSplit object for the given messagesRange.
+     *
+     * @param messagesRange The range of messages for the split.
+     * @return A KafkaSplit object initialized with the appropriate properties.
+     */
+    public KafkaSplit getSplitByRange(Range messagesRange)
+    {
+        return new KafkaSplit(
+                getTopicName(),
+                getKeyDataFormat(),
+                getMessageDataFormat(),
+                getKeyDataSchemaContents(),
+                getMessageDataSchemaContents(),
+                getPartitionId(),
+                messagesRange,
+                getLeader(),
+                getLimit());
     }
 
     @JsonProperty
@@ -137,6 +161,11 @@ public class KafkaSplit
                 + sizeOf(messageDataSchemaContents, SizeOf::estimatedSizeOf)
                 + messagesRange.retainedSizeInBytes()
                 + leader.getRetainedSizeInBytes();
+    }
+
+    public OptionalLong getLimit()
+    {
+        return limit;
     }
 
     @Override

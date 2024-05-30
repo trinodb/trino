@@ -43,4 +43,16 @@ public record Range(long begin, long end)
     {
         return INSTANCE_SIZE;
     }
+
+    /**
+     * Returns a new Range object that represents a slice of the current Range object.
+     *
+     * @param startPos The starting position of the slice (inclusive)
+     * @param rangeSize The size of the slice
+     * @return A new Range object representing the slice of the current Range object
+     */
+    public Range slice(long startPos, int rangeSize)
+    {
+        return new Range(startPos, min(rangeSize + startPos, end));
+    }
 }
