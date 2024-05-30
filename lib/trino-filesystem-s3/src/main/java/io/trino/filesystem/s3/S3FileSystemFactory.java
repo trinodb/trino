@@ -106,6 +106,10 @@ public final class S3FileSystemFactory
                     config.getHttpProxy()));
             httpClient.proxyConfiguration(ProxyConfiguration.builder()
                     .endpoint(endpoint)
+                    .username(config.getHttpProxyUsername())
+                    .password(config.getHttpProxyPassword())
+                    .nonProxyHosts(config.getNonProxyHosts())
+                    .preemptiveBasicAuthenticationEnabled(config.getHttpProxyPreemptiveBasicProxyAuth())
                     .build());
         }
 

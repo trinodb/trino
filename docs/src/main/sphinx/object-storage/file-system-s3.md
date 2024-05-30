@@ -69,6 +69,15 @@ support:
   - URL of a HTTP proxy server to use for connecting to S3.
 * - `s3.http-proxy.secure`
   - Set to `true` to enable HTTPS for the proxy server.
+* - `s3.http-proxy.username`
+  - Proxy username to use if connecting through a proxy server.
+* - `s3.http-proxy.password`
+  - Proxy password to use if connecting through a proxy server.
+* - `s3.http-proxy.non-proxy-hosts`
+  - Hosts list to access without going through the proxy server.
+* - `s3.http-proxy.preemptive-basic-auth`
+  - Whether to attempt to authenticate preemptively against proxy server
+    when using base authorization, defaults to `false`.
 * - `s3.retry-mode`
   - Specifies how the AWS SDK attempts retries. Default value is `LEGACY`.
     Other allowed values are `STANDARD` and `ADAPTIVE`. The `STANDARD` mode

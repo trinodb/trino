@@ -61,7 +61,11 @@ public class TestS3FileSystemConfig
                 .setSocketReadTimeout(null)
                 .setTcpKeepAlive(false)
                 .setHttpProxy(null)
-                .setHttpProxySecure(false));
+                .setHttpProxySecure(false)
+                .setNonProxyHosts(null)
+                .setHttpProxyUsername(null)
+                .setHttpProxyPassword(null)
+                .setHttpProxyPreemptiveBasicProxyAuth(false));
     }
 
     @Test
@@ -93,6 +97,10 @@ public class TestS3FileSystemConfig
                 .put("s3.tcp-keep-alive", "true")
                 .put("s3.http-proxy", "localhost:8888")
                 .put("s3.http-proxy.secure", "true")
+                .put("s3.http-proxy.non-proxy-hosts", "test1,test2,test3")
+                .put("s3.http-proxy.username", "test")
+                .put("s3.http-proxy.password", "test")
+                .put("s3.http-proxy.preemptive-basic-auth", "true")
                 .buildOrThrow();
 
         S3FileSystemConfig expected = new S3FileSystemConfig()
@@ -120,7 +128,11 @@ public class TestS3FileSystemConfig
                 .setSocketReadTimeout(new Duration(4, MINUTES))
                 .setTcpKeepAlive(true)
                 .setHttpProxy(HostAndPort.fromParts("localhost", 8888))
-                .setHttpProxySecure(true);
+                .setHttpProxySecure(true)
+                .setNonProxyHosts("test1, test2, test3")
+                .setHttpProxyUsername("test")
+                .setHttpProxyPassword("test")
+                .setHttpProxyPreemptiveBasicProxyAuth(true);
 
         assertFullMapping(properties, expected);
     }
