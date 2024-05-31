@@ -14,20 +14,21 @@
 package io.trino.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
 public final class SnowflakeQueryRunner
 {
@@ -35,66 +36,75 @@ public final class SnowflakeQueryRunner
 
     public static final String TPCH_SCHEMA = "tpch";
 
-    // TODO convert to builder
-    public static DistributedQueryRunner createSnowflakeQueryRunner(
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static Builder builder()
     {
-        return createSnowflakeQueryRunner(ImmutableMap.of(), connectorProperties, tables);
+        return new Builder()
+                .addConnectorProperty("connection-url", TestingSnowflakeServer.TEST_URL)
+                .addConnectorProperty("connection-user", TestingSnowflakeServer.TEST_USER)
+                .addConnectorProperty("connection-password", TestingSnowflakeServer.TEST_PASSWORD)
+                .addConnectorProperty("snowflake.database", TestingSnowflakeServer.TEST_DATABASE)
+                .addConnectorProperty("snowflake.role", TestingSnowflakeServer.TEST_ROLE)
+                .addConnectorProperty("snowflake.warehouse", TestingSnowflakeServer.TEST_WAREHOUSE);
     }
 
-    // TODO convert to builder
-    private static DistributedQueryRunner createSnowflakeQueryRunner(
-            Map<String, String> coordinatorProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setCoordinatorProperties(coordinatorProperties)
-                .build();
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+        private final Map<String, String> connectorProperties = new HashMap<>();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("connection-url", TestingSnowflakeServer.TEST_URL);
-            connectorProperties.putIfAbsent("connection-user", TestingSnowflakeServer.TEST_USER);
-            connectorProperties.putIfAbsent("connection-password", TestingSnowflakeServer.TEST_PASSWORD);
-            connectorProperties.putIfAbsent("snowflake.database", TestingSnowflakeServer.TEST_DATABASE);
-            connectorProperties.putIfAbsent("snowflake.role", TestingSnowflakeServer.TEST_ROLE);
-            connectorProperties.putIfAbsent("snowflake.warehouse", TestingSnowflakeServer.TEST_WAREHOUSE);
-
-            queryRunner.installPlugin(new SnowflakePlugin());
-            queryRunner.createCatalog("snowflake", "snowflake", connectorProperties);
-
-            queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
-
-            return queryRunner;
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("snowflake")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
-    }
 
-    public static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("snowflake")
-                .setSchema(TPCH_SCHEMA)
-                .build();
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            this.connectorProperties.put(key, value);
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                queryRunner.installPlugin(new SnowflakePlugin());
+                queryRunner.createCatalog("snowflake", "snowflake", connectorProperties);
+
+                queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createSnowflakeQueryRunner(
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                ImmutableList.of());
+        DistributedQueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
 
         Logger log = Logger.get(SnowflakeQueryRunner.class);
         log.info("======== SERVER STARTED ========");

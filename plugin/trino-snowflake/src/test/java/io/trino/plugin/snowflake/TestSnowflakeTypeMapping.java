@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.snowflake;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
@@ -40,7 +38,6 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
-import static io.trino.plugin.snowflake.SnowflakeQueryRunner.createSnowflakeQueryRunner;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -78,9 +75,9 @@ public class TestSnowflakeTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createSnowflakeQueryRunner(
-                ImmutableMap.of("jdbc-types-mapped-to-varchar", "ARRAY"),
-                ImmutableList.of());
+        return SnowflakeQueryRunner.builder()
+                .addConnectorProperty("jdbc-types-mapped-to-varchar", "ARRAY")
+                .build();
     }
 
     @Test
