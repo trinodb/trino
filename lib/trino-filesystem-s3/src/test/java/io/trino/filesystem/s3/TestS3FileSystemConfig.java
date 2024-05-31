@@ -55,7 +55,7 @@ public class TestS3FileSystemConfig
                 .setUseWebIdentityTokenCredentialsProvider(false)
                 .setStreamingPartSize(DataSize.of(16, MEGABYTE))
                 .setRequesterPays(false)
-                .setMaxConnections(null)
+                .setMaxConnections(500)
                 .setConnectionTtl(null)
                 .setConnectionMaxIdleTime(null)
                 .setSocketConnectTimeout(null)
