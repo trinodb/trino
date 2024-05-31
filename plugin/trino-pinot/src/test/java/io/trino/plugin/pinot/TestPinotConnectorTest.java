@@ -40,7 +40,6 @@ public class TestPinotConnectorTest
         return PinotQueryRunner.builder()
                 .setKafka(kafka)
                 .setPinot(pinot)
-                .addPinotProperty("pinot.grpc.enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

@@ -123,11 +123,6 @@ public abstract class BasePinotConnectorSmokeTest
 
     protected abstract boolean isSecured();
 
-    protected boolean isGrpcEnabled()
-    {
-        return true;
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -614,9 +609,6 @@ public abstract class BasePinotConnectorSmokeTest
 
     protected Map<String, String> additionalPinotProperties()
     {
-        if (isGrpcEnabled()) {
-            return ImmutableMap.of("pinot.grpc.enabled", "true");
-        }
         return ImmutableMap.of();
     }
 
