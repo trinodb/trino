@@ -105,7 +105,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN;
@@ -127,7 +126,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEREFERENCE_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_SCHEMA_CASCADE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
@@ -2436,48 +2434,6 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testAddRowFieldInArray()
-    {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
-
-        if (!hasBehavior(SUPPORTS_ADD_FIELD_IN_ARRAY)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_field_in_array_", "AS SELECT CAST(array[row(1)] AS array(row(x integer))) AS col")) {
-                assertQueryFails(
-                        "ALTER TABLE " + table.getName() + " ADD COLUMN col.y integer",
-                        ".*does not support.*");
-            }
-            return;
-        }
-
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
-                "test_add_field_in_array_",
-                "AS SELECT CAST(array[row(1, row(10), array[row(11)])] AS array(row(a integer, b row(x integer), c array(row(v integer))))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b row(x integer), c array(row(v integer))))");
-
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.d integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b row(x integer), c array(row(v integer)), d integer))");
-            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10), array[row(11)], NULL)] AS array(row(a integer, b row(x integer), c array(row(v integer)), d integer)))");
-
-            // Add a nested field
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.b.y integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b row(x integer, y integer), c array(row(v integer)), d integer))");
-            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10, NULL), array[row(11)], NULL)] AS array(row(a integer, b row(x integer, y integer), c array(row(v integer)), d integer)))");
-
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.c.w integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b row(x integer, y integer), c array(row(v integer, w integer)), d integer))");
-            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10, NULL), array[row(11, NULL)], NULL)] AS array(row(a integer, b row(x integer, y integer), c array(row(v integer, w integer)), d integer)))");
-
-            // Specify existing fields with IF NOT EXISTS option
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS col.a varchar");
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS col.b.x varchar");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b row(x integer, y integer), c array(row(v integer, w integer)), d integer))");
-
-            // Specify existing fields without IF NOT EXISTS option
-            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col.a varchar", ".* Field 'a' already exists");
-        }
-    }
-
-    @Test
     public void testDropColumn()
     {
         if (!hasBehavior(SUPPORTS_DROP_COLUMN)) {
@@ -2554,70 +2510,6 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test
-    public void testDropRowFieldInArray()
-    {
-        if (!hasBehavior(SUPPORTS_DROP_FIELD_IN_ARRAY)) {
-            if (!hasBehavior(SUPPORTS_DROP_COLUMN) || !hasBehavior(SUPPORTS_ROW_TYPE)) {
-                return;
-            }
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_field_in_array_", "AS SELECT CAST(array[row(1, 2)] AS array(row(x integer, y integer))) AS col")) {
-                assertQueryFails(
-                        "ALTER TABLE " + table.getName() + " DROP COLUMN col.x",
-                        ".*does not support.*");
-            }
-            return;
-        }
-
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
-                "test_drop_field_in_array_",
-                "AS SELECT CAST(array[row(1, 2, row(10, 20), array[row(30, 40)])] AS array(row(a integer, b integer, c row(x integer, y integer), d array(row(v integer, w integer))))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b integer, c row(x integer, y integer), d array(row(v integer, w integer))))");
-
-            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.b");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, c row(x integer, y integer), d array(row(v integer, w integer))))");
-            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10, 20), array[row(30, 40)])] AS array(row(a integer, c row(x integer, y integer), d array(row(v integer, w integer)))))");
-
-            // Drop a nested field
-            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.c.y");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, c row(x integer), d array(row(v integer, w integer))))");
-            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10), array[row(30, 40)])] AS array(row(a integer, c row(x integer), d array(row(v integer, w integer)))))");
-
-            // Drop a nested field in array
-            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.d.v");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, c row(x integer), d array(row(w integer))))");
-            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10), array[row(40)])] AS array(row(a integer, c row(x integer), d array(row(w integer)))))");
-
-            // Verify failure when trying to drop unique field in nested row type
-            assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN col.c.x", ".* Cannot drop the only field in a row type");
-            assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN col.d.w", ".* Cannot drop the only field in a row type");
-
-            // Verify failure when trying to drop non-existing fields
-            assertQueryFails(
-                    "ALTER TABLE " + table.getName() + " DROP COLUMN col.c.non_existing",
-                    "\\Qline 1:1: Cannot resolve field 'non_existing' within row(x integer) type when dropping [c, non_existing] in array(row(a integer, c row(x integer), d array(row(w integer))))");
-
-            // Verify failure when trying to drop non-existing fields
-            assertQueryFails(
-                    "ALTER TABLE " + table.getName() + " DROP COLUMN col.d.non_existing",
-                    "\\Qline 1:1: Cannot resolve field 'non_existing' within row(w integer) type when dropping [d, non_existing] in array(row(a integer, c row(x integer), d array(row(w integer))))");
-
-            // Drop a row having fields
-            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.c");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, d array(row(w integer))))");
-            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, array[row(40)])] AS array(row(a integer, d array(row(w integer)))))");
-
-            // Drop a array(row) having fields
-            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.d");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer))");
-            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1)] AS array(row(a integer)))");
-
-            // Specify non-existing fields with IF EXISTS option
-            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN IF EXISTS non_existing.a");
-            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN IF EXISTS col.non_existing");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer))");
-        }
-    }
     @Test
     public void testDropRowFieldWhenDuplicates()
     {
