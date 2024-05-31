@@ -1939,18 +1939,7 @@ public class IcebergMetadata
         NestedField parent = icebergTable.schema().caseInsensitiveFindField(parentName);
 
         String caseSensitiveParentName = icebergTable.schema().findColumnName(parent.fieldId());
-
-        Types.StructType structType;
-        if (parent.type().isListType()) {
-            // list(struct...)
-            structType = parent.type().asListType().elementType().asStructType();
-        }
-        else {
-            // just struct
-            structType = parent.type().asStructType();
-        }
-
-        NestedField field = structType.caseInsensitiveField(fieldName);
+        NestedField field = parent.type().asStructType().caseInsensitiveField(fieldName);
         if (field != null) {
             if (ignoreExisting) {
                 return;
