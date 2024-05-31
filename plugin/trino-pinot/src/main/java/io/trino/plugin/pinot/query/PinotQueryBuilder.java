@@ -15,6 +15,7 @@ package io.trino.plugin.pinot.query;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.plugin.pinot.PinotTableHandle;
@@ -36,8 +37,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -53,10 +56,17 @@ public final class PinotQueryBuilder
     {
     }
 
-    public static String generatePql(PinotTableHandle tableHandle, List<PinotColumnHandle> columnHandles, Optional<String> tableNameSuffix, Optional<String> timePredicate, int limitForSegmentQueries)
+    public static String generatePql(
+            PinotTableHandle tableHandle,
+            List<PinotColumnHandle> columnHandles,
+            Optional<String> tableNameSuffix,
+            Optional<String> timePredicate,
+            int limitForSegmentQueries,
+            Optional<String> queryOptions)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         StringBuilder pqlBuilder = new StringBuilder();
+        queryOptions.ifPresent(pqlBuilder::append);
         List<String> quotedColumnNames;
         if (columnHandles.isEmpty()) {
             // This occurs when the query is SELECT COUNT(*) FROM pinotTable ...
@@ -226,5 +236,53 @@ public final class PinotQueryBuilder
     private static String quoteIdentifier(String identifier)
     {
         return format("\"%s\"", identifier.replaceAll("\"", "\"\""));
+    }
+
+    public static Optional<String> getQueryOptionsString(String options)
+    {
+        if (isNullOrEmpty(options)) {
+            return Optional.empty();
+        }
+
+        Map<String, String> queryOptionsMap = parseQueryOptions(options);
+        return getQueryOptions(queryOptionsMap);
+    }
+
+    public static Optional<String> getQueryOptions(Map<String, String> queryOptionsMap)
+    {
+        if (queryOptionsMap.isEmpty()) {
+            return Optional.empty();
+        }
+        String options = queryOptionsMap.entrySet().stream()
+                .map(e -> "SET " + e.getKey() + " = " + e.getValue())
+                .collect(Collectors.joining(";\n"));
+        if (!options.endsWith(";")) {
+            options += ";\n";
+        }
+        return Optional.of(options);
+    }
+
+    public static Map<String, String> parseQueryOptions(String options)
+    {
+        if (isNullOrEmpty(options)) {
+            return ImmutableMap.of();
+        }
+        try {
+            // we allow escaping the delimiters like , and : using back-slash.
+            // To support that we create a negative lookbehind of , and : which
+            // are not preceded by a back-slash.
+            String headersDelim = "(?<!\\\\),";
+            String kvDelim = "(?<!\\\\):";
+            ImmutableMap.Builder<String, String> queryOptions = ImmutableMap.builder();
+            for (String kv : options.split(headersDelim)) {
+                String key = kv.split(kvDelim, 2)[0].trim();
+                String val = kv.split(kvDelim, 2)[1].trim();
+                queryOptions.put(key, val);
+            }
+            return queryOptions.buildOrThrow();
+        }
+        catch (IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException("Invalid format for 'pinot.query-options'. Value provided is :" + options, e);
+        }
     }
 }

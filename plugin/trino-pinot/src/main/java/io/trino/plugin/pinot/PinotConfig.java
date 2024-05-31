@@ -22,6 +22,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import io.trino.plugin.pinot.query.PinotQueryBuilder;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotEmpty;
@@ -69,6 +70,7 @@ public class PinotConfig
     private boolean countDistinctPushdownEnabled = true;
     private boolean proxyEnabled;
     private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
+    private Optional<String> queryOptions = Optional.empty();
 
     @NotEmpty(message = "pinot.controller-urls cannot be empty")
     public List<URI> getControllerUrls()
@@ -258,6 +260,25 @@ public class PinotConfig
     public PinotConfig setTargetSegmentPageSize(DataSize targetSegmentPageSize)
     {
         this.targetSegmentPageSize = targetSegmentPageSize;
+        return this;
+    }
+
+    public String getQueryOptions()
+    {
+        return queryOptions.orElse(null);
+    }
+
+    @Config("pinot.query-options")
+    @ConfigDescription("Comma separated list of query options. Each option should be in the format key:value. " +
+            "For example, enableNullHandling:true,skipUpsert:true,varcharOption:'value'")
+    public PinotConfig setQueryOptions(String options)
+    {
+        if (options == null) {
+            queryOptions = Optional.empty();
+        }
+        else {
+            queryOptions = PinotQueryBuilder.getQueryOptionsString(options); // validate the options (throws exception if invalid)
+        }
         return this;
     }
 

@@ -35,13 +35,7 @@ public final class DynamicTablePqlExtractor
     {
         StringBuilder builder = new StringBuilder();
         Map<String, String> queryOptions = table.queryOptions();
-        queryOptions.keySet().stream().sorted().forEach(
-                key -> builder
-                        .append("SET ")
-                        .append(key)
-                        .append(" = ")
-                        .append(format("'%s'", queryOptions.get(key)))
-                        .append(";\n"));
+        PinotQueryBuilder.getQueryOptions(queryOptions).ifPresent(builder::append);
         builder.append("SELECT ");
         if (!table.projections().isEmpty()) {
             builder.append(table.projections().stream()

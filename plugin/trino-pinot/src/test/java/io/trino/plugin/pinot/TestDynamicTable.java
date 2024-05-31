@@ -453,16 +453,16 @@ public class TestDynamicTable
         String tableName = realtimeOnlyTable.getTableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
         String query = """
-                SET skipUpsert='true';
-                SET useMultistageEngine='true';
+                SET skipUpsert=true;
+                SET useMultistageEngine=true;
                 SELECT FlightNum
                 FROM %s
                 LIMIT 50;
                 """.formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         String expectedPql = """
-                SET skipUpsert = 'true';
-                SET useMultistageEngine = 'true';
+                SET useMultistageEngine = true;
+                SET skipUpsert = true;
                 SELECT "FlightNum" \
                 FROM %s \
                 LIMIT 50""".formatted(tableNameWithSuffix);

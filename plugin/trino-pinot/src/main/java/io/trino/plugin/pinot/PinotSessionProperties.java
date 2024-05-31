@@ -20,12 +20,14 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public class PinotSessionProperties
 {
@@ -37,6 +39,7 @@ public class PinotSessionProperties
     private static final String SEGMENTS_PER_SPLIT = "segments_per_split";
     private static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     private static final String COUNT_DISTINCT_PUSHDOWN_ENABLED = "count_distinct_pushdown_enabled";
+    private static final String QUERY_OPTIONS = "query_options";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -84,6 +87,11 @@ public class PinotSessionProperties
                         COUNT_DISTINCT_PUSHDOWN_ENABLED,
                         "Enable count distinct pushdown",
                         pinotConfig.isCountDistinctPushdownEnabled(),
+                        false),
+                stringProperty(
+                        QUERY_OPTIONS,
+                        "Pinot query option in the format of key:value,key:value",
+                        pinotConfig.getQueryOptions(),
                         false));
     }
 
@@ -128,6 +136,11 @@ public class PinotSessionProperties
         // This should never fail as this method would never be called unless aggregation pushdown is enabled
         verify(isAggregationPushdownEnabled(session), "%s must be enabled when %s is enabled", AGGREGATION_PUSHDOWN_ENABLED, COUNT_DISTINCT_PUSHDOWN_ENABLED);
         return session.getProperty(COUNT_DISTINCT_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static Optional<String> getQueryOptions(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(QUERY_OPTIONS, String.class));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

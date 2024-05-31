@@ -29,6 +29,7 @@ import io.trino.spi.connector.DynamicFilter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.extractPql;
 import static io.trino.plugin.pinot.query.PinotQueryBuilder.generatePql;
@@ -74,7 +75,8 @@ public class PinotPageSourceProvider
             handles.add((PinotColumnHandle) handle);
         }
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
-        String query = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries);
+        Optional<String> queryOptions = PinotSessionProperties.getQueryOptions(session);
+        String query = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries, queryOptions);
 
         switch (pinotSplit.getSplitType()) {
             case SEGMENT:

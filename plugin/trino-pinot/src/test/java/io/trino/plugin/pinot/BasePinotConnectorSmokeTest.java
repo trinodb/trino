@@ -2800,5 +2800,16 @@ public abstract class BasePinotConnectorSmokeTest
                          "  HAVING SUM(long_number) > 10000\""))
                 .matches("VALUES (VARCHAR 'Los Angeles', DOUBLE '50000.0'), (VARCHAR 'New York', DOUBLE '20000.0')")
                 .isFullyPushedDown();
+        Session queryOptions = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("pinot", "query_options", "skipUpsert:true")
+                .build();
+        assertThat(query(queryOptions,"SELECT city, \"sum(long_number)\" FROM" +
+                " \"SET skipUpsert = true;\n" +
+                " SELECT city, SUM(long_number)" +
+                "  FROM my_table" +
+                "  GROUP BY city" +
+                "  HAVING SUM(long_number) > 10000\""))
+                .matches("VALUES (VARCHAR 'Los Angeles', DOUBLE '50000.0'), (VARCHAR 'New York', DOUBLE '20000.0')")
+                .isFullyPushedDown();
     }
 }

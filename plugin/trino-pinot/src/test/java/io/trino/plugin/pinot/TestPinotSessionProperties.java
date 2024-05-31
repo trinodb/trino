@@ -44,4 +44,18 @@ public class TestPinotSessionProperties
                 .build();
         assertThat(PinotSessionProperties.getConnectionTimeout(session)).isEqualTo(new Duration(0.25, TimeUnit.MINUTES));
     }
+
+    @Test
+    public void testQueryOptionsParsing()
+    {
+        PinotConfig config = new PinotConfig().setQueryOptions("enableNullHandling:true,skipUpsert:true,varcharOption:'value'");
+        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(config);
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(pinotSessionProperties.getSessionProperties())
+                .build();
+        String queryOptions = PinotSessionProperties.getQueryOptions(session).orElseThrow();
+        assertThat(queryOptions).isEqualTo("SET enableNullHandling = true;\n" +
+                "SET skipUpsert = true;\n" +
+                "SET varcharOption = 'value';\n");
+    }
 }
