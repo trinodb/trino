@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.openlineage;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -33,37 +33,53 @@ public final class OpenLineageListenerQueryRunner
 
     private OpenLineageListenerQueryRunner() {}
 
-    public static QueryRunner createOpenLineageRunner(Map<String, String> listenerProperties)
-            throws Exception
+    public static Builder builder()
     {
-        QueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner
-                    .builder(createSession())
-                    .setEventListener(new OpenLineageListenerFactory().create(listenerProperties))
-                    .build();
-            // catalog used for output data
-            queryRunner.installPlugin(new MemoryPlugin());
-            queryRunner.createCatalog(CATALOG, "memory");
-
-            // catalog used for input data
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+        return new Builder();
     }
 
-    private static Session createSession()
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        return testSessionBuilder()
-                .setCatalog(CATALOG)
-                .setSchema(SCHEMA)
-                .build();
+        private final Map<String, String> listenerProperties = new HashMap<>();
+
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog(CATALOG)
+                    .setSchema(SCHEMA)
+                    .build());
+        }
+
+        @CanIgnoreReturnValue
+        public Builder addListenerProperty(String key, String value)
+        {
+            this.listenerProperties.put(key, value);
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            super.setEventListener(new OpenLineageListenerFactory().create(listenerProperties));
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                // catalog used for output data
+                queryRunner.installPlugin(new MemoryPlugin());
+                queryRunner.createCatalog(CATALOG, "memory");
+
+                // catalog used for input data
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     public static void main(String[] args)
@@ -71,12 +87,12 @@ public final class OpenLineageListenerQueryRunner
     {
         MarquezServer server = new MarquezServer();
 
-        Map<String, String> config = ImmutableMap.of(
-                "openlineage-event-listener.transport.type", "HTTP",
-                "openlineage-event-listener.transport.url", server.getMarquezUri().toString(),
-                "openlineage-event-listener.trino.uri", "http://trino-query-runner:1337");
-
-        QueryRunner queryRunner = createOpenLineageRunner(config);
+        QueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .addListenerProperty("openlineage-event-listener.transport.type", "HTTP")
+                .addListenerProperty("openlineage-event-listener.transport.url", server.getMarquezUri().toString())
+                .addListenerProperty("openlineage-event-listener.trino.uri", "http://localhost:8080")
+                .build();
         Logger log = Logger.get(OpenLineageListenerQueryRunner.class);
         log.info("======== SERVER RUNNING: %s ========", queryRunner.getCoordinator().getBaseUrl());
 

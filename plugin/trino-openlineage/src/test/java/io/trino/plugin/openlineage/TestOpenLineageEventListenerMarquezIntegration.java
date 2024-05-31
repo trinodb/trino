@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.openlineage;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -29,7 +28,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-import static io.trino.plugin.openlineage.OpenLineageListenerQueryRunner.createOpenLineageRunner;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -53,11 +51,11 @@ final class TestOpenLineageEventListenerMarquezIntegration
         server = closeAfterClass(new MarquezServer());
         marquezURI = server.getMarquezUri().toString();
 
-        return createOpenLineageRunner(ImmutableMap.<String, String>builder()
-                        .put("openlineage-event-listener.transport.type", "HTTP")
-                        .put("openlineage-event-listener.transport.url", server.getMarquezUri().toString())
-                        .put("openlineage-event-listener.trino.uri", trinoURI)
-                        .buildOrThrow());
+        return OpenLineageListenerQueryRunner.builder()
+                .addListenerProperty("openlineage-event-listener.transport.type", "HTTP")
+                .addListenerProperty("openlineage-event-listener.transport.url", server.getMarquezUri().toString())
+                .addListenerProperty("openlineage-event-listener.trino.uri", trinoURI)
+                .build();
     }
 
     @Test
