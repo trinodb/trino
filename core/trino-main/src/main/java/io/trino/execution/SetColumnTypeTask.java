@@ -25,7 +25,6 @@ import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -140,11 +139,7 @@ public class SetColumnTypeTask
 
     private static List<RowType.Field> getCandidates(Type type, String fieldName)
     {
-        Type analyzedType = type;
-        if (type instanceof ArrayType arrayType) {
-            analyzedType = arrayType.getElementType();
-        }
-        if (!(analyzedType instanceof RowType rowType)) {
+        if (!(type instanceof RowType rowType)) {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
         }
         List<RowType.Field> candidates = rowType.getFields().stream()
