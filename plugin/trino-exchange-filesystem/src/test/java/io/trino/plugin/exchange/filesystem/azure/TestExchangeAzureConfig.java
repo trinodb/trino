@@ -30,6 +30,7 @@ public class TestExchangeAzureConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ExchangeAzureConfig.class)
+                .setAzureStorageEndpoint(null)
                 .setAzureStorageConnectionString(null)
                 .setAzureStorageBlockSize(DataSize.of(4, MEGABYTE))
                 .setMaxErrorRetries(10));
@@ -40,12 +41,14 @@ public class TestExchangeAzureConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("exchange.azure.connection-string", "connection")
+                .put("exchange.azure.endpoint", "endpoint")
                 .put("exchange.azure.block-size", "8MB")
                 .put("exchange.azure.max-error-retries", "8")
                 .buildOrThrow();
 
         ExchangeAzureConfig expected = new ExchangeAzureConfig()
                 .setAzureStorageConnectionString("connection")
+                .setAzureStorageEndpoint("endpoint")
                 .setAzureStorageBlockSize(DataSize.of(8, MEGABYTE))
                 .setMaxErrorRetries(8);
 

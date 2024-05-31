@@ -29,6 +29,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class ExchangeAzureConfig
 {
     private Optional<String> azureStorageConnectionString = Optional.empty();
+    private Optional<String> azureStorageEndpoint = Optional.empty();
     private DataSize azureStorageBlockSize = DataSize.of(4, MEGABYTE);
     private int maxErrorRetries = 10;
 
@@ -37,11 +38,24 @@ public class ExchangeAzureConfig
         return azureStorageConnectionString;
     }
 
+    public Optional<String> getAzureStorageEndpoint()
+    {
+        return azureStorageEndpoint;
+    }
+
     @Config("exchange.azure.connection-string")
     @ConfigSecuritySensitive
     public ExchangeAzureConfig setAzureStorageConnectionString(String azureStorageConnectionString)
     {
         this.azureStorageConnectionString = Optional.ofNullable(azureStorageConnectionString);
+        return this;
+    }
+
+    @Config("exchange.azure.endpoint")
+    @ConfigSecuritySensitive
+    public ExchangeAzureConfig setAzureStorageEndpoint(String azureStorageEndpoint)
+    {
+        this.azureStorageEndpoint = Optional.ofNullable(azureStorageEndpoint);
         return this;
     }
 

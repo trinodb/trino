@@ -99,12 +99,20 @@ public class AzureBlobFileSystemExchangeStorage
         BlobServiceClientBuilder blobServiceClientBuilder = new BlobServiceClientBuilder()
                 .retryOptions(new RequestRetryOptions(RetryPolicyType.EXPONENTIAL, config.getMaxErrorRetries(), (Integer) null, null, null, null));
         Optional<String> connectionString = config.getAzureStorageConnectionString();
+        Optional<String> endpoint = config.getAzureStorageEndpoint();
+
+        if ((connectionString.isEmpty() && endpoint.isEmpty()) || (connectionString.isPresent() && endpoint.isPresent())) {
+            throw new IllegalArgumentException("Exactly one of exchange.azure.endpoint or exchange.azure.connection-string must be provided");
+        }
+
         if (connectionString.isPresent()) {
             blobServiceClientBuilder.connectionString(connectionString.get());
         }
         else {
+            blobServiceClientBuilder.endpoint(endpoint.get());
             blobServiceClientBuilder.credential(new DefaultAzureCredentialBuilder().build());
         }
+
         this.blobServiceAsyncClient = blobServiceClientBuilder.buildAsyncClient();
     }
 
