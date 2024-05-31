@@ -19,7 +19,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
+import static io.trino.plugin.thrift.integration.ThriftQueryRunner.startThriftServers;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.QueryAssertions.assertContains;
 
@@ -55,7 +55,9 @@ public class TestThriftConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createThriftQueryRunner(3, false);
+        ThriftQueryRunner.StartedServers servers = startThriftServers(3, false);
+        servers.resources().forEach(this::closeAfterClass);
+        return ThriftQueryRunner.builder(servers).build();
     }
 
     @Override
