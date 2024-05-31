@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.raptor.legacy.security;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.Session;
+import io.trino.plugin.raptor.legacy.RaptorQueryRunner;
 import io.trino.spi.security.Identity;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -26,7 +26,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 
-import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -42,10 +41,11 @@ public class TestRaptorFileBasedSecurity
             throws Exception
     {
         String path = new File(Resources.getResource(getClass(), "security.json").toURI()).getPath();
-        queryRunner = createRaptorQueryRunner(
-                TpchTable.getTables(),
-                false,
-                ImmutableMap.of("security.config-file", path, "raptor.security", "file"));
+        queryRunner = RaptorQueryRunner.builder()
+                .addConnectorProperty("security.config-file", path)
+                .addConnectorProperty("raptor.security", "file")
+                .setInitialTables(TpchTable.getTables())
+                .build();
     }
 
     @AfterAll
