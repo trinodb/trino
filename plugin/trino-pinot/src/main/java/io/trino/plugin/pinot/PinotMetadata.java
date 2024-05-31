@@ -161,7 +161,7 @@ public class PinotMetadata
         }
 
         if (tableName.getTableName().trim().contains("select ")) {
-            DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName, pinotClient, typeConverter);
+            DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName.getTableName(), pinotClient, typeConverter);
             return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.tableName(), false, TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
         }
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableNameIfExists(tableName.getTableName());
