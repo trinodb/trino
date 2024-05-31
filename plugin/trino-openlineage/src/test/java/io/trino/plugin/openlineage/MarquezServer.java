@@ -25,7 +25,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
-import java.util.Optional;
 
 import static java.lang.String.format;
 
@@ -65,7 +64,7 @@ public class MarquezServer
 
     private final GenericContainer<?> dockerContainerAPI;
     private final PostgreSQLContainer<?> dockerContainerPostgres;
-    private final Optional<GenericContainer<?>> dockerWebUIContainerAPI;
+    private final GenericContainer<?> dockerWebUIContainerAPI;
 
     public MarquezServer()
     {
@@ -111,20 +110,15 @@ public class MarquezServer
         this.dockerContainerAPI.start();
         closer.register(this.dockerContainerAPI::close);
 
-        this.dockerWebUIContainerAPI = Optional.of(
-                new GenericContainer<>("marquezproject/marquez-web:" + version)
+        this.dockerWebUIContainerAPI = new GenericContainer<>("marquezproject/marquez-web:" + version)
                 .withNetwork(network)
                 .withExposedPorts(MARQUEZ_UI_PORT)
                 .dependsOn(this.dockerContainerAPI)
                 .withEnv("MARQUEZ_HOST", MARQUEZ_HOST)
                 .withEnv("MARQUEZ_PORT", String.valueOf(MARQUEZ_PORT))
-                .withStartupTimeout(Duration.ofSeconds(360)));
-
-        this.dockerWebUIContainerAPI.ifPresent(container ->
-        {
-            container.start();
-            closer.register(container::close);
-        });
+                .withStartupTimeout(Duration.ofSeconds(360));
+        this.dockerWebUIContainerAPI.start();
+        closer.register(this.dockerWebUIContainerAPI::close);
     }
 
     private String getPostgresUri()
@@ -137,13 +131,9 @@ public class MarquezServer
         return URI.create(format("http://%s:%s", dockerContainerAPI.getHost(), dockerContainerAPI.getMappedPort(MARQUEZ_PORT)));
     }
 
-    public Optional<URI> getMarquezWebUIUri()
+    public URI getMarquezWebUIUri()
     {
-        if (this.dockerWebUIContainerAPI.isPresent()) {
-            return Optional.of(
-                URI.create(format("http://%s:%s", dockerWebUIContainerAPI.get().getHost(), dockerWebUIContainerAPI.get().getMappedPort(MARQUEZ_UI_PORT))));
-        }
-        return Optional.empty();
+        return URI.create(format("http://%s:%s", dockerWebUIContainerAPI.getHost(), dockerWebUIContainerAPI.getMappedPort(MARQUEZ_UI_PORT)));
     }
 
     @Override

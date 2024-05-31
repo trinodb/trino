@@ -23,10 +23,12 @@ import io.trino.spi.resourcegroups.QueryType;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class OpenLineageListenerConfig
 {
@@ -75,11 +77,10 @@ public class OpenLineageListenerConfig
     @ConfigDescription("Which query types emitted by Trino should generate OpenLineage events. Other query types will be filtered out.")
     public OpenLineageListenerConfig setIncludeQueryTypes(List<String> includeQueryTypes)
     {
-        this.includeQueryTypes = new HashSet<>(includeQueryTypes.stream()
+        this.includeQueryTypes = includeQueryTypes.stream()
                 .map(String::trim)
                 .map(QueryType::valueOf)
-                .toList());
-
+                .collect(toImmutableSet());
         return this;
     }
 
@@ -95,16 +96,8 @@ public class OpenLineageListenerConfig
     {
         this.disabledFacets = disabledFacets.stream()
                 .map(String::trim)
-                .map(text -> {
-                    try {
-                        return OpenLineageTrinoFacet.fromText(text);
-                    }
-                    catch (IllegalArgumentException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .toList();
-
+                .map(OpenLineageTrinoFacet::fromText)
+                .collect(toImmutableList());
         return this;
     }
 
