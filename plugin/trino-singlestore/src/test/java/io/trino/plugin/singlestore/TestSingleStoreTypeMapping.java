@@ -14,7 +14,6 @@
 package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
@@ -49,7 +48,6 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUND
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.singlestore.SingleStoreClient.SINGLESTORE_VARCHAR_MAX_LENGTH;
-import static io.trino.plugin.singlestore.SingleStoreQueryRunner.createSingleStoreQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -102,7 +100,7 @@ public class TestSingleStoreTypeMapping
             throws Exception
     {
         singleStoreServer = closeAfterClass(new TestingSingleStoreServer());
-        return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableList.of());
+        return SingleStoreQueryRunner.builder(singleStoreServer).build();
     }
 
     @BeforeAll

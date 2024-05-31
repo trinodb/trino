@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.singlestore;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -31,7 +30,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.singlestore.SingleStoreQueryRunner.createSingleStoreQueryRunner;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -54,7 +52,9 @@ public class TestSingleStoreConnectorTest
             throws Exception
     {
         singleStoreServer = new TestingSingleStoreServer();
-        return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return SingleStoreQueryRunner.builder(singleStoreServer)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @AfterAll
