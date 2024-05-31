@@ -13,10 +13,7 @@
  */
 package io.trino.plugin.raptor.legacy;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-
-import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 
 public class TestRaptorConnectorTest
         extends BaseRaptorConnectorTest
@@ -25,6 +22,9 @@ public class TestRaptorConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRaptorQueryRunner(REQUIRED_TPCH_TABLES, false, ImmutableMap.of("storage.compaction-enabled", "false"));
+        return RaptorQueryRunner.builder()
+                .addConnectorProperty("storage.compaction-enabled", "false")
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 }
