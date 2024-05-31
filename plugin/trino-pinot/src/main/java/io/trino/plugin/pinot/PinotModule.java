@@ -30,8 +30,6 @@ import io.trino.plugin.pinot.client.PinotGrpcDataFetcher;
 import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientConfig;
 import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientTlsConfig;
 import io.trino.plugin.pinot.client.PinotHostMapper;
-import io.trino.plugin.pinot.client.PinotLegacyDataFetcher;
-import io.trino.plugin.pinot.client.PinotLegacyServerQueryClientConfig;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import org.apache.pinot.common.utils.DataSchema;
@@ -97,11 +95,7 @@ public class PinotModule
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PinotHostMapper.class).setDefault().to(IdentityPinotHostMapper.class).in(Scopes.SINGLETON);
 
-        install(conditionalModule(
-                PinotConfig.class,
-                PinotConfig::isGrpcEnabled,
-                new PinotGrpcModule(),
-                new LegacyClientModule()));
+        install(new PinotGrpcModule());
     }
 
     public static final class DataSchemaDeserializer
@@ -142,17 +136,6 @@ public class PinotModule
                         configBinder(tlsBinder).bindConfig(PinotGrpcServerQueryClientTlsConfig.class);
                         tlsBinder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.TlsGrpcQueryClientFactory.class).in(Scopes.SINGLETON);
                     }));
-        }
-    }
-
-    public static class LegacyClientModule
-            extends AbstractConfigurationAwareModule
-    {
-        @Override
-        public void setup(Binder binder)
-        {
-            configBinder(binder).bindConfig(PinotLegacyServerQueryClientConfig.class);
-            binder.bind(PinotDataFetcher.Factory.class).to(PinotLegacyDataFetcher.Factory.class).in(Scopes.SINGLETON);
         }
     }
 }
