@@ -45,7 +45,6 @@ import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.resourcegroups.QueryType;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,6 +55,7 @@ import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class OpenLineageListener
@@ -81,7 +81,7 @@ public class OpenLineageListener
             defaultNamespace = defaultNamespace.replace(listenerConfig.getTrinoURI().getScheme(), "trino");
         }
         else {
-            defaultNamespace = String.format("trino://%s", defaultNamespace);
+            defaultNamespace = "trino://%s" + defaultNamespace;
         }
 
         this.jobNamespace = listenerConfig.getNamespace().orElse(defaultNamespace);
@@ -102,9 +102,9 @@ public class OpenLineageListener
             client.emit(event);
             return;
         }
-        logger.debug(format("Query type %s not supported. Supported query types %s",
+        logger.debug("Query type %s not supported. Supported query types %s",
                 queryCreatedEvent.getContext().getQueryType().toString(),
-                this.includeQueryTypes));
+                this.includeQueryTypes);
     }
 
     @Override
@@ -117,9 +117,9 @@ public class OpenLineageListener
             client.emit(event);
             return;
         }
-        logger.debug(format("Query type %s not supported. Supported query types %s",
+        logger.debug("Query type %s not supported. Supported query types %s",
                 queryCompletedEvent.getContext().getQueryType().toString(),
-                this.includeQueryTypes));
+                this.includeQueryTypes);
     }
 
     private boolean queryTypeSupported(QueryContext queryContext)
@@ -132,7 +132,7 @@ public class OpenLineageListener
 
     private UUID getQueryId(QueryMetadata queryMetadata)
     {
-        return UUID.nameUUIDFromBytes(queryMetadata.getQueryId().getBytes(StandardCharsets.UTF_8));
+        return UUID.nameUUIDFromBytes(queryMetadata.getQueryId().getBytes(UTF_8));
     }
 
     private RunFacet getTrinoQueryContextFacet(QueryContext queryContext)

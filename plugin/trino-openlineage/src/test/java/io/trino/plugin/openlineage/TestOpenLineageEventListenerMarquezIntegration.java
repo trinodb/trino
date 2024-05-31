@@ -28,15 +28,15 @@ import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 
 import static io.trino.plugin.openlineage.OpenLineageListenerQueryRunner.createOpenLineageRunner;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestOpenLineageEventListenerMarquezIntegration
+final class TestOpenLineageEventListenerMarquezIntegration
         extends AbstractTestQueryFramework
 {
     private static final Logger logger = Logger.get(TestOpenLineageEventListenerMarquezIntegration.class);
@@ -78,8 +78,8 @@ public class TestOpenLineageEventListenerMarquezIntegration
         assertEventually(Duration.valueOf("10s"), () -> {
             URI trino = new URI(trinoURI);
 
-            String expectedNamespace = URLEncoder.encode(format("trino://%s:%s", trino.getHost(), trino.getPort()), StandardCharsets.UTF_8);
-            String expectedQueryId = URLEncoder.encode(queryId, StandardCharsets.UTF_8);
+            String expectedNamespace = URLEncoder.encode(format("trino://%s:%s", trino.getHost(), trino.getPort()), UTF_8);
+            String expectedQueryId = URLEncoder.encode(queryId, UTF_8);
 
             checkJobRegistration(client, expectedNamespace, expectedQueryId);
         });
@@ -110,8 +110,8 @@ public class TestOpenLineageEventListenerMarquezIntegration
         assertEventually(Duration.valueOf("10s"), () -> {
             URI trino = new URI(trinoURI);
 
-            String expectedNamespace = URLEncoder.encode(format("trino://%s:%s", trino.getHost(), trino.getPort()), StandardCharsets.UTF_8);
-            String expectedQueryId = URLEncoder.encode(queryId, StandardCharsets.UTF_8);
+            String expectedNamespace = URLEncoder.encode(format("trino://%s:%s", trino.getHost(), trino.getPort()), UTF_8);
+            String expectedQueryId = URLEncoder.encode(queryId, UTF_8);
 
             checkJobRegistration(client, expectedNamespace, expectedQueryId);
         });
@@ -130,6 +130,6 @@ public class TestOpenLineageEventListenerMarquezIntegration
         logger.info(responseJob.body());
 
         assertThat(responseJob.statusCode()).isEqualTo(200);
-        assertThat(responseJob.body().toLowerCase(Locale.ROOT)).contains("complete");
+        assertThat(responseJob.body().toLowerCase(ENGLISH)).contains("complete");
     }
 }
