@@ -24,14 +24,12 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 
-import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Verify.verifyNotNull;
@@ -114,13 +112,7 @@ public class DropColumnTask
         else {
             RowType containingType = null;
             Type currentType = columnMetadata.getType();
-            Iterator<String> fieldIterator = fieldPath.iterator();
-            while (fieldIterator.hasNext()) {
-                if (currentType instanceof ArrayType arrayType) {
-                    currentType = arrayType.getElementType();
-                    continue;
-                }
-                String fieldName = fieldIterator.next();
+            for (String fieldName : fieldPath) {
                 if (currentType instanceof RowType rowType) {
                     List<RowType.Field> candidates = rowType.getFields().stream()
                             // case-sensitive match
@@ -140,7 +132,7 @@ public class DropColumnTask
                         return immediateVoidFuture();
                     }
                 }
-                // TODO: Support map types
+                // TODO: Support array and map types
                 throw semanticException(
                         NOT_SUPPORTED,
                         statement,
