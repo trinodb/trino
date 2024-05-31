@@ -37,7 +37,7 @@ public class TestTpcds
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpcdsQueryRunner.createQueryRunner();
+        return TpcdsQueryRunner.builder().build();
     }
 
     @Test
