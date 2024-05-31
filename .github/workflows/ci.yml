@@ -466,6 +466,7 @@ jobs:
             - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
             - { modules: plugin/trino-kudu }
+            - { modules: plugin/trino-lancedb }
             - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-mongodb }
             - { modules: plugin/trino-mysql }
