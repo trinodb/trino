@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 import org.projectnessie.client.NessieClientBuilder;
-import org.projectnessie.client.api.NessieApiV1;
+import org.projectnessie.client.api.NessieApiV2;
 
 import java.io.File;
 import java.io.IOException;
@@ -94,9 +94,9 @@ public class TestTrinoNessieCatalog
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
         IcebergNessieCatalogConfig icebergNessieCatalogConfig = new IcebergNessieCatalogConfig()
                 .setServerUri(URI.create(nessieContainer.getRestApiUri()));
-        NessieApiV1 nessieApi = NessieClientBuilder.createClientBuilderFromSystemSettings()
+        NessieApiV2 nessieApi = NessieClientBuilder.createClientBuilderFromSystemSettings()
                 .withUri(nessieContainer.getRestApiUri())
-                .build(NessieApiV1.class);
+                .build(NessieApiV2.class);
         NessieIcebergClient nessieClient = new NessieIcebergClient(nessieApi, icebergNessieCatalogConfig.getDefaultReferenceName(), null, ImmutableMap.of());
         return new TrinoNessieCatalog(
                 new CatalogName("catalog_name"),
@@ -118,9 +118,9 @@ public class TestTrinoNessieCatalog
         IcebergNessieCatalogConfig icebergNessieCatalogConfig = new IcebergNessieCatalogConfig()
                 .setDefaultWarehouseDir(tmpDirectory.toAbsolutePath().toString())
                 .setServerUri(URI.create(nessieContainer.getRestApiUri()));
-        NessieApiV1 nessieApi = NessieClientBuilder.createClientBuilderFromSystemSettings()
+        NessieApiV2 nessieApi = NessieClientBuilder.createClientBuilderFromSystemSettings()
                 .withUri(nessieContainer.getRestApiUri())
-                .build(NessieApiV1.class);
+                .build(NessieApiV2.class);
         NessieIcebergClient nessieClient = new NessieIcebergClient(nessieApi, icebergNessieCatalogConfig.getDefaultReferenceName(), null, ImmutableMap.of());
         TrinoCatalog catalogWithDefaultLocation = new TrinoNessieCatalog(
                 new CatalogName("catalog_name"),
