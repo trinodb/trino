@@ -64,7 +64,7 @@ public class NessieContainer
 
     public String getRestApiUri()
     {
-        return "http://" + getMappedHostAndPortForExposedPort(PORT) + "/api/v1";
+        return "http://" + getMappedHostAndPortForExposedPort(PORT) + "/api/v2";
     }
 
     public static class Builder
