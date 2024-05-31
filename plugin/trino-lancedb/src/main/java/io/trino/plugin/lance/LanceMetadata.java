@@ -38,10 +38,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.function.UnaryOperator.identity;
 
 public class LanceMetadata
         implements ConnectorMetadata
@@ -53,7 +51,6 @@ public class LanceMetadata
     public LanceMetadata(LanceReader lanceReader, LanceConfig lanceConfig)
     {
         this.lanceReader = requireNonNull(lanceReader, "lanceClient is null");
-        Function<String, String> identifierQuote = identity();
         this.lanceConfig = lanceConfig;
     }
 

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.lance;
 
-import io.airlift.log.Logger;
 import io.trino.plugin.lance.internal.LanceArrowToPageScanner;
 import io.trino.plugin.lance.internal.LanceReader;
 import io.trino.plugin.lance.internal.ScannerFactory;
@@ -35,8 +34,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public abstract class LanceBasePageSource
         implements ConnectorPageSource
 {
-    private static final Logger log = Logger.get(LanceBasePageSource.class);
-
     private static final BufferAllocator allocator = new RootAllocator(
             RootAllocator.configBuilder().from(RootAllocator.defaultConfig()).maxAllocation(Integer.MAX_VALUE).build());
 

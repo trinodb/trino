@@ -357,6 +357,7 @@ jobs:
             !:trino-jdbc,
             !:trino-kafka,
             !:trino-kudu,
+            !:trino-lancedb,
             !:trino-main,
             !:trino-mariadb,
             !:trino-memory,

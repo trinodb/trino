@@ -44,7 +44,6 @@ public class LanceReader
     private static final String TABLE_PATH_SUFFIX = ".lance";
     private static final BufferAllocator allocator = new RootAllocator(
             RootAllocator.configBuilder().from(RootAllocator.defaultConfig()).maxAllocation(4 * 1024 * 1024).build());
-    private static final String LOCAL_FILE_PREFIX = "file://";
 
     private final Path dbPath;
     // TODO: revisit whether we want to keep long running connection or create one connection per

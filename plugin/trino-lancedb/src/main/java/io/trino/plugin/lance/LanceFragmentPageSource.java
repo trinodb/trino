@@ -75,7 +75,7 @@ public class LanceFragmentPageSource
                 }
             }
             catch (Exception e) {
-                log.warn("error while closing lance scanner", e);
+                log.warn("error while closing lance scanner, Exception: %s", e.getMessage());
             }
             if (lanceDataset != null) {
                 lanceDataset.close();

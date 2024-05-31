@@ -13,10 +13,8 @@
  */
 package io.trino.plugin.lance;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.lancedb.lance.DatasetFragment;
-import io.airlift.log.Logger;
 import io.trino.plugin.lance.internal.LanceReader;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -35,8 +33,6 @@ import static java.util.Objects.requireNonNull;
 public class LanceSplitManager
         implements ConnectorSplitManager
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final Logger log = Logger.get(LanceSplitManager.class);
     private final LanceReader lanceReader;
     private final LanceConfig lanceConfig;
 

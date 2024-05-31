@@ -129,16 +129,4 @@ public class TestLanceMetadata
                 new SchemaTableName("default", "test_table3"),
                 new SchemaTableName("default", "test_table4")));
     }
-
-    @Test
-    public void getColumnMetadata()
-    {
-        assertThat(metadata.getColumnMetadata(SESSION, TEST_TABLE_1_HANDLE, new LanceColumnHandle("text", LanceColumnHandle.toTrinoType(ArrowType.Utf8.INSTANCE), FieldType.nullable(ArrowType.Utf8.INSTANCE))));
-
-        // example connector assumes that the table handle and column handle are
-        // properly formed, so it will return a metadata object for any
-        // ExampleTableHandle and ExampleColumnHandle passed in.  This is on because
-        // it is not possible for the Trino Metadata system to create the handles
-        // directly.
-    }
 }

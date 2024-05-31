@@ -64,7 +64,6 @@ public class LanceArrowToPageScanner
 {
     private final BufferAllocator allocator;
     private final List<Type> columnTypes;
-    private final List<String> columnNames;
     private final ScannerFactory scannerFactory;
 
     private final LanceScanner lanceScanner;
@@ -76,7 +75,6 @@ public class LanceArrowToPageScanner
         this.allocator = requireNonNull(allocator, "allocator is null");
         this.columnTypes = requireNonNull(columns, "columns is null").stream().map(LanceColumnHandle::trinoType)
                 .collect(toImmutableList());
-        this.columnNames = columns.stream().map(LanceColumnHandle::name).collect(toImmutableList());
         this.scannerFactory = scannerFactory;
         try {
             lanceScanner = scannerFactory.open(path, allocator);
