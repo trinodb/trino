@@ -485,8 +485,14 @@ the property may be configured for:
     together with `exchange.gcs.json-key-file-path`
   -
   - GCS
+* - `exchange.azure.endpoint`
+  - Azure blob endpoint used to access the spooling container. Not to be set
+    together with `exchange.azure.connection-string`
+  - 
+  - Azure Blob Storage
 * - `exchange.azure.connection-string`
-  - Connection string used to access the spooling container.
+  - Connection string used to access the spooling container. Not to be set
+    together with `exchange.azure.endpoint`
   -
   - Azure Blob Storage
 * - `exchange.azure.block-size`
