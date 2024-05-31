@@ -43,7 +43,9 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
         "pinot.max-backlog-per-server",
         "pinot.max-connections-per-server",
         "pinot.min-connections-per-server",
-        "pinot.request-timeout"
+        "pinot.request-timeout",
+        "pinot.estimated-size-in-bytes-for-non-numeric-column",
+        "pinot.grpc.enabled",
 })
 public class PinotConfig
 {
@@ -55,7 +57,6 @@ public class PinotConfig
 
     private Duration connectionTimeout = new Duration(1, TimeUnit.MINUTES);
 
-    private int estimatedSizeInBytesForNonNumericColumn = 20;
     private Duration metadataCacheExpiry = new Duration(2, TimeUnit.MINUTES);
 
     private boolean preferBrokerQueries;
@@ -66,7 +67,6 @@ public class PinotConfig
     private int maxRowsForBrokerQueries = 50_000;
     private boolean aggregationPushdownEnabled = true;
     private boolean countDistinctPushdownEnabled = true;
-    private boolean grpcEnabled = true;
     private boolean proxyEnabled;
     private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
 
@@ -123,18 +123,6 @@ public class PinotConfig
     public PinotConfig setMetadataCacheExpiry(Duration metadataCacheExpiry)
     {
         this.metadataCacheExpiry = metadataCacheExpiry;
-        return this;
-    }
-
-    public int getEstimatedSizeInBytesForNonNumericColumn()
-    {
-        return estimatedSizeInBytesForNonNumericColumn;
-    }
-
-    @Config("pinot.estimated-size-in-bytes-for-non-numeric-column")
-    public PinotConfig setEstimatedSizeInBytesForNonNumericColumn(int estimatedSizeInBytesForNonNumericColumn)
-    {
-        this.estimatedSizeInBytesForNonNumericColumn = estimatedSizeInBytesForNonNumericColumn;
         return this;
     }
 
@@ -244,18 +232,6 @@ public class PinotConfig
         return this;
     }
 
-    public boolean isGrpcEnabled()
-    {
-        return grpcEnabled;
-    }
-
-    @Config("pinot.grpc.enabled")
-    public PinotConfig setGrpcEnabled(boolean grpcEnabled)
-    {
-        this.grpcEnabled = grpcEnabled;
-        return this;
-    }
-
     public boolean isTlsEnabled()
     {
         return "https".equalsIgnoreCase(getControllerUrls().get(0).getScheme());
@@ -300,14 +276,5 @@ public class PinotConfig
                 .map(URI::getScheme)
                 .distinct()
                 .count() == 1;
-    }
-
-    @AssertTrue(message = "Using the rest proxy requires GRPC to be enabled by setting pinot.grpc.enabled=true")
-    public boolean proxyRestAndGrpcAreRequired()
-    {
-        if (proxyEnabled) {
-            return grpcEnabled;
-        }
-        return true;
     }
 }
