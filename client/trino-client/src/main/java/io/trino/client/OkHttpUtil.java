@@ -27,6 +27,8 @@ import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
+import okhttp3.Request;
+import okhttp3.Response;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
 import org.ietf.jgss.GSSCredential;
 
@@ -67,6 +69,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class OkHttpUtil
 {
+    public static final String REDIRECT_FAILURE_MESSAGE = "Client redirection was detected, but 'disableFollowRedirects' flag is set to true";
+
     private OkHttpUtil() {}
 
     public static Interceptor userAgent(String userAgent)
@@ -76,7 +80,7 @@ public final class OkHttpUtil
                 .build());
     }
 
-    public static Interceptor basicAuth(String user, String password)
+    public static Interceptor basicAuth(String user, String password, boolean followRedirects)
     {
         requireNonNull(user, "user is null");
         requireNonNull(password, "password is null");
@@ -85,19 +89,33 @@ public final class OkHttpUtil
         }
 
         String credential = Credentials.basic(user, password);
-        return chain -> chain.proceed(chain.request().newBuilder()
-                .header(AUTHORIZATION, credential)
-                .build());
+        return chain -> {
+            Response response = chain.proceed(chain.request().newBuilder()
+                    .header(AUTHORIZATION, credential)
+                    .build());
+            if (response.isRedirect() && !followRedirects) {
+                throw new ClientException(REDIRECT_FAILURE_MESSAGE);
+            }
+            return response;
+        };
     }
 
-    public static Interceptor tokenAuth(String accessToken)
+    public static Interceptor tokenAuth(String accessToken, boolean followRedirects)
     {
         requireNonNull(accessToken, "accessToken is null");
         checkArgument(CharMatcher.inRange((char) 33, (char) 126).matchesAllOf(accessToken));
 
-        return chain -> chain.proceed(chain.request().newBuilder()
-                .addHeader(AUTHORIZATION, "Bearer " + accessToken)
-                .build());
+        return chain -> {
+            Request request = chain.request().newBuilder()
+                    .addHeader(AUTHORIZATION, "Bearer " + accessToken)
+                    .build();
+
+            Response response = chain.proceed(request);
+            if (response.isRedirect() && !followRedirects) {
+                throw new ClientException(REDIRECT_FAILURE_MESSAGE);
+            }
+            return response;
+        };
     }
 
     public static void setupTimeouts(OkHttpClient.Builder clientBuilder, int timeout, TimeUnit unit)
