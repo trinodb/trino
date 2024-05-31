@@ -545,7 +545,7 @@ properties:
   - Description
 * - `iceberg.nessie-catalog.uri`
   - Nessie API endpoint URI (required). Example:
-    `https://localhost:19120/api/v1`
+    `https://localhost:19120/api/v2`
 * - `iceberg.nessie-catalog.ref`
   - The branch/tag to use for Nessie. Defaults to `main`.
 * - `iceberg.nessie-catalog.default-warehouse-dir`
@@ -566,12 +566,15 @@ properties:
 * - `iceberg.nessie-catalog.authentication.token`
   - The token to use with `BEARER` authentication. Example:
 `SXVLUXUhIExFQ0tFUiEK`
+* - `iceberg.nessie-catalog.client-api-version`
+  - Optional version of the Client API version to use. By default it is inferred from the `iceberg.nessie-catalog.uri` value.
+    Valid values are `V1` or `V2`.
 :::
 
 ```text
 connector.name=iceberg
 iceberg.catalog.type=nessie
-iceberg.nessie-catalog.uri=https://localhost:19120/api/v1
+iceberg.nessie-catalog.uri=https://localhost:19120/api/v2
 iceberg.nessie-catalog.default-warehouse-dir=/tmp
 ```
 
