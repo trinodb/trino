@@ -26,10 +26,10 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestOpenLineageListenerConfig
+final class TestOpenLineageListenerConfig
 {
     @Test
-    public void testDefaults()
+    void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(OpenLineageListenerConfig.class)
                 .setTransport(OpenLineageTransport.CONSOLE)
@@ -40,7 +40,7 @@ public class TestOpenLineageListenerConfig
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    void testExplicitPropertyMappings()
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()

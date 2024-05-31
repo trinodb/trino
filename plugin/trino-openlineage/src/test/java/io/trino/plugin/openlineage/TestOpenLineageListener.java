@@ -12,38 +12,34 @@
  * limitations under the License.
  */
 package io.trino.plugin.openlineage;
+
 import com.google.common.collect.ImmutableMap;
 import io.openlineage.client.OpenLineage.Job;
 import io.openlineage.client.OpenLineage.Run;
 import io.openlineage.client.OpenLineage.RunEvent;
 import io.trino.spi.eventlistener.EventListener;
-import io.trino.spi.eventlistener.EventListenerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.UUID;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@SuppressWarnings("FieldNamingConvention")
 @TestInstance(PER_METHOD)
-class TestOpenLineageListener
+final class TestOpenLineageListener
 {
-    private final EventListenerFactory factory = new OpenLineageListenerFactory();
-
     @Test
     void testGetCompleteEvent()
-            throws IllegalAccessException
     {
         OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
                 "openlineage-event-listener.transport.type", "CONSOLE",
                 "openlineage-event-listener.trino.uri", "http://testhost"));
 
-        UUID runID = UUID.nameUUIDFromBytes("testGetCompleteEvent".getBytes(StandardCharsets.UTF_8));
+        UUID runID = UUID.nameUUIDFromBytes("testGetCompleteEvent".getBytes(UTF_8));
         RunEvent result = listener.getCompletedEvent(runID, TrinoEventData.queryCompleteEvent);
 
         assertThat(result)
@@ -68,13 +64,12 @@ class TestOpenLineageListener
 
     @Test
     void testGetStartEvent()
-            throws IllegalAccessException
     {
         OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
                 "openlineage-event-listener.transport.type", OpenLineageTransport.CONSOLE.toString(),
                 "openlineage-event-listener.trino.uri", "http://testhost:8080"));
 
-        UUID runID = UUID.nameUUIDFromBytes("testGetStartEvent".getBytes(StandardCharsets.UTF_8));
+        UUID runID = UUID.nameUUIDFromBytes("testGetStartEvent".getBytes(UTF_8));
         RunEvent result = listener.getStartEvent(runID, TrinoEventData.queryCreatedEvent);
 
         assertThat(result)
@@ -97,8 +92,8 @@ class TestOpenLineageListener
                 .isEqualTo("trino://testhost:8080");
     }
 
-    private EventListener createEventListener(Map<String, String> config)
+    private static EventListener createEventListener(Map<String, String> config)
     {
-        return factory.create(ImmutableMap.copyOf(config));
+        return new OpenLineageListenerFactory().create(ImmutableMap.copyOf(config));
     }
 }

@@ -80,8 +80,6 @@ public final class OpenLineageListenerQueryRunner
         Logger log = Logger.get(OpenLineageListenerQueryRunner.class);
         log.info("======== SERVER RUNNING: %s ========", queryRunner.getCoordinator().getBaseUrl());
 
-        if (server.getMarquezWebUIUri().isPresent()) {
-            log.info("======== MARQUEZ UI RUNNING: %s ========", server.getMarquezWebUIUri().get());
-        }
+        log.info("======== MARQUEZ UI RUNNING: %s ========", server.getMarquezWebUIUri());
     }
 }
