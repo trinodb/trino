@@ -14,8 +14,8 @@
 package io.trino.plugin.thrift.integration;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.drift.codec.ThriftCodecManager;
 import io.airlift.drift.server.DriftServer;
 import io.airlift.drift.server.DriftService;
@@ -25,7 +25,6 @@ import io.airlift.drift.transport.netty.server.DriftNettyServerTransport;
 import io.airlift.drift.transport.netty.server.DriftNettyServerTransportFactory;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.trino.Session;
 import io.trino.plugin.thrift.ThriftPlugin;
 import io.trino.plugin.thrift.server.ThriftIndexedTpchService;
 import io.trino.plugin.thrift.server.ThriftTpchService;
@@ -34,9 +33,11 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.joining;
 
@@ -46,41 +47,13 @@ public final class ThriftQueryRunner
 
     private ThriftQueryRunner() {}
 
-    // TODO convert to builder
-    public static QueryRunner createThriftQueryRunner(int thriftServers, boolean enableIndexJoin)
-            throws Exception
-    {
-        return createThriftQueryRunner(thriftServers, enableIndexJoin, Map.of());
-    }
-
-    // TODO convert to builder
-    private static QueryRunner createThriftQueryRunner(int thriftServers, boolean enableIndexJoin, Map<String, String> coordinatorProperties)
-            throws Exception
-    {
-        StartedServers startedServers = null;
-        try {
-            startedServers = startThriftServers(thriftServers, enableIndexJoin);
-            return createThriftQueryRunnerInternal(startedServers.servers(), startedServers.resources(), coordinatorProperties);
-        }
-        catch (Throwable t) {
-            if (startedServers != null) {
-                for (DriftServer server : startedServers.servers()) {
-                    server.shutdown();
-                }
-                for (AutoCloseable resource : startedServers.resources()) {
-                    resource.close();
-                }
-            }
-            throw t;
-        }
-    }
-
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        Map<String, String> coordinatorProperties = ImmutableMap.of("http-server.http.port", "8080");
-        QueryRunner queryRunner = createThriftQueryRunner(3, true, coordinatorProperties);
+        QueryRunner queryRunner = builder(startThriftServers(3, true))
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
@@ -105,36 +78,55 @@ public final class ThriftQueryRunner
         return new StartedServers(servers, resources);
     }
 
-    private static QueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, List<AutoCloseable> resources, Map<String, String> coordinatorProperties)
-            throws Exception
+    public static Builder builder(StartedServers startedServers)
     {
-        String addresses = servers.stream()
-                .map(server -> "localhost:" + driftServerPort(server))
-                .collect(joining(","));
+        return new Builder()
+                .addConnectorProperty("trino.thrift.client.addresses", startedServers.servers.stream()
+                        .map(server -> "localhost:" + driftServerPort(server))
+                        .collect(joining(",")))
+                .addConnectorProperty("trino.thrift.client.connect-timeout", "30s")
+                .addConnectorProperty("trino-thrift.lookup-requests-concurrency", "2");
+    }
 
-        Session defaultSession = testSessionBuilder()
-                .setCatalog("thrift")
-                .setSchema("tiny")
-                .build();
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
+    {
+        private final Map<String, String> connectorProperties = new HashMap<>();
 
-        QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
-                .setCoordinatorProperties(coordinatorProperties)
-                .registerResources(servers.stream().map(server -> (AutoCloseable) server::shutdown).toList())
-                .registerResources(resources)
-                .build();
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("thrift")
+                    .setSchema("tiny")
+                    .build());
+        }
 
-        queryRunner.installPlugin(new ThriftPlugin());
-        Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
-                .put("trino.thrift.client.addresses", addresses)
-                .put("trino.thrift.client.connect-timeout", "30s")
-                .put("trino-thrift.lookup-requests-concurrency", "2")
-                .buildOrThrow();
-        queryRunner.createCatalog("thrift", "trino_thrift", connectorProperties);
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            this.connectorProperties.put(key, value);
+            return this;
+        }
 
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new ThriftPlugin());
+                queryRunner.createCatalog("thrift", "trino_thrift", connectorProperties);
 
-        return queryRunner;
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     static int driftServerPort(DriftServer server)
@@ -142,9 +134,9 @@ public final class ThriftQueryRunner
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
     }
 
-    record StartedServers(List<DriftServer> servers, List<AutoCloseable> resources)
+    public record StartedServers(List<DriftServer> servers, List<AutoCloseable> resources)
     {
-        StartedServers
+        public StartedServers
         {
             servers = ImmutableList.copyOf(servers);
             resources = ImmutableList.copyOf(resources);
