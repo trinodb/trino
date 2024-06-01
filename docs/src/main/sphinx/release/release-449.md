@@ -2,6 +2,7 @@
 
 ## General
 
+* Add [OpenLineage event listener](/admin/event-listeners-openlineage). ({issue}`21265`)
 * Add an event listener which exposes collected events to an HTTP endpoint. ({issue}`22158`)
 * Fix rare query failure or incorrect results for array types when the data is
   dictionary encoded. ({issue}`21911`)
