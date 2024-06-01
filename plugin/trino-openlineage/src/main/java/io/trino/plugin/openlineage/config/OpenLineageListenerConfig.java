@@ -46,6 +46,11 @@ public class OpenLineageListenerConfig
             .add(QueryType.DATA_DEFINITION)
             .build();
 
+    public OpenLineageTransport getTransport()
+    {
+        return transport;
+    }
+
     @Config("openlineage-event-listener.transport.type")
     @ConfigDescription("Type of transport used to emit lineage information.")
     public OpenLineageListenerConfig setTransport(OpenLineageTransport transport)
@@ -54,9 +59,10 @@ public class OpenLineageListenerConfig
         return this;
     }
 
-    public OpenLineageTransport getTransport()
+    @NotNull
+    public URI getTrinoURI()
     {
-        return transport;
+        return trinoURI;
     }
 
     @Config("openlineage-event-listener.trino.uri")
@@ -67,10 +73,9 @@ public class OpenLineageListenerConfig
         return this;
     }
 
-    @NotNull
-    public URI getTrinoURI()
+    public Set<QueryType> getIncludeQueryTypes()
     {
-        return trinoURI;
+        return includeQueryTypes;
     }
 
     @Config("openlineage-event-listener.trino.include-query-types")
@@ -84,9 +89,9 @@ public class OpenLineageListenerConfig
         return this;
     }
 
-    public Set<QueryType> getIncludeQueryTypes()
+    public List<OpenLineageTrinoFacet> getDisabledFacets()
     {
-        return includeQueryTypes;
+        return disabledFacets;
     }
 
     @Config("openlineage-event-listener.disabled-facets")
@@ -101,9 +106,9 @@ public class OpenLineageListenerConfig
         return this;
     }
 
-    public List<OpenLineageTrinoFacet> getDisabledFacets()
+    public Optional<String> getNamespace()
     {
-        return disabledFacets;
+        return namespace;
     }
 
     @Config("openlineage-event-listener.namespace")
@@ -112,10 +117,5 @@ public class OpenLineageListenerConfig
     {
         this.namespace = Optional.ofNullable(namespace);
         return this;
-    }
-
-    public Optional<String> getNamespace()
-    {
-        return namespace;
     }
 }
