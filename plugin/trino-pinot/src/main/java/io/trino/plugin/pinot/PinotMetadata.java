@@ -34,6 +34,7 @@ import io.trino.plugin.pinot.query.aggregation.ImplementCountAll;
 import io.trino.plugin.pinot.query.aggregation.ImplementCountDistinct;
 import io.trino.plugin.pinot.query.aggregation.ImplementMinMax;
 import io.trino.plugin.pinot.query.aggregation.ImplementSum;
+import io.trino.plugin.pinot.query.ptf.Query;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -50,9 +51,11 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -530,6 +533,20 @@ public class PinotMetadata
                     Optional.of(newPushedDownAggregateExpression.argument()));
         }
         return aggregateColumn;
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!(handle instanceof Query.QueryFunctionHandle)) {
+            return Optional.empty();
+        }
+
+        PinotTableHandle tableHandle = (PinotTableHandle) ((Query.QueryFunctionHandle) handle).getTableHandle();
+        checkState(tableHandle.getQuery().isPresent(), "dynamic table is not present");
+        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, tableHandle.getQuery().get().getColumnHandlesForSelect()
+                .map(ColumnHandle.class::cast)
+                .collect(toImmutableList())));
     }
 
     private List<ColumnMetadata> getColumnsMetadata(String tableName)

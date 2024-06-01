@@ -2846,4 +2846,11 @@ public class TestPinotConnectorSmokeTest
                 .matches("VALUES (VARCHAR 'Los Angeles', DOUBLE '50000.0'), (VARCHAR 'New York', DOUBLE '20000.0')")
                 .isFullyPushedDown();
     }
+
+    @Test
+    public void testTableFunctions()
+    {
+        assertQuerySucceeds("SELECT * FROM TABLE(system.query('select * from my_table where city = ''Los Angeles'''))");
+        assertQuerySucceeds("SELECT * FROM TABLE(system.query('select * from mixedCase'))");
+    }
 }
