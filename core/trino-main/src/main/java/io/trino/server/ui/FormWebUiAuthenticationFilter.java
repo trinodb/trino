@@ -152,8 +152,6 @@ public class FormWebUiAuthenticationFilter
         }
 
         // redirect to login page
-        request.abortWith(Response.seeOther(LOGIN_FORM_URI).build());
-
         request.abortWith(Response.seeOther(buildLoginFormURI(request.getUriInfo())).build());
     }
 
