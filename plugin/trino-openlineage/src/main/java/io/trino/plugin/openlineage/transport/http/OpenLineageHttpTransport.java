@@ -76,6 +76,7 @@ public class OpenLineageHttpTransport
                         this.timeout,
                         this.apiKey,
                         this.urlParams,
-                        this.headers));
+                        this.headers,
+                        null));
     }
 }

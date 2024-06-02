@@ -16,7 +16,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <openlineage.version>1.12.0</openlineage.version>
+        <openlineage.version>1.16.0</openlineage.version>
     </properties>
 
     <dependencies>
