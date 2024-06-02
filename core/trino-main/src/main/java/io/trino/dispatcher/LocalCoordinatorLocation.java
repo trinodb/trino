@@ -13,19 +13,15 @@
  */
 package io.trino.dispatcher;
 
-import jakarta.ws.rs.core.UriInfo;
-
-import java.net.URI;
+import io.trino.server.ExternalUriInfo;
+import io.trino.server.ExternalUriInfo.ExternalUriBuilder;
 
 public class LocalCoordinatorLocation
         implements CoordinatorLocation
 {
     @Override
-    public URI getUri(UriInfo uriInfo)
+    public ExternalUriBuilder getUri(ExternalUriInfo externalUriInfo)
     {
-        return uriInfo.getRequestUriBuilder()
-                .replacePath("")
-                .replaceQuery("")
-                .build();
+        return externalUriInfo.baseUriBuilder();
     }
 }
