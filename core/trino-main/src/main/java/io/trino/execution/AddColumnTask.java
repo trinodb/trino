@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -26,6 +27,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
@@ -176,6 +178,10 @@ public class AddColumnTask
                 }
                 currentType = getOnlyElement(candidates).getType();
             }
+            if (!(currentType instanceof RowType)) {
+                // check if field path denotes a record after unwrapping possible containers
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + currentType);
+            }
 
             String fieldName = getLast(statement.getColumn().getName().getParts());
             List<RowType.Field> candidates = getCandidates(currentType, fieldName);
@@ -194,6 +200,13 @@ public class AddColumnTask
 
     private static List<RowType.Field> getCandidates(Type type, String fieldName)
     {
+        if (type instanceof ArrayType arrayType) {
+            if (!fieldName.equals("element")) {
+                throw new TrinoException(NOT_SUPPORTED, "ARRAY type should be denoted by 'element' in the path; found '%s'".formatted(fieldName));
+            }
+            // return nameless Field to denote unwrapping of container
+            return ImmutableList.of(RowType.field(arrayType.getElementType()));
+        }
         if (!(type instanceof RowType rowType)) {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
         }
