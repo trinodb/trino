@@ -149,6 +149,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_UPDAT
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
@@ -3216,6 +3217,53 @@ public abstract class BaseConnectorTest
                 "AS SELECT CAST(row(9223372036854775807) AS row(field bigint)) AS col")) {
             assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE integer"))
                     .satisfies(this::verifySetFieldTypeFailurePermissible);
+        }
+    }
+
+    @Test
+    public void testSetFieldTypeInArray()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_array_", "(col array(row(field int)))")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.field SET DATA TYPE bigint",
+                        ".*does not support.*");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_array_", "AS SELECT CAST(array[row(123)] AS array(row(field integer))) AS col")) {
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(field integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.field SET DATA TYPE bigint");
+
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(field bigint))");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("SELECT array[row(bigint '123')]");
+        }
+    }
+
+    @Test
+    public void testSetFieldTypeInNestedArray()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_nested_array_", "AS SELECT CAST(array[array[row(array[row(123)])]] AS array(array(row(field array(row(a integer)))))) AS col")) {
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(field array(row(a integer)))))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.element.field.element.a SET DATA TYPE bigint");
+
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(field array(row(a bigint)))))");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("SELECT array[array[row(array[row(bigint '123')])]]");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.element SET DATA TYPE bigint",
+                    "\\Qline 1:1: Field path [col, element, element] does not point to row field");
         }
     }
 
